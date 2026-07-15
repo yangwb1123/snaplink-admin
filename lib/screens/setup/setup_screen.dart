@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../admin/admin_login_screen.dart';
+import '../first_party_entry.dart';
 import 'setup_api.dart';
 
 /// Mirrors the five views of interfaces/web/setup/{index.html,app.js}:
@@ -130,10 +130,10 @@ class _SetupScreenState extends State<SetupScreen> {
 
   // The JS's "Go to admin console" is a plain `<a href="../admin/">` — full
   // navigation between separately-served SPAs. In the unified Flutter app
-  // the equivalent is pushing the admin login screen directly.
+  // the equivalent is pushing the first-party login screen directly.
   void _goToAdminConsole() {
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+      MaterialPageRoute(builder: (_) => const FirstPartyLoginScreen()),
     );
   }
 

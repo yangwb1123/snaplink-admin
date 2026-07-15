@@ -1,20 +1,45 @@
 import 'package:flutter/material.dart';
+import 'federated_login.dart';
 import 'oauth_params.dart';
 import 'oidc_login_api.dart';
 import 'package:web/web.dart' as web;
 
 enum _View { login, mfa, consent, success }
 
+/// Connection IDs offered as "Sign in with ..." buttons. Shown unconditionally
+/// — a connection that isn't actually configured on the server just fails
+/// with the normal unsupported_provider error when clicked (anti-enumeration:
+/// this screen has no way to know server-side connection config, and
+/// shouldn't leak it by hiding/showing buttons based on a probe).
+const _federatedConnections = [
+  (id: 'google', label: 'Google', icon: Icons.g_mobiledata),
+  (id: 'github', label: 'GitHub', icon: Icons.code),
+];
+
 /// The hosted /login/ page: replaces interfaces/web/login/{index.html,app.js}.
-/// Real external relying parties (the IM/Source demos, and any future RP)
-/// redirect here — this must stay faithful to the JS's core contract:
-/// authorization_code / implicit redirect handling, MFA, consent, forgot
-/// password, and signup. Deliberately NOT ported (documented gaps, not
-/// silent omissions): WebAuthn conditional-mediation passkey autofill (needs
-/// JS interop for navigator.credentials) and home-realm-discovery / dynamic
-/// white-label branding (multi-tenant niceties, not core auth).
+/// Serves TWO purposes on the same screen:
+///  - External relying parties (the IM/Source demos, and any future RP)
+///    redirect here with authorization-request query params — the JS's core
+///    contract: authorization_code / implicit redirect handling, MFA,
+///    consent, forgot password, signup.
+///  - First-party access (no RP query params — this app's own /login/ and
+///    /admin/ areas) — see [defaultClientId]/[onFirstPartySuccess].
+/// Deliberately NOT ported (documented gaps, not silent omissions): WebAuthn
+/// conditional-mediation passkey autofill (needs JS interop for
+/// navigator.credentials) and dynamic white-label branding.
 class OidcLoginScreen extends StatefulWidget {
-  const OidcLoginScreen({super.key});
+  /// Used as client_id when the URL carries no RP client_id — the first-party
+  /// case (direct /login/ or /admin/ access). Both admin and regular
+  /// accounts authenticate as this SAME client; /admin's RBAC gate (not a
+  /// separate login) is what differentiates what they can see afterward.
+  final String? defaultClientId;
+
+  /// Called with the access_token once a first-party login succeeds (no RP
+  /// redirect_uri — password OR a federated provider's return leg). When
+  /// null, first-party success falls back to the plain "Signed in." view.
+  final void Function(String accessToken)? onFirstPartySuccess;
+
+  const OidcLoginScreen({super.key, this.defaultClientId, this.onFirstPartySuccess});
 
   @override
   State<OidcLoginScreen> createState() => _OidcLoginScreenState();
@@ -54,16 +79,63 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   final _signupEmailCtrl = TextEditingController();
   String? _signupConfirmed;
 
+  /// client_id to actually use: the URL's own (an RP-initiated flow) when
+  /// present, else [OidcLoginScreen.defaultClientId] (first-party access).
+  String get _effectiveClientId =>
+      _params.clientId.isNotEmpty ? _params.clientId : (widget.defaultClientId ?? '');
+
+  bool _checkingFederatedReturn = true;
+
   @override
   void initState() {
     super.initState();
     _provider = _params.provider.isNotEmpty ? _params.provider : 'password';
-    if (_params.clientId.isNotEmpty) _probeProviders();
+    _checkFederatedReturn();
+    if (_effectiveClientId.isNotEmpty) _probeProviders();
+  }
+
+  /// Runs once on load: if this page was just redirected back to from a
+  /// federated provider (see federated_login.dart), finish the exchange and
+  /// complete the first-party login instead of showing the plain form.
+  Future<void> _checkFederatedReturn() async {
+    try {
+      final token = await FederatedLogin.consumeReturnIfPresent();
+      if (!mounted) return;
+      if (token != null) {
+        _completeFirstPartyLogin(token);
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Sign-in failed: $e');
+    }
+    if (mounted) setState(() => _checkingFederatedReturn = false);
+  }
+
+  void _completeFirstPartyLogin(String accessToken) {
+    if (widget.onFirstPartySuccess != null) {
+      widget.onFirstPartySuccess!(accessToken);
+    } else {
+      setState(() {
+        _checkingFederatedReturn = false;
+        _view = _View.success;
+      });
+    }
+  }
+
+  void _signInWithFederated(String connectionId) {
+    final clientId = _effectiveClientId;
+    if (clientId.isEmpty) {
+      setState(() => _error = 'No client configured for sign-in.');
+      return;
+    }
+    final url = FederatedLogin.beginLoginUrl(connectionId: connectionId, clientId: clientId);
+    _redirect(url);
   }
 
   Future<void> _probeProviders() async {
     try {
-      final out = await _api.probeProviders(_params.clientId);
+      final out = await _api.probeProviders(_effectiveClientId);
       final providers = out.data['providers'];
       if (providers is List && providers.isNotEmpty) {
         setState(() {
@@ -102,6 +174,10 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       _redirect('$redirectUri#$frag');
       return;
     }
+    if (data['access_token'] != null) {
+      _completeFirstPartyLogin(data['access_token'].toString());
+      return;
+    }
     setState(() => _view = _View.success);
   }
 
@@ -134,6 +210,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       _error = null;
     });
     final payload = _params.toLoginPayload(_provider);
+    payload['client_id'] = _effectiveClientId;
     payload['credential'] = {'username': _userCtrl.text.trim(), 'password': _passCtrl.text};
     _pendingLoginPayload = payload;
     try {
@@ -285,6 +362,12 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   }
 
   Widget _buildView() {
+    if (_checkingFederatedReturn) {
+      return const SizedBox(
+        height: 80,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
     switch (_view) {
       case _View.mfa:
         return _mfaView();
@@ -342,23 +425,45 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            TextButton(
-              onPressed: () => setState(() {
-                _forgotIdCtrl.text = _userCtrl.text;
-                _forgotMsg = null;
-                _showForgot = true;
-              }),
-              child: const Text('Forgot password?'),
+            Flexible(
+              child: TextButton(
+                onPressed: () => setState(() {
+                  _forgotIdCtrl.text = _userCtrl.text;
+                  _forgotMsg = null;
+                  _showForgot = true;
+                }),
+                child: const Text('Forgot password?', overflow: TextOverflow.ellipsis),
+              ),
             ),
-            TextButton(
-              onPressed: () => setState(() {
-                _error = null;
-                _showSignup = true;
-              }),
-              child: const Text('Sign up'),
+            Flexible(
+              child: TextButton(
+                onPressed: () => setState(() {
+                  _error = null;
+                  _showSignup = true;
+                }),
+                child: const Text('Sign up', overflow: TextOverflow.ellipsis),
+              ),
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        Row(children: [
+          const Expanded(child: Divider()),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Text('or', style: Theme.of(context).textTheme.bodySmall),
+          ),
+          const Expanded(child: Divider()),
+        ]),
+        const SizedBox(height: 14),
+        ..._federatedConnections.map((c) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: OutlinedButton.icon(
+                onPressed: () => _signInWithFederated(c.id),
+                icon: Icon(c.icon),
+                label: Text('Sign in with ${c.label}'),
+              ),
+            )),
       ],
     );
   }

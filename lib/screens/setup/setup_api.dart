@@ -63,8 +63,8 @@ class SetupNetworkError implements Exception {}
 
 /// Dedicated API helper for the setup wizard. Requests resolve against the
 /// page's own origin via `Uri.base` — this screen is served behind the same
-/// reverse proxy as the SSO API itself, so no cross-origin base URL is
-/// needed (unlike admin_login_screen's user-editable SSO base URL).
+/// reverse proxy as the SSO API itself, so no cross-origin base URL field is
+/// needed (every screen in this app resolves the SSO API the same way).
 class SetupApi {
   final http.Client _http;
   SetupApi({http.Client? client}) : _http = client ?? http.Client();

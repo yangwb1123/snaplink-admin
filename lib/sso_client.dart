@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
 /// Thrown on any non-2xx response from the SSO server; carries the parsed
@@ -25,6 +26,35 @@ class SSOAdminClient {
   String? _token;
 
   SSOAdminClient(String baseUrl) : baseUrl = _stripTrailingSlash(baseUrl);
+
+  /// Same-origin default: the Flutter bundle and the SSO API are always
+  /// served from the same origin in every deployment mode this app
+  /// supports (OpenResty fronts both on web; native builds fall back to
+  /// [nativeDefaultBaseUrl]) — mirrors how oidc_login_api.dart resolves
+  /// `/auth/login` etc. relative to Uri.base with no configurable field.
+  factory SSOAdminClient.sameOrigin() =>
+      SSOAdminClient(_sameOriginBaseUrl() ?? nativeDefaultBaseUrl);
+
+  /// Wraps an access_token already obtained elsewhere (the unified /login
+  /// screen) as a logged-in client, without a second network round trip.
+  factory SSOAdminClient.withToken(String accessToken, {String? baseUrl}) {
+    final client = SSOAdminClient(baseUrl ?? _sameOriginBaseUrl() ?? nativeDefaultBaseUrl);
+    client._token = accessToken;
+    return client;
+  }
+
+  /// Compiled-in fallback for native (non-web) builds, which have no page
+  /// origin to infer from. Native builds don't yet expose a way to override
+  /// this — a settings screen for that is a documented follow-up, not
+  /// silently omitted.
+  static const nativeDefaultBaseUrl = 'https://sso.ywbsd.site';
+
+  static String? _sameOriginBaseUrl() {
+    if (!kIsWeb) return null;
+    final origin = Uri.base;
+    if (origin.host.isEmpty) return null;
+    return Uri(scheme: origin.scheme, host: origin.host, port: origin.hasPort ? origin.port : null).toString();
+  }
 
   static String _stripTrailingSlash(String s) =>
       s.replaceAll(RegExp(r'/+$'), '');

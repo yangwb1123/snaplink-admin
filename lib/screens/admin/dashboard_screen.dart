@@ -3,7 +3,7 @@ import '../../sso_client.dart';
 import 'clients_tab.dart';
 import 'users_tab.dart';
 import 'tenants_tab.dart';
-import 'admin_login_screen.dart';
+import '../first_party_entry.dart';
 
 class DashboardScreen extends StatefulWidget {
   final SSOAdminClient client;
@@ -25,7 +25,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _logout() {
     widget.client.logout();
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const AdminLoginScreen()),
+      MaterialPageRoute(builder: (_) => const FirstPartyLoginScreen()),
       (route) => false,
     );
   }
