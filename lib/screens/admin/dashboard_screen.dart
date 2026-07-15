@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
+import '../../i18n/app_strings.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
+import '../settings_screen.dart';
 import 'clients_tab.dart';
 import 'users_tab.dart';
 import 'tenants_tab.dart';
@@ -17,12 +19,6 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _index = 0;
 
-  static const _destinations = [
-    NavigationRailDestination(icon: Icon(Icons.apps), label: Text('Clients')),
-    NavigationRailDestination(icon: Icon(Icons.people), label: Text('Users')),
-    NavigationRailDestination(icon: Icon(Icons.business), label: Text('Tenants')),
-  ];
-
   void _logout() {
     widget.client.logout();
     Session.clear();
@@ -33,6 +29,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
+    final destinations = [
+      NavigationRailDestination(icon: const Icon(Icons.apps), label: Text(strings.clients)),
+      NavigationRailDestination(icon: const Icon(Icons.people), label: Text(strings.users)),
+      NavigationRailDestination(icon: const Icon(Icons.business), label: Text(strings.tenants)),
+    ];
     final page = switch (_index) {
       0 => ClientsTab(client: widget.client),
       1 => UsersTab(client: widget.client),
@@ -42,7 +44,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('SSO Admin'),
         actions: [
-          IconButton(onPressed: _logout, icon: const Icon(Icons.logout), tooltip: '登出'),
+          IconButton(
+            onPressed: () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            icon: const Icon(Icons.settings),
+            tooltip: strings.settings,
+          ),
+          IconButton(onPressed: _logout, icon: const Icon(Icons.logout), tooltip: strings.logout),
           const SizedBox(width: 8),
         ],
       ),
@@ -52,7 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             selectedIndex: _index,
             onDestinationSelected: (i) => setState(() => _index = i),
             labelType: NavigationRailLabelType.all,
-            destinations: _destinations,
+            destinations: destinations,
           ),
           const VerticalDivider(width: 1),
           Expanded(child: page),

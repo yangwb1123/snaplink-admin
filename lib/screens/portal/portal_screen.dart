@@ -6,24 +6,24 @@ import 'sessions_tab.dart';
 import 'consents_tab.dart';
 import 'organizations_tab.dart';
 import 'privacy_tab.dart';
+import '../../session.dart';
 
 /// Self-service account portal ("/portal") — entry widget referenced by
 /// app_router.dart's resolveInitialScreen().
 ///
-/// Auth model, ported exactly from interfaces/web/portal/app.js: this portal
-/// has NO login form of its own on the server. The end user is expected to
-/// already hold a bearer access token (e.g. from a completed OIDC login
-/// elsewhere) and pastes it in; the token is accepted once it passes a
-/// GET /me probe, and every subsequent call in this screen rides that same
-/// token. There is no username/password step here, unlike the admin
-/// console's `/auth/login` password-grant flow — that would be the wrong
-/// model for an end user managing their own already-authenticated account.
+/// Auth model, ported from interfaces/web/portal/app.js: this portal has NO
+/// login form of its own on the server. The end user is expected to already
+/// hold a bearer access token (e.g. from a completed OIDC login elsewhere);
+/// the token is accepted once it passes a GET /me probe, and every
+/// subsequent call in this screen rides that same token.
 ///
-/// One deliberate gap vs. app.js: app.js also persists the token in
-/// `sessionStorage` and silently resumes a stored session on page load. This
-/// build keeps the token in memory only (no `dart:html`/`package:web`
-/// dependency is wired into this project), so a full browser reload always
-/// returns to the token-entry screen — see the task report for why.
+/// On init this now checks the shared [Session] first (matching
+/// admin_gate.dart's pattern): a user who already signed in via /login or
+/// /admin lands straight in the authenticated view with no re-paste. Only
+/// when there's no stored session (native builds, where [Session] is a
+/// no-op; or a visitor who reached /portal directly) does this fall back to
+/// the manual token-paste gate below — which also still works standalone
+/// for anyone bringing a token minted a different way.
 class PortalScreen extends StatefulWidget {
   const PortalScreen({super.key});
 
@@ -37,14 +37,47 @@ class _PortalScreenState extends State<PortalScreen> {
 
   Map<String, dynamic>? _me;
   bool _loggingIn = false;
+  bool _resumingSession = true;
   String? _loginError;
   String? _postSignOutNotice;
   int _navIndex = 0;
 
   @override
+  void initState() {
+    super.initState();
+    _tryResumeSession();
+  }
+
+  @override
   void dispose() {
     _tokenCtrl.dispose();
     super.dispose();
+  }
+
+  /// Mirrors admin_gate.dart's `_checkAccess`: a stored session token is
+  /// tried against the same GET /me probe the manual-paste path uses, so
+  /// this can never diverge from what "a valid token" means here. An
+  /// expired/invalid stored token is cleared rather than left to dead-end
+  /// silently, then falls through to the manual-paste gate same as having
+  /// no session at all.
+  Future<void> _tryResumeSession() async {
+    final token = Session.read();
+    if (token == null) {
+      setState(() => _resumingSession = false);
+      return;
+    }
+    try {
+      final me = await _api.login(token);
+      if (!mounted) return;
+      setState(() {
+        _me = me;
+        _resumingSession = false;
+      });
+    } catch (_) {
+      Session.clear();
+      if (!mounted) return;
+      setState(() => _resumingSession = false);
+    }
   }
 
   Future<void> _login() async {
@@ -74,6 +107,9 @@ class _PortalScreenState extends State<PortalScreen> {
 
   void _signOut() {
     _api.signOut();
+    // A no-op off web / when the active token was never Session's (manual
+    // paste with no prior /login) — only clears anything when it was.
+    Session.clear();
     setState(() {
       _me = null;
       _tokenCtrl.clear();
@@ -83,6 +119,7 @@ class _PortalScreenState extends State<PortalScreen> {
 
   void _onAccountDeleted() {
     _tokenCtrl.clear();
+    Session.clear();
     setState(() {
       _me = null;
       _navIndex = 0;
@@ -92,6 +129,9 @@ class _PortalScreenState extends State<PortalScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_resumingSession) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
     return _me == null ? _buildLoginGate(context) : _buildApp(context);
   }
 

@@ -4,6 +4,8 @@ import 'oauth_params.dart';
 import 'oidc_login_api.dart';
 import 'package:web/web.dart' as web;
 import '../../session.dart';
+import '../../i18n/app_strings.dart';
+import '../../app_settings.dart';
 
 enum _View { login, mfa, consent, success }
 
@@ -241,7 +243,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         _handleLoginError(out);
       }
     } catch (_) {
-      setState(() => _error = 'Network error. Please check your connection.');
+      setState(() => _error = AppStrings.of(context).networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -268,7 +270,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         setState(() => _error = out.error ?? 'Verification failed.');
       }
     } catch (_) {
-      setState(() => _error = 'Network error. Please try again.');
+      setState(() => _error = AppStrings.of(context).networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -302,7 +304,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         _handleLoginError(out);
       }
     } catch (_) {
-      setState(() => _error = 'Network error. Please try again.');
+      setState(() => _error = AppStrings.of(context).networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -325,7 +327,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         setState(() => _forgotMsg = 'Could not request a reset. Please try again.');
       }
     } catch (_) {
-      setState(() => _forgotMsg = 'Network error. Please try again.');
+      setState(() => _forgotMsg = AppStrings.of(context).networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -358,7 +360,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         setState(() => _error = 'Could not create the account. Please try again.');
       }
     } catch (_) {
-      setState(() => _error = 'Network error. Please try again.');
+      setState(() => _error = AppStrings.of(context).networkError);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -367,17 +369,67 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              child: Padding(padding: const EdgeInsets.all(28), child: _buildView()),
+      // LayoutBuilder + SingleChildScrollView + a minHeight constraint: the
+      // login card's content (language toggle + form + federated buttons)
+      // can be taller than a short viewport (mobile portrait, a small
+      // browser window, browser zoom) — scroll instead of overflowing,
+      // while still centering vertically when it DOES fit (a bare
+      // SingleChildScrollView(child: Center(...)) gives Center unbounded
+      // height and breaks centering entirely).
+      body: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _languageToggle(),
+                          const SizedBox(height: 8),
+                          _buildView(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// Small EN / 中文 toggle shown above every view of this screen (login,
+  /// MFA, consent, forgot/signup, even the federated-return spinner) — a
+  /// user may need to switch language before they've authenticated, so it
+  /// can't live only on a post-login settings screen. Labels are
+  /// deliberately plain literals, not translated: they name the language
+  /// itself, not UI text in the current language.
+  Widget _languageToggle() {
+    final current = AppSettings.instance.locale.languageCode;
+    Widget langButton(String code, String label) {
+      final selected = current == code;
+      return TextButton(
+        onPressed: () => AppSettings.instance.locale = Locale(code),
+        style: TextButton.styleFrom(
+          foregroundColor: selected ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        child: Text(label, style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [langButton('en', 'EN'), langButton('zh', '中文')],
     );
   }
 
@@ -394,7 +446,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       case _View.consent:
         return _consentView();
       case _View.success:
-        return const Text('Signed in.');
+        return Text(AppStrings.of(context).signedIn);
       case _View.login:
         return _loginView();
     }
@@ -407,14 +459,14 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Sign in', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.of(context).signIn, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 20),
         if (_providers.length > 1) ...[
           DropdownButtonFormField<String>(
             initialValue: _provider,
             items: _providers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
             onChanged: (v) => setState(() => _provider = v ?? _provider),
-            decoration: const InputDecoration(labelText: 'Provider'),
+            decoration: InputDecoration(labelText: AppStrings.of(context).provider),
           ),
           const SizedBox(height: 14),
         ],
@@ -422,11 +474,11 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           Text(_signupConfirmed!, style: const TextStyle(color: Colors.greenAccent)),
           const SizedBox(height: 10),
         ],
-        TextField(controller: _userCtrl, decoration: const InputDecoration(labelText: 'Username')),
+        TextField(controller: _userCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).username)),
         const SizedBox(height: 14),
         TextField(
           controller: _passCtrl,
-          decoration: const InputDecoration(labelText: 'Password'),
+          decoration: InputDecoration(labelText: AppStrings.of(context).password),
           obscureText: true,
           onSubmitted: (_) => _submitLogin(),
         ),
@@ -439,7 +491,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           onPressed: _loading ? null : _submitLogin,
           child: _loading
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Sign in'),
+              : Text(AppStrings.of(context).signIn),
         ),
         const SizedBox(height: 14),
         Row(
@@ -452,7 +504,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
                   _forgotMsg = null;
                   _showForgot = true;
                 }),
-                child: const Text('Forgot password?', overflow: TextOverflow.ellipsis),
+                child: Text(AppStrings.of(context).forgotPassword, overflow: TextOverflow.ellipsis),
               ),
             ),
             Flexible(
@@ -461,7 +513,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
                   _error = null;
                   _showSignup = true;
                 }),
-                child: const Text('Sign up', overflow: TextOverflow.ellipsis),
+                child: Text(AppStrings.of(context).signUp, overflow: TextOverflow.ellipsis),
               ),
             ),
           ],
@@ -471,7 +523,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           const Expanded(child: Divider()),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Text('or', style: Theme.of(context).textTheme.bodySmall),
+            child: Text(AppStrings.of(context).orDivider, style: Theme.of(context).textTheme.bodySmall),
           ),
           const Expanded(child: Divider()),
         ]),
@@ -481,7 +533,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => _signInWithFederated(c.id),
                 icon: Icon(c.icon),
-                label: Text('Sign in with ${c.label}'),
+                label: Text('${AppStrings.of(context).signInWith} ${c.label}'),
               ),
             )),
       ],
@@ -493,14 +545,14 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Verify your identity', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.of(context).verifyIdentity, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
           children: _mfaMethods.map((m) {
             final selected = _selectedMfaMethod == m;
             return ChoiceChip(
-              label: Text(_mfaMethodLabel(m)),
+              label: Text(_mfaMethodLabel(context, m)),
               selected: selected,
               onSelected: (_) => setState(() => _selectedMfaMethod = m),
             );
@@ -508,7 +560,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         ),
         if (_selectedMfaMethod == 'totp' || _selectedMfaMethod == 'otp') ...[
           const SizedBox(height: 14),
-          TextField(controller: _mfaCodeCtrl, decoration: const InputDecoration(labelText: 'Verification code')),
+          TextField(controller: _mfaCodeCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).verificationCode)),
         ],
         if (_error != null) ...[
           const SizedBox(height: 14),
@@ -519,26 +571,27 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           onPressed: _loading ? null : _submitMfa,
           child: _loading
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Verify'),
+              : Text(AppStrings.of(context).verify),
         ),
         TextButton(
           onPressed: () => setState(() {
             _view = _View.login;
             _error = null;
           }),
-          child: const Text('Back'),
+          child: Text(AppStrings.of(context).back),
         ),
       ],
     );
   }
 
-  String _mfaMethodLabel(String m) {
-    const labels = {
-      'totp': 'Authenticator app (TOTP)',
-      'otp': 'One-time code',
-      'webauthn': 'Security key / passkey',
-      'push': 'Push notification',
-      'sms': 'SMS code',
+  String _mfaMethodLabel(BuildContext context, String m) {
+    final s = AppStrings.of(context);
+    final labels = {
+      'totp': s.mfaMethodTotp,
+      'otp': s.mfaMethodOtp,
+      'webauthn': s.mfaMethodWebauthn,
+      'push': s.mfaMethodPush,
+      'sms': s.mfaMethodSms,
     };
     return labels[m] ?? m;
   }
@@ -600,9 +653,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Reset your password', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.of(context).resetPassword, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        TextField(controller: _forgotIdCtrl, decoration: const InputDecoration(labelText: 'Username or email')),
+        TextField(controller: _forgotIdCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).usernameOrEmail)),
         if (_forgotMsg != null) ...[
           const SizedBox(height: 14),
           Text(_forgotMsg!),
@@ -612,9 +665,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           onPressed: _loading ? null : _submitForgot,
           child: _loading
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Send reset link'),
+              : Text(AppStrings.of(context).sendResetLink),
         ),
-        TextButton(onPressed: () => setState(() => _showForgot = false), child: const Text('Back')),
+        TextButton(onPressed: () => setState(() => _showForgot = false), child: Text(AppStrings.of(context).back)),
       ],
     );
   }
@@ -624,17 +677,17 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Create an account', style: Theme.of(context).textTheme.titleLarge),
+        Text(AppStrings.of(context).createAccount, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 16),
-        TextField(controller: _signupUserCtrl, decoration: const InputDecoration(labelText: 'Username')),
+        TextField(controller: _signupUserCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).username)),
         const SizedBox(height: 14),
         TextField(
           controller: _signupPassCtrl,
-          decoration: const InputDecoration(labelText: 'Password'),
+          decoration: InputDecoration(labelText: AppStrings.of(context).password),
           obscureText: true,
         ),
         const SizedBox(height: 14),
-        TextField(controller: _signupEmailCtrl, decoration: const InputDecoration(labelText: 'Email (optional)')),
+        TextField(controller: _signupEmailCtrl, decoration: InputDecoration(labelText: AppStrings.of(context).emailOptional)),
         if (_error != null) ...[
           const SizedBox(height: 14),
           Text(_error!, style: const TextStyle(color: Colors.redAccent)),
@@ -644,14 +697,14 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
           onPressed: _loading ? null : _submitSignup,
           child: _loading
               ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Text('Sign up'),
+              : Text(AppStrings.of(context).signUp),
         ),
         TextButton(
           onPressed: () => setState(() {
             _showSignup = false;
             _error = null;
           }),
-          child: const Text('Back'),
+          child: Text(AppStrings.of(context).back),
         ),
       ],
     );
