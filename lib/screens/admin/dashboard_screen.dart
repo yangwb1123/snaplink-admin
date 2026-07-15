@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
+import '../../session.dart';
 import '../../sso_client.dart';
 import 'clients_tab.dart';
 import 'users_tab.dart';
 import 'tenants_tab.dart';
-import '../first_party_entry.dart';
 
 class DashboardScreen extends StatefulWidget {
   final SSOAdminClient client;
@@ -24,10 +25,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _logout() {
     widget.client.logout();
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const FirstPartyLoginScreen()),
-      (route) => false,
-    );
+    Session.clear();
+    // A real navigation, not Navigator — matches every other transition in
+    // this auth flow, and guarantees no stale in-memory state survives.
+    web.window.location.href = '/login/';
   }
 
   @override

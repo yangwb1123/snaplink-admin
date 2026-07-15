@@ -3,6 +3,7 @@ import 'federated_login.dart';
 import 'oauth_params.dart';
 import 'oidc_login_api.dart';
 import 'package:web/web.dart' as web;
+import '../../session.dart';
 
 enum _View { login, mfa, consent, success }
 
@@ -23,7 +24,11 @@ const _federatedConnections = [
 ///    contract: authorization_code / implicit redirect handling, MFA,
 ///    consent, forgot password, signup.
 ///  - First-party access (no RP query params — this app's own /login/ and
-///    /admin/ areas) — see [defaultClientId]/[onFirstPartySuccess].
+///    /admin/ areas): a successful login stores the token (see
+///    [Session]) and does a REAL browser redirect to the `?redirect=`
+///    query param (validated same-origin-relative, default `/admin/`) — the
+///    "no session, then /login?redirect=[path], then sign in, then land on
+///    [path]" pattern every protected route uses (see admin_gate.dart).
 /// Deliberately NOT ported (documented gaps, not silent omissions): WebAuthn
 /// conditional-mediation passkey autofill (needs JS interop for
 /// navigator.credentials) and dynamic white-label branding.
@@ -34,15 +39,28 @@ class OidcLoginScreen extends StatefulWidget {
   /// separate login) is what differentiates what they can see afterward.
   final String? defaultClientId;
 
-  /// Called with the access_token once a first-party login succeeds (no RP
-  /// redirect_uri — password OR a federated provider's return leg). When
-  /// null, first-party success falls back to the plain "Signed in." view.
-  final void Function(String accessToken)? onFirstPartySuccess;
-
-  const OidcLoginScreen({super.key, this.defaultClientId, this.onFirstPartySuccess});
+  const OidcLoginScreen({super.key, this.defaultClientId});
 
   @override
   State<OidcLoginScreen> createState() => _OidcLoginScreenState();
+}
+
+/// Query param a protected route redirects here with, naming where to land
+/// after a successful first-party login. Validated in [_safeRedirectTarget]
+/// — must be a same-origin relative path, never an absolute/external URL
+/// (an unvalidated redirect target here would be an open-redirect hole: a
+/// crafted /login/?redirect=https://evil.example link would send a freshly
+/// authenticated session's browser off-site).
+const _redirectParam = 'redirect';
+const _defaultRedirectTarget = '/admin/';
+
+String _safeRedirectTarget() {
+  final raw = Uri.base.queryParameters[_redirectParam];
+  if (raw == null || raw.isEmpty) return _defaultRedirectTarget;
+  if (!raw.startsWith('/') || raw.startsWith('//') || raw.contains('://')) {
+    return _defaultRedirectTarget;
+  }
+  return raw;
 }
 
 class _OidcLoginScreenState extends State<OidcLoginScreen> {
@@ -99,10 +117,10 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   /// complete the first-party login instead of showing the plain form.
   Future<void> _checkFederatedReturn() async {
     try {
-      final token = await FederatedLogin.consumeReturnIfPresent();
+      final result = await FederatedLogin.consumeReturnIfPresent();
       if (!mounted) return;
-      if (token != null) {
-        _completeFirstPartyLogin(token);
+      if (result != null) {
+        _completeFirstPartyLogin(result.accessToken, redirectTarget: result.redirectTarget);
         return;
       }
     } catch (e) {
@@ -112,15 +130,13 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     if (mounted) setState(() => _checkingFederatedReturn = false);
   }
 
-  void _completeFirstPartyLogin(String accessToken) {
-    if (widget.onFirstPartySuccess != null) {
-      widget.onFirstPartySuccess!(accessToken);
-    } else {
-      setState(() {
-        _checkingFederatedReturn = false;
-        _view = _View.success;
-      });
-    }
+  /// Stores the session and does a REAL browser redirect to the target path
+  /// — a fresh page load, so the target route (e.g. admin_gate.dart) sees the
+  /// session via [Session.read] exactly like any other visit, no in-memory
+  /// hand-off needed.
+  void _completeFirstPartyLogin(String accessToken, {String? redirectTarget}) {
+    Session.store(accessToken);
+    _redirect(redirectTarget ?? _safeRedirectTarget());
   }
 
   void _signInWithFederated(String connectionId) {
@@ -129,7 +145,11 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       setState(() => _error = 'No client configured for sign-in.');
       return;
     }
-    final url = FederatedLogin.beginLoginUrl(connectionId: connectionId, clientId: clientId);
+    final url = FederatedLogin.beginLoginUrl(
+      connectionId: connectionId,
+      clientId: clientId,
+      redirectTarget: _safeRedirectTarget(),
+    );
     _redirect(url);
   }
 

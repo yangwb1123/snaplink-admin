@@ -12,11 +12,13 @@ import 'package:web/web.dart' as web;
 /// /auth/callback) finish, exchanging it at /token.
 ///
 /// redirect_uri is always the CURRENT page's path with no query/fragment —
-/// not a fixed constant — so returning here lands back on whichever of the
-/// five mounted areas (/admin/, /login/, ...) initiated the flow, and
-/// app_router's existing path-based routing reconstructs the right screen
-/// with no extra state to thread through. sessionStorage (not localStorage)
-/// is intentional: the verifier must not outlive this one login attempt/tab.
+/// it must stay byte-stable to match what's registered for this OAuth
+/// client, so it can't carry the eventual "jump to this path after login"
+/// target. That travels in `state` instead (`<random>|<encoded target>`),
+/// which round-trips through the whole flow including the external IdP hop
+/// with no registration/exact-match constraint. sessionStorage (not
+/// localStorage) is intentional: the verifier must not outlive this one
+/// login attempt/tab.
 class FederatedLogin {
   static const _verifierKey = 'sso_pkce_verifier';
   static const _stateKey = 'sso_pkce_state';
@@ -40,12 +42,13 @@ class FederatedLogin {
   static String beginLoginUrl({
     required String connectionId,
     required String clientId,
+    required String redirectTarget,
     List<String> scope = const ['openid', 'profile', 'email'],
   }) {
     final verifier = _randomUrlSafe(32);
     final challengeBytes = sha256.convert(utf8.encode(verifier)).bytes;
     final challenge = base64Url.encode(challengeBytes).replaceAll('=', '');
-    final state = _randomUrlSafe(16);
+    final state = '${_randomUrlSafe(16)}|${Uri.encodeComponent(redirectTarget)}';
     final redirectUri = _currentPathNoQuery();
 
     web.window.sessionStorage.setItem(_verifierKey, verifier);
@@ -71,7 +74,7 @@ class FederatedLogin {
   /// RP's own authorization_code landing here — the state won't match
   /// anything of ours, so this correctly no-ops rather than misfiring).
   /// Throws on a state mismatch (CSRF/replay) or a failed exchange.
-  static Future<String?> consumeReturnIfPresent() async {
+  static Future<FederatedLoginResult?> consumeReturnIfPresent() async {
     final q = Uri.base.queryParameters;
     final code = q['code'];
     final state = q['state'];
@@ -94,6 +97,8 @@ class FederatedLogin {
     if (verifier == null || clientId == null || redirectUri == null) {
       throw StateError('missing_pkce_state');
     }
+    final pipeIndex = state.indexOf('|');
+    final redirectTarget = pipeIndex >= 0 ? Uri.decodeComponent(state.substring(pipeIndex + 1)) : '/admin/';
 
     final resp = await http.post(
       Uri.base.resolve('../token'),
@@ -111,6 +116,12 @@ class FederatedLogin {
     if (resp.statusCode != 200 || accessToken == null) {
       throw StateError(body['error']?.toString() ?? 'token_exchange_failed');
     }
-    return accessToken;
+    return FederatedLoginResult(accessToken: accessToken, redirectTarget: redirectTarget);
   }
+}
+
+class FederatedLoginResult {
+  final String accessToken;
+  final String redirectTarget;
+  FederatedLoginResult({required this.accessToken, required this.redirectTarget});
 }
