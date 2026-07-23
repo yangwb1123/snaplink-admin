@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../sso_client.dart';
+import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
+import 'client_form_dialog.dart';
 
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
@@ -11,14 +13,65 @@ class ClientsTab extends StatefulWidget {
 }
 
 class _ClientsTabState extends State<ClientsTab> {
-  late Future<List<dynamic>> _future = widget.client.listClients();
+  final _filterCtrl = TextEditingController();
+  final _pageTokens = <String?>[null];
+  late Future<SSOAdminListPage> _future;
+  var _pageIndex = 0;
+  var _pageSize = 100;
+  var _orderBy = 'id';
 
-  void _reload() => setState(() => _future = widget.client.listClients());
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadPage();
+  }
+
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<SSOAdminListPage> _loadPage() => widget.client.listClients(
+    pageToken: _pageTokens[_pageIndex],
+    pageSize: _pageSize,
+    orderBy: _orderBy,
+    filter: _filterCtrl.text,
+  );
+
+  void _reload() {
+    setState(() {
+      _pageTokens
+        ..clear()
+        ..add(null);
+      _pageIndex = 0;
+      _future = _loadPage();
+    });
+  }
+
+  void _goPrevious() {
+    if (_pageIndex == 0) return;
+    setState(() {
+      _pageIndex--;
+      _future = _loadPage();
+    });
+  }
+
+  void _goNext(SSOAdminListPage page) {
+    final next = page.nextPageToken;
+    if (next == null) return;
+    setState(() {
+      _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
+      _pageTokens.add(next);
+      _pageIndex++;
+      _future = _loadPage();
+    });
+  }
 
   Future<void> _openCreateDialog() async {
     final created = await showDialog<bool>(
       context: context,
-      builder: (_) => _ClientFormDialog(client: widget.client),
+      builder: (_) => ClientFormDialog(client: widget.client),
     );
     if (created == true) _reload();
   }
@@ -26,7 +79,7 @@ class _ClientsTabState extends State<ClientsTab> {
   Future<void> _openEditDialog(Map<String, dynamic> c) async {
     final updated = await showDialog<bool>(
       context: context,
-      builder: (_) => _ClientFormDialog(client: widget.client, existing: c),
+      builder: (_) => ClientFormDialog(client: widget.client, existing: c),
     );
     if (updated == true) _reload();
   }
@@ -58,7 +111,9 @@ class _ClientsTabState extends State<ClientsTab> {
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
 
@@ -69,7 +124,9 @@ class _ClientsTabState extends State<ClientsTab> {
       secret = await widget.client.rotateClientSecret(id);
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
       return;
     }
     if (!mounted) return;
@@ -123,13 +180,76 @@ class _ClientsTabState extends State<ClientsTab> {
             children: [
               Text('Clients', style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
-              IconButton(onPressed: _openCreateDialog, icon: const Icon(Icons.add)),
+              IconButton(
+                onPressed: _openCreateDialog,
+                icon: const Icon(Icons.add),
+              ),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
             ],
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(
+                width: 280,
+                child: TextField(
+                  controller: _filterCtrl,
+                  onSubmitted: (_) => _reload(),
+                  decoration: InputDecoration(
+                    labelText: 'Filter',
+                    hintText: 'e.g. name:portal or active:true',
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Apply filter',
+                      onPressed: _reload,
+                    ),
+                  ),
+                ),
+              ),
+              DropdownButton<String>(
+                value: _orderBy,
+                items: const [
+                  DropdownMenuItem(value: 'id', child: Text('ID ascending')),
+                  DropdownMenuItem(value: '-id', child: Text('ID descending')),
+                  DropdownMenuItem(
+                    value: 'name',
+                    child: Text('Name ascending'),
+                  ),
+                  DropdownMenuItem(
+                    value: '-name',
+                    child: Text('Name descending'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _orderBy = value);
+                  _reload();
+                },
+              ),
+              DropdownButton<int>(
+                value: _pageSize,
+                items: const [
+                  DropdownMenuItem(value: 25, child: Text('25 per page')),
+                  DropdownMenuItem(value: 100, child: Text('100 per page')),
+                  DropdownMenuItem(value: 250, child: Text('250 per page')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _pageSize = value);
+                  _reload();
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         Expanded(
-          child: FutureBuilder<List<dynamic>>(
+          child: FutureBuilder<SSOAdminListPage>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
@@ -138,48 +258,81 @@ class _ClientsTabState extends State<ClientsTab> {
               if (snap.hasError) {
                 return Center(child: Text('Error: ${snap.error}'));
               }
-              final items = snap.data ?? const [];
-              if (items.isEmpty) {
-                return const Center(child: Text('No clients'));
-              }
-              return ListView.separated(
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final c = items[i] as Map<String, dynamic>;
-                  final active = c['active'] == true;
-                  return ListTile(
-                    leading: Icon(Icons.apps, color: active ? Colors.greenAccent : Colors.grey),
-                    title: Text(c['id']?.toString() ?? '?'),
-                    subtitle: Text(c['name']?.toString() ?? ''),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(c['tokenStrategy']?.toString() ?? c['token_strategy']?.toString() ?? ''),
-                        PopupMenuButton<String>(
-                          onSelected: (value) {
-                            switch (value) {
-                              case 'edit':
-                                _openEditDialog(c);
-                                break;
-                              case 'rotate':
-                                _rotateSecret(c);
-                                break;
-                              case 'delete':
-                                _confirmDelete(c);
-                                break;
-                            }
-                          },
-                          itemBuilder: (context) => const [
-                            PopupMenuItem(value: 'edit', child: Text('Edit')),
-                            PopupMenuItem(value: 'rotate', child: Text('Rotate secret')),
-                            PopupMenuItem(value: 'delete', child: Text('Delete')),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
+              final page = snap.data!;
+              final items = page.items;
+              return Column(
+                children: [
+                  Expanded(
+                    child: items.isEmpty
+                        ? const Center(child: Text('No clients'))
+                        : ListView.separated(
+                            itemCount: items.length,
+                            separatorBuilder: (_, _) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, i) {
+                              final c = items[i];
+                              final active = c['active'] == true;
+                              return ListTile(
+                                leading: Icon(
+                                  Icons.apps,
+                                  color: active
+                                      ? Colors.greenAccent
+                                      : Colors.grey,
+                                ),
+                                title: Text(c['id']?.toString() ?? '?'),
+                                subtitle: Text(c['name']?.toString() ?? ''),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      c['tokenStrategy']?.toString() ??
+                                          c['token_strategy']?.toString() ??
+                                          '',
+                                    ),
+                                    PopupMenuButton<String>(
+                                      onSelected: (value) {
+                                        switch (value) {
+                                          case 'edit':
+                                            _openEditDialog(c);
+                                            break;
+                                          case 'rotate':
+                                            _rotateSecret(c);
+                                            break;
+                                          case 'delete':
+                                            _confirmDelete(c);
+                                            break;
+                                        }
+                                      },
+                                      itemBuilder: (context) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Text('Edit'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'rotate',
+                                          child: Text('Rotate secret'),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  PaginationControls(
+                    page: _pageIndex + 1,
+                    total: page.totalSize,
+                    canGoBack: _pageIndex > 0,
+                    canGoNext: page.nextPageToken != null,
+                    onPrevious: _goPrevious,
+                    onNext: () => _goNext(page),
+                  ),
+                ],
               );
             },
           ),
@@ -189,182 +342,5 @@ class _ClientsTabState extends State<ClientsTab> {
   }
 }
 
-/// Create/edit form for an [AdminClient]. Pass [existing] to edit; omit to create.
-class _ClientFormDialog extends StatefulWidget {
-  final SSOAdminClient client;
-  final Map<String, dynamic>? existing;
 
-  const _ClientFormDialog({required this.client, this.existing});
 
-  bool get isEdit => existing != null;
-
-  @override
-  State<_ClientFormDialog> createState() => _ClientFormDialogState();
-}
-
-class _ClientFormDialogState extends State<_ClientFormDialog> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _idController;
-  late final TextEditingController _nameController;
-  late final TextEditingController _redirectUrisController;
-  late final TextEditingController _allowedScopesController;
-  late final TextEditingController _secretController;
-  String _tokenStrategy = 'jwt';
-  bool _active = true;
-  bool _submitting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final existing = widget.existing;
-    _idController = TextEditingController(text: existing?['id']?.toString() ?? '');
-    _nameController = TextEditingController(text: existing?['name']?.toString() ?? '');
-    _redirectUrisController = TextEditingController(text: _joinList(existing?['redirect_uris']));
-    _allowedScopesController = TextEditingController(text: _joinList(existing?['allowed_scopes']));
-    _secretController = TextEditingController();
-    final strategy = existing?['token_strategy']?.toString() ?? existing?['tokenStrategy']?.toString();
-    if (strategy == 'jwt' || strategy == 'session') _tokenStrategy = strategy!;
-    _active = existing?['active'] == true || existing == null;
-  }
-
-  static String _joinList(dynamic value) {
-    if (value is List) return value.map((e) => e.toString()).join('\n');
-    return '';
-  }
-
-  static List<String> _splitList(String text) => text
-      .split(RegExp(r'[,\n]'))
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
-
-  @override
-  void dispose() {
-    _idController.dispose();
-    _nameController.dispose();
-    _redirectUrisController.dispose();
-    _allowedScopesController.dispose();
-    _secretController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _submitting = true);
-    final body = <String, dynamic>{
-      'name': _nameController.text.trim(),
-      'redirect_uris': _splitList(_redirectUrisController.text),
-      'allowed_scopes': _splitList(_allowedScopesController.text),
-      'token_strategy': _tokenStrategy,
-      'active': _active,
-    };
-    final secret = _secretController.text.trim();
-    if (secret.isNotEmpty) body['secret'] = secret;
-    try {
-      if (widget.isEdit) {
-        final id = widget.existing!['id'].toString();
-        await widget.client.updateClient(id, body);
-      } else {
-        body['id'] = _idController.text.trim();
-        await widget.client.createClient(body);
-      }
-      if (!mounted) return;
-      Navigator.pop(context, true);
-    } on SSOError catch (e) {
-      if (!mounted) return;
-      setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Text(widget.isEdit ? 'Edit client' : 'New client'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _idController,
-                enabled: !widget.isEdit,
-                decoration: const InputDecoration(labelText: 'ID'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _redirectUrisController,
-                decoration: const InputDecoration(
-                  labelText: 'Redirect URIs',
-                  helperText: 'One per line or comma-separated',
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _allowedScopesController,
-                decoration: const InputDecoration(
-                  labelText: 'Allowed scopes',
-                  helperText: 'One per line or comma-separated',
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _tokenStrategy,
-                decoration: const InputDecoration(labelText: 'Token strategy'),
-                items: const [
-                  DropdownMenuItem(value: 'jwt', child: Text('jwt')),
-                  DropdownMenuItem(value: 'session', child: Text('session')),
-                ],
-                onChanged: (v) => setState(() => _tokenStrategy = v ?? 'jwt'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _secretController,
-                decoration: const InputDecoration(
-                  labelText: 'Secret (optional)',
-                  helperText: 'Leave blank for a public PKCE client. Only set this to configure a '
-                      'static secret directly — you can also mint one afterward via Rotate Secret.',
-                  helperMaxLines: 3,
-                ),
-                obscureText: true,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
-                value: _active,
-                onChanged: (v) => setState(() => _active = v),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
-        ),
-      ],
-    );
-  }
-}

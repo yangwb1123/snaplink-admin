@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'developer_api.dart';
 
@@ -20,6 +22,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
   final _nameCtrl = TextEditingController();
   final _redirectUrisCtrl = TextEditingController();
   final _scopeCtrl = TextEditingController();
+  final _advancedMetadataCtrl = TextEditingController();
   final _iatCtrl = TextEditingController();
   String _authMethod = 'client_secret_basic';
   String _tokenStrategy = 'jwt';
@@ -31,6 +34,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
     _nameCtrl.dispose();
     _redirectUrisCtrl.dispose();
     _scopeCtrl.dispose();
+    _advancedMetadataCtrl.dispose();
     _iatCtrl.dispose();
     super.dispose();
   }
@@ -38,7 +42,25 @@ class _RegisterPanelState extends State<RegisterPanel> {
   List<String> _splitLines(String s) =>
       s.split('\n').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
 
+  Map<String, dynamic> _advancedMetadata() {
+    final raw = _advancedMetadataCtrl.text.trim();
+    if (raw.isEmpty) return const {};
+    final value = jsonDecode(raw);
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return Map<String, dynamic>.from(value);
+    throw const FormatException('Advanced metadata must be a JSON object.');
+  }
+
   Future<void> _submit() async {
+    late final Map<String, dynamic> additionalMetadata;
+    try {
+      additionalMetadata = _advancedMetadata();
+    } on FormatException catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
     setState(() => _submitting = true);
     try {
       final result = await widget.api.register(
@@ -47,6 +69,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
         scope: _scopeCtrl.text.trim(),
         tokenEndpointAuthMethod: _authMethod,
         tokenStrategy: _tokenStrategy,
+        additionalMetadata: additionalMetadata,
         initialAccessToken: _iatCtrl.text.trim().isEmpty
             ? null
             : _iatCtrl.text.trim(),
@@ -153,6 +176,12 @@ class _RegisterPanelState extends State<RegisterPanel> {
                       child: Text('Confidential (issues a client_secret)'),
                     ),
                     DropdownMenuItem(
+                      value: 'client_secret_post',
+                      child: Text(
+                        'Confidential (client secret in token POST body)',
+                      ),
+                    ),
+                    DropdownMenuItem(
                       value: 'none',
                       child: Text(
                         'Public (no secret — PKCE required, e.g. a SPA or mobile app)',
@@ -174,6 +203,22 @@ class _RegisterPanelState extends State<RegisterPanel> {
                   ],
                   onChanged: (v) =>
                       setState(() => _tokenStrategy = v ?? _tokenStrategy),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: _advancedMetadataCtrl,
+                  minLines: 4,
+                  maxLines: 10,
+                  autocorrect: false,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                  decoration: const InputDecoration(
+                    labelText:
+                        'Advanced registration metadata (JSON, optional)',
+                    helperText:
+                        'For example: grant_types, response_types, contacts, allowed_authenticators, allowed_resources, post_logout_redirect_uris, tenant_id, require_pkce.',
+                    hintText:
+                        '{"grant_types":["authorization_code","refresh_token"],"require_pkce":true}',
+                  ),
                 ),
                 const SizedBox(height: 14),
                 TextField(

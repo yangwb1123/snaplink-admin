@@ -42,6 +42,7 @@ class DeveloperApi {
     required String scope,
     required String tokenEndpointAuthMethod,
     required String tokenStrategy,
+    Map<String, dynamic> additionalMetadata = const {},
     String? initialAccessToken,
   }) async {
     final headers = {'Content-Type': 'application/json'};
@@ -52,6 +53,7 @@ class DeveloperApi {
       Uri.base.resolve('/register'),
       headers: headers,
       body: jsonEncode({
+        ...additionalMetadata,
         'client_name': clientName,
         'redirect_uris': redirectUris,
         'scope': scope,

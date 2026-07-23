@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
@@ -6,7 +8,12 @@ import 'portal_widgets.dart';
 /// Ports the "Active sessions" card / loadSessions() in app.js.
 class SessionsTab extends StatefulWidget {
   final PortalApi api;
-  const SessionsTab({super.key, required this.api});
+  final VoidCallback onCurrentSessionRevoked;
+  const SessionsTab({
+    super.key,
+    required this.api,
+    required this.onCurrentSessionRevoked,
+  });
 
   @override
   State<SessionsTab> createState() => _SessionsTabState();
@@ -18,6 +25,12 @@ class _SessionsTabState extends State<SessionsTab> {
 
   Future<List<dynamic>> _load() async {
     final r = await widget.api.get('/sessions/me');
+    if (r.statusCode == 401) {
+      throw PortalApiError(r.statusCode, 'Your session has expired.');
+    }
+    if (r.statusCode != 200) {
+      throw PortalApiError(r.statusCode, 'Active sessions are not available.');
+    }
     final d = PortalApi.decode(r);
     return (d['sessions'] as List?) ?? const [];
   }
@@ -25,18 +38,119 @@ class _SessionsTabState extends State<SessionsTab> {
   void _reload() => setState(() => _future = _load());
 
   Future<void> _revoke(String id) async {
-    await widget.api.delete('/sessions/me/${Uri.encodeComponent(id)}');
-    _reload();
+    if (id.isEmpty || !await _confirmSessionRevoke(id)) return;
+    final r = await widget.api.delete(
+      '/sessions/me/${Uri.encodeComponent(id)}',
+    );
+    if (r.statusCode >= 200 &&
+        r.statusCode < 300 &&
+        id == widget.api.currentSessionId) {
+      widget.api.signOut();
+      widget.onCurrentSessionRevoked();
+      return;
+    }
+    if (r.statusCode >= 200 && r.statusCode < 300) {
+      _reload();
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not revoke this session.')),
+      );
+    }
   }
 
   Future<void> _revokeOthers() async {
+    final preservesCurrentSession = widget.api.currentSessionId != null;
+    if (!await _confirmBulkRevoke(preservesCurrentSession)) {
+      return;
+    }
     setState(() => _revokingAll = true);
     try {
-      await widget.api.delete('/sessions/me');
+      final response = await widget.api.deleteWithQuery(
+        '/sessions/me',
+        query: preservesCurrentSession ? null : const {'all': 'true'},
+      );
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        // Bulk session revocation also removes every trusted-device grant.
+        // Clear the tab-scoped copy so it cannot be sent at the next login.
+        final clientId = widget.api.currentClientId;
+        if (clientId != null) TrustedDeviceToken.clear(clientId);
+        if (!preservesCurrentSession) {
+          widget.api.signOut();
+          widget.onCurrentSessionRevoked();
+          return;
+        }
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not revoke sessions.')),
+        );
+      }
       _reload();
     } finally {
       if (mounted) setState(() => _revokingAll = false);
     }
+  }
+
+  Future<bool> _confirmSessionRevoke(String id) async {
+    final isCurrentSession = id == widget.api.currentSessionId;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          isCurrentSession ? 'Sign out this browser?' : 'Revoke session?',
+        ),
+        content: Text(
+          isCurrentSession
+              ? 'This will sign out the browser you are using now.'
+              : 'This device will be signed out immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(isCurrentSession ? 'Sign out' : 'Revoke'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  Future<bool> _confirmBulkRevoke(bool preservesCurrentSession) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          preservesCurrentSession
+              ? 'Sign out of other devices?'
+              : 'Sign out everywhere?',
+        ),
+        content: Text(
+          preservesCurrentSession
+              ? 'All other active sessions and trusted-device grants will be revoked. This browser will remain signed in.'
+              : 'This opaque token does not identify the current session. Snaplink will revoke every session, including this browser.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: Text(
+              preservesCurrentSession
+                  ? 'Sign out other devices'
+                  : 'Sign out everywhere',
+            ),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   @override
@@ -48,14 +162,26 @@ class _SessionsTabState extends State<SessionsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Active sessions', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Active sessions',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
               TextButton.icon(
                 onPressed: _revokingAll ? null : _revokeOthers,
                 icon: _revokingAll
-                    ? const SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 14,
+                        width: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.logout, color: Colors.redAccent),
-                label: const Text('Sign out of other devices', style: TextStyle(color: Colors.redAccent)),
+                label: Text(
+                  widget.api.currentSessionId == null
+                      ? 'Sign out everywhere'
+                      : 'Sign out of other devices',
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
               ),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
             ],
@@ -90,8 +216,12 @@ class _SessionsTabState extends State<SessionsTab> {
                     metaParts.add('expires ${_shortDate(s['expires_at'])}');
                   }
                   final devParts = <String>[];
-                  if (s['ip'] != null) devParts.add(s['ip'].toString());
-                  if (s['user_agent'] != null) devParts.add(_deviceHint(s['user_agent'].toString()));
+                  if (s['ip'] != null) {
+                    devParts.add(s['ip'].toString());
+                  }
+                  if (s['user_agent'] != null) {
+                    devParts.add(_deviceHint(s['user_agent'].toString()));
+                  }
                   return ListTile(
                     title: Text(id),
                     subtitle: Column(
@@ -104,7 +234,9 @@ class _SessionsTabState extends State<SessionsTab> {
                     isThreeLine: metaParts.isNotEmpty && devParts.isNotEmpty,
                     trailing: TextButton(
                       onPressed: () => _revoke(id),
-                      style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                      ),
                       child: const Text('Revoke'),
                     ),
                   );
@@ -143,7 +275,9 @@ String _deviceHint(String ua) {
     os = 'macOS';
   } else if (ua.contains('Android')) {
     os = 'Android';
-  } else if (ua.contains('iPhone') || ua.contains('iPad') || ua.contains('iOS')) {
+  } else if (ua.contains('iPhone') ||
+      ua.contains('iPad') ||
+      ua.contains('iOS')) {
     os = 'iOS';
   } else if (ua.contains('Linux')) {
     os = 'Linux';

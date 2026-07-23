@@ -1,0 +1,157 @@
+import 'package:flutter/material.dart';
+
+import 'portal_api.dart';
+import 'portal_widgets.dart';
+
+/// Linked external identities for the current account.
+class IdentitiesTab extends StatefulWidget {
+  final PortalApi api;
+
+  const IdentitiesTab({super.key, required this.api});
+
+  @override
+  State<IdentitiesTab> createState() => _IdentitiesTabState();
+}
+
+class _IdentitiesTabState extends State<IdentitiesTab> {
+  bool _loading = true;
+  bool _available = true;
+  List<Map<String, dynamic>> _identities = const [];
+  String? _message;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _message = null;
+    });
+    try {
+      final response = await widget.api.get('/me/identities');
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final values =
+            PortalApi.decode(response)['identities'] as List? ?? const [];
+        setState(() {
+          _available = true;
+          _identities = values
+              .whereType<Map>()
+              .map((value) => Map<String, dynamic>.from(value))
+              .toList(growable: false);
+        });
+      } else if (response.statusCode == 404) {
+        setState(() => _available = false);
+      } else {
+        setState(() => _message = 'Could not load linked identities.');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _message = 'Could not load linked identities.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _unlink(Map<String, dynamic> identity) async {
+    final id = identity['id']?.toString() ?? '';
+    if (id.isEmpty) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unlink identity?'),
+        content: const Text(
+          'You may be unable to sign in with this provider after unlinking it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Unlink'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    try {
+      final response = await widget.api.delete(
+        '/me/identities/${Uri.encodeComponent(id)}',
+      );
+      if (!mounted) {
+        return;
+      }
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        await _load();
+      } else if (response.statusCode == 409) {
+        setState(
+          () => _message =
+              'Add another sign-in method before unlinking this identity.',
+        );
+      } else {
+        setState(() => _message = 'Could not unlink this identity.');
+      }
+    } catch (_) {
+      if (mounted) setState(() => _message = 'Could not unlink this identity.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => ListView(
+    padding: const EdgeInsets.all(16),
+    children: [
+      Row(
+        children: [
+          Text(
+            'Linked identities',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_loading)
+        const LinearProgressIndicator()
+      else if (!_available)
+        const EmptyHint('Linked-identity management is not enabled.')
+      else if (_identities.isEmpty)
+        const EmptyHint('No external identities are linked to this account.')
+      else
+        PortalCard(
+          title: 'External sign-in methods',
+          children: [
+            for (final identity in _identities)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(identity['provider']?.toString() ?? ''),
+                subtitle: Text(
+                  '${identity['subject'] ?? ''}${identity['linked_at'] == null ? '' : ' · linked ${identity['linked_at']}'}',
+                ),
+                trailing: TextButton(
+                  onPressed: () => _unlink(identity),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                  ),
+                  child: const Text('Unlink'),
+                ),
+              ),
+          ],
+        ),
+      MessageBanner(_message, ok: false),
+    ],
+  );
+}

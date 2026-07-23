@@ -76,9 +76,8 @@ class FederatedLogin {
   /// Throws on a state mismatch (CSRF/replay) or a failed exchange.
   static Future<FederatedLoginResult?> consumeReturnIfPresent() async {
     final q = Uri.base.queryParameters;
-    final code = q['code'];
     final state = q['state'];
-    if (code == null || state == null) return null;
+    if (state == null) return null;
 
     final storedState = web.window.sessionStorage.getItem(_stateKey);
     if (storedState == null || storedState != state) {
@@ -94,6 +93,11 @@ class FederatedLogin {
     web.window.sessionStorage.removeItem(_verifierKey);
     web.window.sessionStorage.removeItem(_clientIdKey);
     web.window.sessionStorage.removeItem(_redirectKey);
+
+    final code = q['code'];
+    if (code == null) {
+      throw StateError(q['error_description'] ?? q['error'] ?? 'federated_login_failed');
+    }
     if (verifier == null || clientId == null || redirectUri == null) {
       throw StateError('missing_pkce_state');
     }
@@ -111,7 +115,17 @@ class FederatedLogin {
         'code_verifier': verifier,
       }),
     );
-    final body = jsonDecode(resp.body) as Map<String, dynamic>;
+    Map<String, dynamic> body = const {};
+    if (resp.body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(resp.body);
+        if (decoded is Map<String, dynamic>) body = decoded;
+      } catch (_) {
+        // non-JSON body (proxy error page, empty 5xx, ...) — fall through
+        // to the generic token_exchange_failed below instead of throwing a
+        // raw FormatException the caller would show to the user verbatim.
+      }
+    }
     final accessToken = body['access_token'] as String?;
     if (resp.statusCode != 200 || accessToken == null) {
       throw StateError(body['error']?.toString() ?? 'token_exchange_failed');

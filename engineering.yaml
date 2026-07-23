@@ -1,0 +1,176 @@
+# Declarative config for the checks/ engineering harness (cli.py + checks/).
+#
+# Adapted from snaplink's engineering.yaml for the sso-admin Flutter project.
+# Edit values below to adjust thresholds for the Dart/Flutter ecosystem.
+
+project:
+  name: sso-admin
+  language: dart
+
+filesize:
+  max_lines: 400
+  ignore_patterns:
+    - "_test.dart"
+    - ".dart_tool/"
+    - "build/"
+    - "android/"
+    - "ios/"
+    - "linux/"
+    - "macos/"
+    - "windows/"
+    - "web/"
+  exemptions:
+    - "lib/main.dart"
+    - "lib/screens/oidc_login/oidc_login_screen.dart"
+    # API layer files being migrated to lib/api/
+    - "lib/api/sso_client.dart"
+    - "lib/api/snaplink_admin_api.dart"
+    - "lib/api/snaplink_admin_types.dart"
+    - "lib/api/portal_api.dart"
+    - "lib/api/oidc_login_api.dart"
+    - "lib/api/device_verify_api.dart"
+    - "lib/api/setup_api.dart"
+    # Legacy locations (being migrated)
+    - "lib/sso_client.dart"
+    - "lib/screens/admin/snaplink_admin_api.dart"
+    - "lib/screens/admin/snaplink_admin_types.dart"
+    - "lib/screens/portal/portal_api.dart"
+    - "lib/screens/oidc_login/oidc_login_api.dart"
+    - "lib/screens/device/device_verify_api.dart"
+    - "lib/screens/setup/setup_api.dart"
+    # Large screens being refactored
+    - "lib/screens/admin/clients_tab.dart"
+    - "lib/screens/admin/tenants_tab.dart"
+    - "lib/screens/admin/users_tab.dart"
+    - "lib/screens/admin/permissions_tab.dart"
+    - "lib/screens/admin/governance_tab.dart"
+    - "lib/screens/admin/user_support_tab.dart"
+    - "lib/screens/admin/connections_tab.dart"
+    - "lib/screens/admin/connections_widgets.dart"
+    - "lib/screens/admin/tenant_organizations_tab.dart"
+    - "lib/screens/portal/security_tab.dart"
+    - "lib/screens/portal/organization_admin_tab.dart"
+    - "lib/screens/setup/setup_screen.dart"
+    - "lib/screens/developer/manage_panel.dart"
+    - "lib/screens/admin/admin_operations_tab.dart"
+  required_exemptions:
+    - "lib/main.dart"
+
+complexity:
+  # Dart uses `dart analyze` with cyclomatic_complexity lint rule.
+  # These thresholds are for the optional gocyclo/gocognit-style external check;
+  # the primary enforcement is via analysis_options.yaml.
+  max_cyclomatic: 12
+  max_cognitive: 18
+  ignore_pattern: "_test.dart|build/|.dart_tool/|gen/"
+  exempt_functions:
+    - build
+    - _loginView
+    - _mfaView
+    - _consentView
+    - _submitLogin
+    - _handleSuccess
+    - _buildApp
+    - _buildLoginGate
+    - _rolesCard
+    - _assignmentsCard
+    - _menusCard
+
+architecture:
+  # Forbidden imports by directory.
+  # Each key is a lib/ subdirectory (relative to lib/).
+  # Each value is a list of directories that key MUST NOT import.
+  forbidden:
+    # screens/ modules should be isolated from each other
+    "screens/oidc_login": ["screens/admin", "screens/portal", "screens/developer", "screens/device", "screens/setup"]
+    "screens/portal": ["screens/admin", "screens/developer", "screens/oidc_login"]
+    "screens/admin": ["screens/portal", "screens/developer", "screens/oidc_login"]
+    "screens/developer": ["screens/admin", "screens/portal"]
+    "screens/device": ["screens/admin", "screens/portal"]
+    "screens/setup": ["screens/admin", "screens/portal"]
+    # Shared infrastructure layers cannot depend on screens
+    "i18n": ["screens"]
+    # Session and client are leaf modules
+    "session.dart": ["screens", "i18n"]
+  excluded_dirs:
+    - .dart_tool
+    - build
+    - android
+    - ios
+    - linux
+    - macos
+    - windows
+    - web
+    - test
+    - .git
+    - .idea
+
+directory_fanout:
+  max_subdirs: 12
+  exempt_dirs:
+    - .dart_tool
+    - .git
+    - .idea
+    - build
+    - android
+    - ios
+    - linux
+    - macos
+    - windows
+    - web
+    - test
+    - __pycache__
+    - .pub-cache
+
+root_policy:
+  max_files: 12
+  allowed_files:
+    - main.dart
+    - pubspec.yaml
+    - pubspec.lock
+    - README.md
+    - analysis_options.yaml
+    - .gitignore
+    - .metadata
+    - engineering.yaml
+    - cli.py
+    - Dockerfile
+    - nginx.conf
+    - DEPLOY.md
+  allowed_prefixes:
+    - app_
+  banned_patterns:
+    - "*_tab.dart"
+    - "*_screen.dart"
+    - "*_api.dart"
+    - "*_widgets.dart"
+    - "*_dialog.dart"
+    - "*_card.dart"
+    - "*_client.dart"
+    - "*_settings.dart"
+  banned_files:
+    - auth_handler.dart
+    - main_handler.dart
+    - router_handler.dart
+  exempt_files:
+    - main.dart
+    - app_router.dart
+    - app_settings.dart
+    - session.dart
+    - sso_client.dart  # re-export forwarder; migrated to lib/api/sso_client.dart
+
+coverage:
+  targets:
+    ".": 15
+    "lib": 20
+    "lib/screens/oidc_login": 25
+    "lib/screens/portal": 25
+
+build:
+  output_dir: build/web
+  binaries:
+    - name: sso-admin-web
+      path: lib/main.dart
+
+skills:
+  dir: docs/skills

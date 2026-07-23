@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'portal_api.dart';
 import 'overview_tab.dart';
+import 'identities_tab.dart';
 import 'security_tab.dart';
 import 'sessions_tab.dart';
 import 'consents_tab.dart';
@@ -67,8 +68,13 @@ class _PortalScreenState extends State<PortalScreen> {
       return;
     }
     try {
-      final me = await _api.login(token);
+      final me = await _api.login(
+        token,
+        sessionId: Session.readSessionId(),
+        clientId: Session.readClientId(),
+      );
       if (!mounted) return;
+      _api.onSessionExpired = _handleSessionExpired;
       setState(() {
         _me = me;
         _resumingSession = false;
@@ -93,6 +99,7 @@ class _PortalScreenState extends State<PortalScreen> {
     try {
       final me = await _api.login(t);
       if (!mounted) return;
+      _api.onSessionExpired = _handleSessionExpired;
       setState(() {
         _me = me;
         _postSignOutNotice = null;
@@ -105,7 +112,17 @@ class _PortalScreenState extends State<PortalScreen> {
     }
   }
 
-  void _signOut() {
+  Future<void> _signOut() async {
+    // A logout 401 only means the bearer was already revoked; it should not
+    // race the explicit local cleanup below.
+    _api.onSessionExpired = null;
+    try {
+      await _api.logout();
+    } catch (_) {
+      // Local revocation remains deliberate even if the network request could
+      // not be delivered. The next authenticated request will be impossible
+      // from this browser tab.
+    }
     _api.signOut();
     // A no-op off web / when the active token was never Session's (manual
     // paste with no prior /login) — only clears anything when it was.
@@ -118,12 +135,40 @@ class _PortalScreenState extends State<PortalScreen> {
   }
 
   void _onAccountDeleted() {
+    _api.onSessionExpired = null;
     _tokenCtrl.clear();
     Session.clear();
     setState(() {
       _me = null;
       _navIndex = 0;
       _postSignOutNotice = 'Your account has been deleted.';
+    });
+  }
+
+  void _onCurrentSessionRevoked() {
+    _api.onSessionExpired = null;
+    _tokenCtrl.clear();
+    Session.clear();
+    setState(() {
+      _me = null;
+      _navIndex = 0;
+      _postSignOutNotice = 'This session was revoked. Please sign in again.';
+    });
+  }
+
+  /// The [PortalApi.onSessionExpired] equivalent of admin_gate.dart's
+  /// redirect-to-login on a mid-session 401/403 — the portal has no
+  /// separate /login/ route to bounce to (see class doc), so "re-auth" here
+  /// means dropping back to this screen's own token-paste gate instead.
+  void _handleSessionExpired() {
+    _api.onSessionExpired = null;
+    _tokenCtrl.clear();
+    Session.clear();
+    if (!mounted) return;
+    setState(() {
+      _me = null;
+      _navIndex = 0;
+      _postSignOutNotice = 'Your session has expired. Please sign in again.';
     });
   }
 
@@ -152,9 +197,15 @@ class _PortalScreenState extends State<PortalScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.account_circle, color: Color(0xFF6366F1)),
+                        const Icon(
+                          Icons.account_circle,
+                          color: Color(0xFF6366F1),
+                        ),
                         const SizedBox(width: 10),
-                        Text('Your account', style: Theme.of(context).textTheme.titleLarge),
+                        Text(
+                          'Your account',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -168,7 +219,9 @@ class _PortalScreenState extends State<PortalScreen> {
                       controller: _tokenCtrl,
                       obscureText: true,
                       autocorrect: false,
-                      decoration: const InputDecoration(labelText: 'Access token'),
+                      decoration: const InputDecoration(
+                        labelText: 'Access token',
+                      ),
                       onSubmitted: (_) => _login(),
                     ),
                     const SizedBox(height: 20),
@@ -176,16 +229,27 @@ class _PortalScreenState extends State<PortalScreen> {
                       onPressed: _loggingIn ? null : _login,
                       child: _loggingIn
                           ? const SizedBox(
-                              height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
                           : const Text('Continue'),
                     ),
                     if (_loginError != null) ...[
                       const SizedBox(height: 14),
-                      Text(_loginError!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.redAccent)),
+                      Text(
+                        _loginError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.redAccent),
+                      ),
                     ],
                     if (_postSignOutNotice != null) ...[
                       const SizedBox(height: 14),
-                      Text(_postSignOutNotice!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.greenAccent)),
+                      Text(
+                        _postSignOutNotice!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.greenAccent),
+                      ),
                     ],
                   ],
                 ),
@@ -198,12 +262,34 @@ class _PortalScreenState extends State<PortalScreen> {
   }
 
   static const _destinations = [
-    NavigationRailDestination(icon: Icon(Icons.person_outline), label: Text('Overview')),
-    NavigationRailDestination(icon: Icon(Icons.lock_outline), label: Text('Security')),
-    NavigationRailDestination(icon: Icon(Icons.devices_outlined), label: Text('Sessions')),
-    NavigationRailDestination(icon: Icon(Icons.apps_outlined), label: Text('Connected apps')),
-    NavigationRailDestination(icon: Icon(Icons.business_outlined), label: Text('Organizations')),
-    NavigationRailDestination(icon: Icon(Icons.privacy_tip_outlined), label: Text('Privacy')),
+    NavigationRailDestination(
+      icon: Icon(Icons.person_outline),
+      label: Text('Overview'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.lock_outline),
+      label: Text('Security'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.link_outlined),
+      label: Text('Linked identities'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.devices_outlined),
+      label: Text('Sessions'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.apps_outlined),
+      label: Text('Connected apps'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.business_outlined),
+      label: Text('Organizations'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.privacy_tip_outlined),
+      label: Text('Privacy'),
+    ),
   ];
 
   Widget _buildApp(BuildContext context) {
@@ -211,10 +297,18 @@ class _PortalScreenState extends State<PortalScreen> {
     final page = switch (_navIndex) {
       0 => OverviewTab(api: _api),
       1 => SecurityTab(api: _api),
-      2 => SessionsTab(api: _api),
-      3 => ConsentsTab(api: _api),
-      4 => OrganizationsTab(api: _api),
-      _ => PrivacyTab(api: _api, mySub: mySub, onAccountDeleted: _onAccountDeleted),
+      2 => IdentitiesTab(api: _api),
+      3 => SessionsTab(
+        api: _api,
+        onCurrentSessionRevoked: _onCurrentSessionRevoked,
+      ),
+      4 => ConsentsTab(api: _api),
+      5 => OrganizationsTab(api: _api),
+      _ => PrivacyTab(
+        api: _api,
+        mySub: mySub,
+        onAccountDeleted: _onAccountDeleted,
+      ),
     };
     return Scaffold(
       appBar: AppBar(

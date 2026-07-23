@@ -27,6 +27,8 @@ class _OverviewTabState extends State<OverviewTab> {
   final TextEditingController _nameCtrl = TextEditingController();
   Map<String, TextEditingController> _attrCtrls = {};
   bool _nameSaving = false;
+  String? _nameMsg;
+  bool _nameOk = false;
 
   String? _attrsMsg;
   bool _attrsOk = false;
@@ -55,8 +57,10 @@ class _OverviewTabState extends State<OverviewTab> {
     try {
       final me = await widget.api.fetchMe();
       final roles = await widget.api.fetchListOrEmpty('/roles/me', 'roles');
-      final permissions =
-          await widget.api.fetchListOrEmpty('/permissions/me', 'permissions');
+      final permissions = await widget.api.fetchListOrEmpty(
+        '/permissions/me',
+        'permissions',
+      );
       final menus = await widget.api.fetchListOrEmpty('/menus/me', 'menus');
 
       final user = (me['user'] as Map?) ?? const {};
@@ -68,7 +72,9 @@ class _OverviewTabState extends State<OverviewTab> {
       }
       _attrCtrls = {
         for (final entry in rawAttrs.entries)
-          entry.key.toString(): TextEditingController(text: entry.value?.toString() ?? ''),
+          entry.key.toString(): TextEditingController(
+            text: entry.value?.toString() ?? '',
+          ),
       };
 
       if (!mounted) return;
@@ -88,19 +94,35 @@ class _OverviewTabState extends State<OverviewTab> {
     }
   }
 
-  // app.js's save-name handler has no error handling at all — it fires the
-  // PATCH and unconditionally calls loadAll() in the `.then`, with no
-  // `.catch`. We replicate that: a failed request is silently swallowed
-  // rather than surfaced, and we always refresh afterward.
   Future<void> _saveName() async {
-    setState(() => _nameSaving = true);
+    setState(() {
+      _nameSaving = true;
+      _nameMsg = null;
+    });
     try {
-      await widget.api.patch('/me', {'name': _nameCtrl.text});
+      final response = await widget.api.patch('/me', {'name': _nameCtrl.text});
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        setState(() {
+          _nameMsg = 'Could not save your display name.';
+          _nameOk = false;
+        });
+        return;
+      }
+      setState(() {
+        _nameMsg = 'Display name saved.';
+        _nameOk = true;
+      });
+      await _load();
     } catch (_) {
-      // intentionally ignored, matching app.js
+      if (mounted) {
+        setState(() {
+          _nameMsg = 'Could not save your display name.';
+          _nameOk = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _nameSaving = false);
     }
-    await _load();
-    if (mounted) setState(() => _nameSaving = false);
   }
 
   Future<void> _saveAttrs() async {
@@ -147,9 +169,15 @@ class _OverviewTabState extends State<OverviewTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Overview', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Overview',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
-              IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh),
+              ),
             ],
           ),
         ),
@@ -157,8 +185,8 @@ class _OverviewTabState extends State<OverviewTab> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _loadError != null
-                  ? Center(child: Text('Error: $_loadError'))
-                  : _buildContent(context),
+              ? Center(child: Text('Error: $_loadError'))
+              : _buildContent(context),
         ),
       ],
     );
@@ -174,7 +202,8 @@ class _OverviewTabState extends State<OverviewTab> {
       MapEntry('Connected apps', _me['granted_apps']?.toString() ?? ''),
     ].where((e) => e.value.isNotEmpty).toList();
 
-    final anyAuthz = _roles.isNotEmpty || _permissions.isNotEmpty || _menus.isNotEmpty;
+    final anyAuthz =
+        _roles.isNotEmpty || _permissions.isNotEmpty || _menus.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -190,7 +219,9 @@ class _OverviewTabState extends State<OverviewTab> {
                 Expanded(
                   child: TextField(
                     controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Display name'),
+                    decoration: const InputDecoration(
+                      labelText: 'Display name',
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -198,11 +229,15 @@ class _OverviewTabState extends State<OverviewTab> {
                   onPressed: _nameSaving ? null : _saveName,
                   child: _nameSaving
                       ? const SizedBox(
-                          height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Save name'),
                 ),
               ],
             ),
+            MessageBanner(_nameMsg, ok: _nameOk),
           ],
         ),
         if (_attrCtrls.isNotEmpty)
@@ -222,7 +257,10 @@ class _OverviewTabState extends State<OverviewTab> {
                   onPressed: _attrsSaving ? null : _saveAttrs,
                   child: _attrsSaving
                       ? const SizedBox(
-                          height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Save attributes'),
                 ),
               ),
@@ -233,9 +271,27 @@ class _OverviewTabState extends State<OverviewTab> {
           PortalCard(
             title: 'Roles and access',
             children: [
-              if (_roles.isNotEmpty) ..._authzSection('Roles', _roles, (m) => m['name'] ?? m['code'], (m) => m['code']?.toString() ?? ''),
-              if (_permissions.isNotEmpty) ..._authzSection('Permissions', _permissions, (m) => m['code'], (m) => m['resource']?.toString() ?? ''),
-              if (_menus.isNotEmpty) ..._authzSection('Menu access', _menus, (m) => m['name'] ?? m['id'], (m) => m['path']?.toString() ?? ''),
+              if (_roles.isNotEmpty)
+                ..._authzSection(
+                  'Roles',
+                  _roles,
+                  (m) => m['name'] ?? m['code'],
+                  (m) => m['code']?.toString() ?? '',
+                ),
+              if (_permissions.isNotEmpty)
+                ..._authzSection(
+                  'Permissions',
+                  _permissions,
+                  (m) => m['code'],
+                  (m) => m['resource']?.toString() ?? '',
+                ),
+              if (_menus.isNotEmpty)
+                ..._authzSection(
+                  'Menu access',
+                  _menus,
+                  (m) => m['name'] ?? m['id'],
+                  (m) => m['path']?.toString() ?? '',
+                ),
             ],
           ),
       ],
@@ -254,16 +310,18 @@ class _OverviewTabState extends State<OverviewTab> {
         child: Text(title, style: Theme.of(context).textTheme.labelLarge),
       ),
       for (final raw in items)
-        Builder(builder: (_) {
-          final m = raw as Map;
-          final meta = metaOf(m);
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            dense: true,
-            title: Text(titleOf(m)?.toString() ?? ''),
-            subtitle: meta.isEmpty ? null : Text(meta),
-          );
-        }),
+        Builder(
+          builder: (_) {
+            final m = raw as Map;
+            final meta = metaOf(m);
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(titleOf(m)?.toString() ?? ''),
+              subtitle: meta.isEmpty ? null : Text(meta),
+            );
+          },
+        ),
     ];
   }
 }

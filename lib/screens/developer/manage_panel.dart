@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'developer_api.dart';
 
@@ -24,6 +26,7 @@ class ManagePanelState extends State<ManagePanel> {
   final _nameCtrl = TextEditingController();
   final _redirectUrisCtrl = TextEditingController();
   final _scopeCtrl = TextEditingController();
+  final _advancedMetadataCtrl = TextEditingController();
   String _tokenStrategy = 'jwt';
 
   bool _loading = false;
@@ -45,6 +48,7 @@ class ManagePanelState extends State<ManagePanel> {
     _nameCtrl.dispose();
     _redirectUrisCtrl.dispose();
     _scopeCtrl.dispose();
+    _advancedMetadataCtrl.dispose();
     super.dispose();
   }
 
@@ -66,6 +70,32 @@ class ManagePanelState extends State<ManagePanel> {
     _redirectUrisCtrl.text = uris.join('\n');
     _scopeCtrl.text = (d['scope'] as String?) ?? '';
     _tokenStrategy = (d['token_strategy'] as String?) ?? 'jwt';
+    _advancedMetadataCtrl.text = const JsonEncoder.withIndent('  ').convert({
+      for (final entry in d.entries)
+        if (!_reservedMetadataKeys.contains(entry.key)) entry.key: entry.value,
+    });
+  }
+
+  static const _reservedMetadataKeys = {
+    'client_id',
+    'client_secret',
+    'client_id_issued_at',
+    'client_secret_expires_at',
+    'registration_access_token',
+    'registration_client_uri',
+    'client_name',
+    'redirect_uris',
+    'scope',
+    'token_strategy',
+  };
+
+  Map<String, dynamic> _advancedMetadata() {
+    final raw = _advancedMetadataCtrl.text.trim();
+    if (raw.isEmpty) return const {};
+    final decoded = jsonDecode(raw);
+    if (decoded is Map<String, dynamic>) return decoded;
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    throw const FormatException('Advanced metadata must be a JSON object.');
   }
 
   Future<void> _load() async {
@@ -105,17 +135,26 @@ class ManagePanelState extends State<ManagePanel> {
     final clientId = _clientIdCtrl.text.trim();
     final token = _tokenCtrl.text.trim();
 
-    final body = Map<String, dynamic>.from(current);
-    body.remove('client_id');
-    body.remove('client_secret');
-    body.remove('client_id_issued_at');
-    body.remove('client_secret_expires_at');
-    body.remove('registration_access_token');
-    body.remove('registration_client_uri');
-    body['client_name'] = _nameCtrl.text.trim();
-    body['redirect_uris'] = _splitLines(_redirectUrisCtrl.text);
-    body['scope'] = _scopeCtrl.text.trim();
-    body['token_strategy'] = _tokenStrategy;
+    late final Map<String, dynamic> advanced;
+    try {
+      advanced = _advancedMetadata();
+    } on FormatException catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    // RFC 7592 is a complete replacement, so the editor carries every
+    // non-secret/unexposed field in this object. Reserved response fields
+    // are ignored even if pasted into the JSON area.
+    final body = <String, dynamic>{
+      for (final entry in advanced.entries)
+        if (!_reservedMetadataKeys.contains(entry.key)) entry.key: entry.value,
+      'client_name': _nameCtrl.text.trim(),
+      'redirect_uris': _splitLines(_redirectUrisCtrl.text),
+      'scope': _scopeCtrl.text.trim(),
+      'token_strategy': _tokenStrategy,
+    };
 
     setState(() => _saving = true);
     try {
@@ -315,6 +354,22 @@ class ManagePanelState extends State<ManagePanel> {
                     ],
                     onChanged: (v) =>
                         setState(() => _tokenStrategy = v ?? _tokenStrategy),
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: _advancedMetadataCtrl,
+                    minLines: 5,
+                    maxLines: 14,
+                    autocorrect: false,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Advanced registration metadata (JSON)',
+                      helperText:
+                          'Full RFC 7592 metadata except protected response credentials. Remove a field to omit it on this full update.',
+                    ),
                   ),
                   const SizedBox(height: 20),
                   Row(

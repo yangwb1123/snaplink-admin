@@ -4,7 +4,7 @@ import 'setup_api.dart';
 
 /// Mirrors the five views of interfaces/web/setup/{index.html,app.js}:
 /// loading -> (alreadyInitialized | admin -> app -> done).
-enum _Step { loading, alreadyInitialized, admin, app, done }
+enum _Step { loading, unavailable, alreadyInitialized, admin, app, done }
 
 /// First-run setup wizard: checks `GET /api/v1/setup/status` and, if the
 /// deployment is fresh, walks the operator through creating the first admin
@@ -30,6 +30,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
   String? _adminError;
   String? _appError;
+  String? _unavailableMessage;
   bool _submitting = false;
 
   // Captured at the end of step 1, POSTed once together with the optional
@@ -58,9 +59,30 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _checkStatus() async {
-    final status = await _api.checkStatus();
-    if (!mounted) return;
-    setState(() => _step = status.setupRequired ? _Step.admin : _Step.alreadyInitialized);
+    setState(() {
+      _step = _Step.loading;
+      _unavailableMessage = null;
+    });
+    try {
+      final status = await _api.checkStatus();
+      if (!mounted) return;
+      setState(() {
+        _step = !status.available
+            ? _Step.unavailable
+            : (status.setupRequired ? _Step.admin : _Step.alreadyInitialized);
+        if (!status.available) {
+          _unavailableMessage = 'The setup wizard is disabled on this server.';
+        }
+      });
+    } on SetupNetworkError {
+      if (mounted) {
+        setState(() {
+          _step = _Step.unavailable;
+          _unavailableMessage =
+              'Could not determine whether setup is available.';
+        });
+      }
+    }
   }
 
   // Step 1: client-side validation only (no network call) — identical
@@ -90,10 +112,17 @@ class _SetupScreenState extends State<SetupScreen> {
     final name = _appNameCtrl.text.trim();
     final redirect = _appRedirectCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _appError = 'Enter an application name, or use Skip and finish.');
+      setState(
+        () => _appError = 'Enter an application name, or use Skip and finish.',
+      );
       return;
     }
-    await _finish(SetupApplication(name: name, redirectUri: redirect.isEmpty ? null : redirect));
+    await _finish(
+      SetupApplication(
+        name: name,
+        redirectUri: redirect.isEmpty ? null : redirect,
+      ),
+    );
   }
 
   Future<void> _skip() => _finish(null);
@@ -104,7 +133,10 @@ class _SetupScreenState extends State<SetupScreen> {
       _submitting = true;
     });
     try {
-      final result = await _api.submit(admin: _pendingAdmin!, application: application);
+      final result = await _api.submit(
+        admin: _pendingAdmin!,
+        application: application,
+      );
       if (!mounted) return;
       if (result.alreadyInitialized) {
         setState(() => _step = _Step.alreadyInitialized);
@@ -160,6 +192,8 @@ class _SetupScreenState extends State<SetupScreen> {
     switch (_step) {
       case _Step.loading:
         return _buildLoading(context);
+      case _Step.unavailable:
+        return _buildUnavailable(context);
       case _Step.alreadyInitialized:
         return _buildAlready(context);
       case _Step.admin:
@@ -177,7 +211,11 @@ class _SetupScreenState extends State<SetupScreen> {
       children: [
         const _Logo(),
         const SizedBox(height: 12),
-        Text('Setup', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          'Setup',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 6),
         Text(
           'Checking system status…',
@@ -195,11 +233,42 @@ class _SetupScreenState extends State<SetupScreen> {
       children: [
         const _Logo(),
         const SizedBox(height: 12),
-        Text('Already set up', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          'Already set up',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 14),
         const _SuccessBox(text: 'This system has already been initialized.'),
         const SizedBox(height: 6),
-        FilledButton(onPressed: _goToAdminConsole, child: const Text('Go to admin console')),
+        FilledButton(
+          onPressed: _goToAdminConsole,
+          child: const Text('Go to admin console'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUnavailable(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _Logo(),
+        const SizedBox(height: 12),
+        Text(
+          'Setup unavailable',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 14),
+        _ErrorBox(text: _unavailableMessage ?? 'Setup is not available.'),
+        const SizedBox(height: 12),
+        OutlinedButton(onPressed: _checkStatus, child: const Text('Retry')),
+        FilledButton(
+          onPressed: _goToAdminConsole,
+          child: const Text('Go to admin console'),
+        ),
       ],
     );
   }
@@ -213,7 +282,11 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 12),
         const _StepDots(activeCount: 1),
         const SizedBox(height: 14),
-        Text('Create administrator', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          'Create administrator',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 6),
         Text(
           'This first account gets full admin:* access. You can add more users later in the console.',
@@ -228,14 +301,20 @@ class _SetupScreenState extends State<SetupScreen> {
         TextField(
           controller: _usernameCtrl,
           autocorrect: false,
-          decoration: const InputDecoration(labelText: 'Admin username', hintText: 'admin'),
+          decoration: const InputDecoration(
+            labelText: 'Admin username',
+            hintText: 'admin',
+          ),
           onSubmitted: (_) => _continueFromAdminStep(),
         ),
         const SizedBox(height: 14),
         TextField(
           controller: _passwordCtrl,
           obscureText: true,
-          decoration: const InputDecoration(labelText: 'Password', hintText: 'at least 8 characters'),
+          decoration: const InputDecoration(
+            labelText: 'Password',
+            hintText: 'at least 8 characters',
+          ),
           onSubmitted: (_) => _continueFromAdminStep(),
         ),
         const SizedBox(height: 14),
@@ -246,7 +325,10 @@ class _SetupScreenState extends State<SetupScreen> {
           onSubmitted: (_) => _continueFromAdminStep(),
         ),
         const SizedBox(height: 20),
-        FilledButton(onPressed: _continueFromAdminStep, child: const Text('Continue')),
+        FilledButton(
+          onPressed: _continueFromAdminStep,
+          child: const Text('Continue'),
+        ),
       ],
     );
   }
@@ -264,7 +346,10 @@ class _SetupScreenState extends State<SetupScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Text('First application', style: Theme.of(context).textTheme.titleLarge),
+            Text(
+              'First application',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const SizedBox(width: 8),
             const _OptionalTag(),
           ],
@@ -282,12 +367,18 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
         TextField(
           controller: _appNameCtrl,
-          decoration: const InputDecoration(labelText: 'Application name', hintText: 'My App'),
+          decoration: const InputDecoration(
+            labelText: 'Application name',
+            hintText: 'My App',
+          ),
         ),
         const SizedBox(height: 14),
         TextField(
           controller: _appRedirectCtrl,
-          decoration: const InputDecoration(labelText: 'Redirect URI', hintText: 'https://app.example.com/callback'),
+          decoration: const InputDecoration(
+            labelText: 'Redirect URI',
+            hintText: 'https://app.example.com/callback',
+          ),
         ),
         const SizedBox(height: 20),
         Row(
@@ -324,7 +415,11 @@ class _SetupScreenState extends State<SetupScreen> {
       children: [
         const _Logo(),
         const SizedBox(height: 12),
-        Text('Setup complete', style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          'Setup complete',
+          style: Theme.of(context).textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 14),
         const _SuccessBox(text: 'Your administrator account is ready.'),
         const SizedBox(height: 6),
@@ -336,7 +431,10 @@ class _SetupScreenState extends State<SetupScreen> {
                 const TextSpan(text: 'Admin username: '),
                 TextSpan(
                   text: _createdAdminName ?? '',
-                  style: const TextStyle(color: Color(0xFF93C5FD), fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Color(0xFF93C5FD),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -350,12 +448,17 @@ class _SetupScreenState extends State<SetupScreen> {
               children: [
                 RichText(
                   text: TextSpan(
-                    style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
+                    style: DefaultTextStyle.of(
+                      context,
+                    ).style.copyWith(fontSize: 13),
                     children: [
                       const TextSpan(text: 'Application client_id: '),
                       TextSpan(
                         text: _createdClientId,
-                        style: const TextStyle(color: Color(0xFF93C5FD), fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Color(0xFF93C5FD),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -363,12 +466,17 @@ class _SetupScreenState extends State<SetupScreen> {
                 const SizedBox(height: 4),
                 RichText(
                   text: TextSpan(
-                    style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
+                    style: DefaultTextStyle.of(
+                      context,
+                    ).style.copyWith(fontSize: 13),
                     children: [
                       const TextSpan(text: 'Application client_secret: '),
                       TextSpan(
                         text: _createdClientSecret ?? '',
-                        style: const TextStyle(color: Color(0xFF93C5FD), fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Color(0xFF93C5FD),
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -383,7 +491,10 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
         ],
         const SizedBox(height: 14),
-        FilledButton(onPressed: _goToAdminConsole, child: const Text('Go to admin console')),
+        FilledButton(
+          onPressed: _goToAdminConsole,
+          child: const Text('Go to admin console'),
+        ),
       ],
     );
   }
@@ -419,13 +530,13 @@ class _StepDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget dot(bool on) => Container(
-          width: 34,
-          height: 4,
-          decoration: BoxDecoration(
-            color: on ? const Color(0xFF6366F1) : const Color(0xFF334155),
-            borderRadius: BorderRadius.circular(3),
-          ),
-        );
+      width: 34,
+      height: 4,
+      decoration: BoxDecoration(
+        color: on ? const Color(0xFF6366F1) : const Color(0xFF334155),
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -445,8 +556,14 @@ class _OptionalTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      decoration: BoxDecoration(color: const Color(0xFF3730A3), borderRadius: BorderRadius.circular(6)),
-      child: const Text('optional', style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 11)),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3730A3),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        'optional',
+        style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 11),
+      ),
     );
   }
 }
@@ -466,7 +583,10 @@ class _ErrorBox extends StatelessWidget {
         border: Border.all(color: const Color(0xFFB91C1C)),
         borderRadius: BorderRadius.circular(9),
       ),
-      child: Text(text, style: const TextStyle(color: Color(0xFFFECACA), fontSize: 13)),
+      child: Text(
+        text,
+        style: const TextStyle(color: Color(0xFFFECACA), fontSize: 13),
+      ),
     );
   }
 }
@@ -486,7 +606,10 @@ class _SuccessBox extends StatelessWidget {
         border: Border.all(color: const Color(0xFF059669)),
         borderRadius: BorderRadius.circular(9),
       ),
-      child: Text(text, style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 14)),
+      child: Text(
+        text,
+        style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 14),
+      ),
     );
   }
 }

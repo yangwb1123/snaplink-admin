@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'organization_admin_tab.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
@@ -25,6 +27,8 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   String? _msg;
   bool _ok = false;
   bool _accepting = false;
+  String? _leavingTenantId;
+  String? _managedTenantId;
 
   @override
   void initState() {
@@ -66,8 +70,58 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   }
 
   Future<void> _leave(String tenantId) async {
-    await widget.api.delete('/me/organizations/${Uri.encodeComponent(tenantId)}');
-    _load();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave organization?'),
+        content: Text(
+          'You will lose access to $tenantId and its organization resources until an administrator invites you again.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() {
+      _leavingTenantId = tenantId;
+      _msg = null;
+    });
+    try {
+      final response = await widget.api.delete(
+        '/me/organizations/${Uri.encodeComponent(tenantId)}',
+      );
+      if (!mounted) return;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        setState(() {
+          _msg = 'You have left the organization.';
+          _ok = true;
+        });
+        await _load();
+      } else {
+        setState(() {
+          _msg = 'Could not leave the organization.';
+          _ok = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _msg = 'Could not leave the organization.';
+          _ok = false;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _leavingTenantId = null);
+    }
   }
 
   Future<void> _acceptInvite() async {
@@ -84,7 +138,9 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
       _msg = null;
     });
     try {
-      final r = await widget.api.post('/me/invitations/accept', {'token': token});
+      final r = await widget.api.post('/me/invitations/accept', {
+        'token': token,
+      });
       if (r.statusCode == 404) {
         setState(() {
           _msg = 'Invitations are not enabled.';
@@ -115,6 +171,14 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final managedTenantId = _managedTenantId;
+    if (managedTenantId != null) {
+      return OrganizationAdminPanel(
+        api: widget.api,
+        tenantId: managedTenantId,
+        onClose: () => setState(() => _managedTenantId = null),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -122,7 +186,10 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Organizations', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Organizations',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
               IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
             ],
@@ -135,18 +202,28 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
                     if (!_available)
-                      const EmptyHint('Organizations are not available for this account.')
+                      const EmptyHint(
+                        'Organizations are not available for this account.',
+                      )
                     else if (_orgs.isEmpty)
-                      const EmptyHint('You are not a member of any organization.')
+                      const EmptyHint(
+                        'You are not a member of any organization.',
+                      )
                     else
-                      for (final raw in _orgs) _orgTile(raw as Map<String, dynamic>),
+                      for (final raw in _orgs)
+                        _orgTile(raw as Map<String, dynamic>),
                     if (_available) ...[
                       const SizedBox(height: 20),
-                      Text('Accept an invitation', style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Accept an invitation',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 10),
                       TextField(
                         controller: _inviteCtrl,
-                        decoration: const InputDecoration(labelText: 'Invitation token'),
+                        decoration: const InputDecoration(
+                          labelText: 'Invitation token',
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Align(
@@ -154,7 +231,13 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                         child: FilledButton(
                           onPressed: _accepting ? null : _acceptInvite,
                           child: _accepting
-                              ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  height: 16,
+                                  width: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Text('Join organization'),
                         ),
                       ),
@@ -169,13 +252,33 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
 
   Widget _orgTile(Map<String, dynamic> o) {
     final tenantId = o['tenant_id']?.toString() ?? '';
+    final role = o['role']?.toString() ?? 'member';
+    final canManage = role == 'admin' && tenantId.isNotEmpty;
     return ListTile(
       title: Text(tenantId),
-      subtitle: Text(o['role']?.toString() ?? 'member'),
-      trailing: TextButton(
-        onPressed: () => _leave(tenantId),
-        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-        child: const Text('Leave'),
+      subtitle: Text(role),
+      trailing: Wrap(
+        spacing: 4,
+        children: [
+          if (canManage)
+            TextButton(
+              onPressed: () => setState(() => _managedTenantId = tenantId),
+              child: const Text('Manage'),
+            ),
+          TextButton(
+            onPressed: tenantId.isEmpty || _leavingTenantId != null
+                ? null
+                : () => _leave(tenantId),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: _leavingTenantId == tenantId
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Leave'),
+          ),
+        ],
       ),
     );
   }

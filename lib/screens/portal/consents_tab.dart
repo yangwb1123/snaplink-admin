@@ -14,9 +14,19 @@ class ConsentsTab extends StatefulWidget {
 
 class _ConsentsTabState extends State<ConsentsTab> {
   late Future<List<dynamic>> _future = _load();
+  String? _revokingClientId;
 
   Future<List<dynamic>> _load() async {
     final r = await widget.api.get('/consents/me');
+    if (r.statusCode == 401) {
+      throw PortalApiError(r.statusCode, 'Your session has expired.');
+    }
+    if (r.statusCode != 200) {
+      throw PortalApiError(
+        r.statusCode,
+        'Connected applications are not available.',
+      );
+    }
     final d = PortalApi.decode(r);
     return (d['consents'] as List?) ?? const [];
   }
@@ -24,8 +34,46 @@ class _ConsentsTabState extends State<ConsentsTab> {
   void _reload() => setState(() => _future = _load());
 
   Future<void> _revoke(String clientId) async {
-    await widget.api.delete('/consents/me/${Uri.encodeComponent(clientId)}');
-    _reload();
+    if (clientId.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revoke application access?'),
+        content: Text(
+          '$clientId will no longer be able to use the permissions you granted. You can authorize it again later.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Revoke'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _revokingClientId = clientId);
+    try {
+      final response = await widget.api.delete(
+        '/consents/me/${Uri.encodeComponent(clientId)}',
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw PortalApiError(response.statusCode);
+      }
+      _reload();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not revoke application access.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _revokingClientId = null);
+    }
   }
 
   @override
@@ -37,7 +85,10 @@ class _ConsentsTabState extends State<ConsentsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Connected applications', style: Theme.of(context).textTheme.headlineSmall),
+              Text(
+                'Connected applications',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
               const Spacer(),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
             ],
@@ -55,7 +106,9 @@ class _ConsentsTabState extends State<ConsentsTab> {
               }
               final items = snap.data ?? const [];
               if (items.isEmpty) {
-                return const Center(child: EmptyHint('No connected applications.'));
+                return const Center(
+                  child: EmptyHint('No connected applications.'),
+                );
               }
               return ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -69,9 +122,20 @@ class _ConsentsTabState extends State<ConsentsTab> {
                     title: Text(clientId),
                     subtitle: scopes.isEmpty ? null : Text(scopes),
                     trailing: TextButton(
-                      onPressed: () => _revoke(clientId),
-                      style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                      child: const Text('Revoke'),
+                      onPressed:
+                          _revokingClientId == null && clientId.isNotEmpty
+                          ? () => _revoke(clientId)
+                          : null,
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.redAccent,
+                      ),
+                      child: _revokingClientId == clientId
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Revoke'),
                     ),
                   );
                 },
