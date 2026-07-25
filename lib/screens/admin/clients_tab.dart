@@ -46,7 +46,7 @@ class _ClientsTabState extends State<ClientsTab> {
       final client = await widget.client.getClient(id);
       if (!mounted) return;
       await _openEditDialog(client);
-    } catch (_) {}
+    } catch (e) { debugPrint("clients_tab edit error: \$e"); }
     if (mounted) AdminRoute.go('clients');
   }
   @override

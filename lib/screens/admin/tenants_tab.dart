@@ -47,7 +47,7 @@ class _TenantsTabState extends State<TenantsTab> {
       final tenant = await widget.client.getTenant(id);
       if (!mounted) return;
       await _openForm(existing: tenant);
-    } catch (_) {}
+    } catch (e) { debugPrint("tenants_tab edit error: \$e"); }
     if (mounted) AdminRoute.go('tenants');
   }
 

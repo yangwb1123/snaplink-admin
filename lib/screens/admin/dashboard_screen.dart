@@ -179,6 +179,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       await _api.post('/api/v1/admin/logout');
     } catch (_) {
+      // Logout is best-effort; ignore errors
     }
     _localLogout();
   }

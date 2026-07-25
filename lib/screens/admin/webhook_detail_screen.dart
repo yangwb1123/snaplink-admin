@@ -55,7 +55,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       try {
         final d = await widget.api.get('/api/v1/admin/webhooks/subscriptions/$sid/deadletters');
         dead = (d as Map<String, dynamic>?)?.values.first as List? ?? [];
-      } catch (_) {}
+      } catch (e) { debugPrint("webhook dead letters error: \$e"); }
       if (!mounted) return;
       setState(() {
         _sub = sub as Map<String, dynamic>?;

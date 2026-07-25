@@ -142,7 +142,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       if (out.data['connection_required'] == true && cid.isNotEmpty) { _signInWithFederated(cid); return; }
       final ps = out.data['providers'];
       if (ps is List && ps.isNotEmpty) setState(() { _providers = ps.map((e) => (e as Map)['id']?.toString() ?? e.toString()).toList(); if (!_providers.contains(_provider)) _provider = _providers.first; });
-    } catch (_) {}
+    } catch (_) {
+          // Provider lookup is best-effort
+        }
   }
   Future<void> _loadBranding() async {
     try {

@@ -55,7 +55,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       final result = await widget.api.get(
         '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}');
       return result as Map<String, dynamic>?;
-    } catch (_) {}
+    } catch (e) { debugPrint("break_glass fetch error: \$e"); }
     // Fallback: scan sessions list
     try {
       final list = await widget.api.get('/api/v1/admin/break-glass');

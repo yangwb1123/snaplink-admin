@@ -239,7 +239,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Consent revoked')));
       _load();
-    } catch (_) {}
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: \$e"))); }
     finally { if (mounted) setState(() => _mutating = false); }
   }
 

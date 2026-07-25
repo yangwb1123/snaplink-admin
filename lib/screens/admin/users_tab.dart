@@ -46,7 +46,7 @@ class _UsersTabState extends State<UsersTab> {
       final user = await widget.client.getUser(id);
       if (!mounted) return;
       await _openEditDialog(user);
-    } catch (_) {}
+    } catch (e) { debugPrint("users_tab edit error: \$e"); }
     if (mounted) AdminRoute.go('users');
   }
 

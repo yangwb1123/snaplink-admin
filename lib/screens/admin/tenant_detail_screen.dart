@@ -239,7 +239,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Removed $userId')));
       _load();
-    } catch (_) {}
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("\$e"))); }
   }
 
   Widget _invitationsList(BuildContext context) => ListView(
