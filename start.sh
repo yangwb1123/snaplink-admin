@@ -37,7 +37,7 @@ fi
 touch /tmp/sso-console-proxy.log
 
 # Start proxy in background with auto-restart
-python3 tools/proxy_spa.py &
+python3 tools/robust_proxy.py &
 PID=$!
 echo "📋 Proxy PID: $PID"
 echo "    Logs: /tmp/sso-console-proxy.log"
