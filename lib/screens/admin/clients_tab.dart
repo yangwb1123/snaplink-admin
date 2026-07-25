@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
 class ClientsTab extends StatefulWidget {
@@ -304,7 +305,13 @@ class _ClientsTabState extends State<ClientsTab> {
                 children: [
                   Expanded(
                     child: items.isEmpty
-                        ? const Center(child: Text('No clients'))
+                        ? EmptyState(
+                            icon: Icons.apps,
+                            title: 'No clients',
+                            subtitle: 'Create your first client to get started.',
+                            actionLabel: 'Create client',
+                            onAction: () => AdminRoute.go('clients', action: 'new'),
+                          )
                         : ListView.separated(
                             itemCount: items.length,
                             separatorBuilder: (_, _) =>

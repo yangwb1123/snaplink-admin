@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_route.dart';
 import 'user_form_dialog.dart';
 
@@ -243,7 +244,13 @@ class _UsersTabState extends State<UsersTab> {
                 children: [
                   Expanded(
                     child: items.isEmpty
-                        ? const Center(child: Text('No users'))
+                        ? EmptyState(
+                            icon: Icons.person,
+                            title: 'No users',
+                            subtitle: 'No users match the current filter.',
+                            actionLabel: 'Create user',
+                            onAction: () => AdminRoute.go('users', action: 'new'),
+                          )
                         : ListView.separated(
                             itemCount: items.length,
                             separatorBuilder: (_, _) =>
