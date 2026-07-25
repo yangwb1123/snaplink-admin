@@ -1,53 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 import 'setup_api.dart';
-
+import 'setup_widgets.dart';
 /// Mirrors the five views of interfaces/web/setup/{index.html,app.js}:
 /// loading -> (alreadyInitialized | admin -> app -> done).
 enum _Step { loading, unavailable, alreadyInitialized, admin, app, done }
-
 /// First-run setup wizard: checks `GET /api/v1/setup/status` and, if the
 /// deployment is fresh, walks the operator through creating the first admin
 /// account and (optionally) a first OAuth client via a single
 /// `POST /api/v1/setup`. Faithful port of interfaces/web/setup/app.js.
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});
-
   @override
   State<SetupScreen> createState() => _SetupScreenState();
 }
-
 class _SetupScreenState extends State<SetupScreen> {
   final SetupApi _api = SetupApi();
-
   _Step _step = _Step.loading;
-
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _password2Ctrl = TextEditingController();
   final _appNameCtrl = TextEditingController();
   final _appRedirectCtrl = TextEditingController();
-
   String? _adminError;
   String? _appError;
   String? _unavailableMessage;
   bool _submitting = false;
-
   // Captured at the end of step 1, POSTed once together with the optional
   // application at the end of step 2 — app.js keeps this in a single
   // module-level `admin` variable and does one fetch, in `finish()`.
   SetupAdmin? _pendingAdmin;
-
   String? _createdAdminName;
   String? _createdClientId;
   String? _createdClientSecret;
-
   @override
   void initState() {
     super.initState();
     _checkStatus();
   }
-
   @override
   void dispose() {
     _usernameCtrl.dispose();
@@ -57,7 +47,6 @@ class _SetupScreenState extends State<SetupScreen> {
     _appRedirectCtrl.dispose();
     super.dispose();
   }
-
   Future<void> _checkStatus() async {
     setState(() {
       _step = _Step.loading;
@@ -84,7 +73,6 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     }
   }
-
   // Step 1: client-side validation only (no network call) — identical
   // ordering to app.js's admin-form submit handler.
   void _continueFromAdminStep() {
@@ -107,7 +95,6 @@ class _SetupScreenState extends State<SetupScreen> {
     _pendingAdmin = SetupAdmin(username: u, password: p);
     setState(() => _step = _Step.app);
   }
-
   Future<void> _submitAppStep() async {
     final name = _appNameCtrl.text.trim();
     final redirect = _appRedirectCtrl.text.trim();
@@ -124,9 +111,7 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
     );
   }
-
   Future<void> _skip() => _finish(null);
-
   Future<void> _finish(SetupApplication? application) async {
     setState(() {
       _appError = null;
@@ -159,7 +144,6 @@ class _SetupScreenState extends State<SetupScreen> {
       if (mounted) setState(() => _submitting = false);
     }
   }
-
   // The JS's "Go to admin console" is a plain `<a href="../admin/">` — a
   // real navigation, matching every other transition in the unified auth
   // flow (AdminGateScreen will redirect to /login/ itself, since there's no
@@ -167,7 +151,6 @@ class _SetupScreenState extends State<SetupScreen> {
   void _goToAdminConsole() {
     web.window.location.href = '/admin/';
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -187,7 +170,6 @@ class _SetupScreenState extends State<SetupScreen> {
       ),
     );
   }
-
   Widget _buildStep(BuildContext context) {
     switch (_step) {
       case _Step.loading:
@@ -204,12 +186,11 @@ class _SetupScreenState extends State<SetupScreen> {
         return _buildDone(context);
     }
   }
-
   Widget _buildLoading(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const _Logo(),
+        const SetupLogo(),
         const SizedBox(height: 12),
         Text(
           'Setup',
@@ -225,13 +206,12 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
   Widget _buildAlready(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Logo(),
+        const SetupLogo(),
         const SizedBox(height: 12),
         Text(
           'Already set up',
@@ -239,7 +219,7 @@ class _SetupScreenState extends State<SetupScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 14),
-        const _SuccessBox(text: 'This system has already been initialized.'),
+        SetupSuccessBox(text: 'This system has already been initialized.'),
         const SizedBox(height: 6),
         FilledButton(
           onPressed: _goToAdminConsole,
@@ -248,13 +228,12 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
   Widget _buildUnavailable(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Logo(),
+        const SetupLogo(),
         const SizedBox(height: 12),
         Text(
           'Setup unavailable',
@@ -262,7 +241,7 @@ class _SetupScreenState extends State<SetupScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 14),
-        _ErrorBox(text: _unavailableMessage ?? 'Setup is not available.'),
+        SetupErrorBox(text: _unavailableMessage ?? 'Setup is not available.'),
         const SizedBox(height: 12),
         OutlinedButton(onPressed: _checkStatus, child: const Text('Retry')),
         FilledButton(
@@ -272,15 +251,14 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
   Widget _buildAdminForm(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Logo(),
+        const SetupLogo(),
         const SizedBox(height: 12),
-        const _StepDots(activeCount: 1),
+        SetupStepDots(activeCount: 1),
         const SizedBox(height: 14),
         Text(
           'Create administrator',
@@ -295,7 +273,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 18),
         if (_adminError != null) ...[
-          _ErrorBox(text: _adminError!),
+          SetupErrorBox(text: _adminError!),
           const SizedBox(height: 14),
         ],
         TextField(
@@ -332,15 +310,14 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
   Widget _buildAppForm(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Logo(),
+        const SetupLogo(),
         const SizedBox(height: 12),
-        const _StepDots(activeCount: 2),
+        SetupStepDots(activeCount: 2),
         const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -351,7 +328,7 @@ class _SetupScreenState extends State<SetupScreen> {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(width: 8),
-            const _OptionalTag(),
+            const SetupOptionalTag(),
           ],
         ),
         const SizedBox(height: 6),
@@ -362,7 +339,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 18),
         if (_appError != null) ...[
-          _ErrorBox(text: _appError!),
+          SetupErrorBox(text: _appError!),
           const SizedBox(height: 14),
         ],
         TextField(
@@ -407,229 +384,8 @@ class _SetupScreenState extends State<SetupScreen> {
       ],
     );
   }
-
-  Widget _buildDone(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _Logo(),
-        const SizedBox(height: 12),
-        Text(
-          'Setup complete',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 14),
-        const _SuccessBox(text: 'Your administrator account is ready.'),
-        const SizedBox(height: 6),
-        _CredBox(
-          child: RichText(
-            text: TextSpan(
-              style: DefaultTextStyle.of(context).style.copyWith(fontSize: 13),
-              children: [
-                const TextSpan(text: 'Admin username: '),
-                TextSpan(
-                  text: _createdAdminName ?? '',
-                  style: const TextStyle(
-                    color: Color(0xFF93C5FD),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_createdClientId != null) ...[
-          const SizedBox(height: 12),
-          _CredBox(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    style: DefaultTextStyle.of(
-                      context,
-                    ).style.copyWith(fontSize: 13),
-                    children: [
-                      const TextSpan(text: 'Application client_id: '),
-                      TextSpan(
-                        text: _createdClientId,
-                        style: const TextStyle(
-                          color: Color(0xFF93C5FD),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                RichText(
-                  text: TextSpan(
-                    style: DefaultTextStyle.of(
-                      context,
-                    ).style.copyWith(fontSize: 13),
-                    children: [
-                      const TextSpan(text: 'Application client_secret: '),
-                      TextSpan(
-                        text: _createdClientSecret ?? '',
-                        style: const TextStyle(
-                          color: Color(0xFF93C5FD),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Copy the client secret now - it is not shown again.',
-                  style: TextStyle(color: Color(0xFFFCD34D), fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 14),
-        FilledButton(
-          onPressed: _goToAdminConsole,
-          child: const Text('Go to admin console'),
-        ),
-      ],
-    );
-  }
-}
-
-/// Centered brand mark, standing in for the JS's SVG/img logo slot. Dynamic
-/// white-label branding (`../branding` fetch: custom logo/color/title in
-/// app.js) is app-wide theming, out of scope for this single-screen port —
-/// left as a gap for whichever piece owns global theme/branding.
-class _Logo extends StatelessWidget {
-  const _Logo();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: const Color(0xFF6366F1),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: const Icon(Icons.vpn_key, color: Colors.white, size: 24),
-    );
-  }
-}
-
-/// Step-progress dots (`#steps .step`): two 34x4 bars, filled left-to-right
-/// as the operator advances — 1 lit on the admin step, both on the app step.
-class _StepDots extends StatelessWidget {
-  final int activeCount;
-  const _StepDots({required this.activeCount});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget dot(bool on) => Container(
-      width: 34,
-      height: 4,
-      decoration: BoxDecoration(
-        color: on ? const Color(0xFF6366F1) : const Color(0xFF334155),
-        borderRadius: BorderRadius.circular(3),
-      ),
-    );
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        dot(activeCount >= 1),
-        const SizedBox(width: 8),
-        dot(activeCount >= 2),
-      ],
-    );
-  }
-}
-
-/// `.tag` pill next to "First application".
-class _OptionalTag extends StatelessWidget {
-  const _OptionalTag();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      decoration: BoxDecoration(
-        color: const Color(0xFF3730A3),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: const Text(
-        'optional',
-        style: TextStyle(color: Color(0xFFC7D2FE), fontSize: 11),
-      ),
-    );
-  }
-}
-
-/// `.error-box.visible`.
-class _ErrorBox extends StatelessWidget {
-  final String text;
-  const _ErrorBox({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF7F1D1D),
-        border: Border.all(color: const Color(0xFFB91C1C)),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Color(0xFFFECACA), fontSize: 13),
-      ),
-    );
-  }
-}
-
-/// `.success-box.visible`.
-class _SuccessBox extends StatelessWidget {
-  final String text;
-  const _SuccessBox({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: const Color(0xFF064E3B),
-        border: Border.all(color: const Color(0xFF059669)),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(color: Color(0xFFA7F3D0), fontSize: 14),
-      ),
-    );
-  }
-}
-
-/// `.cred` box used on the done view for the created-credentials summary.
-class _CredBox extends StatelessWidget {
-  final Widget child;
-  const _CredBox({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        border: Border.all(color: const Color(0xFF334155)),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      child: child,
-    );
-  }
+    Widget _buildDone(BuildContext context) => SetupDonePanel(
+    config: _createdAdminName != null ? {'issuer': _createdAdminName} : null, clientId: _createdClientId, clientSecret: _createdClientSecret,
+    onDone: () => web.window.location.replace('/admin/'),
+  );
 }

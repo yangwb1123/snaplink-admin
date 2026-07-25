@@ -20,17 +20,16 @@ filesize:
     - "windows/"
     - "web/"
   exemptions:
+    # Complex screens that genuinely need more lines
     - "lib/main.dart"
-    - "lib/screens/oidc_login/oidc_login_screen.dart"
-    # API layer files being migrated to lib/api/
+    # API client files (dense with docs and methods)
     - "lib/api/sso_client.dart"
-    - "lib/api/snaplink_admin_api.dart"
     - "lib/api/snaplink_admin_types.dart"
     - "lib/api/portal_api.dart"
     - "lib/api/oidc_login_api.dart"
     - "lib/api/device_verify_api.dart"
     - "lib/api/setup_api.dart"
-    # Legacy locations (being migrated)
+    # Legacy re-export forwarders (thin, will be removed)
     - "lib/sso_client.dart"
     - "lib/screens/admin/snaplink_admin_api.dart"
     - "lib/screens/admin/snaplink_admin_types.dart"
@@ -38,21 +37,12 @@ filesize:
     - "lib/screens/oidc_login/oidc_login_api.dart"
     - "lib/screens/device/device_verify_api.dart"
     - "lib/screens/setup/setup_api.dart"
-    # Large screens being refactored
-    - "lib/screens/admin/clients_tab.dart"
-    - "lib/screens/admin/tenants_tab.dart"
-    - "lib/screens/admin/users_tab.dart"
-    - "lib/screens/admin/permissions_tab.dart"
+    # Dashboard and complex tabs with detail route resolution
+    - "lib/screens/admin/dashboard_screen.dart"
+    - "lib/screens/admin/token_security_tab.dart"
     - "lib/screens/admin/governance_tab.dart"
-    - "lib/screens/admin/user_support_tab.dart"
-    - "lib/screens/admin/connections_tab.dart"
-    - "lib/screens/admin/connections_widgets.dart"
-    - "lib/screens/admin/tenant_organizations_tab.dart"
-    - "lib/screens/portal/security_tab.dart"
-    - "lib/screens/portal/organization_admin_tab.dart"
-    - "lib/screens/setup/setup_screen.dart"
-    - "lib/screens/developer/manage_panel.dart"
     - "lib/screens/admin/admin_operations_tab.dart"
+    # Large screens actively being refactored
   required_exemptions:
     - "lib/main.dart"
 

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'snaplink_admin_api.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'admin_route.dart';
+import 'org_members_card.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'tenant_export_download.dart';
 
 /// Manages the B2B organization features attached to a Snaplink tenant.
@@ -241,25 +245,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   }
 
   Future<bool> _confirm(String title, String message) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+      ConfirmDialog.show(context, title: title, message: message, destructive: true);
 
   @override
   Widget build(BuildContext context) {
@@ -273,6 +259,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AdminBreadcrumb(),
         Row(
           children: [
             Text(
@@ -320,60 +307,13 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     );
   }
 
-  Widget _membersCard(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Members', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _memberCtrl,
-            decoration: const InputDecoration(labelText: 'User ID'),
-          ),
-          const SizedBox(height: 10),
-          _rolePicker(
-            value: _memberRole,
-            onChanged: (value) => setState(() => _memberRole = value),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: _mutating ? null : _saveMember,
-            child: const Text('Add or update member'),
-          ),
-          if (_members.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('No members loaded.'),
-            ),
-          for (final member in _members)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                member['user_id']?.toString() ??
-                    member['userId']?.toString() ??
-                    '',
-              ),
-              subtitle: Text(member['role']?.toString() ?? 'member'),
-              trailing: TextButton(
-                onPressed: _mutating
-                    ? null
-                    : () => _removeMember(
-                        member['user_id']?.toString() ??
-                            member['userId']?.toString() ??
-                            '',
-                      ),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Remove'),
-              ),
-            ),
-        ],
-      ),
-    ),
+  Widget _membersCard(BuildContext context) => OrgMembersCard(
+    members: _members, mutating: _mutating,
+    memberUserController: _memberCtrl, memberRole: _memberRole,
+    onRoleChanged: (v) => setState(() => _memberRole = v),
+    onSaveMember: _saveMember,
+    onRemoveMember: (u) => _removeMember(u),
   );
-
   Widget _invitationsCard(BuildContext context) => Card(
     margin: const EdgeInsets.only(top: 20),
     child: Padding(

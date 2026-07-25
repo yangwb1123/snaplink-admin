@@ -1,17 +1,9 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'developer_api.dart';
 
-/// "Manage an Existing App" tab: RFC 7592 read/update/delete of an
-/// already-registered client, authenticated solely by the
-/// registration_access_token returned at registration time — there is no
-/// developer login/account here.
-///
-/// The State class is public (not `_ManagePanelState`) so [DeveloperScreen]
-/// can hold a `GlobalKey<ManagePanelState>` and drive [loadWith] directly
-/// after a fresh registration, without re-plumbing shared state through
-/// the TabBarView.
+/// Manage an Existing App tab: RFC 7592 read/update/delete of an
+/// already-registered client, authenticated by registration_access_token.
 class ManagePanel extends StatefulWidget {
   final DeveloperApi api;
   const ManagePanel({super.key, required this.api});

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-
-import 'snaplink_admin_api.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'admin_route.dart';
+import 'user_support_cards.dart';
 
 /// Helpdesk controls for a Snaplink user account.
 ///
@@ -77,6 +79,8 @@ class _UserSupportTabState extends State<UserSupportTab> {
         'passwordReset': widget.api.get(_userPath('/password-reset-tokens')),
       if (_has('users/:id/email-change-tokens'))
         'emailChange': widget.api.get(_userPath('/email-change-tokens')),
+      if (_has('users/:id/account-lockout'))
+        'accountLockout': widget.api.get(_userPath('/account-lockout')),
     };
     final entries = await Future.wait(
       requests.entries.map((entry) async {
@@ -165,6 +169,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AdminBreadcrumb(),
         Row(
           children: [
             Text(
@@ -215,263 +220,158 @@ class _UserSupportTabState extends State<UserSupportTab> {
 
   Widget _sessionsCard(BuildContext context) {
     final sessions = _list('sessions', 'sessions');
-    return _card(
-      context,
-      'Active sessions',
-      sessions.isEmpty
-          ? const [Text('No active sessions.')]
-          : sessions
-                .map(
-                  (session) => ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(session['id']?.toString() ?? ''),
-                    subtitle: Text(
-                      '${session['ip'] ?? ''} ${session['user_agent'] ?? ''}'
-                          .trim(),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-    );
+    return SessionsCard(sessions: sessions);
   }
 
   Widget _consentsCard(BuildContext context) {
     final consents = _list('consents', 'consents');
-    return _card(context, 'Application consents', [
-      if (consents.isEmpty) const Text('No grants found.'),
-      for (final consent in consents)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(consent['client_id']?.toString() ?? ''),
-          subtitle: Text((consent['scopes'] as List? ?? const []).join(' ')),
-          trailing: TextButton(
-            onPressed: _mutating
-                ? null
-                : () => _mutate(
-                    'Revoke consent?',
-                    'Remove this application grant for ${_userId!}?',
-                    () => widget.api.delete(
-                      '${_userPath('/consents')}/${Uri.encodeComponent(consent['client_id'].toString())}',
-                    ),
-                    success: 'Consent revoked.',
-                  ),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Revoke'),
-          ),
+    return ConsentsCard(
+      consents: consents,
+      userId: _userId ?? '',
+      mutating: _mutating,
+      onRevoke: (clientId) => _mutate(
+        'Revoke consent?',
+        'Remove this application grant for ${_userId!}?',
+        () => widget.api.delete(
+          '${_userPath('/consents')}/${Uri.encodeComponent(clientId)}',
         ),
-    ]);
+        success: 'Consent revoked.',
+      ),
+    );
   }
 
   Widget _mfaCard(BuildContext context) {
     final factors = _list('mfa', 'factors');
-    return _card(context, 'Second factors', [
-      if (factors.isEmpty) const Text('No registered factors.'),
-      for (final factor in factors)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            factor['label']?.toString() ?? factor['method']?.toString() ?? '',
-          ),
-          subtitle: Text(factor['method']?.toString() ?? ''),
-          trailing: TextButton(
-            onPressed: _mutating
-                ? null
-                : () => _mutate(
-                    'Remove second factor?',
-                    'The user will no longer be able to use this factor.',
-                    () => widget.api.delete(
-                      '${_userPath('/mfa')}/${Uri.encodeComponent(factor['id'].toString())}',
-                    ),
-                    success: 'Second factor removed.',
-                  ),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Remove'),
-          ),
+    return MfaFactorsCard(
+      factors: factors,
+      mutating: _mutating,
+      canResetRecoveryCodes: _has('users/:id/mfa/recovery-codes'),
+      onRemove: (factorId) => _mutate(
+        'Remove second factor?',
+        'The user will no longer be able to use this factor.',
+        () => widget.api.delete(
+          '${_userPath('/mfa')}/${Uri.encodeComponent(factorId)}',
         ),
-      if (_has('users/:id/mfa/recovery-codes'))
-        OutlinedButton(
-          onPressed: _mutating
-              ? null
-              : () => _mutate(
-                  'Reset recovery codes?',
-                  'All remaining recovery codes will be invalidated. Codes are never shown to support staff.',
-                  () => widget.api.post(_userPath('/mfa/recovery-codes')),
-                ),
-          child: const Text('Reset recovery codes'),
-        ),
-    ]);
+        success: 'Second factor removed.',
+      ),
+      onResetRecoveryCodes: () => _mutate(
+        'Reset recovery codes?',
+        'All remaining recovery codes will be invalidated.',
+        () => widget.api.post(_userPath('/mfa/recovery-codes')),
+      ),
+    );
   }
 
   Widget _lifecycleCard(BuildContext context) {
     final lifecycle = _data['lifecycle'] ?? const <String, dynamic>{};
-    final allowed = (lifecycle['allowed_transitions'] as List? ?? const [])
-        .map((value) => value.toString())
-        .toList();
-    return _card(context, 'Account lifecycle', [
-      Text('Current state: ${lifecycle['state'] ?? 'active'}'),
-      const SizedBox(height: 10),
-      DropdownButtonFormField<String>(
-        initialValue: allowed.contains(_nextLifecycleState)
-            ? _nextLifecycleState
-            : null,
-        decoration: const InputDecoration(labelText: 'Transition to'),
-        items: allowed
-            .map((state) => DropdownMenuItem(value: state, child: Text(state)))
-            .toList(growable: false),
-        onChanged: _mutating
-            ? null
-            : (state) => setState(() => _nextLifecycleState = state),
+    return LifecycleCard(
+      lifecycleData: lifecycle,
+      mutating: _mutating,
+      nextState: _nextLifecycleState,
+      onStateChanged: (state) => setState(() => _nextLifecycleState = state),
+      reasonController: _reasonCtrl,
+      onApply: () => _mutate(
+        'Change lifecycle state?',
+        'Transition ${_userId!} to $_nextLifecycleState?',
+        () => widget.api.post(_userPath('/lifecycle'), {
+          'state': _nextLifecycleState,
+          'reason': _reasonCtrl.text.trim(),
+        }),
       ),
-      const SizedBox(height: 10),
-      TextField(
-        controller: _reasonCtrl,
-        decoration: const InputDecoration(
-          labelText: 'Reason / ticket reference',
-        ),
-      ),
-      const SizedBox(height: 10),
-      FilledButton(
-        onPressed: _mutating || _nextLifecycleState == null
-            ? null
-            : () => _mutate(
-                'Change lifecycle state?',
-                'Transition ${_userId!} to $_nextLifecycleState?',
-                () => widget.api.post(_userPath('/lifecycle'), {
-                  'state': _nextLifecycleState,
-                  'reason': _reasonCtrl.text.trim(),
-                }),
-              ),
-        child: const Text('Apply transition'),
-      ),
-    ]);
-  }
-
-  Widget _credentialRecoveryCard(BuildContext context) => _card(
-    context,
-    'Credential recovery and containment',
-    [
-      if (_data.containsKey('passwordReset'))
-        _recoveryStatus('Active password-reset links', _data['passwordReset']!),
-      if (_data.containsKey('emailChange'))
-        _recoveryStatus('Active email-change links', _data['emailChange']!),
-      if (_has('users/:id/password')) ...[
-        TextField(
-          controller: _passwordCtrl,
-          obscureText: true,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'New password'),
-        ),
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: _mutating || _passwordCtrl.text.isEmpty
-              ? null
-              : () => _mutate(
-                  'Set a new password?',
-                  'This immediately replaces the user password.',
-                  () => widget.api.post(_userPath('/password'), {
-                    'new_password': _passwordCtrl.text,
-                  }),
-                  success: 'Password reset.',
-                ),
-          child: const Text('Set password'),
-        ),
-      ],
-      if (_has('users/:id/email')) ...[
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailCtrl,
-          keyboardType: TextInputType.emailAddress,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(labelText: 'Replacement email'),
-        ),
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: _mutating || _emailCtrl.text.trim().isEmpty
-              ? null
-              : () => _mutate(
-                  'Force-set email?',
-                  'This bypasses the self-service email verification flow.',
-                  () => widget.api.post(_userPath('/email'), {
-                    'email': _emailCtrl.text.trim(),
-                  }),
-                ),
-          child: const Text('Set email'),
-        ),
-      ],
-      const SizedBox(height: 12),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: [
-          if (_has('users/:id/refresh-tokens'))
-            _dangerButton(
-              'Revoke all refresh tokens',
-              () => widget.api.delete(_userPath('/refresh-tokens')),
-            ),
-          if (_has('users/:id/device-secrets'))
-            _dangerButton(
-              'Revoke device secrets',
-              () => widget.api.delete(_userPath('/device-secrets')),
-            ),
-          if (_has('users/:id/password-reset-tokens'))
-            _dangerButton(
-              'Revoke password reset links',
-              () => widget.api.delete(_userPath('/password-reset-tokens')),
-            ),
-          if (_has('users/:id/email-change-tokens'))
-            _dangerButton(
-              'Revoke email change links',
-              () => widget.api.delete(_userPath('/email-change-tokens')),
-            ),
-        ],
-      ),
-    ],
-  );
-
-  Widget _recoveryStatus(String label, Map<String, dynamic> data) {
-    final records = data['tokens'] ?? data['links'] ?? data['items'];
-    final count =
-        data['total'] ??
-        data['count'] ??
-        (records is List ? records.length : 0);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text('$label: $count'),
     );
   }
 
-  Widget _dangerButton(
-    String label,
-    Future<Map<String, dynamic>> Function() request,
-  ) => OutlinedButton(
-    onPressed: _mutating
-        ? null
-        : () => _mutate(
-            '$label?',
+  Widget _credentialRecoveryCard(BuildContext context) {
+    final dangerActions = <DangerAction>[
+      if (_has('users/:id/refresh-tokens'))
+        DangerAction(
+          label: 'Revoke all refresh tokens',
+          confirmTitle: 'Revoke all refresh tokens?',
+          confirmMessage: 'This action is immediate and cannot be undone.',
+          onConfirmed: () => _mutate(
+            'Revoke all refresh tokens?',
             'This action is immediate and cannot be undone.',
-            request,
-            success: '$label completed.',
-          ),
-    style: OutlinedButton.styleFrom(
-      foregroundColor: Colors.redAccent,
-      side: const BorderSide(color: Colors.redAccent),
-    ),
-    child: Text(label),
-  );
-
-  Widget _card(BuildContext context, String title, List<Widget> children) =>
-      Card(
-        margin: const EdgeInsets.only(top: 20),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 10),
-              ...children,
-            ],
+            () => widget.api.delete(_userPath('/refresh-tokens')),
+            success: 'Refresh tokens revoked.',
           ),
         ),
-      );
+      if (_has('users/:id/device-secrets'))
+        DangerAction(
+          label: 'Revoke device secrets',
+          confirmTitle: 'Revoke device secrets?',
+          confirmMessage: 'This action is immediate and cannot be undone.',
+          onConfirmed: () => _mutate(
+            'Revoke device secrets?',
+            'This action is immediate and cannot be undone.',
+            () => widget.api.delete(_userPath('/device-secrets')),
+            success: 'Device secrets revoked.',
+          ),
+        ),
+      if (_has('users/:id/password-reset-tokens'))
+        DangerAction(
+          label: 'Revoke password reset links',
+          confirmTitle: 'Revoke password reset links?',
+          confirmMessage: 'This action is immediate and cannot be undone.',
+          onConfirmed: () => _mutate(
+            'Revoke password reset links?',
+            'This action is immediate and cannot be undone.',
+            () => widget.api.delete(_userPath('/password-reset-tokens')),
+            success: 'Password reset links revoked.',
+          ),
+        ),
+      if (_has('users/:id/email-change-tokens'))
+        DangerAction(
+          label: 'Revoke email change links',
+          confirmTitle: 'Revoke email change links?',
+          confirmMessage: 'This action is immediate and cannot be undone.',
+          onConfirmed: () => _mutate(
+            'Revoke email change links?',
+            'This action is immediate and cannot be undone.',
+            () => widget.api.delete(_userPath('/email-change-tokens')),
+            success: 'Email change links revoked.',
+          ),
+        ),
+      if (_has('users/:id/account-lockout'))
+        DangerAction(
+          label: 'Clear account lockout',
+          confirmTitle: 'Clear account lockout?',
+          confirmMessage: 'This will unlock the user account if it was locked due to failed login attempts.',
+          onConfirmed: () => _mutate(
+            'Clear account lockout?',
+            'Clear account lockout?',
+            () => widget.api.post('/api/v1/admin/account-lockout/clear', {'user_id': _userId}),
+            success: 'Account lockout cleared.',
+          ),
+        ),
+    ];
+    return CredentialRecoveryCard(
+      passwordResetData: _data['passwordReset'],
+      emailChangeData: _data['emailChange'],
+      mutating: _mutating,
+      canSetPassword: _has('users/:id/password'),
+      canSetEmail: _has('users/:id/email'),
+      passwordController: _passwordCtrl,
+      emailController: _emailCtrl,
+      onSetPassword: _passwordCtrl.text.isEmpty
+          ? null
+          : () => _mutate(
+              'Set a new password?',
+              'This immediately replaces the user password.',
+              () => widget.api.post(_userPath('/password'), {
+                'new_password': _passwordCtrl.text,
+              }),
+              success: 'Password reset.',
+            ),
+      onSetEmail: _emailCtrl.text.trim().isEmpty
+          ? null
+          : () => _mutate(
+              'Force-set email?',
+              'This bypasses the self-service email verification flow.',
+              () => widget.api.post(_userPath('/email'), {
+                'email': _emailCtrl.text.trim(),
+              }),
+            ),
+      dangerActions: dangerActions,
+    );
+  }
 }

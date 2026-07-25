@@ -1,29 +1,27 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-
 import 'connections_widgets.dart';
 import 'snaplink_admin_api.dart';
-
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'dart:js_interop';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:web/web.dart' as web;
+import 'admin_route.dart';
 /// Operates Snaplink enterprise connections for one tenant at a time.
-///
 /// Snaplink indexes connections by tenant, so this screen deliberately never
 /// offers a cross-tenant list. Mutations can change home-realm routing or make
 /// an outbound request, and therefore each requires an operator confirmation.
 class ConnectionsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
   const ConnectionsTab({
     super.key,
     required this.api,
     required this.capabilities,
   });
-
   @override
   State<ConnectionsTab> createState() => _ConnectionsTabState();
 }
-
 class _ConnectionsTabState extends State<ConnectionsTab> {
   static const _connectionsPath = '/api/v1/admin/connections';
   static const _connectionPath = '/api/v1/admin/connections/:id';
@@ -32,7 +30,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       '/api/v1/admin/connections/:id/domains/:domain/verify';
   static const _healthPath = '/api/v1/admin/connections/:id/health';
   static const _probePath = '/api/v1/admin/connections/:id/probe';
-
   final _tenantCtrl = TextEditingController();
   final _lookupCtrl = TextEditingController();
   final _idCtrl = TextEditingController();
@@ -40,7 +37,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   final _displayNameCtrl = TextEditingController();
   final _domainsCtrl = TextEditingController();
   final _configCtrl = TextEditingController(text: '{}');
-
   List<Map<String, dynamic>> _connections = const [];
   List<Map<String, dynamic>> _domainClaims = const [];
   Map<String, dynamic>? _connection;
@@ -52,22 +48,14 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   bool _mutating = false;
   bool _enabled = true;
   String _type = 'oidc';
-
   // The runtime inventory from older Snaplink replicas can contain just one
   // representative connection route. A wired connection store mounts the full
   // family together; individual requests remain authorized by the server.
   bool get _connectionFamilyAvailable =>
       widget.capabilities.hasAnyPathPrefix(_connectionsPath);
-
-  bool _supports(String method, String path) {
-    final documentedPath = path
-        .replaceAll(':id', '{id}')
-        .replaceAll(':domain', '{domain}');
-    return _connectionFamilyAvailable ||
-        widget.capabilities.has(method, path) ||
-        widget.capabilities.has(method, documentedPath);
-  }
-
+  bool _supports(String method, String path) => _connectionFamilyAvailable ||
+      widget.capabilities.has(method, path) ||
+      widget.capabilities.has(method, path.replaceAll(':id', '{id}').replaceAll(':domain', '{domain}'));
   bool get _canList => _supports('GET', _connectionsPath);
   bool get _canCreate => _supports('POST', _connectionsPath);
   bool get _canGet => _supports('GET', _connectionPath);
@@ -76,8 +64,20 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   bool get _canVerifyDomain => _supports('POST', _verifyDomainPath);
   bool get _canReadHealth => _supports('GET', _healthPath);
   bool get _canProbe => _supports('POST', _probePath);
+  @override
+  void initState() {
+    super.initState();
+    _handleRoute();
+    final p = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', p.toJS);
+  }
 
   @override
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'connections') return;
+    if (route.isNew) { _upsertConnection(); }
+  }
   void dispose() {
     _tenantCtrl.dispose();
     _lookupCtrl.dispose();
@@ -88,27 +88,11 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     _configCtrl.dispose();
     super.dispose();
   }
-
-  String _connectionRoute(String id) =>
-      '$_connectionsPath/${Uri.encodeComponent(id)}';
-
+  String _connectionRoute(String id) => '$_connectionsPath/${Uri.encodeComponent(id)}';
   String _domainsRoute(String id) => '${_connectionRoute(id)}/domains';
-
-  String _verifyDomainRoute(String id, String domain) =>
-      '${_domainsRoute(id)}/${Uri.encodeComponent(domain)}/verify';
-
+  String _verifyDomainRoute(String id, String domain) => '${_domainsRoute(id)}/${Uri.encodeComponent(domain)}/verify';
   String _healthRoute(String id) => '${_connectionRoute(id)}/health';
-
   String _probeRoute(String id) => '${_connectionRoute(id)}/probe';
-
-  List<Map<String, dynamic>> _maps(Object? value) {
-    if (value is! List) return const [];
-    return value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
-        .toList(growable: false);
-  }
-
   Future<void> _loadConnections() async {
     final tenantId = _tenantCtrl.text.trim();
     if (tenantId.isEmpty) {
@@ -116,15 +100,10 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       return;
     }
     if (!_canList) {
-      setState(
-        () => _error = 'Connection listing is not enabled on this replica.',
-      );
+      setState(() => _error = 'Connection listing is not enabled on this replica.');
       return;
     }
-    setState(() {
-      _loadingList = true;
-      _error = null;
-    });
+    setState(() { _loadingList = true; _error = null; });
     try {
       final data = await widget.api.get(
         _connectionsPath,
@@ -132,7 +111,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       );
       if (!mounted) return;
       setState(() {
-        _connections = _maps(data['connections']);
+        _connections = (data['connections'] as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? const [];
         _selectedId = null;
         _connection = null;
         _health = null;
@@ -146,7 +125,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       if (mounted) setState(() => _loadingList = false);
     }
   }
-
   Future<void> _loadSelected() async {
     final id = _lookupCtrl.text.trim();
     if (id.isEmpty) {
@@ -159,15 +137,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       );
       return;
     }
-    setState(() {
-      _loadingConnection = true;
-      _error = null;
-      _selectedId = id;
-      _connection = null;
-      _health = null;
-      _domainClaims = const [];
-    });
-
+    setState(() { _loadingConnection = true; _error = null; _selectedId = id; _connection = null; _health = null; _domainClaims = const []; });
     final errors = <String>[];
     Map<String, dynamic>? connection;
     Map<String, dynamic>? health;
@@ -186,7 +156,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     }
     if (connection != null && _canListDomains) {
       try {
-        domains = _maps((await widget.api.get(_domainsRoute(id)))['domains']);
+        final rawDomains = (await widget.api.get(_domainsRoute(id)))['domains'] as List?; domains = rawDomains?.map((e) => Map<String, dynamic>.from(e)).toList() ?? const [];
       } on SnaplinkAdminApiError catch (error) {
         errors.add('Domains: $error');
       }
@@ -200,44 +170,29 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       _loadingConnection = false;
     });
   }
-
-  Map<String, String>? _connectionConfig() {
-    final raw = _configCtrl.text.trim();
-    if (raw.isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) {
-        setState(
-          () => _error = 'Connection configuration must be a JSON object.',
-        );
-        return null;
-      }
-      final config = <String, String>{};
-      for (final entry in decoded.entries) {
-        if (entry.key is! String || entry.value is! String) {
-          setState(
-            () => _error =
-                'Connection configuration values must all be JSON strings.',
-          );
-          return null;
-        }
-        config[entry.key as String] = entry.value as String;
-      }
-      return config;
-    } on FormatException {
-      setState(() => _error = 'Connection configuration is not valid JSON.');
-      return null;
-    }
-  }
-
   Future<void> _upsertConnection() async {
     final id = _idCtrl.text.trim();
     final tenantId = _createTenantCtrl.text.trim();
-    final config = _connectionConfig();
-    if (id.isEmpty || tenantId.isEmpty || config == null) {
-      if (id.isEmpty || tenantId.isEmpty) {
-        setState(() => _error = 'Connection ID and tenant ID are required.');
+    Map<String, String>? config;
+    try {
+      final raw = _configCtrl.text.trim();
+      if (raw.isNotEmpty) {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map) {
+          config = decoded.map((k, v) => MapEntry(k.toString(), v.toString()));
+        } else {
+          setState(() => _error = 'Connection configuration must be a JSON object.');
+          return;
+        }
+      } else {
+        config = const {};
       }
+    } on FormatException {
+      setState(() => _error = 'Connection configuration is not valid JSON.');
+      return;
+    }
+    if (id.isEmpty || tenantId.isEmpty) {
+      setState(() => _error = 'Connection ID and tenant ID are required.');
       return;
     }
     final confirmed = await _confirm(
@@ -270,7 +225,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       },
     );
   }
-
   Future<void> _deleteConnection(String id) async {
     if (!await _confirm(
       'Delete connection?',
@@ -297,7 +251,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       },
     );
   }
-
   Future<void> _probeConnection(String id) async {
     if (!await _confirm(
       'Probe upstream connection?',
@@ -312,7 +265,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       afterSuccess: _loadSelected,
     );
   }
-
   Future<void> _verifyDomain(String id, String domain) async {
     if (!await _confirm(
       'Verify $domain?',
@@ -327,22 +279,11 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       afterSuccess: _loadSelected,
     );
   }
-
-  Future<void> _write(
-    Future<Map<String, dynamic>> Function() request, {
-    required String success,
-    required Future<void> Function() afterSuccess,
-  }) async {
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+  Future<void> _write(Future<Map<String, dynamic>> Function() request, {required String success, required Future<void> Function() afterSuccess}) async {
+    setState(() { _mutating = true; _error = null; });
     try {
-      await request();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      await request(); if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(success)));
       await afterSuccess();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -352,35 +293,19 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       if (mounted) setState(() => _mutating = false);
     }
   }
-
   Future<bool> _confirm(
     String title,
     String message, {
     required String confirmLabel,
     bool destructive = false,
   }) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: destructive
-                  ? FilledButton.styleFrom(backgroundColor: Colors.red)
-                  : null,
-              child: Text(confirmLabel),
-            ),
-          ],
-        ),
-      ) ??
-      false;
-
+      ConfirmDialog.show(
+        context,
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        destructive: destructive,
+      );
   @override
   Widget build(BuildContext context) {
     if (!_connectionFamilyAvailable && !_canList && !_canCreate && !_canGet) {
@@ -395,7 +320,8 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       children: [
         Row(
           children: [
-            Text(
+        AdminBreadcrumb(),
+                    Text(
               'Identity connections',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
@@ -423,10 +349,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
           mutating: _mutating,
           onLoadList: _loadConnections,
           onLoadSelected: _loadSelected,
-          onSelect: (id) {
-            _lookupCtrl.text = id;
-            _loadSelected();
-          },
+          onSelect: (id) => AdminRoute.go('connections', resourceId: id),
         ),
         if (_canCreate)
           ConnectionCreateCard(

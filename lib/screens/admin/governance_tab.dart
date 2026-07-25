@@ -1,27 +1,25 @@
 import 'dart:convert';
-
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-import 'snaplink_admin_api.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:web/web.dart' as web;
+import 'admin_route.dart';
 import 'governance_models.dart';
-
-/// JSON is intentionally retained for schema-rich operations so the console
-/// does not silently discard backend fields. Every write requires `CONFIRM`.
+import 'governance_widgets.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
 class GovernanceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
   const GovernanceTab({
     super.key,
     required this.api,
     required this.capabilities,
   });
-
   @override
   State<GovernanceTab> createState() => _GovernanceTabState();
 }
-
 class _GovernanceTabState extends State<GovernanceTab> {
   static const _auditPath = '/api/v1/audit/events';
   static const _facetPath = '/api/v1/audit/facets';
@@ -30,12 +28,42 @@ class _GovernanceTabState extends State<GovernanceTab> {
   final _writeBody = TextEditingController(text: '{}');
   final _confirm = TextEditingController();
   final Map<String, Map<String, dynamic>> _data = {};
-
   GovernanceWriteOperation _op = governanceWriteOperations.first;
   String? _error;
   bool _loading = false;
   bool _writing = false;
-
+  String _currentSection = 'all';
+  static const _sections = [
+    SectionDef('all', 'All', Icons.dashboard),
+    SectionDef('audit', 'Audit', Icons.search),
+    SectionDef('compliance', 'Compliance', Icons.verified),
+    SectionDef('configuration', 'Config', Icons.settings),
+    SectionDef('lifecycle', 'Lifecycle', Icons.swap_vert),
+    SectionDef('write', 'Write', Icons.edit),
+  ];
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _initSectionFromRoute();
+    final popListener = () { if (mounted) _initSectionFromRoute(); };
+    web.window.addEventListener('popstate', popListener.toJS);
+  }
+  void _initSectionFromRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    final section = route.subresource.isNotEmpty ? route.subresource : 'all';
+    if (_sections.any((s) => s.id == section)) {
+      setState(() => _currentSection = section);
+    }
+  }
+  void _selectSection(String section) {
+    setState(() => _currentSection = section);
+    if (section == 'all') {
+      AdminRoute.go('governance');
+    } else {
+      AdminRoute.go('governance', subresource: section);
+    }
+  }
   bool _has(String method, String path) =>
       widget.capabilities.has(method, path) ||
       widget.capabilities.endpoints.any(
@@ -46,17 +74,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
         (endpoint) =>
             endpoint.method == method && _route(endpoint.path) == _route(path),
       );
-
   String _route(String path) => path
       .replaceAllMapped(RegExp(r'\{[A-Za-z_][A-Za-z0-9_]*\}'), (_) => ':id')
       .replaceAllMapped(RegExp(r':[A-Za-z_][A-Za-z0-9_]*'), (_) => ':id');
-
-  @override
-  void initState() {
-    super.initState();
-    _refresh();
-  }
-
   @override
   void dispose() {
     _auditQuery.dispose();
@@ -65,7 +85,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
     _confirm.dispose();
     super.dispose();
   }
-
   Future<void> _refresh() async {
     final reads = governanceReadSpecs
         .where((spec) => _has('GET', spec.path))
@@ -112,7 +131,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
   Future<void> _read(GovernanceReadSpec spec) async {
     setState(() {
       _loading = true;
@@ -127,7 +145,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
   Future<void> _queryAudit() async {
     final query = _json(_auditQuery.text, 'Audit query');
     if (query == null) return;
@@ -154,7 +171,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
   Future<void> _runWrite() async {
     var path = _op.path;
     if (path.contains(':id')) {
@@ -189,51 +205,25 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _writing = false);
     }
   }
-
   Map<String, dynamic>? _json(String source, String label) {
     try {
       final value = jsonDecode(source.trim().isEmpty ? '{}' : source);
       if (value is Map) return Map<String, dynamic>.from(value);
     } on FormatException {
-      // The validation error below names the unsafe input field.
     }
     setState(() => _error = '$label must be a JSON object.');
     return null;
   }
-
   Future<bool> _confirmed(String action) async {
-    if (_confirm.text.trim() != 'CONFIRM') {
-      setState(
-        () => _error = 'Type CONFIRM before executing a write operation.',
-      );
-      return false;
-    }
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Confirm governed operation'),
-            content: Text(action),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Run operation'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    if (_confirm.text.trim() != 'CONFIRM') { setState(() => _error = 'Type CONFIRM.'); return false; }
+    return ConfirmDialog.show(context, title: 'Confirm', message: action, confirmLabel: 'Run operation', destructive: true);
   }
-
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AdminBreadcrumb(),
         Row(
           children: [
             Text(
@@ -249,32 +239,31 @@ class _GovernanceTabState extends State<GovernanceTab> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text(
-          'Operational evidence is read-only; every state-changing request is confirmed and sent as JSON. Routes not listed by runtime inventory remain available when Snaplink documents them; the server remains authoritative for optional features.',
-        ),
+        SectionSelector(sections: _sections, current: _currentSection, onSelected: _selectSection),
         if (_error != null) _errorBanner(),
         if (_loading) const LinearProgressIndicator(),
-        _readArea(context, 'Platform health', 'health'),
-        _auditArea(context),
-        _readArea(context, 'Compliance evidence', 'compliance'),
-        _readArea(context, 'Configuration assurance', 'configuration'),
-        _readArea(
-          context,
-          'Snapshots, releases, and change approvals',
-          'lifecycle',
-        ),
-        _writeArea(context),
+        if (_currentSection == 'all' || _currentSection == 'health')
+          _readArea(context, 'Platform health', 'health'),
+        if (_currentSection == 'all' || _currentSection == 'audit')
+          _auditArea(context),
+        if (_currentSection == 'all' || _currentSection == 'compliance')
+          _readArea(context, 'Compliance evidence', 'compliance'),
+        if (_currentSection == 'all' || _currentSection == 'configuration')
+          _readArea(context, 'Configuration assurance', 'configuration'),
+        if (_currentSection == 'all' || _currentSection == 'lifecycle')
+          _readArea(
+            context,
+            'Snapshots, releases, and change approvals',
+            'lifecycle',
+          ),
+        if (_currentSection == 'all' || _currentSection == 'write')
+          _writeArea(context),
         if (_data.containsKey('lastWrite'))
           _jsonCard(context, 'Last write response', _data['lastWrite']!),
       ],
     );
   }
-
-  Widget _errorBanner() => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
-  );
-
+  Widget _errorBanner() => GovernanceErrorBanner(error: _error!);
   Widget _readArea(BuildContext context, String title, String section) {
     final available = governanceReadSpecs
         .where((spec) => spec.section == section && _has('GET', spec.path))
@@ -301,7 +290,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
           _jsonCard(context, spec.title, _data[spec.key]!),
     ]);
   }
-
   Widget _auditArea(BuildContext context) => _section(
     context,
     'Audit investigation',
@@ -313,7 +301,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
           controller: _auditQuery,
           maxLines: 3,
           enabled: !_loading,
-          style: _code,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           decoration: const InputDecoration(
             labelText: 'Audit filter JSON',
             helperText:
@@ -332,10 +320,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
       ],
     ],
   );
-
   Widget _auditResults(BuildContext context) {
     final result = _data['audit']!;
-    final events = _maps(result['events']);
+    final events = (result['events'] as List?)?.cast<Map<String, dynamic>>().toList() ?? const [];
     return _card('Audit results (${result['count'] ?? events.length})', [
       if (events.isEmpty) const Text('No matching events.'),
       for (final event in events.take(20))
@@ -354,10 +341,8 @@ class _GovernanceTabState extends State<GovernanceTab> {
         Text(
           '${events.length - 20} more results are present in the copied JSON.',
         ),
-      _copy(result),
     ]);
   }
-
   Widget _writeArea(BuildContext context) {
     final available = governanceWriteOperations
         .where((op) => _has(op.method, op.path))
@@ -400,7 +385,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         controller: _writeBody,
         maxLines: 6,
         enabled: !_writing,
-        style: _code,
+        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
         decoration: const InputDecoration(labelText: 'Request JSON'),
       ),
       const SizedBox(height: 10),
@@ -425,76 +410,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       ),
     ]);
   }
-
-  Widget _section(BuildContext context, String title, List<Widget> children) =>
-      Padding(
-        padding: const EdgeInsets.only(top: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
-      );
-
-  Widget _card(String title, List<Widget> children) => Card(
-    margin: const EdgeInsets.only(top: 8),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          ...children,
-        ],
-      ),
-    ),
-  );
-
-  Widget _jsonCard(
-    BuildContext context,
-    String title,
-    Map<String, dynamic> data,
-  ) => _card(title, [
-    ConstrainedBox(
-      constraints: const BoxConstraints(maxHeight: 280),
-      child: SingleChildScrollView(
-        child: SelectableText(
-          const JsonEncoder.withIndent('  ').convert(data),
-          style: _code,
-        ),
-      ),
-    ),
-    _copy(data),
-  ]);
-
-  Widget _copy(Map<String, dynamic> data) => Align(
-    alignment: Alignment.centerRight,
-    child: TextButton.icon(
-      onPressed: () async {
-        await Clipboard.setData(
-          ClipboardData(text: const JsonEncoder.withIndent('  ').convert(data)),
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('JSON copied.')));
-        }
-      },
-      icon: const Icon(Icons.copy, size: 16),
-      label: const Text('Copy JSON'),
-    ),
-  );
-
-  List<Map<String, dynamic>> _maps(Object? value) => value is List
-      ? value
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false)
-      : const [];
+  Widget _section(BuildContext context, String title, List<Widget> children) => GovernanceSection(title: title, children: children);
+  Widget _card(String title, List<Widget> children) => GovernanceCard(title: title, children: children);
+  Widget _jsonCard(BuildContext context, String title, Map<String, dynamic> data) => GovernanceJsonCard(title: title, data: data);
 }
-
-const _code = TextStyle(fontFamily: 'monospace', fontSize: 12);

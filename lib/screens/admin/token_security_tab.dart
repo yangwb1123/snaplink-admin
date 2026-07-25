@@ -1,26 +1,21 @@
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
-
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
+import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
-
-/// Token, session, and anomaly operations for Snaplink operators.
-///
-/// The page degrades card-by-card when a deployment has not wired an optional
-/// store; a missing token telemetry store must not hide the independently
-/// available session or admin-token controls.
 class TokenSecurityTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
   const TokenSecurityTab({
     super.key,
     required this.api,
     required this.capabilities,
   });
-
   @override
   State<TokenSecurityTab> createState() => _TokenSecurityTabState();
 }
-
 class _TokenSecurityTabState extends State<TokenSecurityTab> {
   final _subjectCtrl = TextEditingController();
   final _clientCtrl = TextEditingController();
@@ -28,7 +23,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   String? _error;
   bool _loading = true;
   bool _mutating = false;
-
   static const _paths = {
     'sessions': '/api/v1/admin/sessions',
     'tokens': '/api/v1/admin/tokens',
@@ -37,27 +31,33 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     'suspicious': '/api/v1/admin/tokens/suspicious',
   };
   static const _bulkRevokePath = '/api/v1/admin/tokens/bulk-revoke';
-
-  // Token governance routes are also absent from older runtime inventories
-  // despite being mounted. Do not hide this bounded, explicitly-confirmed
-  // operation solely because the inventory is incomplete.
-  bool get _supportsBulkRevoke =>
-      widget.capabilities.has('POST', _bulkRevokePath) ||
+  bool get _supportsBulkRevoke => widget.capabilities.has('POST', _bulkRevokePath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_bulkRevokePath);
-
+  String _currentSection = 'all';
+  static const _secDefs = [
+    SectionDef('all', 'All', Icons.dashboard),
+    SectionDef('portfolio', 'Portfolio', Icons.account_balance_wallet),
+    SectionDef('suspicious', 'Anomalies', Icons.warning),
+    SectionDef('sessions', 'Sessions', Icons.devices),
+    SectionDef('subjects', 'Bearers', Icons.person),
+    SectionDef('expiring', 'Expiring', Icons.timer),
+    SectionDef('temp', 'Temp Token', Icons.key),
+    SectionDef('revoke', 'Revoke', Icons.remove_circle),
+  ];
   @override
   void initState() {
     super.initState();
+    _handleRoute();
+    final p = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', p.toJS);
     _load();
   }
-
   @override
   void dispose() {
     _subjectCtrl.dispose();
     _clientCtrl.dispose();
     super.dispose();
   }
-
   Future<void> _load() async {
     setState(() {
       _loading = true;
@@ -94,7 +94,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _loading = false;
     });
   }
-
   List<Map<String, dynamic>> _list(String key, String valueKey) {
     final values = _data[key]?[valueKey];
     if (values is! List) return const [];
@@ -103,7 +102,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         .map((value) => Map<String, dynamic>.from(value))
         .toList(growable: false);
   }
-
   Future<void> _revokeAdminToken(String id) async {
     if (!await _confirm(
       'Revoke administrator token?',
@@ -117,7 +115,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       'Administrator token revoked.',
     );
   }
-
   Future<void> _bulkRevoke() async {
     final subject = _subjectCtrl.text.trim();
     final clientId = _clientCtrl.text.trim();
@@ -143,7 +140,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       'Refresh-token revocation completed.',
     );
   }
-
   Future<void> _write(
     Future<Map<String, dynamic>> Function() request,
     String message,
@@ -162,7 +158,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       if (mounted) setState(() => _mutating = false);
     }
   }
-
   Future<bool> _confirm(String title, String body) async =>
       await showDialog<bool>(
         context: context,
@@ -183,12 +178,12 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
       ) ??
       false;
-
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AdminBreadcrumb(),
         Row(
           children: [
             Text(
@@ -202,6 +197,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             ),
           ],
         ),
+        SectionSelector(sections: _secDefs, current: _currentSection, onSelected: _selectSection),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -222,11 +218,13 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           if (_data.containsKey('tokens')) _adminTokensCard(context),
           if (_data.containsKey('expiring')) _expiringCard(context),
           if (_supportsBulkRevoke) _bulkRevokeCard(context),
+          if (_supportsBulkRevoke) _tempTokenCard(context),
+          if (_supportsBulkRevoke) _revokeTokenCard(context),
         ],
       ],
     );
   }
-
+  bool _showSection(String section) => _currentSection == 'all' || _currentSection == section;
   Widget _portfolioCard(BuildContext context) {
     final portfolio = _data['portfolio']?['portfolio'] as Map? ?? const {};
     return _card(context, 'Token portfolio', [
@@ -235,7 +233,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _metric('Userinfo calls', portfolio['userinfo']),
     ]);
   }
-
   Widget _findingsCard(BuildContext context) {
     final findings = _list('suspicious', 'findings');
     return _card(context, 'Detected token anomalies', [
@@ -258,7 +255,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
-
   Widget _sessionsCard(BuildContext context) {
     final sessions = _list('sessions', 'sessions');
     return _card(context, 'Active sessions', [
@@ -273,7 +269,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
-
   Widget _adminTokensCard(BuildContext context) {
     final tokens = _list('tokens', 'tokens');
     return _card(context, 'Administrator bearer tokens', [
@@ -297,7 +292,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
-
   Widget _expiringCard(BuildContext context) {
     final tokens = _list('expiring', 'tokens');
     return _card(context, 'Refresh tokens expiring soon', [
@@ -312,7 +306,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
-
   Widget _bulkRevokeCard(
     BuildContext context,
   ) => _card(context, 'Bounded refresh-token revocation', [
@@ -339,12 +332,10 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       child: const Text('Bulk revoke refresh tokens'),
     ),
   ]);
-
   Widget _metric(String label, Object? value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 3),
     child: Text('$label: ${value ?? 0}'),
   );
-
   Widget _card(BuildContext context, String title, List<Widget> children) =>
       Card(
         margin: const EdgeInsets.only(top: 20),
@@ -360,4 +351,79 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           ),
         ),
       );
+  final _createSubjectCtrl = TextEditingController();
+  final _createScopesCtrl = TextEditingController(text: 'openid profile');
+  final _revokeTokenCtrl = TextEditingController(); String? _tempToken;
+  Future<void> _createTempToken() async {
+    final subject = _createSubjectCtrl.text.trim();
+    if (subject.isEmpty) { setState(() => _error = 'Subject is required.'); return; }
+    setState(() { _mutating = true; _error = null; _tempToken = null; });
+    try {
+      final data = await widget.api.post('/api/v1/admin/tokens/temp', {
+        'subject': subject,
+        'scopes': _createScopesCtrl.text.split(' ').where((s) => s.isNotEmpty).toList(),
+      });
+      if (!mounted) return;
+      final t = data['token']?.toString() ?? data['access_token']?.toString() ?? '';
+      setState(() { _tempToken = t; });
+    } on SnaplinkAdminApiError catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+  Future<void> _revokeToken() async {
+    final tokenId = _revokeTokenCtrl.text.trim();
+    if (tokenId.isEmpty) { setState(() => _error = 'Enter a token ID.'); return; }
+    final confirmed = await _confirm('Revoke token?', 'Revoke token $tokenId? This is immediate.');
+    if (!confirmed) return;
+    setState(() { _mutating = true; _error = null; });
+    try {
+      await widget.api.post('/api/v1/admin/tokens/revoke', {'token_id': tokenId});
+      if (!mounted) return;
+      _revokeTokenCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Token revoked.')));
+    } on SnaplinkAdminApiError catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
+  }
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'token-security') return;
+    final section = route.subresource.isNotEmpty ? route.subresource : 'all';
+    if (_secDefs.any((s) => s.id == section)) {
+      setState(() => _currentSection = section);
+    }
+  }
+  void _selectSection(String section) {
+    setState(() => _currentSection = section);
+    if (section == 'all') {
+      AdminRoute.go('token-security');
+    } else {
+      AdminRoute.go('token-security', subresource: section);
+    }
+  }
+  Widget _tempTokenCard(BuildContext context) => _card(context, 'Create temporary token', [
+    TextField(controller: _createSubjectCtrl, decoration: const InputDecoration(labelText: 'Subject')),
+    const SizedBox(height: 10),
+    TextField(controller: _createScopesCtrl, decoration: const InputDecoration(labelText: 'Scopes (space-separated)')),
+    const SizedBox(height: 10),
+    FilledButton(onPressed: _mutating ? null : _createTempToken, child: const Text('Create temp token')),
+    if (_tempToken != null) ...[
+      const SizedBox(height: 8),
+      const Text('Save this token now. It will not be shown again.', style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
+      SelectableText(_tempToken!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+    ],
+  ]);
+  Widget _revokeTokenCard(BuildContext context) => _card(context, 'Revoke token by ID', [
+    TextField(controller: _revokeTokenCtrl, decoration: const InputDecoration(labelText: 'Token ID')),
+    const SizedBox(height: 10),
+    OutlinedButton(
+      onPressed: _mutating ? null : _revokeToken,
+      style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
+      child: const Text('Revoke token'),
+    ),
+  ]);
 }

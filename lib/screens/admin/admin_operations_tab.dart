@@ -1,13 +1,14 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'snaplink_admin_api.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'admin_route.dart';
 import 'tenant_export_download.dart';
+import 'admin_ops_helpers.dart';
 
 /// Advanced, capability-bound access to Snaplink's optional admin routes.
-///
 /// This is not an open URL console: the selector is populated from Snaplink's
 /// documented contract and enriched with the authenticated replica's runtime
 /// inventory. Every mutation needs an explicit confirmation, providing a safe
@@ -25,7 +26,6 @@ class AdminOperationsTab extends StatefulWidget {
   @override
   State<AdminOperationsTab> createState() => _AdminOperationsTabState();
 }
-
 class _AdminOperationsTabState extends State<AdminOperationsTab> {
   final _bodyCtrl = TextEditingController(text: '{}');
   final _queryCtrl = TextEditingController(text: '{}');
@@ -108,19 +108,6 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
 
   bool get _isMutation => _selected != null && _selected!.method != 'GET';
 
-  bool _isSubjectExport(SnaplinkAdminEndpoint endpoint) =>
-      endpoint.method == 'GET' &&
-      (endpoint.path == '/api/v1/compliance/users/{id}/export' ||
-          endpoint.path == '/api/v1/compliance/users/:id/export');
-
-  bool _returnsOneTimeCredential(SnaplinkAdminEndpoint endpoint) =>
-      endpoint.method == 'POST' &&
-      (endpoint.path == '/api/v1/admin/tokens/temp' ||
-          endpoint.path == '/api/v1/admin/clients/{id}/rotate-secret' ||
-          endpoint.path == '/api/v1/admin/clients/:id/rotate-secret' ||
-          endpoint.path == '/api/v1/admin/break-glass/{id}/impersonate' ||
-          endpoint.path == '/api/v1/admin/break-glass/:id/impersonate');
-
   Future<void> _run() async {
     final endpoint = _selected;
     if (endpoint == null) return;
@@ -143,7 +130,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       if (endpoint.method != 'GET') {
         body = _jsonObject(_bodyCtrl.text, 'Request body');
         clearSensitiveBody =
-            _pathMayReceiveSensitiveInput(endpoint.path) ||
+            AdminOpsHelpers.pathMayReceiveSensitiveInput(endpoint.path) ||
             _containsSensitiveField(body);
       }
     } on FormatException catch (error) {
@@ -165,7 +152,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       _rawResponse = null;
     });
     try {
-      if (_isSubjectExport(endpoint)) {
+      if (AdminOpsHelpers.isSubjectExport(endpoint)) {
         final export = await widget.api.getDownload(path, query: query);
         if (mounted) {
           downloadAdminAttachment(
@@ -197,7 +184,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         if (endpoint.path == '/api/v1/admin/docs') {
           final document = await widget.api.getText(path, query: query);
           if (mounted) setState(() => _rawResponse = document);
-        } else if (_returnsOneTimeCredential(endpoint)) {
+        } else if (AdminOpsHelpers.returnsOneTimeCredential(endpoint)) {
           if (response == null) {
             setState(() => _error = 'The server returned an empty response.');
           } else {
@@ -224,32 +211,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   /// Advanced operations intentionally accept arbitrary documented JSON. Once
   /// a request that can contain a credential has been submitted, don't leave
   /// its password, secret, or raw token in the browser form state.
-  bool _pathMayReceiveSensitiveInput(String path) =>
-      path.contains('password') ||
-      path.contains('token') ||
-      path.contains('secret') ||
-      path.contains('webhook') ||
-      path.contains('break-glass') ||
-      path.contains('impersonate');
 
-  bool _containsSensitiveField(Object? value) {
-    if (value is Map) {
-      for (final entry in value.entries) {
-        final key = entry.key.toString().toLowerCase();
-        if (key.contains('password') ||
-            key.contains('secret') ||
-            key.contains('token') ||
-            key.contains('credential') ||
-            key.contains('private_key')) {
-          return true;
-        }
-        if (_containsSensitiveField(entry.value)) return true;
-      }
-    } else if (value is List) {
-      return value.any(_containsSensitiveField);
-    }
-    return false;
-  }
+  // moved to AdminOpsHelpers.containsSensitiveField
+  bool _containsSensitiveField(Object? value) => AdminOpsHelpers.containsSensitiveField(value);
 
   Map<String, dynamic> _jsonObject(String value, String label) {
     try {
@@ -266,51 +230,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     Map<String, dynamic> response,
     SnaplinkAdminEndpoint endpoint,
   ) async {
-    final credential = switch (endpoint.path) {
-      '/api/v1/admin/tokens/temp' => response['token']?.toString(),
-      '/api/v1/admin/clients/{id}/rotate-secret' ||
-      '/api/v1/admin/clients/:id/rotate-secret' =>
-        response['secret']?.toString(),
-      _ => response['access_token']?.toString(),
-    };
-    if (credential == null || credential.isEmpty || !mounted) {
-      setState(
-        () => _error = 'The server did not return the expected credential.',
-      );
-      return;
-    }
-    final expiry = response['expires_at_unix'] ?? response['expires_in'];
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('One-time credential'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Save this value now. It is not retained or shown in the operation response.',
-            ),
-            if (expiry != null) ...[
-              const SizedBox(height: 8),
-              Text('Expiry: $expiry'),
-            ],
-            const SizedBox(height: 12),
-            SelectableText(
-              credential,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('I have saved it'),
-          ),
-        ],
-      ),
-    );
+    await AdminOpsHelpers.showOneTimeCredential(context, response, endpoint);
   }
 
   String _contentType(SnaplinkAdminEndpoint endpoint) =>
@@ -336,6 +256,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        AdminBreadcrumb(),
         Text(
           'Advanced operations',
           style: Theme.of(context).textTheme.headlineSmall,

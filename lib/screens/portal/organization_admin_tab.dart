@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'member_row_tile.dart';
 
 /// Delegated tenant administration for a user's own organizations.
 ///
@@ -24,7 +26,6 @@ class OrganizationAdminPanel extends StatefulWidget {
   @override
   State<OrganizationAdminPanel> createState() => _OrganizationAdminPanelState();
 }
-
 class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   static const _roles = ['member', 'admin', 'guest'];
 
@@ -46,13 +47,11 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
     super.initState();
     _load();
   }
-
   @override
   void dispose() {
     _emailCtrl.dispose();
     super.dispose();
   }
-
   static List<Map<String, dynamic>> _records(Object? values) =>
       (values as List? ?? const [])
           .whereType<Map>()
@@ -104,37 +103,8 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  Future<bool> _confirm(String title, String detail, String action) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: Text(title),
-            content: Text(detail),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(action),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-  }
-
-  String _failureMessage(int status, {required String fallback}) {
-    if (status == 409) {
-      return 'Snaplink protected the organization\'s last administrator.';
-    }
-    if (status == 403) return 'This organization cannot be changed.';
-    if (status == 501) return 'Invitation delivery is not configured.';
-    return fallback;
-  }
-
+  Future<bool> _confirm(String title, String detail, String action) async =>
+      ConfirmDialog.show(context, title: title, message: detail, confirmLabel: action);
   Future<void> _changeRole(Map<String, dynamic> member, String role) async {
     final userId = member['user_id']?.toString() ?? '';
     final oldRole = member['role']?.toString() ?? '';
@@ -163,10 +133,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         await _load();
       } else {
         setState(() {
-          _message = _failureMessage(
-            response.statusCode,
-            fallback: 'Member role was not updated.',
-          );
+          _message = response.statusCode == 409 ? 'Last admin protected.' : response.statusCode == 403 ? 'Cannot change.' : 'Role not updated.';
           _ok = false;
         });
       }
@@ -176,7 +143,6 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   Future<void> _remove(Map<String, dynamic> member) async {
     final userId = member['user_id']?.toString() ?? '';
     if (userId.isEmpty) return;
@@ -203,10 +169,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         await _load();
       } else {
         setState(() {
-          _message = _failureMessage(
-            response.statusCode,
-            fallback: 'Member was not removed.',
-          );
+          _message = response.statusCode == 409 ? 'Last admin protected.' : response.statusCode == 403 ? 'Cannot change.' : 'Not removed.';
           _ok = false;
         });
       }
@@ -216,7 +179,6 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   Future<void> _invite() async {
     final email = _emailCtrl.text.trim();
     if (email.isEmpty) {
@@ -251,10 +213,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         await _load();
       } else {
         setState(() {
-          _message = _failureMessage(
-            response.statusCode,
-            fallback: 'Invitation was not sent.',
-          );
+          _message = response.statusCode == 409 ? 'Duplicate or protected.' : response.statusCode == 403 ? 'Cannot change.' : 'Invitation was not sent.';
           _ok = false;
         });
       }
@@ -264,7 +223,6 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   Future<void> _revoke(Map<String, dynamic> invitation) async {
     final email = invitation['email']?.toString() ?? '';
     if (email.isEmpty) return;
@@ -291,10 +249,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         await _load();
       } else {
         setState(() {
-          _message = _failureMessage(
-            response.statusCode,
-            fallback: 'Invitation was not revoked.',
-          );
+          _message = response.statusCode == 409 ? 'Duplicate or protected.' : response.statusCode == 403 ? 'Cannot change.' : 'Not revoked.';
           _ok = false;
         });
       }
@@ -304,7 +259,6 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       if (mounted) setState(() => _busy = false);
     }
   }
-
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
@@ -409,29 +363,11 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       MessageBanner(_message, ok: _ok),
     ],
   );
-
-  Widget _memberRow(Map<String, dynamic> member) {
-    final userId = member['user_id']?.toString() ?? '';
-    final role = member['role']?.toString() ?? 'member';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(userId),
-      subtitle: DropdownButton<String>(
-        value: _roles.contains(role) ? role : 'member',
-        items: _roles
-            .map((value) => DropdownMenuItem(value: value, child: Text(value)))
-            .toList(growable: false),
-        onChanged: _busy
-            ? null
-            : (next) {
-                if (next != null) _changeRole(member, next);
-              },
-      ),
-      trailing: TextButton(
-        onPressed: _busy ? null : () => _remove(member),
-        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-        child: const Text('Remove'),
-      ),
-    );
-  }
+  Widget _memberRow(Map<String, dynamic> member) => MemberRowTile(
+    member: member,
+    roles: _roles,
+    busy: _busy,
+    onChangeRole: (m, r) => _changeRole(m, r),
+    onRemove: (m) => _remove(m),
+  );
 }

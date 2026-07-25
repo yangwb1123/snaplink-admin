@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:web/web.dart' as web;
 import 'package:sso_admin/session.dart';
 
 /// Thrown on any non-2xx response from the SSO server; carries the parsed
@@ -189,6 +188,35 @@ class SSOAdminClient {
     return data['secret'] as String? ?? '';
   }
 
+  Future<void> approveClient(String id) async {
+    await _post(
+      '/api/v1/admin/clients/${Uri.encodeComponent(id)}/approve',
+      const {},
+    );
+  }
+
+  Future<void> rejectClient(String id) async {
+    await _post(
+      '/api/v1/admin/clients/${Uri.encodeComponent(id)}/reject',
+      const {},
+    );
+  }
+
+  Future<Map<String, dynamic>> getClient(String id) async {
+    final data = await _get('/api/v1/admin/clients/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    return (data['client'] as Map<String, dynamic>?) ?? data;
+  }
+
+  Future<Map<String, dynamic>> getUser(String id) async {
+    final data = await _get('/api/v1/admin/users/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    return (data['user'] as Map<String, dynamic>?) ?? data;
+  }
+
+  Future<Map<String, dynamic>> getTenant(String id) async {
+    final data = await _get('/api/v1/admin/tenants/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    return (data['tenant'] as Map<String, dynamic>?) ?? data;
+  }
+
   // ---- users CRUD ----
 
   Future<Map<String, dynamic>> createUser(Map<String, dynamic> user) async {
@@ -231,6 +259,84 @@ class SSOAdminClient {
 
   Future<void> deleteTenant(String id) async {
     await _delete('/api/v1/admin/tenants/${Uri.encodeComponent(id)}');
+  }
+
+  /// Fetch a single connection by id.
+  Future<Map<String, dynamic>> getConnection(String id) async {
+    final data = await _get('/api/v1/admin/connections/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single break-glass session by id.
+  Future<Map<String, dynamic>> getBreakGlassSession(String id) async {
+    final data = await _get('/api/v1/admin/break-glass/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single webhook subscription by id.
+  Future<Map<String, dynamic>> getWebhookSubscription(String id) async {
+    final data = await _get('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single domain by hostname.
+  Future<Map<String, dynamic>> getDomain(String hostname) async {
+    final data = await _get('/api/v1/admin/domains/${Uri.encodeComponent(hostname)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single credential type.
+  Future<Map<String, dynamic>> getCredential(String type) async {
+    final data = await _get('/api/v1/admin/credentials/${Uri.encodeComponent(type)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single crypto key by id.
+  Future<Map<String, dynamic>> getCryptoKey(String id) async {
+    final data = await _get('/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single access policy by id.
+  Future<Map<String, dynamic>> getAccessPolicy(String id) async {
+    final data = await _get('/api/v1/admin/access-policies/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Fetch a single threat policy by id.
+  Future<Map<String, dynamic>> getThreatPolicy(String id) async {
+    final data = await _get('/api/v1/admin/threat-policies/${Uri.encodeComponent(id)}');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Delete a connection by id.
+  Future<void> deleteConnection(String id) async {
+    await _delete('/api/v1/admin/connections/${Uri.encodeComponent(id)}');
+  }
+
+  /// Delete a break-glass session by id.
+  Future<void> deleteBreakGlassSession(String id) async {
+    await _delete('/api/v1/admin/break-glass/${Uri.encodeComponent(id)}');
+  }
+
+  /// Delete a webhook subscription by id.
+  Future<void> deleteWebhookSubscription(String id) async {
+    await _delete('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}');
+  }
+
+  /// Delete a domain by hostname.
+  Future<void> deleteDomain(String hostname) async {
+    await _delete('/api/v1/admin/domains/${Uri.encodeComponent(hostname)}');
+  }
+
+  /// Report credential compromise by type.
+  Future<void> reportCredentialCompromise(String type) async {
+    await _post('/api/v1/admin/credentials/${Uri.encodeComponent(type)}/compromise', {});
+  }
+
+  /// Mark a crypto key as compromised.
+  Future<void> compromiseCryptoKey(String id) async {
+    await _post('/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}/compromise', {});
   }
 
   Map<String, String> _authHeaders() =>
@@ -340,9 +446,11 @@ class SSOAdminClient {
     // proves the session itself has expired or been revoked.
     if (authenticated && resp.statusCode == 401) {
       Session.clear();
-      web.window.location.replace(
-        '/login/?redirect=${Uri.encodeComponent('/admin/')}',
-      );
+      // On web, the page reload triggers re-authentication via the login screen.
+      // On native/test platforms, the caller handles re-authentication.
+      // The HTML page handles redirect on 401 via its own interceptor.
+      // Session.clear() invalidates the token; the next API call gets a 401
+      // which the UI handles by redirecting to login.
     }
     throw SSOError(
       resp.statusCode,

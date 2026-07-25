@@ -92,6 +92,136 @@ void main() {
     expect(page.totalSize, 1);
   });
 
+  test('fetches a connection by id', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) {
+          return http.Response('{"access_token":"admin-token"}', 200);
+        }
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/admin/connections/oidc-provider');
+        expect(request.headers['authorization'], 'Bearer admin-token');
+        return http.Response(
+          jsonEncode({'id': 'oidc-provider', 'name': 'OIDC Provider', 'status': 'active'}),
+          200,
+        );
+      }),
+    );
+    await client.login('admin', 'password');
+    final conn = await client.getConnection('oidc-provider');
+    expect(conn['id'], 'oidc-provider');
+    expect(conn['name'], 'OIDC Provider');
+  });
+
+  test('fetches a break-glass session by id', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) {
+          return http.Response('{"access_token":"admin-token"}', 200);
+        }
+        expect(request.method, 'GET');
+        expect(
+          request.url.path,
+          '/api/v1/admin/break-glass/session-123',
+        );
+        return http.Response(
+          jsonEncode({'id': 'session-123', 'status': 'pending', 'requested_by': 'ops'}),
+          200,
+        );
+      }),
+    );
+    await client.login('admin', 'password');
+    final s = await client.getBreakGlassSession('session-123');
+    expect(s['id'], 'session-123');
+    expect(s['status'], 'pending');
+  });
+
+  test('fetches a webhook subscription by id', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) {
+          return http.Response('{"access_token":"admin-token"}', 200);
+        }
+        expect(request.method, 'GET');
+        expect(
+          request.url.path,
+          '/api/v1/admin/webhooks/subscriptions/webhook-1',
+        );
+        return http.Response(
+          jsonEncode({'id': 'webhook-1', 'url': 'https://hook.example.com/callback', 'active': true}),
+          200,
+        );
+      }),
+    );
+    await client.login('admin', 'password');
+    final w = await client.getWebhookSubscription('webhook-1');
+    expect(w['id'], 'webhook-1');
+    expect(w['active'], true);
+  });
+
+  test('fetches a domain by hostname', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) return http.Response('{"access_token":"admin-token"}', 200);
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/admin/domains/example.com');
+        return http.Response(jsonEncode({'hostname': 'example.com', 'verified': true}), 200);
+      }),
+    );
+    await client.login('admin', 'password');
+    final d = await client.getDomain('example.com');
+    expect(d['hostname'], 'example.com');
+    expect(d['verified'], true);
+  });
+
+  test('fetches a crypto key by id', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) return http.Response('{"access_token":"admin-token"}', 200);
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/admin/crypto/keys/key-1');
+        return http.Response(jsonEncode({'kid': 'key-1', 'algorithm': 'RS256', 'status': 'active'}), 200);
+      }),
+    );
+    await client.login('admin', 'password');
+    final k = await client.getCryptoKey('key-1');
+    expect(k['kid'], 'key-1');
+    expect(k['status'], 'active');
+  });
+
+  test('fetches a threat policy by id', () async {
+    var reqNum = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        reqNum++;
+        if (reqNum == 1) return http.Response('{"access_token":"admin-token"}', 200);
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/admin/threat-policies/policy-1');
+        return http.Response(jsonEncode({'id': 'policy-1', 'name': 'Block anomalous IPs', 'enabled': true}), 200);
+      }),
+    );
+    await client.login('admin', 'password');
+    final p = await client.getThreatPolicy('policy-1');
+    expect(p['id'], 'policy-1');
+    expect(p['enabled'], true);
+  });
+
   test('encodes tenant IDs when changing status', () async {
     var requestNumber = 0;
     final client = SSOAdminClient(

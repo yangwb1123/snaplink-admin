@@ -1,0 +1,84 @@
+name: sso-console CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.x
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml
+          flutter pub get
+
+      - name: Filesize check
+        run: python3 cli.py check-filesize
+
+      - name: Dart analyze
+        run: python3 cli.py complexity
+
+      - name: Architecture check
+        run: python3 cli.py architecture
+
+      - name: Directory fan-out
+        run: python3 cli.py directory-fanout
+
+      - name: Root policy
+        run: python3 cli.py root-policy
+
+      - name: Invariants
+        run: python3 cli.py invariants
+
+      - name: Unit tests
+        run: flutter test
+
+      - name: Build
+        run: flutter build web --release
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: check
+    services:
+      snaplink:
+        image: snaplink/sso-server:latest
+        ports:
+          - 8080:8080
+        env:
+          SSO_CONFIG: /etc/sso-server/config.yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install requests pyyaml
+
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            curl -s http://localhost:8080/health && break
+            sleep 2
+          done
+
+      - name: Run integration tests
+        run: python3 tests/integration/full_integration_test.py

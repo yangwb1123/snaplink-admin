@@ -1,6 +1,11 @@
+import 'dart:js_interop';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'admin_route.dart';
 import 'user_form_dialog.dart';
 
 class UsersTab extends StatefulWidget {
@@ -23,6 +28,25 @@ class _UsersTabState extends State<UsersTab> {
   void initState() {
     super.initState();
     _future = _loadPage();
+    _handleRoute();
+    final popListener = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', popListener.toJS);
+  }
+
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'users') return;
+    if (route.isNew) { _openCreateDialog(); }
+    else if (route.isEdit) { _openEditForId(route.resourceId); }
+  }
+
+  Future<void> _openEditForId(String id) async {
+    try {
+      final user = await widget.client.getUser(id);
+      if (!mounted) return;
+      await _openEditDialog(user);
+    } catch (_) {}
+    if (mounted) AdminRoute.go('users');
   }
 
   @override
@@ -72,7 +96,7 @@ class _UsersTabState extends State<UsersTab> {
       context: context,
       builder: (context) => UserFormDialog(client: widget.client),
     );
-    if (result != null) _reload();
+    if (result != null) { _reload(); if (mounted) AdminRoute.go('users'); }
   }
 
   Future<void> _openEditDialog(Map<String, dynamic> user) async {
@@ -81,7 +105,7 @@ class _UsersTabState extends State<UsersTab> {
       builder: (context) =>
           UserFormDialog(client: widget.client, existing: user),
     );
-    if (result != null) _reload();
+    if (result != null) { _reload(); if (mounted) AdminRoute.go('users'); }
   }
 
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
@@ -124,10 +148,11 @@ class _UsersTabState extends State<UsersTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Users', style: Theme.of(context).textTheme.headlineSmall),
+        AdminBreadcrumb(),
+                      Text('Users', style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               IconButton(
-                onPressed: _openCreateDialog,
+                onPressed: () => AdminRoute.go('users', action: 'new'),
                 icon: const Icon(Icons.add),
               ),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
@@ -228,6 +253,7 @@ class _UsersTabState extends State<UsersTab> {
                               return ListTile(
                                 leading: const Icon(Icons.person),
                                 title: Text(u['id']?.toString() ?? '?'),
+                                onTap: () => AdminRoute.go('users', resourceId: u['id']?.toString() ?? ''),
                                 subtitle: Text(
                                   'provider: ${u['provider'] ?? '?'}',
                                 ),
@@ -242,7 +268,7 @@ class _UsersTabState extends State<UsersTab> {
                                     PopupMenuButton<String>(
                                       onSelected: (value) {
                                         if (value == 'edit') {
-                                          _openEditDialog(u);
+                                          AdminRoute.go('users', action: 'edit', resourceId: u['id']?.toString() ?? '');
                                         }
                                         if (value == 'delete') {
                                           _confirmDelete(u);

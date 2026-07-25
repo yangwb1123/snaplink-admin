@@ -1,6 +1,11 @@
+import 'dart:js_interop';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
 
 class TenantsTab extends StatefulWidget {
@@ -24,6 +29,25 @@ class _TenantsTabState extends State<TenantsTab> {
   void initState() {
     super.initState();
     _future = _loadPage();
+    _handleRoute();
+    final popListener = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', popListener.toJS);
+  }
+
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'tenants') return;
+    if (route.isNew) { _openForm(); }
+    else if (route.isEdit) { _openEditForId(route.resourceId); }
+  }
+
+  Future<void> _openEditForId(String id) async {
+    try {
+      final tenant = await widget.client.getTenant(id);
+      if (!mounted) return;
+      await _openForm(existing: tenant);
+    } catch (_) {}
+    if (mounted) AdminRoute.go('tenants');
   }
 
   @override
@@ -125,7 +149,7 @@ class _TenantsTabState extends State<TenantsTab> {
       builder: (context) =>
           TenantFormDialog(client: widget.client, existing: existing),
     );
-    if (saved == true) _reload();
+    if (saved == true) { _reload(); if (mounted) AdminRoute.go('tenants'); }
   }
 
   @override
@@ -137,11 +161,12 @@ class _TenantsTabState extends State<TenantsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Tenants', style: Theme.of(context).textTheme.headlineSmall),
+        AdminBreadcrumb(),
+                      Text('Tenants', style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
               IconButton(
-                onPressed: () => _openForm(),
+                onPressed: () => AdminRoute.go('tenants', action: 'new'),
                 icon: const Icon(Icons.add),
               ),
             ],
@@ -244,6 +269,7 @@ class _TenantsTabState extends State<TenantsTab> {
                               final suspended = status == 'suspended';
                               final busy = _busyId == id;
                               return ListTile(
+                                onTap: () => AdminRoute.go('tenants', resourceId: id),
                                 leading: Icon(
                                   Icons.business,
                                   color: suspended
@@ -267,7 +293,7 @@ class _TenantsTabState extends State<TenantsTab> {
                                               _toggleStatus(id, status);
                                               break;
                                             case 'edit':
-                                              _openForm(existing: t);
+                                              AdminRoute.go('tenants', action: 'edit', resourceId: t['id']?.toString() ?? '');
                                               break;
                                             case 'delete':
                                               _delete(
