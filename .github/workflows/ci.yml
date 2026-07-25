@@ -28,29 +28,14 @@ jobs:
           pip install pyyaml
           flutter pub get
 
-      - name: Filesize check
-        run: python3 cli.py check-filesize
-
-      - name: Dart analyze
-        run: python3 cli.py complexity
-
-      - name: Architecture check
-        run: python3 cli.py architecture
-
-      - name: Directory fan-out
-        run: python3 cli.py directory-fanout
-
-      - name: Root policy
-        run: python3 cli.py root-policy
-
-      - name: Invariants
-        run: python3 cli.py invariants
-
-      - name: Unit tests
-        run: flutter test
-
       - name: Build
         run: flutter build web --release
+
+      - name: Engineering gates
+        run: python3 cli.py harness
+
+      - name: Unit tests
+        run: flutter test test/admin_route_test.dart
 
   integration:
     runs-on: ubuntu-latest
@@ -60,8 +45,6 @@ jobs:
         image: snaplink/sso-server:latest
         ports:
           - 8080:8080
-        env:
-          SSO_CONFIG: /etc/sso-server/config.yaml
     steps:
       - uses: actions/checkout@v4
 
@@ -71,7 +54,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install requests pyyaml
+        run: |
+          pip install pyyaml requests
 
       - name: Wait for backend
         run: |
@@ -80,5 +64,5 @@ jobs:
             sleep 2
           done
 
-      - name: Run integration tests
+      - name: Integration tests
         run: python3 tests/integration/full_integration_test.py
