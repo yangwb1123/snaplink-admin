@@ -79,8 +79,29 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     body: _loading
       ? const Center(child: CircularProgressIndicator())
       : _error != null
-        ? Center(child: Text('Error: $_error'))
-        : Column(children: [
+        ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                  const SizedBox(height: 16),
+                  Text('Failed to load', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(_error!, textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : Column(children: [
             AdminBreadcrumb(),
             Expanded(child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
