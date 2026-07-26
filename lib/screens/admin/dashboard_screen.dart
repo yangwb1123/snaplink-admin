@@ -7,6 +7,7 @@ import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
 import 'package:sso_admin/widgets/offline_banner.dart';
+import 'package:sso_admin/widgets/error_boundary.dart';
 import 'admin_overview_tab.dart';
 import 'admin_live_events_tab.dart';
 import 'admin_operations_tab.dart';
@@ -397,9 +398,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'webhooks': (_) => WebhookDetailScreen(api: _api, client: widget.client, subId: rid),
       };
       final builder = detail[route.module];
-      if (builder != null) { page = builder(context); } else { page = entries[selectedIndex].$2; }
+      if (builder != null) {
+        page = ErrorBoundary(child: builder(context));
+      } else {
+        page = ErrorBoundary(child: entries[selectedIndex].$2);
+      }
     } else {
-      page = entries[selectedIndex].$2;
+      page = ErrorBoundary(child: entries[selectedIndex].$2);
     }
     return Scaffold(
       appBar: AppBar(
