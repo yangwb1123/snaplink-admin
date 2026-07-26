@@ -309,14 +309,44 @@ class SSOAdminClient {
     return data as Map<String, dynamic>;
   }
 
+  /// Create a new identity connection.
+  Future<Map<String, dynamic>> createConnection(Map<String, dynamic> conn) async {
+    final data = await _post('/api/v1/admin/connections', conn);
+    return data as Map<String, dynamic>;
+  }
+
+  /// Update an existing connection.
+  Future<Map<String, dynamic>> updateConnection(String id, Map<String, dynamic> conn) async {
+    final data = await _put('/api/v1/admin/connections/${Uri.encodeComponent(id)}', conn);
+    return data as Map<String, dynamic>;
+  }
+
   /// Delete a connection by id.
   Future<void> deleteConnection(String id) async {
     await _delete('/api/v1/admin/connections/${Uri.encodeComponent(id)}');
   }
 
+  /// Create a new break-glass (emergency access) session.
+  Future<Map<String, dynamic>> createBreakGlassSession(Map<String, dynamic> session) async {
+    final data = await _post('/api/v1/admin/break-glass', session);
+    return data as Map<String, dynamic>;
+  }
+
   /// Delete a break-glass session by id.
   Future<void> deleteBreakGlassSession(String id) async {
     await _delete('/api/v1/admin/break-glass/${Uri.encodeComponent(id)}');
+  }
+
+  /// Create a new webhook subscription.
+  Future<Map<String, dynamic>> createWebhookSubscription(Map<String, dynamic> sub) async {
+    final data = await _post('/api/v1/admin/webhooks/subscriptions', sub);
+    return data as Map<String, dynamic>;
+  }
+
+  /// Update an existing webhook subscription.
+  Future<Map<String, dynamic>> updateWebhookSubscription(String id, Map<String, dynamic> sub) async {
+    final data = await _put('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}', sub);
+    return data as Map<String, dynamic>;
   }
 
   /// Delete a webhook subscription by id.
