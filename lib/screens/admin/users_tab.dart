@@ -30,7 +30,7 @@ class _UsersTabState extends State<UsersTab> {
     super.initState();
     _future = _loadPage();
     _handleRoute();
-    final popListener = () { if (mounted) _handleRoute(); };
+    void popListener() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', popListener.toJS);
   }
 

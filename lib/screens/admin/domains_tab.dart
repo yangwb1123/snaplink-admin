@@ -31,7 +31,7 @@ class _DomainsTabState extends State<DomainsTab> {
     super.initState();
     _load();
     _handleRoute();
-    final popListener = () { if (mounted) _handleRoute(); };
+    void popListener() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', popListener.toJS);
   }
 

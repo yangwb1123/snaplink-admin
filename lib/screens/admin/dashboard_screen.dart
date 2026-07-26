@@ -35,7 +35,6 @@ import 'user_detail_screen.dart';
 import 'user_support_tab.dart';
 import 'users_tab.dart';
 import 'webhook_detail_screen.dart';
-import 'webhooks_tab.dart';
 import 'tenant_detail_screen.dart';
 import 'tenants_tab.dart';
 class DashboardScreen extends StatefulWidget {
@@ -77,9 +76,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     _index = _indexFromPath();
     _refreshCapabilities();
-    final popListener = () {
+    void popListener() {
       if (mounted) setState(() { _index = _indexFromPath(); });
-    };
+    }
     web.window.addEventListener('popstate', popListener.toJS);
   }
   Future<void> _refreshCapabilities() async {

@@ -22,7 +22,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   String? _error; bool _loading = false; bool _mutating = false;
 
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
-  @override void initState() { super.initState(); _load(); final p = () { if (mounted) _handleRoute(); }; web.window.addEventListener('popstate', p.toJS); }
+  @override void initState() { super.initState(); _load(); void p() { if (mounted) _handleRoute(); } web.window.addEventListener('popstate', p.toJS); }
 
   bool _editing = false;
   bool _creating = false;

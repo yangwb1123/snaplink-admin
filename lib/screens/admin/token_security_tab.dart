@@ -48,7 +48,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
     _load();
   }

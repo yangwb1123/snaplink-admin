@@ -86,7 +86,7 @@ class AdminBreadcrumb extends StatelessWidget {
     }
 
     // Override module label
-    if (overrideModule != null && crumbs.length >= 1) {
+    if (overrideModule != null && crumbs.isNotEmpty) {
       crumbs[0] = TextButton(
         onPressed: () => AdminRoute.go(route.module),
         style: TextButton.styleFrom(

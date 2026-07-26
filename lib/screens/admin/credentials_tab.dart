@@ -32,7 +32,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_credsPath);
 
   @override
-  void initState() { super.initState(); _load(); _handleRoute(); final p = () { if (mounted) _handleRoute(); }; web.window.addEventListener('popstate', p.toJS); }
+  void initState() { super.initState(); _load(); _handleRoute(); void p() { if (mounted) _handleRoute(); } web.window.addEventListener('popstate', p.toJS); }
   @override void dispose() { _typeCtrl.dispose(); super.dispose(); }
 
   void _handleRoute() {

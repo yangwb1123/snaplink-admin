@@ -38,7 +38,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
     _load();
     if (AdminRoute.fromUri(Uri.base).subresource == 'deadletters') {
@@ -246,8 +246,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Replayed')));
       _load();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } catch (e) { if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }
 
@@ -262,8 +262,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All replayed')));
       _load();
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } catch (e) { if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }
 
@@ -276,8 +276,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
       AdminRoute.go('webhooks');
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    } catch (e) { if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }
 

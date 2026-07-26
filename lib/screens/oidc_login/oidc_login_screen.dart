@@ -200,7 +200,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   }
   void _submitAuthorizationFormPost(String uri, Map<String, String> r) {
     final form = web.HTMLFormElement()..method = 'post'..action = uri;
-    for (final e in r.entries) form.append(web.HTMLInputElement()..type = 'hidden'..name = e.key..value = e.value);
+    for (final e in r.entries) {
+      form.append(web.HTMLInputElement()..type = 'hidden'..name = e.key..value = e.value);
+    }
     web.window.document.body?.append(form); form.submit();
   }
   Future<void> _submitSilentRenewal() async {
@@ -209,7 +211,11 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     try {
       final p = _params.toLoginPayload(''); p['client_id'] = _effectiveClientId;
       final o = await _api.login(p); if (!mounted) return;
-      if (o.ok) _handleSuccess(o); else _redirectAuthorizationError(o);
+      if (o.ok) {
+        _handleSuccess(o);
+      } else {
+        _redirectAuthorizationError(o);
+      }
     } catch (_) { if (mounted) _redirectAuthorizationError(LoginOutcome(0, const {'error': 'temporarily_unavailable'})); }
     finally { if (mounted) setState(() => _loading = false); }
   }
@@ -251,7 +257,11 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     final tdt = TrustedDeviceToken.read(_effectiveClientId); if (tdt != null && tdt.isNotEmpty) payload['device_token'] = tdt;
     payload['credential'] = _usesCodeProvider ? {_provider == 'phone' ? 'phone' : 'email': _codeTargetCtrl.text.trim(), 'code': code} : _usesTotpProvider ? {'username': _userCtrl.text.trim(), 'code': code} : {'username': _userCtrl.text.trim(), 'password': _passCtrl.text};
     _pendingLoginPayload = payload;
-    try { final out = await _api.login(payload); if (out.ok) _handleSuccess(out); else _handleLoginError(out); }
+    try { final out = await _api.login(payload); if (out.ok) {
+      _handleSuccess(out);
+    } else {
+      _handleLoginError(out);
+    } }
     catch (_) { setState(() => _error = AppStrings.of(context).networkError); }
     finally { if (mounted) setState(() => _loading = false); }
   }
@@ -277,7 +287,11 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       p['credential'] = {'session_id': sid, 'assertion': a};
       _pendingLoginPayload = p;
       final out = await _api.login(p);
-      if (out.ok) _handleSuccess(out); else _handleLoginError(out);
+      if (out.ok) {
+        _handleSuccess(out);
+      } else {
+        _handleLoginError(out);
+      }
     } on FormatException catch (_) { setState(() => _error = 'Invalid.'); } on StateError catch (e) { setState(() => _error = e.message); }
     catch (_) { setState(() => _error = AppStrings.of(context).networkError); }
     finally { if (mounted) setState(() => _loading = false); }
@@ -292,16 +306,28 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       else if (method == 'push') { final id = _mfaMethodData[method]?['approval_id']; if (id == null || id.isEmpty) throw StateError('Unavailable.'); params = {'approval_id': id}; }
       else { code = _mfaCodeCtrl.text.trim(); }
       final out = await _api.mfaComplete(mfaChallengeId: _mfaChallengeId, method: method, code: code, params: params, trustDevice: _trustThisDevice);
-      if (out.ok) _handleSuccess(out); else setState(() => _error = out.error ?? 'Failed.');
+      if (out.ok) {
+        _handleSuccess(out);
+      } else {
+        setState(() => _error = out.error ?? 'Failed.');
+      }
     } on StateError catch (e) { setState(() => _error = e.message); }
     catch (_) { setState(() => _error = 'Verification failed.'); }
     finally { if (mounted) setState(() => _loading = false); }
   }
   Future<void> _submitConsent(bool allow) async {
-    if (!allow) { if (_isRpFlow && !_usesJarm) _redirectAuthorizationResponse({'error': 'access_denied', if (_params.state.isNotEmpty) 'state': _params.state}, tokenResponse: false); else setState(() => _view = _View.login); return; }
+    if (!allow) { if (_isRpFlow && !_usesJarm) {
+      _redirectAuthorizationResponse({'error': 'access_denied', if (_params.state.isNotEmpty) 'state': _params.state}, tokenResponse: false);
+    } else {
+      setState(() => _view = _View.login);
+    } return; }
     if (_pendingLoginPayload == null) return;
     setState(() { _loading = true; _error = null; });
-    try { final out = await _api.login({..._pendingLoginPayload!, 'consent_challenge_id': _consentChallengeId}); if (out.ok) _handleSuccess(out); else _handleLoginError(out); }
+    try { final out = await _api.login({..._pendingLoginPayload!, 'consent_challenge_id': _consentChallengeId}); if (out.ok) {
+      _handleSuccess(out);
+    } else {
+      _handleLoginError(out);
+    } }
     catch (_) { setState(() => _error = AppStrings.of(context).networkError); }
     finally { if (mounted) setState(() => _loading = false); }
   }

@@ -41,7 +41,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
   }
 
@@ -52,6 +52,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     if (route.isNew) { _create(); }
   }
 
+  @override
   void dispose() {
     _targetCtrl.dispose();
     _reasonCtrl.dispose();

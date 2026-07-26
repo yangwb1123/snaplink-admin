@@ -194,8 +194,10 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(h?['healthy'] == true ? 'Connection healthy' : 'Probe failed')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')));
+      }
     } finally { if (mounted) setState(() => _mutating = false); }
   }
 

@@ -46,7 +46,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
     super.initState();
     _refresh();
     _initSectionFromRoute();
-    final popListener = () { if (mounted) _initSectionFromRoute(); };
+    void popListener() { if (mounted) _initSectionFromRoute(); }
     web.window.addEventListener('popstate', popListener.toJS);
   }
   void _initSectionFromRoute() {

@@ -27,9 +27,9 @@ class _ClientsTabState extends State<ClientsTab> {
     _future = _loadPage();
     _handleRoute();
     // Listen for URL changes
-    final popListener = () {
+    void popListener() {
       if (mounted) _handleRoute();
-    };
+    }
     web.window.addEventListener('popstate', popListener.toJS);
   }
   void _handleRoute() {

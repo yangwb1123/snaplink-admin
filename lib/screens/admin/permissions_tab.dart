@@ -50,7 +50,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
   }
 
@@ -145,7 +145,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     await _write(() => widget.api.post(_path(_assignmentsPath, {'client_id': cid}), {'user_id': uid, 'roles': codes}), 'Roles assigned.');
   }
 
-  Future<void> _unassign(String uid, [String? code]) async {
+  Future<void> _unassign(String uid) async {
     final cid = _clientId;
     if (cid == null) return;
     if (!await _confirm('Unassign user?', 'Remove all role assignments for $uid?', destructive: true)) return;

@@ -40,7 +40,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
   }
 

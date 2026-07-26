@@ -49,7 +49,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     super.initState();
     _load();
     _initTabFromRoute();
-    final popListener = () { if (mounted) _initTabFromRoute(); };
+    void popListener() { if (mounted) _initTabFromRoute(); }
     web.window.addEventListener('popstate', popListener.toJS);
   }
 

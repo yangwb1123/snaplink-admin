@@ -68,7 +68,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
+    void p() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', p.toJS);
   }
 
@@ -78,6 +78,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     if (route.module != 'connections') return;
     if (route.isNew) { _upsertConnection(); }
   }
+  @override
   void dispose() {
     _tenantCtrl.dispose();
     _lookupCtrl.dispose();
