@@ -1,11 +1,17 @@
-# build/ is intentionally NOT ignored here — the image needs the
-# already-built `build/web/` output present at `docker build` time (see
-# DEPLOY.md: run `flutter build web --release --base-href=/app/` first).
-.git
-.dart_tool
-android
-ios
-linux
-macos
-windows
-test
+build/
+.dart_tool/
+.pub-cache/
+.packages
+.git/
+.github/
+android/
+ios/
+linux/
+macos/
+windows/
+test/
+tests/
+tools/
+*.md
+*.bak
+.gitignore
