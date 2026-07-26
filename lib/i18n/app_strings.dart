@@ -60,8 +60,70 @@ class AppStrings {
   String get tenants => _t('tenants');
   String get logout => _t('logout');
 
+  // Admin - Common
+  String get search => _t('search');
+  String get filter => _t('filter');
+  String get refresh => _t('refresh');
+  String get create => _t('create');
+  String get edit => _t('edit');
+  String get delete => _t('delete');
+  String get cancel => _t('cancel');
+  String get confirm => _t('confirm');
+  String get retry => _t('retry');
+  String get loading => _t('loading');
+  String get noData => _t('no_data');
+  String get errorOccurred => _t('error_occurred');
+
+  // Admin - Modules
+  String get permissions => _t('permissions');
+  String get connections => _t('connections');
+  String get tokenSecurity => _t('token_security');
+  String get webhooks => _t('webhooks');
+  String get emergencyAccess => _t('emergency_access');
+  String get governance => _t('governance');
+  String get cryptoKeys => _t('crypto_keys');
+  String get credentials => _t('credentials');
+  String get domains => _t('domains');
+  String get threatPolicies => _t('threat_policies');
+  String get accessPolicies => _t('access_policies');
+  String get drMode => _t('dr_mode');
+  String get organizations => _t('organizations');
+  String get operations => _t('operations');
+  String get userSupport => _t('user_support');
+  String get liveActivity => _t('live_activity');
+  String get authzChecks => _t('authz_checks');
+
   static const _table = <String, Map<String, String>>{
     'en': {
+      'search': 'Search',
+      'filter': 'Filter',
+      'refresh': 'Refresh',
+      'create': 'Create',
+      'edit': 'Edit',
+      'delete': 'Delete',
+      'cancel': 'Cancel',
+      'confirm': 'Confirm',
+      'retry': 'Retry',
+      'loading': 'Loading...',
+      'no_data': 'No data',
+      'error_occurred': 'An error occurred',
+      'permissions': 'Permissions',
+      'connections': 'Connections',
+      'token_security': 'Token Security',
+      'webhooks': 'Webhooks',
+      'emergency_access': 'Emergency Access',
+      'governance': 'Governance',
+      'crypto_keys': 'Crypto Keys',
+      'credentials': 'Credentials',
+      'domains': 'Domains',
+      'threat_policies': 'Threat Policies',
+      'access_policies': 'Access Policies',
+      'dr_mode': 'DR Mode',
+      'organizations': 'Organizations',
+      'operations': 'Operations',
+      'user_support': 'User Support',
+      'live_activity': 'Live Activity',
+      'authz_checks': 'AuthZ Checks',
       'sign_in': 'Sign in',
       'username': 'Username',
       'password': 'Password',
@@ -103,6 +165,35 @@ class AppStrings {
       'logout': 'Log out',
     },
     'zh': {
+      'search': '搜索',
+      'filter': '筛选',
+      'refresh': '刷新',
+      'create': '创建',
+      'edit': '编辑',
+      'delete': '删除',
+      'cancel': '取消',
+      'confirm': '确认',
+      'retry': '重试',
+      'loading': '加载中...',
+      'no_data': '暂无数据',
+      'error_occurred': '发生错误',
+      'permissions': '权限管理',
+      'connections': '连接管理',
+      'token_security': 'Token 安全',
+      'webhooks': 'Webhook 管理',
+      'emergency_access': '紧急访问',
+      'governance': '治理合规',
+      'crypto_keys': '密钥管理',
+      'credentials': '凭据管理',
+      'domains': '域名管理',
+      'threat_policies': '威胁策略',
+      'access_policies': '访问策略',
+      'dr_mode': 'DR 模式',
+      'organizations': '组织管理',
+      'operations': '运维操作',
+      'user_support': '用户支持',
+      'live_activity': '实时活动',
+      'authz_checks': '授权检查',
       'sign_in': '登录',
       'username': '用户名',
       'password': '密码',

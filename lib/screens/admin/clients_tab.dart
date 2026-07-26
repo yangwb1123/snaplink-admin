@@ -6,6 +6,7 @@ import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
 class ClientsTab extends StatefulWidget {
@@ -219,7 +220,7 @@ class _ClientsTabState extends State<ClientsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text('Clients', style: Theme.of(context).textTheme.headlineSmall),
+              Text(AppStrings.of(context).clients, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               IconButton(
                 onPressed: () => AdminRoute.go('clients', action: 'new'),
