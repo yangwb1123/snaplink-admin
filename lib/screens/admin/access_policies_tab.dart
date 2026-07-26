@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 
 /// Access policy list (view-only).
 /// URL: /admin/access-policies
@@ -32,21 +32,32 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
-    AdminBreadcrumb(),
-    Row(children: [
-      Text(AppStrings.of(context).accessPolicies, style: Theme.of(context).textTheme.headlineSmall),
-      const Spacer(),
-      IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
-    ]),
-    if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-    if (_loading) const SkeletonListTile(itemCount: 3),
-    if (!_loading && _policies.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No access policies.')),
-    if (!_loading) for (final p in _policies) Card(margin: const EdgeInsets.only(bottom: 8), child: ListTile(
-      leading: Icon(Icons.lock_outline, color: p['enabled'] == true ? Colors.blue : Colors.grey),
-      title: Text(p['name']?.toString() ?? p['id']?.toString() ?? ''),
-      subtitle: Text('effect: ${p['effect'] ?? 'allow'}\n${p['description'] ?? ''}'),
-      isThreeLine: true,
-    )),
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Expanded(
+      child: ListView(padding: const EdgeInsets.all(16), children: [
+        AdminBreadcrumb(),
+        Row(children: [
+          Text(AppStrings.of(context).accessPolicies, style: Theme.of(context).textTheme.headlineSmall),
+          const Spacer(),
+          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
+        ]),
+        AsyncView<List<Map<String, dynamic>>>(
+          loading: _loading,
+          error: _error,
+          data: _policies,
+          onRetry: _load,
+          emptyTitle: 'No access policies',
+          emptySubtitle: 'No access policies configured for this server.',
+          dataBuilder: (policies) => Column(
+            children: policies.map((p) => Card(margin: const EdgeInsets.only(bottom: 8), child: ListTile(
+              leading: Icon(Icons.lock_outline, color: p['enabled'] == true ? Colors.blue : Colors.grey),
+              title: Text(p['name']?.toString() ?? p['id']?.toString() ?? ''),
+              subtitle: Text('effect: ${p['effect'] ?? 'allow'}\n${p['description'] ?? ''}'),
+              isThreeLine: true,
+            ))).toList(),
+          ),
+        ),
+      ]),
+    ),
   ]);
 }
