@@ -8,6 +8,7 @@ import 'permissions_cards.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Client-scoped role definitions, subject assignments, and navigation trees.
 /// URL: /admin/permissions/{clientId}[/roles|assignments]
@@ -199,7 +200,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
         ],
       ]),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 3),
       if (clientId != null) _sectionChips(context),
       if (clientId != null && (_currentSection == 'all' || _currentSection == 'roles') && _supportsRoles) ...[
         const SizedBox(height: 12),

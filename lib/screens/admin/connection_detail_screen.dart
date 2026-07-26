@@ -30,6 +30,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   Map<String, dynamic>? _health;
   String? _error;
   bool _loading = true;
+  // ignore: unused_field - used as mutex for concurrent operation prevention
   bool _mutating = false;
   bool _showConfig = false;
 

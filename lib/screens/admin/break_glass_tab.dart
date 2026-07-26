@@ -45,7 +45,6 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     web.window.addEventListener('popstate', p.toJS);
   }
 
-  @override
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'break-glass') return;

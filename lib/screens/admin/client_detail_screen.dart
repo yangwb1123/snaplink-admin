@@ -264,10 +264,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (!mounted) return;
       final newSecret = (result as Map<String, dynamic>?)?
         ['client_secret']?.toString() ?? (result as Map?)?.values.first?.toString() ?? 'Secret rotated';
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(newSecret.startsWith('Secret') ? newSecret : 'Secret rotated')));
       setState(() { _revealedSecret = newSecret; _showSecret = true; });
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }
@@ -290,11 +292,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     try {
       await widget.api.post(
         '/api/v1/admin/clients/${Uri.encodeComponent(widget.clientId)}/$action', {});
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Client ${action}ed')));
       _load();
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }

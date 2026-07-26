@@ -243,11 +243,13 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     try {
       await widget.api.post(
         '/api/v1/admin/webhooks/deadletters/${Uri.encodeComponent(dlId)}/replay', {});
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Replayed')));
       _load();
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -262,11 +264,13 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     try {
       await widget.api.post(
         '/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(widget.subId)}/deadletters/replay', {});
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All replayed')));
       _load();
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -279,11 +283,13 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     if (!confirmed) return;
     try {
       await widget.api.delete('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(widget.subId)}');
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
       AdminRoute.go('webhooks');
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }

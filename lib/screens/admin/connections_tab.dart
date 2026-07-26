@@ -72,7 +72,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     web.window.addEventListener('popstate', p.toJS);
   }
 
-  @override
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'connections') return;

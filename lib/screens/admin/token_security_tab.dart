@@ -224,7 +224,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       ],
     );
   }
-  bool _showSection(String section) => _currentSection == 'all' || _currentSection == section;
   Widget _portfolioCard(BuildContext context) {
     final portfolio = _data['portfolio']?['portfolio'] as Map? ?? const {};
     return _card(context, 'Token portfolio', [

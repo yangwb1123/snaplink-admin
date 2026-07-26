@@ -63,9 +63,6 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     } on SnaplinkAdminApiError catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally { if (mounted) setState(() => _mutating = false); }
   
-  void handleRoute() {
-    setState(() {});
-  }
 }
 
   @override
