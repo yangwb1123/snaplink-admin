@@ -1,19 +1,19 @@
 import 'package:web/web.dart' as web;
 
-/// Three-level admin route: /admin/<module>/<resource>/{id}/<action>/<subaction>
+/// Three-level admin route: `/admin/<module>/<resource>/{id}/<action>/<subaction>`
 ///
 /// Maps directly to snaplink's API resource hierarchy:
 ///
 /// Level 1 - Module (功能模块):
 ///   /admin/clients, /admin/users, /admin/tokens, /admin/tenants ...
 ///
-/// Level 2 - Resource + Action (资源与操作):
+/// Level 2 - Resource + Action:
 ///   /admin/clients              → list
 ///   /admin/clients/new          → create form
 ///   /admin/clients/client-abc   → detail view
 ///   /admin/clients/client-abc/edit → edit form
 ///
-/// Level 3 - Sub-resource + Action (子资源与操作):
+/// Level 3 - Sub-resource + Action:
 ///   /admin/users/user-xyz/sessions        → user's sessions
 ///   /admin/users/user-xyz/consents        → user's consents
 ///   /admin/users/user-xyz/mfa             → user's MFA factors

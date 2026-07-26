@@ -246,9 +246,12 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Replayed')));
       _load();
-    } catch (e) { if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally { if (mounted) setState(() => _mutating = false); }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
   }
 
   Future<void> _replayAll() async {
@@ -262,9 +265,12 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All replayed')));
       _load();
-    } catch (e) { if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-    } finally { if (mounted) setState(() => _mutating = false); }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
   }
 
   Future<void> _delete(BuildContext context) async {
@@ -276,7 +282,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Deleted')));
       AdminRoute.go('webhooks');
-    } catch (e) { if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     }
   }

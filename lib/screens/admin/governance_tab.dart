@@ -210,6 +210,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       final value = jsonDecode(source.trim().isEmpty ? '{}' : source);
       if (value is Map) return Map<String, dynamic>.from(value);
     } on FormatException {
+      // Invalid JSON; handled below
     }
     setState(() => _error = '$label must be a JSON object.');
     return null;

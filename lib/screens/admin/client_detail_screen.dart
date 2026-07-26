@@ -263,7 +263,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(newSecret.startsWith('Secret') ? newSecret : 'Secret rotated')));
       setState(() { _revealedSecret = newSecret; _showSecret = true; });
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }
 
@@ -289,7 +290,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Client ${action}ed')));
       _load();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally { if (mounted) setState(() => _mutating = false); }
   }
 

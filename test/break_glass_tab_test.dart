@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/api/snaplink_admin_types.dart';
 
 /// Break Glass tab unit tests — verifies API integration logic
 /// without requiring a browser (no dart:js_interop dependency).
