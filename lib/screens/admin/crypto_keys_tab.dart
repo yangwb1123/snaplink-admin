@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
 
 /// Crypto keys inventory and rotation management tab.
@@ -86,7 +87,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
           onPressed: _mutating ? null : () => AdminRoute.go('crypto-keys', subresource: 'rotate'),
           icon: const Icon(Icons.refresh), label: const Text('Rotate keys'),
         )),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 4),
       if (!_loading && _keys.isEmpty) const Text('No keys found.'),
       if (!_loading) for (final key in _keys) _keyCard(context, key),
     ]);

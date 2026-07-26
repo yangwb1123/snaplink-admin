@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
@@ -93,7 +94,7 @@ class _DomainsTabState extends State<DomainsTab> {
         Row(children: [Text('Registered domains', style: Theme.of(context).textTheme.titleMedium), const Spacer(), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh))]),
         const SizedBox(height: 8),
       ],
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 3),
       if (!_loading && _domains.isEmpty && !_showForm) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No domains registered.')),
       if (!_loading) for (final d in _domains) Card(margin: const EdgeInsets.only(top: 8), child: ListTile(
         leading: Icon(Icons.language, color: Colors.blue),

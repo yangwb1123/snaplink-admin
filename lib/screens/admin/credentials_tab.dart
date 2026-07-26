@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
@@ -84,7 +85,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
       if (_showReportForm) _buildReportForm(context),
       const SizedBox(height: 16),
       Text('Rotation inventory', style: Theme.of(context).textTheme.titleMedium),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 4),
       if (!_loading && _credentials.isEmpty && !_showReportForm) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No credentials found.')),
       if (!_loading) for (final c in _credentials) Card(
         margin: const EdgeInsets.only(top: 8),
