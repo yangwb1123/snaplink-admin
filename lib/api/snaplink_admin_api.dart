@@ -108,16 +108,24 @@ class SnaplinkAdminApi {
   }
   Future<Map<String, dynamic>> get(String path, {Map<String, String>? query, bool forceRefresh = false}) async {
     if (query != null) {
-      // Cannot cache requests with query parameters
       return _request('GET', path, query: query);
     }
     if (!forceRefresh) {
       final cached = _cache.get('GET', path);
       if (cached != null) return cached;
     }
-    final data = await _request('GET', path);
-    _cache.set('GET', path, data);
-    return data;
+    // Request deduplication: if the same GET is already in-flight, wait for it
+    final pending = _cache.registerOrGet('GET', path);
+    if (pending != null) return await pending;
+    try {
+      final data = await _request('GET', path);
+      _cache.set('GET', path, data);
+      _cache.resolve('GET', path, data);
+      return data;
+    } catch (e) {
+      _cache.reject('GET', path, e);
+      rethrow;
+    }
   }
   /// Reads the opt-in embedded API documentation page without attempting to
   /// coerce its `text/html` response into JSON.
