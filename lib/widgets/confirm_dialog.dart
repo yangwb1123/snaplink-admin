@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// Result of a confirm dialog.
-enum ConfirmResult { confirmed, cancelled }
-
 /// Shared confirmation dialog used across admin tabs.
-/// Replaces the duplicated `_confirm()` pattern in multiple tabs.
+/// Supports destructive actions with optional type-to-confirm.
 class ConfirmDialog extends StatelessWidget {
   final String title;
   final String message;
@@ -12,6 +9,7 @@ class ConfirmDialog extends StatelessWidget {
   final String cancelLabel;
   final bool destructive;
   final bool isLoading;
+  final String? confirmText; // If set, user must type this to enable confirm
 
   const ConfirmDialog({
     super.key,
@@ -21,6 +19,7 @@ class ConfirmDialog extends StatelessWidget {
     this.cancelLabel = 'Cancel',
     this.destructive = false,
     this.isLoading = false,
+    this.confirmText,
   });
 
   /// Show the dialog and return true if confirmed, false otherwise.
@@ -31,6 +30,7 @@ class ConfirmDialog extends StatelessWidget {
     String confirmLabel = 'Confirm',
     String cancelLabel = 'Cancel',
     bool destructive = false,
+    String? confirmText,
   }) async {
     final result = await showDialog<bool>(
       context: context,
@@ -40,6 +40,7 @@ class ConfirmDialog extends StatelessWidget {
         confirmLabel: confirmLabel,
         cancelLabel: cancelLabel,
         destructive: destructive,
+        confirmText: confirmText,
       ),
     );
     return result ?? false;
@@ -47,6 +48,16 @@ class ConfirmDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (confirmText != null && destructive) {
+      return _TypeToConfirmDialog(
+        title: title,
+        message: message,
+        confirmLabel: confirmLabel,
+        cancelLabel: cancelLabel,
+        confirmText: confirmText!,
+        isLoading: isLoading,
+      );
+    }
     return AlertDialog(
       title: Text(title),
       content: Text(message),
@@ -67,6 +78,85 @@ class ConfirmDialog extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Text(confirmLabel),
+        ),
+      ],
+    );
+  }
+}
+
+/// Confirm dialog that requires typing a specific text to enable the confirm button.
+/// Used for destructive operations like deleting resources.
+class _TypeToConfirmDialog extends StatefulWidget {
+  final String title;
+  final String message;
+  final String confirmLabel;
+  final String cancelLabel;
+  final String confirmText;
+  final bool isLoading;
+
+  const _TypeToConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+    required this.cancelLabel,
+    required this.confirmText,
+    this.isLoading = false,
+  });
+
+  @override
+  State<_TypeToConfirmDialog> createState() => _TypeToConfirmDialogState();
+}
+
+class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
+  final _ctrl = TextEditingController();
+  bool _match = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.message),
+          const SizedBox(height: 16),
+          Text('Type "${widget.confirmText}" to confirm:',
+              style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _ctrl,
+            onChanged: (v) => setState(() => _match = v == widget.confirmText),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: widget.isLoading ? null : () => Navigator.pop(context, false),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton(
+          onPressed: (!_match || widget.isLoading)
+              ? null
+              : () => Navigator.pop(context, true),
+          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          child: widget.isLoading
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(widget.confirmLabel),
         ),
       ],
     );

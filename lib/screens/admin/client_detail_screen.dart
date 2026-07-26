@@ -255,7 +255,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final confirmed = await ConfirmDialog.show(context,
       title: 'Rotate client secret?',
       message: 'This will invalidate the current secret. All integrations using this secret will stop working until updated.',
-      destructive: true);
+      destructive: true,
+      confirmText: widget.clientId);
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
