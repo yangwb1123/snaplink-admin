@@ -84,7 +84,8 @@ class AsyncView<T> extends StatelessWidget {
       );
     }
 
-    if (data == null || _isEmpty(data)) {
+    final dataValue = data;
+    if (dataValue == null || _isEmpty(dataValue)) {
       return EmptyState(
         icon: Icons.inbox_outlined,
         title: emptyTitle ?? 'No data',
@@ -94,10 +95,9 @@ class AsyncView<T> extends StatelessWidget {
       );
     }
 
-    return dataBuilder(data!);
+    return dataBuilder(dataValue);
   }
 
-  // ignore: null_check_on_nullable_type_parameter
   bool _isEmpty(T? data) {
     if (data == null) return true;
     if (data is Iterable) return data.isEmpty;
