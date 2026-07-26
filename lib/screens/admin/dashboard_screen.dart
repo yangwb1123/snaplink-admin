@@ -19,6 +19,7 @@ import 'clients_tab.dart';
 import 'connection_detail_screen.dart';
 import 'connections_tab.dart';
 import 'audit_log_tab.dart';
+import 'health_tab.dart';
 import 'governance_tab.dart';
 import 'permission_detail_screen.dart';
 import 'permissions_tab.dart';
@@ -58,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'organizations', 'operations', 'crypto-keys', 'credentials',
     'token-policies', 'token-exchange', 'authz-checks', 'domains',
     'access-policies', 'dr-mode', 'threat-policies', 'webhooks',
-    'emergency-access', 'governance', 'audit-log',
+    'emergency-access', 'governance', 'audit-log', 'health',
   ];
   int _indexFromPath() {
     final route = AdminRoute.fromUri(Uri.base);
@@ -399,6 +400,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: Text('Audit Log'),
           ),
           const AuditLogTab(),
+        ),
+        (
+          const NavigationRailDestination(
+            icon: Icon(Icons.monitor_heart_outlined),
+            label: Text('Health'),
+          ),
+          HealthTab(api: _api),
         ),
     ];
     final selectedIndex = _index.clamp(0, entries.length - 1);
