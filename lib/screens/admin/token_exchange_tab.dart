@@ -43,7 +43,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       Row(children: [
         Expanded(child: TextField(controller: _searchCtrl, decoration: const InputDecoration(labelText: 'Token ID (JTI)', hintText: 'Enter a token JTI to trace its exchange chain'), onSubmitted: (_) => _load())),
         const SizedBox(width: 10),
-        IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.search)),
+        IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.search), tooltip: 'Search'),
       ]),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
       if (_loading) const SkeletonListTile(itemCount: 3),
