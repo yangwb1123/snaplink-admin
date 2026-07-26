@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Token policy governance view tab.
 class TokenPoliciesTab extends StatefulWidget {
@@ -37,7 +38,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
       Row(children: [
-        Text('Token policies', style: Theme.of(context).textTheme.headlineSmall),
+        Text(AppStrings.of(context).tokenPolicies, style: Theme.of(context).textTheme.headlineSmall),
         const Spacer(), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
       ]),
       const SizedBox(height: 4),

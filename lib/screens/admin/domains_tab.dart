@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Domain ownership management tab with URL routing.
 /// URLs: /admin/domains, /admin/domains/new
@@ -108,7 +109,7 @@ class _DomainsTabState extends State<DomainsTab> {
     if (!_available) return const Center(child: Text('Domain management is not enabled.'));
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
-      Text('Domains', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).domains, style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 4), const Text('Manage email domains for home-realm discovery.'),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
       if (_showForm) _buildForm(context),

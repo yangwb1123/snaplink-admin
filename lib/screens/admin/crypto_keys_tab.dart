@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Crypto keys inventory and rotation management tab.
 /// URLs: /admin/crypto-keys, /admin/crypto-keys/rotate
@@ -74,7 +75,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
       Row(children: [
-        Text('Crypto keys', style: Theme.of(context).textTheme.headlineSmall),
+        Text(AppStrings.of(context).cryptoKeys, style: Theme.of(context).textTheme.headlineSmall),
         const Spacer(),
         IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
       ]),

@@ -8,6 +8,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 class TenantsTab extends StatefulWidget {
   final SSOAdminClient client;
@@ -163,7 +164,7 @@ class _TenantsTabState extends State<TenantsTab> {
           child: Row(
             children: [
         AdminBreadcrumb(),
-                      Text('Tenants', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(AppStrings.of(context).tenants, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
               IconButton(

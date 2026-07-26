@@ -5,6 +5,7 @@ import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Break Glass (emergency access) management tab.
 ///
@@ -165,7 +166,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     }
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
-      Text('Emergency access (Break Glass)', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).emergencyAccess, style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 4),
       const Text('Create audited, time-bound emergency access to user accounts.'),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),

@@ -91,6 +91,8 @@ class AppStrings {
   String get operations => _t('operations');
   String get userSupport => _t('user_support');
   String get liveActivity => _t('live_activity');
+  String get tokenExchange => _t('token_exchange');
+  String get tokenPolicies => _t('token_policies');
   String get authzChecks => _t('authz_checks');
 
   static const _table = <String, Map<String, String>>{
@@ -123,6 +125,8 @@ class AppStrings {
       'operations': 'Operations',
       'user_support': 'User Support',
       'live_activity': 'Live Activity',
+      'token_exchange': 'Token Exchange',
+      'token_policies': 'Token Policies',
       'authz_checks': 'AuthZ Checks',
       'sign_in': 'Sign in',
       'username': 'Username',
@@ -193,6 +197,8 @@ class AppStrings {
       'operations': '运维操作',
       'user_support': '用户支持',
       'live_activity': '实时活动',
+      'token_exchange': 'Token 交换',
+      'token_policies': 'Token 策略',
       'authz_checks': '授权检查',
       'sign_in': '登录',
       'username': '用户名',

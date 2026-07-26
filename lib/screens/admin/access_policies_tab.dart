@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Access policy list (view-only).
 /// URL: /admin/access-policies
@@ -33,7 +34,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(16), children: [
     AdminBreadcrumb(),
     Row(children: [
-      Text('Access Policies', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).accessPolicies, style: Theme.of(context).textTheme.headlineSmall),
       const Spacer(),
       IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
     ]),

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// ReBAC and WASM authorization policy check tool tab.
 class AuthzCheckTab extends StatefulWidget {
@@ -48,7 +49,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
     if (!_hasRebac && !_hasWasm) return const Center(child: Text('Authorization check tools are not enabled on this replica.'));
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
-      Text('Authorization checks', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).authzChecks, style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 4), const Text('Test ReBAC and WASM authorization policies.'),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
       if (_hasRebac) ...[const SizedBox(height: 16), _rebacCard(context)],

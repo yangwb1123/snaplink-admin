@@ -8,6 +8,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_route.dart';
 import 'user_form_dialog.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 class UsersTab extends StatefulWidget {
   final SSOAdminClient client;
@@ -150,7 +151,7 @@ class _UsersTabState extends State<UsersTab> {
           child: Row(
             children: [
         AdminBreadcrumb(),
-                      Text('Users', style: Theme.of(context).textTheme.headlineSmall),
+                      Text(AppStrings.of(context).users, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
               IconButton(
                 onPressed: () => AdminRoute.go('users', action: 'new'),

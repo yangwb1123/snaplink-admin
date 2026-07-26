@@ -5,6 +5,7 @@ import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Webhook subscriptions and dead letter management tab.
 class WebhooksTab extends StatefulWidget {
@@ -147,7 +148,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     }
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
-      Text('Webhooks', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).webhooks, style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 4),
       const Text('Manage event notification webhook subscriptions and dead letters.'),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),

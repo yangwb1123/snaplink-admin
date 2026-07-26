@@ -9,6 +9,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Client-scoped role definitions, subject assignments, and navigation trees.
 /// URL: /admin/permissions/{clientId}[/roles|assignments]
@@ -185,7 +186,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     final clientId = _clientId;
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
-      Text('Permissions', style: Theme.of(context).textTheme.headlineSmall),
+      Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall),
       const SizedBox(height: 8),
       Row(children: [
         SizedBox(width: 300, child: TextField(

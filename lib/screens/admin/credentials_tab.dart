@@ -6,6 +6,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Credential rotation inventory and compromise reporting tab.
 /// URL: /admin/credentials[/report]
@@ -78,7 +79,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
       Row(children: [
-        Text('Credentials', style: Theme.of(context).textTheme.headlineSmall),
+        Text(AppStrings.of(context).credentials, style: Theme.of(context).textTheme.headlineSmall),
         const Spacer(),
         IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
       ]),

@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Threat detection policy management tab.
 /// URLs: /admin/threat-policies, /admin/threat-policies/new, /admin/threat-policies/{id}/edit
@@ -96,7 +97,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     return ListView(padding: const EdgeInsets.all(16), children: [
       AdminBreadcrumb(),
       Row(children: [
-        Text('Threat Policies', style: Theme.of(context).textTheme.headlineSmall),
+        Text(AppStrings.of(context).threatPolicies, style: Theme.of(context).textTheme.headlineSmall),
         const Spacer(),
         IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
       ]),
