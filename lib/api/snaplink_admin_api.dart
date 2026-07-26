@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/api/data_cache.dart';
@@ -89,6 +91,9 @@ class SnaplinkAdminApi {
   }) : _http = httpClient ?? http.Client(),
        _cache = cache ?? DataCache();
   /// Number of entries currently in the response cache.
+  /// Maximum retry attempts for transient failures.
+  int maxRetries = 3;
+
   int get cacheSize => _cache.size;
 
   /// Number of in-flight deduplicated requests.
@@ -357,34 +362,63 @@ class SnaplinkAdminApi {
       if (body != null) 'Content-Type': contentType ?? 'application/json',
     };
     final encodedBody = body == null ? null : jsonEncode(body);
-    late final http.Response response;
-    switch (method) {
-      case 'GET':
-        response = await _http.get(uri, headers: headers);
-      case 'POST':
-        response = await _http.post(uri, headers: headers, body: encodedBody);
-      case 'PUT':
-        response = await _http.put(uri, headers: headers, body: encodedBody);
-      case 'PATCH':
-        response = await _http.patch(uri, headers: headers, body: encodedBody);
-      case 'DELETE':
-        response = await _http.delete(uri, headers: headers, body: encodedBody);
-      default:
-        throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+    
+    // Retry loop with exponential backoff for transient failures
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        late final http.Response response;
+        switch (method) {
+          case 'GET':
+            response = await _http.get(uri, headers: headers);
+          case 'POST':
+            response = await _http.post(uri, headers: headers, body: encodedBody);
+          case 'PUT':
+            response = await _http.put(uri, headers: headers, body: encodedBody);
+          case 'PATCH':
+            response = await _http.patch(uri, headers: headers, body: encodedBody);
+          case 'DELETE':
+            response = await _http.delete(uri, headers: headers, body: encodedBody);
+          default:
+            throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+        }
+        final data = _decode(response);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          return data;
+        }
+        // Retry on server errors (5xx), not client errors (4xx)
+        if (response.statusCode >= 500 && attempt < maxRetries) {
+          final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
+          await Future.delayed(delay);
+          continue;
+        }
+        if (response.statusCode == 401) {
+          onUnauthorized?.call();
+        }
+        throw SnaplinkAdminApiError(
+          response.statusCode,
+          code: data['error']?.toString() ?? data['code']?.toString(),
+          description:
+              data['error_description']?.toString() ?? data['message']?.toString(),
+        );
+      } on TimeoutException catch (_) {
+        if (attempt < maxRetries) {
+          final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
+          await Future.delayed(delay);
+          continue;
+        }
+        rethrow;
+      } catch (e) {
+        if (e is SnaplinkAdminApiError) rethrow;
+        if (attempt < maxRetries) {
+          final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
+          await Future.delayed(delay);
+          continue;
+        }
+        rethrow;
+      }
     }
-    final data = _decode(response);
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return data;
-    }
-    if (response.statusCode == 401) {
-      onUnauthorized?.call();
-    }
-    throw SnaplinkAdminApiError(
-      response.statusCode,
-      code: data['error']?.toString() ?? data['code']?.toString(),
-      description:
-          data['error_description']?.toString() ?? data['message']?.toString(),
-    );
   }
   static Map<String, dynamic> _decode(http.Response response) {
     return _decodeText(response.body);
