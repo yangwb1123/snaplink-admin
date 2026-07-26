@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'admin_route.dart';
 
 /// Token policy governance view tab.
 class TokenPoliciesTab extends StatefulWidget {

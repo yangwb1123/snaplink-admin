@@ -49,7 +49,7 @@ class _SkeletonListTileState extends State<SkeletonListTile>
     shrinkWrap: true,
     physics: const NeverScrollableScrollPhysics(),
     itemCount: widget.itemCount,
-    itemBuilder: (_, __) => _buildItem(),
+    itemBuilder: (_, _) => _buildItem(),
   );
 
   Widget _buildGrid() => GridView.builder(
@@ -62,12 +62,12 @@ class _SkeletonListTileState extends State<SkeletonListTile>
       childAspectRatio: 1.5,
     ),
     itemCount: widget.itemCount,
-    itemBuilder: (_, __) => _buildItem(),
+    itemBuilder: (_, _) => _buildItem(),
   );
 
   Widget _buildItem() => AnimatedBuilder(
     animation: _animation,
-    builder: (_, __) => Card(
+    builder: (_, _) => Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Padding(
         padding: const EdgeInsets.all(16),

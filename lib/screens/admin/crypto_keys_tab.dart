@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'dart:js_interop';
 import 'admin_route.dart';
-import 'package:web/web.dart' as web;
 
 /// Crypto keys inventory and rotation management tab.
 /// URLs: /admin/crypto-keys, /admin/crypto-keys/rotate

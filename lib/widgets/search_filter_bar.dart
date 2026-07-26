@@ -7,7 +7,7 @@ class SearchFilterBar extends StatefulWidget {
   final List<String> filterOptions;
   final String? selectedFilter;
   final ValueChanged<String> onSearchChanged;
-  final ValueChanged<String?> onFilterChanged;
+  final ValueChanged<String?>? onFilterChanged;
   final VoidCallback? onRefresh;
 
   const SearchFilterBar({

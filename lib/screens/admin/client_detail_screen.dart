@@ -1,4 +1,3 @@
-import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -7,7 +6,6 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
-import 'package:web/web.dart' as web;
 
 /// Client detail screen with actions (rotate-secret, approve, reject).
 /// URL: /admin/clients/{id}[/{action}]

@@ -51,6 +51,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     if (route.isNew) { _create(); }
   }
 
+  @override
   void dispose() {
     _urlCtrl.dispose(); _eventsCtrl.dispose(); _secretCtrl.dispose();
     super.dispose();

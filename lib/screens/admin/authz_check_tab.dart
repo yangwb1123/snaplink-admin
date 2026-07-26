@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'admin_route.dart';
 
 /// ReBAC and WASM authorization policy check tool tab.
 class AuthzCheckTab extends StatefulWidget {

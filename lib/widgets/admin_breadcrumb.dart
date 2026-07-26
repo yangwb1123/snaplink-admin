@@ -9,7 +9,7 @@ class AdminBreadcrumb extends StatelessWidget {
   final List<String> trailing;
   final String? overrideModule;
 
-  AdminBreadcrumb({super.key, this.trailing = const [], this.overrideModule});
+  const AdminBreadcrumb({super.key, this.trailing = const [], this.overrideModule});
 
   static String _moduleLabel(String module) => switch (module) {
     'users' => 'Users',

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import 'snaplink_admin_api.dart';
 import '../../widgets/admin_breadcrumb.dart';
-import 'admin_route.dart';
 
 /// Realtime, redacted audit activity backed by Snaplink's SSE endpoint.
 ///

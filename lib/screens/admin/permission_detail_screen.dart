@@ -1,11 +1,9 @@
-import 'dart:js_interop';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'admin_route.dart';
-import 'package:web/web.dart' as web;
 
 /// Permission roles/assignments for a specific client.
 /// URL: /admin/permissions/{clientId}[/roles|assignments]
