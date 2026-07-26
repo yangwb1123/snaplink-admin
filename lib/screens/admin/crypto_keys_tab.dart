@@ -90,7 +90,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
         )),
       if (_loading) const SkeletonListTile(itemCount: 4),
       if (!_loading && _keys.isEmpty) const Text('No keys found.'),
-      if (!_loading) for (final key in _keys) _keyCard(context, key),
+      if (!_loading && _keys.isNotEmpty)
+        ListView.builder(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: _keys.length,
+          itemBuilder: (_, i) => _keyCard(context, _keys[i]),
+        ),
     ]);
   }
 
