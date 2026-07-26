@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/services/export_service.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
@@ -115,7 +116,10 @@ class _DomainsTabState extends State<DomainsTab> {
       if (_showForm) _buildForm(context),
       const SizedBox(height: 16),
       if (_domains.isNotEmpty) ...[
-        Row(children: [Text('Registered domains', style: Theme.of(context).textTheme.titleMedium), const Spacer(), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh))]),
+        Row(children: [Text('Registered domains', style: Theme.of(context).textTheme.titleMedium), const Spacer(),
+          IconButton(icon: const Icon(Icons.download), tooltip: 'Export CSV', onPressed: () => ExportService.exportCsv(_filteredDomains, 'domains.csv')),
+          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+        ]),
         const SizedBox(height: 8),
       ],
       if (_loading) const SkeletonListTile(itemCount: 3),
