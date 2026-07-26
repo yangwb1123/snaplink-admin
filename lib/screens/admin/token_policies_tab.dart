@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Token policy governance view tab.
 class TokenPoliciesTab extends StatefulWidget {
@@ -44,7 +45,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
       const SizedBox(height: 4),
       const Text('Token issuance and validation policy configuration.'),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 3),
       if (!_loading && _policies.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No token policies configured.')),
       if (!_loading) for (final p in _policies) Card(margin: const EdgeInsets.only(top: 8), child: ListTile(
         leading: Icon(Icons.policy_outlined, color: Colors.indigo),

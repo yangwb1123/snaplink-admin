@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Access policy list (view-only).
 /// URL: /admin/access-policies
@@ -39,7 +40,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
       IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
     ]),
     if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-    if (_loading) const LinearProgressIndicator(),
+    if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _policies.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No access policies.')),
     if (!_loading) for (final p in _policies) Card(margin: const EdgeInsets.only(bottom: 8), child: ListTile(
       leading: Icon(Icons.lock_outline, color: p['enabled'] == true ? Colors.blue : Colors.grey),

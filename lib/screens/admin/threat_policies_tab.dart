@@ -6,6 +6,7 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Threat detection policy management tab.
 /// URLs: /admin/threat-policies, /admin/threat-policies/new, /admin/threat-policies/{id}/edit
@@ -102,7 +103,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
       ]),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 3),
       if (!_loading && _policies.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No threat policies configured.')),
       if (!_loading) ...[
         Padding(padding: const EdgeInsets.only(bottom: 12), child: FilledButton.icon(

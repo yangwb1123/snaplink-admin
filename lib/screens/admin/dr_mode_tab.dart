@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Disaster Recovery mode management tab.
 /// URL: /admin/dr-mode
@@ -48,7 +49,7 @@ class _DRModeTabState extends State<DRModeTab> {
     AdminBreadcrumb(),
     Text(AppStrings.of(context).drMode, style: Theme.of(context).textTheme.headlineSmall),
     const SizedBox(height: 8),
-    if (_loading) const LinearProgressIndicator(),
+    if (_loading) const SkeletonListTile(itemCount: 3),
     if (_error != null) Text(_error!, style: const TextStyle(color: Colors.redAccent)),
     if (_status != null) Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(children: [
       Row(children: [

@@ -6,6 +6,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Break Glass (emergency access) management tab.
 ///
@@ -211,7 +212,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       const Spacer(),
       IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
     ]),
-    if (_loading) const LinearProgressIndicator(),
+    if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _sessions.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No break-glass sessions.')),
     if (!_loading) for (final s in _sessions) _sessionCard(context, s),
   ]);

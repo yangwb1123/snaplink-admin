@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Token exchange chain audit view tab.
 class TokenExchangeTab extends StatefulWidget {
@@ -45,7 +46,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
         IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.search)),
       ]),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
-      if (_loading) const LinearProgressIndicator(),
+      if (_loading) const SkeletonListTile(itemCount: 3),
       if (_chain != null) ...[
         const SizedBox(height: 16),
         Text('Exchange chain', style: Theme.of(context).textTheme.titleMedium),

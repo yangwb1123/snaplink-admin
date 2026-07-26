@@ -10,6 +10,7 @@ import 'governance_widgets.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 class GovernanceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -244,7 +245,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         const SizedBox(height: 8),
         SectionSelector(sections: _sections, current: _currentSection, onSelected: _selectSection),
         if (_error != null) _errorBanner(),
-        if (_loading) const LinearProgressIndicator(),
+        if (_loading) const SkeletonListTile(itemCount: 3),
         if (_currentSection == 'all' || _currentSection == 'health')
           _readArea(context, 'Platform health', 'health'),
         if (_currentSection == 'all' || _currentSection == 'audit')

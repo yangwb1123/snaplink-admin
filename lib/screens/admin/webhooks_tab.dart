@@ -6,6 +6,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Webhook subscriptions and dead letter management tab.
 class WebhooksTab extends StatefulWidget {
@@ -179,7 +180,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       const Spacer(),
       IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
     ]),
-    if (_loading) const LinearProgressIndicator(),
+    if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _subscriptions.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No subscriptions.')),
     if (!_loading) for (final s in _subscriptions) Card(
       margin: const EdgeInsets.only(top: 8),
@@ -195,7 +196,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
 
   Widget _deadLettersCard(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     Text('Dead letters', style: Theme.of(context).textTheme.titleMedium),
-    if (_loading) const LinearProgressIndicator(),
+    if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _deadLetters.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No dead letters.')),
     if (!_loading) for (final d in _deadLetters) Card(
       margin: const EdgeInsets.only(top: 8),
