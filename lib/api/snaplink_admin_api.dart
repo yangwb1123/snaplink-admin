@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/snaplink_admin_types.dart';
+import 'package:sso_admin/api/data_cache.dart';
 export 'snaplink_admin_types.dart';
 // routes constant moved to snaplink_admin_types.dart
 /// A non-successful response from Snaplink's admin surface.
@@ -77,12 +78,22 @@ class SnaplinkAdminApi {
   final String accessToken;
   final http.Client _http;
   final void Function()? onUnauthorized;
+  final DataCache _cache;
+
   SnaplinkAdminApi({
     required this.baseUrl,
     required this.accessToken,
     http.Client? httpClient,
     this.onUnauthorized,
-  }) : _http = httpClient ?? http.Client();
+    DataCache? cache,
+  }) : _http = httpClient ?? http.Client(),
+       _cache = cache ?? DataCache();
+  /// Number of entries currently in the response cache.
+  int get cacheSize => _cache.size;
+
+  /// Clear the entire response cache.
+  void clearCache() => _cache.clear();
+
   Future<List<SnaplinkAdminEndpoint>> listEndpoints() async {
     final response = await get('/api/v1/admin/endpoints');
     final values = response['endpoints'];
@@ -95,8 +106,19 @@ class SnaplinkAdminApi {
         )
         .toList(growable: false);
   }
-  Future<Map<String, dynamic>> get(String path, {Map<String, String>? query}) =>
-      _request('GET', path, query: query);
+  Future<Map<String, dynamic>> get(String path, {Map<String, String>? query, bool forceRefresh = false}) async {
+    if (query != null) {
+      // Cannot cache requests with query parameters
+      return _request('GET', path, query: query);
+    }
+    if (!forceRefresh) {
+      final cached = _cache.get('GET', path);
+      if (cached != null) return cached;
+    }
+    final data = await _request('GET', path);
+    _cache.set('GET', path, data);
+    return data;
+  }
   /// Reads the opt-in embedded API documentation page without attempting to
   /// coerce its `text/html` response into JSON.
   Future<String> getText(String path, {Map<String, String>? query}) async {
@@ -126,22 +148,34 @@ class SnaplinkAdminApi {
     String path, [
     Object? body,
     String? contentType,
-  ]) => _request('POST', path, body: body, contentType: contentType);
+  ]) async {
+    _cache.invalidate(path);
+    return _request('POST', path, body: body, contentType: contentType);
+  }
   Future<Map<String, dynamic>> put(
     String path, [
     Object? body,
     String? contentType,
-  ]) => _request('PUT', path, body: body, contentType: contentType);
+  ]) async {
+    _cache.invalidate(path);
+    return _request('PUT', path, body: body, contentType: contentType);
+  }
   Future<Map<String, dynamic>> patch(
     String path, [
     Object? body,
     String? contentType,
-  ]) => _request('PATCH', path, body: body, contentType: contentType);
+  ]) async {
+    _cache.invalidate(path);
+    return _request('PATCH', path, body: body, contentType: contentType);
+  }
   Future<Map<String, dynamic>> delete(
     String path, [
     Object? body,
     String? contentType,
-  ]) => _request('DELETE', path, body: body, contentType: contentType);
+  ]) async {
+    _cache.invalidate(path);
+    return _request('DELETE', path, body: body, contentType: contentType);
+  }
   /// Requests an operator-authorized export without attempting to parse or
   /// display its contents. Snaplink may return an attachment with a multi-
   /// status result while it omits unavailable optional data.
