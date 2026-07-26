@@ -28,14 +28,17 @@ jobs:
           pip install pyyaml
           flutter pub get
 
+      - name: Analyze
+        run: make analyze
+
       - name: Build
-        run: flutter build web --release
+        run: make build
 
       - name: Engineering gates
         run: python3 cli.py harness
 
       - name: Unit tests
-        run: flutter test test/admin_route_test.dart
+        run: make test
 
   integration:
     runs-on: ubuntu-latest
@@ -65,4 +68,4 @@ jobs:
           done
 
       - name: Integration tests
-        run: python3 tests/integration/full_integration_test.py
+        run: make integration
