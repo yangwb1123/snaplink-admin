@@ -30,6 +30,9 @@ migrate_working_dir/
 .flutter-plugins*
 .pub-cache/
 .pub/
+.packages
+*.bak
+start_dev.sh
 /build/
 /coverage/
 ephemeral/

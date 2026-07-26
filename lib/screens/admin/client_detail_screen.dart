@@ -1,5 +1,7 @@
 
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -36,6 +38,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _handleRoute();
+    final p = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', p.toJS);
     _load();
   }
 
@@ -301,5 +306,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       builder: (_) => ClientFormDialog(client: widget.client, existing: _client),
     );
     if (result == true) _load();
+  }
+
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'clients') return;
   }
 }

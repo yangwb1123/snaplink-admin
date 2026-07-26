@@ -1,5 +1,7 @@
 
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
+import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -33,6 +35,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _handleRoute();
+    final p = () { if (mounted) _handleRoute(); };
+    web.window.addEventListener('popstate', p.toJS);
     _load();
   }
 
@@ -248,5 +253,10 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally { if (mounted) setState(() => _mutating = false); }
+  }
+
+  void _handleRoute() {
+    final route = AdminRoute.fromUri(Uri.base);
+    if (route.module != 'emergency-access') return;
   }
 }
