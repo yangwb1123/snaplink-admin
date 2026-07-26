@@ -488,4 +488,8 @@ class SSOAdminClient {
       parsed['error_description'] as String? ?? parsed['message'] as String?,
     );
   }
+
+  /// Skip the response cache on the next GET request (user-initiated refresh).
+  /// Currently a no-op; SSOAdminClient does not cache responses.
+  void skipCache() {}
 }

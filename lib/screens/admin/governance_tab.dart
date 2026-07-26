@@ -86,6 +86,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
     super.dispose();
   }
   Future<void> _refresh() async {
+    widget.api.skipCache();
     final reads = governanceReadSpecs
         .where((spec) => _has('GET', spec.path))
         .toList(growable: false);

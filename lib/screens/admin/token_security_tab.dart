@@ -59,6 +59,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     super.dispose();
   }
   Future<void> _load() async {
+    widget.api.skipCache();
     setState(() {
       _loading = true;
       _error = null;

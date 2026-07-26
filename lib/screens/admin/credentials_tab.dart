@@ -42,6 +42,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   }
 
   Future<void> _load() async {
+    widget.api.skipCache();
     setState(() { _loading = true; _error = null; });
     try {
       final data = await widget.api.get(_credsPath);

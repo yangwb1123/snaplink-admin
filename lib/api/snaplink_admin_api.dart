@@ -91,8 +91,20 @@ class SnaplinkAdminApi {
   /// Number of entries currently in the response cache.
   int get cacheSize => _cache.size;
 
+  /// Number of in-flight deduplicated requests.
+  int get cachePending => _cache.pendingCount;
+
   /// Clear the entire response cache.
   void clearCache() => _cache.clear();
+
+  /// Flag: next GET request bypasses cache.
+  bool _skipCacheNext = false;
+
+  /// Mark that the next GET request should bypass the cache.
+  /// Call this before a user-initiated refresh to ensure fresh data.
+  void skipCache() {
+    _skipCacheNext = true;
+  }
 
   Future<List<SnaplinkAdminEndpoint>> listEndpoints() async {
     final response = await get('/api/v1/admin/endpoints');
@@ -110,7 +122,9 @@ class SnaplinkAdminApi {
     if (query != null) {
       return _request('GET', path, query: query);
     }
-    if (!forceRefresh) {
+    final skipCache = _skipCacheNext || forceRefresh;
+    _skipCacheNext = false;
+    if (!skipCache) {
       final cached = _cache.get('GET', path);
       if (cached != null) return cached;
     }

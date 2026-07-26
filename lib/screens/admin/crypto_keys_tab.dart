@@ -27,6 +27,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
 
   @override void initState() { super.initState(); if (_available) _load(); }
   Future<void> _load() async {
+    widget.api.skipCache();
     setState(() { _loading = true; _error = null; });
     try {
       final data = await widget.api.get(_keysPath);

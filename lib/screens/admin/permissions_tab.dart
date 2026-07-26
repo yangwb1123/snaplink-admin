@@ -99,6 +99,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
   }
 
   Future<void> _load() async {
+    widget.api.skipCache();
     final clientId = _clientId;
     if (clientId == null) { setState(() => _error = 'Enter a client ID first.'); return; }
     setState(() { _loading = true; _error = null; });

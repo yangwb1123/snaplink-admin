@@ -94,6 +94,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   String _healthRoute(String id) => '${_connectionRoute(id)}/health';
   String _probeRoute(String id) => '${_connectionRoute(id)}/probe';
   Future<void> _loadConnections() async {
+    widget.api.skipCache();
     final tenantId = _tenantCtrl.text.trim();
     if (tenantId.isEmpty) {
       setState(() => _error = 'Enter a tenant ID to list its connections.');

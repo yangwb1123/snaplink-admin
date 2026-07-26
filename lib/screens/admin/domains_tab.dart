@@ -46,6 +46,7 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   Future<void> _load() async {
+    widget.api.skipCache();
     setState(() { _loading = true; _error = null; });
     try {
       final data = await widget.api.get(_path);
