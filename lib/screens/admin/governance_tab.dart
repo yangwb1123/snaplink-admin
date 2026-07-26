@@ -8,6 +8,7 @@ import 'admin_route.dart';
 import 'governance_models.dart';
 import 'governance_widgets.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 class GovernanceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
@@ -229,7 +230,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         Row(
           children: [
             Text(
-              'Governance and operations',
+              AppStrings.of(context).governanceOperations,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),

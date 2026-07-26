@@ -2,6 +2,7 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
@@ -188,7 +189,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         Row(
           children: [
             Text(
-              'Token and session security',
+              AppStrings.of(context).tokenSessionSecurity,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),

@@ -97,6 +97,8 @@ class AppStrings {
   String get tenantOrganizations => _t('tenant_organizations');
   String get tokenExchange => _t('token_exchange');
   String get tokenPolicies => _t('token_policies');
+  String get governanceOperations => _t('governance_operations');
+  String get tokenSessionSecurity => _t('token_session_security');
   String get authzChecks => _t('authz_checks');
 
   static const _table = <String, Map<String, String>>{
@@ -135,6 +137,8 @@ class AppStrings {
       'platform_overview': 'Platform Overview',
       'identity_connections': 'Identity Connections',
       'tenant_organizations': 'Tenant Organizations',
+      'governance_operations': 'Governance and Operations',
+      'token_session_security': 'Token and Session Security',
       'authz_checks': 'AuthZ Checks',
       'sign_in': 'Sign in',
       'username': 'Username',
@@ -211,6 +215,8 @@ class AppStrings {
       'platform_overview': '平台概览',
       'identity_connections': '身份连接',
       'tenant_organizations': '租户组织',
+      'governance_operations': '治理与运维',
+      'token_session_security': 'Token 与会话安全',
       'authz_checks': '授权检查',
       'sign_in': '登录',
       'username': '用户名',
