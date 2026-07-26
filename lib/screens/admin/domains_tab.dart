@@ -3,6 +3,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
@@ -20,12 +21,15 @@ class DomainsTab extends StatefulWidget {
 class _DomainsTabState extends State<DomainsTab> {
   static const _path = '/api/v1/admin/domains';
   final _hostCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _domains = const [];
+  List<Map<String, dynamic>> _filteredDomains = const [];
   String? _error; bool _loading = false; bool _mutating = false;
   bool _showForm = false;
+  String _searchQuery = '';
 
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
-  @override void dispose() { _hostCtrl.dispose(); super.dispose(); }
+  @override void dispose() { _hostCtrl.dispose(); _searchCtrl.dispose(); super.dispose(); }
 
   @override
   void initState() {
@@ -47,7 +51,8 @@ class _DomainsTabState extends State<DomainsTab> {
       final data = await widget.api.get(_path);
       final items = data['domains'] as List? ?? [];
       if (!mounted) return;
-      setState(() { _domains = items.map((e) => Map<String, dynamic>.from(e as Map)).toList(); _loading = false; });
+      final domains = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+      setState(() { _domains = domains; _filterDomains(); _loading = false; });
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     } catch (_) { if (mounted) setState(() { _error = 'Could not load domains.'; _loading = false; }); }
@@ -65,6 +70,23 @@ class _DomainsTabState extends State<DomainsTab> {
       await _load();
     } on SnaplinkAdminApiError catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally { if (mounted) setState(() => _mutating = false); }
+  }
+
+  void _filterDomains() {
+    if (_searchQuery.isEmpty) {
+      _filteredDomains = List.from(_domains);
+    } else {
+      final q = _searchQuery.toLowerCase();
+      _filteredDomains = _domains.where((d) =>
+        (d['hostname']?.toString() ?? '').toLowerCase().contains(q) ||
+        (d['id']?.toString() ?? '').toLowerCase().contains(q)
+      ).toList();
+    }
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() => _searchQuery = query);
+    _filterDomains();
   }
 
   Future<void> _delete(String hostname) async {
@@ -95,8 +117,16 @@ class _DomainsTabState extends State<DomainsTab> {
         const SizedBox(height: 8),
       ],
       if (_loading) const SkeletonListTile(itemCount: 3),
-      if (!_loading && _domains.isEmpty && !_showForm) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No domains registered.')),
-      if (!_loading) for (final d in _domains) Card(margin: const EdgeInsets.only(top: 8), child: ListTile(
+      if (_domains.isNotEmpty)
+        SearchFilterBar(
+          hintText: 'Search domains...',
+          onSearchChanged: _onSearchChanged,
+          onRefresh: _load,
+        ),
+      const SizedBox(height: 8),
+      if (!_loading && _filteredDomains.isEmpty && !_showForm)
+        const Padding(padding: EdgeInsets.only(top: 12), child: Text('No domains registered.')),
+      if (!_loading) for (final d in _filteredDomains) Card(margin: const EdgeInsets.only(top: 8), child: ListTile(
         leading: Icon(Icons.language, color: Colors.blue),
         title: Text(d['hostname']?.toString() ?? ''),
         subtitle: Text('verified: ${d['verified'] == true ? 'yes' : 'no'} · ${d['id'] ?? ''}'),
