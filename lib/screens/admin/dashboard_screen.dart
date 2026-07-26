@@ -8,6 +8,7 @@ import '../../sso_client.dart';
 import '../settings_screen.dart';
 import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
+import 'package:sso_admin/services/shortcut_service.dart';
 import 'admin_overview_tab.dart';
 import 'admin_live_events_tab.dart';
 import 'admin_operations_tab.dart';
@@ -79,6 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
     _index = _indexFromPath();
     _refreshCapabilities();
+    _initShortcuts();
     void popListener() {
       if (mounted) setState(() { _index = _indexFromPath(); });
     }
@@ -172,6 +174,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       (_supportsTokenPolicies ? 1 : 0) +
       (_supportsTokenExchange ? 1 : 0) +
       (_supportsAuthzCheck ? 1 : 0);
+  void _initShortcuts() {
+    final tabNames = _tabNames;
+    ShortcutService().init(
+      onCreate: () => AdminRoute.go(tabNames[_index.clamp(1, tabNames.length - 1)], action: 'new'),
+      onRefresh: () { _refreshCapabilities(); },
+      onEscape: () => Navigator.of(context).maybePop(),
+    );
+  }
+
   void _localLogout() {
     widget.client.logout();
     Session.clear();
