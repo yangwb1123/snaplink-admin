@@ -19,6 +19,7 @@ class ShortcutService {
   dynamic _keyDownHandler; // JS function reference for cleanup
   VoidCallback? _onCreate;
   VoidCallback? _onRefresh;
+  VoidCallback? _onCommandPalette;
   VoidCallback? _onSearch;
   VoidCallback? _onEscape;
   void Function(int tabIndex)? _onNavigate;
@@ -29,6 +30,7 @@ class ShortcutService {
     VoidCallback? onRefresh,
     VoidCallback? onSearch,
     VoidCallback? onEscape,
+    VoidCallback? onCommandPalette,
     void Function(int tabIndex)? onNavigate,
   }) {
     if (_initialized) return;
@@ -38,6 +40,7 @@ class ShortcutService {
     _onRefresh = onRefresh;
     _onSearch = onSearch;
     _onEscape = onEscape;
+    _onCommandPalette = onCommandPalette;
     _onNavigate = onNavigate;
 
     _keyDownHandler = _onKeyDown.toJS;
@@ -50,6 +53,11 @@ class ShortcutService {
 
     if (ctrl) {
       switch (key) {
+        case 'k':
+        case 'K':
+          event.preventDefault();
+          _onCommandPalette?.call();
+          break;
         case 'n':
         case 'N':
           event.preventDefault();

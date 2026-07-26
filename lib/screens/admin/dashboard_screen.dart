@@ -9,6 +9,7 @@ import '../settings_screen.dart';
 import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
+import 'package:sso_admin/widgets/command_palette.dart';
 import 'admin_overview_tab.dart';
 import 'admin_live_events_tab.dart';
 import 'admin_operations_tab.dart';
@@ -180,6 +181,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onCreate: () => AdminRoute.go(tabNames[_index.clamp(1, tabNames.length - 1)], action: 'new'),
       onRefresh: () { _refreshCapabilities(); },
       onEscape: () => Navigator.of(context).maybePop(),
+      onCommandPalette: () => CommandPalette.show(context,
+        currentModule: _tabNames[_index],
+        allModules: _tabNames.where((t) => t.isNotEmpty).toList(),
+      ),
     );
   }
 
