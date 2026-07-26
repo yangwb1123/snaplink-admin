@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'org_members_card.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'tenant_export_download.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Manages the B2B organization features attached to a Snaplink tenant.
 ///
@@ -262,7 +263,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         Row(
           children: [
             Text(
-              'Tenant organizations',
+              AppStrings.of(context).tenantOrganizations,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),

@@ -7,6 +7,7 @@ import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 /// Operates Snaplink enterprise connections for one tenant at a time.
 /// Snaplink indexes connections by tenant, so this screen deliberately never
 /// offers a cross-tenant list. Mutations can change home-realm routing or make
@@ -323,7 +324,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
           children: [
         AdminBreadcrumb(),
                     Text(
-              'Identity connections',
+              AppStrings.of(context).identityConnections,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),

@@ -6,6 +6,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'tenant_export_download.dart';
 import 'admin_ops_helpers.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Advanced, capability-bound access to Snaplink's optional admin routes.
 /// This is not an open URL console: the selector is populated from Snaplink's
@@ -257,7 +258,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       children: [
         AdminBreadcrumb(),
         Text(
-          'Advanced operations',
+          AppStrings.of(context).adminOperations,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),

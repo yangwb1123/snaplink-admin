@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'snaplink_admin_api.dart';
 import '../../widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Realtime, redacted audit activity backed by Snaplink's SSE endpoint.
 ///
@@ -195,7 +196,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       children: [
         AdminBreadcrumb(),
         Text(
-          'Live audit activity',
+          AppStrings.of(context).liveActivity,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),

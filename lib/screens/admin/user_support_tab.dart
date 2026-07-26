@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'user_support_cards.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Helpdesk controls for a Snaplink user account.
 ///
@@ -172,7 +173,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
         Row(
           children: [
             Text(
-              'User support',
+              AppStrings.of(context).userSupport,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),

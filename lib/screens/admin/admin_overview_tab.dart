@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'snaplink_admin_api.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Landing page for the Snaplink operator console.
 ///
@@ -30,7 +31,7 @@ class AdminOverviewTab extends StatelessWidget {
         Row(
           children: [
             Text(
-              'Platform overview',
+              AppStrings.of(context).platformOverview,
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),
