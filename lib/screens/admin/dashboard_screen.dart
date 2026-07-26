@@ -6,6 +6,7 @@ import 'admin_route.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
+import 'package:sso_admin/widgets/offline_banner.dart';
 import 'admin_overview_tab.dart';
 import 'admin_live_events_tab.dart';
 import 'admin_operations_tab.dart';
@@ -185,6 +186,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    return OfflineBanner(child: _buildBody(context, strings));
+  }
+
+  Widget _buildBody(BuildContext context, AppStrings strings) {
     final capabilities = SnaplinkAdminCapabilities(_endpoints);
     final entries = <(NavigationRailDestination, Widget)>[
       (
