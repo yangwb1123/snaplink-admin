@@ -20,6 +20,7 @@ class ShortcutService {
   VoidCallback? _onCreate;
   VoidCallback? _onRefresh;
   VoidCallback? _onCommandPalette;
+  VoidCallback? _onShowShortcuts;
   VoidCallback? _onSearch;
   VoidCallback? _onEscape;
   void Function(int tabIndex)? _onNavigate;
@@ -31,6 +32,7 @@ class ShortcutService {
     VoidCallback? onSearch,
     VoidCallback? onEscape,
     VoidCallback? onCommandPalette,
+    VoidCallback? onShowShortcuts,
     void Function(int tabIndex)? onNavigate,
   }) {
     if (_initialized) return;
@@ -41,6 +43,7 @@ class ShortcutService {
     _onSearch = onSearch;
     _onEscape = onEscape;
     _onCommandPalette = onCommandPalette;
+    _onShowShortcuts = onShowShortcuts;
     _onNavigate = onNavigate;
 
     _keyDownHandler = _onKeyDown.toJS;
@@ -84,6 +87,10 @@ class ShortcutService {
 
     if (key == 'Escape') {
       _onEscape?.call();
+    }
+
+    if (key == '?' && ctrl) {
+      _onShowShortcuts?.call();
     }
   }
 

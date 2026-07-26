@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
 import 'package:sso_admin/widgets/command_palette.dart';
+import 'package:sso_admin/widgets/shortcuts_dialog.dart';
 import 'admin_overview_tab.dart';
 import 'admin_live_events_tab.dart';
 import 'admin_operations_tab.dart';
@@ -185,6 +186,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         currentModule: _tabNames[_index],
         allModules: _tabNames.where((t) => t.isNotEmpty).toList(),
       ),
+      onShowShortcuts: () => ShortcutsDialog.show(context),
     );
   }
 
