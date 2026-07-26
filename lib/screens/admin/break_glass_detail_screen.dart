@@ -36,8 +36,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
-    web.window.addEventListener('popstate', p.toJS);
+    web.window.addEventListener('popstate', _onPopState.toJS);
     _load();
   }
 
@@ -259,4 +258,6 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'emergency-access') return;
   }
+  void _onPopState() { if (mounted) _handleRoute(); }
+
 }

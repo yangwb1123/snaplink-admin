@@ -37,8 +37,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
-    web.window.addEventListener('popstate', p.toJS);
+    web.window.addEventListener('popstate', _onPopState.toJS);
     _load();
   }
 
@@ -247,4 +246,6 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'connections') return;
   }
+  void _onPopState() { if (mounted) _handleRoute(); }
+
 }

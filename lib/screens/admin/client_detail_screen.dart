@@ -39,8 +39,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
-    web.window.addEventListener('popstate', p.toJS);
+    web.window.addEventListener('popstate', _onPopState.toJS);
     _load();
   }
 
@@ -312,4 +311,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'clients') return;
   }
+  void _onPopState() { if (mounted) _handleRoute(); }
+
 }

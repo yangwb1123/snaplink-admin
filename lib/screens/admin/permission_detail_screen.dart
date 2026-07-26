@@ -41,8 +41,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    final p = () { if (mounted) _handleRoute(); };
-    web.window.addEventListener('popstate', p.toJS);
+    web.window.addEventListener('popstate', _onPopState.toJS);
     _handleRoute();
     _load();
     final route = AdminRoute.fromUri(Uri.base);
@@ -183,5 +182,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'permissions') return;
   }
+  void _onPopState() { if (mounted) _handleRoute(); }
+
 }
 
