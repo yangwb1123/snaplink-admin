@@ -14,6 +14,7 @@ import 'client_detail_screen.dart';
 import 'clients_tab.dart';
 import 'connection_detail_screen.dart';
 import 'connections_tab.dart';
+import 'audit_log_tab.dart';
 import 'governance_tab.dart';
 import 'permission_detail_screen.dart';
 import 'permissions_tab.dart';
@@ -53,7 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     'organizations', 'operations', 'crypto-keys', 'credentials',
     'token-policies', 'token-exchange', 'authz-checks', 'domains',
     'access-policies', 'dr-mode', 'threat-policies', 'webhooks',
-    'emergency-access', 'governance',
+    'emergency-access', 'governance', 'audit-log',
   ];
   int _indexFromPath() {
     final route = AdminRoute.fromUri(Uri.base);
@@ -372,6 +373,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: Text('Governance'),
           ),
           GovernanceTab(api: _api, capabilities: capabilities),
+        ),
+        (
+          const NavigationRailDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            label: Text('Audit Log'),
+          ),
+          const AuditLogTab(),
         ),
     ];
     final selectedIndex = _index.clamp(0, entries.length - 1);
