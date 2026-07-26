@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 /// Reusable search and filter bar for list pages.
@@ -27,11 +28,20 @@ class SearchFilterBar extends StatefulWidget {
 class _SearchFilterBarState extends State<SearchFilterBar> {
   final _searchCtrl = TextEditingController();
   bool _showFilters = false;
+  Timer? _debounceTimer;
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      widget.onSearchChanged(value);
+    });
   }
 
   @override
@@ -55,7 +65,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   isDense: true,
                 ),
-                onChanged: widget.onSearchChanged,
+                onChanged: _onSearchChanged,
               ),
             ),
             if (widget.filterOptions.isNotEmpty) ...[
