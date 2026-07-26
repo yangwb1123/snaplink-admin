@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/api/data_cache.dart';
+import 'package:sso_admin/services/audit_log_service.dart';
 export 'snaplink_admin_types.dart';
 // routes constant moved to snaplink_admin_types.dart
 /// A non-successful response from Snaplink's admin surface.
@@ -98,6 +99,20 @@ class SnaplinkAdminApi {
 
   /// Number of in-flight deduplicated requests.
   int get cachePending => _cache.pendingCount;
+
+  /// Record a mutation in the local audit log.
+  void _recordAudit(String method, String path, int statusCode, Object? body) {
+    final parts = path.split('/');
+    // ignore: unnecessary_brace_in_string_interps
+    final label = parts.length > 3 ? '${parts[3]} ${method}' : path;
+    AuditLogService().record(AuditEntry(
+      timestamp: DateTime.now(),
+      method: method,
+      path: path,
+      statusCode: statusCode,
+      label: label,
+    ));
+  }
 
   /// Clear the entire response cache.
   void clearCache() => _cache.clear();
@@ -385,6 +400,10 @@ class SnaplinkAdminApi {
         }
         final data = _decode(response);
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          // Record mutation in audit log
+          if (method != 'GET') {
+            _recordAudit(method, path, response.statusCode, null);
+          }
           return data;
         }
         // Retry on server errors (5xx), not client errors (4xx)
