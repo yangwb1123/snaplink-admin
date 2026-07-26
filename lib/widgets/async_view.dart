@@ -97,6 +97,7 @@ class AsyncView<T> extends StatelessWidget {
     return dataBuilder(data!);
   }
 
+  // ignore: null_check_on_nullable_type_parameter
   bool _isEmpty(T? data) {
     if (data == null) return true;
     if (data is Iterable) return data.isEmpty;
