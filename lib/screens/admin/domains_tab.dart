@@ -118,7 +118,7 @@ class _DomainsTabState extends State<DomainsTab> {
       if (_domains.isNotEmpty) ...[
         Row(children: [Text('Registered domains', style: Theme.of(context).textTheme.titleMedium), const Spacer(),
           IconButton(icon: const Icon(Icons.download), tooltip: 'Export CSV', onPressed: () => ExportService.exportCsv(_filteredDomains, 'domains.csv')),
-          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
         ]),
         const SizedBox(height: 8),
       ],

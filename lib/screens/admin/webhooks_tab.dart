@@ -178,7 +178,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     Row(children: [
       Text('Subscriptions', style: Theme.of(context).textTheme.titleMedium),
       const Spacer(),
-      IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+      IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
     ]),
     if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _subscriptions.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No subscriptions.')),

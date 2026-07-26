@@ -226,7 +226,7 @@ class _ClientsTabState extends State<ClientsTab> {
                 onPressed: () => AdminRoute.go('clients', action: 'new'),
                 icon: const Icon(Icons.add),
               ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
             ],
           ),
         ),

@@ -79,7 +79,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       Row(children: [
         Text(AppStrings.of(context).cryptoKeys, style: Theme.of(context).textTheme.headlineSmall),
         const Spacer(),
-        IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+        IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
       ]),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: Colors.redAccent))),
       if (rotating) _buildRotateConfirm(context),

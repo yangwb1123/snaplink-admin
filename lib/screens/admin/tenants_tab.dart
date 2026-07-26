@@ -166,7 +166,7 @@ class _TenantsTabState extends State<TenantsTab> {
         AdminBreadcrumb(),
                       Text(AppStrings.of(context).tenants, style: Theme.of(context).textTheme.headlineSmall),
               const Spacer(),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
               IconButton(
                 onPressed: () => AdminRoute.go('tenants', action: 'new'),
                 icon: const Icon(Icons.add),

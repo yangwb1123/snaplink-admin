@@ -40,7 +40,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
       AdminBreadcrumb(),
       Row(children: [
         Text(AppStrings.of(context).tokenPolicies, style: Theme.of(context).textTheme.headlineSmall),
-        const Spacer(), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+        const Spacer(), IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
       ]),
       const SizedBox(height: 4),
       const Text('Token issuance and validation policy configuration.'),

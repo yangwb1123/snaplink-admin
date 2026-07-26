@@ -157,7 +157,7 @@ class _UsersTabState extends State<UsersTab> {
                 onPressed: () => AdminRoute.go('users', action: 'new'),
                 icon: const Icon(Icons.add),
               ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
             ],
           ),
         ),

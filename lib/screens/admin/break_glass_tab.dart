@@ -210,7 +210,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     Row(children: [
       Text('Sessions', style: Theme.of(context).textTheme.titleMedium),
       const Spacer(),
-      IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+      IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
     ]),
     if (_loading) const SkeletonListTile(itemCount: 3),
     if (!_loading && _sessions.isEmpty) const Padding(padding: EdgeInsets.only(top: 12), child: Text('No break-glass sessions.')),
