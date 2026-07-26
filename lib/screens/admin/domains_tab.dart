@@ -5,6 +5,8 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/services/export_service.dart';
+import 'package:sso_admin/services/event_bus.dart';
+import 'dart:async';
 import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 import 'admin_route.dart';
@@ -30,13 +32,20 @@ class _DomainsTabState extends State<DomainsTab> {
   bool _showForm = false;
   String _searchQuery = '';
 
+  late final StreamSubscription<DataChangedEvent> _sub;
+
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
-  @override void dispose() { _hostCtrl.dispose(); _searchCtrl.dispose(); super.dispose(); }
+  @override void dispose() { _sub.cancel(); _hostCtrl.dispose(); _searchCtrl.dispose(); super.dispose(); }
 
   @override
   void initState() {
     super.initState();
     _load();
+    _sub = EventBus().on<DataChangedEvent>().listen((e) {
+      if (e.resourceType == 'domains' || e.resourceType == 'domains') {
+        _load();
+      }
+    });
     _handleRoute();
     void popListener() { if (mounted) _handleRoute(); }
     web.window.addEventListener('popstate', popListener.toJS);

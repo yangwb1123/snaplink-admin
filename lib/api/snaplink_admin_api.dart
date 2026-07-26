@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/api/data_cache.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
+import 'package:sso_admin/services/event_bus.dart';
 export 'snaplink_admin_types.dart';
 // routes constant moved to snaplink_admin_types.dart
 /// A non-successful response from Snaplink's admin surface.
@@ -101,6 +102,18 @@ class SnaplinkAdminApi {
   int get cachePending => _cache.pendingCount;
 
   /// Record a mutation in the local audit log.
+  /// Fire a DataChangedEvent after a successful mutation.
+  void _fireDataChanged(String method, String path) {
+    final parts = path.split('/');
+    final resourceType = parts.length > 3 ? parts[3] : path;
+    final changeType = switch (method) {
+      'POST' => ChangeType.created,
+      'DELETE' => ChangeType.deleted,
+      _ => ChangeType.updated,
+    };
+    EventBus().fire(DataChangedEvent(resourceType, changeType: changeType));
+  }
+
   void _recordAudit(String method, String path, int statusCode, Object? body) {
     final parts = path.split('/');
     // ignore: unnecessary_brace_in_string_interps
@@ -403,6 +416,7 @@ class SnaplinkAdminApi {
           // Record mutation in audit log
           if (method != 'GET') {
             _recordAudit(method, path, response.statusCode, null);
+            _fireDataChanged(method, path);
           }
           return data;
         }
