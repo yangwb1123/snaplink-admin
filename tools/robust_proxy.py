@@ -1,4 +1,4 @@
-import os, sys, socket, threading, time, json, urllib.request, urllib.error
+import os, sys, socket, threading, time, json, urllib.request, urllib.error, urllib.parse
 
 PORT = int(os.environ.get('PORT', '4444'))
 BACKEND = os.environ.get('BACKEND', 'http://localhost:8080')
@@ -116,6 +116,24 @@ def send_error(conn, code, msg):
     except:
         pass
 
+def should_proxy(method, path):
+    """Return whether a request belongs to the Snaplink API."""
+    parsed = urllib.parse.urlsplit(path)
+    clean_path = parsed.path
+
+    # RFC 7591/7592 registration lives at a root path rather than /api/.
+    if clean_path == '/register' or clean_path.startswith('/register/'):
+        return True
+
+    # /device/verify is both a Flutter route and the RFC 8628 verification API.
+    # Browser navigation stays in the SPA; API preview and form submissions go
+    # to Snaplink.
+    if clean_path == '/device/verify':
+        query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
+        return method != 'GET' or 'check' in query
+
+    return any(clean_path.startswith(prefix) for prefix in API_PREFIXES)
+
 def proxy_request(conn, method, path, headers, body):
     """Proxy request to backend server."""
     try:
@@ -132,7 +150,11 @@ def proxy_request(conn, method, path, headers, body):
         for k, v in headers.items():
             if k.lower() not in ('host', 'content-length', 'transfer-encoding', 'connection'):
                 req_headers[k] = v
-        req_headers['Host'] = BACKEND.replace('http://', '').replace('https://', '').split(':')[0]
+        incoming_host = headers.get('host')
+        req_headers['Host'] = incoming_host or urllib.parse.urlsplit(BACKEND).netloc
+        if incoming_host:
+            req_headers['X-Forwarded-Host'] = incoming_host
+        req_headers['X-Forwarded-Proto'] = 'http'
         
         req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
         
@@ -152,13 +174,19 @@ def proxy_request(conn, method, path, headers, body):
             conn.sendall(resp_headers.encode() + resp_body)
     except urllib.error.HTTPError as e:
         error_body = e.read()
-        resp = (
-            f'HTTP/1.1 {e.code}\r\n'
+        resp_headers = (
+            f'HTTP/1.1 {e.code} {e.reason}\r\n'
             f'Access-Control-Allow-Origin: *\r\n'
-            f'Content-Length: {len(error_body)}\r\n'
-            f'Connection: close\r\n\r\n'
         )
-        conn.sendall(resp.encode() + error_body)
+        for k, v in e.headers.items():
+            if k.lower() not in (
+                'transfer-encoding', 'content-encoding', 'content-length',
+                'connection', 'access-control-allow-origin',
+            ):
+                resp_headers += f'{k}: {v}\r\n'
+        resp_headers += f'Content-Length: {len(error_body)}\r\n'
+        resp_headers += 'Connection: close\r\n\r\n'
+        conn.sendall(resp_headers.encode() + error_body)
     except Exception as e:
         send_error(conn, 502, f'Proxy error: {e}')
 
@@ -187,7 +215,7 @@ def handle(conn):
         clean_path = path.split('?')[0]
         
         # API proxy
-        is_api = any(clean_path.startswith(p) for p in API_PREFIXES)
+        is_api = should_proxy(method, path)
         if is_api:
             proxy_request(conn, method, path, headers, body)
             return

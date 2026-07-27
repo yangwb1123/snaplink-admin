@@ -63,8 +63,10 @@ fi
 
 # Build Flutter if needed
 if [ "${FORCE_BUILD:-false}" = "true" ] || [ "${WARN_SKIP_BUILD:-false}" != "true" ]; then
-  info "Building Flutter web app..."
-  flutter build web --release 2>&1 | tail -3
+  info "Building Flutter web app for local development..."
+  flutter build web --debug \
+    --pwa-strategy=none \
+    --no-web-resources-cdn 2>&1 | tail -3
   info "Build complete."
   echo ""
 fi
