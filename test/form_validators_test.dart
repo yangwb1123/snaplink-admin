@@ -59,7 +59,9 @@ void main() {
       expect(FormValidators.alphanumeric('client-id_01'), isNull);
     });
 
-    test('alphanumeric fails invalid chars', () => 
-      expect(FormValidators.alphanumeric('hello world!'), isNotEmpty));
+    test(
+      'alphanumeric fails invalid chars',
+      () => expect(FormValidators.alphanumeric('hello world!'), isNotEmpty),
+    );
   });
 }

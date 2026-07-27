@@ -41,13 +41,8 @@ class ListStateManager {
 
   /// Clear all saved list states.
   void clearAll() {
-    final keys = [
-      'clients_list', 'users_list', 'tenants_list', 'domains_list',
-      'credentials_list', 'crypto_keys_list', 'webhooks_list',
-      'connections_list', 'permissions_list', 'break_glass_list',
-    ];
-    for (final key in keys) {
-      LocalStorage.removeItem('$_prefix$key');
+    for (final key in LocalStorage.keys()) {
+      if (key.startsWith(_prefix)) LocalStorage.removeItem(key);
     }
   }
 }

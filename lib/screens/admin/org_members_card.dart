@@ -34,7 +34,8 @@ class OrgMembersCard extends StatelessWidget {
           TextField(
             controller: memberUserController,
             decoration: const InputDecoration(
-              labelText: 'User ID', hintText: 'user@example.com',
+              labelText: 'User ID',
+              hintText: 'user@example.com',
             ),
           ),
           const SizedBox(height: 10),
@@ -61,10 +62,20 @@ class OrgMembersCard extends StatelessWidget {
           for (final member in members)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(member['user_id']?.toString() ?? member['userId']?.toString() ?? ''),
+              title: Text(
+                member['user_id']?.toString() ??
+                    member['userId']?.toString() ??
+                    '',
+              ),
               subtitle: Text(member['role']?.toString() ?? 'member'),
               trailing: TextButton(
-                onPressed: mutating ? null : () => onRemoveMember(member['user_id']?.toString() ?? member['userId']?.toString() ?? ''),
+                onPressed: mutating
+                    ? null
+                    : () => onRemoveMember(
+                        member['user_id']?.toString() ??
+                            member['userId']?.toString() ??
+                            '',
+                      ),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
                 child: const Text('Remove'),
               ),

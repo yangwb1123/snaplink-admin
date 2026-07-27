@@ -5,9 +5,12 @@ import 'identities_tab.dart';
 import 'security_tab.dart';
 import 'sessions_tab.dart';
 import 'consents_tab.dart';
+import 'devices_tab.dart';
 import 'organizations_tab.dart';
 import 'privacy_tab.dart';
+import 'security_activity_tab.dart';
 import '../../session.dart';
+import '../../widgets/responsive_navigation_scaffold.dart';
 
 /// Self-service account portal ("/portal") — entry widget referenced by
 /// app_router.dart's resolveInitialScreen().
@@ -271,12 +274,20 @@ class _PortalScreenState extends State<PortalScreen> {
       label: Text('Security'),
     ),
     NavigationRailDestination(
-      icon: Icon(Icons.link_outlined),
-      label: Text('Linked identities'),
+      icon: Icon(Icons.devices_other_outlined),
+      label: Text('Devices'),
     ),
     NavigationRailDestination(
       icon: Icon(Icons.devices_outlined),
       label: Text('Sessions'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.security_outlined),
+      label: Text('Activity'),
+    ),
+    NavigationRailDestination(
+      icon: Icon(Icons.link_outlined),
+      label: Text('Linked identities'),
     ),
     NavigationRailDestination(
       icon: Icon(Icons.apps_outlined),
@@ -294,23 +305,33 @@ class _PortalScreenState extends State<PortalScreen> {
 
   Widget _buildApp(BuildContext context) {
     final mySub = _me?['sub']?.toString() ?? '';
+    final useCompactActions = MediaQuery.sizeOf(context).width < 520;
     final page = switch (_navIndex) {
       0 => OverviewTab(api: _api),
       1 => SecurityTab(api: _api),
-      2 => IdentitiesTab(api: _api),
+      2 => DevicesTab(api: _api),
       3 => SessionsTab(
         api: _api,
         onCurrentSessionRevoked: _onCurrentSessionRevoked,
       ),
-      4 => ConsentsTab(api: _api),
-      5 => OrganizationsTab(api: _api),
+      4 => SecurityActivityTab(api: _api),
+      5 => IdentitiesTab(api: _api),
+      6 => ConsentsTab(api: _api),
+      7 => OrganizationsTab(api: _api),
       _ => PrivacyTab(
         api: _api,
         mySub: mySub,
         onAccountDeleted: _onAccountDeleted,
       ),
     };
-    return Scaffold(
+    return ResponsiveNavigationScaffold(
+      selectedIndex: _navIndex,
+      onDestinationSelected: (index) {
+        if (index != _navIndex) setState(() => _navIndex = index);
+      },
+      destinations: _destinations,
+      drawerHeader: 'Your account',
+      body: page,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -318,28 +339,28 @@ class _PortalScreenState extends State<PortalScreen> {
           children: [
             const Text('Your account'),
             if (mySub.isNotEmpty)
-              Text(mySub, style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                mySub,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
           ],
         ),
         actions: [
-          TextButton.icon(
-            onPressed: _signOut,
-            icon: const Icon(Icons.logout),
-            label: const Text('Sign out'),
-          ),
+          if (useCompactActions)
+            IconButton(
+              onPressed: _signOut,
+              tooltip: 'Sign out',
+              icon: const Icon(Icons.logout),
+            )
+          else
+            TextButton.icon(
+              onPressed: _signOut,
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign out'),
+            ),
           const SizedBox(width: 8),
-        ],
-      ),
-      body: Row(
-        children: [
-          NavigationRail(
-            selectedIndex: _navIndex,
-            onDestinationSelected: (i) => setState(() => _navIndex = i),
-            labelType: NavigationRailLabelType.all,
-            destinations: _destinations,
-          ),
-          const VerticalDivider(width: 1),
-          Expanded(child: page),
         ],
       ),
     );

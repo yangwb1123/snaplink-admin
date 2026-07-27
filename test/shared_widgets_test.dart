@@ -15,13 +15,15 @@ void main() {
 
     testWidgets('renders custom title and subtitle', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(
-          body: EmptyState(
-            icon: Icons.person,
-            title: 'Custom title',
-            subtitle: 'Custom subtitle',
+        MaterialApp(
+          home: Scaffold(
+            body: EmptyState(
+              icon: Icons.person,
+              title: 'Custom title',
+              subtitle: 'Custom subtitle',
+            ),
           ),
-        )),
+        ),
       );
       expect(find.text('Custom title'), findsOneWidget);
       expect(find.text('Custom subtitle'), findsOneWidget);
@@ -31,13 +33,15 @@ void main() {
     testWidgets('renders action button when provided', (tester) async {
       var tapped = false;
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(
-          body: EmptyState(
-            title: 'Empty',
-            actionLabel: 'Create',
-            onAction: () => tapped = true,
+        MaterialApp(
+          home: Scaffold(
+            body: EmptyState(
+              title: 'Empty',
+              actionLabel: 'Create',
+              onAction: () => tapped = true,
+            ),
           ),
-        )),
+        ),
       );
       expect(find.text('Create'), findsOneWidget);
       await tester.tap(find.text('Create'));
@@ -69,13 +73,15 @@ void main() {
         const SectionDef('b', 'B', Icons.home),
       ];
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(
-          body: SectionSelector(
-            sections: sections,
-            current: 'all',
-            onSelected: (_) {},
+        MaterialApp(
+          home: Scaffold(
+            body: SectionSelector(
+              sections: sections,
+              current: 'all',
+              onSelected: (_) {},
+            ),
           ),
-        )),
+        ),
       );
       expect(find.text('All'), findsOneWidget);
       expect(find.text('A'), findsOneWidget);
@@ -88,13 +94,15 @@ void main() {
         const SectionDef('a', 'A', Icons.star),
       ];
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(
-          body: SectionSelector(
-            sections: sections,
-            current: 'a',
-            onSelected: (_) {},
+        MaterialApp(
+          home: Scaffold(
+            body: SectionSelector(
+              sections: sections,
+              current: 'a',
+              onSelected: (_) {},
+            ),
           ),
-        )),
+        ),
       );
       expect(find.text('All'), findsOneWidget);
       expect(find.text('A'), findsOneWidget);
@@ -107,15 +115,18 @@ void main() {
         const SectionDef('a', 'A', Icons.star),
       ];
       await tester.pumpWidget(
-        MaterialApp(home: Scaffold(
-          body: SectionSelector(
-            sections: sections,
-            current: 'all',
-            onSelected: (s) => selected = s,
+        MaterialApp(
+          home: Scaffold(
+            body: SectionSelector(
+              sections: sections,
+              current: 'all',
+              onSelected: (s) => selected = s,
+            ),
           ),
-        )),
+        ),
       );
-      await tester.tap(find.text('A'));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'A'));
+      await tester.pump();
       expect(selected, 'a');
     });
   });

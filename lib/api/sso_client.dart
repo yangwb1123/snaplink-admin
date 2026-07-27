@@ -40,11 +40,17 @@ class SSOAdminListPage {
 class SSOAdminClient {
   final String baseUrl;
   final http.Client _http;
+  final Duration requestTimeout;
+  final void Function()? onUnauthorized;
   String? _token;
 
-  SSOAdminClient(String baseUrl, {http.Client? httpClient})
-    : baseUrl = _stripTrailingSlash(baseUrl),
-      _http = httpClient ?? http.Client();
+  SSOAdminClient(
+    String baseUrl, {
+    http.Client? httpClient,
+    this.requestTimeout = const Duration(seconds: 30),
+    this.onUnauthorized,
+  }) : baseUrl = _stripTrailingSlash(baseUrl),
+       _http = httpClient ?? http.Client();
 
   /// Same-origin default: the Flutter bundle and the SSO API are always
   /// served from the same origin in every deployment mode this app
@@ -56,9 +62,14 @@ class SSOAdminClient {
 
   /// Wraps an access_token already obtained elsewhere (the unified /login
   /// screen) as a logged-in client, without a second network round trip.
-  factory SSOAdminClient.withToken(String accessToken, {String? baseUrl}) {
+  factory SSOAdminClient.withToken(
+    String accessToken, {
+    String? baseUrl,
+    void Function()? onUnauthorized,
+  }) {
     final client = SSOAdminClient(
       baseUrl ?? _sameOriginBaseUrl() ?? nativeDefaultBaseUrl,
+      onUnauthorized: onUnauthorized,
     );
     client._token = accessToken;
     return client;
@@ -203,17 +214,23 @@ class SSOAdminClient {
   }
 
   Future<Map<String, dynamic>> getClient(String id) async {
-    final data = await _get('/api/v1/admin/clients/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    final data =
+        await _get('/api/v1/admin/clients/${Uri.encodeComponent(id)}')
+            as Map<String, dynamic>;
     return (data['client'] as Map<String, dynamic>?) ?? data;
   }
 
   Future<Map<String, dynamic>> getUser(String id) async {
-    final data = await _get('/api/v1/admin/users/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    final data =
+        await _get('/api/v1/admin/users/${Uri.encodeComponent(id)}')
+            as Map<String, dynamic>;
     return (data['user'] as Map<String, dynamic>?) ?? data;
   }
 
   Future<Map<String, dynamic>> getTenant(String id) async {
-    final data = await _get('/api/v1/admin/tenants/${Uri.encodeComponent(id)}') as Map<String, dynamic>;
+    final data =
+        await _get('/api/v1/admin/tenants/${Uri.encodeComponent(id)}')
+            as Map<String, dynamic>;
     return (data['tenant'] as Map<String, dynamic>?) ?? data;
   }
 
@@ -263,61 +280,98 @@ class SSOAdminClient {
 
   /// Fetch a single connection by id.
   Future<Map<String, dynamic>> getConnection(String id) async {
-    final data = await _get('/api/v1/admin/connections/${Uri.encodeComponent(id)}');
+    final data = await _get(
+      '/api/v1/admin/connections/${Uri.encodeComponent(id)}',
+    );
     return data as Map<String, dynamic>;
   }
 
-  /// Fetch a single break-glass session by id.
+  /// Fetch a single break-glass session from the list-only API.
   Future<Map<String, dynamic>> getBreakGlassSession(String id) async {
-    final data = await _get('/api/v1/admin/break-glass/${Uri.encodeComponent(id)}');
-    return data as Map<String, dynamic>;
+    return _getCollectionItem(
+      path: '/api/v1/admin/break-glass',
+      collectionKey: 'sessions',
+      id: id,
+      identityKeys: const ['id', 'session_id'],
+      resourceLabel: 'Break-glass session',
+    );
   }
 
-  /// Fetch a single webhook subscription by id.
+  /// Fetch a single webhook subscription from the list-only API.
   Future<Map<String, dynamic>> getWebhookSubscription(String id) async {
-    final data = await _get('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}');
-    return data as Map<String, dynamic>;
+    return _getCollectionItem(
+      path: '/api/v1/admin/webhooks/subscriptions',
+      collectionKey: 'subscriptions',
+      id: id,
+      identityKeys: const ['id'],
+      resourceLabel: 'Webhook subscription',
+    );
   }
 
   /// Fetch a single domain by hostname.
   Future<Map<String, dynamic>> getDomain(String hostname) async {
-    final data = await _get('/api/v1/admin/domains/${Uri.encodeComponent(hostname)}');
+    final data = await _get(
+      '/api/v1/admin/domains/${Uri.encodeComponent(hostname)}',
+    );
     return data as Map<String, dynamic>;
   }
 
-  /// Fetch a single credential type.
+  /// Fetch the active entry for a credential type from the inventory.
   Future<Map<String, dynamic>> getCredential(String type) async {
-    final data = await _get('/api/v1/admin/credentials/${Uri.encodeComponent(type)}');
-    return data as Map<String, dynamic>;
+    return _getCollectionItem(
+      path: '/api/v1/admin/credentials',
+      collectionKey: 'credentials',
+      id: type,
+      identityKeys: const ['type', 'id'],
+      resourceLabel: 'Credential',
+      preferredStatus: 'active',
+    );
   }
 
-  /// Fetch a single crypto key by id.
+  /// Fetch a single crypto key from the read-only inventory.
   Future<Map<String, dynamic>> getCryptoKey(String id) async {
-    final data = await _get('/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}');
-    return data as Map<String, dynamic>;
+    return _getCollectionItem(
+      path: '/api/v1/admin/crypto/keys',
+      collectionKey: 'keys',
+      id: id,
+      identityKeys: const ['key_id', 'kid', 'id'],
+      resourceLabel: 'Cryptographic key',
+    );
   }
 
-  /// Fetch a single access policy by id.
+  /// Fetch a single access policy from the list-only governance API.
   Future<Map<String, dynamic>> getAccessPolicy(String id) async {
-    final data = await _get('/api/v1/admin/access-policies/${Uri.encodeComponent(id)}');
-    return data as Map<String, dynamic>;
+    return _getCollectionItem(
+      path: '/api/v1/admin/access-policies',
+      collectionKey: 'policies',
+      id: id,
+      identityKeys: const ['name', 'id'],
+      resourceLabel: 'Access policy',
+    );
   }
 
   /// Fetch a single threat policy by id.
   Future<Map<String, dynamic>> getThreatPolicy(String id) async {
-    final data = await _get('/api/v1/admin/threat-policies/${Uri.encodeComponent(id)}');
+    final data = await _get(
+      '/api/v1/admin/threat-policies/${Uri.encodeComponent(id)}',
+    );
     return data as Map<String, dynamic>;
   }
 
   /// Create a new identity connection.
-  Future<Map<String, dynamic>> createConnection(Map<String, dynamic> conn) async {
+  Future<Map<String, dynamic>> createConnection(
+    Map<String, dynamic> conn,
+  ) async {
     final data = await _post('/api/v1/admin/connections', conn);
     return data as Map<String, dynamic>;
   }
 
-  /// Update an existing connection.
-  Future<Map<String, dynamic>> updateConnection(String id, Map<String, dynamic> conn) async {
-    final data = await _put('/api/v1/admin/connections/${Uri.encodeComponent(id)}', conn);
+  /// Create or replace a connection through Snaplink's collection upsert.
+  Future<Map<String, dynamic>> updateConnection(
+    String id,
+    Map<String, dynamic> conn,
+  ) async {
+    final data = await _post('/api/v1/admin/connections', {...conn, 'id': id});
     return data as Map<String, dynamic>;
   }
 
@@ -327,7 +381,9 @@ class SSOAdminClient {
   }
 
   /// Create a new break-glass (emergency access) session.
-  Future<Map<String, dynamic>> createBreakGlassSession(Map<String, dynamic> session) async {
+  Future<Map<String, dynamic>> createBreakGlassSession(
+    Map<String, dynamic> session,
+  ) async {
     final data = await _post('/api/v1/admin/break-glass', session);
     return data as Map<String, dynamic>;
   }
@@ -338,20 +394,18 @@ class SSOAdminClient {
   }
 
   /// Create a new webhook subscription.
-  Future<Map<String, dynamic>> createWebhookSubscription(Map<String, dynamic> sub) async {
+  Future<Map<String, dynamic>> createWebhookSubscription(
+    Map<String, dynamic> sub,
+  ) async {
     final data = await _post('/api/v1/admin/webhooks/subscriptions', sub);
-    return data as Map<String, dynamic>;
-  }
-
-  /// Update an existing webhook subscription.
-  Future<Map<String, dynamic>> updateWebhookSubscription(String id, Map<String, dynamic> sub) async {
-    final data = await _put('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}', sub);
     return data as Map<String, dynamic>;
   }
 
   /// Delete a webhook subscription by id.
   Future<void> deleteWebhookSubscription(String id) async {
-    await _delete('/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}');
+    await _delete(
+      '/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}',
+    );
   }
 
   /// Delete a domain by hostname.
@@ -361,12 +415,47 @@ class SSOAdminClient {
 
   /// Report credential compromise by type.
   Future<void> reportCredentialCompromise(String type) async {
-    await _post('/api/v1/admin/credentials/${Uri.encodeComponent(type)}/compromise', {});
+    await _post(
+      '/api/v1/admin/credentials/${Uri.encodeComponent(type)}/compromise',
+      {},
+    );
   }
 
   /// Mark a crypto key as compromised.
   Future<void> compromiseCryptoKey(String id) async {
-    await _post('/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}/compromise', {});
+    await _post(
+      '/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}/compromise',
+      {},
+    );
+  }
+
+  Future<Map<String, dynamic>> _getCollectionItem({
+    required String path,
+    required String collectionKey,
+    required String id,
+    required List<String> identityKeys,
+    required String resourceLabel,
+    String? preferredStatus,
+  }) async {
+    final data = await _get(path) as Map<String, dynamic>;
+    final rawItems = data[collectionKey];
+    final matches = rawItems is List
+        ? rawItems
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .where(
+                (item) =>
+                    identityKeys.any((key) => item[key]?.toString() == id),
+              )
+              .toList(growable: false)
+        : const <Map<String, dynamic>>[];
+    if (preferredStatus != null) {
+      for (final item in matches) {
+        if (item['status']?.toString() == preferredStatus) return item;
+      }
+    }
+    if (matches.isNotEmpty) return matches.first;
+    throw SSOError(404, 'not_found', '$resourceLabel not found.');
   }
 
   Map<String, String> _authHeaders() =>
@@ -409,12 +498,14 @@ class SSOAdminClient {
   }
 
   Future<dynamic> _get(String path, {Map<String, String>? query}) async {
-    final resp = await _http.get(
-      Uri.parse(
-        '$baseUrl$path',
-      ).replace(queryParameters: query == null || query.isEmpty ? null : query),
-      headers: _authHeaders(),
-    );
+    final resp = await _http
+        .get(
+          Uri.parse('$baseUrl$path').replace(
+            queryParameters: query == null || query.isEmpty ? null : query,
+          ),
+          headers: _authHeaders(),
+        )
+        .timeout(requestTimeout);
     return _handle(resp);
   }
 
@@ -427,29 +518,32 @@ class SSOAdminClient {
       'Content-Type': 'application/json',
       if (auth) ..._authHeaders(),
     };
-    final resp = await _http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: headers,
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .post(
+          Uri.parse('$baseUrl$path'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
+        .timeout(requestTimeout);
     return _handle(resp, authenticated: auth);
   }
 
   Future<dynamic> _put(String path, Map<String, dynamic> body) async {
     final headers = {'Content-Type': 'application/json', ..._authHeaders()};
-    final resp = await _http.put(
-      Uri.parse('$baseUrl$path'),
-      headers: headers,
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .put(
+          Uri.parse('$baseUrl$path'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
+        .timeout(requestTimeout);
     return _handle(resp);
   }
 
   Future<dynamic> _delete(String path) async {
-    final resp = await _http.delete(
-      Uri.parse('$baseUrl$path'),
-      headers: _authHeaders(),
-    );
+    final resp = await _http
+        .delete(Uri.parse('$baseUrl$path'), headers: _authHeaders())
+        .timeout(requestTimeout);
     return _handle(resp);
   }
 
@@ -475,12 +569,9 @@ class SSOAdminClient {
     // boundary. Preserve it so the console can show the denial; only a 401
     // proves the session itself has expired or been revoked.
     if (authenticated && resp.statusCode == 401) {
+      _token = null;
       Session.clear();
-      // On web, the page reload triggers re-authentication via the login screen.
-      // On native/test platforms, the caller handles re-authentication.
-      // The HTML page handles redirect on 401 via its own interceptor.
-      // Session.clear() invalidates the token; the next API call gets a 401
-      // which the UI handles by redirecting to login.
+      onUnauthorized?.call();
     }
     throw SSOError(
       resp.statusCode,

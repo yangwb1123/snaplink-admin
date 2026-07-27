@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 
-/// Login form view with providers, federated sign-in, and home realm discovery.
+import '../../i18n/app_strings.dart';
+import 'hosted_login_models.dart';
+
+/// Login form backed entirely by Snaplink's provider-discovery descriptors.
 class LoginViewWidget extends StatelessWidget {
   final String provider;
-  final List<String> providers;
+  final List<LoginProviderDescriptor> providers;
   final String? signupConfirmed;
   final TextEditingController userCtrl;
   final TextEditingController passCtrl;
@@ -17,11 +20,9 @@ class LoginViewWidget extends StatelessWidget {
   final bool usesCodeProvider;
   final bool usesTotpProvider;
   final String? magicLinkToken;
-  final List<({String id, String label, IconData icon})> federatedConnections;
   final VoidCallback onSubmit;
   final VoidCallback onSendCode;
   final VoidCallback onHomeRealm;
-  final VoidCallback onPasskeyLogin;
   final VoidCallback onForgotPassword;
   final VoidCallback onSignUp;
   final ValueChanged<String> onProviderChanged;
@@ -44,11 +45,9 @@ class LoginViewWidget extends StatelessWidget {
     required this.usesCodeProvider,
     required this.usesTotpProvider,
     this.magicLinkToken,
-    required this.federatedConnections,
     required this.onSubmit,
     required this.onSendCode,
     required this.onHomeRealm,
-    required this.onPasskeyLogin,
     required this.onForgotPassword,
     required this.onSignUp,
     required this.onProviderChanged,
@@ -58,60 +57,328 @@ class LoginViewWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('Sign in', style: theme.textTheme.titleLarge),
-      const SizedBox(height: 20),
-      if (providers.length > 1)
-        DropdownButtonFormField<String>(
-          initialValue: provider,
-          items: providers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-          onChanged: (v) => onProviderChanged(v ?? provider),
-          decoration: const InputDecoration(labelText: 'Provider'),
-        ),
-      if (signupConfirmed != null) ...[const SizedBox(height: 10), Text(signupConfirmed!, style: const TextStyle(color: Colors.greenAccent))],
-      if (usesFederatedProvider) Padding(padding: const EdgeInsets.only(bottom: 14), child: Text('Continue to $provider to sign in.'))
-      else if (provider == 'webauthn') const Padding(padding: EdgeInsets.only(bottom: 14), child: Text('Choose a passkey to sign in without a password.'))
-      else if (usesCodeProvider) _codeForm(theme)
-      else if (usesTotpProvider) _totpForm(theme)
-      else _passwordForm(theme),
-      if (error != null) ...[const SizedBox(height: 14), Text(error!, style: const TextStyle(color: Colors.redAccent))],
-      const SizedBox(height: 20),
-      FilledButton(onPressed: loading ? null : onSubmit, child: loading
-        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
-        : Text(usesFederatedProvider ? 'Continue with $provider' : provider == 'webauthn' ? 'Sign in with passkey' : 'Sign in')),
-      if (provider == 'password') ...[
-        const SizedBox(height: 14),
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Flexible(child: TextButton(onPressed: onForgotPassword, child: const Text('Forgot password?', overflow: TextOverflow.ellipsis))),
-          Flexible(child: TextButton(onPressed: onSignUp, child: const Text('Sign up', overflow: TextOverflow.ellipsis))),
-        ]),
-        Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: loading ? null : onHomeRealm, icon: const Icon(Icons.business_outlined), label: const Text('Use organization sign-in'))),
-      ],
-      const SizedBox(height: 20),
-      Row(children: [const Expanded(child: Divider()), Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: Text('or', style: theme.textTheme.bodySmall)), const Expanded(child: Divider())]),
-      const SizedBox(height: 14),
-      for (final c in federatedConnections)
-        Padding(padding: const EdgeInsets.only(bottom: 10), child: OutlinedButton.icon(onPressed: () => onFederatedSignIn(c.id), icon: Icon(c.icon), label: Text('Sign in with ${c.label}'))),
-    ]);
+    final strings = AppStrings.of(context);
+    final builtinProviders = providers.where((item) => item.builtin).toList();
+    final federatedProviders = providers
+        .where(
+          (item) =>
+              item.isFederated &&
+              (!usesFederatedProvider || item.id != provider),
+        )
+        .toList();
+    final selected = _descriptorFor(provider);
+    final selectedBuiltin = builtinProviders.any((item) => item.id == provider);
+
+    return AutofillGroup(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(strings.signIn, style: theme.textTheme.titleLarge),
+          const SizedBox(height: 20),
+          if (builtinProviders.length > 1)
+            DropdownButtonFormField<String>(
+              initialValue: selectedBuiltin ? provider : null,
+              hint: Text(strings.provider),
+              items: builtinProviders
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item.id,
+                      child: Text(item.displayName),
+                    ),
+                  )
+                  .toList(),
+              onChanged: loading
+                  ? null
+                  : (value) {
+                      if (value != null) onProviderChanged(value);
+                    },
+              decoration: InputDecoration(labelText: strings.provider),
+            ),
+          if (signupConfirmed != null) ...[
+            const SizedBox(height: 10),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                signupConfirmed!,
+                style: TextStyle(color: theme.colorScheme.primary),
+              ),
+            ),
+          ],
+          if (usesFederatedProvider)
+            Padding(
+              padding: const EdgeInsets.only(top: 14, bottom: 14),
+              child: Text('Continue to ${selected.displayName} to sign in.'),
+            )
+          else if (provider == 'webauthn')
+            const Padding(
+              padding: EdgeInsets.only(top: 14, bottom: 14),
+              child: Text('Choose a passkey to sign in without a password.'),
+            )
+          else if (usesCodeProvider)
+            _codeForm()
+          else if (usesTotpProvider)
+            _totpForm(strings)
+          else
+            _passwordForm(strings),
+          if (error != null) ...[
+            const SizedBox(height: 14),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                error!,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+          ],
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: loading ? null : onSubmit,
+            child: loading
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    usesFederatedProvider
+                        ? selected.effectiveButtonLabel
+                        : provider == 'webauthn'
+                        ? 'Sign in with passkey'
+                        : strings.signIn,
+                  ),
+          ),
+          if (provider == 'password') ...[
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: TextButton(
+                    onPressed: loading ? null : onForgotPassword,
+                    child: Text(
+                      strings.forgotPassword,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: TextButton(
+                    onPressed: loading ? null : onSignUp,
+                    child: Text(
+                      strings.signUp,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: loading ? null : onHomeRealm,
+                icon: const Icon(Icons.business_outlined),
+                label: const Text('Use organization sign-in'),
+              ),
+            ),
+          ],
+          if (federatedProviders.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Text(
+                    strings.orDivider,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            const SizedBox(height: 14),
+            for (final item in federatedProviders)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _FederatedProviderButton(
+                  provider: item,
+                  loading: loading,
+                  onPressed: () => onFederatedSignIn(item.id),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
   }
 
-  Widget _passwordForm(ThemeData theme) => Column(children: [
-    TextField(controller: userCtrl, decoration: const InputDecoration(labelText: 'Username')),
-    const SizedBox(height: 14),
-    TextField(controller: passCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Password'), onSubmitted: (_) => onSubmit()),
-  ]);
+  LoginProviderDescriptor _descriptorFor(String id) {
+    for (final item in providers) {
+      if (item.id == id) return item;
+    }
+    return LoginProviderDescriptor.fromWire(id);
+  }
 
-  Widget _codeForm(ThemeData theme) => Column(children: [
-    TextField(controller: codeTargetCtrl, keyboardType: provider == 'phone' ? TextInputType.phone : TextInputType.emailAddress, decoration: InputDecoration(labelText: provider == 'phone' ? 'Phone number' : 'Email address')),
-    const SizedBox(height: 10),
-    OutlinedButton(onPressed: loading || magicLinkToken != null ? null : onSendCode, child: Text(provider == 'magiclink' ? (codeSent ? 'Resend link' : 'Send link') : (codeSent ? 'Resend code' : 'Send code'))),
-    if (codeMessage != null) ...[const SizedBox(height: 10), Text(codeMessage!)],
-    if (provider != 'magiclink' || magicLinkToken == null) ...[const SizedBox(height: 14), TextField(controller: providerCodeCtrl, decoration: InputDecoration(labelText: provider == 'magiclink' ? 'Token' : 'Verification code'), onSubmitted: (_) => onSubmit())],
-  ]);
+  Widget _passwordForm(AppStrings strings) => Column(
+    children: [
+      TextField(
+        controller: userCtrl,
+        enabled: !loading,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        autofillHints: const [AutofillHints.username],
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: strings.username),
+      ),
+      const SizedBox(height: 14),
+      TextField(
+        controller: passCtrl,
+        enabled: !loading,
+        obscureText: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        autofillHints: const [AutofillHints.password],
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(labelText: strings.password),
+        onSubmitted: (_) => onSubmit(),
+      ),
+    ],
+  );
 
-  Widget _totpForm(ThemeData theme) => Column(children: [
-    TextField(controller: userCtrl, decoration: const InputDecoration(labelText: 'Username')),
-    const SizedBox(height: 14),
-    TextField(controller: providerCodeCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Verification code'), onSubmitted: (_) => onSubmit()),
-  ]);
+  Widget _codeForm() => Column(
+    children: [
+      TextField(
+        controller: codeTargetCtrl,
+        enabled: !loading,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        keyboardType: provider == 'phone'
+            ? TextInputType.phone
+            : TextInputType.emailAddress,
+        autofillHints: provider == 'phone'
+            ? const [AutofillHints.telephoneNumber]
+            : const [AutofillHints.email],
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(
+          labelText: provider == 'phone' ? 'Phone number' : 'Email address',
+        ),
+      ),
+      const SizedBox(height: 10),
+      OutlinedButton(
+        onPressed: loading || magicLinkToken != null ? null : onSendCode,
+        child: Text(
+          provider == 'magiclink'
+              ? (codeSent ? 'Resend link' : 'Send link')
+              : (codeSent ? 'Resend code' : 'Send code'),
+        ),
+      ),
+      if (codeMessage != null) ...[
+        const SizedBox(height: 10),
+        Semantics(liveRegion: true, child: Text(codeMessage!)),
+      ],
+      if (provider != 'magiclink' || magicLinkToken == null) ...[
+        const SizedBox(height: 14),
+        TextField(
+          controller: providerCodeCtrl,
+          enabled: !loading,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: TextInputType.visiblePassword,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: provider == 'magiclink' ? 'Token' : 'Verification code',
+          ),
+          onSubmitted: (_) => onSubmit(),
+        ),
+      ],
+    ],
+  );
+
+  Widget _totpForm(AppStrings strings) => Column(
+    children: [
+      TextField(
+        controller: userCtrl,
+        enabled: !loading,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        autofillHints: const [AutofillHints.username],
+        textInputAction: TextInputAction.next,
+        decoration: InputDecoration(labelText: strings.username),
+      ),
+      const SizedBox(height: 14),
+      TextField(
+        controller: providerCodeCtrl,
+        enabled: !loading,
+        autocorrect: false,
+        enableSuggestions: false,
+        keyboardType: TextInputType.number,
+        autofillHints: const [AutofillHints.oneTimeCode],
+        textInputAction: TextInputAction.done,
+        decoration: InputDecoration(labelText: strings.verificationCode),
+        onSubmitted: (_) => onSubmit(),
+      ),
+    ],
+  );
+}
+
+class _FederatedProviderButton extends StatelessWidget {
+  final LoginProviderDescriptor provider;
+  final bool loading;
+  final VoidCallback onPressed;
+
+  const _FederatedProviderButton({
+    required this.provider,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _parseButtonColor(provider.buttonColor);
+    final foreground = color == null
+        ? null
+        : ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    final iconUrl = provider.safeIconUrl(Uri.base);
+    final icon = iconUrl == null
+        ? const Icon(Icons.login)
+        : Image.network(
+            iconUrl,
+            width: 20,
+            height: 20,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Icon(Icons.login),
+          );
+
+    return OutlinedButton.icon(
+      onPressed: loading ? null : onPressed,
+      style: color == null
+          ? null
+          : OutlinedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: foreground,
+              side: BorderSide(color: color),
+            ),
+      icon: icon,
+      label: Text(provider.effectiveButtonLabel),
+    );
+  }
+
+  Color? _parseButtonColor(String raw) {
+    final match = RegExp(
+      r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$',
+    ).firstMatch(raw.trim());
+    if (match == null) return null;
+    final hex = match.group(1)!;
+    final flutterHex = hex.length == 6
+        ? 'ff$hex'
+        : '${hex.substring(6)}${hex.substring(0, 6)}';
+    return Color(int.parse(flutterHex, radix: 16));
+  }
 }

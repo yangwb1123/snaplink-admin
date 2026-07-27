@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
+import 'package:sso_admin/services/local_storage.dart';
 
 /// App-wide language/theme/SSO-base-URL preferences. A single ChangeNotifier
 /// instance (not per-screen state) so a change anywhere — the login screen's
@@ -97,16 +97,16 @@ class AppSettings extends ChangeNotifier {
 
   static String? _load(String key) {
     if (!kIsWeb) return null;
-    return web.window.localStorage.getItem(key);
+    return LocalStorage.getItem(key);
   }
 
   static void _save(String key, String value) {
     if (!kIsWeb) return;
-    web.window.localStorage.setItem(key, value);
+    LocalStorage.setItem(key, value);
   }
 
   static void _remove(String key) {
     if (!kIsWeb) return;
-    web.window.localStorage.removeItem(key);
+    LocalStorage.removeItem(key);
   }
 }

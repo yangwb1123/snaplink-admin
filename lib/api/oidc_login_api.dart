@@ -14,7 +14,7 @@ class LoginOutcome {
 
   LoginOutcome(this.status, this.data, {this.html, this.redirectUrl});
 
-  bool get ok => status == 200 && data['error'] == null;
+  bool get ok => status >= 200 && status < 300 && data['error'] == null;
   bool get isFormPost => html != null;
   String? get error => data['error'] as String?;
   bool get isMfaRequired => error == 'mfa_required';
@@ -23,10 +23,24 @@ class LoginOutcome {
 
 class OidcLoginApi {
   final http.Client _http;
+  final Uri _baseUri;
+  final Duration _timeout;
 
-  OidcLoginApi({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  OidcLoginApi({
+    http.Client? httpClient,
+    Uri? baseUri,
+    Duration timeout = const Duration(seconds: 30),
+  }) : _http = httpClient ?? http.Client(),
+       _baseUri = baseUri ?? Uri.base,
+       _timeout = timeout;
 
-  Uri _resolve(String path) => Uri.base.resolve(path);
+  Uri _resolve(String path) => _baseUri.resolve(path);
+
+  /// Cancels in-flight browser requests when the hosted login route unmounts.
+  ///
+  /// This releases the timeout future as well; mutation requests are never
+  /// replayed by a replacement client.
+  void close() => _http.close();
 
   Future<LoginOutcome> probeProviders(
     String clientId, {
@@ -65,7 +79,7 @@ class OidcLoginApi {
   /// Loads non-sensitive, host-scoped login branding. An absent feature or an
   /// unknown host is intentionally rendered as no custom branding.
   Future<Map<String, String>> loadBranding() async {
-    final response = await _http.get(_resolve('../branding'));
+    final response = await _http.get(_resolve('../branding')).timeout(_timeout);
     if (response.statusCode != 200 || response.body.isEmpty) return const {};
     try {
       final decoded = jsonDecode(response.body);
@@ -105,11 +119,13 @@ class OidcLoginApi {
   /// Always-200 anti-enumeration contract per the JS: caller just needs to
   /// know 404 (feature off) vs 2xx (generic "if that account exists" message).
   Future<int> forgotPassword(String identifier) async {
-    final resp = await _http.post(
-      _resolve('../auth/forgot-password'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'identifier': identifier}),
-    );
+    final resp = await _http
+        .post(
+          _resolve('../auth/forgot-password'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'identifier': identifier}),
+        )
+        .timeout(_timeout);
     return resp.statusCode;
   }
 
@@ -132,15 +148,17 @@ class OidcLoginApi {
     required String password,
     String? email,
   }) async {
-    final resp = await _http.post(
-      _resolve('../auth/register'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'username': username,
-        'password': password,
-        if (email != null && email.isNotEmpty) 'email': email,
-      }),
-    );
+    final resp = await _http
+        .post(
+          _resolve('../auth/register'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'username': username,
+            'password': password,
+            if (email != null && email.isNotEmpty) 'email': email,
+          }),
+        )
+        .timeout(_timeout);
     return _parse(resp);
   }
 
@@ -148,11 +166,12 @@ class OidcLoginApi {
     final request = http.Request('POST', _resolve(path))
       ..headers['Content-Type'] = 'application/json'
       ..body = jsonEncode(body);
-    final streamed = await _http.send(request);
+    final streamed = await _http.send(request).timeout(_timeout);
     final redirectUrl = streamed is http.BaseResponseWithUrl
         ? (streamed as http.BaseResponseWithUrl).url
         : null;
-    return _parse(await http.Response.fromStream(streamed), redirectUrl);
+    final response = await http.Response.fromStream(streamed).timeout(_timeout);
+    return _parse(response, redirectUrl);
   }
 
   LoginOutcome _parse(http.Response resp, [Uri? redirectUrl]) {

@@ -5,15 +5,29 @@ void main() {
   group('token_policies_tab capabilities', () {
     test('detects availability', () {
       final caps = SnaplinkAdminCapabilities([
-        SnaplinkAdminEndpoint(method: 'GET', path: '/api/v1/admin/token-policies', feature: 'core'),
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/token-policies',
+          feature: 'core',
+        ),
       ]);
       expect(caps.hasAnyPathPrefix('/api/v1/admin/token-policies'), isTrue);
     });
     test('documented routes are in catalog', () {
-      expect(SnaplinkAdminOperationCatalog.endpoints.any((e) => e.path.contains('/token_policies')), isTrue);
+      expect(
+        SnaplinkAdminOperationCatalog.endpoints.any(
+          (e) => e.method == 'GET' && e.path == '/api/v1/admin/token-policies',
+        ),
+        isTrue,
+      );
     });
     test('returns false when absent', () {
-      expect(SnaplinkAdminCapabilities([]).hasAnyPathPrefix('/api/v1/admin/token-policies'), isFalse);
+      expect(
+        SnaplinkAdminCapabilities(
+          [],
+        ).hasAnyPathPrefix('/api/v1/admin/token-policies'),
+        isFalse,
+      );
     });
   });
 }

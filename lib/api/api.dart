@@ -3,8 +3,14 @@
 // New code should import this file instead of individual api files.
 
 export 'sso_client.dart' show SSOAdminClient, SSOAdminListPage, SSOError;
-export 'snaplink_admin_api.dart' show SnaplinkAdminApi, SnaplinkAdminApiError, SnaplinkAdminOperationCatalog;
-export 'snaplink_admin_types.dart' show SnaplinkAdminEndpoint, SnaplinkAdminEvent, SnaplinkAdminDownload, SnaplinkAdminCapabilities;
+export 'snaplink_admin_api.dart'
+    show SnaplinkAdminApi, SnaplinkAdminApiError, SnaplinkAdminOperationCatalog;
+export 'snaplink_admin_types.dart'
+    show
+        SnaplinkAdminEndpoint,
+        SnaplinkAdminEvent,
+        SnaplinkAdminDownload,
+        SnaplinkAdminCapabilities;
 export 'portal_api.dart' show PortalApi, PortalApiError;
 export 'oidc_login_api.dart' show OidcLoginApi, LoginOutcome;
 export 'device_verify_api.dart' show DeviceVerifyApi;

@@ -25,6 +25,9 @@ class AdminOverviewTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final capabilities = SnaplinkAdminCapabilities(endpoints);
     final groups = _groupEndpoints(endpoints);
+    final documentedOnly = SnaplinkAdminOperationCatalog.endpoints
+        .where((endpoint) => !capabilities.has(endpoint.method, endpoint.path))
+        .length;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -47,7 +50,9 @@ class AdminOverviewTab extends StatelessWidget {
           _StatusCard(
             icon: Icons.cloud_off,
             title: 'Capability inventory is unavailable',
-            body: '$loadError',
+            body:
+                'The console is using its versioned OpenAPI catalog and will '
+                'probe optional pages safely. Runtime error: $loadError',
             color: Colors.orange,
           )
         else if (endpoints.isEmpty)
@@ -55,16 +60,31 @@ class AdminOverviewTab extends StatelessWidget {
             icon: Icons.hourglass_empty,
             title: 'Loading runtime capabilities',
             body:
-                'The navigation will expand only for routes registered by this Snaplink replica.',
+                'Contract-backed modules remain discoverable while this replica is queried.',
             color: Colors.blue,
           )
         else ...[
           _StatusCard(
-            icon: Icons.verified_user_outlined,
-            title: '${endpoints.length} management endpoints available',
+            icon: documentedOnly == 0
+                ? Icons.verified_user_outlined
+                : Icons.info_outline,
+            title:
+                '${endpoints.length} runtime endpoints advertised'
+                '${documentedOnly == 0 ? '' : ' · $documentedOnly documented routes not advertised'}',
             body:
-                '${capabilities.featureCounts.length} feature surfaces are active on this replica.',
-            color: Colors.green,
+                'Runtime inventory proves deployment availability. OpenAPI-only '
+                'modules stay visible for compatibility and report 404/501 as not enabled.',
+            color: documentedOnly == 0 ? Colors.green : Colors.orange,
+          ),
+          const SizedBox(height: 8),
+          _StatusCard(
+            icon: Icons.science_outlined,
+            title:
+                '${SnaplinkAdminSupplementalCatalog.endpoints.length} source-only routes under compatibility probing',
+            body:
+                'Branding, identity providers, and device security are mounted '
+                'by some Snaplink builds but still need OpenAPI and inventory coverage.',
+            color: Colors.blueGrey,
           ),
           const SizedBox(height: 16),
           Text(

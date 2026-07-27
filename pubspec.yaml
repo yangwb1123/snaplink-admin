@@ -1,5 +1,5 @@
 name: sso_admin
-description: "A new Flutter project."
+description: "Unified administration, hosted login, self-service, and developer console for Snaplink SSO."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

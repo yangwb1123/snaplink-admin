@@ -19,10 +19,7 @@ class ShortcutsDialog extends StatelessWidget {
   ];
 
   static void show(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const ShortcutsDialog(),
-    );
+    showDialog(context: context, builder: (_) => const ShortcutsDialog());
   }
 
   @override
@@ -41,12 +38,23 @@ class ShortcutsDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(key, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+                    child: Text(
+                      key,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(desc, style: const TextStyle(fontSize: 13)),

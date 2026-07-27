@@ -24,15 +24,29 @@ class SecurityChangePasswordCard extends StatelessWidget {
   Widget build(BuildContext context) => PortalCard(
     title: 'Change password',
     children: [
-      TextField(controller: curPwCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'Current password')),
+      TextField(
+        controller: curPwCtrl,
+        obscureText: true,
+        decoration: const InputDecoration(labelText: 'Current password'),
+      ),
       const SizedBox(height: 10),
-      TextField(controller: newPwCtrl, obscureText: true, decoration: const InputDecoration(labelText: 'New password')),
+      TextField(
+        controller: newPwCtrl,
+        obscureText: true,
+        decoration: const InputDecoration(labelText: 'New password'),
+      ),
       const SizedBox(height: 14),
       Align(
         alignment: Alignment.centerLeft,
         child: FilledButton(
           onPressed: pwBusy ? null : onChangePassword,
-          child: pwBusy ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Update password'),
+          child: pwBusy
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Update password'),
         ),
       ),
       MessageBanner(pwMsg, ok: pwOk),

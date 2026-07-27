@@ -1,16 +1,18 @@
 import 'dart:convert';
-import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:web/web.dart' as web;
 import 'admin_route.dart';
+import 'admin_ops_helpers.dart';
 import 'governance_models.dart';
 import 'governance_widgets.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+
 class GovernanceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -22,6 +24,7 @@ class GovernanceTab extends StatefulWidget {
   @override
   State<GovernanceTab> createState() => _GovernanceTabState();
 }
+
 class _GovernanceTabState extends State<GovernanceTab> {
   static const _auditPath = '/api/v1/audit/events';
   static const _facetPath = '/api/v1/audit/facets';
@@ -35,6 +38,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
   bool _loading = false;
   bool _writing = false;
   String _currentSection = 'all';
+  late final void Function() _cancelPopState;
   static const _sections = [
     SectionDef('all', 'All', Icons.dashboard),
     SectionDef('audit', 'Audit', Icons.search),
@@ -46,11 +50,15 @@ class _GovernanceTabState extends State<GovernanceTab> {
   @override
   void initState() {
     super.initState();
+    _resourceId.addListener(_resourceIdChanged);
+    _writeBody.addListener(_invalidateWriteConfirmation);
     _refresh();
     _initSectionFromRoute();
-    void popListener() { if (mounted) _initSectionFromRoute(); }
-    web.window.addEventListener('popstate', popListener.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (mounted) _initSectionFromRoute();
+    });
   }
+
   void _initSectionFromRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     final section = route.subresource.isNotEmpty ? route.subresource : 'all';
@@ -58,6 +66,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       setState(() => _currentSection = section);
     }
   }
+
   void _selectSection(String section) {
     setState(() => _currentSection = section);
     if (section == 'all') {
@@ -66,6 +75,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       AdminRoute.go('governance', subresource: section);
     }
   }
+
   bool _has(String method, String path) =>
       widget.capabilities.has(method, path) ||
       widget.capabilities.endpoints.any(
@@ -81,12 +91,14 @@ class _GovernanceTabState extends State<GovernanceTab> {
       .replaceAllMapped(RegExp(r':[A-Za-z_][A-Za-z0-9_]*'), (_) => ':id');
   @override
   void dispose() {
+    _cancelPopState();
     _auditQuery.dispose();
     _resourceId.dispose();
     _writeBody.dispose();
     _confirm.dispose();
     super.dispose();
   }
+
   Future<void> _refresh() async {
     widget.api.skipCache();
     final reads = governanceReadSpecs
@@ -123,7 +135,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         _data.addEntries(
           results
               .where((result) => result.error.isEmpty)
-              .map((result) => MapEntry(result.key, result.data)),
+              .map((result) => MapEntry(result.key, _safe(result.data))),
         );
         if (failures.isNotEmpty) {
           _error =
@@ -134,6 +146,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   Future<void> _read(GovernanceReadSpec spec) async {
     setState(() {
       _loading = true;
@@ -141,13 +154,14 @@ class _GovernanceTabState extends State<GovernanceTab> {
     });
     try {
       final response = await widget.api.get(spec.path);
-      if (mounted) setState(() => _data[spec.key] = response);
+      if (mounted) setState(() => _data[spec.key] = _safe(response));
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   Future<void> _queryAudit() async {
     final query = _json(_auditQuery.text, 'Audit query');
     if (query == null) return;
@@ -164,8 +178,8 @@ class _GovernanceTabState extends State<GovernanceTab> {
       final results = await Future.wait([events, ?facets]);
       if (mounted) {
         setState(() {
-          _data['audit'] = results.first;
-          if (facets != null) _data['facets'] = results.last;
+          _data['audit'] = _safe(results.first);
+          if (facets != null) _data['facets'] = _safe(results.last);
         });
       }
     } on SnaplinkAdminApiError catch (error) {
@@ -174,6 +188,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   Future<void> _runWrite() async {
     var path = _op.path;
     if (path.contains(':id')) {
@@ -187,7 +202,16 @@ class _GovernanceTabState extends State<GovernanceTab> {
       path = path.replaceAll(':id', Uri.encodeComponent(id));
     }
     final body = _json(_writeBody.text, 'Request body');
-    if (body == null || !await _confirmed('Run ${_op.label}?')) return;
+    if (body == null) return;
+    if (SensitiveData.containsSensitiveField(body)) {
+      setState(
+        () => _error =
+            'Generic governance payloads are retained in reports and approval '
+            'records. Do not include passwords, tokens, or private keys.',
+      );
+      return;
+    }
+    if (!await _confirmed('Run ${_op.label}?', path)) return;
     setState(() {
       _writing = true;
       _error = null;
@@ -197,7 +221,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
           ? await widget.api.post(path, body)
           : await widget.api.delete(path, body);
       if (!mounted) return;
-      setState(() => _data['lastWrite'] = result);
+      setState(() => _data['lastWrite'] = _safe(result));
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('${_op.label} completed.')));
@@ -208,6 +232,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (mounted) setState(() => _writing = false);
     }
   }
+
   Map<String, dynamic>? _json(String source, String label) {
     try {
       final value = jsonDecode(source.trim().isEmpty ? '{}' : source);
@@ -218,10 +243,51 @@ class _GovernanceTabState extends State<GovernanceTab> {
     setState(() => _error = '$label must be a JSON object.');
     return null;
   }
-  Future<bool> _confirmed(String action) async {
-    if (_confirm.text.trim() != 'CONFIRM') { setState(() => _error = 'Type CONFIRM.'); return false; }
-    return ConfirmDialog.show(context, title: 'Confirm', message: action, confirmLabel: 'Run operation', destructive: true);
+
+  Map<String, dynamic> _safe(Map<String, dynamic> value) =>
+      Map<String, dynamic>.from(SensitiveData.redact(value)! as Map);
+
+  void _invalidateWriteConfirmation() {
+    if (_confirm.text.isNotEmpty) _confirm.clear();
   }
+
+  void _resourceIdChanged() {
+    _invalidateWriteConfirmation();
+    if (mounted) setState(() {});
+  }
+
+  String get _writeConfirmationHint {
+    var path = _op.path;
+    if (path.contains(':id')) {
+      final id = _resourceId.text.trim();
+      if (id.isEmpty) {
+        return 'CONFIRM ${_op.method} <resolved path>';
+      }
+      path = path.replaceAll(':id', Uri.encodeComponent(id));
+    }
+    return AdminOpsHelpers.writeConfirmation(_op.method, path);
+  }
+
+  Future<bool> _confirmed(String action, String resolvedPath) async {
+    final required = AdminOpsHelpers.writeConfirmation(
+      _op.method,
+      resolvedPath,
+    );
+    if (_confirm.text.trim() != required) {
+      setState(() => _error = 'Type the exact confirmation phrase: $required');
+      return false;
+    }
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Confirm',
+      message: action,
+      confirmLabel: 'Run operation',
+      destructive: true,
+    );
+    _confirm.clear();
+    return confirmed;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -243,7 +309,11 @@ class _GovernanceTabState extends State<GovernanceTab> {
           ],
         ),
         const SizedBox(height: 8),
-        SectionSelector(sections: _sections, current: _currentSection, onSelected: _selectSection),
+        SectionSelector(
+          sections: _sections,
+          current: _currentSection,
+          onSelected: _selectSection,
+        ),
         if (_error != null) _errorBanner(),
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (_currentSection == 'all' || _currentSection == 'health')
@@ -267,6 +337,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       ],
     );
   }
+
   Widget _errorBanner() => GovernanceErrorBanner(error: _error!);
   Widget _readArea(BuildContext context, String title, String section) {
     final available = governanceReadSpecs
@@ -294,6 +365,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
           _jsonCard(context, spec.title, _data[spec.key]!),
     ]);
   }
+
   Widget _auditArea(BuildContext context) => _section(
     context,
     'Audit investigation',
@@ -326,7 +398,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
   );
   Widget _auditResults(BuildContext context) {
     final result = _data['audit']!;
-    final events = (result['events'] as List?)?.cast<Map<String, dynamic>>().toList() ?? const [];
+    final events =
+        (result['events'] as List?)?.cast<Map<String, dynamic>>().toList() ??
+        const [];
     return _card('Audit results (${result['count'] ?? events.length})', [
       if (events.isEmpty) const Text('No matching events.'),
       for (final event in events.take(20))
@@ -347,6 +421,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         ),
     ]);
   }
+
   Widget _writeArea(BuildContext context) {
     final available = governanceWriteOperations
         .where((op) => _has(op.method, op.path))
@@ -396,8 +471,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
       TextField(
         controller: _confirm,
         enabled: !_writing,
-        decoration: const InputDecoration(
-          labelText: 'Type CONFIRM to authorize this write',
+        decoration: InputDecoration(
+          labelText: 'Exact write confirmation',
+          helperText: _writeConfirmationHint,
         ),
       ),
       const SizedBox(height: 10),
@@ -414,7 +490,14 @@ class _GovernanceTabState extends State<GovernanceTab> {
       ),
     ]);
   }
-  Widget _section(BuildContext context, String title, List<Widget> children) => GovernanceSection(title: title, children: children);
-  Widget _card(String title, List<Widget> children) => GovernanceCard(title: title, children: children);
-  Widget _jsonCard(BuildContext context, String title, Map<String, dynamic> data) => GovernanceJsonCard(title: title, data: data);
+
+  Widget _section(BuildContext context, String title, List<Widget> children) =>
+      GovernanceSection(title: title, children: children);
+  Widget _card(String title, List<Widget> children) =>
+      GovernanceCard(title: title, children: children);
+  Widget _jsonCard(
+    BuildContext context,
+    String title,
+    Map<String, dynamic> data,
+  ) => GovernanceJsonCard(title: title, data: data);
 }

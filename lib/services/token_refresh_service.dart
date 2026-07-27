@@ -77,9 +77,12 @@ class TokenRefreshService {
       // Add padding for base64 decoding
       var payload = parts[1];
       switch (payload.length % 4) {
-        case 1: return null; // Invalid padding
-        case 2: payload += '==';
-        case 3: payload += '=';
+        case 1:
+          return null; // Invalid padding
+        case 2:
+          payload += '==';
+        case 3:
+          payload += '=';
       }
       final decoded = utf8.decode(base64Url.decode(payload));
       final data = jsonDecode(decoded) as Map<String, dynamic>;

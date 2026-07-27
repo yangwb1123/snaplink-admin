@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/services/sensitive_data.dart';
 
 class ConnectionDetailsCard extends StatelessWidget {
   final String id;
@@ -108,7 +109,9 @@ class ConnectionDetailsCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: SelectableText(
-              const JsonEncoder.withIndent('  ').convert(connection!['config']),
+              const JsonEncoder.withIndent(
+                '  ',
+              ).convert(SensitiveData.redact(connection!['config'])),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),

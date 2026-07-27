@@ -52,42 +52,47 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: widget.hintText,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    isDense: true,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  isDense: true,
+                  onChanged: _onSearchChanged,
                 ),
-                onChanged: _onSearchChanged,
               ),
-            ),
-            if (widget.filterOptions.isNotEmpty) ...[
-              const SizedBox(width: 8),
-              IconButton(
-                icon: Icon(
-                  _showFilters ? Icons.filter_list_off : Icons.filter_list,
-                  size: 20,
+              if (widget.filterOptions.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(
+                    _showFilters ? Icons.filter_list_off : Icons.filter_list,
+                    size: 20,
+                  ),
+                  tooltip: 'Toggle filters',
+                  onPressed: () => setState(() => _showFilters = !_showFilters),
                 ),
-                tooltip: 'Toggle filters',
-                onPressed: () => setState(() => _showFilters = !_showFilters),
-              ),
+              ],
+              if (widget.onRefresh != null) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.refresh, size: 20),
+                  tooltip: 'Refresh',
+                  onPressed: widget.onRefresh,
+                ),
+              ],
             ],
-            if (widget.onRefresh != null) ...[
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.refresh, size: 20),
-                tooltip: 'Refresh',
-                onPressed: widget.onRefresh,
-              ),
-            ],
-          ]),
+          ),
           if (_showFilters && widget.filterOptions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(

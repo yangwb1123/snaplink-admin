@@ -45,7 +45,11 @@ class FormValidators {
   }
 
   /// Returns an error message if the value is shorter than [min] characters.
-  static String? minLength(String? value, int min, [String fieldName = 'This field']) {
+  static String? minLength(
+    String? value,
+    int min, [
+    String fieldName = 'This field',
+  ]) {
     if (value == null || value.trim().isEmpty) return null;
     if (value.trim().length < min) {
       return '$fieldName must be at least $min characters';
@@ -54,7 +58,10 @@ class FormValidators {
   }
 
   /// Returns an error message if the value contains invalid characters.
-  static String? alphanumeric(String? value, [String fieldName = 'This field']) {
+  static String? alphanumeric(
+    String? value, [
+    String fieldName = 'This field',
+  ]) {
     if (value == null || value.trim().isEmpty) return null;
     if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value.trim())) {
       return '$fieldName may only contain letters, numbers, hyphens, and underscores';

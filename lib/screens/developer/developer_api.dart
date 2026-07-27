@@ -1,5 +1,8 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
+import 'dcr_models.dart';
 
 /// Thrown on any non-2xx response from the SSO server's Dynamic Client
 /// Registration endpoints; carries the parsed OAuth-style error body
@@ -11,6 +14,10 @@ class DeveloperApiError implements Exception {
   final String? errorDescription;
 
   DeveloperApiError(this.status, this.error, this.errorDescription);
+
+  bool get isInvalidManagementCredential => status == 401 || status == 404;
+
+  bool get isRetryable => status >= 500 || status == 408 || status == 429;
 
   @override
   String toString() =>
@@ -30,8 +37,36 @@ class DeveloperApiError implements Exception {
 /// this app is served from behind the same reverse proxy as the SSO API.
 class DeveloperApi {
   final http.Client _http;
+  final Uri _baseUri;
+  final Duration _timeout;
 
-  DeveloperApi({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  DeveloperApi({
+    http.Client? httpClient,
+    Uri? baseUri,
+    Duration timeout = const Duration(seconds: 30),
+  }) : _http = httpClient ?? http.Client(),
+       _baseUri = baseUri ?? Uri.base,
+       _timeout = timeout;
+
+  Future<DcrDiscovery> loadDiscovery() async {
+    final response = await _http
+        .get(
+          _baseUri.resolve('/.well-known/openid-configuration'),
+          headers: {'Accept': 'application/json'},
+        )
+        .timeout(_timeout);
+    return DcrDiscovery.fromJson(_handle(response));
+  }
+
+  Future<Map<String, dynamic>> registerMetadata({
+    required DcrClientMetadata metadata,
+    String? initialAccessToken,
+  }) {
+    return _registerBody(
+      metadata.toRegistrationWire(),
+      initialAccessToken: initialAccessToken,
+    );
+  }
 
   /// POST /register — RFC 7591 Dynamic Client Registration.
   /// [initialAccessToken] is only sent (as a Bearer token) when the
@@ -45,22 +80,31 @@ class DeveloperApi {
     Map<String, dynamic> additionalMetadata = const {},
     String? initialAccessToken,
   }) async {
+    return _registerBody({
+      ...additionalMetadata,
+      'client_name': clientName,
+      'redirect_uris': redirectUris,
+      'scope': scope,
+      'token_endpoint_auth_method': tokenEndpointAuthMethod,
+      'token_strategy': tokenStrategy,
+    }, initialAccessToken: initialAccessToken);
+  }
+
+  Future<Map<String, dynamic>> _registerBody(
+    Map<String, dynamic> body, {
+    String? initialAccessToken,
+  }) async {
     final headers = {'Content-Type': 'application/json'};
     if (initialAccessToken != null && initialAccessToken.isNotEmpty) {
       headers['Authorization'] = 'Bearer $initialAccessToken';
     }
-    final resp = await _http.post(
-      Uri.base.resolve('/register'),
-      headers: headers,
-      body: jsonEncode({
-        ...additionalMetadata,
-        'client_name': clientName,
-        'redirect_uris': redirectUris,
-        'scope': scope,
-        'token_endpoint_auth_method': tokenEndpointAuthMethod,
-        'token_strategy': tokenStrategy,
-      }),
-    );
+    final resp = await _http
+        .post(
+          _baseUri.resolve('/register'),
+          headers: headers,
+          body: jsonEncode(body),
+        )
+        .timeout(_timeout);
     return _handle(resp);
   }
 
@@ -73,35 +117,37 @@ class DeveloperApi {
     required String clientId,
     required String token,
   }) async {
-    final resp = await _http.get(
-      Uri.base.resolve('/register/${Uri.encodeComponent(clientId)}'),
-      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
-    );
+    final resp = await _http
+        .get(
+          _baseUri.resolve('/register/${Uri.encodeComponent(clientId)}'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(_timeout);
     return _handle(resp);
   }
 
-  /// PUT /register/:client_id — RFC 7592 full update. Callers must pass
-  /// the COMPLETE prior registration (from [loadApp]) overlaid with only
-  /// the fields the UI edits; the server takes fields absent from the
-  /// request body verbatim with no stored-value fallback (unlike
-  /// token_strategy/token_endpoint_auth_method, which the server itself
-  /// preserves when omitted), so dropping a field here would silently wipe
-  /// real client capabilities (grant_types, response_types,
-  /// allowed_authenticators, allowed_resources,
-  /// post_logout_redirect_uris, ...).
+  /// PUT /register/:client_id — RFC 7592 full update. The current server
+  /// projection omits grant_types even though PUT replaces that field. Callers
+  /// must therefore establish an out-of-band trusted grant snapshot before
+  /// saving; [DcrRoundTripSafety] models this guard for the portal.
   Future<Map<String, dynamic>> saveApp({
     required String clientId,
     required String token,
     required Map<String, dynamic> body,
   }) async {
-    final resp = await _http.put(
-      Uri.base.resolve('/register/${Uri.encodeComponent(clientId)}'),
-      headers: {
-        'Authorization': 'Bearer $token',
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
+    final resp = await _http
+        .put(
+          _baseUri.resolve('/register/${Uri.encodeComponent(clientId)}'),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode(body),
+        )
+        .timeout(_timeout);
     return _handle(resp);
   }
 
@@ -110,10 +156,12 @@ class DeveloperApi {
     required String clientId,
     required String token,
   }) async {
-    final resp = await _http.delete(
-      Uri.base.resolve('/register/${Uri.encodeComponent(clientId)}'),
-      headers: {'Authorization': 'Bearer $token'},
-    );
+    final resp = await _http
+        .delete(
+          _baseUri.resolve('/register/${Uri.encodeComponent(clientId)}'),
+          headers: {'Authorization': 'Bearer $token'},
+        )
+        .timeout(_timeout);
     _handle(resp);
   }
 
@@ -133,8 +181,8 @@ class DeveloperApi {
     }
     throw DeveloperApiError(
       resp.statusCode,
-      parsed['error'] as String?,
-      parsed['error_description'] as String?,
+      parsed['error']?.toString(),
+      parsed['error_description']?.toString(),
     );
   }
 }

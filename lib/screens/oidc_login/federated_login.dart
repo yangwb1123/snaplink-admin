@@ -20,6 +20,7 @@ import 'package:web/web.dart' as web;
 /// localStorage) is intentional: the verifier must not outlive this one
 /// login attempt/tab.
 class FederatedLogin {
+  static const _exchangeTimeout = Duration(seconds: 30);
   static const _verifierKey = 'sso_pkce_verifier';
   static const _stateKey = 'sso_pkce_state';
   static const _clientIdKey = 'sso_pkce_client_id';
@@ -48,7 +49,8 @@ class FederatedLogin {
     final verifier = _randomUrlSafe(32);
     final challengeBytes = sha256.convert(utf8.encode(verifier)).bytes;
     final challenge = base64Url.encode(challengeBytes).replaceAll('=', '');
-    final state = '${_randomUrlSafe(16)}|${Uri.encodeComponent(redirectTarget)}';
+    final state =
+        '${_randomUrlSafe(16)}|${Uri.encodeComponent(redirectTarget)}';
     final redirectUri = _currentPathNoQuery();
 
     web.window.sessionStorage.setItem(_verifierKey, verifier);
@@ -56,16 +58,21 @@ class FederatedLogin {
     web.window.sessionStorage.setItem(_clientIdKey, clientId);
     web.window.sessionStorage.setItem(_redirectKey, redirectUri);
 
-    return Uri.base.resolve('../auth/login').replace(queryParameters: {
-      'provider': connectionId,
-      'client_id': clientId,
-      'response_type': 'code',
-      'redirect_uri': redirectUri,
-      'state': state,
-      'scope': scope.join(' '),
-      'code_challenge': challenge,
-      'code_challenge_method': 'S256',
-    }).toString();
+    return Uri.base
+        .resolve('../auth/login')
+        .replace(
+          queryParameters: {
+            'provider': connectionId,
+            'client_id': clientId,
+            'response_type': 'code',
+            'redirect_uri': redirectUri,
+            'state': state,
+            'scope': scope.join(' '),
+            'code_challenge': challenge,
+            'code_challenge_method': 'S256',
+          },
+        )
+        .toString();
   }
 
   /// Detects a return leg (URL carries `code` + `state` matching what was
@@ -96,25 +103,31 @@ class FederatedLogin {
 
     final code = q['code'];
     if (code == null) {
-      throw StateError(q['error_description'] ?? q['error'] ?? 'federated_login_failed');
+      throw StateError(
+        q['error_description'] ?? q['error'] ?? 'federated_login_failed',
+      );
     }
     if (verifier == null || clientId == null || redirectUri == null) {
       throw StateError('missing_pkce_state');
     }
     final pipeIndex = state.indexOf('|');
-    final redirectTarget = pipeIndex >= 0 ? Uri.decodeComponent(state.substring(pipeIndex + 1)) : '/admin/';
+    final redirectTarget = pipeIndex >= 0
+        ? Uri.decodeComponent(state.substring(pipeIndex + 1))
+        : '/admin/';
 
-    final resp = await http.post(
-      Uri.base.resolve('../token'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'grant_type': 'authorization_code',
-        'code': code,
-        'client_id': clientId,
-        'redirect_uri': redirectUri,
-        'code_verifier': verifier,
-      }),
-    );
+    final resp = await http
+        .post(
+          Uri.base.resolve('../token'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'grant_type': 'authorization_code',
+            'code': code,
+            'client_id': clientId,
+            'redirect_uri': redirectUri,
+            'code_verifier': verifier,
+          }),
+        )
+        .timeout(_exchangeTimeout);
     Map<String, dynamic> body = const {};
     if (resp.body.isNotEmpty) {
       try {
@@ -130,12 +143,18 @@ class FederatedLogin {
     if (resp.statusCode != 200 || accessToken == null) {
       throw StateError(body['error']?.toString() ?? 'token_exchange_failed');
     }
-    return FederatedLoginResult(accessToken: accessToken, redirectTarget: redirectTarget);
+    return FederatedLoginResult(
+      accessToken: accessToken,
+      redirectTarget: redirectTarget,
+    );
   }
 }
 
 class FederatedLoginResult {
   final String accessToken;
   final String redirectTarget;
-  FederatedLoginResult({required this.accessToken, required this.redirectTarget});
+  FederatedLoginResult({
+    required this.accessToken,
+    required this.redirectTarget,
+  });
 }

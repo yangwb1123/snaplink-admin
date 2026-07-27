@@ -44,27 +44,99 @@ class MfaView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final acceptsCode =
+        selectedMfaMethod != null &&
+        selectedMfaMethod != 'webauthn' &&
+        selectedMfaMethod != 'push';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(strings.verifyIdentity, style: Theme.of(context).textTheme.titleLarge),
+        Text(
+          strings.verifyIdentity,
+          style: Theme.of(context).textTheme.titleLarge,
+        ),
         const SizedBox(height: 16),
-        Wrap(spacing: 8, children: mfaMethods.map((m) {
-          final sel = selectedMfaMethod == m;
-          return ChoiceChip(label: Text(_label(m)), selected: sel, onSelected: (_) => onMethodChanged(m));
-        }).toList()),
-        if (selectedMfaMethod != null && selectedMfaMethod != 'webauthn' && selectedMfaMethod != 'push') ...[
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: mfaMethods.map((method) {
+            final selected = selectedMfaMethod == method;
+            return ChoiceChip(
+              label: Text(_label(method)),
+              selected: selected,
+              onSelected: loading ? null : (_) => onMethodChanged(method),
+            );
+          }).toList(),
+        ),
+        if (acceptsCode) ...[
           const SizedBox(height: 14),
-          TextField(controller: mfaCodeCtrl, decoration: InputDecoration(labelText: selectedMfaMethod == 'recovery' ? 'Recovery code' : strings.verificationCode)),
+          TextField(
+            controller: mfaCodeCtrl,
+            enabled: !loading,
+            autocorrect: false,
+            enableSuggestions: false,
+            keyboardType: selectedMfaMethod == 'recovery'
+                ? TextInputType.visiblePassword
+                : TextInputType.number,
+            autofillHints: selectedMfaMethod == 'recovery'
+                ? const []
+                : const [AutofillHints.oneTimeCode],
+            textInputAction: TextInputAction.done,
+            decoration: InputDecoration(
+              labelText: selectedMfaMethod == 'recovery'
+                  ? 'Recovery code'
+                  : strings.verificationCode,
+            ),
+            onSubmitted: (_) {
+              if (!loading) onSubmit();
+            },
+          ),
         ],
-        if (selectedMfaMethod == 'webauthn') ...[const SizedBox(height: 14), const Text('Use a registered passkey to verify this sign-in.')],
-        if (selectedMfaMethod == 'push') ...[const SizedBox(height: 14), const Text('Approve the notification on your device, then continue.')],
-        CheckboxListTile(contentPadding: EdgeInsets.zero, title: const Text('Trust this device'), subtitle: const Text('Skip future MFA when allowed.'), value: trustThisDevice, onChanged: loading ? null : onTrustChanged),
-        if (error != null) ...[const SizedBox(height: 14), Text(error!, style: const TextStyle(color: Colors.redAccent))],
+        if (selectedMfaMethod == 'webauthn') ...[
+          const SizedBox(height: 14),
+          const Text('Use a registered passkey to verify this sign-in.'),
+        ],
+        if (selectedMfaMethod == 'push') ...[
+          const SizedBox(height: 14),
+          const Text('Approve the notification on your device, then continue.'),
+        ],
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Trust this device'),
+          subtitle: const Text('Skip future MFA when allowed.'),
+          value: trustThisDevice,
+          onChanged: loading ? null : onTrustChanged,
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 14),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
+        ],
         const SizedBox(height: 20),
-        FilledButton(onPressed: loading ? null : onSubmit, child: loading ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : Text(selectedMfaMethod == 'webauthn' ? 'Use passkey' : strings.verify)),
-        TextButton(onPressed: onBack, child: Text(strings.back)),
+        FilledButton(
+          onPressed: loading ? null : onSubmit,
+          child: loading
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  selectedMfaMethod == 'webauthn'
+                      ? 'Use passkey'
+                      : strings.verify,
+                ),
+        ),
+        TextButton(
+          onPressed: loading ? null : onBack,
+          child: Text(strings.back),
+        ),
       ],
     );
   }

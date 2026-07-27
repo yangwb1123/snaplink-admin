@@ -1,11 +1,12 @@
-import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'user_form_dialog.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -25,21 +26,27 @@ class _UsersTabState extends State<UsersTab> {
   var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
+  String? _busyId;
+  late final void Function() _cancelPopState;
 
   @override
   void initState() {
     super.initState();
     _future = _loadPage();
     _handleRoute();
-    void popListener() { if (mounted) _handleRoute(); }
-    web.window.addEventListener('popstate', popListener.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (mounted) _handleRoute();
+    });
   }
 
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'users') return;
-    if (route.isNew) { _openCreateDialog(); }
-    else if (route.isEdit) { _openEditForId(route.resourceId); }
+    if (route.isNew) {
+      _openCreateDialog();
+    } else if (route.isEdit) {
+      _openEditForId(route.resourceId);
+    }
   }
 
   Future<void> _openEditForId(String id) async {
@@ -47,12 +54,15 @@ class _UsersTabState extends State<UsersTab> {
       final user = await widget.client.getUser(id);
       if (!mounted) return;
       await _openEditDialog(user);
-    } catch (e) { debugPrint("users_tab edit error: \$e"); }
+    } catch (e) {
+      debugPrint('users_tab edit error: $e');
+    }
     if (mounted) AdminRoute.go('users');
   }
 
   @override
   void dispose() {
+    _cancelPopState();
     _filterCtrl.dispose();
     super.dispose();
   }
@@ -98,7 +108,10 @@ class _UsersTabState extends State<UsersTab> {
       context: context,
       builder: (context) => UserFormDialog(client: widget.client),
     );
-    if (result != null) { _reload(); if (mounted) AdminRoute.go('users'); }
+    if (result != null) {
+      _reload();
+      if (mounted) AdminRoute.go('users');
+    }
   }
 
   Future<void> _openEditDialog(Map<String, dynamic> user) async {
@@ -107,29 +120,27 @@ class _UsersTabState extends State<UsersTab> {
       builder: (context) =>
           UserFormDialog(client: widget.client, existing: user),
     );
-    if (result != null) { _reload(); if (mounted) AdminRoute.go('users'); }
+    if (result != null) {
+      _reload();
+      if (mounted) AdminRoute.go('users');
+    }
   }
 
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete user?'),
-        content: Text('Delete $id? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    if (id.isEmpty || _busyId != null) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Delete user?',
+      message:
+          'Delete $id? Sessions, credentials, and dependent records may stop '
+          'working. This cannot be undone.',
+      confirmLabel: 'Delete user',
+      destructive: true,
+      confirmText: id,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
+    setState(() => _busyId = id);
     try {
       await widget.client.deleteUser(id);
       _reload();
@@ -138,6 +149,8 @@ class _UsersTabState extends State<UsersTab> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _busyId = null);
     }
   }
 
@@ -146,20 +159,12 @@ class _UsersTabState extends State<UsersTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
         AdminBreadcrumb(),
-                      Text(AppStrings.of(context).users, style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              IconButton(
-                onPressed: () => AdminRoute.go('users', action: 'new'),
-                icon: const Icon(Icons.add),
-              ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
-            ],
-          ),
+        AdminListHeader(
+          title: AppStrings.of(context).users,
+          createTooltip: 'Create user',
+          onCreate: () => AdminRoute.go('users', action: 'new'),
+          onRefresh: _reload,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -250,7 +255,8 @@ class _UsersTabState extends State<UsersTab> {
                             title: 'No users',
                             subtitle: 'No users match the current filter.',
                             actionLabel: 'Create user',
-                            onAction: () => AdminRoute.go('users', action: 'new'),
+                            onAction: () =>
+                                AdminRoute.go('users', action: 'new'),
                           )
                         : ListView.separated(
                             itemCount: items.length,
@@ -261,7 +267,10 @@ class _UsersTabState extends State<UsersTab> {
                               return ListTile(
                                 leading: const Icon(Icons.person),
                                 title: Text(u['id']?.toString() ?? '?'),
-                                onTap: () => AdminRoute.go('users', resourceId: u['id']?.toString() ?? ''),
+                                onTap: () => AdminRoute.go(
+                                  'users',
+                                  resourceId: u['id']?.toString() ?? '',
+                                ),
                                 subtitle: Text(
                                   'provider: ${u['provider'] ?? '?'}',
                                 ),
@@ -274,9 +283,15 @@ class _UsersTabState extends State<UsersTab> {
                                           '',
                                     ),
                                     PopupMenuButton<String>(
+                                      enabled: _busyId == null,
                                       onSelected: (value) {
                                         if (value == 'edit') {
-                                          AdminRoute.go('users', action: 'edit', resourceId: u['id']?.toString() ?? '');
+                                          AdminRoute.go(
+                                            'users',
+                                            action: 'edit',
+                                            resourceId:
+                                                u['id']?.toString() ?? '',
+                                          );
                                         }
                                         if (value == 'delete') {
                                           _confirmDelete(u);
@@ -316,5 +331,3 @@ class _UsersTabState extends State<UsersTab> {
     );
   }
 }
-
-

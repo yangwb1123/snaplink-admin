@@ -35,11 +35,15 @@ class PortalApiError implements Exception {
 /// base URL needed because the reverse proxy fronts both on one origin.
 class PortalApi {
   final http.Client _http;
+  final Duration requestTimeout;
   String? _token;
   String? _sessionId;
   String? _clientId;
 
-  PortalApi({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  PortalApi({
+    http.Client? httpClient,
+    this.requestTimeout = const Duration(seconds: 30),
+  }) : _http = httpClient ?? http.Client();
 
   /// Fired the first time an authenticated call comes back 401/403 while
   /// this is set — mid-session token expiry/revocation. Left unarmed until
@@ -100,37 +104,41 @@ class PortalApi {
   }
 
   Future<http.Response> get(String path) async {
-    final r = await _http.get(_uri(path), headers: _headers());
+    final r = await _http
+        .get(_uri(path), headers: _headers())
+        .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
   }
 
   Future<http.Response> post(String path, [Object? body]) async {
-    final r = await _http.post(
-      _uri(path),
-      headers: _headers(json: true),
-      body: body == null ? '' : jsonEncode(body),
-    );
+    final r = await _http
+        .post(
+          _uri(path),
+          headers: _headers(json: true),
+          body: body == null ? '' : jsonEncode(body),
+        )
+        .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
   }
 
   Future<http.Response> patch(String path, Object body) async {
-    final r = await _http.patch(
-      _uri(path),
-      headers: _headers(json: true),
-      body: jsonEncode(body),
-    );
+    final r = await _http
+        .patch(
+          _uri(path),
+          headers: _headers(json: true),
+          body: jsonEncode(body),
+        )
+        .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
   }
 
   Future<http.Response> put(String path, Object body) async {
-    final r = await _http.put(
-      _uri(path),
-      headers: _headers(json: true),
-      body: jsonEncode(body),
-    );
+    final r = await _http
+        .put(_uri(path), headers: _headers(json: true), body: jsonEncode(body))
+        .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
   }
@@ -149,11 +157,13 @@ class PortalApi {
     Object? body,
     Map<String, String>? query,
   }) async {
-    final r = await _http.delete(
-      _uri(path).replace(queryParameters: query),
-      headers: _headers(json: true),
-      body: body == null ? null : jsonEncode(body),
-    );
+    final r = await _http
+        .delete(
+          _uri(path).replace(queryParameters: query),
+          headers: _headers(json: true),
+          body: body == null ? null : jsonEncode(body),
+        )
+        .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
   }

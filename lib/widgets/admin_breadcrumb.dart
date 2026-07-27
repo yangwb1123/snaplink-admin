@@ -9,10 +9,16 @@ class AdminBreadcrumb extends StatelessWidget {
   final List<String> trailing;
   final String? overrideModule;
 
-  const AdminBreadcrumb({super.key, this.trailing = const [], this.overrideModule});
+  const AdminBreadcrumb({
+    super.key,
+    this.trailing = const [],
+    this.overrideModule,
+  });
 
   static String _moduleLabel(String module) => switch (module) {
     'users' => 'Users',
+    'local-users' => 'Local Users',
+    'scim-directory' => 'SCIM Directory',
     'clients' => 'Clients',
     'tenants' => 'Tenants',
     'connections' => 'Connections',
@@ -20,16 +26,22 @@ class AdminBreadcrumb extends StatelessWidget {
     'webhooks' => 'Webhooks',
     'emergency-access' => 'Emergency Access',
     'token-security' => 'Token Security',
+    'usage-analytics' => 'Usage Insights',
     'threat-policies' => 'Threat Policies',
     'domains' => 'Domains',
+    'network-policies' => 'Network Policies',
     'credentials' => 'Credentials',
     'crypto-keys' => 'Crypto Keys',
     'access-policies' => 'Access Policies',
     'governance' => 'Governance',
+    'change-approvals' => 'Change Approvals',
+    'recovery-releases' => 'Recovery & Releases',
+    'privacy-compliance' => 'Privacy & Retention',
     'dr-mode' => 'DR Mode',
     'user-support' => 'User Support',
+    'device-security' => 'Device Security',
     'live-activity' => 'Live Activity',
-    'admin-operations' => 'Operations',
+    'operations' => 'Operations',
     'authz-checks' => 'AuthZ Checks',
     'token-policies' => 'Token Policies',
     'token-exchange' => 'Token Exchange',
@@ -45,23 +57,33 @@ class AdminBreadcrumb extends StatelessWidget {
 
     // Module link
     if (route.module.isNotEmpty) {
-      crumbs.add(TextButton(
-        onPressed: () => AdminRoute.go(route.module),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          foregroundColor: theme.colorScheme.primary,
+      crumbs.add(
+        TextButton(
+          onPressed: () => AdminRoute.go(route.module),
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: theme.colorScheme.primary,
+          ),
+          child: Text(
+            _moduleLabel(route.module),
+            style: const TextStyle(fontSize: 13),
+          ),
         ),
-        child: Text(_moduleLabel(route.module), style: const TextStyle(fontSize: 13)),
-      ));
+      );
     }
 
     // Resource ID or action
     if (route.resourceId.isNotEmpty) {
       crumbs.add(_separator());
       if (route.action == 'edit') {
-        crumbs.add(_crumb(route.resourceId, () => AdminRoute.go(route.module, resourceId: route.resourceId)));
+        crumbs.add(
+          _crumb(
+            route.resourceId,
+            () => AdminRoute.go(route.module, resourceId: route.resourceId),
+          ),
+        );
         crumbs.add(_separator());
         crumbs.add(_crumb('Edit', null));
       } else if (route.action == 'new') {
@@ -69,7 +91,12 @@ class AdminBreadcrumb extends StatelessWidget {
       } else if (route.subresource.isEmpty) {
         crumbs.add(_crumb(route.resourceId, null));
       } else {
-        crumbs.add(_crumb(route.resourceId, () => AdminRoute.go(route.module, resourceId: route.resourceId)));
+        crumbs.add(
+          _crumb(
+            route.resourceId,
+            () => AdminRoute.go(route.module, resourceId: route.resourceId),
+          ),
+        );
       }
     }
 
@@ -124,7 +151,10 @@ class AdminBreadcrumb extends StatelessWidget {
           color: Colors.blueGrey.shade50,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(text, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+        child: Text(
+          text,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
       );
     }
     return TextButton(

@@ -5,11 +5,31 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 /// without requiring a browser (no dart:js_interop dependency).
 
 const _mockEndpoints = [
-  SnaplinkAdminEndpoint(method: 'POST', path: '/api/v1/admin/break-glass', feature: 'core'),
-  SnaplinkAdminEndpoint(method: 'GET', path: '/api/v1/admin/break-glass', feature: 'core'),
-  SnaplinkAdminEndpoint(method: 'DELETE', path: '/api/v1/admin/break-glass/{id}', feature: 'core'),
-  SnaplinkAdminEndpoint(method: 'POST', path: '/api/v1/admin/break-glass/{id}/approve', feature: 'core'),
-  SnaplinkAdminEndpoint(method: 'POST', path: '/api/v1/admin/break-glass/{id}/impersonate', feature: 'core'),
+  SnaplinkAdminEndpoint(
+    method: 'POST',
+    path: '/api/v1/admin/break-glass',
+    feature: 'core',
+  ),
+  SnaplinkAdminEndpoint(
+    method: 'GET',
+    path: '/api/v1/admin/break-glass',
+    feature: 'core',
+  ),
+  SnaplinkAdminEndpoint(
+    method: 'DELETE',
+    path: '/api/v1/admin/break-glass/{id}',
+    feature: 'core',
+  ),
+  SnaplinkAdminEndpoint(
+    method: 'POST',
+    path: '/api/v1/admin/break-glass/{id}/approve',
+    feature: 'core',
+  ),
+  SnaplinkAdminEndpoint(
+    method: 'POST',
+    path: '/api/v1/admin/break-glass/{id}/impersonate',
+    feature: 'core',
+  ),
 ];
 
 void main() {
@@ -20,7 +40,10 @@ void main() {
       expect(caps.has('POST', '/api/v1/admin/break-glass'), isTrue);
       expect(caps.has('GET', '/api/v1/admin/break-glass'), isTrue);
       expect(caps.has('DELETE', '/api/v1/admin/break-glass/{id}'), isTrue);
-      expect(caps.has('POST', '/api/v1/admin/break-glass/{id}/approve'), isTrue);
+      expect(
+        caps.has('POST', '/api/v1/admin/break-glass/{id}/approve'),
+        isTrue,
+      );
     });
 
     test('returns false when break-glass endpoints are absent', () {
@@ -35,7 +58,12 @@ void main() {
       final hasBreakGlass = documented.any(
         (e) => e.path.startsWith('/api/v1/admin/break-glass'),
       );
-      expect(hasBreakGlass, isTrue, reason: 'Break-glass routes must be in the documented catalog for capability detection');
+      expect(
+        hasBreakGlass,
+        isTrue,
+        reason:
+            'Break-glass routes must be in the documented catalog for capability detection',
+      );
     });
   });
 
@@ -58,33 +86,47 @@ void main() {
     test('Approve break-glass URL encodes the session ID', () {
       final sessionId = 'bg-abc-123';
       final encoded = Uri.encodeComponent(sessionId);
-      expect('/api/v1/admin/break-glass/$encoded/approve',
-        equals('/api/v1/admin/break-glass/bg-abc-123/approve'));
+      expect(
+        '/api/v1/admin/break-glass/$encoded/approve',
+        equals('/api/v1/admin/break-glass/bg-abc-123/approve'),
+      );
     });
 
     test('Revoke break-glass URL encodes the session ID', () {
       final sessionId = 'bg-xyz-789';
       final encoded = Uri.encodeComponent(sessionId);
-      expect('/api/v1/admin/break-glass/$encoded',
-        equals('/api/v1/admin/break-glass/bg-xyz-789'));
+      expect(
+        '/api/v1/admin/break-glass/$encoded',
+        equals('/api/v1/admin/break-glass/bg-xyz-789'),
+      );
     });
 
     test('Impersonate break-glass URL encodes the session ID', () {
       final sessionId = 'bg-imp-456';
       final encoded = Uri.encodeComponent(sessionId);
-      expect('/api/v1/admin/break-glass/$encoded/impersonate',
-        equals('/api/v1/admin/break-glass/bg-imp-456/impersonate'));
+      expect(
+        '/api/v1/admin/break-glass/$encoded/impersonate',
+        equals('/api/v1/admin/break-glass/bg-imp-456/impersonate'),
+      );
     });
   });
 
   group('Break-glass session status display logic', () {
     test('pending sessions show hourglass icon', () {
-      final session = {'id': 'bg-1', 'status': 'pending', 'target_user_id': 'user@test.com'};
+      final session = {
+        'id': 'bg-1',
+        'status': 'pending',
+        'target_user_id': 'user@test.com',
+      };
       expect(session['status'], equals('pending'));
     });
 
     test('active sessions show flash_on icon', () {
-      final session = {'id': 'bg-2', 'status': 'active', 'target_user_id': 'user@test.com'};
+      final session = {
+        'id': 'bg-2',
+        'status': 'active',
+        'target_user_id': 'user@test.com',
+      };
       expect(session['status'], equals('active'));
     });
 

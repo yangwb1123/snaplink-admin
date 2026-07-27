@@ -1,11 +1,12 @@
-import 'dart:js_interop';
-import 'package:web/web.dart' as web;
 import 'package:flutter/material.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
+
 class TokenSecurityTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -17,13 +18,21 @@ class TokenSecurityTab extends StatefulWidget {
   @override
   State<TokenSecurityTab> createState() => _TokenSecurityTabState();
 }
+
 class _TokenSecurityTabState extends State<TokenSecurityTab> {
   final _subjectCtrl = TextEditingController();
   final _clientCtrl = TextEditingController();
+  final _createUserCtrl = TextEditingController();
+  final _createScopesCtrl = TextEditingController(text: 'openid profile');
+  final _revokeTokenCtrl = TextEditingController();
   final Map<String, Map<String, dynamic>> _data = {};
   String? _error;
   bool _loading = true;
   bool _mutating = false;
+  String? _tempToken;
+  String _revokeKind = 'session_id';
+  late final void Function() _cancelPopState;
+
   static const _paths = {
     'sessions': '/api/v1/admin/sessions',
     'tokens': '/api/v1/admin/tokens',
@@ -32,33 +41,78 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     'suspicious': '/api/v1/admin/tokens/suspicious',
   };
   static const _bulkRevokePath = '/api/v1/admin/tokens/bulk-revoke';
-  bool get _supportsBulkRevoke => widget.capabilities.has('POST', _bulkRevokePath) ||
-      SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_bulkRevokePath);
+  static const _tempTokenPath = '/api/v1/admin/tokens/temp';
+  static const _singleRevokePath = '/api/v1/admin/tokens/revoke';
+  static const _adminTokenPath = '/api/v1/admin/tokens/:id';
+
+  bool _supports(String method, String path) {
+    final documentedPath = path.replaceAll('/:id', '/{id}');
+    return widget.capabilities.has(method, path) ||
+        SnaplinkAdminOperationCatalog.endpoints.any(
+          (endpoint) =>
+              endpoint.method == method && endpoint.path == documentedPath,
+        );
+  }
+
+  bool get _supportsBulkRevoke => _supports('POST', _bulkRevokePath);
+  bool get _supportsTempToken => _supports('POST', _tempTokenPath);
+  bool get _supportsSingleRevoke => _supports('POST', _singleRevokePath);
+  bool get _supportsAdminTokenRevoke => _supports('DELETE', _adminTokenPath);
+
   String _currentSection = 'all';
-  static const _secDefs = [
+  static const _allSectionDefs = [
     SectionDef('all', 'All', Icons.dashboard),
     SectionDef('portfolio', 'Portfolio', Icons.account_balance_wallet),
     SectionDef('suspicious', 'Anomalies', Icons.warning),
     SectionDef('sessions', 'Sessions', Icons.devices),
-    SectionDef('subjects', 'Bearers', Icons.person),
     SectionDef('expiring', 'Expiring', Icons.timer),
     SectionDef('temp', 'Temp Token', Icons.key),
     SectionDef('revoke', 'Revoke', Icons.remove_circle),
   ];
+
+  List<SectionDef> get _sectionDefs => [
+    for (final section in _allSectionDefs)
+      if (section.id == 'all' ||
+          (section.id == 'portfolio' &&
+              _supports('GET', _paths['portfolio']!)) ||
+          (section.id == 'suspicious' &&
+              _supports('GET', _paths['suspicious']!)) ||
+          (section.id == 'sessions' && _supports('GET', _paths['sessions']!)) ||
+          (section.id == 'expiring' && _supports('GET', _paths['expiring']!)) ||
+          (section.id == 'temp' && _supportsTempToken) ||
+          (section.id == 'revoke' &&
+              (_supportsSingleRevoke ||
+                  _supportsBulkRevoke ||
+                  _supportsAdminTokenRevoke)))
+        section,
+  ];
+
+  bool _shows(String section) =>
+      _currentSection == 'all' || _currentSection == section;
+
   @override
   void initState() {
     super.initState();
     _handleRoute();
-    void p() { if (mounted) _handleRoute(); }
-    web.window.addEventListener('popstate', p.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (mounted) _handleRoute();
+    });
     _load();
   }
+
   @override
   void dispose() {
+    _tempToken = null;
+    _revokeTokenCtrl.clear();
+    _cancelPopState();
     _subjectCtrl.dispose();
     _clientCtrl.dispose();
+    _createUserCtrl.dispose();
+    _createScopesCtrl.dispose();
+    _revokeTokenCtrl.dispose();
     super.dispose();
   }
+
   Future<void> _load() async {
     widget.api.skipCache();
     setState(() {
@@ -66,7 +120,9 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _error = null;
     });
     final results = await Future.wait(
-      _paths.entries.map((entry) async {
+      _paths.entries.where((entry) => _supports('GET', entry.value)).map((
+        entry,
+      ) async {
         try {
           return (
             key: entry.key,
@@ -96,6 +152,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _loading = false;
     });
   }
+
   List<Map<String, dynamic>> _list(String key, String valueKey) {
     final values = _data[key]?[valueKey];
     if (values is! List) return const [];
@@ -104,6 +161,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         .map((value) => Map<String, dynamic>.from(value))
         .toList(growable: false);
   }
+
   Future<void> _revokeAdminToken(String id) async {
     if (!await _confirm(
       'Revoke administrator token?',
@@ -117,6 +175,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       'Administrator token revoked.',
     );
   }
+
   Future<void> _bulkRevoke() async {
     final subject = _subjectCtrl.text.trim();
     final clientId = _clientCtrl.text.trim();
@@ -142,6 +201,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       'Refresh-token revocation completed.',
     );
   }
+
   Future<void> _write(
     Future<Map<String, dynamic>> Function() request,
     String message,
@@ -160,26 +220,16 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       if (mounted) setState(() => _mutating = false);
     }
   }
-  Future<bool> _confirm(String title, String body) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(body),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
+
+  Future<bool> _confirm(String title, String body, {String? confirmText}) =>
+      ConfirmDialog.show(
+        context,
+        title: title,
+        message: body,
+        confirmLabel: 'Confirm',
+        destructive: true,
+        confirmText: confirmText,
+      );
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -199,7 +249,11 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             ),
           ],
         ),
-        SectionSelector(sections: _secDefs, current: _currentSection, onSelected: _selectSection),
+        SectionSelector(
+          sections: _sectionDefs,
+          current: _currentSection,
+          onSelected: _selectSection,
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -214,18 +268,25 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             child: Center(child: CircularProgressIndicator()),
           ),
         if (!_loading) ...[
-          if (_data.containsKey('portfolio')) _portfolioCard(context),
-          if (_data.containsKey('suspicious')) _findingsCard(context),
-          if (_data.containsKey('sessions')) _sessionsCard(context),
-          if (_data.containsKey('tokens')) _adminTokensCard(context),
-          if (_data.containsKey('expiring')) _expiringCard(context),
-          if (_supportsBulkRevoke) _bulkRevokeCard(context),
-          if (_supportsBulkRevoke) _tempTokenCard(context),
-          if (_supportsBulkRevoke) _revokeTokenCard(context),
+          if (_shows('portfolio') && _data.containsKey('portfolio'))
+            _portfolioCard(context),
+          if (_shows('suspicious') && _data.containsKey('suspicious'))
+            _findingsCard(context),
+          if (_shows('sessions') && _data.containsKey('sessions'))
+            _sessionsCard(context),
+          if (_shows('revoke') && _data.containsKey('tokens'))
+            _adminTokensCard(context),
+          if (_shows('expiring') && _data.containsKey('expiring'))
+            _expiringCard(context),
+          if (_shows('revoke') && _supportsBulkRevoke) _bulkRevokeCard(context),
+          if (_shows('temp') && _supportsTempToken) _tempTokenCard(context),
+          if (_shows('revoke') && _supportsSingleRevoke)
+            _revokeTokenCard(context),
         ],
       ],
     );
   }
+
   Widget _portfolioCard(BuildContext context) {
     final portfolio = _data['portfolio']?['portfolio'] as Map? ?? const {};
     return _card(context, 'Token portfolio', [
@@ -234,6 +295,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _metric('Userinfo calls', portfolio['userinfo']),
     ]);
   }
+
   Widget _findingsCard(BuildContext context) {
     final findings = _list('suspicious', 'findings');
     return _card(context, 'Detected token anomalies', [
@@ -256,6 +318,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
+
   Widget _sessionsCard(BuildContext context) {
     final sessions = _list('sessions', 'sessions');
     return _card(context, 'Active sessions', [
@@ -270,6 +333,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
+
   Widget _adminTokensCard(BuildContext context) {
     final tokens = _list('tokens', 'tokens');
     return _card(context, 'Administrator bearer tokens', [
@@ -283,16 +347,21 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           subtitle: Text(
             '${token['admin_id'] ?? ''} · ${(token['scopes'] as List? ?? const []).join(' ')}',
           ),
-          trailing: TextButton(
-            onPressed: _mutating
-                ? null
-                : () => _revokeAdminToken(token['id']?.toString() ?? ''),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Revoke'),
-          ),
+          trailing: _supportsAdminTokenRevoke
+              ? TextButton(
+                  onPressed: _mutating
+                      ? null
+                      : () => _revokeAdminToken(token['id']?.toString() ?? ''),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                  ),
+                  child: const Text('Revoke'),
+                )
+              : null,
         ),
     ]);
   }
+
   Widget _expiringCard(BuildContext context) {
     final tokens = _list('expiring', 'tokens');
     return _card(context, 'Refresh tokens expiring soon', [
@@ -307,6 +376,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
     ]);
   }
+
   Widget _bulkRevokeCard(
     BuildContext context,
   ) => _card(context, 'Bounded refresh-token revocation', [
@@ -315,16 +385,19 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     ),
     const SizedBox(height: 12),
     TextField(
+      key: const Key('bulk-revoke-subject'),
       controller: _subjectCtrl,
       decoration: const InputDecoration(labelText: 'Subject (optional)'),
     ),
     const SizedBox(height: 10),
     TextField(
+      key: const Key('bulk-revoke-client'),
       controller: _clientCtrl,
       decoration: const InputDecoration(labelText: 'Client ID (optional)'),
     ),
     const SizedBox(height: 12),
     OutlinedButton(
+      key: const Key('bulk-revoke-submit'),
       onPressed: _mutating ? null : _bulkRevoke,
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.redAccent,
@@ -352,79 +425,191 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           ),
         ),
       );
-  final _createSubjectCtrl = TextEditingController();
-  final _createScopesCtrl = TextEditingController(text: 'openid profile');
-  final _revokeTokenCtrl = TextEditingController(); String? _tempToken;
   Future<void> _createTempToken() async {
-    final subject = _createSubjectCtrl.text.trim();
-    if (subject.isEmpty) { setState(() => _error = 'Subject is required.'); return; }
-    setState(() { _mutating = true; _error = null; _tempToken = null; });
+    final userId = _createUserCtrl.text.trim();
+    if (userId.isEmpty) {
+      setState(() => _error = 'User ID is required.');
+      return;
+    }
+    final scopes = _createScopesCtrl.text
+        .split(RegExp(r'\s+'))
+        .where((scope) => scope.isNotEmpty)
+        .toList(growable: false);
+    if (!await _confirm(
+      'Issue one-time token?',
+      'Issue a temporary bearer credential for $userId with scopes '
+          '${scopes.isEmpty ? '(none)' : scopes.join(' ')}. The raw value '
+          'must be transferred through an approved secure channel.',
+      confirmText: userId,
+    )) {
+      return;
+    }
+    setState(() {
+      _mutating = true;
+      _error = null;
+      _tempToken = null;
+    });
     try {
-      final data = await widget.api.post('/api/v1/admin/tokens/temp', {
-        'subject': subject,
-        'scopes': _createScopesCtrl.text.split(' ').where((s) => s.isNotEmpty).toList(),
+      final data = await widget.api.post(_tempTokenPath, {
+        'user_id': userId,
+        'scopes': scopes,
       });
       if (!mounted) return;
-      final t = data['token']?.toString() ?? data['access_token']?.toString() ?? '';
-      setState(() { _tempToken = t; });
+      final t =
+          data['token']?.toString() ?? data['access_token']?.toString() ?? '';
+      setState(() {
+        if (t.isEmpty) {
+          _error =
+              'The token may have been issued, but Snaplink did not return '
+              'its one-time value. Do not retry until you verify server state.';
+          _tempToken = null;
+        } else {
+          _tempToken = t;
+        }
+      });
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
+
   Future<void> _revokeToken() async {
-    final tokenId = _revokeTokenCtrl.text.trim();
-    if (tokenId.isEmpty) { setState(() => _error = 'Enter a token ID.'); return; }
-    final confirmed = await _confirm('Revoke token?', 'Revoke token $tokenId? This is immediate.');
+    final value = _revokeTokenCtrl.text.trim();
+    if (value.isEmpty) {
+      setState(
+        () => _error = _revokeKind == 'token'
+            ? 'Enter the raw token value.'
+            : 'Enter a session ID.',
+      );
+      return;
+    }
+    final confirmed = await _confirm(
+      _revokeKind == 'token' ? 'Revoke token?' : 'Revoke session?',
+      'This revocation is immediate and cannot be undone.',
+      confirmText: _revokeKind == 'session_id' ? value : null,
+    );
     if (!confirmed) return;
-    setState(() { _mutating = true; _error = null; });
+    setState(() {
+      _mutating = true;
+      _error = null;
+    });
     try {
-      await widget.api.post('/api/v1/admin/tokens/revoke', {'token_id': tokenId});
+      await widget.api.post(_singleRevokePath, {_revokeKind: value});
       if (!mounted) return;
       _revokeTokenCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Token revoked.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _revokeKind == 'token' ? 'Token revoked.' : 'Session revoked.',
+          ),
+        ),
+      );
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
+      if (_revokeKind == 'token') _revokeTokenCtrl.clear();
       if (mounted) setState(() => _mutating = false);
     }
   }
+
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'token-security') return;
     final section = route.subresource.isNotEmpty ? route.subresource : 'all';
-    if (_secDefs.any((s) => s.id == section)) {
-      setState(() => _currentSection = section);
+    if (_sectionDefs.any((s) => s.id == section)) {
+      setState(() {
+        _currentSection = section;
+        if (section != 'all' && section != 'temp') _tempToken = null;
+      });
     }
   }
+
   void _selectSection(String section) {
-    setState(() => _currentSection = section);
+    setState(() {
+      _currentSection = section;
+      if (section != 'all' && section != 'temp') _tempToken = null;
+    });
     if (section == 'all') {
       AdminRoute.go('token-security');
     } else {
       AdminRoute.go('token-security', subresource: section);
     }
   }
-  Widget _tempTokenCard(BuildContext context) => _card(context, 'Create temporary token', [
-    TextField(controller: _createSubjectCtrl, decoration: const InputDecoration(labelText: 'Subject')),
-    const SizedBox(height: 10),
-    TextField(controller: _createScopesCtrl, decoration: const InputDecoration(labelText: 'Scopes (space-separated)')),
-    const SizedBox(height: 10),
-    FilledButton(onPressed: _mutating ? null : _createTempToken, child: const Text('Create temp token')),
-    if (_tempToken != null) ...[
-      const SizedBox(height: 8),
-      const Text('Save this token now. It will not be shown again.', style: TextStyle(color: Colors.orangeAccent, fontSize: 12)),
-      SelectableText(_tempToken!, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-    ],
-  ]);
-  Widget _revokeTokenCard(BuildContext context) => _card(context, 'Revoke token by ID', [
-    TextField(controller: _revokeTokenCtrl, decoration: const InputDecoration(labelText: 'Token ID')),
-    const SizedBox(height: 10),
-    OutlinedButton(
-      onPressed: _mutating ? null : _revokeToken,
-      style: OutlinedButton.styleFrom(foregroundColor: Colors.redAccent, side: const BorderSide(color: Colors.redAccent)),
-      child: const Text('Revoke token'),
-    ),
-  ]);
+
+  Widget _tempTokenCard(BuildContext context) =>
+      _card(context, 'Create temporary token', [
+        TextField(
+          key: const Key('temp-token-user-id'),
+          controller: _createUserCtrl,
+          decoration: const InputDecoration(labelText: 'User ID'),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _createScopesCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Scopes (space-separated)',
+          ),
+        ),
+        const SizedBox(height: 10),
+        FilledButton(
+          key: const Key('temp-token-submit'),
+          onPressed: _mutating ? null : _createTempToken,
+          child: const Text('Create temp token'),
+        ),
+        if (_tempToken != null) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Save this token now. It will not be shown again.',
+            style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
+          ),
+          SelectableText(
+            _tempToken!,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              onPressed: () => setState(() => _tempToken = null),
+              child: const Text('I have saved it — clear token'),
+            ),
+          ),
+        ],
+      ]);
+  Widget _revokeTokenCard(BuildContext context) =>
+      _card(context, 'Revoke token or session', [
+        DropdownButtonFormField<String>(
+          initialValue: _revokeKind,
+          decoration: const InputDecoration(labelText: 'Credential type'),
+          items: const [
+            DropdownMenuItem(value: 'session_id', child: Text('Session ID')),
+            DropdownMenuItem(value: 'token', child: Text('Raw token')),
+          ],
+          onChanged: _mutating
+              ? null
+              : (value) => setState(() => _revokeKind = value!),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          key: const Key('single-revoke-value'),
+          controller: _revokeTokenCtrl,
+          obscureText: _revokeKind == 'token',
+          enableSuggestions: false,
+          autocorrect: false,
+          decoration: InputDecoration(
+            labelText: _revokeKind == 'token' ? 'Raw token' : 'Session ID',
+          ),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton(
+          key: const Key('single-revoke-submit'),
+          onPressed: _mutating ? null : _revokeToken,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.redAccent,
+            side: const BorderSide(color: Colors.redAccent),
+          ),
+          child: const Text('Revoke token'),
+        ),
+      ]);
 }

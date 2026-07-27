@@ -28,10 +28,16 @@ class BatchActionBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.checklist, size: 20, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.checklist,
+            size: 20,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 8),
-          Text('$selectedCount selected',
-              style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            '$selectedCount selected',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const Spacer(),
           TextButton.icon(
             onPressed: isLoading ? null : onDelete,

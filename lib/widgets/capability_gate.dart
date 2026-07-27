@@ -24,9 +24,10 @@ class CapabilityGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final available = capabilities.hasAnyPathPrefix(path) ||
+    final available =
+        capabilities.hasAnyPathPrefix(path) ||
         SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(path);
-    
+
     if (available) return child;
     return fallback ?? const SizedBox.shrink();
   }

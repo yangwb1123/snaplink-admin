@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'org_members_card.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'tenant_export_download.dart';
+import 'tenant_organization_cards.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Manages the B2B organization features attached to a Snaplink tenant.
@@ -156,6 +157,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         !await _confirm(
           'Remove member?',
           'Remove $userId from this organization?',
+          confirmText: userId,
         )) {
       return;
     }
@@ -188,6 +190,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         !await _confirm(
           'Revoke invitation?',
           'Revoke every pending invitation for $email?',
+          confirmText: email,
         )) {
       return;
     }
@@ -244,8 +247,17 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     }
   }
 
-  Future<bool> _confirm(String title, String message) async =>
-      ConfirmDialog.show(context, title: title, message: message, destructive: true);
+  Future<bool> _confirm(
+    String title,
+    String message, {
+    String? confirmText,
+  }) async => ConfirmDialog.show(
+    context,
+    title: title,
+    message: message,
+    destructive: true,
+    confirmText: confirmText,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -301,99 +313,32 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
             child: Center(child: CircularProgressIndicator()),
           ),
         if (_supportsMembers) _membersCard(context),
-        if (_supportsInvitations) _invitationsCard(context),
-        if (_supportsExport) _exportCard(context),
+        if (_supportsInvitations)
+          OrganizationInvitationsCard(
+            invitations: _invitations,
+            emailController: _inviteCtrl,
+            role: _inviteRole,
+            mutating: _mutating,
+            onRoleChanged: (value) => setState(() => _inviteRole = value),
+            onSend: _sendInvitation,
+            onRevoke: _revokeInvitation,
+          ),
+        if (_supportsExport)
+          TenantOrganizationExportCard(
+            mutating: _mutating,
+            onExport: _exportTenant,
+          ),
       ],
     );
   }
 
   Widget _membersCard(BuildContext context) => OrgMembersCard(
-    members: _members, mutating: _mutating,
-    memberUserController: _memberCtrl, memberRole: _memberRole,
+    members: _members,
+    mutating: _mutating,
+    memberUserController: _memberCtrl,
+    memberRole: _memberRole,
     onRoleChanged: (v) => setState(() => _memberRole = v),
     onSaveMember: _saveMember,
     onRemoveMember: (u) => _removeMember(u),
-  );
-  Widget _invitationsCard(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            'Pending invitations',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _inviteCtrl,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email address'),
-          ),
-          const SizedBox(height: 10),
-          _rolePicker(
-            value: _inviteRole,
-            onChanged: (value) => setState(() => _inviteRole = value),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: _mutating ? null : _sendInvitation,
-            child: const Text('Send invitation'),
-          ),
-          if (_invitations.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text('No pending invitations loaded.'),
-            ),
-          for (final invitation in _invitations)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(invitation['email']?.toString() ?? ''),
-              subtitle: Text(
-                '${invitation['role'] ?? 'member'}${invitation['expires_at'] == null ? '' : ' · expires ${invitation['expires_at']}'}',
-              ),
-              trailing: TextButton(
-                onPressed: _mutating
-                    ? null
-                    : () => _revokeInvitation(
-                        invitation['email']?.toString() ?? '',
-                      ),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Revoke'),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _exportCard(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: ListTile(
-      leading: const Icon(Icons.download_outlined),
-      title: const Text('Tenant data export'),
-      subtitle: const Text(
-        'Creates Snaplink’s redacted tenant offboarding or migration bundle.',
-      ),
-      trailing: FilledButton(
-        onPressed: _mutating ? null : _exportTenant,
-        child: const Text('Export'),
-      ),
-    ),
-  );
-
-  Widget _rolePicker({
-    required String value,
-    required ValueChanged<String> onChanged,
-  }) => DropdownButtonFormField<String>(
-    initialValue: value,
-    decoration: const InputDecoration(labelText: 'Organization role'),
-    items: const [
-      DropdownMenuItem(value: 'member', child: Text('Member')),
-      DropdownMenuItem(value: 'admin', child: Text('Admin')),
-      DropdownMenuItem(value: 'guest', child: Text('Guest')),
-    ],
-    onChanged: _mutating ? null : (next) => onChanged(next ?? value),
   );
 }

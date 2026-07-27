@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -85,5 +87,23 @@ void main() {
       'confirm': 'user-1',
       'dry_run': false,
     });
+  });
+
+  test('times out a portal mutation without replaying it', () async {
+    var attempts = 0;
+    final api = PortalApi(
+      requestTimeout: const Duration(milliseconds: 5),
+      httpClient: MockClient((_) async {
+        attempts++;
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        return http.Response('{}', 200);
+      }),
+    );
+
+    await expectLater(
+      api.post('/me/account/erase', {'confirm': 'user-1'}),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(attempts, 1);
   });
 }

@@ -24,13 +24,12 @@ class SetupAdmin {
 /// includes `redirect_uris` (a one-element array) when the field was filled.
 class SetupApplication {
   final String name;
-  final String? redirectUri;
-  const SetupApplication({required this.name, this.redirectUri});
+  final List<String> redirectUris;
+  const SetupApplication({required this.name, this.redirectUris = const []});
 
   Map<String, dynamic> toJson() => {
     'name': name,
-    if (redirectUri != null && redirectUri!.isNotEmpty)
-      'redirect_uris': [redirectUri],
+    if (redirectUris.isNotEmpty) 'redirect_uris': redirectUris,
   };
 }
 
@@ -77,7 +76,12 @@ class SetupNetworkError implements Exception {}
 /// needed (every screen in this app resolves the SSO API the same way).
 class SetupApi {
   final http.Client _http;
-  SetupApi({http.Client? client}) : _http = client ?? http.Client();
+  final Duration requestTimeout;
+
+  SetupApi({
+    http.Client? client,
+    this.requestTimeout = const Duration(seconds: 30),
+  }) : _http = client ?? http.Client();
 
   Uri _statusUri() => Uri.base.resolve('/api/v1/setup/status');
   Uri _setupUri() => Uri.base.resolve('/api/v1/setup');
@@ -87,10 +91,9 @@ class SetupApi {
   /// as permission to create a new administrator.
   Future<SetupStatus> checkStatus() async {
     try {
-      final resp = await _http.get(
-        _statusUri(),
-        headers: const {'Accept': 'application/json'},
-      );
+      final resp = await _http
+          .get(_statusUri(), headers: const {'Accept': 'application/json'})
+          .timeout(requestTimeout);
       if (resp.statusCode == 404) {
         return const SetupStatus(false, available: false);
       }
@@ -121,11 +124,13 @@ class SetupApi {
 
     http.Response resp;
     try {
-      resp = await _http.post(
-        _setupUri(),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      );
+      resp = await _http
+          .post(
+            _setupUri(),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
+          .timeout(requestTimeout);
     } catch (_) {
       throw SetupNetworkError();
     }
@@ -151,8 +156,19 @@ class SetupApi {
       return const SetupResult.alreadyDone();
     }
     final err = data['error']?.toString();
+    final description =
+        data['error_description']?.toString() ?? data['message']?.toString();
+    final trace =
+        data['trace_id']?.toString() ?? data['request_id']?.toString();
+    final details = <String>[
+      ?err,
+      if (description != null && description.isNotEmpty) description,
+      if (trace != null && trace.isNotEmpty) 'Reference: $trace',
+    ];
     return SetupResult.failed(
-      err != null ? 'Setup failed: $err' : 'Setup failed.',
+      details.isEmpty
+          ? 'Setup failed.'
+          : 'Setup failed: ${details.join(' · ')}',
     );
   }
 }

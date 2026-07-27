@@ -1,6 +1,6 @@
-import 'dart:js_interop';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
+
+import 'shortcut_platform.dart' as platform;
 
 /// Keyboard shortcut service for admin console.
 ///
@@ -16,7 +16,7 @@ class ShortcutService {
   ShortcutService._();
 
   bool _initialized = false;
-  dynamic _keyDownHandler; // JS function reference for cleanup
+  void Function()? _cancelKeyListener;
   VoidCallback? _onCreate;
   VoidCallback? _onRefresh;
   VoidCallback? _onCommandPalette;
@@ -46,41 +46,41 @@ class ShortcutService {
     _onShowShortcuts = onShowShortcuts;
     _onNavigate = onNavigate;
 
-    _keyDownHandler = _onKeyDown.toJS;
-    web.window.addEventListener('keydown', _keyDownHandler);
+    _cancelKeyListener = platform.listen(_onKeyDown);
   }
 
-  void _onKeyDown(web.KeyboardEvent event) {
-    final ctrl = event.ctrlKey || event.metaKey;
-    final key = event.key;
-
-    if (ctrl) {
+  void _onKeyDown(
+    String key,
+    bool controlPressed,
+    void Function() preventDefault,
+  ) {
+    if (controlPressed) {
       switch (key) {
         case 'k':
         case 'K':
-          event.preventDefault();
+          preventDefault();
           _onCommandPalette?.call();
           break;
         case 'n':
         case 'N':
-          event.preventDefault();
+          preventDefault();
           _onCreate?.call();
           break;
         case 'f':
         case 'F':
-          event.preventDefault();
+          preventDefault();
           _onSearch?.call();
           break;
         case 'r':
         case 'R':
-          event.preventDefault();
+          preventDefault();
           _onRefresh?.call();
           break;
       }
       // Ctrl+1 through Ctrl+9 for tab navigation
       final digit = int.tryParse(key);
       if (digit != null && digit >= 1 && digit <= 9) {
-        event.preventDefault();
+        preventDefault();
         _onNavigate?.call(digit);
       }
     }
@@ -89,7 +89,7 @@ class ShortcutService {
       _onEscape?.call();
     }
 
-    if (key == '?' && ctrl) {
+    if (key == '?' && controlPressed) {
       _onShowShortcuts?.call();
     }
   }
@@ -97,7 +97,8 @@ class ShortcutService {
   /// Clean up event listener.
   void dispose() {
     if (_initialized) {
-      web.window.removeEventListener('keydown', _keyDownHandler ?? _onKeyDown.toJS);
+      _cancelKeyListener?.call();
+      _cancelKeyListener = null;
       _initialized = false;
     }
   }

@@ -11,9 +11,11 @@ class AppStrings {
   final Locale locale;
   const AppStrings._(this.locale);
 
-  static AppStrings of(BuildContext context) => AppStrings._(Localizations.localeOf(context));
+  static AppStrings of(BuildContext context) =>
+      AppStrings._(Localizations.localeOf(context));
 
-  String _t(String key) => _table[locale.languageCode]?[key] ?? _table['en']![key]!;
+  String _t(String key) =>
+      _table[locale.languageCode]?[key] ?? _table['en']![key]!;
 
   // Login screen
   String get signIn => _t('sign_in');
@@ -171,7 +173,8 @@ class AppStrings {
       'theme_light': 'Light',
       'theme_dark': 'Dark',
       'sso_base_url': 'SSO base URL',
-      'sso_base_url_hint': 'Only used on native builds — web always uses the page origin.',
+      'sso_base_url_hint':
+          'Only used on native builds — web always uses the page origin.',
       'save': 'Save',
       'saved': 'Saved',
       'timezone': 'Timezone',

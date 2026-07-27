@@ -71,41 +71,45 @@ class _SkeletonListTileState extends State<SkeletonListTile>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Colors.grey.withValues(alpha: _animation.value),
-              borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: _animation.value),
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  height: 14,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: _animation.value),
-                    borderRadius: BorderRadius.circular(4),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 14,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: _animation.value),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  height: 10,
-                  width: 200,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: _animation.value * 0.7),
-                    borderRadius: BorderRadius.circular(4),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 10,
+                    width: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(
+                        alpha: _animation.value * 0.7,
+                      ),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ]),
+          ],
+        ),
       ),
     ),
   );

@@ -91,13 +91,21 @@ class SnaplinkAdminCapabilities {
 
   const SnaplinkAdminCapabilities(this.endpoints);
 
-  bool has(String method, String path) => endpoints.any(
-    (endpoint) =>
-        endpoint.method == method.toUpperCase() && endpoint.path == path,
-  );
+  bool has(String method, String path) {
+    final expected = _normalizePath(path);
+    return endpoints.any(
+      (endpoint) =>
+          endpoint.method == method.toUpperCase() &&
+          _normalizePath(endpoint.path) == expected,
+    );
+  }
 
-  bool hasAnyPathPrefix(String prefix) =>
-      endpoints.any((endpoint) => endpoint.path.startsWith(prefix));
+  bool hasAnyPathPrefix(String prefix) {
+    final expected = _normalizePath(prefix);
+    return endpoints.any(
+      (endpoint) => _normalizePath(endpoint.path).startsWith(expected),
+    );
+  }
 
   Map<String, int> get featureCounts {
     final counts = <String, int>{};
@@ -106,6 +114,11 @@ class SnaplinkAdminCapabilities {
     }
     return counts;
   }
+
+  static String _normalizePath(String path) => path.replaceAllMapped(
+    RegExp(r'(?:\{[A-Za-z_][A-Za-z0-9_]*\}|/:[A-Za-z_][A-Za-z0-9_]*)'),
+    (match) => match.group(0)!.startsWith('/') ? '/:param' : ':param',
+  );
 }
 
 const routes = '''
@@ -289,3 +302,28 @@ PATCH /api/v1/scim/v2/Groups/{id}
 DELETE /api/v1/scim/v2/Groups/{id}
 ''';
 
+/// Routes mounted by Snaplink's SSO interface that are not yet published in
+/// its OpenAPI document or runtime endpoint inventory.
+///
+/// Keep this deliberately separate from [routes]: these endpoints need a
+/// backend contract update before generated clients can treat them as stable.
+/// UI callers must handle 404/501 as "not enabled on this deployment".
+const supplementalRoutes = '''
+GET /api/v1/admin/branding
+PUT /api/v1/admin/branding
+DELETE /api/v1/admin/branding
+GET /api/v1/admin/providers
+POST /api/v1/admin/providers
+GET /api/v1/admin/providers/{id}
+PUT /api/v1/admin/providers/{id}
+DELETE /api/v1/admin/providers/{id}
+GET /api/v1/admin/users/{id}/devices
+DELETE /api/v1/admin/users/{id}/devices/{device_id}
+GET /api/v1/admin/devices
+GET /api/v1/admin/devices/stats
+POST /api/v1/admin/devices/bulk-revoke
+GET /api/v1/admin/devices/{id}/activity
+POST /api/v1/admin/devices/{id}/trust
+GET /api/v1/admin/users/{id}/login-history
+GET /api/v1/admin/security/activity
+''';

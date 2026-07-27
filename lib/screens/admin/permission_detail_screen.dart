@@ -1,8 +1,6 @@
-
-import 'dart:js_interop';
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'admin_route.dart';
@@ -31,6 +29,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   String? _error;
   bool _loading = true;
   int _tabIndex = 0;
+  late final void Function() _cancelPopState;
 
   static const _tabs = [
     ('roles', 'Roles', Icons.shield),
@@ -41,7 +40,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   void initState() {
     super.initState();
     _handleRoute();
-    web.window.addEventListener('popstate', _onPopState.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(_onPopState);
     _handleRoute();
     _load();
     final route = AdminRoute.fromUri(Uri.base);
@@ -53,8 +52,17 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _cancelPopState();
+    super.dispose();
+  }
+
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final cid = Uri.encodeComponent(widget.clientId);
       final results = await Future.wait([
@@ -68,13 +76,22 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     }
   }
 
   void _selectTab(int index, String subresource) {
     setState(() => _tabIndex = index);
-    AdminRoute.go('permissions', resourceId: widget.clientId, subresource: subresource);
+    AdminRoute.go(
+      'permissions',
+      resourceId: widget.clientId,
+      subresource: subresource,
+    );
   }
 
   @override
@@ -87,52 +104,66 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       ),
     ),
     body: _loading
-      ? const Center(child: CircularProgressIndicator())
-      : _error != null
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null
         ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-                  const SizedBox(height: 16),
-                  Text('Failed to load', style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(_error!, textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : Column(children: [
-            AdminBreadcrumb(),
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  for (var i = 0; i < _tabs.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(_tabs[i].$2),
-                        selected: _tabIndex == i,
-                        onSelected: (_) => _selectTab(i, _tabs[i].$1),
-                      ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 48,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Failed to load',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    _error!,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey.shade600,
                     ),
-                ],
-              ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
             ),
-            Expanded(child: _tabContent(context)),
-          ]),
+          )
+        : Column(
+            children: [
+              AdminBreadcrumb(),
+              SizedBox(
+                height: 48,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  children: [
+                    for (var i = 0; i < _tabs.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text(_tabs[i].$2),
+                          selected: _tabIndex == i,
+                          onSelected: (_) => _selectTab(i, _tabs[i].$1),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(child: _tabContent(context)),
+            ],
+          ),
   );
 
   Widget _tabContent(BuildContext context) {
@@ -145,19 +176,32 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-        ? [const Center(child: Text('No roles defined'))]
-        : items.map((r) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.shield),
-              title: Text(r['code']?.toString() ?? r['name']?.toString() ?? ''),
-              subtitle: Text(r['description']?.toString() ?? ''),
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (r['permissions'] != null)
-                  Chip(label: Text('${(r['permissions'] as List?)?.length ?? 0} perms')),
-              ]),
-            ),
-          )).toList(),
+          ? [const Center(child: Text('No roles defined'))]
+          : items
+                .map(
+                  (r) => Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: const Icon(Icons.shield),
+                      title: Text(
+                        r['code']?.toString() ?? r['name']?.toString() ?? '',
+                      ),
+                      subtitle: Text(r['description']?.toString() ?? ''),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (r['permissions'] != null)
+                            Chip(
+                              label: Text(
+                                '${(r['permissions'] as List?)?.length ?? 0} perms',
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
     );
   }
 
@@ -166,15 +210,21 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-        ? [const Center(child: Text('No assignments'))]
-        : items.map((a) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.assignment_ind),
-              title: Text(a['role']?.toString() ?? ''),
-              subtitle: Text('Subject: ${a['subject'] ?? a['user_id'] ?? a['group_id'] ?? ''}'),
-            ),
-          )).toList(),
+          ? [const Center(child: Text('No assignments'))]
+          : items
+                .map(
+                  (a) => Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: const Icon(Icons.assignment_ind),
+                      title: Text(a['role']?.toString() ?? ''),
+                      subtitle: Text(
+                        'Subject: ${a['subject'] ?? a['user_id'] ?? a['group_id'] ?? ''}',
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
     );
   }
 
@@ -182,7 +232,8 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'permissions') return;
   }
-  void _onPopState() { if (mounted) _handleRoute(); }
 
+  void _onPopState() {
+    if (mounted) _handleRoute();
+  }
 }
-

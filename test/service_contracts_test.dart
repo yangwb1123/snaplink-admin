@@ -17,7 +17,15 @@ void main() {
 
   group('AuditLogService', () {
     test('has expected public API', () {
-      const methods = ['record', 'entries', 'search', 'filterByMethod', 'recent', 'clear', 'count'];
+      const methods = [
+        'record',
+        'entries',
+        'search',
+        'filterByMethod',
+        'recent',
+        'clear',
+        'count',
+      ];
       expect(methods, contains('record'));
       expect(methods, contains('entries'));
       expect(methods, contains('search'));

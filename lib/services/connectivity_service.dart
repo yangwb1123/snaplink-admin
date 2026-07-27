@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:js_interop';
-import 'package:web/web.dart' as web;
+
+import 'connectivity_platform.dart' as platform;
 
 /// Monitors browser online/offline status using the Web API.
 ///
@@ -15,6 +15,7 @@ class ConnectivityService {
   }
 
   final _controller = StreamController<bool>.broadcast();
+  late final void Function() _cancelPlatformListener;
 
   /// Stream of connectivity changes. `true` = online, `false` = offline.
   Stream<bool> get onStatusChanged => _controller.stream;
@@ -24,23 +25,16 @@ class ConnectivityService {
   bool get isOnline => _isOnline;
 
   void _init() {
-    // Use browser's online/offline events
-    web.window.addEventListener('online', ((_) {
-      _isOnline = true;
-      _controller.add(true);
-    }).toJS);
-
-    web.window.addEventListener('offline', ((_) {
-      _isOnline = false;
-      _controller.add(false);
-    }).toJS);
-
-    // Initialize with current browser state
-    _isOnline = web.window.navigator.onLine;
+    _isOnline = platform.isOnline;
+    _cancelPlatformListener = platform.listen((isOnline) {
+      _isOnline = isOnline;
+      if (!_controller.isClosed) _controller.add(isOnline);
+    });
   }
 
   /// Clean up resources.
   void dispose() {
+    _cancelPlatformListener();
     _controller.close();
   }
 }

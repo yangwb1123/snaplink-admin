@@ -68,6 +68,19 @@ void main() {
       expect(cache.get('GET', '/api/v1/admin/users'), isNotNull);
     });
 
+    test('a detail mutation also invalidates its parent collection', () {
+      final cache = DataCache();
+      cache.set('GET', '/api/v1/admin/clients', {'clients': []});
+      cache.set('GET', '/api/v1/admin/clients/client-abc', {'id': 'abc'});
+      cache.set('GET', '/api/v1/admin/clients-other', {'value': 'unrelated'});
+
+      cache.invalidate('/api/v1/admin/clients/client-abc:approve');
+
+      expect(cache.get('GET', '/api/v1/admin/clients'), isNull);
+      expect(cache.get('GET', '/api/v1/admin/clients/client-abc'), isNull);
+      expect(cache.get('GET', '/api/v1/admin/clients-other'), isNotNull);
+    });
+
     test('strips query params for invalidation', () {
       final cache = DataCache();
       cache.set('GET', '/api/v1/admin/clients?page=1', {});
@@ -116,6 +129,14 @@ void main() {
       expect(cache.pendingCount, 0);
     });
 
+    test('reject without a waiter is still observed', () async {
+      final cache = DataCache();
+      cache.registerOrGet('GET', '/api/v1/admin/clients');
+      cache.reject('GET', '/api/v1/admin/clients', 'timeout');
+      await Future<void>.delayed(Duration.zero);
+      expect(cache.pendingCount, 0);
+    });
+
     test('registerOrGet does not deduplicate POST requests', () {
       final cache = DataCache();
       expect(cache.registerOrGet('POST', '/api/v1/admin/clients'), isNull);
@@ -126,13 +147,15 @@ void main() {
       expect(cache.pendingCount, 0); // POST never creates pending entries
     });
 
-    test('clear aborts all pending requests', () {
+    test('clear aborts all pending requests', () async {
       final cache = DataCache();
       cache.registerOrGet('GET', '/api/v1/admin/clients');
+      final waiter = cache.registerOrGet('GET', '/api/v1/admin/clients')!;
       cache.registerOrGet('GET', '/api/v1/admin/users');
       expect(cache.pendingCount, 2);
       cache.clear();
       expect(cache.pendingCount, 0);
+      await expectLater(waiter, throwsStateError);
     });
   });
 }

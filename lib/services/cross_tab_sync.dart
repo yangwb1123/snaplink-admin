@@ -31,11 +31,13 @@ class CrossTabSync {
 
     _storageHandler = ((web.StorageEvent event) {
       if (event.key != null && event.newValue != null) {
-        _controller.add(SyncEvent(
-          key: event.key!,
-          oldValue: event.oldValue,
-          newValue: event.newValue,
-        ));
+        _controller.add(
+          SyncEvent(
+            key: event.key!,
+            oldValue: event.oldValue,
+            newValue: event.newValue,
+          ),
+        );
       }
     }).toJS;
 
@@ -74,11 +76,7 @@ class SyncEvent {
   final String? oldValue;
   final String? newValue;
 
-  const SyncEvent({
-    required this.key,
-    this.oldValue,
-    this.newValue,
-  });
+  const SyncEvent({required this.key, this.oldValue, this.newValue});
 
   /// Parse the new value as JSON.
   Map<String, dynamic>? get jsonValue {

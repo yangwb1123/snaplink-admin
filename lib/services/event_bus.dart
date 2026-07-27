@@ -14,7 +14,11 @@ class EventBus {
   factory EventBus() => _instance;
   EventBus._();
 
-  final _controller = StreamController<Object>.broadcast();
+  // UI mutations use the bus as an immediate invalidation signal. Synchronous
+  // delivery keeps the ordering deterministic: a caller that fires an event
+  // knows all current subscribers have observed it before the mutation flow
+  // continues.
+  final _controller = StreamController<Object>.broadcast(sync: true);
 
   /// Fire an event to all listeners.
   void fire(Object event) {

@@ -6,7 +6,12 @@ class SecurityFactorTile extends StatelessWidget {
   final bool busy;
   final void Function(String id) onRemove;
 
-  const SecurityFactorTile({super.key, required this.factor, required this.busy, required this.onRemove});
+  const SecurityFactorTile({
+    super.key,
+    required this.factor,
+    required this.busy,
+    required this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -14,11 +19,14 @@ class SecurityFactorTile extends StatelessWidget {
     var meta = factor['method']?.toString() ?? '';
     if (factor['added_at'] != null) {
       final addedAt = factor['added_at'].toString();
-      meta += ' · added ${addedAt.substring(0, addedAt.length < 10 ? addedAt.length : 10)}';
+      meta +=
+          ' · added ${addedAt.substring(0, addedAt.length < 10 ? addedAt.length : 10)}';
     }
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(factor['label']?.toString() ?? factor['method']?.toString() ?? ''),
+      title: Text(
+        factor['label']?.toString() ?? factor['method']?.toString() ?? '',
+      ),
       subtitle: Text(meta),
       trailing: TextButton(
         onPressed: busy ? null : () => onRemove(id),

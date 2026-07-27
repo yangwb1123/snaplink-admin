@@ -127,8 +127,10 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
         children: [
           Text(widget.message),
           const SizedBox(height: 16),
-          Text('Type "${widget.confirmText}" to confirm:',
-              style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            'Type "${widget.confirmText}" to confirm:',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 8),
           TextField(
             controller: _ctrl,
@@ -142,7 +144,9 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: widget.isLoading ? null : () => Navigator.pop(context, false),
+          onPressed: widget.isLoading
+              ? null
+              : () => Navigator.pop(context, false),
           child: Text(widget.cancelLabel),
         ),
         FilledButton(
@@ -171,6 +175,7 @@ class DangerActionTile extends StatelessWidget {
   final String confirmMessage;
   final IconData icon;
   final bool isLoading;
+  final String? confirmText;
   final VoidCallback onConfirmed;
 
   const DangerActionTile({
@@ -180,6 +185,7 @@ class DangerActionTile extends StatelessWidget {
     required this.confirmMessage,
     this.icon = Icons.warning_amber_outlined,
     this.isLoading = false,
+    this.confirmText,
     required this.onConfirmed,
   });
 
@@ -195,6 +201,7 @@ class DangerActionTile extends StatelessWidget {
                 message: confirmMessage,
                 confirmLabel: label,
                 destructive: true,
+                confirmText: confirmText,
               );
               if (confirmed) onConfirmed();
             },

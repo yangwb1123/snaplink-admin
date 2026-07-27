@@ -63,16 +63,8 @@ final governanceWriteOperations = _operationCatalog
     .toList(growable: false);
 
 const _operationCatalog = '''
-Create snapshot\tPOST\t/api/v1/admin/snapshots\t{"exclude":[]}
-Restore snapshot\tPOST\t/api/v1/admin/snapshots/:id:restore\t{"mode":"merge","dry_run":true}
-Delete snapshot\tDELETE\t/api/v1/admin/snapshots/:id\t{}
-Register release\tPOST\t/api/v1/admin/releases\t{"release":{"channel":"stable","frontend":{"git_ref":""},"backend":{"git_ref":""}}}
-Pin release\tPOST\t/api/v1/admin/releases/:id:pin\t{}
-Rollback release\tPOST\t/api/v1/admin/releases/:id:rollback\t{}
-Delete release\tDELETE\t/api/v1/admin/releases/:id\t{}
 Set degradation mode\tPOST\t/api/v1/admin/dr/mode\t{"mode":"read_only","reason":"incident reference"}
 Compare peer configuration\tPOST\t/api/v1/admin/config/cluster-diff\t{"snapshot":{}}
-Run retention sweep\tPOST\t/api/v1/admin/compliance/retention-sweep\t{}
 Create backup\tPOST\t/api/v1/admin/backup\t{}
 Propose change\tPOST\t/api/v1/admin/changes\t{"action_type":"","payload":{},"reason":"ticket reference"}
 Approve change\tPOST\t/api/v1/admin/changes/:id/approve\t{}

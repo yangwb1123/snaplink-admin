@@ -1,13 +1,15 @@
-import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
+import 'tenant_lifecycle_copy.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 class TenantsTab extends StatefulWidget {
@@ -26,21 +28,26 @@ class _TenantsTabState extends State<TenantsTab> {
   var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
+  late final void Function() _cancelPopState;
 
   @override
   void initState() {
     super.initState();
     _future = _loadPage();
     _handleRoute();
-    void popListener() { if (mounted) _handleRoute(); }
-    web.window.addEventListener('popstate', popListener.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (mounted) _handleRoute();
+    });
   }
 
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'tenants') return;
-    if (route.isNew) { _openForm(); }
-    else if (route.isEdit) { _openEditForId(route.resourceId); }
+    if (route.isNew) {
+      _openForm();
+    } else if (route.isEdit) {
+      _openEditForId(route.resourceId);
+    }
   }
 
   Future<void> _openEditForId(String id) async {
@@ -48,12 +55,15 @@ class _TenantsTabState extends State<TenantsTab> {
       final tenant = await widget.client.getTenant(id);
       if (!mounted) return;
       await _openForm(existing: tenant);
-    } catch (e) { debugPrint("tenants_tab edit error: \$e"); }
+    } catch (e) {
+      debugPrint('tenants_tab edit error: $e');
+    }
     if (mounted) AdminRoute.go('tenants');
   }
 
   @override
   void dispose() {
+    _cancelPopState();
     _filterCtrl.dispose();
     super.dispose();
   }
@@ -96,9 +106,23 @@ class _TenantsTabState extends State<TenantsTab> {
 
   Future<void> _toggleStatus(String id, String currentStatus) async {
     final next = currentStatus == 'suspended' ? 'active' : 'suspended';
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: next == 'suspended' ? 'Suspend tenant?' : 'Activate tenant?',
+      message: TenantLifecycleCopy.confirmation(id, next),
+      confirmLabel: next == 'suspended' ? 'Suspend tenant' : 'Activate tenant',
+      destructive: next == 'suspended',
+      confirmText: next == 'suspended' ? id : null,
+    );
+    if (!confirmed) return;
     setState(() => _busyId = id);
     try {
       await widget.client.setTenantStatus(id, next);
+      if (mounted && next == 'suspended') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(TenantLifecycleCopy.suspendedResult)),
+        );
+      }
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
@@ -112,27 +136,23 @@ class _TenantsTabState extends State<TenantsTab> {
   }
 
   Future<void> _delete(String id, String label) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete tenant'),
-        content: Text('Delete $label? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Delete tenant?',
+      message: TenantLifecycleCopy.deletion(id, label),
+      confirmLabel: 'Delete tenant',
+      destructive: true,
+      confirmText: id,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     setState(() => _busyId = id);
     try {
       await widget.client.deleteTenant(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(TenantLifecycleCopy.deletedResult)),
+        );
+      }
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
@@ -151,7 +171,10 @@ class _TenantsTabState extends State<TenantsTab> {
       builder: (context) =>
           TenantFormDialog(client: widget.client, existing: existing),
     );
-    if (saved == true) { _reload(); if (mounted) AdminRoute.go('tenants'); }
+    if (saved == true) {
+      _reload();
+      if (mounted) AdminRoute.go('tenants');
+    }
   }
 
   @override
@@ -159,20 +182,12 @@ class _TenantsTabState extends State<TenantsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
         AdminBreadcrumb(),
-                      Text(AppStrings.of(context).tenants, style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
-              IconButton(
-                onPressed: () => AdminRoute.go('tenants', action: 'new'),
-                icon: const Icon(Icons.add),
-              ),
-            ],
-          ),
+        AdminListHeader(
+          title: AppStrings.of(context).tenants,
+          createTooltip: 'Create tenant',
+          onCreate: () => AdminRoute.go('tenants', action: 'new'),
+          onRefresh: _reload,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -263,7 +278,8 @@ class _TenantsTabState extends State<TenantsTab> {
                             title: 'No tenants',
                             subtitle: 'No tenants match the current filter.',
                             actionLabel: 'Create tenant',
-                            onAction: () => AdminRoute.go('tenants', action: 'new'),
+                            onAction: () =>
+                                AdminRoute.go('tenants', action: 'new'),
                           )
                         : ListView.separated(
                             itemCount: items.length,
@@ -277,7 +293,8 @@ class _TenantsTabState extends State<TenantsTab> {
                               final suspended = status == 'suspended';
                               final busy = _busyId == id;
                               return ListTile(
-                                onTap: () => AdminRoute.go('tenants', resourceId: id),
+                                onTap: () =>
+                                    AdminRoute.go('tenants', resourceId: id),
                                 leading: Icon(
                                   Icons.business,
                                   color: suspended
@@ -301,7 +318,12 @@ class _TenantsTabState extends State<TenantsTab> {
                                               _toggleStatus(id, status);
                                               break;
                                             case 'edit':
-                                              AdminRoute.go('tenants', action: 'edit', resourceId: t['id']?.toString() ?? '');
+                                              AdminRoute.go(
+                                                'tenants',
+                                                action: 'edit',
+                                                resourceId:
+                                                    t['id']?.toString() ?? '',
+                                              );
                                               break;
                                             case 'delete':
                                               _delete(
@@ -349,6 +371,5 @@ class _TenantsTabState extends State<TenantsTab> {
         ),
       ],
     );
-
-}
+  }
 }

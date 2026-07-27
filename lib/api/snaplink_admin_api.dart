@@ -1,75 +1,21 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+
 import 'package:http/http.dart' as http;
-import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/api/data_cache.dart';
+import 'package:sso_admin/api/snaplink_admin_download_transport.dart';
+import 'package:sso_admin/api/snaplink_admin_error.dart';
+import 'package:sso_admin/api/snaplink_admin_event_stream.dart';
+import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
 import 'package:sso_admin/services/event_bus.dart';
+
+export 'snaplink_admin_catalog.dart'
+    show SnaplinkAdminOperationCatalog, SnaplinkAdminSupplementalCatalog;
+export 'snaplink_admin_error.dart' show SnaplinkAdminApiError;
 export 'snaplink_admin_types.dart';
-// routes constant moved to snaplink_admin_types.dart
-/// A non-successful response from Snaplink's admin surface.
-///
-/// The API deliberately keeps the server's structured error fields so UI
-/// callers can show a useful operational message without guessing from a
-/// status code. Credential values are never retained here.
-class SnaplinkAdminApiError implements Exception {
-  final int status;
-  final String? code;
-  final String? description;
-  const SnaplinkAdminApiError(this.status, {this.code, this.description});
-  /// A 403 means this bearer is valid but does not hold the requested scope
-  /// (or is outside the requested tenant boundary), so it must not destroy a
-  /// still-valid console session.
-  bool get isUnauthorized => status == 401;
-  @override
-  String toString() => description ?? code ?? 'Admin request failed ($status).';
-}
-/// Build-time catalog generated from Snaplink's `docs/openapi.yaml`.
-///
-/// Snaplink's runtime endpoint inventory is still used for feature awareness,
-/// but current server versions do not report every gRPC-gateway operation in
-/// that inventory. Keeping the documented routes here prevents those valid
-/// operations from disappearing from the console. Regenerate this list from
-/// that OpenAPI contract whenever the backend API changes.
-class SnaplinkAdminOperationCatalog {
-  static final endpoints = routes
-      .trim()
-      .split('\n')
-      .map((line) {
-        final space = line.indexOf(' ');
-        return SnaplinkAdminEndpoint(
-          method: line.substring(0, space),
-          path: line.substring(space + 1),
-          feature: 'documented',
-        );
-      })
-      .toList(growable: false);
-  static List<SnaplinkAdminEndpoint> mergedWith(
-    List<SnaplinkAdminEndpoint> liveEndpoints,
-  ) {
-    final liveByRoute = {
-      for (final endpoint in liveEndpoints) _key(endpoint): endpoint,
-    };
-    final merged = <SnaplinkAdminEndpoint>[];
-    for (final documented in endpoints) {
-      merged.add(liveByRoute.remove(_key(documented)) ?? documented);
-    }
-    merged.addAll(liveByRoute.values);
-    return merged;
-  }
-  /// Whether a documented route family is available even when an older
-  /// runtime inventory omits its gRPC-gateway registration.
-  static bool hasDocumentedPathPrefix(String prefix) => endpoints.any(
-    (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
-  );
-  static String _key(SnaplinkAdminEndpoint endpoint) =>
-      '${endpoint.method} ${_normalizedPath(endpoint.path)}';
-  static String _normalizedPath(String path) => path.replaceAllMapped(
-    RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}'),
-    (match) => ':${match.group(1)}',
-  );
-}
+
 /// Authenticated, contract-first client for Snaplink's administration API.
 ///
 /// It intentionally exposes a small JSON transport rather than duplicating
@@ -83,6 +29,9 @@ class SnaplinkAdminApi {
   final http.Client _http;
   final void Function()? onUnauthorized;
   final DataCache _cache;
+  final Duration requestTimeout;
+  late final SnaplinkAdminDownloadTransport _downloads;
+  late final SnaplinkAdminEventStream _events;
 
   SnaplinkAdminApi({
     required this.baseUrl,
@@ -90,12 +39,29 @@ class SnaplinkAdminApi {
     http.Client? httpClient,
     this.onUnauthorized,
     DataCache? cache,
+    this.requestTimeout = const Duration(seconds: 30),
   }) : _http = httpClient ?? http.Client(),
-       _cache = cache ?? DataCache();
-  /// Number of entries currently in the response cache.
+       _cache = cache ?? DataCache() {
+    _downloads = SnaplinkAdminDownloadTransport(
+      baseUrl: baseUrl,
+      accessToken: accessToken,
+      httpClient: _http,
+      requestTimeout: requestTimeout,
+      onUnauthorized: onUnauthorized,
+    );
+    _events = SnaplinkAdminEventStream(
+      baseUrl: baseUrl,
+      accessToken: accessToken,
+      httpClient: _http,
+      requestTimeout: requestTimeout,
+      onUnauthorized: onUnauthorized,
+    );
+  }
+
   /// Maximum retry attempts for transient failures.
   int maxRetries = 3;
 
+  /// Number of entries currently in the response cache.
   int get cacheSize => _cache.size;
 
   /// Number of in-flight deduplicated requests.
@@ -104,8 +70,7 @@ class SnaplinkAdminApi {
   /// Record a mutation in the local audit log.
   /// Fire a DataChangedEvent after a successful mutation.
   void _fireDataChanged(String method, String path) {
-    final parts = path.split('/');
-    final resourceType = parts.length > 3 ? parts[3] : path;
+    final resourceType = _resourceType(path);
     final changeType = switch (method) {
       'POST' => ChangeType.created,
       'DELETE' => ChangeType.deleted,
@@ -114,17 +79,24 @@ class SnaplinkAdminApi {
     EventBus().fire(DataChangedEvent(resourceType, changeType: changeType));
   }
 
-  void _recordAudit(String method, String path, int statusCode, Object? body) {
-    final parts = path.split('/');
-    // ignore: unnecessary_brace_in_string_interps
-    final label = parts.length > 3 ? '${parts[3]} ${method}' : path;
-    AuditLogService().record(AuditEntry(
-      timestamp: DateTime.now(),
-      method: method,
-      path: path,
-      statusCode: statusCode,
-      label: label,
-    ));
+  void _recordAudit(String method, String path, int statusCode) {
+    AuditLogService().record(
+      AuditEntry(
+        timestamp: DateTime.now(),
+        method: method,
+        path: path,
+        statusCode: statusCode,
+        label: '${_resourceType(path)} $method',
+      ),
+    );
+  }
+
+  static String _resourceType(String path) {
+    final segments = Uri(path: path).pathSegments;
+    if (segments.length >= 4 && segments[0] == 'api' && segments[1] == 'v1') {
+      return segments[2] == 'admin' ? segments[3] : segments[2];
+    }
+    return segments.isEmpty ? path : segments.first;
   }
 
   /// Clear the entire response cache.
@@ -151,12 +123,17 @@ class SnaplinkAdminApi {
         )
         .toList(growable: false);
   }
-  Future<Map<String, dynamic>> get(String path, {Map<String, String>? query, bool forceRefresh = false}) async {
+
+  Future<Map<String, dynamic>> get(
+    String path, {
+    Map<String, String>? query,
+    bool forceRefresh = false,
+  }) async {
+    final skipCache = _skipCacheNext || forceRefresh;
+    _skipCacheNext = false;
     if (query != null) {
       return _request('GET', path, query: query);
     }
-    final skipCache = _skipCacheNext || forceRefresh;
-    _skipCacheNext = false;
     if (!skipCache) {
       final cached = _cache.get('GET', path);
       if (cached != null) return cached;
@@ -169,22 +146,25 @@ class SnaplinkAdminApi {
       _cache.set('GET', path, data);
       _cache.resolve('GET', path, data);
       return data;
-    } catch (e) {
-      _cache.reject('GET', path, e);
+    } catch (error, stackTrace) {
+      _cache.reject('GET', path, error, stackTrace);
       rethrow;
     }
   }
+
   /// Reads the opt-in embedded API documentation page without attempting to
   /// coerce its `text/html` response into JSON.
   Future<String> getText(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final response = await _http.get(
-      uri,
-      headers: {
-        'Accept': 'text/html, application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
+    final response = await _http
+        .get(
+          uri,
+          headers: {
+            'Accept': 'text/html, application/json',
+            'Authorization': 'Bearer $accessToken',
+          },
+        )
+        .timeout(requestTimeout);
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return response.body;
     }
@@ -192,13 +172,9 @@ class SnaplinkAdminApi {
     if (response.statusCode == 401) {
       onUnauthorized?.call();
     }
-    throw SnaplinkAdminApiError(
-      response.statusCode,
-      code: data['error']?.toString() ?? data['code']?.toString(),
-      description:
-          data['error_description']?.toString() ?? data['message']?.toString(),
-    );
+    throw snaplinkAdminError(response.statusCode, data);
   }
+
   Future<Map<String, dynamic>> post(
     String path, [
     Object? body,
@@ -207,6 +183,7 @@ class SnaplinkAdminApi {
     _cache.invalidate(path);
     return _request('POST', path, body: body, contentType: contentType);
   }
+
   Future<Map<String, dynamic>> put(
     String path, [
     Object? body,
@@ -215,6 +192,7 @@ class SnaplinkAdminApi {
     _cache.invalidate(path);
     return _request('PUT', path, body: body, contentType: contentType);
   }
+
   Future<Map<String, dynamic>> patch(
     String path, [
     Object? body,
@@ -223,6 +201,7 @@ class SnaplinkAdminApi {
     _cache.invalidate(path);
     return _request('PATCH', path, body: body, contentType: contentType);
   }
+
   Future<Map<String, dynamic>> delete(
     String path, [
     Object? body,
@@ -231,6 +210,36 @@ class SnaplinkAdminApi {
     _cache.invalidate(path);
     return _request('DELETE', path, body: body, contentType: contentType);
   }
+
+  /// Performs an optimistic-concurrency protected write.
+  ///
+  /// SCIM resources expose their validator as `meta.version`; callers pass
+  /// that value unchanged so stale PUT/PATCH/DELETE requests fail with 412
+  /// instead of overwriting a concurrent provisioning change.
+  Future<Map<String, dynamic>> mutateIfMatch({
+    required String method,
+    required String path,
+    required String etag,
+    Object? body,
+    String? contentType,
+  }) {
+    final normalizedMethod = method.toUpperCase();
+    if (!const {'PUT', 'PATCH', 'DELETE'}.contains(normalizedMethod)) {
+      throw ArgumentError.value(method, 'method', 'Not a conditional write');
+    }
+    if (etag.trim().isEmpty) {
+      throw ArgumentError.value(etag, 'etag', 'An ETag is required');
+    }
+    _cache.invalidate(path);
+    return _request(
+      normalizedMethod,
+      path,
+      body: body,
+      contentType: contentType,
+      extraHeaders: {'If-Match': etag},
+    );
+  }
+
   /// Requests an operator-authorized export without attempting to parse or
   /// display its contents. Snaplink may return an attachment with a multi-
   /// status result while it omits unavailable optional data.
@@ -238,68 +247,20 @@ class SnaplinkAdminApi {
     String path, [
     Object? body,
     String? contentType,
-  ]) async {
-    final response = await _http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: {
-        'Accept': 'application/octet-stream, application/json',
-        'Authorization': 'Bearer $accessToken',
-        if (body != null) 'Content-Type': contentType ?? 'application/json',
-      },
-      body: body == null ? null : jsonEncode(body),
-    );
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return SnaplinkAdminDownload(
-        bytes: response.bodyBytes,
-        contentType:
-            response.headers['content-type'] ?? 'application/octet-stream',
-        filename: _attachmentFilename(response.headers['content-disposition']),
-      );
-    }
-    final data = _decode(response);
-    if (response.statusCode == 401) {
-      onUnauthorized?.call();
-    }
-    throw SnaplinkAdminApiError(
-      response.statusCode,
-      code: data['error']?.toString() ?? data['code']?.toString(),
-      description:
-          data['error_description']?.toString() ?? data['message']?.toString(),
-    );
+  ]) {
+    return _downloads.post(path, body: body, contentType: contentType);
   }
+
   /// Reads a sensitive export as an attachment.  This deliberately avoids
   /// JSON decoding because subject exports contain PII and must never enter
   /// the generic operation-response panel or its clipboard action.
   Future<SnaplinkAdminDownload> getDownload(
     String path, {
     Map<String, String>? query,
-  }) async {
-    final response = await _http.get(
-      Uri.parse('$baseUrl$path').replace(queryParameters: query),
-      headers: {
-        'Accept': 'application/octet-stream, application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return SnaplinkAdminDownload(
-        bytes: response.bodyBytes,
-        contentType:
-            response.headers['content-type'] ?? 'application/octet-stream',
-        filename: _attachmentFilename(response.headers['content-disposition']),
-      );
-    }
-    final data = _decode(response);
-    if (response.statusCode == 401) {
-      onUnauthorized?.call();
-    }
-    throw SnaplinkAdminApiError(
-      response.statusCode,
-      code: data['error']?.toString() ?? data['code']?.toString(),
-      description:
-          data['error_description']?.toString() ?? data['message']?.toString(),
-    );
+  }) {
+    return _downloads.get(path, query: query, maxRetries: maxRetries);
   }
+
   /// Opens Snaplink's authenticated realtime admin event feed.
   ///
   /// `http.Client.send` maps to Fetch's readable response stream on web, so
@@ -309,119 +270,65 @@ class SnaplinkAdminApi {
     String? eventTypes,
     String? tenantId,
     String? lastEventId,
-  }) async* {
-    final query = <String, String>{
-      if (eventTypes?.trim().isNotEmpty ?? false) 'event_types': eventTypes!,
-      if (tenantId?.trim().isNotEmpty ?? false) 'tenant_id': tenantId!,
-    };
-    final request =
-        http.Request(
-            'GET',
-            Uri.parse(
-              '$baseUrl/api/v1/admin/events/stream',
-            ).replace(queryParameters: query.isEmpty ? null : query),
-          )
-          ..headers.addAll({
-            'Accept': 'text/event-stream',
-            'Authorization': 'Bearer $accessToken',
-            if (lastEventId?.trim().isNotEmpty ?? false)
-              'Last-Event-ID': lastEventId!,
-          });
-    final response = await _http.send(request);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final payload = await response.stream.bytesToString();
-      final data = _decodeText(payload);
-      if (response.statusCode == 401) {
-        onUnauthorized?.call();
-      }
-      throw SnaplinkAdminApiError(
-        response.statusCode,
-        code: data['error']?.toString() ?? data['code']?.toString(),
-        description:
-            data['error_description']?.toString() ??
-            data['message']?.toString(),
-      );
-    }
-    String? id;
-    var type = 'message';
-    final dataLines = <String>[];
-    await for (final line
-        in response.stream
-            .transform(utf8.decoder)
-            .transform(const LineSplitter())) {
-      if (line.isEmpty) {
-        if (dataLines.isNotEmpty) {
-          final data = _decodeText(dataLines.join('\n'));
-          yield SnaplinkAdminEvent(id: id, type: type, data: data);
-        }
-        id = null;
-        type = 'message';
-        dataLines.clear();
-        continue;
-      }
-      if (line.startsWith(':')) continue;
-      final separator = line.indexOf(':');
-      final field = separator < 0 ? line : line.substring(0, separator);
-      var value = separator < 0 ? '' : line.substring(separator + 1);
-      if (value.startsWith(' ')) value = value.substring(1);
-      switch (field) {
-        case 'id':
-          id = value;
-        case 'event':
-          type = value;
-        case 'data':
-          dataLines.add(value);
-      }
-    }
+  }) {
+    return _events.open(
+      eventTypes: eventTypes,
+      tenantId: tenantId,
+      lastEventId: lastEventId,
+    );
   }
+
   Future<Map<String, dynamic>> _request(
     String method,
     String path, {
     Map<String, String>? query,
     Object? body,
     String? contentType,
+    Map<String, String>? extraHeaders,
   }) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
     final headers = <String, String>{
       'Accept': path.startsWith('/api/v1/scim/')
           ? 'application/scim+json'
           : 'application/json',
+      ...?extraHeaders,
       'Authorization': 'Bearer $accessToken',
       if (body != null) 'Content-Type': contentType ?? 'application/json',
     };
     final encodedBody = body == null ? null : jsonEncode(body);
-    
-    // Retry loop with exponential backoff for transient failures
+    final canRetry = method == 'GET';
+
+    // Only safe reads are retried automatically. Replaying a POST/PATCH after
+    // an ambiguous network failure can duplicate a change even when the
+    // browser never received the first successful response.
     int attempt = 0;
     while (true) {
       attempt++;
       try {
-        late final http.Response response;
-        switch (method) {
-          case 'GET':
-            response = await _http.get(uri, headers: headers);
-          case 'POST':
-            response = await _http.post(uri, headers: headers, body: encodedBody);
-          case 'PUT':
-            response = await _http.put(uri, headers: headers, body: encodedBody);
-          case 'PATCH':
-            response = await _http.patch(uri, headers: headers, body: encodedBody);
-          case 'DELETE':
-            response = await _http.delete(uri, headers: headers, body: encodedBody);
-          default:
-            throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
-        }
+        final responseFuture = switch (method) {
+          'GET' => _http.get(uri, headers: headers),
+          'POST' => _http.post(uri, headers: headers, body: encodedBody),
+          'PUT' => _http.put(uri, headers: headers, body: encodedBody),
+          'PATCH' => _http.patch(uri, headers: headers, body: encodedBody),
+          'DELETE' => _http.delete(uri, headers: headers, body: encodedBody),
+          _ => throw ArgumentError.value(
+            method,
+            'method',
+            'Unsupported HTTP method',
+          ),
+        };
+        final response = await responseFuture.timeout(requestTimeout);
         final data = _decode(response);
         if (response.statusCode >= 200 && response.statusCode < 300) {
           // Record mutation in audit log
           if (method != 'GET') {
-            _recordAudit(method, path, response.statusCode, null);
+            _recordAudit(method, path, response.statusCode);
             _fireDataChanged(method, path);
           }
           return data;
         }
-        // Retry on server errors (5xx), not client errors (4xx)
-        if (response.statusCode >= 500 && attempt < maxRetries) {
+        // Retry server-side read failures, never an unsafe mutation.
+        if (canRetry && response.statusCode >= 500 && attempt < maxRetries) {
           final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
           await Future.delayed(delay);
           continue;
@@ -429,14 +336,9 @@ class SnaplinkAdminApi {
         if (response.statusCode == 401) {
           onUnauthorized?.call();
         }
-        throw SnaplinkAdminApiError(
-          response.statusCode,
-          code: data['error']?.toString() ?? data['code']?.toString(),
-          description:
-              data['error_description']?.toString() ?? data['message']?.toString(),
-        );
+        throw snaplinkAdminError(response.statusCode, data);
       } on TimeoutException catch (_) {
-        if (attempt < maxRetries) {
+        if (canRetry && attempt < maxRetries) {
           final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
           await Future.delayed(delay);
           continue;
@@ -444,7 +346,7 @@ class SnaplinkAdminApi {
         rethrow;
       } catch (e) {
         if (e is SnaplinkAdminApiError) rethrow;
-        if (attempt < maxRetries) {
+        if (canRetry && attempt < maxRetries) {
           final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);
           await Future.delayed(delay);
           continue;
@@ -453,41 +355,8 @@ class SnaplinkAdminApi {
       }
     }
   }
+
   static Map<String, dynamic> _decode(http.Response response) {
-    return _decodeText(response.body);
-  }
-  static Map<String, dynamic> _decodeText(String payload) {
-    if (payload.isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(payload);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } on FormatException {
-      // Snaplink's proxy/front-end can return a non-JSON error page. Keep the
-      // status code authoritative and avoid leaking that body into the UI.
-    }
-    return const {};
-  }
-  static String? _attachmentFilename(String? contentDisposition) {
-    if (contentDisposition == null) return null;
-    final encoded = RegExp(
-      r"filename\*\s*=\s*UTF-8''([^;]+)",
-      caseSensitive: false,
-    ).firstMatch(contentDisposition);
-    final plain = RegExp(
-      r'filename\s*=\s*(?:"([^"]*)"|([^;\s]+))',
-      caseSensitive: false,
-    ).firstMatch(contentDisposition);
-    var filename = encoded?.group(1) ?? plain?.group(1) ?? plain?.group(2);
-    if (filename == null || filename.trim().isEmpty) return null;
-    if (encoded != null) {
-      try {
-        filename = Uri.decodeComponent(filename);
-      } on FormatException {
-        // Fall back to the encoded value; it is still sanitized below.
-      }
-    }
-    final safe = filename!.replaceAll(RegExp(r'[\\/\x00-\x1f]'), '_').trim();
-    return safe.isEmpty ? null : safe;
+    return decodeSnaplinkAdminPayload(response.body);
   }
 }

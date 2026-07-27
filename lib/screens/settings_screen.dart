@@ -20,7 +20,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _baseUrlController = TextEditingController(text: AppSettings.instance.ssoBaseUrlOverride);
+    _baseUrlController = TextEditingController(
+      text: AppSettings.instance.ssoBaseUrlOverride,
+    );
   }
 
   @override
@@ -31,7 +33,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _saveBaseUrl() {
     AppSettings.instance.ssoBaseUrlOverride = _baseUrlController.text;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppStrings.of(context).saved)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AppStrings.of(context).saved)));
   }
 
   @override
@@ -44,7 +48,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         builder: (context, _) => ListView(
           padding: const EdgeInsets.all(24),
           children: [
-            Text(strings.language, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              strings.language,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             _LanguagePicker(),
             const SizedBox(height: 32),
@@ -52,7 +59,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             _ThemePicker(strings: strings),
             const SizedBox(height: 32),
-            Text(strings.ssoBaseUrl, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              strings.ssoBaseUrl,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _baseUrlController,
@@ -68,9 +78,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            Text(strings.timezone, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              strings.timezone,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 8),
-            Text(DateTime.now().timeZoneName, style: Theme.of(context).textTheme.bodyLarge),
+            Text(
+              DateTime.now().timeZoneName,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
           ],
         ),
       ),
@@ -88,7 +104,8 @@ class _LanguagePicker extends StatelessWidget {
         ButtonSegment(value: Locale('zh'), label: Text('中文')),
       ],
       selected: {current},
-      onSelectionChanged: (selection) => AppSettings.instance.locale = selection.first,
+      onSelectionChanged: (selection) =>
+          AppSettings.instance.locale = selection.first,
     );
   }
 }
@@ -102,12 +119,16 @@ class _ThemePicker extends StatelessWidget {
     final current = AppSettings.instance.themeMode;
     return SegmentedButton<ThemeMode>(
       segments: [
-        ButtonSegment(value: ThemeMode.system, label: Text(strings.themeSystem)),
+        ButtonSegment(
+          value: ThemeMode.system,
+          label: Text(strings.themeSystem),
+        ),
         ButtonSegment(value: ThemeMode.light, label: Text(strings.themeLight)),
         ButtonSegment(value: ThemeMode.dark, label: Text(strings.themeDark)),
       ],
       selected: {current},
-      onSelectionChanged: (selection) => AppSettings.instance.themeMode = selection.first,
+      onSelectionChanged: (selection) =>
+          AppSettings.instance.themeMode = selection.first,
     );
   }
 }

@@ -1,8 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_types.dart';
+import 'package:sso_admin/services/sensitive_data.dart';
 
 /// Helpers for admin operations tab.
 class AdminOpsHelpers {
+  /// The current supplemental provider-management DTO echoes `config`
+  /// verbatim, including OAuth client secrets. Keep the entire route family
+  /// out of the generic console until Snaplink exposes a redacted read model.
+  static bool exposesUnredactedProviderConfig(SnaplinkAdminEndpoint endpoint) =>
+      endpoint.path == '/api/v1/admin/providers' ||
+      endpoint.path.startsWith('/api/v1/admin/providers/');
+
+  /// A restorable snapshot may contain password hashes or seeded-password
+  /// attributes when the backend's redaction option is disabled. Never bring
+  /// decoded snapshot resources into a generic browser response panel.
+  static bool exposesDecodedSnapshotResources(SnaplinkAdminEndpoint endpoint) =>
+      endpoint.method == 'GET' &&
+      (endpoint.path == '/api/v1/admin/snapshots/{id}' ||
+          endpoint.path == '/api/v1/admin/snapshots/:id');
+
+  /// High-impact routes with richer validation, preview, or reconciliation
+  /// requirements must not be bypassed through the generic JSON composer.
+  static bool requiresDedicatedWorkflow(SnaplinkAdminEndpoint endpoint) {
+    final path = endpoint.path.replaceAllMapped(
+      RegExp(r'\{[^}]+\}'),
+      (_) => ':id',
+    );
+    if (path == '/api/v1/admin/branding' ||
+        path == '/api/v1/scim/v2/Bulk' ||
+        path == '/api/v1/admin/devices/bulk-revoke' ||
+        path == '/api/v1/admin/tokens/bulk-revoke' ||
+        path == '/api/v1/admin/compliance/retention-sweep' ||
+        path == '/api/v1/admin/tenants/:id/export' ||
+        path == '/api/v1/compliance/users/:id/erase') {
+      return true;
+    }
+    if (endpoint.method == 'GET') return false;
+    return path.startsWith('/api/v1/admin/snapshots') ||
+        path.startsWith('/api/v1/admin/releases') ||
+        path.startsWith('/api/v1/admin/break-glass') ||
+        path.startsWith('/api/v1/admin/changes');
+  }
+
   /// Whether the endpoint returns a subject export (handled as download, not JSON).
   static bool isSubjectExport(SnaplinkAdminEndpoint endpoint) =>
       endpoint.method == 'GET' &&
@@ -28,24 +67,23 @@ class AdminOpsHelpers {
       path.contains('impersonate');
 
   /// Recursively check if a value contains sensitive fields.
-  static bool containsSensitiveField(Object? value) {
-    if (value is Map) {
-      for (final entry in value.entries) {
-        final key = entry.key.toString().toLowerCase();
-        if (key.contains('password') ||
-            key.contains('secret') ||
-            key.contains('token') ||
-            key.contains('credential') ||
-            key.contains('private_key')) {
-          return true;
-        }
-        if (containsSensitiveField(entry.value)) return true;
-      }
-    } else if (value is List) {
-      return value.any(containsSensitiveField);
-    }
-    return false;
-  }
+  static bool containsSensitiveField(Object? value) =>
+      SensitiveData.containsSensitiveField(value);
+
+  /// Binds an approval to the exact method and resolved resource path.
+  static String writeConfirmation(String method, String resolvedPath) =>
+      'CONFIRM ${method.toUpperCase()} $resolvedPath';
+
+  /// A write receiving one of these statuses may have crossed the commit
+  /// boundary even though the browser did not receive a usable success
+  /// response. The caller must reconcile authoritative state before allowing
+  /// the operator to submit another mutation.
+  static bool isAmbiguousWriteStatus(int status) =>
+      status == 408 || status == 429 || status >= 500;
+
+  /// Sanitize a generic response before it is retained, rendered, or copied.
+  static Map<String, dynamic> redactResponse(Map<String, dynamic> response) =>
+      Map<String, dynamic>.from(SensitiveData.redact(response)! as Map);
 
   /// Show a dialog for one-time credentials.
   static Future<void> showOneTimeCredential(
@@ -65,32 +103,35 @@ class AdminOpsHelpers {
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('One-time credential'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Save this value now. It is not retained or shown in the operation response.',
-            ),
-            if (expiry != null) ...[
-              const SizedBox(height: 8),
-              Text('Expiry: $expiry'),
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          title: const Text('One-time credential'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Save this value now. It is not retained or shown in the operation response.',
+              ),
+              if (expiry != null) ...[
+                const SizedBox(height: 8),
+                Text('Expiry: $expiry'),
+              ],
+              const SizedBox(height: 12),
+              SelectableText(
+                credential,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
             ],
-            const SizedBox(height: 12),
-            SelectableText(
-              credential,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('I have saved it'),
             ),
           ],
         ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('I have saved it'),
-          ),
-        ],
       ),
     );
   }

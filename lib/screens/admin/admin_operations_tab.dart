@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'tenant_export_download.dart';
-import 'admin_ops_helpers.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+
+import 'admin_ops_helpers.dart';
+import 'tenant_export_download.dart';
 
 /// Advanced, capability-bound access to Snaplink's optional admin routes.
 /// This is not an open URL console: the selector is populated from Snaplink's
@@ -26,6 +28,7 @@ class AdminOperationsTab extends StatefulWidget {
   @override
   State<AdminOperationsTab> createState() => _AdminOperationsTabState();
 }
+
 class _AdminOperationsTabState extends State<AdminOperationsTab> {
   final _bodyCtrl = TextEditingController(text: '{}');
   final _queryCtrl = TextEditingController(text: '{}');
@@ -37,23 +40,29 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   String? _rawResponse;
   String? _error;
   bool _running = false;
+  bool _mutationOutcomeUnknown = false;
 
   List<SnaplinkAdminEndpoint> get _adminEndpoints =>
       SnaplinkAdminOperationCatalog.mergedWith(widget.endpoints)
           .where(
             (endpoint) =>
-                endpoint.path.startsWith('/api/v1/admin/') ||
-                endpoint.path.startsWith('/api/v1/clients/') ||
-                endpoint.path.startsWith('/api/v1/audit') ||
-                endpoint.path.startsWith('/api/v1/compliance/') ||
-                endpoint.path.startsWith('/api/v1/scim/') ||
-                endpoint.path.startsWith('/api/v1/netpolicy/'),
+                !AdminOpsHelpers.exposesUnredactedProviderConfig(endpoint) &&
+                !AdminOpsHelpers.exposesDecodedSnapshotResources(endpoint) &&
+                !AdminOpsHelpers.requiresDedicatedWorkflow(endpoint) &&
+                (endpoint.path.startsWith('/api/v1/admin/') ||
+                    endpoint.path.startsWith('/api/v1/clients/') ||
+                    endpoint.path.startsWith('/api/v1/audit') ||
+                    endpoint.path.startsWith('/api/v1/compliance/') ||
+                    endpoint.path.startsWith('/api/v1/scim/') ||
+                    endpoint.path.startsWith('/api/v1/netpolicy/')),
           )
           .toList(growable: false);
 
   @override
   void initState() {
     super.initState();
+    _bodyCtrl.addListener(_invalidateConfirmation);
+    _queryCtrl.addListener(_invalidateConfirmation);
     _select(_defaultEndpoint());
   }
 
@@ -93,9 +102,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     _pathCtrls
       ..clear()
       ..addEntries(
-        (endpoint?.pathParameters ?? const <String>[]).map(
-          (parameter) => MapEntry(parameter, TextEditingController()),
-        ),
+        (endpoint?.pathParameters ?? const <String>[]).map((parameter) {
+          final controller = TextEditingController();
+          controller.addListener(_pathChanged);
+          return MapEntry(parameter, controller);
+        }),
       );
     _confirmCtrl.clear();
     setState(() {
@@ -108,9 +119,39 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
 
   bool get _isMutation => _selected != null && _selected!.method != 'GET';
 
+  void _invalidateConfirmation() {
+    if (_confirmCtrl.text.isNotEmpty) _confirmCtrl.clear();
+  }
+
+  void _pathChanged() {
+    _invalidateConfirmation();
+    if (mounted) setState(() {});
+  }
+
+  String get _confirmationHint {
+    final endpoint = _selected;
+    if (endpoint == null) return 'CONFIRM';
+    try {
+      final path = endpoint.resolvePath({
+        for (final entry in _pathCtrls.entries) entry.key: entry.value.text,
+      });
+      return AdminOpsHelpers.writeConfirmation(endpoint.method, path);
+    } catch (_) {
+      return 'CONFIRM ${endpoint.method} <resolved path>';
+    }
+  }
+
   Future<void> _run() async {
     final endpoint = _selected;
     if (endpoint == null) return;
+    if (endpoint.method != 'GET' && _mutationOutcomeUnknown) {
+      setState(
+        () => _error =
+            'Reconcile the previous write against authoritative server state '
+            'before authorizing another mutation.',
+      );
+      return;
+    }
     if (endpoint.path == '/api/v1/admin/events/stream') {
       setState(
         () => _error =
@@ -141,8 +182,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       return;
     }
 
-    if (_isMutation && _confirmCtrl.text.trim() != 'CONFIRM') {
-      setState(() => _error = 'Type CONFIRM before running a write operation.');
+    final requiredConfirmation = AdminOpsHelpers.writeConfirmation(
+      endpoint.method,
+      path,
+    );
+    if (_isMutation && _confirmCtrl.text.trim() != requiredConfirmation) {
+      setState(
+        () => _error =
+            'Type the exact confirmation phrase before running this write: '
+            '$requiredConfirmation',
+      );
       return;
     }
     setState(() {
@@ -151,6 +200,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       _response = null;
       _rawResponse = null;
     });
+    var responseReceived = false;
     try {
       if (AdminOpsHelpers.isSubjectExport(endpoint)) {
         final export = await widget.api.getDownload(path, query: query);
@@ -180,6 +230,10 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           'Unsupported HTTP method',
         ),
       };
+      responseReceived = true;
+      if (endpoint.method != 'GET' && mounted) {
+        setState(() => _mutationOutcomeUnknown = false);
+      }
       if (mounted) {
         if (endpoint.path == '/api/v1/admin/docs') {
           final document = await widget.api.getText(path, query: query);
@@ -191,21 +245,70 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             await _showOneTimeCredential(response, endpoint);
           }
         } else {
-          setState(() => _response = response);
+          setState(
+            () => _response = response == null
+                ? null
+                : AdminOpsHelpers.redactResponse(response),
+          );
         }
       }
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) {
-        setState(() => _error = error.toString());
+        final unknown =
+            endpoint.method != 'GET' &&
+            AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
+        setState(() {
+          if (unknown) _mutationOutcomeUnknown = true;
+          _error = unknown
+              ? 'Write outcome is unknown (HTTP ${error.status}). The '
+                    'operation may have partially applied. Use a safe read or '
+                    'the dedicated workflow to reconcile authoritative state '
+                    'before acknowledging and sending another mutation.'
+              : error.toString();
+        });
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'The operation could not be completed.');
+        final unknown = endpoint.method != 'GET' && !responseReceived;
+        setState(() {
+          if (unknown) _mutationOutcomeUnknown = true;
+          _error = unknown
+              ? 'Write outcome is unknown because no response was received. '
+                    'The operation may have partially applied. Use a safe read '
+                    'or the dedicated workflow to reconcile authoritative '
+                    'state before acknowledging and sending another mutation.'
+              : responseReceived
+              ? 'The response was received, but it could not be displayed.'
+              : 'The read could not be completed.';
+        });
       }
     } finally {
       if (clearSensitiveBody) _bodyCtrl.clear();
+      _confirmCtrl.clear();
       if (mounted) setState(() => _running = false);
     }
+  }
+
+  Future<void> _acknowledgeReconciliation() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Authoritative state reconciled?',
+      message:
+          'Confirm only after checking the affected resource in a safe read '
+          'or dedicated workflow. This unlocks writes; it does not prove the '
+          'previous request failed.',
+      confirmLabel: 'Unlock writes',
+      destructive: true,
+      confirmText: 'RECONCILED',
+    );
+    if (!confirmed || !mounted) return;
+    _confirmCtrl.clear();
+    setState(() {
+      _mutationOutcomeUnknown = false;
+      _error =
+          'Reconciliation acknowledged. Review the endpoint, path, and body '
+          'before submitting another write.';
+    });
   }
 
   /// Advanced operations intentionally accept arbitrary documented JSON. Once
@@ -213,7 +316,8 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   /// its password, secret, or raw token in the browser form state.
 
   // moved to AdminOpsHelpers.containsSensitiveField
-  bool _containsSensitiveField(Object? value) => AdminOpsHelpers.containsSensitiveField(value);
+  bool _containsSensitiveField(Object? value) =>
+      AdminOpsHelpers.containsSensitiveField(value);
 
   Map<String, dynamic> _jsonObject(String value, String label) {
     try {
@@ -265,6 +369,15 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         const Text(
           'Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.',
         ),
+        const SizedBox(height: 4),
+        const Text(
+          'Provider configuration routes are intentionally hidden because '
+          'the current backend DTO can echo stored client secrets. Decoded '
+          'snapshot-resource reads are also hidden because they may contain '
+          'credential attributes. High-impact workflows with dedicated '
+          'preview or reconciliation screens cannot be bypassed here.',
+          style: TextStyle(color: Colors.orangeAccent),
+        ),
         const SizedBox(height: 16),
         DropdownButtonFormField<SnaplinkAdminEndpoint>(
           initialValue: endpoint,
@@ -296,6 +409,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             const SizedBox(height: 12),
             TextField(
               controller: entry.value,
+              enabled: !_running && (!_isMutation || !_mutationOutcomeUnknown),
               decoration: InputDecoration(
                 labelText: 'Path parameter: ${entry.key}',
               ),
@@ -305,7 +419,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           TextField(
             controller: _queryCtrl,
             maxLines: 3,
-            enabled: !_running,
+            enabled: !_running && (!_isMutation || !_mutationOutcomeUnknown),
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             decoration: const InputDecoration(
               labelText: 'Query parameters JSON',
@@ -317,22 +431,25 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             TextField(
               controller: _bodyCtrl,
               maxLines: 8,
-              enabled: !_running,
+              enabled: !_running && !_mutationOutcomeUnknown,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
               decoration: const InputDecoration(labelText: 'Request body JSON'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _confirmCtrl,
-              enabled: !_running,
-              decoration: const InputDecoration(
-                labelText: 'Type CONFIRM to authorize this write operation',
+              enabled: !_running && !_mutationOutcomeUnknown,
+              decoration: InputDecoration(
+                labelText: 'Exact write confirmation',
+                helperText: _confirmationHint,
               ),
             ),
           ],
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _running ? null : _run,
+            onPressed: _running || (_isMutation && _mutationOutcomeUnknown)
+                ? null
+                : _run,
             icon: _running
                 ? const SizedBox(
                     width: 16,
@@ -341,6 +458,25 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
                   )
                 : const Icon(Icons.play_arrow),
             label: Text('Run ${endpoint.method}'),
+          ),
+        ],
+        if (_mutationOutcomeUnknown) ...[
+          const SizedBox(height: 16),
+          Card(
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: ListTile(
+              leading: const Icon(Icons.sync_problem_outlined),
+              title: const Text('Previous write outcome is unknown'),
+              subtitle: const Text(
+                'Mutation inputs are locked. Select and run a safe GET, or '
+                'use the dedicated resource screen, then explicitly '
+                'acknowledge reconciliation.',
+              ),
+              trailing: TextButton(
+                onPressed: _running ? null : _acknowledgeReconciliation,
+                child: const Text('I reconciled server state'),
+              ),
+            ),
           ),
         ],
         if (_error != null) ...[

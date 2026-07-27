@@ -64,12 +64,24 @@ class AsyncView<T> extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+              const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Colors.redAccent,
+              ),
               const SizedBox(height: 16),
-              Text('Failed to load', style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Failed to load',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
-              Text(error!, textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
+              Text(
+                error!,
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+              ),
               if (onRetry != null) ...[
                 const SizedBox(height: 16),
                 OutlinedButton.icon(

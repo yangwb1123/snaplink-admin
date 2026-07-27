@@ -29,9 +29,11 @@ class MemberRowTile extends StatelessWidget {
         items: roles
             .map((value) => DropdownMenuItem(value: value, child: Text(value)))
             .toList(growable: false),
-        onChanged: busy ? null : (next) {
-          if (next != null) onChangeRole(member, next);
-        },
+        onChanged: busy
+            ? null
+            : (next) {
+                if (next != null) onChangeRole(member, next);
+              },
       ),
       trailing: TextButton(
         onPressed: busy ? null : () => onRemove(member),

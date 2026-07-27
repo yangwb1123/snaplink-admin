@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
+
+import '../../services/browser_navigation.dart';
+import '../../widgets/responsive_entry_card.dart';
 import 'setup_api.dart';
+import 'setup_validation.dart';
 import 'setup_widgets.dart';
+
 /// Mirrors the five views of interfaces/web/setup/{index.html,app.js}:
 /// loading -> (alreadyInitialized | admin -> app -> done).
 enum _Step { loading, unavailable, alreadyInitialized, admin, app, done }
+
 /// First-run setup wizard: checks `GET /api/v1/setup/status` and, if the
 /// deployment is fresh, walks the operator through creating the first admin
 /// account and (optionally) a first OAuth client via a single
 /// `POST /api/v1/setup`. Faithful port of interfaces/web/setup/app.js.
 class SetupScreen extends StatefulWidget {
-  const SetupScreen({super.key});
+  final SetupApi? api;
+
+  const SetupScreen({super.key, this.api});
+
   @override
   State<SetupScreen> createState() => _SetupScreenState();
 }
+
 class _SetupScreenState extends State<SetupScreen> {
-  final SetupApi _api = SetupApi();
+  late final SetupApi _api = widget.api ?? SetupApi();
   _Step _step = _Step.loading;
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
@@ -33,11 +42,13 @@ class _SetupScreenState extends State<SetupScreen> {
   String? _createdAdminName;
   String? _createdClientId;
   String? _createdClientSecret;
+  bool _requestedApplicationMissing = false;
   @override
   void initState() {
     super.initState();
     _checkStatus();
   }
+
   @override
   void dispose() {
     _usernameCtrl.dispose();
@@ -47,6 +58,7 @@ class _SetupScreenState extends State<SetupScreen> {
     _appRedirectCtrl.dispose();
     super.dispose();
   }
+
   Future<void> _checkStatus() async {
     setState(() {
       _step = _Step.loading;
@@ -73,6 +85,7 @@ class _SetupScreenState extends State<SetupScreen> {
       }
     }
   }
+
   // Step 1: client-side validation only (no network call) — identical
   // ordering to app.js's admin-form submit handler.
   void _continueFromAdminStep() {
@@ -95,22 +108,25 @@ class _SetupScreenState extends State<SetupScreen> {
     _pendingAdmin = SetupAdmin(username: u, password: p);
     setState(() => _step = _Step.app);
   }
+
   Future<void> _submitAppStep() async {
     final name = _appNameCtrl.text.trim();
-    final redirect = _appRedirectCtrl.text.trim();
     if (name.isEmpty) {
       setState(
         () => _appError = 'Enter an application name, or use Skip and finish.',
       );
       return;
     }
-    await _finish(
-      SetupApplication(
-        name: name,
-        redirectUri: redirect.isEmpty ? null : redirect,
-      ),
-    );
+    late final List<String> redirects;
+    try {
+      redirects = parseSetupRedirectUris(_appRedirectCtrl.text);
+    } on FormatException catch (error) {
+      setState(() => _appError = error.message);
+      return;
+    }
+    await _finish(SetupApplication(name: name, redirectUris: redirects));
   }
+
   Future<void> _skip() => _finish(null);
   Future<void> _finish(SetupApplication? application) async {
     setState(() {
@@ -135,6 +151,8 @@ class _SetupScreenState extends State<SetupScreen> {
         _createdAdminName = result.createdAdmin;
         _createdClientId = result.clientId;
         _createdClientSecret = result.clientSecret;
+        _requestedApplicationMissing =
+            application != null && result.clientId == null;
         _step = _Step.done;
       });
     } on SetupNetworkError {
@@ -144,40 +162,34 @@ class _SetupScreenState extends State<SetupScreen> {
       if (mounted) setState(() => _submitting = false);
     }
   }
+
   // The JS's "Go to admin console" is a plain `<a href="../admin/">` — a
   // real navigation, matching every other transition in the unified auth
   // flow (AdminGateScreen will redirect to /login/ itself, since there's no
   // session yet right after setup completes).
   void _goToAdminConsole() {
-    web.window.location.href = '/admin/';
+    BrowserNavigation.assignLocation('/admin/');
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(28),
-                child: _buildStep(context),
-              ),
-            ),
-          ),
-        ),
-      ),
+      body: ResponsiveEntryCard(maxWidth: 460, child: _buildStep(context)),
     );
   }
+
   Widget _buildStep(BuildContext context) {
     switch (_step) {
       case _Step.loading:
-        return _buildLoading(context);
+        return const SetupLoadingPanel();
       case _Step.unavailable:
-        return _buildUnavailable(context);
+        return SetupUnavailablePanel(
+          message: _unavailableMessage ?? 'Setup is not available.',
+          onRetry: _checkStatus,
+          onContinue: _goToAdminConsole,
+        );
       case _Step.alreadyInitialized:
-        return _buildAlready(context);
+        return SetupAlreadyInitializedPanel(onContinue: _goToAdminConsole);
       case _Step.admin:
         return _buildAdminForm(context);
       case _Step.app:
@@ -186,130 +198,79 @@ class _SetupScreenState extends State<SetupScreen> {
         return _buildDone(context);
     }
   }
-  Widget _buildLoading(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SetupLogo(),
-        const SizedBox(height: 12),
-        Text(
-          'Setup',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'Checking system status…',
-          style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-  Widget _buildAlready(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SetupLogo(),
-        const SizedBox(height: 12),
-        Text(
-          'Already set up',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 14),
-        SetupSuccessBox(text: 'This system has already been initialized.'),
-        const SizedBox(height: 6),
-        FilledButton(
-          onPressed: _goToAdminConsole,
-          child: const Text('Go to admin console'),
-        ),
-      ],
-    );
-  }
-  Widget _buildUnavailable(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SetupLogo(),
-        const SizedBox(height: 12),
-        Text(
-          'Setup unavailable',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 14),
-        SetupErrorBox(text: _unavailableMessage ?? 'Setup is not available.'),
-        const SizedBox(height: 12),
-        OutlinedButton(onPressed: _checkStatus, child: const Text('Retry')),
-        FilledButton(
-          onPressed: _goToAdminConsole,
-          child: const Text('Go to admin console'),
-        ),
-      ],
-    );
-  }
+
   Widget _buildAdminForm(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SetupLogo(),
-        const SizedBox(height: 12),
-        SetupStepDots(activeCount: 1),
-        const SizedBox(height: 14),
-        Text(
-          'Create administrator',
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 6),
-        Text(
-          'This first account gets full admin:* access. You can add more users later in the console.',
-          style: Theme.of(context).textTheme.bodySmall,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 18),
-        if (_adminError != null) ...[
-          SetupErrorBox(text: _adminError!),
+    return AutofillGroup(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SetupLogo(),
+          const SizedBox(height: 12),
+          SetupStepDots(activeCount: 1),
           const SizedBox(height: 14),
+          Text(
+            'Create administrator',
+            style: Theme.of(context).textTheme.titleLarge,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'This first account gets full admin:* access. You can add more users later in the console.',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 18),
+          if (_adminError != null) ...[
+            SetupErrorBox(text: _adminError!),
+            const SizedBox(height: 14),
+          ],
+          TextField(
+            controller: _usernameCtrl,
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.none,
+            autofillHints: const [AutofillHints.newUsername],
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Admin username',
+              hintText: 'admin',
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _passwordCtrl,
+            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            autofillHints: const [AutofillHints.newPassword],
+            textInputAction: TextInputAction.next,
+            decoration: const InputDecoration(
+              labelText: 'Password',
+              hintText: 'at least 8 characters',
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: _password2Ctrl,
+            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            autofillHints: const [AutofillHints.newPassword],
+            textInputAction: TextInputAction.done,
+            decoration: const InputDecoration(labelText: 'Confirm password'),
+            onSubmitted: (_) => _continueFromAdminStep(),
+          ),
+          const SizedBox(height: 20),
+          FilledButton(
+            onPressed: _continueFromAdminStep,
+            child: const Text('Continue'),
+          ),
         ],
-        TextField(
-          controller: _usernameCtrl,
-          autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'Admin username',
-            hintText: 'admin',
-          ),
-          onSubmitted: (_) => _continueFromAdminStep(),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _passwordCtrl,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'Password',
-            hintText: 'at least 8 characters',
-          ),
-          onSubmitted: (_) => _continueFromAdminStep(),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _password2Ctrl,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'Confirm password'),
-          onSubmitted: (_) => _continueFromAdminStep(),
-        ),
-        const SizedBox(height: 20),
-        FilledButton(
-          onPressed: _continueFromAdminStep,
-          child: const Text('Continue'),
-        ),
-      ],
+      ),
     );
   }
+
   Widget _buildAppForm(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -319,15 +280,16 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 12),
         SetupStepDots(activeCount: 2),
         const SizedBox(height: 14),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
           children: [
             Text(
               'First application',
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SizedBox(width: 8),
             const SetupOptionalTag(),
           ],
         ),
@@ -344,6 +306,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
         TextField(
           controller: _appNameCtrl,
+          textInputAction: TextInputAction.next,
           decoration: const InputDecoration(
             labelText: 'Application name',
             hintText: 'My App',
@@ -352,40 +315,43 @@ class _SetupScreenState extends State<SetupScreen> {
         const SizedBox(height: 14),
         TextField(
           controller: _appRedirectCtrl,
+          keyboardType: TextInputType.multiline,
+          textInputAction: TextInputAction.newline,
+          textCapitalization: TextCapitalization.none,
+          autocorrect: false,
+          enableSuggestions: false,
           decoration: const InputDecoration(
-            labelText: 'Redirect URI',
-            hintText: 'https://app.example.com/callback',
+            labelText: 'Redirect URIs',
+            hintText: 'One HTTPS URI per line',
           ),
+          minLines: 2,
+          maxLines: 5,
         ),
         const SizedBox(height: 20),
-        Row(
-          children: [
-            Expanded(
-              child: FilledButton(
-                onPressed: _submitting ? null : _submitAppStep,
-                child: _submitting
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create and finish'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _submitting ? null : _skip,
-                child: const Text('Skip and finish'),
-              ),
-            ),
-          ],
+        FilledButton(
+          onPressed: _submitting ? null : _submitAppStep,
+          child: _submitting
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Create and finish'),
+        ),
+        const SizedBox(height: 10),
+        OutlinedButton(
+          onPressed: _submitting ? null : _skip,
+          child: const Text('Skip and finish'),
         ),
       ],
     );
   }
-    Widget _buildDone(BuildContext context) => SetupDonePanel(
-    config: _createdAdminName != null ? {'issuer': _createdAdminName} : null, clientId: _createdClientId, clientSecret: _createdClientSecret,
-    onDone: () => web.window.location.replace('/admin/'),
+
+  Widget _buildDone(BuildContext context) => SetupDonePanel(
+    adminUsername: _createdAdminName,
+    clientId: _createdClientId,
+    clientSecret: _createdClientSecret,
+    applicationRequestedButMissing: _requestedApplicationMissing,
+    onDone: () => BrowserNavigation.replaceLocation('/admin/'),
   );
 }

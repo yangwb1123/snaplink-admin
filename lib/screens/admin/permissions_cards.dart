@@ -27,21 +27,25 @@ class RolesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Text('Roles', style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
-            FilledButton.icon(
-              onPressed: mutating || clientId == null ? null : onCreateRole,
-              icon: const Icon(Icons.add),
-              label: const Text('Create role'),
-            ),
-          ]),
+          Row(
+            children: [
+              Text('Roles', style: Theme.of(context).textTheme.titleMedium),
+              const Spacer(),
+              FilledButton.icon(
+                onPressed: mutating || clientId == null ? null : onCreateRole,
+                icon: const Icon(Icons.add),
+                label: const Text('Create role'),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           if (roles.isEmpty) const Text('No roles loaded.'),
           for (final role in roles)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text(role['name']?.toString() ?? role['code']?.toString() ?? ''),
+              title: Text(
+                role['name']?.toString() ?? role['code']?.toString() ?? '',
+              ),
               subtitle: Text(
                 "${role['code'] ?? ''}\n${(role['permissions'] as List?)?.map((e) => e.toString()).join(', ') ?? ''}",
               ),
@@ -99,7 +103,10 @@ class AssignmentsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('User role assignments', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'User role assignments',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 10),
           TextField(
             controller: userController,
@@ -110,7 +117,8 @@ class AssignmentsCard extends StatelessWidget {
             controller: roleCodesController,
             decoration: const InputDecoration(
               labelText: 'Role codes',
-              helperText: 'Comma or line separated. Snaplink validates that each role exists.',
+              helperText:
+                  'Comma or line separated. Snaplink validates that each role exists.',
             ),
             minLines: 1,
             maxLines: 3,
@@ -152,7 +160,9 @@ class _AssignmentRowTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final userId = assignment['user_id']?.toString() ?? '';
-    final roles = (assignment['roles'] as List?)?.map((e) => e.toString()).toList() ?? const [];
+    final roles =
+        (assignment['roles'] as List?)?.map((e) => e.toString()).toList() ??
+        const [];
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(userId),
@@ -193,7 +203,10 @@ class MenusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Menu tree JSON', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Menu tree JSON',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 10),
           const Text(
             'Provide an array of menu items. Each item needs id and name; children and buttons are nested arrays.',

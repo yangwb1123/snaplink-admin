@@ -38,10 +38,13 @@ class _AuditLogTabState extends State<AuditLogTab> {
       final query = _searchCtrl.text.trim();
       if (query.isNotEmpty) {
         final q = query.toLowerCase();
-        filtered = filtered.where((e) =>
-          e.path.toLowerCase().contains(q) ||
-          e.label.toLowerCase().contains(q)
-        ).toList();
+        filtered = filtered
+            .where(
+              (e) =>
+                  e.path.toLowerCase().contains(q) ||
+                  e.label.toLowerCase().contains(q),
+            )
+            .toList();
       }
       _entries = filtered;
     });
@@ -52,60 +55,72 @@ class _AuditLogTabState extends State<AuditLogTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      Row(children: [
-        Text('Audit Log', style: Theme.of(context).textTheme.headlineSmall),
-        const Spacer(),
-        Text('${_logService.count} entries'),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: const Icon(Icons.refresh),
-          tooltip: 'Refresh',
-          onPressed: _refresh,
-        ),
-        IconButton(
-          icon: const Icon(Icons.delete_sweep),
-          tooltip: 'Clear log',
-          onPressed: () {
-            _logService.clear();
-            _refresh();
-          },
-        ),
-      ]),
-      const SizedBox(height: 8),
-      Row(children: [
-        SizedBox(
-          width: 300,
-          child: TextField(
-            controller: _searchCtrl,
-            decoration: const InputDecoration(
-              hintText: 'Search by path, label...',
-              prefixIcon: Icon(Icons.search, size: 20),
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            ),
-            onChanged: (_) => _refresh(),
+      Row(
+        children: [
+          Text('Audit Log', style: Theme.of(context).textTheme.headlineSmall),
+          const Spacer(),
+          Text('${_logService.count} entries'),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: _refresh,
           ),
-        ),
-        const SizedBox(width: 12),
-        DropdownButton<String>(
-          value: _methodFilter,
-          items: const [
-            DropdownMenuItem(value: 'ALL', child: Text('All methods')),
-            DropdownMenuItem(value: 'POST', child: Text('Create')),
-            DropdownMenuItem(value: 'PUT', child: Text('Update')),
-            DropdownMenuItem(value: 'DELETE', child: Text('Delete')),
-            DropdownMenuItem(value: 'PATCH', child: Text('Modify')),
-          ],
-          onChanged: (v) { setState(() => _methodFilter = v ?? 'ALL'); _refresh(); },
-        ),
-      ]),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Clear log',
+            onPressed: () {
+              _logService.clear();
+              _refresh();
+            },
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          SizedBox(
+            width: 300,
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Search by path, label...',
+                prefixIcon: Icon(Icons.search, size: 20),
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+              ),
+              onChanged: (_) => _refresh(),
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButton<String>(
+            value: _methodFilter,
+            items: const [
+              DropdownMenuItem(value: 'ALL', child: Text('All methods')),
+              DropdownMenuItem(value: 'POST', child: Text('Create')),
+              DropdownMenuItem(value: 'PUT', child: Text('Update')),
+              DropdownMenuItem(value: 'DELETE', child: Text('Delete')),
+              DropdownMenuItem(value: 'PATCH', child: Text('Modify')),
+            ],
+            onChanged: (v) {
+              setState(() => _methodFilter = v ?? 'ALL');
+              _refresh();
+            },
+          ),
+        ],
+      ),
       const SizedBox(height: 16),
       if (_entries.isEmpty)
-        const Center(child: Padding(
-          padding: EdgeInsets.only(top: 40),
-          child: Text('No audit entries yet. Operations will appear here.'),
-        ))
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.only(top: 40),
+            child: Text('No audit entries yet. Operations will appear here.'),
+          ),
+        )
       else
         ...List.generate(_entries.length, (i) {
           final entry = _entries[i];

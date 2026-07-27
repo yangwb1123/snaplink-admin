@@ -23,11 +23,14 @@ class SectionSelector extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: ChoiceChip(
-              label: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(s.icon, size: 16),
-                const SizedBox(width: 4),
-                Text(s.label),
-              ]),
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(s.icon, size: 16),
+                  const SizedBox(width: 4),
+                  Text(s.label),
+                ],
+              ),
               selected: current == s.id,
               onSelected: (_) => onSelected(s.id),
             ),

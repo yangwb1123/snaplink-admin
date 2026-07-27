@@ -28,20 +28,35 @@ class SecurityChangeEmailCard extends StatelessWidget {
   Widget build(BuildContext context) => PortalCard(
     title: 'Change email',
     children: [
-      Text('We send a verification code to the new address. Enter it below to confirm the change.', style: TextStyle(color: Colors.grey.shade500)),
+      Text(
+        'We send a verification code to the new address. Enter it below to confirm the change.',
+        style: TextStyle(color: Colors.grey.shade500),
+      ),
       const SizedBox(height: 14),
-      TextField(controller: newEmailCtrl, decoration: const InputDecoration(labelText: 'New email')),
+      TextField(
+        controller: newEmailCtrl,
+        decoration: const InputDecoration(labelText: 'New email'),
+      ),
       const SizedBox(height: 14),
       Align(
         alignment: Alignment.centerLeft,
         child: FilledButton(
           onPressed: emailBusy ? null : onSendCode,
-          child: emailBusy ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Send verification code'),
+          child: emailBusy
+              ? const SizedBox(
+                  height: 16,
+                  width: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Send verification code'),
         ),
       ),
       if (emailVerifyVisible) ...[
         const SizedBox(height: 14),
-        TextField(controller: emailTokenCtrl, decoration: const InputDecoration(labelText: 'Verification code')),
+        TextField(
+          controller: emailTokenCtrl,
+          decoration: const InputDecoration(labelText: 'Verification code'),
+        ),
         const SizedBox(height: 14),
         Align(
           alignment: Alignment.centerLeft,

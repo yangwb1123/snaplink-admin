@@ -6,7 +6,8 @@ void main() {
     // A sample JWT with exp=9999999999 (far future)
     // Header: {"alg":"RS256","typ":"JWT"}
     // Payload: {"sub":"admin","exp":9999999999,"iss":"sso-server"}
-    final futureToken = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.'
+    final futureToken =
+        'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.'
         'eyJzdWIiOiJhZG1pbiIsImV4cDo5OTk5OTk5OTk5LCJpc3MiOiJzc28tc2VydmVyIn0.'
         'faketoken123';
 
@@ -23,10 +24,7 @@ void main() {
     test('init and dispose without error', () {
       final service = TokenRefreshService();
       String? storedToken;
-      service.init(
-        getToken: () => storedToken,
-        refreshToken: () async => null,
-      );
+      service.init(getToken: () => storedToken, refreshToken: () async => null);
       service.dispose();
     });
 
@@ -59,15 +57,10 @@ void main() {
 
     test('handles null token gracefully', () {
       final service = TokenRefreshService();
-      service.init(
-        getToken: () => null,
-        refreshToken: () async => null,
-      );
+      service.init(getToken: () => null, refreshToken: () async => null);
       service.onTokenUpdated('');
       service.dispose();
       // Should not crash
     });
-
-
   });
 }

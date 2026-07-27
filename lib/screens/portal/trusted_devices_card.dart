@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Lists and revokes the user's MFA-skip device grants without ever exposing
@@ -20,6 +21,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   bool _busy = false;
   List<Map<String, dynamic>> _devices = const [];
   String? _message;
+  bool _routeConflict = false;
 
   @override
   void initState() {
@@ -30,17 +32,29 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final response = await widget.api.get('/me/devices');
+      final response = await widget.api.get(PortalSecurityPaths.devices);
       if (!mounted) return;
       if (response.statusCode == 200) {
-        final raw = PortalApi.decode(response)['devices'] as List? ?? const [];
-        setState(() {
-          _devices = raw
-              .whereType<Map>()
-              .map((device) => Map<String, dynamic>.from(device))
-              .toList(growable: false);
-          _message = null;
-        });
+        final devices = portalObjectList(PortalApi.decode(response), 'devices');
+        final kind = classifyDeviceCollection(devices);
+        if (kind == PortalDeviceCollectionKind.physical ||
+            kind == PortalDeviceCollectionKind.ambiguous) {
+          setState(() {
+            _devices = const [];
+            _routeConflict = true;
+            _message =
+                'Physical-device tracking owns /me/devices in this '
+                'deployment. Snaplink currently overlaps that route with '
+                'MFA trusted-browser grants, so grant revocation is disabled '
+                'here to prevent deleting a physical device by mistake.';
+          });
+        } else {
+          setState(() {
+            _devices = devices;
+            _routeConflict = false;
+            _message = null;
+          });
+        }
       } else if (response.statusCode == 404) {
         setState(() => _message = 'Trusted devices are not enabled.');
       } else {
@@ -64,7 +78,9 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
     }
     setState(() => _busy = true);
     try {
-      final response = await widget.api.post('/me/devices/trust');
+      final response = await widget.api.post(
+        PortalSecurityPaths.trustCurrentBrowser,
+      );
       if (!mounted) return;
       if (response.statusCode == 201) {
         final token = PortalApi.decode(response)['device_token']?.toString();
@@ -97,6 +113,16 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   }
 
   Future<void> _revoke(Map<String, dynamic> device) async {
+    // This route is shared with destructive physical-device deletion in the
+    // current server. A shape mismatch must never be interpreted as an MFA
+    // trusted grant, even if a future caller bypasses the list UI.
+    if (_routeConflict || !isTrustedDeviceGrant(device)) {
+      setState(
+        () => _message =
+            'Blocked: this record is not an MFA trusted-browser grant.',
+      );
+      return;
+    }
     final id = device['id']?.toString() ?? '';
     if (id.isEmpty) {
       return;
@@ -123,9 +149,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final response = await widget.api.delete(
-        '/me/devices/${Uri.encodeComponent(id)}',
-      );
+      final response = await widget.api.delete(PortalSecurityPaths.device(id));
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final clientId = device['client_id']?.toString();
         if (clientId != null) {
@@ -169,6 +193,14 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
         _message,
         ok: _message?.startsWith('This browser') ?? false,
       ),
+      if (_routeConflict)
+        const Padding(
+          padding: EdgeInsets.only(top: 8),
+          child: Text(
+            'Use the Devices section to manage these physical records. '
+            'No DELETE request will be issued from this card.',
+          ),
+        ),
       if (_loading)
         const LinearProgressIndicator()
       else if (_devices.isEmpty)

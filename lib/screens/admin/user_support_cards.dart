@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
+export 'account_lockout_card.dart';
 
 /// Session list card displayed in user support view.
 class SessionsCard extends StatelessWidget {
@@ -17,8 +17,7 @@ class SessionsCard extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: Text(session['id']?.toString() ?? ''),
           subtitle: Text(
-            '${session['ip'] ?? ''} ${session['user_agent'] ?? ''}'
-                .trim(),
+            '${session['ip'] ?? ''} ${session['user_agent'] ?? ''}'.trim(),
           ),
         ),
   ]);
@@ -50,16 +49,7 @@ class ConsentsCard extends StatelessWidget {
         trailing: TextButton(
           onPressed: mutating
               ? null
-              : () async {
-                  final confirmed = await ConfirmDialog.show(
-                    context,
-                    title: 'Revoke consent?',
-                    message: 'Remove this application grant for $userId?',
-                    confirmLabel: 'Revoke',
-                    destructive: true,
-                  );
-                  if (confirmed) onRevoke(consent['client_id'].toString());
-                },
+              : () => onRevoke(consent['client_id'].toString()),
           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
           child: const Text('Revoke'),
         ),
@@ -95,18 +85,7 @@ class MfaFactorsCard extends StatelessWidget {
         ),
         subtitle: Text(factor['method']?.toString() ?? ''),
         trailing: TextButton(
-          onPressed: mutating
-              ? null
-              : () async {
-                  final confirmed = await ConfirmDialog.show(
-                    context,
-                    title: 'Remove second factor?',
-                    message: 'The user will no longer be able to use this factor.',
-                    confirmLabel: 'Remove',
-                    destructive: true,
-                  );
-                  if (confirmed) onRemove(factor['id'].toString());
-                },
+          onPressed: mutating ? null : () => onRemove(factor['id'].toString()),
           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
           child: const Text('Remove'),
         ),
@@ -145,14 +124,17 @@ class LifecycleCard extends StatefulWidget {
 class _LifecycleCardState extends State<LifecycleCard> {
   @override
   Widget build(BuildContext context) {
-    final allowed = (widget.lifecycleData['allowed_transitions'] as List? ?? const [])
-        .map((value) => value.toString())
-        .toList();
+    final allowed =
+        (widget.lifecycleData['allowed_transitions'] as List? ?? const [])
+            .map((value) => value.toString())
+            .toList();
     return _card(context, 'Account lifecycle', [
       Text('Current state: ${widget.lifecycleData['state'] ?? 'active'}'),
       const SizedBox(height: 10),
       DropdownButtonFormField<String>(
-        initialValue: allowed.contains(widget.nextState) ? widget.nextState : null,
+        initialValue: allowed.contains(widget.nextState)
+            ? widget.nextState
+            : null,
         decoration: const InputDecoration(labelText: 'Transition to'),
         items: allowed
             .map((state) => DropdownMenuItem(value: state, child: Text(state)))
@@ -162,11 +144,15 @@ class _LifecycleCardState extends State<LifecycleCard> {
       const SizedBox(height: 10),
       TextField(
         controller: widget.reasonController,
-        decoration: const InputDecoration(labelText: 'Reason / ticket reference'),
+        decoration: const InputDecoration(
+          labelText: 'Reason / ticket reference',
+        ),
       ),
       const SizedBox(height: 10),
       FilledButton(
-        onPressed: widget.mutating || widget.nextState == null ? null : widget.onApply,
+        onPressed: widget.mutating || widget.nextState == null
+            ? null
+            : widget.onApply,
         child: const Text('Apply transition'),
       ),
     ]);
@@ -201,51 +187,57 @@ class CredentialRecoveryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => _card(
-    context,
-    'Credential recovery and containment',
-    [
-      if (passwordResetData != null)
-        _recoveryStatus('Active password-reset links', passwordResetData!),
-      if (emailChangeData != null)
-        _recoveryStatus('Active email-change links', emailChangeData!),
-      if (canSetPassword) ...[
-        TextField(
-          controller: passwordController,
-          obscureText: true,
-          decoration: const InputDecoration(labelText: 'New password'),
-        ),
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: mutating || passwordController.text.isEmpty ? null : onSetPassword,
-          child: const Text('Set password'),
-        ),
-      ],
-      if (canSetEmail) ...[
+  Widget build(BuildContext context) =>
+      _card(context, 'Credential recovery and containment', [
+        if (passwordResetData != null)
+          _recoveryStatus('Active password-reset links', passwordResetData!),
+        if (emailChangeData != null)
+          _recoveryStatus('Active email-change links', emailChangeData!),
+        if (canSetPassword) ...[
+          TextField(
+            controller: passwordController,
+            obscureText: true,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: const InputDecoration(labelText: 'New password'),
+          ),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: mutating || passwordController.text.isEmpty
+                ? null
+                : onSetPassword,
+            child: const Text('Set password'),
+          ),
+        ],
+        if (canSetEmail) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(labelText: 'Replacement email'),
+          ),
+          const SizedBox(height: 10),
+          FilledButton(
+            onPressed: mutating || emailController.text.trim().isEmpty
+                ? null
+                : onSetEmail,
+            child: const Text('Set email'),
+          ),
+        ],
         const SizedBox(height: 12),
-        TextField(
-          controller: emailController,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'Replacement email'),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: dangerActions.map((a) => a.build(context)).toList(),
         ),
-        const SizedBox(height: 10),
-        FilledButton(
-          onPressed: mutating || emailController.text.trim().isEmpty ? null : onSetEmail,
-          child: const Text('Set email'),
-        ),
-      ],
-      const SizedBox(height: 12),
-      Wrap(
-        spacing: 10,
-        runSpacing: 10,
-        children: dangerActions.map((a) => a.build(context)).toList(),
-      ),
-    ],
-  );
+      ]);
 
   Widget _recoveryStatus(String label, Map<String, dynamic> data) {
     final records = data['tokens'] ?? data['links'] ?? data['items'];
-    final count = data['total'] ?? data['count'] ?? (records is List ? records.length : 0);
+    final count =
+        data['total'] ??
+        data['count'] ??
+        (records is List ? records.length : 0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Text('$label: $count'),
@@ -269,16 +261,7 @@ class DangerAction {
 
   Widget build(BuildContext context) {
     return OutlinedButton(
-      onPressed: () async {
-        final confirmed = await ConfirmDialog.show(
-          context,
-          title: confirmTitle,
-          message: confirmMessage,
-          confirmLabel: label,
-          destructive: true,
-        );
-        if (confirmed) onConfirmed();
-      },
+      onPressed: onConfirmed,
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.redAccent,
         side: const BorderSide(color: Colors.redAccent),

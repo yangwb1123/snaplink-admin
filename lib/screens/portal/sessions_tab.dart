@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Active session list + per-session revoke + "sign out of other devices".
@@ -20,28 +21,16 @@ class SessionsTab extends StatefulWidget {
 }
 
 class _SessionsTabState extends State<SessionsTab> {
-  late Future<List<dynamic>> _future = _load();
+  late Future<PortalSessionsResult> _future = _load();
   bool _revokingAll = false;
 
-  Future<List<dynamic>> _load() async {
-    final r = await widget.api.get('/sessions/me');
-    if (r.statusCode == 401) {
-      throw PortalApiError(r.statusCode, 'Your session has expired.');
-    }
-    if (r.statusCode != 200) {
-      throw PortalApiError(r.statusCode, 'Active sessions are not available.');
-    }
-    final d = PortalApi.decode(r);
-    return (d['sessions'] as List?) ?? const [];
-  }
+  Future<PortalSessionsResult> _load() => loadPortalSessions(widget.api);
 
   void _reload() => setState(() => _future = _load());
 
   Future<void> _revoke(String id) async {
     if (id.isEmpty || !await _confirmSessionRevoke(id)) return;
-    final r = await widget.api.delete(
-      '/sessions/me/${Uri.encodeComponent(id)}',
-    );
+    final r = await widget.api.delete(PortalSecurityPaths.legacySession(id));
     if (r.statusCode >= 200 &&
         r.statusCode < 300 &&
         id == widget.api.currentSessionId) {
@@ -66,7 +55,7 @@ class _SessionsTabState extends State<SessionsTab> {
     setState(() => _revokingAll = true);
     try {
       final response = await widget.api.deleteWithQuery(
-        '/sessions/me',
+        PortalSecurityPaths.legacySessions,
         query: preservesCurrentSession ? null : const {'all': 'true'},
       );
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -160,35 +149,47 @@ class _SessionsTabState extends State<SessionsTab> {
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
-          child: Row(
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               Text(
                 'Active sessions',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: _revokingAll ? null : _revokeOthers,
-                icon: _revokingAll
-                    ? const SizedBox(
-                        height: 14,
-                        width: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.logout, color: Colors.redAccent),
-                label: Text(
-                  widget.api.currentSessionId == null
-                      ? 'Sign out everywhere'
-                      : 'Sign out of other devices',
-                  style: const TextStyle(color: Colors.redAccent),
-                ),
+              OverflowBar(
+                spacing: 4,
+                children: [
+                  TextButton.icon(
+                    onPressed: _revokingAll ? null : _revokeOthers,
+                    icon: _revokingAll
+                        ? const SizedBox(
+                            height: 14,
+                            width: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.logout, color: Colors.redAccent),
+                    label: Text(
+                      widget.api.currentSessionId == null
+                          ? 'Sign out everywhere'
+                          : 'Sign out of other devices',
+                      style: const TextStyle(color: Colors.redAccent),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Refresh sessions',
+                    onPressed: _reload,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
               ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
             ],
           ),
         ),
         Expanded(
-          child: FutureBuilder<List<dynamic>>(
+          child: FutureBuilder<PortalSessionsResult>(
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
@@ -197,50 +198,83 @@ class _SessionsTabState extends State<SessionsTab> {
               if (snap.hasError) {
                 return Center(child: Text('Error: ${snap.error}'));
               }
-              final items = snap.data ?? const [];
+              final result = snap.data;
+              final items = result?.sessions ?? const [];
               if (items.isEmpty) {
                 return const Center(child: EmptyHint('No active sessions.'));
               }
-              return ListView.separated(
+              return ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final s = items[i] as Map<String, dynamic>;
-                  final id = s['id']?.toString() ?? '';
-                  final metaParts = <String>[];
-                  if (s['created_at'] != null) {
-                    metaParts.add('since ${_shortDate(s['created_at'])}');
-                  }
-                  if (s['expires_at'] != null) {
-                    metaParts.add('expires ${_shortDate(s['expires_at'])}');
-                  }
-                  final devParts = <String>[];
-                  if (s['ip'] != null) {
-                    devParts.add(s['ip'].toString());
-                  }
-                  if (s['user_agent'] != null) {
-                    devParts.add(_deviceHint(s['user_agent'].toString()));
-                  }
-                  return ListTile(
-                    title: Text(id),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (metaParts.isNotEmpty) Text(metaParts.join(' · ')),
-                        if (devParts.isNotEmpty) Text(devParts.join(' · ')),
-                      ],
-                    ),
-                    isThreeLine: metaParts.isNotEmpty && devParts.isNotEmpty,
-                    trailing: TextButton(
-                      onPressed: () => _revoke(id),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
+                children: [
+                  if (result?.usedLegacyEndpoint == true)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'Device enrichment is not enabled; showing legacy '
+                        'session metadata.',
                       ),
-                      child: const Text('Revoke'),
                     ),
-                  );
-                },
+                  for (var i = 0; i < items.length; i++) ...[
+                    Builder(
+                      builder: (context) {
+                        final s = items[i];
+                        final id = s['id']?.toString() ?? '';
+                        final metaParts = <String>[];
+                        if (s['created_at'] != null) {
+                          metaParts.add('since ${_shortDate(s['created_at'])}');
+                        }
+                        if (s['expires_at'] != null) {
+                          metaParts.add(
+                            'expires ${_shortDate(s['expires_at'])}',
+                          );
+                        }
+                        final devParts = <String>[];
+                        if (s['ip'] != null) {
+                          devParts.add(s['ip'].toString());
+                        }
+                        if (s['user_agent'] != null) {
+                          devParts.add(_deviceHint(s['user_agent'].toString()));
+                        }
+                        if (s['device_name']?.toString().isNotEmpty == true) {
+                          devParts.add(s['device_name'].toString());
+                        }
+                        final posture = <String>[
+                          if (s['device_platform']?.toString().isNotEmpty ==
+                              true)
+                            s['device_platform'].toString(),
+                          if (s['device_browser']?.toString().isNotEmpty ==
+                              true)
+                            s['device_browser'].toString(),
+                          if (s['trust_label']?.toString().isNotEmpty == true)
+                            'trust ${s['trust_label']}',
+                        ];
+                        return ListTile(
+                          title: Text(id),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (metaParts.isNotEmpty)
+                                Text(metaParts.join(' · ')),
+                              if (devParts.isNotEmpty)
+                                Text(devParts.join(' · ')),
+                              if (posture.isNotEmpty) Text(posture.join(' · ')),
+                            ],
+                          ),
+                          isThreeLine:
+                              metaParts.isNotEmpty && devParts.isNotEmpty,
+                          trailing: TextButton(
+                            onPressed: () => _revoke(id),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                            ),
+                            child: const Text('Revoke'),
+                          ),
+                        );
+                      },
+                    ),
+                    if (i < items.length - 1) const Divider(height: 1),
+                  ],
+                ],
               );
             },
           ),

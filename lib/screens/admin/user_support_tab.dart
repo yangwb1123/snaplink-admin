@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'user_support_cards.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -24,17 +25,16 @@ class UserSupportTab extends StatefulWidget {
 }
 
 class _UserSupportTabState extends State<UserSupportTab> {
+  static const _accountLockoutPath = '/api/v1/admin/account-lockout/clear';
   final _userCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _reasonCtrl = TextEditingController();
-
   Map<String, dynamic> _data = const {};
   String? _error;
   bool _loading = false;
   bool _mutating = false;
   String? _nextLifecycleState;
-
   String? get _userId {
     final value = _userCtrl.text.trim();
     return value.isEmpty ? null : value;
@@ -46,9 +46,16 @@ class _UserSupportTabState extends State<UserSupportTab> {
         SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(prefix);
   }
 
+  bool _hasOperation(String method, String path) =>
+      widget.capabilities.has(method, path) ||
+      SnaplinkAdminOperationCatalog.endpoints.any(
+        (endpoint) => endpoint.method == method && endpoint.path == path,
+      );
+
+  bool get _canClearAccountLockout =>
+      _hasOperation('POST', _accountLockoutPath);
   String _userPath(String suffix) =>
       '/api/v1/admin/users/${Uri.encodeComponent(_userId!)}$suffix';
-
   @override
   void dispose() {
     _userCtrl.dispose();
@@ -79,8 +86,6 @@ class _UserSupportTabState extends State<UserSupportTab> {
         'passwordReset': widget.api.get(_userPath('/password-reset-tokens')),
       if (_has('users/:id/email-change-tokens'))
         'emailChange': widget.api.get(_userPath('/email-change-tokens')),
-      if (_has('users/:id/account-lockout'))
-        'accountLockout': widget.api.get(_userPath('/account-lockout')),
     };
     final entries = await Future.wait(
       requests.entries.map((entry) async {
@@ -114,7 +119,18 @@ class _UserSupportTabState extends State<UserSupportTab> {
     Future<Map<String, dynamic>> Function() request, {
     String? success,
   }) async {
-    if (!await _confirm(title, message)) return;
+    final userId = _userId;
+    if (userId == null ||
+        !await ConfirmDialog.show(
+          context,
+          title: title,
+          message: '$message\n\nAffected user: $userId',
+          confirmLabel: 'Confirm for user',
+          destructive: true,
+          confirmText: userId,
+        )) {
+      return;
+    }
     setState(() {
       _mutating = true;
       _error = null;
@@ -129,30 +145,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
+      _passwordCtrl.clear();
       if (mounted) setState(() => _mutating = false);
     }
   }
-
-  Future<bool> _confirm(String title, String message) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(title),
-          content: Text(message),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Confirm'),
-            ),
-          ],
-        ),
-      ) ??
-      false;
 
   List<Map<String, dynamic>> _list(String key, String valueKey) {
     final values = _data[key]?[valueKey];
@@ -185,6 +181,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
         ),
         const SizedBox(height: 12),
         TextField(
+          key: const Key('support-user-id'),
           controller: _userCtrl,
           decoration: const InputDecoration(labelText: 'User ID'),
           onSubmitted: (_) => _load(),
@@ -207,6 +204,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
             padding: EdgeInsets.only(top: 20),
             child: Center(child: CircularProgressIndicator()),
           ),
+        if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
         if (loaded) ...[
           if (_has('users/:id/sessions')) _sessionsCard(context),
           if (_has('users/:id/consents')) _consentsCard(context),
@@ -329,18 +327,6 @@ class _UserSupportTabState extends State<UserSupportTab> {
             'This action is immediate and cannot be undone.',
             () => widget.api.delete(_userPath('/email-change-tokens')),
             success: 'Email change links revoked.',
-          ),
-        ),
-      if (_has('users/:id/account-lockout'))
-        DangerAction(
-          label: 'Clear account lockout',
-          confirmTitle: 'Clear account lockout?',
-          confirmMessage: 'This will unlock the user account if it was locked due to failed login attempts.',
-          onConfirmed: () => _mutate(
-            'Clear account lockout?',
-            'Clear account lockout?',
-            () => widget.api.post('/api/v1/admin/account-lockout/clear', {'user_id': _userId}),
-            success: 'Account lockout cleared.',
           ),
         ),
     ];

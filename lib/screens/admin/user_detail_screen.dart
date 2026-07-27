@@ -1,12 +1,12 @@
-import 'dart:js_interop';
-
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
-import 'package:web/web.dart' as web;
+import 'user_device_security_panel.dart';
+import 'user_detail_widgets.dart';
 
 /// User detail screen with sub-resource tabs.
 /// URL: /admin/users/{id}[/{subresource}]
@@ -32,16 +32,19 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Map<String, dynamic>? _consents;
   Map<String, dynamic>? _mfa;
   Map<String, dynamic>? _lifecycle;
+  final Map<String, String> _sectionErrors = {};
   String? _error;
   bool _loading = true;
   bool _mutating = false;
   int _tabIndex = 0;
+  late final void Function() _cancelPopState;
 
   static const _tabs = [
     ('sessions', 'Sessions', Icons.devices),
     ('consents', 'Consents', Icons.checklist),
     ('mfa', 'MFA', Icons.security),
     ('lifecycle', 'Lifecycle', Icons.route),
+    ('device-security', 'Device security', Icons.phonelink_lock),
   ];
 
   @override
@@ -49,8 +52,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     super.initState();
     _load();
     _initTabFromRoute();
-    void popListener() { if (mounted) _initTabFromRoute(); }
-    web.window.addEventListener('popstate', popListener.toJS);
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (mounted) _initTabFromRoute();
+    });
+  }
+
+  @override
+  void dispose() {
+    _cancelPopState();
+    super.dispose();
   }
 
   void _initTabFromRoute() {
@@ -70,26 +80,46 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
+      final user = await widget.client.getUser(widget.userId);
+      final uid = Uri.encodeComponent(widget.userId);
       final results = await Future.wait([
-        widget.client.getUser(widget.userId),
-        widget.api.get('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/sessions'),
-        widget.api.get('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/consents'),
-        widget.api.get('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa'),
-        widget.api.get('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/lifecycle'),
+        _optionalGet('sessions', '/api/v1/admin/users/$uid/sessions'),
+        _optionalGet('consents', '/api/v1/admin/users/$uid/consents'),
+        _optionalGet('mfa', '/api/v1/admin/users/$uid/mfa'),
+        _optionalGet('lifecycle', '/api/v1/admin/users/$uid/lifecycle'),
       ]);
       if (!mounted) return;
       setState(() {
-        _user = results[0] as Map<String, dynamic>?;
-        _sessions = results[1] as Map<String, dynamic>?;
-        _consents = results[2] as Map<String, dynamic>?;
-        _mfa = results[3] as Map<String, dynamic>?;
-        _lifecycle = results[4] as Map<String, dynamic>?;
+        _user = user;
+        _sessions = results[0];
+        _consents = results[1];
+        _mfa = results[2];
+        _lifecycle = results[3];
         _loading = false;
       });
     } catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
+    try {
+      final result = await widget.api.get(path, forceRefresh: true);
+      _sectionErrors.remove(section);
+      return result;
+    } catch (error) {
+      _sectionErrors[section] = error.toString();
+      return <String, dynamic>{};
     }
   }
 
@@ -104,20 +134,32 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         ),
       ),
       body: _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.redAccent,
+                  ),
                   const SizedBox(height: 16),
-                  Text('Failed to load user', style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Failed to load user',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(_error!, textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600)),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
@@ -128,186 +170,159 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                 ],
               ),
             )
-          : Column(children: [
-              AdminBreadcrumb(),
-              Expanded(child: _buildContent(context)),
-            ]),
+          : Column(
+              children: [
+                AdminBreadcrumb(),
+                Expanded(child: _buildContent(context)),
+              ],
+            ),
     );
   }
 
   Widget _buildContent(BuildContext context) => Column(
     children: [
-      _userHeader(context),
-      _tabBar(context),
+      UserDetailHeader(user: _user),
+      UserDetailTabBar(
+        labels: _tabs.map((tab) => tab.$2).toList(growable: false),
+        selectedIndex: _tabIndex,
+        onSelected: (index) => _selectTab(index, _tabs[index].$1),
+      ),
       Expanded(child: _tabContent(context)),
     ],
   );
 
-  Widget _userHeader(BuildContext context) => Card(
-    margin: const EdgeInsets.all(16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(children: [
-        const Icon(Icons.person, size: 48),
-        const SizedBox(width: 16),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(_user?['id']?.toString() ?? '', style: Theme.of(context).textTheme.titleMedium),
-            Text('Provider: ${_user?['provider'] ?? ''}'),
-            Text('External ID: ${_user?['externalId'] ?? _user?['external_id'] ?? ''}'),
-          ],
-        )),
-      ]),
-    ),
-  );
-
-  Widget _tabBar(BuildContext context) => SizedBox(
-    height: 48,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        for (var i = 0; i < _tabs.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(_tabs[i].$2),
-              selected: _tabIndex == i,
-              onSelected: (_) => _selectTab(i, _tabs[i].$1),
-            ),
-          ),
-      ],
-    ),
-  );
-
   Widget _tabContent(BuildContext context) {
     switch (_tabIndex) {
-      case 0: return _sessionList(context);
-      case 1: return _consentList(context);
-      case 2: return _mfaList(context);
-      case 3: return _lifecycleView(context);
-      default: return const Center(child: Text('Select a tab'));
+      case 0:
+        return _optionalSection(
+          'sessions',
+          UserSessionsView(
+            sessions: _sessions?['sessions'] as List? ?? const [],
+          ),
+        );
+      case 1:
+        return _optionalSection(
+          'consents',
+          UserConsentsView(
+            consents: _consents?['consents'] as List? ?? const [],
+            mutating: _mutating,
+            onRevoke: _revokeConsent,
+          ),
+        );
+      case 2:
+        return _optionalSection(
+          'mfa',
+          UserMfaView(
+            factors: _mfa?['factors'] as List? ?? const [],
+            mutating: _mutating,
+            onRemove: _removeMfa,
+          ),
+        );
+      case 3:
+        return _optionalSection(
+          'lifecycle',
+          UserLifecycleView(
+            lifecycle: _lifecycle ?? const {},
+            showBackButton: _user != null,
+            onBack: () => AdminRoute.go('users'),
+          ),
+        );
+      case 4:
+        return UserDeviceSecurityPanel(api: widget.api, userId: widget.userId);
+      default:
+        return const Center(child: Text('Select a tab'));
     }
   }
 
-  Widget _sessionList(BuildContext context) {
-    final items = _sessions?['sessions'] as List? ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: items.isEmpty
-        ? [const Text('No active sessions')]
-        : items.map((s) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.devices),
-              title: Text(s['id']?.toString() ?? ''),
-              subtitle: Text('IP: ${s['ip'] ?? ''}  UA: ${(s['user_agent'] ?? '').toString().substring(0, (s['user_agent']?.toString() ?? '').length.clamp(0, 80))}'),
+  Widget _optionalSection(String section, Widget content) {
+    final error = _sectionErrors[section];
+    if (error == null) return content;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline, size: 40),
+            const SizedBox(height: 12),
+            Text('This user resource is unavailable.'),
+            const SizedBox(height: 8),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
             ),
-          )).toList(),
-    );
-  }
-
-  Widget _consentList(BuildContext context) {
-    final items = _consents?['consents'] as List? ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: items.isEmpty
-        ? [const Text('No consents granted')]
-        : items.map((c) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.checklist),
-              title: Text(c['client_id']?.toString() ?? ''),
-              subtitle: Text((c['scopes'] as List?)?.join(', ') ?? ''),
-              trailing: TextButton(
-                onPressed: _mutating ? null : () => _revokeConsent(c['client_id']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Revoke'),
-              ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
             ),
-          )).toList(),
+          ],
+        ),
+      ),
     );
   }
 
   Future<void> _revokeConsent(String clientId) async {
-    final confirmed = await ConfirmDialog.show(context, title: 'Revoke consent?', message: 'Revoke for $clientId?', destructive: true);
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Revoke consent?',
+      message: 'Revoke for $clientId?',
+      destructive: true,
+      confirmText: clientId,
+    );
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/consents/${Uri.encodeComponent(clientId)}');
+      await widget.api.delete(
+        '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/consents/${Uri.encodeComponent(clientId)}',
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Consent revoked')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Consent revoked')));
       _load();
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: \$e"))); }
-    finally { if (mounted) setState(() => _mutating = false); }
-  }
-
-  Widget _mfaList(BuildContext context) {
-    final items = _mfa?['factors'] as List? ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: items.isEmpty
-        ? [const Text('No MFA factors registered')]
-        : items.map((f) => Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: const Icon(Icons.security),
-              title: Text(f['label']?.toString() ?? f['method']?.toString() ?? ''),
-              subtitle: Text('Method: ${f['method'] ?? ''}'),
-              trailing: TextButton(
-                onPressed: _mutating ? null : () => _removeMfa(f['id']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Remove'),
-              ),
-            ),
-          )).toList(),
-    );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
   }
 
   Future<void> _removeMfa(String factorId) async {
-    final confirmed = await ConfirmDialog.show(context, title: 'Remove MFA factor?', message: 'Remove this factor?', destructive: true);
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Remove MFA factor?',
+      message: 'Remove this factor?',
+      destructive: true,
+      confirmText: factorId,
+    );
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete('/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa/${Uri.encodeComponent(factorId)}');
+      await widget.api.delete(
+        '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa/${Uri.encodeComponent(factorId)}',
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('MFA factor removed')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('MFA factor removed')));
       _load();
-    } catch (_) {}
-    finally { if (mounted) setState(() => _mutating = false); }
-  }
-
-  Widget _lifecycleView(BuildContext context) {
-    final lc = _lifecycle ?? {};
-    final state = lc['state']?.toString() ?? 'active';
-    final transitions = (lc['allowed_transitions'] as List?)?.map((e) => e.toString()).toList() ?? [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Card(child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            const Icon(Icons.route, size: 48, color: Colors.blue),
-            const SizedBox(height: 8),
-            Text('Current state: $state', style: Theme.of(context).textTheme.titleMedium),
-            if (transitions.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Text('Allowed transitions:'),
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, children: transitions.map((t) => Chip(label: Text(t))).toList()),
-            ],
-          ]),
-        )),
-        if (_user != null) ...[
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => AdminRoute.go('users'),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Back to user list'),
-          ),
-        ],
-      ],
-    );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _mutating = false);
+    }
   }
 }

@@ -1,83 +1,22 @@
-import 'package:flutter/foundation.dart';
+import 'local_storage_memory.dart'
+    if (dart.library.js_interop) 'local_storage_web.dart'
+    as implementation;
 
 /// Cross-platform local storage wrapper.
 ///
-/// Uses `window.localStorage` on web via the `web` package.
-/// Falls back to in-memory storage on non-web platforms.
+/// Browser builds use `window.localStorage`. VM and other non-web builds use
+/// an in-memory implementation, which also keeps service tests deterministic.
 class LocalStorage {
-  static final Map<String, String> _memoryStore = {};
-
   /// Get an item from local storage.
-  static String? getItem(String key) {
-    if (kIsWeb) {
-      return _webGetItem(key);
-    }
-    return _memoryStore[key];
-  }
+  static String? getItem(String key) => implementation.getItem(key);
 
   /// Set an item in local storage.
-  static void setItem(String key, String value) {
-    if (kIsWeb) {
-      _webSetItem(key, value);
-    } else {
-      _memoryStore[key] = value;
-    }
-  }
+  static void setItem(String key, String value) =>
+      implementation.setItem(key, value);
 
   /// Remove an item from local storage.
-  static void removeItem(String key) {
-    if (kIsWeb) {
-      _webRemoveItem(key);
-    } else {
-      _memoryStore.remove(key);
-    }
-  }
+  static void removeItem(String key) => implementation.removeItem(key);
 
-  // Web-specific implementations using the web package
-  static String? _webGetItem(String key) {
-    try {
-      // Use dart:js_interop with the global window object
-      // ignore: undefined_identifier
-      final storage = _windowStorage();
-      if (storage != null) {
-        return storage.getItem(key);
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  static void _webSetItem(String key, String value) {
-    try {
-      final storage = _windowStorage();
-      if (storage != null) {
-        storage.setItem(key, value);
-      }
-    } catch (_) {}
-  }
-
-  static void _webRemoveItem(String key) {
-    try {
-      final storage = _windowStorage();
-      if (storage != null) {
-        storage.removeItem(key);
-      }
-    } catch (_) {}
-  }
-
-  static dynamic _windowStorage() {
-    try {
-      // Access window.localStorage via the global scope
-      // This works when compiled to web with dart:js_interop
-      final window = _globalWindow();
-      return window.localStorage;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static dynamic _globalWindow() {
-    // Use dart:js_interop to access the global window object
-    // ignore: undefined_identifier
-    return globalThis;
-  }
+  /// Snapshot the keys currently visible to this origin.
+  static List<String> keys() => implementation.keys();
 }

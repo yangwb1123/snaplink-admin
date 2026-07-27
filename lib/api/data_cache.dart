@@ -42,8 +42,13 @@ class DataCache {
     final key = _key(method, path);
     final existing = _pending[key];
     if (existing != null) return existing.future; // Wait for first caller
-    // First caller - create completer
-    _pending[key] = Completer<Map<String, dynamic>>();
+    // First caller creates the shared completion. Install an error observer so
+    // a failed request with no deduplicated waiters does not surface as an
+    // unhandled asynchronous exception. Later waiters still receive the same
+    // error from the original future.
+    final completer = Completer<Map<String, dynamic>>();
+    unawaited(completer.future.then<void>((_) {}, onError: (_, _) {}));
+    _pending[key] = completer;
     return null; // Caller should make HTTP request
   }
 
@@ -58,8 +63,12 @@ class DataCache {
   }
 
   /// Reject a pending request, notifying all waiters.
-  void reject(String method, String path, Object error,
-      [StackTrace? stackTrace]) {
+  void reject(
+    String method,
+    String path,
+    Object error, [
+    StackTrace? stackTrace,
+  ]) {
     if (method != 'GET') return;
     final key = _key(method, path);
     final completer = _pending.remove(key);
@@ -71,12 +80,20 @@ class DataCache {
   /// Invalidate all cache entries matching [path] prefix.
   void invalidate(String path) {
     final normalized = path.split('?')[0];
-    _store.removeWhere((key, _) => key.contains(normalized));
+    _store.removeWhere((key, _) {
+      final cachedPath = (key.startsWith('GET:') ? key.substring(4) : key)
+          .split('?')[0];
+      return _pathsAreRelated(cachedPath, normalized);
+    });
   }
 
   /// Clear all cached data and pending requests.
   void clear() {
     _store.clear();
+    final error = StateError('Cache cleared while request was in flight.');
+    for (final completer in _pending.values) {
+      if (!completer.isCompleted) completer.completeError(error);
+    }
     _pending.clear();
   }
 
@@ -87,6 +104,13 @@ class DataCache {
   int get pendingCount => _pending.length;
 
   String _key(String method, String path) => '$method:$path';
+
+  static bool _pathsAreRelated(String left, String right) =>
+      left == right ||
+      left.startsWith('$right/') ||
+      right.startsWith('$left/') ||
+      left.startsWith('$right:') ||
+      right.startsWith('$left:');
 }
 
 class _CacheEntry {

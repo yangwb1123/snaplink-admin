@@ -19,11 +19,16 @@ class AuditEntry {
 
   String get methodLabel {
     switch (method) {
-      case 'POST': return 'Create';
-      case 'PUT': return 'Update';
-      case 'DELETE': return 'Delete';
-      case 'PATCH': return 'Modify';
-      default: return method;
+      case 'POST':
+        return 'Create';
+      case 'PUT':
+        return 'Update';
+      case 'DELETE':
+        return 'Delete';
+      case 'PATCH':
+        return 'Modify';
+      default:
+        return method;
     }
   }
 
@@ -72,11 +77,14 @@ class AuditLogService {
   List<AuditEntry> search(String query) {
     if (query.isEmpty) return entries;
     final q = query.toLowerCase();
-    return _entries.where((e) =>
-      e.path.toLowerCase().contains(q) ||
-      e.label.toLowerCase().contains(q) ||
-      e.method.toLowerCase().contains(q)
-    ).toList();
+    return _entries
+        .where(
+          (e) =>
+              e.path.toLowerCase().contains(q) ||
+              e.label.toLowerCase().contains(q) ||
+              e.method.toLowerCase().contains(q),
+        )
+        .toList();
   }
 
   List<AuditEntry> filterByMethod(String? method) {

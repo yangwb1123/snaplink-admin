@@ -1,95 +1,128 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+
+import 'dcr_credentials.dart';
+import 'dcr_form_controller.dart';
+import 'dcr_metadata_form.dart';
+import 'dcr_models.dart';
+import 'dcr_validation.dart';
 import 'developer_api.dart';
 
-/// "Register a New App" tab: RFC 7591 Dynamic Client Registration form.
-/// POSTs to /register — unauthenticated unless the developer supplies an
-/// operator-issued initial access token — and on success displays the
-/// ONE-TIME client_secret / registration_access_token the server returns
-/// (never shown again, so the developer must copy them now).
 class RegisterPanel extends StatefulWidget {
   final DeveloperApi api;
-  final void Function(String clientId, String token) onManage;
+  final DcrDiscovery? discovery;
+  final void Function(
+    String clientId,
+    String registrationAccessToken,
+    Map<String, dynamic> registrationSnapshot,
+  )
+  onManage;
 
-  const RegisterPanel({super.key, required this.api, required this.onManage});
+  const RegisterPanel({
+    super.key,
+    required this.api,
+    this.discovery,
+    required this.onManage,
+  });
 
   @override
   State<RegisterPanel> createState() => _RegisterPanelState();
 }
 
 class _RegisterPanelState extends State<RegisterPanel> {
-  final _nameCtrl = TextEditingController();
-  final _redirectUrisCtrl = TextEditingController();
-  final _scopeCtrl = TextEditingController();
-  final _advancedMetadataCtrl = TextEditingController();
-  final _iatCtrl = TextEditingController();
-  String _authMethod = 'client_secret_basic';
-  String _tokenStrategy = 'jwt';
+  final _form = DcrFormController();
+  final _iatController = TextEditingController();
+
   bool _submitting = false;
+  String? _error;
+  String? _completedClientId;
   Map<String, dynamic>? _result;
+  Map<String, dynamic>? _registrationSnapshot;
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _redirectUrisCtrl.dispose();
-    _scopeCtrl.dispose();
-    _advancedMetadataCtrl.dispose();
-    _iatCtrl.dispose();
+    _form.dispose();
+    _iatController.dispose();
+    _wipeCredentialReferences();
     super.dispose();
   }
 
-  List<String> _splitLines(String s) =>
-      s.split('\n').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
-
-  Map<String, dynamic> _advancedMetadata() {
-    final raw = _advancedMetadataCtrl.text.trim();
-    if (raw.isEmpty) return const {};
-    final value = jsonDecode(raw);
-    if (value is Map<String, dynamic>) return value;
-    if (value is Map) return Map<String, dynamic>.from(value);
-    throw const FormatException('Advanced metadata must be a JSON object.');
-  }
-
   Future<void> _submit() async {
-    late final Map<String, dynamic> additionalMetadata;
+    late final DcrClientMetadata metadata;
     try {
-      additionalMetadata = _advancedMetadata();
+      metadata = _form.metadata();
     } on FormatException catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() => _error = error.message);
       return;
     }
-    setState(() => _submitting = true);
+    final validation = validateDcrMetadata(
+      metadata,
+      discovery: widget.discovery,
+    );
+    if (!validation.isValid) {
+      setState(() => _error = validation.message);
+      return;
+    }
+
+    final initialAccessToken = _iatController.text.trim();
+    _iatController.clear();
+    setState(() {
+      _submitting = true;
+      _error = null;
+      _completedClientId = null;
+    });
     try {
-      final result = await widget.api.register(
-        clientName: _nameCtrl.text.trim(),
-        redirectUris: _splitLines(_redirectUrisCtrl.text),
-        scope: _scopeCtrl.text.trim(),
-        tokenEndpointAuthMethod: _authMethod,
-        tokenStrategy: _tokenStrategy,
-        additionalMetadata: additionalMetadata,
-        initialAccessToken: _iatCtrl.text.trim().isEmpty
+      final result = await widget.api.registerMetadata(
+        metadata: metadata,
+        initialAccessToken: initialAccessToken.isEmpty
             ? null
-            : _iatCtrl.text.trim(),
+            : initialAccessToken,
       );
-      if (mounted) setState(() => _result = result);
-    } on DeveloperApiError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        // The 201 response echoes accepted registration-only metadata. The
+        // request snapshot fills any omitempty values so a just-created app
+        // can safely preserve grant_types on its first RFC 7592 PUT.
+        _registrationSnapshot = {...metadata.toRegistrationWire(), ...result};
+      });
+    } on DeveloperApiError catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Network error: $e')));
+        setState(
+          () => _error =
+              'Unable to reach Snaplink. Check the connection and retry.',
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _manage() {
+    final result = _result;
+    final snapshot = _registrationSnapshot;
+    if (result == null || snapshot == null) return;
+    final clientId = result['client_id']?.toString() ?? '';
+    final rat = result['registration_access_token']?.toString() ?? '';
+    final safeSnapshot = Map<String, dynamic>.from(snapshot)
+      ..remove('client_secret')
+      ..remove('registration_access_token');
+    widget.onManage(clientId, rat, safeSnapshot);
+    _eraseOneTimeResult(clientId);
+  }
+
+  void _eraseOneTimeResult([String? clientId]) {
+    final id = clientId ?? _result?['client_id']?.toString();
+    setState(() {
+      _completedClientId = id;
+      _wipeCredentialReferences();
+    });
+  }
+
+  void _wipeCredentialReferences() {
+    _result = null;
+    _registrationSnapshot = null;
   }
 
   @override
@@ -100,40 +133,24 @@ class _RegisterPanelState extends State<RegisterPanel> {
         const Card(
           child: Padding(
             padding: EdgeInsets.all(16),
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(
-                    text:
-                        'Register a new OAuth 2.0 / OIDC client application. '
-                        'On success you receive a ',
-                  ),
-                  TextSpan(
-                    text: 'client_id',
-                    style: TextStyle(fontFamily: 'monospace'),
-                  ),
-                  TextSpan(text: ' (and, for confidential clients, a '),
-                  TextSpan(
-                    text: 'client_secret',
-                    style: TextStyle(fontFamily: 'monospace'),
-                  ),
-                  TextSpan(
-                    text:
-                        ') plus a registration access token — the credential '
-                        'this portal\'s Manage tab uses to view or update '
-                        'your app later. ',
-                  ),
-                  TextSpan(
-                    text:
-                        'The secret and access token are shown ONCE and '
-                        'never again — save them immediately.',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
+            child: Text(
+              'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic '
+              'Client Registration. Public clients are forced to PKCE S256. '
+              'Issued credentials are displayed only until you confirm they '
+              'have been saved.',
             ),
           ),
         ),
+        if (widget.discovery != null &&
+            !widget.discovery!.registrationEnabled) ...[
+          const SizedBox(height: 12),
+          _notice(
+            context,
+            'Snaplink discovery does not advertise a registration_endpoint. '
+            'Registration is disabled for this deployment.',
+            warning: true,
+          ),
+        ],
         const SizedBox(height: 16),
         Card(
           child: Padding(
@@ -141,106 +158,69 @@ class _RegisterPanelState extends State<RegisterPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextField(
-                  controller: _nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'App Name',
-                    hintText: 'My App',
-                  ),
+                DcrMetadataForm(
+                  controller: _form,
+                  discovery: widget.discovery,
+                  onChanged: () => setState(() => _error = null),
                 ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _redirectUrisCtrl,
-                  maxLines: 3,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText: 'Redirect URIs (one per line)',
-                    hintText: 'https://myapp.example.com/callback',
-                  ),
+                const SizedBox(height: 18),
+                SensitiveTokenField(
+                  controller: _iatController,
+                  label: 'Initial Access Token',
+                  hintText:
+                      'Leave blank only when open registration is enabled',
+                  enabled:
+                      !_submitting &&
+                      _result == null &&
+                      (widget.discovery == null ||
+                          widget.discovery!.registrationEnabled),
+                  onSubmitted: (_) {
+                    if (!_submitting &&
+                        _result == null &&
+                        (widget.discovery == null ||
+                            widget.discovery!.registrationEnabled)) {
+                      _submit();
+                    }
+                  },
                 ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _scopeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Scope (space-separated)',
-                    hintText: 'openid profile email',
-                  ),
+                const SizedBox(height: 6),
+                const Text(
+                  'The initial access token is sent once and cleared from this '
+                  'form as soon as registration starts.',
+                  style: TextStyle(fontSize: 12),
                 ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _authMethod,
-                  decoration: const InputDecoration(labelText: 'Client Type'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'client_secret_basic',
-                      child: Text('Confidential (issues a client_secret)'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'client_secret_post',
-                      child: Text(
-                        'Confidential (client secret in token POST body)',
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
-                    DropdownMenuItem(
-                      value: 'none',
-                      child: Text(
-                        'Public (no secret — PKCE required, e.g. a SPA or mobile app)',
-                      ),
-                    ),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => _authMethod = v ?? _authMethod),
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _tokenStrategy,
-                  decoration: const InputDecoration(
-                    labelText: 'Token Strategy',
                   ),
-                  items: const [
-                    DropdownMenuItem(value: 'jwt', child: Text('jwt')),
-                    DropdownMenuItem(value: 'session', child: Text('session')),
-                  ],
-                  onChanged: (v) =>
-                      setState(() => _tokenStrategy = v ?? _tokenStrategy),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _advancedMetadataCtrl,
-                  minLines: 4,
-                  maxLines: 10,
-                  autocorrect: false,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-                  decoration: const InputDecoration(
-                    labelText:
-                        'Advanced registration metadata (JSON, optional)',
-                    helperText:
-                        'For example: grant_types, response_types, contacts, allowed_authenticators, allowed_resources, post_logout_redirect_uris, tenant_id, require_pkce.',
-                    hintText:
-                        '{"grant_types":["authorization_code","refresh_token"],"require_pkce":true}',
-                  ),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: _iatCtrl,
-                  obscureText: true,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText:
-                        'Initial Access Token (only if your operator requires one)',
-                    hintText: 'Leave blank if registration is open',
-                  ),
-                ),
+                ],
                 const SizedBox(height: 20),
                 FilledButton(
-                  onPressed: _submitting ? null : _submit,
+                  onPressed:
+                      _submitting ||
+                          _result != null ||
+                          (widget.discovery != null &&
+                              !widget.discovery!.registrationEnabled)
+                      ? null
+                      : _submit,
                   child: _submitting
                       ? const SizedBox(
                           height: 18,
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Register App'),
+                      : Text(
+                          _result == null
+                              ? 'Register App'
+                              : 'Save or erase issued credentials first',
+                        ),
                 ),
               ],
             ),
@@ -248,82 +228,39 @@ class _RegisterPanelState extends State<RegisterPanel> {
         ),
         if (_result != null) ...[
           const SizedBox(height: 16),
-          _RegisterResultCard(result: _result!, onManage: widget.onManage),
+          OneTimeRegistrationCredentials(
+            result: _result!,
+            onManage: _manage,
+            onWipe: _eraseOneTimeResult,
+          ),
+        ],
+        if (_completedClientId != null) ...[
+          const SizedBox(height: 16),
+          _notice(
+            context,
+            'One-time credentials for $_completedClientId were erased from '
+            'the registration result.',
+          ),
         ],
       ],
     );
   }
-}
 
-class _RegisterResultCard extends StatelessWidget {
-  final Map<String, dynamic> result;
-  final void Function(String clientId, String token) onManage;
-
-  const _RegisterResultCard({required this.result, required this.onManage});
-
-  @override
-  Widget build(BuildContext context) {
-    final clientId = result['client_id']?.toString() ?? '';
-    final clientSecret = result['client_secret']?.toString();
-    final regToken = result['registration_access_token']?.toString();
-    final regUri = result['registration_client_uri']?.toString();
-
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF6366F1)),
+  Widget _notice(BuildContext context, String message, {bool warning = false}) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: warning ? colors.errorContainer : colors.secondaryContainer,
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'SAVE THESE NOW — THEY WILL NOT BE SHOWN AGAIN',
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(color: const Color(0xFF6366F1)),
-            ),
-            const SizedBox(height: 14),
-            _kvRow('Client ID', clientId),
-            if (clientSecret != null) _kvRow('Client Secret', clientSecret),
-            if (regToken != null) _kvRow('Registration Access Token', regToken),
-            if (regUri != null) _kvRow('Registration Client URI', regUri),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => onManage(clientId, regToken ?? ''),
-              child: const Text('Manage This App'),
-            ),
-          ],
+      child: Text(
+        message,
+        style: TextStyle(
+          color: warning
+              ? colors.onErrorContainer
+              : colors.onSecondaryContainer,
         ),
-      ),
-    );
-  }
-
-  Widget _kvRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 168,
-            child: Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                fontSize: 11,
-                color: Colors.grey,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-          Expanded(
-            child: SelectableText(
-              value,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            ),
-          ),
-        ],
       ),
     );
   }

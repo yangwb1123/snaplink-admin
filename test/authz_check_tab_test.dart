@@ -5,15 +5,27 @@ void main() {
   group('authz_check_tab capabilities', () {
     test('detects availability', () {
       final caps = SnaplinkAdminCapabilities([
-        SnaplinkAdminEndpoint(method: 'GET', path: '/api/v1/admin/authz-check', feature: 'core'),
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/rebac/check',
+          feature: 'core',
+        ),
       ]);
-      expect(caps.hasAnyPathPrefix('/api/v1/admin/authz-check'), isTrue);
+      expect(caps.has('GET', '/api/v1/admin/rebac/check'), isTrue);
     });
     test('documented routes are in catalog', () {
-      expect(SnaplinkAdminOperationCatalog.endpoints.any((e) => e.path.contains('/authz_check')), isTrue);
+      expect(
+        SnaplinkAdminOperationCatalog.endpoints.any(
+          (e) => e.method == 'GET' && e.path == '/api/v1/admin/rebac/check',
+        ),
+        isTrue,
+      );
     });
     test('returns false when absent', () {
-      expect(SnaplinkAdminCapabilities([]).hasAnyPathPrefix('/api/v1/admin/authz-check'), isFalse);
+      expect(
+        SnaplinkAdminCapabilities([]).has('GET', '/api/v1/admin/rebac/check'),
+        isFalse,
+      );
     });
   });
 }

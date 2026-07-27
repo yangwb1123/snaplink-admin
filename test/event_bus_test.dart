@@ -27,7 +27,13 @@ void main() {
       final bus = EventBus();
       DataChangedEvent? received;
       bus.on<DataChangedEvent>().listen((e) => received = e);
-      bus.fire(const DataChangedEvent('clients', resourceId: 'abc', changeType: ChangeType.deleted));
+      bus.fire(
+        const DataChangedEvent(
+          'clients',
+          resourceId: 'abc',
+          changeType: ChangeType.deleted,
+        ),
+      );
       expect(received?.resourceType, 'clients');
       expect(received?.resourceId, 'abc');
       expect(received?.isDelete, true);

@@ -9,11 +9,7 @@ class ErrorBoundary extends StatefulWidget {
   final Widget child;
   final String? label;
 
-  const ErrorBoundary({
-    super.key,
-    required this.child,
-    this.label,
-  });
+  const ErrorBoundary({super.key, required this.child, this.label});
 
   @override
   State<ErrorBoundary> createState() => _ErrorBoundaryState();
@@ -58,11 +54,13 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
               ),
               const SizedBox(height: 8),
               Text(
-                _error!.length > 200 ? '${_error!.substring(0, 200)}...' : _error!,
+                _error!.length > 200
+                    ? '${_error!.substring(0, 200)}...'
+                    : _error!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(

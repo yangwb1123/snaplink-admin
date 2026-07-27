@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'dashboard_screen.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
@@ -36,7 +36,10 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
       _redirectToLogin();
       return;
     }
-    final client = SSOAdminClient.withToken(token);
+    final client = SSOAdminClient.withToken(
+      token,
+      onUnauthorized: _redirectToLogin,
+    );
     try {
       // Reuses the exact request the dashboard itself makes, rather than
       // parsing JWT claims or coupling to the permissions schema, to decide
@@ -45,8 +48,9 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
       if (!mounted) return;
       setState(() => _client = client);
     } on SSOError catch (e) {
-      // A 401 is handled centrally by SSOAdminClient: it clears the stale
-      // browser session and returns the operator to login. A 403 instead
+      // A 401 is handled centrally by SSOAdminClient: it clears both the
+      // in-memory and stored session, then invokes our login redirect. A 403
+      // instead
       // proves the session is still valid but lacks the admin capability, so
       // keep it intact and render an actionable denial rather than leaving a
       // perpetual loading indicator.
@@ -70,7 +74,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
     try {
       final status = await SetupApi().checkStatus();
       if (status.available && status.setupRequired) {
-        web.window.location.replace('/setup/');
+        BrowserNavigation.replaceLocation('/setup/');
         return true;
       }
     } on SetupNetworkError {
@@ -80,7 +84,7 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
   }
 
   void _redirectToLogin() {
-    web.window.location.replace(
+    BrowserNavigation.replaceLocation(
       '/login/?redirect=${Uri.encodeComponent('/admin/')}',
     );
   }

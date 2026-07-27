@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dcr_models.dart';
 import 'developer_api.dart';
 import 'manage_panel.dart';
 import 'register_panel.dart';
 
 /// Developer Portal — lets a developer self-service register and manage
-/// their OWN OAuth 2.0 / OIDC client application via Dynamic Client
-/// Registration (RFC 7591/7592). Ported 1:1 from
-/// interfaces/web/developer/{index.html,app.js}.
+/// their own OAuth 2.0 / OIDC client application via Dynamic Client
+/// Registration (RFC 7591/7592).
 ///
 /// There is no developer account/login for this screen: the "Register a
 /// New App" tab's POST /register is unauthenticated (or gated by an
@@ -16,7 +16,9 @@ import 'register_panel.dart';
 /// pastes that token back in (or arrives here straight from a fresh
 /// registration via "Manage This App").
 class DeveloperScreen extends StatefulWidget {
-  const DeveloperScreen({super.key});
+  final DeveloperApi? api;
+
+  const DeveloperScreen({super.key, this.api});
 
   @override
   State<DeveloperScreen> createState() => _DeveloperScreenState();
@@ -29,7 +31,41 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     vsync: this,
   );
   final _manageKey = GlobalKey<ManagePanelState>();
-  final DeveloperApi _api = DeveloperApi();
+  late final DeveloperApi _api = widget.api ?? DeveloperApi();
+  DcrDiscovery? _discovery;
+  String? _discoveryError;
+  bool _loadingDiscovery = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiscovery();
+  }
+
+  Future<void> _loadDiscovery() async {
+    setState(() {
+      _loadingDiscovery = true;
+      _discoveryError = null;
+    });
+    try {
+      final discovery = await _api.loadDiscovery();
+      if (mounted) {
+        setState(() {
+          _discovery = discovery;
+          _discoveryError = null;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _discoveryError =
+              'OpenID Provider discovery is temporarily unavailable.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingDiscovery = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -40,10 +76,18 @@ class _DeveloperScreenState extends State<DeveloperScreen>
   // Mirrors app.js's register-manage-btn handler: pivot straight to the
   // Manage tab and load the just-registered app so the developer doesn't
   // have to re-type what was just issued.
-  void _openManageWithApp(String clientId, String token) {
+  void _openManageWithApp(
+    String clientId,
+    String token,
+    Map<String, dynamic> registrationSnapshot,
+  ) {
     _tabController.animateTo(1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _manageKey.currentState?.loadWith(clientId, token);
+      _manageKey.currentState?.loadWithRegistration(
+        clientId,
+        token,
+        registrationSnapshot,
+      );
     });
   }
 
@@ -54,17 +98,51 @@ class _DeveloperScreenState extends State<DeveloperScreen>
         title: const Text('Developer Portal'),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(text: 'Register a New App'),
             Tab(text: 'Manage an Existing App'),
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          RegisterPanel(api: _api, onManage: _openManageWithApp),
-          ManagePanel(key: _manageKey, api: _api),
+          if (_loadingDiscovery) const LinearProgressIndicator(minHeight: 2),
+          if (_discoveryError != null)
+            MaterialBanner(
+              content: Semantics(
+                liveRegion: true,
+                child: Text(_discoveryError!),
+              ),
+              leading: const Icon(Icons.cloud_off_outlined),
+              actions: [
+                TextButton.icon(
+                  onPressed: _loadingDiscovery ? null : _loadDiscovery,
+                  icon: _loadingDiscovery
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh),
+                  label: const Text('Retry discovery'),
+                ),
+              ],
+            ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                RegisterPanel(
+                  api: _api,
+                  discovery: _discovery,
+                  onManage: _openManageWithApp,
+                ),
+                ManagePanel(key: _manageKey, api: _api, discovery: _discovery),
+              ],
+            ),
+          ),
         ],
       ),
     );

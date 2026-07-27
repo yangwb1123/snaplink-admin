@@ -67,6 +67,19 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
       .where((s) => s.isNotEmpty)
       .toList();
 
+  static String? _validateRedirectUris(String? value) {
+    for (final raw in _splitList(value ?? '')) {
+      final uri = Uri.tryParse(raw);
+      if (uri == null ||
+          !uri.hasScheme ||
+          uri.fragment.isNotEmpty ||
+          uri.userInfo.isNotEmpty) {
+        return 'Invalid redirect URI: $raw';
+      }
+    }
+    return null;
+  }
+
   @override
   void dispose() {
     _idController.dispose();
@@ -145,6 +158,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                   helperText: 'One per line or comma-separated',
                 ),
                 maxLines: 3,
+                validator: _validateRedirectUris,
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -182,9 +196,11 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                 decoration: const InputDecoration(
                   labelText: 'Secret (optional)',
                   helperText:
-                      'Leave blank for a public PKCE client. Only set this to configure a '
-                      'static secret directly — you can also mint one afterward via Rotate Secret.',
-                  helperMaxLines: 3,
+                      'Leave blank to avoid setting a static secret. This '
+                      'admin contract does not configure PKCE; create public '
+                      'PKCE clients through the Developer Portal or deployment '
+                      'configuration.',
+                  helperMaxLines: 4,
                 ),
                 obscureText: true,
               ),

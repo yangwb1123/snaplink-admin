@@ -1,4 +1,4 @@
-import 'package:web/web.dart' as web;
+import 'package:sso_admin/services/browser_navigation.dart';
 
 /// Three-level admin route: `/admin/<module>/<resource>/{id}/<action>/<subaction>`
 ///
@@ -45,11 +45,21 @@ class AdminRoute {
     this.subaction = '',
   });
 
-  bool get isList => resourceId.isEmpty && action.isEmpty && subresource.isEmpty;
+  bool get isList =>
+      resourceId.isEmpty && action.isEmpty && subresource.isEmpty;
   bool get isNew => action == 'new' && resourceId.isEmpty;
-  bool get isDetail => resourceId.isNotEmpty && (action.isEmpty || action == 'view') && subresource.isEmpty;
+  bool get isDetail =>
+      resourceId.isNotEmpty &&
+      (action.isEmpty || action == 'view') &&
+      subresource.isEmpty;
   bool get isEdit => action == 'edit' && resourceId.isNotEmpty;
   bool get hasSubresource => subresource.isNotEmpty;
+
+  /// Stable widget identity for a resource detail subtree.
+  ///
+  /// A direct A -> B history transition can keep the same widget type. The
+  /// resource identity forces Flutter to discard A's state before rendering B.
+  String get detailIdentity => '$module/$resourceId';
 
   /// Known subresource names for each module.
   /// These are second-level segments that represent module sub-features
@@ -57,18 +67,38 @@ class AdminRoute {
   static const _knownSubresourceNames = <String, Set<String>>{
     'credentials': {'report'},
     'crypto-keys': {'rotate'},
-    'governance': {'audit', 'compliance', 'configuration', 'lifecycle', 'write'},
-    'token-security': {'portfolio', 'suspicious', 'sessions', 'subjects', 'expiring', 'temp', 'revoke', 'bulk-revoke'},
+    'governance': {
+      'audit',
+      'compliance',
+      'configuration',
+      'lifecycle',
+      'write',
+    },
+    'token-security': {
+      'portfolio',
+      'suspicious',
+      'sessions',
+      'subjects',
+      'expiring',
+      'temp',
+      'revoke',
+      'bulk-revoke',
+    },
   };
 
   /// Parse current browser URL into AdminRoute.
   factory AdminRoute.fromUri(Uri uri) {
-    final path = uri.path;
-    final prefix = '/admin/';
-    if (!path.startsWith(prefix)) return const AdminRoute();
-
-    final segments = path.substring(prefix.length).split('/')
-        .where((s) => s.isNotEmpty).toList();
+    final pathSegments = uri.pathSegments;
+    if (pathSegments.isEmpty || pathSegments.first != 'admin') {
+      return const AdminRoute();
+    }
+    // Uri.pathSegments preserves an encoded slash as part of one decoded
+    // resource ID. Splitting Uri.path would turn IDs such as `team/a` into
+    // extra route levels after a safe `%2F` deep link.
+    final segments = pathSegments
+        .skip(1)
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: false);
 
     if (segments.isEmpty) return const AdminRoute();
 
@@ -87,55 +117,87 @@ class AdminRoute {
       if (known != null && known.contains(segments[1])) {
         return AdminRoute(module: segments[0], subresource: segments[1]);
       }
-      return AdminRoute(module: segments[0], resourceId: segments[1], action: 'view');
+      return AdminRoute(
+        module: segments[0],
+        resourceId: segments[1],
+        action: 'view',
+      );
     }
 
     // /admin/<module>/<id>/edit
     if (segments.length == 3 && segments[2] == 'edit') {
-      return AdminRoute(module: segments[0], resourceId: segments[1], action: 'edit');
+      return AdminRoute(
+        module: segments[0],
+        resourceId: segments[1],
+        action: 'edit',
+      );
     }
 
     // /admin/<module>/<id>/<subresource>
     if (segments.length == 3) {
-      return AdminRoute(module: segments[0], resourceId: segments[1], subresource: segments[2]);
+      return AdminRoute(
+        module: segments[0],
+        resourceId: segments[1],
+        subresource: segments[2],
+      );
     }
 
     // /admin/<module>/<id>/<subresource>/<action>
     if (segments.length == 4) {
       return AdminRoute(
-        module: segments[0], resourceId: segments[1],
-        subresource: segments[2], subaction: segments[3],
+        module: segments[0],
+        resourceId: segments[1],
+        subresource: segments[2],
+        subaction: segments[3],
       );
     }
 
     // /admin/<module>/<id>/<subresource>/<action>/<extra>
     return AdminRoute(
-      module: segments[0], resourceId: segments[1],
-      subresource: segments[2], subaction: segments[3],
+      module: segments[0],
+      resourceId: segments[1],
+      subresource: segments[2],
+      subaction: segments[3],
     );
   }
 
   /// Build a URL string for a given route (no navigation).
-  static String url(String module, {String resourceId = '', String action = '',
-      String subresource = '', String subaction = ''}) {
+  static String url(
+    String module, {
+    String resourceId = '',
+    String action = '',
+    String subresource = '',
+    String subaction = '',
+  }) {
     final parts = <String>[module];
     if (resourceId.isNotEmpty) parts.add(resourceId);
     if (action.isNotEmpty && action != 'view') parts.add(action);
     if (subresource.isNotEmpty) parts.add(subresource);
     if (subaction.isNotEmpty) parts.add(subaction);
-    return '/admin/${parts.join('/')}';
+    return '/admin/${parts.map(Uri.encodeComponent).join('/')}';
   }
 
   /// Navigate to a URL using history.pushState.
-  static void go(String module, {String resourceId = '', String action = '',
-      String subresource = '', String subaction = ''}) {
-    final path = url(module, resourceId: resourceId, action: action,
-        subresource: subresource, subaction: subaction);
-    web.window.history.pushState(null, '', path);
+  static void go(
+    String module, {
+    String resourceId = '',
+    String action = '',
+    String subresource = '',
+    String subaction = '',
+  }) {
+    final path = url(
+      module,
+      resourceId: resourceId,
+      action: action,
+      subresource: subresource,
+      subaction: subaction,
+    );
+    BrowserNavigation.pushState(path);
   }
 
   @override
-  String toString() => 'AdminRoute($module, $resourceId, $action, $subresource, $subaction)';
+  String toString() =>
+      'AdminRoute($module, $resourceId, $action, $subresource, $subaction)';
 
   @override
   bool operator ==(Object other) =>
@@ -147,5 +209,6 @@ class AdminRoute {
       subaction == other.subaction;
 
   @override
-  int get hashCode => Object.hash(module, resourceId, action, subresource, subaction);
+  int get hashCode =>
+      Object.hash(module, resourceId, action, subresource, subaction);
 }

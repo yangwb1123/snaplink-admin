@@ -1,188 +1,218 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+
+import 'dcr_credentials.dart';
+import 'dcr_delete_dialog.dart';
+import 'dcr_form_controller.dart';
+import 'dcr_metadata_form.dart';
+import 'dcr_models.dart';
+import 'dcr_round_trip_notice.dart';
+import 'dcr_update_projection.dart';
+import 'dcr_validation.dart';
 import 'developer_api.dart';
 
-/// Manage an Existing App tab: RFC 7592 read/update/delete of an
-/// already-registered client, authenticated by registration_access_token.
 class ManagePanel extends StatefulWidget {
   final DeveloperApi api;
-  const ManagePanel({super.key, required this.api});
+  final DcrDiscovery? discovery;
+
+  const ManagePanel({super.key, required this.api, this.discovery});
 
   @override
   State<ManagePanel> createState() => ManagePanelState();
 }
 
 class ManagePanelState extends State<ManagePanel> {
-  final _clientIdCtrl = TextEditingController();
-  final _tokenCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
-  final _redirectUrisCtrl = TextEditingController();
-  final _scopeCtrl = TextEditingController();
-  final _advancedMetadataCtrl = TextEditingController();
-  String _tokenStrategy = 'jwt';
+  final _clientIdController = TextEditingController();
+  final _tokenController = TextEditingController();
+  final _form = DcrFormController();
 
+  Map<String, dynamic>? _currentApp;
+  DcrRoundTripSafety? _roundTripSafety;
   bool _loading = false;
   bool _saving = false;
+  bool _deleting = false;
   String? _loadError;
-
-  // Holds the full last-GET RFC 7592 representation behind the loaded app —
-  // PUT must round-trip every field this form does NOT expose (grant_types,
-  // response_types, allowed_authenticators, allowed_resources,
-  // post_logout_redirect_uris, ...) UNCHANGED, since the server takes those
-  // verbatim from the request with no stored-value fallback. Dropping them
-  // would silently wipe real client capabilities on every save.
-  Map<String, dynamic>? _currentApp;
+  bool _credentialError = false;
 
   @override
   void dispose() {
-    _clientIdCtrl.dispose();
-    _tokenCtrl.dispose();
-    _nameCtrl.dispose();
-    _redirectUrisCtrl.dispose();
-    _scopeCtrl.dispose();
-    _advancedMetadataCtrl.dispose();
+    _clientIdController.dispose();
+    _tokenController.dispose();
+    _form.dispose();
+    _currentApp = null;
     super.dispose();
   }
 
-  /// Called by DeveloperScreen right after a fresh registration + "Manage
-  /// This App" so the developer doesn't have to retype what was just
-  /// issued.
+  void loadWithRegistration(
+    String clientId,
+    String token,
+    Map<String, dynamic> registrationSnapshot,
+  ) {
+    _clientIdController.text = clientId;
+    _tokenController.text = token;
+    _applyLoaded({
+      ...registrationSnapshot,
+      'client_id': clientId,
+    }, trustedRegistrationSnapshot: true);
+  }
+
+  /// Backward-compatible entry point for callers that only have credentials.
   void loadWith(String clientId, String token) {
-    _clientIdCtrl.text = clientId;
-    _tokenCtrl.text = token;
+    _clientIdController.text = clientId;
+    _tokenController.text = token;
     _load();
   }
 
-  List<String> _splitLines(String s) =>
-      s.split('\n').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
-
-  void _populateForm(Map<String, dynamic> d) {
-    _nameCtrl.text = (d['client_name'] as String?) ?? '';
-    final uris = (d['redirect_uris'] as List?) ?? const [];
-    _redirectUrisCtrl.text = uris.join('\n');
-    _scopeCtrl.text = (d['scope'] as String?) ?? '';
-    _tokenStrategy = (d['token_strategy'] as String?) ?? 'jwt';
-    _advancedMetadataCtrl.text = const JsonEncoder.withIndent('  ').convert({
-      for (final entry in d.entries)
-        if (!_reservedMetadataKeys.contains(entry.key)) entry.key: entry.value,
+  void _applyLoaded(
+    Map<String, dynamic> app, {
+    bool trustedRegistrationSnapshot = false,
+    DcrRoundTripSafety? safetyOverride,
+  }) {
+    final safety =
+        safetyOverride ??
+        DcrRoundTripSafety.fromWire(
+          app,
+          trustedRegistrationSnapshot: trustedRegistrationSnapshot,
+        );
+    final metadata = DcrClientMetadata.fromWire(app);
+    setState(() {
+      _currentApp = Map<String, dynamic>.from(app)
+        ..remove('client_secret')
+        ..remove('registration_access_token');
+      _roundTripSafety = safety;
+      _form.populate(metadata);
+      _loadError = null;
+      _credentialError = false;
     });
   }
 
-  static const _reservedMetadataKeys = {
-    'client_id',
-    'client_secret',
-    'client_id_issued_at',
-    'client_secret_expires_at',
-    'registration_access_token',
-    'registration_client_uri',
-    'client_name',
-    'redirect_uris',
-    'scope',
-    'token_strategy',
-  };
-
-  Map<String, dynamic> _advancedMetadata() {
-    final raw = _advancedMetadataCtrl.text.trim();
-    if (raw.isEmpty) return const {};
-    final decoded = jsonDecode(raw);
-    if (decoded is Map<String, dynamic>) return decoded;
-    if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    throw const FormatException('Advanced metadata must be a JSON object.');
-  }
-
   Future<void> _load() async {
-    setState(() => _loadError = null);
-    final clientId = _clientIdCtrl.text.trim();
-    final token = _tokenCtrl.text.trim();
+    final clientId = _clientIdController.text.trim();
+    final token = _tokenController.text.trim();
     if (clientId.isEmpty || token.isEmpty) {
-      setState(
-        () => _loadError =
-            'Client ID and registration access token are both required.',
-      );
+      setState(() {
+        _loadError =
+            'Client ID and registration access token are both required.';
+        _credentialError = false;
+      });
       return;
     }
-    setState(() => _loading = true);
+
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _credentialError = false;
+      _currentApp = null;
+      _roundTripSafety = null;
+    });
     try {
       final app = await widget.api.loadApp(clientId: clientId, token: token);
-      setState(() {
-        _currentApp = app;
-        _populateForm(app);
-      });
+      if (!mounted) return;
+      _applyLoaded(app);
+    } on DeveloperApiError catch (error) {
+      if (!mounted) return;
+      if (error.isInvalidManagementCredential) {
+        setState(() {
+          _loadError = 'Invalid client ID or registration access token.';
+          _credentialError = true;
+        });
+      } else {
+        setState(() {
+          _loadError = error.isRetryable
+              ? 'Snaplink is temporarily unavailable (HTTP ${error.status}). '
+                    'Your credentials were not classified as invalid; retry.'
+              : 'Snaplink rejected the management request: $error';
+          _credentialError = false;
+        });
+      }
     } catch (_) {
-      // The server collapses every failure (wrong token, unknown
-      // client_id) to the same 401 shape by design (anti-enumeration) —
-      // never surface the underlying detail here, only this fixed message.
-      setState(() {
-        _currentApp = null;
-        _loadError = 'Invalid client ID or registration access token.';
-      });
+      if (mounted) {
+        setState(() {
+          _loadError =
+              'Unable to reach Snaplink. Your credentials were not classified '
+              'as invalid; check the connection and retry.';
+          _credentialError = false;
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _save() async {
-    final current = _currentApp;
-    if (current == null) return;
-    final clientId = _clientIdCtrl.text.trim();
-    final token = _tokenCtrl.text.trim();
-
-    late final Map<String, dynamic> advanced;
-    try {
-      advanced = _advancedMetadata();
-    } on FormatException catch (error) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+    if (_currentApp == null || _roundTripSafety?.canSafelyUpdate != true) {
       return;
     }
-    // RFC 7592 is a complete replacement, so the editor carries every
-    // non-secret/unexposed field in this object. Reserved response fields
-    // are ignored even if pasted into the JSON area.
-    final body = <String, dynamic>{
-      for (final entry in advanced.entries)
-        if (!_reservedMetadataKeys.contains(entry.key)) entry.key: entry.value,
-      'client_name': _nameCtrl.text.trim(),
-      'redirect_uris': _splitLines(_redirectUrisCtrl.text),
-      'scope': _scopeCtrl.text.trim(),
-      'token_strategy': _tokenStrategy,
-    };
+    late final DcrClientMetadata metadata;
+    try {
+      metadata = _form.metadata();
+    } on FormatException catch (error) {
+      _showMessage(error.message);
+      return;
+    }
+    final validation = validateDcrMetadata(
+      metadata,
+      discovery: widget.discovery,
+      registration: false,
+    );
+    if (!validation.isValid) {
+      _showMessage(validation.message);
+      return;
+    }
 
+    final clientId = _clientIdController.text.trim();
+    final token = _tokenController.text.trim();
+    final body = metadata.toManagementWire();
     setState(() => _saving = true);
     try {
-      final updated = await widget.api.saveApp(
+      final response = await widget.api.saveApp(
         clientId: clientId,
         token: token,
         body: body,
       );
-      setState(() {
-        _currentApp = updated;
-        _populateForm(updated);
-        // A rotated registration_access_token (only when the operator
-        // enabled rotate_access_token) invalidates the one just used to
-        // authenticate THIS save — swap it in so the next save/delete
-        // still works.
-        final rotated = updated['registration_access_token'] as String?;
-        if (rotated != null && rotated.isNotEmpty) {
-          _tokenCtrl.text = rotated;
-        }
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Saved.')));
+      if (!mounted) return;
+
+      final rotatedToken =
+          response['registration_access_token']?.toString() ?? '';
+      final projection = DcrUpdateProjection.fromPutResponse(
+        response: response,
+        submitted: metadata,
+      );
+      _applyLoaded(projection.wire, safetyOverride: projection.safety);
+
+      if (rotatedToken.isNotEmpty) {
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => RotatedRegistrationTokenDialog(
+            token: rotatedToken,
+            onConfirmed: () => _tokenController.text = rotatedToken,
+          ),
+        );
       }
-    } on DeveloperApiError catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+      if (mounted) _showMessage('Saved.');
+    } on DeveloperApiError catch (error) {
+      if (!mounted) return;
+      if (error.isInvalidManagementCredential) {
+        setState(() {
+          _currentApp = null;
+          _roundTripSafety = null;
+          _loadError = 'Invalid client ID or registration access token.';
+          _credentialError = true;
+        });
+      } else {
+        _showMessage(
+          error.isRetryable
+              ? 'Save was not confirmed (HTTP ${error.status}). Retry without '
+                    'reloading credentials.'
+              : '$error',
+        );
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Network error: $e')));
+        _showMessage(
+          'Save was not confirmed because Snaplink could not be reached. '
+          'Retry; the credentials were not classified as invalid.',
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -190,59 +220,61 @@ class ManagePanelState extends State<ManagePanel> {
   }
 
   Future<void> _confirmDelete() async {
-    final current = _currentApp;
-    if (current == null) return;
-    final clientId = _clientIdCtrl.text.trim();
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete app?'),
-        content: Text('Delete this app ($clientId)? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) await _delete();
+    if (_currentApp == null) return;
+    final clientId = _clientIdController.text.trim();
+    final confirmed = await confirmDcrDeletion(context, clientId: clientId);
+    if (!mounted) return;
+    if (confirmed) await _delete();
   }
 
   Future<void> _delete() async {
-    final clientId = _clientIdCtrl.text.trim();
-    final token = _tokenCtrl.text.trim();
+    setState(() => _deleting = true);
     try {
-      await widget.api.deleteApp(clientId: clientId, token: token);
+      await widget.api.deleteApp(
+        clientId: _clientIdController.text.trim(),
+        token: _tokenController.text.trim(),
+      );
+      if (!mounted) return;
       setState(() {
         _currentApp = null;
-        _clientIdCtrl.clear();
-        _tokenCtrl.clear();
+        _roundTripSafety = null;
+        _clientIdController.clear();
+        _tokenController.clear();
       });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('App deleted.')));
+      _showMessage('App deleted.');
+    } on DeveloperApiError catch (error) {
+      if (!mounted) return;
+      if (error.isInvalidManagementCredential) {
+        setState(() {
+          _currentApp = null;
+          _roundTripSafety = null;
+          _loadError = 'Invalid client ID or registration access token.';
+          _credentialError = true;
+        });
+      } else {
+        _showMessage(
+          error.isRetryable
+              ? 'Delete was not confirmed (HTTP ${error.status}). Retry; '
+                    'the credentials remain loaded.'
+              : 'Snaplink rejected the delete request: $error',
+        );
       }
-    } on DeveloperApiError catch (e) {
+    } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        _showMessage(
+          'Delete was not confirmed because Snaplink could not be reached. '
+          'Retry; the credentials were not classified as invalid.',
+        );
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Network error: $e')));
-      }
+    } finally {
+      if (mounted) setState(() => _deleting = false);
     }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -257,27 +289,36 @@ class ManagePanelState extends State<ManagePanel> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextField(
-                  controller: _clientIdCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Client ID',
-                    hintText: 'client id',
-                  ),
+                  controller: _clientIdController,
+                  enabled: _currentApp == null && !_loading,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textCapitalization: TextCapitalization.none,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(labelText: 'Client ID'),
                 ),
                 const SizedBox(height: 14),
-                TextField(
-                  controller: _tokenCtrl,
-                  obscureText: true,
-                  autocorrect: false,
-                  decoration: const InputDecoration(
-                    labelText: 'Registration Access Token',
-                    hintText: 'registration access token',
-                  ),
+                SensitiveTokenField(
+                  controller: _tokenController,
+                  label: 'Registration Access Token',
+                  enabled: !_loading && !_saving && !_deleting,
+                  readOnly: _currentApp != null,
+                  onSubmitted: (_) {
+                    if (!_loading && _currentApp == null) _load();
+                  },
                 ),
                 if (_loadError != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    _loadError!,
-                    style: const TextStyle(color: Colors.redAccent),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _loadError!,
+                      style: TextStyle(
+                        color: _credentialError
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -289,7 +330,7 @@ class ManagePanelState extends State<ManagePanel> {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Load App'),
+                      : Text(_loadError == null ? 'Load App' : 'Retry Load'),
                 ),
               ],
             ),
@@ -297,97 +338,44 @@ class ManagePanelState extends State<ManagePanel> {
         ),
         if (_currentApp != null) ...[
           const SizedBox(height: 16),
+          DcrRoundTripNotice(safety: _roundTripSafety!),
+          const SizedBox(height: 12),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'APP CONFIGURATION',
-                    style: Theme.of(context).textTheme.labelLarge,
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _nameCtrl,
-                    decoration: const InputDecoration(labelText: 'App Name'),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _redirectUrisCtrl,
-                    maxLines: 3,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Redirect URIs (one per line)',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _scopeCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Scope (space-separated)',
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField<String>(
-                    initialValue: _tokenStrategy,
-                    decoration: const InputDecoration(
-                      labelText: 'Token Strategy',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'jwt', child: Text('jwt')),
-                      DropdownMenuItem(
-                        value: 'session',
-                        child: Text('session'),
-                      ),
-                    ],
-                    onChanged: (v) =>
-                        setState(() => _tokenStrategy = v ?? _tokenStrategy),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: _advancedMetadataCtrl,
-                    minLines: 5,
-                    maxLines: 14,
-                    autocorrect: false,
-                    style: const TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 13,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Advanced registration metadata (JSON)',
-                      helperText:
-                          'Full RFC 7592 metadata except protected response credentials. Remove a field to omit it on this full update.',
-                    ),
+                  DcrMetadataForm(
+                    controller: _form,
+                    discovery: widget.discovery,
+                    managementMode: true,
+                    roundTripSafety: _roundTripSafety,
+                    onChanged: () => setState(() {}),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      FilledButton(
-                        onPressed: _saving ? null : _save,
-                        child: _saving
-                            ? const SizedBox(
-                                height: 18,
-                                width: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Text('Save Changes'),
-                      ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(
-                        onPressed: _confirmDelete,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          side: const BorderSide(color: Colors.redAccent),
-                        ),
-                        child: const Text('Delete App'),
-                      ),
-                    ],
+                  FilledButton(
+                    onPressed:
+                        _saving ||
+                            _deleting ||
+                            _roundTripSafety?.canSafelyUpdate != true
+                        ? null
+                        : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save Changes'),
+                  ),
+                  const SizedBox(height: 10),
+                  OutlinedButton(
+                    onPressed: _saving || _deleting ? null : _confirmDelete,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                    ),
+                    child: Text(_deleting ? 'Deleting…' : 'Delete App'),
                   ),
                 ],
               ),

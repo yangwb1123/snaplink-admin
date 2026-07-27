@@ -1,20 +1,23 @@
-import 'dart:js_interop';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:web/web.dart' as web;
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
+
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
   const ClientsTab({super.key, required this.client});
   @override
   State<ClientsTab> createState() => _ClientsTabState();
 }
+
 class _ClientsTabState extends State<ClientsTab> {
   final _filterCtrl = TextEditingController();
   final _pageTokens = <String?>[null];
@@ -22,17 +25,18 @@ class _ClientsTabState extends State<ClientsTab> {
   var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
+  late final void Function() _cancelPopState;
+
   @override
   void initState() {
     super.initState();
     _future = _loadPage();
     _handleRoute();
-    // Listen for URL changes
-    void popListener() {
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
-    }
-    web.window.addEventListener('popstate', popListener.toJS);
+    });
   }
+
   void _handleRoute() {
     final route = AdminRoute.fromUri(Uri.base);
     if (route.module != 'clients') return;
@@ -42,19 +46,25 @@ class _ClientsTabState extends State<ClientsTab> {
       _openEditForId(route.resourceId);
     }
   }
+
   Future<void> _openEditForId(String id) async {
     try {
       final client = await widget.client.getClient(id);
       if (!mounted) return;
       await _openEditDialog(client);
-    } catch (e) { debugPrint("clients_tab edit error: \$e"); }
+    } catch (e) {
+      debugPrint('clients_tab edit error: $e');
+    }
     if (mounted) AdminRoute.go('clients');
   }
+
   @override
   void dispose() {
+    _cancelPopState();
     _filterCtrl.dispose();
     super.dispose();
   }
+
   Future<SSOAdminListPage> _loadPage() => widget.client.listClients(
     pageToken: _pageTokens[_pageIndex],
     pageSize: _pageSize,
@@ -70,6 +80,7 @@ class _ClientsTabState extends State<ClientsTab> {
       _future = _loadPage();
     });
   }
+
   void _goPrevious() {
     if (_pageIndex == 0) return;
     setState(() {
@@ -77,6 +88,7 @@ class _ClientsTabState extends State<ClientsTab> {
       _future = _loadPage();
     });
   }
+
   void _goNext(SSOAdminListPage page) {
     final next = page.nextPageToken;
     if (next == null) return;
@@ -87,6 +99,7 @@ class _ClientsTabState extends State<ClientsTab> {
       _future = _loadPage();
     });
   }
+
   Future<void> _openCreateDialog() async {
     final created = await showDialog<bool>(
       context: context,
@@ -95,6 +108,7 @@ class _ClientsTabState extends State<ClientsTab> {
     if (created == true) _reload();
     if (mounted) AdminRoute.go('clients');
   }
+
   Future<void> _openEditDialog(Map<String, dynamic> c) async {
     final updated = await showDialog<bool>(
       context: context,
@@ -103,51 +117,70 @@ class _ClientsTabState extends State<ClientsTab> {
     if (updated == true) _reload();
     if (mounted) AdminRoute.go('clients');
   }
+
   Future<void> _approveClient(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Approve client?',
+      message: 'Approve $id for use on this authorization server?',
+      confirmLabel: 'Approve',
+    );
+    if (!confirmed) return;
     try {
       await widget.client.approveClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Client $id approved.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Client $id approved.')));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
+
   Future<void> _rejectClient(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Reject client?',
+      message: 'Reject the pending client registration for $id?',
+      confirmLabel: 'Reject',
+      destructive: true,
+      confirmText: id,
+    );
+    if (!confirmed) return;
     try {
       await widget.client.rejectClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Client $id rejected.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Client $id rejected.')));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
+
   Future<void> _confirmDelete(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete client?'),
-        content: Text('Delete $id? This cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Delete client?',
+      message:
+          'Delete $id permanently? Existing tokens and integrations may '
+          'stop working.',
+      confirmLabel: 'Delete permanently',
+      confirmText: id,
+      destructive: true,
     );
-    if (confirmed != true) return;
+    if (!confirmed) return;
     try {
       await widget.client.deleteClient(id);
       if (!mounted) return;
@@ -159,8 +192,20 @@ class _ClientsTabState extends State<ClientsTab> {
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
+
   Future<void> _rotateSecret(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Rotate client secret?',
+      message:
+          'The current secret for $id will stop working. Update every '
+          'integration with the new one-time value.',
+      confirmLabel: 'Rotate secret',
+      confirmText: id,
+      destructive: true,
+    );
+    if (!confirmed) return;
     String secret;
     try {
       secret = await widget.client.rotateClientSecret(id);
@@ -172,8 +217,19 @@ class _ClientsTabState extends State<ClientsTab> {
       return;
     }
     if (!mounted) return;
+    if (secret.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The secret was rotated, but its one-time value was not returned.',
+          ),
+        ),
+      );
+      return;
+    }
     await showDialog<void>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text('New client secret'),
         content: Column(
@@ -204,31 +260,24 @@ class _ClientsTabState extends State<ClientsTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: const Text('I have saved it'),
           ),
         ],
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdminBreadcrumb(),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Text(AppStrings.of(context).clients, style: Theme.of(context).textTheme.headlineSmall),
-              const Spacer(),
-              IconButton(
-                onPressed: () => AdminRoute.go('clients', action: 'new'),
-                icon: const Icon(Icons.add),
-              ),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
-            ],
-          ),
+        AdminListHeader(
+          title: AppStrings.of(context).clients,
+          createTooltip: 'Create client',
+          onCreate: () => AdminRoute.go('clients', action: 'new'),
+          onRefresh: _reload,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -309,9 +358,11 @@ class _ClientsTabState extends State<ClientsTab> {
                         ? EmptyState(
                             icon: Icons.apps,
                             title: 'No clients',
-                            subtitle: 'Create your first client to get started.',
+                            subtitle:
+                                'Create your first client to get started.',
                             actionLabel: 'Create client',
-                            onAction: () => AdminRoute.go('clients', action: 'new'),
+                            onAction: () =>
+                                AdminRoute.go('clients', action: 'new'),
                           )
                         : ListView.separated(
                             itemCount: items.length,
@@ -321,7 +372,10 @@ class _ClientsTabState extends State<ClientsTab> {
                               final c = items[i];
                               final active = c['active'] == true;
                               return ListTile(
-                                onTap: () => AdminRoute.go('clients', resourceId: c['id']?.toString() ?? ''),
+                                onTap: () => AdminRoute.go(
+                                  'clients',
+                                  resourceId: c['id']?.toString() ?? '',
+                                ),
                                 leading: Icon(
                                   Icons.apps,
                                   color: active
@@ -342,7 +396,12 @@ class _ClientsTabState extends State<ClientsTab> {
                                       onSelected: (value) {
                                         switch (value) {
                                           case 'edit':
-                                            AdminRoute.go('clients', action: 'edit', resourceId: c['id']?.toString() ?? '');
+                                            AdminRoute.go(
+                                              'clients',
+                                              action: 'edit',
+                                              resourceId:
+                                                  c['id']?.toString() ?? '',
+                                            );
                                             break;
                                           case 'rotate':
                                             _rotateSecret(c);
