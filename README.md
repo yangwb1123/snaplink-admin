@@ -1,160 +1,89 @@
 # sso-console
 
-snaplink SSO 服务器的管理控制台。基于 Flutter Web 构建，提供完整的身份管理、安全策略、运维监控等功能。
+Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管理员控制台、
+托管登录、自助账户门户、开发者动态注册、首次安装和设备授权体验。
 
-## 快速开始
+## 产品入口
+
+| 入口 | 用户 | 主要能力 |
+|---|---|---|
+| `/admin/` | 平台、租户、安全与运维管理员 | 身份、应用、权限、策略、Token、设备、审计、治理、恢复与合规 |
+| `/login/` | 最终用户 | 品牌化登录、动态身份源、账户恢复、MFA/WebAuthn、授权同意 |
+| `/portal/` | 已登录用户 | 账户、凭据、设备、会话、授权、组织、活动与隐私自助 |
+| `/developer/` | OAuth/OIDC 应用开发者 | RFC 7591 注册及 RFC 7592 管理 |
+| `/setup/` | 首次部署的所有者 | 单次初始化管理员与首个应用 |
+| `/device/verify` | 已登录用户 | RFC 8628 设备码确认或拒绝 |
+
+详细的功能覆盖、产品边界和后端契约缺口见
+[docs/FEATURE_COVERAGE.md](docs/FEATURE_COVERAGE.md)；角色、领域边界、安全
+不变量和关键流程见
+[docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md)。
+
+## 架构原则
+
+管理端以 Snaplink 后端契约为准，不在前端猜测接口：
+
+1. 加载当前副本的 `/api/v1/admin/endpoints` 运行时能力清单。
+2. 合并 `docs/openapi.yaml` 对应的精确方法与路径目录。
+3. 对后端已挂载但尚未进入 OpenAPI 的少量路由使用独立补充清单，并在
+   `404/501` 时显式降级。
+
+导航条目与页面保持同一个描述对象，因此能力裁剪不会造成索引错位。高频和
+高风险场景使用专用工作流；其余已发布管理契约由 Advanced operations 提供
+受约束的兜底入口。写操作需要确认，敏感凭据只做一次性展示，PII 导出直接
+下载而不进入通用响应预览。
+
+核心实现：
+
+- `lib/screens/admin/admin_navigation.dart`：能力驱动的管理导航
+- `lib/screens/admin/admin_route.dart`：可深链的管理路由
+- `lib/api/snaplink_admin_api.dart`：认证、缓存、重试和契约传输
+- `lib/api/snaplink_admin_types.dart`：已发布及补充路由清单
+- `lib/app_router.dart`：六个产品入口的顶层分发
+
+## 本地开发
 
 ```bash
-# 构建
-make build
+# 需要 Flutter 3 / Dart 3
+flutter pub get
 
-# 启动开发代理（需要先启动 snaplink 后端）
+# 启动开发代理；Snaplink 后端默认监听 localhost:8080
 make serve
 
-# 访问 http://localhost:4444
-# 登录: admin / admin
+# 另一个终端构建 Web 产物
+make build
 ```
 
-## 架构
-
-### 三层 URL 路由
-
-```
-Level 1:  /admin/{module}              → 22 个功能模块
-Level 2:  /admin/{module}/{id}         → 7 个详情页
-          /admin/{module}/{id}/edit    → 编辑
-          /admin/{module}/new          → 创建
-Level 3:  /admin/{module}/{sub}        → 模块级子资源
-          /admin/{module}/{id}/{sub}   → 资源级子资源
-```
-
-路由引擎：`lib/screens/admin/admin_route.dart`
-
-### 模块列表
-
-| 模块 | URL | 功能 |
-|------|-----|------|
-| 客户端 | `/admin/clients` | CRUD, 密钥轮换, 审批 |
-| 用户 | `/admin/users` | 会话/授权/MFA/生命周期 |
-| 租户 | `/admin/tenants` | 成员/邀请/用量 |
-| 连接 | `/admin/connections` | 健康探测/域名 |
-| 权限 | `/admin/permissions` | 角色/分配/菜单 |
-| Token 安全 | `/admin/token-security` | 组合/异常/会话/过期 |
-| Webhook | `/admin/webhooks` | 订阅/死信/重放 |
-| 紧急访问 | `/admin/emergency-access` | 审批/模拟/审计 |
-| 治理 | `/admin/governance` | 审计/合规/配置/健康 |
-| 密钥 | `/admin/crypto-keys` | 轮换/泄露报告 |
-| 凭据 | `/admin/credentials` | 泄露报告 |
-| 域名 | `/admin/domains` | 注册/验证 |
-| ... | ... | 共 23 个模块 |
-
-### 数据流
-
-```
-浏览器 → 代理(:4444) → Flutter SPA → SnaplinkAdminApi → snaplink 后端(:8080)
-         ├── 静态文件 (build/web/)
-         └── API 代理 (/api/*, /auth/*)
-```
-
-### 缓存层
-
-`lib/api/data_cache.dart` 提供透明缓存：
-
-- GET 请求缓存 10 秒（TTL 可配置）
-- 并发请求去重（相同 URL 合并为 1 个 HTTP 调用）
-- 写操作（POST/PUT/DELETE）自动失效相关缓存
-- `api.skipCache()` 强制跳过缓存（用户刷新时使用）
-
-## 开发命令
-
-```bash
-make build       # 构建 Flutter Web
-make test        # 运行单元测试（98 个）
-make analyze     # 静态分析（dart analyze）
-make serve       # 启动开发代理
-make verify      # 构建 + 测试 + 集成验证
-make benchmark   # 性能基准测试
-make full-stack  # 全栈验证（需后端运行）
-make watch       # 监听文件变化自动构建
-```
-
-## 测试
-
-```bash
-# 单元测试（不依赖后端）
-flutter test test/admin_route_test.dart
-flutter test test/data_cache_test.dart
-flutter test test/api_contract_test.dart
-
-# 集成测试（需后端运行）
-python3 tests/integration/full_integration_test.py  # 80 个 API 测试
-python3 tests/integration/admin_flow_e2e.py          # 56 个端到端测试
-python3 tests/integration/cache_validation_test.py    # 14 个缓存验证
-
-# 浏览器 E2E（需安装 Playwright）
-python3 tests/integration/browser_test.py             # 17 个浏览器测试
-python3 tests/integration/browser_interaction_test.py # 18 个交互测试
-
-# 全栈验证
-python3 tests/integration/full_stack_verify.py        # 6 个步骤
-python3 tests/integration/e2e_runner.py                # 74 个测试
-```
+控制台默认通过 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
+所连接的 Snaplink 部署决定，不应在前端仓库中保存默认生产凭据。
 
 ## 质量门禁
 
-所有代码在合并前必须通过：
-
 ```bash
-make analyze    # dart analyze: 0 issues
-make test       # 单元测试: 全部通过
-make build      # Flutter 构建: 成功
+flutter analyze
+flutter test
+flutter build web --release
+git diff --check
 ```
 
-## 项目结构
+需要真实后端的集成验证位于 `tests/integration/`；运行方式见
+[tests/integration/README.md](tests/integration/README.md)。部署方式见
+[DEPLOY.md](DEPLOY.md)。
 
-```
+## 目录
+
+```text
 lib/
-├── api/
-│   ├── sso_client.dart           # SSOAdminClient (40 方法)
-│   ├── snaplink_admin_api.dart   # SnaplinkAdminApi (HTTP 客户端)
-│   ├── snaplink_admin_types.dart # 类型定义
-│   └── data_cache.dart           # 缓存层
+├── api/                  # Admin、登录、Setup、设备授权传输与缓存
 ├── screens/
-│   ├── admin/                    # 管理后台 (52 文件)
-│   │   ├── admin_route.dart      # 路由引擎
-│   │   ├── dashboard_screen.dart # 主布局 + 导航
-│   │   ├── *_tab.dart            # 23 个标签页
-│   │   └── *_screen.dart         # 7 个详情页
-│   ├── oidc_login/               # OIDC 登录流
-│   └── portal/                   # 自助门户
-├── widgets/
-│   ├── admin_breadcrumb.dart     # 面包屑导航
-│   ├── section_selector.dart     # 章节选择器
-│   ├── empty_state.dart          # 空状态
-│   ├── search_filter_bar.dart    # 搜索/筛选栏
-│   ├── skeleton_list.dart        # 骨架屏加载
-│   └── confirm_dialog.dart       # 确认对话框
-└── main.dart
-test/
-├── admin_route_test.dart         # 58 个路由测试
-├── data_cache_test.dart          # 15 个缓存测试
-├── api_contract_test.dart        # 6 个 API 合约测试
-└── ...
-tools/
-└── robust_proxy.py               # 开发代理服务器
-tests/integration/
-├── full_integration_test.py      # 80 个集成测试
-├── admin_flow_e2e.py             # 56 个端到端测试
-├── cache_validation_test.py      # 14 个缓存验证
-├── e2e_runner.py                 # 统一测试运行器
-├── full_stack_verify.py          # 全栈验证
-└── perf_benchmark.py             # 性能基准测试
+│   ├── admin/            # 管理控制面与 SCIM
+│   ├── developer/        # RFC 7591/7592
+│   ├── device/           # RFC 8628 用户确认
+│   ├── oidc_login/       # 托管登录、MFA 与 Consent
+│   ├── portal/           # 最终用户自助门户
+│   └── setup/            # 首次初始化
+├── services/             # 存储、浏览器适配、缓存通知和审计
+└── widgets/              # 跨领域 UI 原语
+test/                     # VM 与浏览器组件/契约测试
+tests/integration/        # 真实 Snaplink 端到端验证
 ```
-
-## 技术栈
-
-- **前端**: Flutter Web 3.x (Dart 3.x)
-- **后端**: snaplink SSO Server (Go)
-- **代理**: Python 3.x (开发环境)
-- **测试**: Flutter Test + Python + Playwright + curl
-- **CI**: GitHub Actions

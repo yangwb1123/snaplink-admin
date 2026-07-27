@@ -1,14 +1,15 @@
 # Deploying sso-console
 
-This is a single static Flutter web bundle that serves five different areas
+This is a single static Flutter web bundle that serves six different areas
 of the SSO product (`/admin/`, `/login/`, `/setup/`, `/portal/`,
-`/developer/`) — `lib/app_router.dart`'s `resolveInitialScreen()` picks which
-screen to show based on the URL path the browser actually loaded. The app
-itself doesn't care which prefix it was reached through; **an upstream
-gateway is expected to route** `/admin/`, `/login/`, `/portal/`,
-`/developer/`, `/setup/`, and `/app/` (the static-asset prefix baked in via
-`--base-href=/app/`) to wherever this app's root (`/`) ends up listening.
-Wiring that gateway routing is out of scope for this document.
+`/developer/`, `/device/verify`) — `lib/app_router.dart`'s
+`resolveInitialScreen()` picks which screen to show based on the URL path the
+browser actually loaded. The app itself doesn't care which prefix it was
+reached through; **an upstream gateway is expected to route** `/admin/`,
+`/login/`, `/portal/`, `/developer/`, `/setup/`, `/device/verify`, and
+`/app/` (the static-asset prefix baked in via `--base-href=/app/`) to wherever
+this app's root (`/`) ends up listening. Wiring that gateway routing is out of
+scope for this document.
 
 Every method below starts with the same build step, since Flutter is not
 built inside Docker here (see note in the Kubernetes/Docker sections):
@@ -57,7 +58,7 @@ docker run -d --name sso-console -p 8080:80 sso-console:latest
 ```
 
 The console is now reachable on `http://localhost:8080/`. Point any reverse
-proxy (nginx, Caddy, Traefik, etc.) at that port, routing the five path
+proxy (nginx, Caddy, Traefik, etc.) at that port, routing the six path
 prefixes above to it.
 
 ## Method 3: Manual / direct static hosting (no container)

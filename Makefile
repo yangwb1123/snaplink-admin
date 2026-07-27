@@ -10,11 +10,11 @@ build:
 
 # 运行所有单元测试
 test:
-	flutter test test/admin_route_test.dart test/data_cache_test.dart test/shared_widgets_test.dart test/api_contract_test.dart test/api_paths_test.dart
+	flutter test
 
 # 静态分析
 analyze:
-	dart analyze lib/ test/
+	flutter analyze
 
 # 启动开发代理服务器
 serve:
@@ -37,7 +37,7 @@ watch:
 	done
 
 # 运行全量验证
-verify: build test
+verify: analyze build test
 	@echo "\n=== Running integration tests ==="
 	python3 tests/integration/full_integration_test.py
 	@echo "\n=== Running E2E tests ==="
