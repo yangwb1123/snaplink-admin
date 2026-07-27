@@ -33,6 +33,44 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // A release build may have registered Flutter's offline-first service
+    // worker on this origin before the local dev proxy was started. That
+    // worker can keep serving an old main.dart.js even after a rebuild, which
+    // makes navigation fixes appear not to work. Local development must
+    // always execute the files currently present in build/web.
+    (async () => {
+      const localDevelopment = new Set([
+        'localhost',
+        '127.0.0.1',
+        '[::1]',
+      ]).has(window.location.hostname);
+
+      if (localDevelopment) {
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations =
+              await navigator.serviceWorker.getRegistrations();
+            await Promise.all(
+              registrations.map((registration) => registration.unregister()),
+            );
+          }
+          if ('caches' in window) {
+            const cacheNames = await caches.keys();
+            await Promise.all(cacheNames.map((name) => caches.delete(name)));
+          }
+        } catch (error) {
+          console.warn('Unable to reset local Flutter caches.', error);
+        }
+      }
+
+      const bootstrap = document.createElement('script');
+      bootstrap.async = true;
+      bootstrap.src = localDevelopment
+        ? `flutter_bootstrap.js?local-dev=${Date.now()}`
+        : 'flutter_bootstrap.js';
+      document.body.appendChild(bootstrap);
+    })();
+  </script>
 </body>
 </html>
