@@ -6,6 +6,7 @@ Tests authentication through the proxy: login → token → admin access.
 Usage: python3 tests/integration/api_login_e2e.py
 """
 import sys, time, json, subprocess, os
+from test_config import CONFIG, IntegrationConfigurationError
 
 PASS = 0; FAIL = 0
 def check(label, ok, detail=''):
@@ -23,8 +24,15 @@ def curl(method, url, data=None, headers=None, timeout=10):
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout+5)
     return r.stdout.strip()
 
-PROXY = 'http://localhost:4444'
-API = 'http://localhost:8080'
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Skip cleanly when credentials are not configured.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+PROXY = CONFIG.proxy_url
+API = CONFIG.api_url
 
 print("=" * 70)
 print("  API Login Flow E2E Test")
@@ -50,11 +58,7 @@ except Exception as e:
 
 # 3. Login with password
 print("\n【3. Password Authentication】")
-login_data = {
-    'provider': 'password', 'client_id': 'sso-admin-console',
-    'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
-    'credential': {'username': 'admin', 'password': 'admin'}
-}
+login_data = CONFIG.login_payload()
 auth_resp = curl('POST', f'{PROXY}/auth/login', data=login_data,
                  headers={'Content-Type': 'application/json'})
 try:
@@ -70,7 +74,7 @@ try:
     import base64
     try:
         payload = json.loads(base64.urlsafe_b64decode(parts[1] + '=='))
-        check(f"JWT subject: {payload.get('sub', '?')}", payload.get('sub') == 'admin')
+        check(f"JWT subject: {payload.get('sub', '?')}", payload.get('sub') == CONFIG.username)
         check(f"JWT issuer: {payload.get('iss', '?')}", payload.get('iss') == 'sso-server')
     except:
         check("Decode JWT payload", False)
@@ -121,8 +125,7 @@ if token:
 print("\n【6. Error Cases】")
 # Wrong password
 wrong_login = curl('POST', f'{PROXY}/auth/login',
-                   data={'provider': 'password', 'client_id': 'sso-admin-console',
-                         'credential': {'username': 'admin', 'password': 'wrong'}},
+                   data=CONFIG.login_payload(password='definitely-wrong'),
                    headers={'Content-Type': 'application/json'})
 try:
     wrong_data = json.loads(wrong_login)
@@ -151,8 +154,8 @@ if token:
         try:
             if json.loads(r).get('clients') is not None:
                 ok += 1
-        except:
-            pass
+        except Exception as exc:
+            print(f'api_login_e2e: retry skipped: {exc}')
     check(f"20 authenticated requests ({ok}/20)", ok >= 18, f"only {ok}")
 else:
     check("Load test (skip - no token)", True)

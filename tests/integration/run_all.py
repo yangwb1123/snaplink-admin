@@ -9,6 +9,7 @@ Usage:
   python3 tests/integration/run_all.py --ci         # CI 模式（不含浏览器测试）
 """
 import subprocess, sys, os, time, json, argparse
+from test_config import CONFIG
 
 PASS = 0; FAIL = 0; SKIP = 0
 RESULTS = []
@@ -53,7 +54,7 @@ def run_e2e_test(name, cmd, timeout=120):
     return run_test(name, cmd, timeout=timeout, critical=False)
 
 def main():
-    global SKIP
+    global PASS, FAIL, SKIP, RESULTS
     parser = argparse.ArgumentParser()
     parser.add_argument('--skip-e2e', action='store_true', help='Skip browser E2E tests')
     parser.add_argument('--ci', action='store_true', help='CI mode (no browser tests, no proxy)')
@@ -81,7 +82,7 @@ def main():
     
     # ── Gate 2: Build ──
     print("\n【构建检查】")
-    run_test('Flutter Build Web', ['flutter', 'build', 'web', '--release'], timeout=180)
+    run_test('Flutter Build Web', ['python3', 'cli.py', 'build'], timeout=180)
     
     # ── Gate 3: Unit tests ──
     print("\n【单元测试】")
@@ -99,8 +100,8 @@ def main():
                 data = json.loads(line)
                 if data.get('type') == 'testDone':
                     test_count += 1
-            except:
-                pass
+            except Exception as exc:
+                print(f'run_all: step failed silently: {exc}')
         if test_count > 0:
             PASS += 1
             print(f"  ✅ Flutter 单元测试 ({test_count} 个通过)")
@@ -109,6 +110,11 @@ def main():
     else:
         # Fallback: run specific test file
         run_test('AdminRoute Tests', ['flutter', 'test', 'test/admin_route_test.dart'], timeout=60)
+    run_test(
+        'Python Unit Tests',
+        ['python3', '-m', 'unittest', 'discover', '-s', 'tests/unit', '-p', 'test_*.py'],
+        timeout=30,
+    )
     
     # ── Gate 4: Integration tests ──
     print("\n【集成测试】")
@@ -120,27 +126,34 @@ def main():
         print("\n【E2E 测试】")
         
         # Start proxy
-        subprocess.run(['fuser', '-k', '4444/tcp'], capture_output=True)
-        time.sleep(2)
-        proxy = subprocess.Popen(
-            ['python3', '/tmp/robust_proxy.py'],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-        )
-        time.sleep(3)
+        proxy = None
+        if CONFIG.manages_local_proxy:
+            subprocess.run(
+                ['fuser', '-k', f'{CONFIG.proxy_port}/tcp'],
+                capture_output=True,
+            )
+            time.sleep(2)
+            proxy = subprocess.Popen(
+                ['python3', 'tools/robust_proxy.py'],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=CONFIG.proxy_environment(),
+            )
+            time.sleep(3)
         
         # Check proxy is up
         curl_check = subprocess.run(
             ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5',
-             'http://localhost:4444/'],
+             f'{CONFIG.proxy_url}/'],
             capture_output=True, text=True, timeout=10
         )
         if curl_check.stdout.strip() == '200':
             # Run curl-based adversarial tests
             run_e2e_test('Curl Adversarial Tests', 
-                        ['bash', '-c', '''
+                        ['env', f'SNAPLINK_E2E_PROXY={CONFIG.proxy_url}', 'bash', '-c', '''
                             PASS=0; FAIL=0
                             for url in /admin/clients /admin/users /admin/tenants /admin/permissions /admin/connections /admin/webhooks /admin/governance /admin/token-security /admin/credentials/report /admin/crypto-keys/rotate /admin/governance/audit /admin/token-security/portfolio /admin/domains/new /admin/threat-policies/new /admin/clients/client-abc /admin/clients/client-abc/edit /admin/users/admin/sessions /admin/tenants/tenant-1/members /admin/permissions/client-abc/roles /admin/emergency-access/test-session; do
-                                CODE=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://localhost:4444$url" 2>/dev/null)
+                                CODE=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$SNAPLINK_E2E_PROXY$url" 2>/dev/null)
                                 [ "$CODE" = "200" ] && PASS=$((PASS+1)) || FAIL=$((FAIL+1))
                             done
                             echo "PASS=$PASS FAIL=$FAIL"
@@ -162,8 +175,9 @@ def main():
         else:
             print(f"  ⚠️ 代理未启动 (HTTP {curl_check.stdout.strip()})，跳过 E2E 测试")
         
-        proxy.terminate()
-        proxy.wait(timeout=5)
+        if proxy is not None:
+            proxy.terminate()
+            proxy.wait(timeout=5)
     else:
         SKIP += 1
         print(f"\n  ⏭️ 跳过 E2E/浏览器测试 ({'CI mode' if args.ci else '--skip-e2e'})")

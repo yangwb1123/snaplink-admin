@@ -4,7 +4,7 @@ import '../../i18n/app_strings.dart';
 import '../../services/product_api_origin.dart';
 import 'hosted_login_models.dart';
 
-class LoginViewWidget extends StatelessWidget {
+class LoginViewWidget extends StatefulWidget {
   final String provider;
   final List<LoginProviderDescriptor> providers;
   final String? signupConfirmed;
@@ -55,19 +55,28 @@ class LoginViewWidget extends StatelessWidget {
   });
 
   @override
+
+  @override
+  State<LoginViewWidget> createState() => _LoginViewWidgetState();
+}
+
+class _LoginViewWidgetState extends State<LoginViewWidget> {
+  var _obscurePassword = true;
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
-    final builtinProviders = providers.where((item) => item.builtin).toList();
-    final federatedProviders = providers
+    final builtinProviders = widget.providers.where((item) => item.builtin).toList();
+    final federatedProviders = widget.providers
         .where(
           (item) =>
               item.isFederated &&
-              (!usesFederatedProvider || item.id != provider),
+              (!widget.usesFederatedProvider || item.id != widget.provider),
         )
         .toList();
-    final selected = _descriptorFor(provider);
-    final selectedBuiltin = builtinProviders.any((item) => item.id == provider);
+    final selected = _descriptorFor(widget.provider);
+    final selectedBuiltin = builtinProviders.any((item) => item.id == widget.provider);
 
     return AutofillGroup(
       child: Column(
@@ -78,7 +87,7 @@ class LoginViewWidget extends StatelessWidget {
           const SizedBox(height: 20),
           if (builtinProviders.length > 1)
             DropdownButtonFormField<String>(
-              initialValue: selectedBuiltin ? provider : null,
+              initialValue: selectedBuiltin ? widget.provider : null,
               hint: Text(strings.provider),
               items: builtinProviders
                   .map(
@@ -88,80 +97,80 @@ class LoginViewWidget extends StatelessWidget {
                     ),
                   )
                   .toList(),
-              onChanged: loading
+              onChanged: widget.loading
                   ? null
                   : (value) {
-                      if (value != null) onProviderChanged(value);
+                      if (value != null) widget.onProviderChanged(value);
                     },
               decoration: InputDecoration(labelText: strings.provider),
             ),
-          if (signupConfirmed != null) ...[
+          if (widget.signupConfirmed != null) ...[
             const SizedBox(height: 12),
             Semantics(
               liveRegion: true,
               child: Text(
-                context.tr(signupConfirmed!),
+                context.tr(widget.signupConfirmed!),
                 style: TextStyle(color: theme.colorScheme.primary),
               ),
             ),
           ],
-          if (usesFederatedProvider)
+          if (widget.usesFederatedProvider)
             Padding(
               padding: const EdgeInsets.only(top: 16, bottom: 16),
               child: Text(
-                context.tr('Continue to {provider} to sign in.', {
-                  'provider': selected.displayName,
+                context.tr('Continue to {widget.provider} to sign in.', {
+                  'widget.provider': selected.displayName,
                 }),
               ),
             )
-          else if (provider == 'webauthn')
+          else if (widget.provider == 'webauthn')
             Padding(
               padding: const EdgeInsets.only(top: 16, bottom: 16),
               child: Text(
                 context.tr('Choose a passkey to sign in without a password.'),
               ),
             )
-          else if (usesCodeProvider)
+          else if (widget.usesCodeProvider)
             _codeForm(context)
-          else if (usesTotpProvider)
+          else if (widget.usesTotpProvider)
             _totpForm(strings)
           else
             _passwordForm(strings),
-          if (error != null) ...[
+          if (widget.error != null) ...[
             const SizedBox(height: 16),
             Semantics(
               liveRegion: true,
               child: Text(
-                context.tr(error!),
+                context.tr(widget.error!),
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
           ],
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: loading ? null : onSubmit,
-            child: loading
+            onPressed: widget.loading ? null : widget.onSubmit,
+            child: widget.loading
                 ? const SizedBox(
                     height: 18,
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Text(
-                    usesFederatedProvider
+                    widget.usesFederatedProvider
                         ? selected.effectiveButtonLabel
-                        : provider == 'webauthn'
+                        : widget.provider == 'webauthn'
                         ? context.tr('Sign in with passkey')
                         : strings.signIn,
                   ),
           ),
-          if (provider == 'password') ...[
+          if (widget.provider == 'password') ...[
             const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
                   child: TextButton(
-                    onPressed: loading ? null : onForgotPassword,
+                    onPressed: widget.loading ? null : widget.onForgotPassword,
                     child: Text(
                       strings.forgotPassword,
                       overflow: TextOverflow.ellipsis,
@@ -170,7 +179,7 @@ class LoginViewWidget extends StatelessWidget {
                 ),
                 Flexible(
                   child: TextButton(
-                    onPressed: loading ? null : onSignUp,
+                    onPressed: widget.loading ? null : widget.onSignUp,
                     child: Text(
                       strings.signUp,
                       overflow: TextOverflow.ellipsis,
@@ -182,7 +191,7 @@ class LoginViewWidget extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: loading ? null : onHomeRealm,
+                onPressed: widget.loading ? null : widget.onHomeRealm,
                 icon: const Icon(Icons.business_outlined),
                 label: Text(context.tr('Use organization sign-in')),
               ),
@@ -209,8 +218,8 @@ class LoginViewWidget extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _FederatedProviderButton(
                   provider: item,
-                  loading: loading,
-                  onPressed: () => onFederatedSignIn(item.id),
+                  loading: widget.loading,
+                  onPressed: () => widget.onFederatedSignIn(item.id),
                 ),
               ),
           ],
@@ -220,7 +229,7 @@ class LoginViewWidget extends StatelessWidget {
   }
 
   LoginProviderDescriptor _descriptorFor(String id) {
-    for (final item in providers) {
+    for (final item in widget.providers) {
       if (item.id == id) return item;
     }
     return LoginProviderDescriptor.fromWire(id);
@@ -229,8 +238,8 @@ class LoginViewWidget extends StatelessWidget {
   Widget _passwordForm(AppStrings strings) => Column(
     children: [
       TextField(
-        controller: userCtrl,
-        enabled: !loading,
+        controller: widget.userCtrl,
+        enabled: !widget.loading,
         autocorrect: false,
         enableSuggestions: false,
         textCapitalization: TextCapitalization.none,
@@ -240,15 +249,27 @@ class LoginViewWidget extends StatelessWidget {
       ),
       const SizedBox(height: 16),
       TextField(
-        controller: passCtrl,
-        enabled: !loading,
-        obscureText: true,
+        controller: widget.passCtrl,
+        enabled: !widget.loading,
+        obscureText: _obscurePassword,
         autocorrect: false,
         enableSuggestions: false,
         autofillHints: const [AutofillHints.password],
         textInputAction: TextInputAction.done,
-        decoration: InputDecoration(labelText: strings.password),
-        onSubmitted: (_) => onSubmit(),
+        decoration: InputDecoration(
+          labelText: strings.password,
+          suffixIcon: IconButton(
+            tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+            icon: Icon(
+              _obscurePassword
+                  ? Icons.visibility_off_outlined
+                  : Icons.visibility_outlined,
+            ),
+            onPressed: () =>
+                setState(() => _obscurePassword = !_obscurePassword),
+          ),
+        ),
+        onSubmitted: (_) => widget.onSubmit(),
       ),
     ],
   );
@@ -256,44 +277,44 @@ class LoginViewWidget extends StatelessWidget {
   Widget _codeForm(BuildContext context) => Column(
     children: [
       TextField(
-        controller: codeTargetCtrl,
-        enabled: !loading,
+        controller: widget.codeTargetCtrl,
+        enabled: !widget.loading,
         autocorrect: false,
         enableSuggestions: false,
         textCapitalization: TextCapitalization.none,
-        keyboardType: provider == 'phone'
+        keyboardType: widget.provider == 'phone'
             ? TextInputType.phone
             : TextInputType.emailAddress,
-        autofillHints: provider == 'phone'
+        autofillHints: widget.provider == 'phone'
             ? const [AutofillHints.telephoneNumber]
             : const [AutofillHints.email],
         textInputAction: TextInputAction.next,
         decoration: InputDecoration(
           labelText: context.tr(
-            provider == 'phone' ? 'Phone number' : 'Email address',
+            widget.provider == 'phone' ? 'Phone number' : 'Email address',
           ),
         ),
       ),
       const SizedBox(height: 12),
       OutlinedButton(
-        onPressed: loading || magicLinkToken != null ? null : onSendCode,
+        onPressed: widget.loading || widget.magicLinkToken != null ? null : widget.onSendCode,
         child: Text(
           context.tr(
-            provider == 'magiclink'
-                ? (codeSent ? 'Resend link' : 'Send link')
-                : (codeSent ? 'Resend code' : 'Send code'),
+            widget.provider == 'magiclink'
+                ? (widget.codeSent ? 'Resend link' : 'Send link')
+                : (widget.codeSent ? 'Resend code' : 'Send code'),
           ),
         ),
       ),
-      if (codeMessage != null) ...[
+      if (widget.codeMessage != null) ...[
         const SizedBox(height: 12),
-        Semantics(liveRegion: true, child: Text(context.tr(codeMessage!))),
+        Semantics(liveRegion: true, child: Text(context.tr(widget.codeMessage!))),
       ],
-      if (provider != 'magiclink' || magicLinkToken == null) ...[
+      if (widget.provider != 'magiclink' || widget.magicLinkToken == null) ...[
         const SizedBox(height: 16),
         TextField(
-          controller: providerCodeCtrl,
-          enabled: !loading,
+          controller: widget.providerCodeCtrl,
+          enabled: !widget.loading,
           autocorrect: false,
           enableSuggestions: false,
           keyboardType: TextInputType.visiblePassword,
@@ -301,10 +322,10 @@ class LoginViewWidget extends StatelessWidget {
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
             labelText: context.tr(
-              provider == 'magiclink' ? 'Token' : 'Verification code',
+              widget.provider == 'magiclink' ? 'Token' : 'Verification code',
             ),
           ),
-          onSubmitted: (_) => onSubmit(),
+          onSubmitted: (_) => widget.onSubmit(),
         ),
       ],
     ],
@@ -313,8 +334,8 @@ class LoginViewWidget extends StatelessWidget {
   Widget _totpForm(AppStrings strings) => Column(
     children: [
       TextField(
-        controller: userCtrl,
-        enabled: !loading,
+        controller: widget.userCtrl,
+        enabled: !widget.loading,
         autocorrect: false,
         enableSuggestions: false,
         textCapitalization: TextCapitalization.none,
@@ -324,15 +345,15 @@ class LoginViewWidget extends StatelessWidget {
       ),
       const SizedBox(height: 16),
       TextField(
-        controller: providerCodeCtrl,
-        enabled: !loading,
+        controller: widget.providerCodeCtrl,
+        enabled: !widget.loading,
         autocorrect: false,
         enableSuggestions: false,
         keyboardType: TextInputType.number,
         autofillHints: const [AutofillHints.oneTimeCode],
         textInputAction: TextInputAction.done,
         decoration: InputDecoration(labelText: strings.verificationCode),
-        onSubmitted: (_) => onSubmit(),
+        onSubmitted: (_) => widget.onSubmit(),
       ),
     ],
   );

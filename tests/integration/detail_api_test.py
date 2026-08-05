@@ -4,6 +4,8 @@ Detail screen backend API integration tests.
 Verifies that all 7 detail screens' backing APIs work correctly.
 """
 import subprocess, sys, json
+import sys
+from test_config import CONFIG, IntegrationConfigurationError
 
 PASS = 0; FAIL = 0
 def check(label, ok, detail=''):
@@ -21,7 +23,14 @@ def curl(url, method='GET', data=None, headers=None, timeout=10):
     r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout+5)
     return r.stdout.strip()
 
-API = 'http://localhost:8080/api/v1/admin'
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Skip cleanly when credentials are not configured.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+API = CONFIG.api_admin_url
 
 def _parse_list(r, key):
     """Parse JSON list from response, handling extra data at end."""
@@ -36,15 +45,13 @@ def _parse_list(r, key):
             if last_brace > 0:
                 d = json.loads(r[first_brace:last_brace+1])
                 return d.get(key, [])
-        except:
-            pass
+        except Exception as exc:
+            print(f'detail_api_test: cleanup skipped: {exc}')
         return []
 
 def login():
-    r = curl(f'http://localhost:8080/auth/login', method='POST',
-             data={'provider': 'password', 'client_id': 'sso-admin-console',
-                   'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
-                   'credential': {'username': 'admin', 'password': 'admin'}},
+    r = curl(f'{CONFIG.api_url}/auth/login', method='POST',
+             data=CONFIG.login_payload(),
              headers={'Content-Type': 'application/json'})
     try:
         d = json.loads(r)
@@ -166,7 +173,7 @@ def main():
         ('/api/v1/admin/releases', 'Releases'),
     ]
     for path, name in gov_paths:
-        r = curl(f'http://localhost:8080{path}', headers=h)
+        r = curl(f'{CONFIG.api_url}{path}', headers=h)
         check(f"治理 {name}", r != '')
     
     # 8. Webhooks

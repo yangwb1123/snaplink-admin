@@ -134,8 +134,8 @@ def send_error(conn, code, msg):
     )
     try:
         conn.sendall(resp.encode() + body)
-    except:
-        pass
+    except Exception as exc:
+        print(f'robust_proxy: handler error: {exc}')
 
 def should_proxy(method, path):
     """Return whether a request belongs to the Snaplink API."""
@@ -294,13 +294,13 @@ def handle(conn):
     except Exception:
         try:
             send_error(conn, 500, 'Internal Server Error')
-        except:
-            pass
+        except Exception as exc:
+            print(f'robust_proxy: response error: {exc}')
     finally:
         try:
             conn.close()
-        except:
-            pass
+        except Exception as exc:
+            print(f'robust_proxy: close error: {exc}')
 
 def serve():
     """Main server loop."""

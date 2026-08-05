@@ -67,8 +67,8 @@ def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
             # Normalize to relative path
             try:
                 current_file = str(Path(current_file).relative_to(Path.cwd()))
-            except ValueError:
-                pass
+            except ValueError as exc:
+                print(f'coverage: relative path failed: {exc}')
             if current_file not in file_lines:
                 file_lines[current_file] = [0, 0]  # [hit, total]
         elif line.startswith("DA:"):
@@ -80,23 +80,37 @@ def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
                     file_lines[current_file][0] += 1 if hit_count > 0 else 0
                     file_lines[current_file][1] += 1
     
-    # Group by directory
+    # Aggregate per-file data into the keys used by engineering.yaml.
+    #
+    # Target keys follow repository-relative paths: "." covers every file in
+    # the report, "lib" covers the whole lib tree, and "lib/screens/..."
+    # covers a single subtree. Files outside lib/ only contribute to ".".
     dir_stats: dict[str, tuple[int, int]] = {}
     for file_path, (hit, total) in file_lines.items():
         if total == 0:
             continue
-        # Get the directory relative to lib/
-        if "lib/" in file_path:
-            dir_key = file_path.split("lib/")[1]
-            dir_key = "/".join(dir_key.split("/")[:-1]) or "."
-        else:
+        # "." aggregates the whole project (including lib).
+        if "." not in dir_stats:
+            dir_stats["."] = [0, 0]
+        dir_stats["."][0] += hit
+        dir_stats["."][1] += total
+        if not file_path.startswith("lib/"):
             continue
-        
-        if dir_key not in dir_stats:
-            dir_stats[dir_key] = [0, 0]
-        dir_stats[dir_key][0] += hit
-        dir_stats[dir_key][1] += total
-    
+        # "lib" aggregates the whole lib tree.
+        if "lib" not in dir_stats:
+            dir_stats["lib"] = [0, 0]
+        dir_stats["lib"][0] += hit
+        dir_stats["lib"][1] += total
+        # "lib/<dir>" aggregates a subtree, e.g. lib/screens/oidc_login.
+        lib_rel = file_path[len("lib/"):]
+        parts = lib_rel.split("/")
+        for depth in range(1, len(parts)):
+            sub_key = "lib/" + "/".join(parts[:depth])
+            if sub_key not in dir_stats:
+                dir_stats[sub_key] = [0, 0]
+            dir_stats[sub_key][0] += hit
+            dir_stats[sub_key][1] += total
+
     return {
         dir_key: round(hit / total * 100, 1)
         for dir_key, (hit, total) in dir_stats.items()
@@ -104,12 +118,17 @@ def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
     }
 
 
-def check_coverage_targets(coverage: dict[str, float]) -> int:
+def check_coverage_targets(
+    coverage: dict[str, float],
+    targets: dict[str, float] | None = None,
+) -> int:
     """Check per-directory coverage against targets."""
     print("--- coverage targets ---")
     failures = 0
-    
-    for target_key, target_pct in sorted(COVERAGE_TARGETS.items()):
+
+    if targets is None:
+        targets = COVERAGE_TARGETS
+    for target_key, target_pct in sorted(targets.items()):
         actual = coverage.get(target_key, 0.0)
         status = "PASS" if actual >= target_pct else "FAIL"
         if status == "FAIL":
