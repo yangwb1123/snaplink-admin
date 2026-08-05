@@ -1,5 +1,11 @@
 /// Hosted login, account recovery, MFA, and consent copy.
 const appOidcSourceZh = <String, String>{
+    'snaplink console': 'snaplink 控制台',
+  'Identity & Access Management': '身份与访问管理',
+  'Enterprise-grade identity & access management': '企业级身份与访问管理',
+'Show password': '显示密码',
+  'Hide password': '隐藏密码',
+
   'Account created. You can now sign in.': '账户已创建，现在可以登录。',
   'Allow': '允许',
   'An account could not be created with those details.': '无法使用这些信息创建账户。',

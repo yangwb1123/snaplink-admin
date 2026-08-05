@@ -1,5 +1,12 @@
 /// Common administration controls, field labels, statuses, and empty states.
 const appAdminCoreSourceZh = <String, String>{
+  'Approve {n} clients?': '批准 {n} 个客户端？',
+  'Reject {n} clients?': '拒绝 {n} 个客户端？',
+  'This will approve {n} selected clients in one operation.': '此操作将一次性批准 {n} 个选中的客户端。',
+  'This will reject {n} selected clients in one operation.': '此操作将一次性拒绝 {n} 个选中的客户端。',
+  'Clear selection': '清除选择',
+  'Exported {n} entries as CSV to clipboard': '已将 {n} 条记录以 CSV 导出到剪贴板',
+
   'Account lockout cleared.': '账户锁定已清除。',
   'Active': '启用',
   'Add domain': '添加域名',
@@ -89,8 +96,8 @@ const appAdminCoreSourceZh = <String, String>{
   'Escalate': '升级处理',
   'Estimate matches': '估算匹配数',
   'Execute bulk': '执行批量操作',
-  'Export CSV': '导出 CSV',
-  'Export snapshot': '导出快照',
+    'Export CSV': '导出 CSV',
+'Export snapshot': '导出快照',
   'Export': '导出',
   'External ID': '外部 ID',
   'Frontend Git reference': '前端 Git 引用',
