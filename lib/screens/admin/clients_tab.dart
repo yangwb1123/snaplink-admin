@@ -29,6 +29,7 @@ class _ClientsTabState extends State<ClientsTab> {
   var _orderBy = 'id';
   var _expiringOnly = false;
   late final void Function() _cancelPopState;
+  final _selected = <String>{};
 
   @override
   void initState() {
@@ -154,6 +155,90 @@ class _ClientsTabState extends State<ClientsTab> {
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
+  }
+
+  /// 批量批准选中的客户端（interaction-patterns: 选择→确认→执行→明细报告）。
+  Future<void> _batchApprove() async {
+    await _runBatch('Approve', (id) => widget.client.approveClient(id));
+  }
+
+  Future<void> _batchReject() async {
+    await _runBatch('Reject', (id) => widget.client.rejectClient(id));
+  }
+
+  /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
+  Future<void> _runBatch(String action, Future<void> Function(String) run) async {
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: '$action ${ids.length} clients?',
+      message:
+          'This will $action ${ids.length} selected clients in one operation.',
+      confirmLabel: action,
+    );
+    if (!confirmed) return;
+    final failures = <String>[];
+    var ok = 0;
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await run(id);
+        return null;
+      } catch (e) {
+        return '$id: $e';
+      }
+    }));
+    for (final failure in results) {
+      if (failure == null) {
+        ok++;
+      } else {
+        failures.add(failure);
+      }
+    }
+    if (!mounted) return;
+    _selected.clear();
+    final message = failures.isEmpty
+        ? '$action completed for $ok of ${ids.length} clients.'
+        : '$action: $ok succeeded, ${failures.length} failed. '
+              '${failures.take(3).join('; ')}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+    _reload();
+  }
+
+  /// 批量操作栏：已选数量 + 批量动作 + 退出选择。
+  Widget _batchBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            LocalizedText('${_selected.length} selected'),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _batchApprove,
+              icon: const Icon(Icons.check_circle_outline, size: 18),
+              label: const LocalizedText('Approve'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: _batchReject,
+              icon: const Icon(Icons.cancel_outlined, size: 18),
+              label: const LocalizedText('Reject'),
+            ),
+            IconButton(
+              tooltip: 'Clear selection'.localized,
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: () => setState(_selected.clear),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _rejectClient(Map<String, dynamic> c) async {
@@ -406,6 +491,10 @@ class _ClientsTabState extends State<ClientsTab> {
               final items = page.items;
               return Column(
                 children: [
+                  if (_selected.isNotEmpty) ...[
+                    _batchBar(context),
+                    const SizedBox(height: 8),
+                  ],
                   Expanded(
                     child: items.isEmpty
                         ? EmptyState(
@@ -424,23 +513,41 @@ class _ClientsTabState extends State<ClientsTab> {
                             itemBuilder: (context, i) {
                               final c = items[i];
                               final active = c['active'] == true;
+                              final cid = c['id']?.toString() ?? '';
                               return ListTile(
-                                onTap: () => AdminRoute.go(
-                                  'clients',
-                                  resourceId: c['id']?.toString() ?? '',
-                                ),
-                                leading: Icon(
-                                  Icons.apps,
-                                  color: active
-                                      ? Colors.greenAccent
-                                      : Colors.grey,
-                                ),
+                                onTap: _selected.isNotEmpty
+                                    ? () => setState(() {
+                                          if (!_selected.remove(cid)) {
+                                            _selected.add(cid);
+                                          }
+                                        })
+                                    : () => AdminRoute.go(
+                                          'clients',
+                                          resourceId: cid,
+                                        ),
+                                leading: _selected.isNotEmpty
+                                    ? Checkbox(
+                                        value: _selected.contains(cid),
+                                        onChanged: (_) => setState(() {
+                                          if (!_selected.remove(cid)) {
+                                            _selected.add(cid);
+                                          }
+                                        }),
+                                      )
+                                    : Icon(
+                                        Icons.apps,
+                                        color: active
+                                            ? Colors.greenAccent
+                                            : Colors.grey,
+                                      ),
                                 title: Text(c['id']?.toString() ?? '?'),
                                 subtitle: Text(
                                   '${c['name']?.toString() ?? ''} · '
                                   '${clientSecretExpiryLabel(c)}',
                                 ),
-                                trailing: Row(
+                                trailing: _selected.isNotEmpty
+                                    ? null
+                                    : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
