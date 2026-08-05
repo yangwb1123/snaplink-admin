@@ -7,6 +7,7 @@ class MfaView extends StatelessWidget {
   final String? selectedMfaMethod;
   final Map<String, Map<String, String>> mfaMethodData;
   final TextEditingController mfaCodeCtrl;
+  final bool allowTrustDevice;
   final bool trustThisDevice;
   final bool loading;
   final String? error;
@@ -21,6 +22,7 @@ class MfaView extends StatelessWidget {
     this.selectedMfaMethod,
     required this.mfaMethodData,
     required this.mfaCodeCtrl,
+    required this.allowTrustDevice,
     required this.trustThisDevice,
     required this.loading,
     this.error,
@@ -63,14 +65,14 @@ class MfaView extends StatelessWidget {
           children: mfaMethods.map((method) {
             final selected = selectedMfaMethod == method;
             return ChoiceChip(
-              label: Text(_label(method)),
+              label: Text(context.tr(_label(method))),
               selected: selected,
               onSelected: loading ? null : (_) => onMethodChanged(method),
             );
           }).toList(),
         ),
         if (acceptsCode) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           TextField(
             controller: mfaCodeCtrl,
             enabled: !loading,
@@ -85,7 +87,7 @@ class MfaView extends StatelessWidget {
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
               labelText: selectedMfaMethod == 'recovery'
-                  ? 'Recovery code'
+                  ? context.tr('Recovery code')
                   : strings.verificationCode,
             ),
             onSubmitted: (_) {
@@ -94,26 +96,31 @@ class MfaView extends StatelessWidget {
           ),
         ],
         if (selectedMfaMethod == 'webauthn') ...[
-          const SizedBox(height: 14),
-          const Text('Use a registered passkey to verify this sign-in.'),
+          const SizedBox(height: 16),
+          Text(context.tr('Use a registered passkey to verify this sign-in.')),
         ],
         if (selectedMfaMethod == 'push') ...[
-          const SizedBox(height: 14),
-          const Text('Approve the notification on your device, then continue.'),
+          const SizedBox(height: 16),
+          Text(
+            context.tr(
+              'Approve the notification on your device, then continue.',
+            ),
+          ),
         ],
-        CheckboxListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Trust this device'),
-          subtitle: const Text('Skip future MFA when allowed.'),
-          value: trustThisDevice,
-          onChanged: loading ? null : onTrustChanged,
-        ),
+        if (allowTrustDevice)
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(context.tr('Trust this device')),
+            subtitle: Text(context.tr('Skip future MFA when allowed.')),
+            value: trustThisDevice,
+            onChanged: loading ? null : onTrustChanged,
+          ),
         if (error != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Semantics(
             liveRegion: true,
             child: Text(
-              error!,
+              context.tr(error!),
               style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
@@ -129,7 +136,7 @@ class MfaView extends StatelessWidget {
                 )
               : Text(
                   selectedMfaMethod == 'webauthn'
-                      ? 'Use passkey'
+                      ? context.tr('Use passkey')
                       : strings.verify,
                 ),
         ),

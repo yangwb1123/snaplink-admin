@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
@@ -139,7 +140,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ).showSnackBar(SnackBar(content: LocalizedText(message)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _deviceError = error.toString());
@@ -158,11 +159,11 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                LocalizedText(
                   'Devices and login history',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
-                const Text(
+                const LocalizedText(
                   'Investigate access context and revoke a compromised endpoint without affecting unrelated devices.',
                 ),
               ],
@@ -170,7 +171,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
           ),
           IconButton(
             onPressed: _loading || _mutating ? null : _load,
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -202,8 +203,8 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
     color: Colors.orange.withValues(alpha: 0.08),
     child: ListTile(
       leading: const Icon(Icons.info_outline, color: Colors.orange),
-      title: Text('$resource unavailable'),
-      subtitle: Text(error),
+      title: LocalizedText('$resource unavailable'),
+      subtitle: LocalizedText(error),
     ),
   );
 }

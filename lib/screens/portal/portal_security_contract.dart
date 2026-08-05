@@ -3,13 +3,16 @@ import 'portal_api.dart';
 /// Self-service security paths mounted by Snaplink.
 abstract final class PortalSecurityPaths {
   static const devices = '/me/devices';
-  static const trustCurrentBrowser = '/me/devices/trust';
+  static const trustedDevices = '/me/trusted-devices';
+  static const trustCurrentBrowser = '/me/trusted-devices/trust';
   static const enrichedSessions = '/me/sessions/enriched';
   static const legacySessions = '/sessions/me';
   static const securityActivity = '/me/security/activity';
   static const loginHistory = '/me/login-history';
 
   static String device(String id) => '$devices/${Uri.encodeComponent(id)}';
+  static String trustedDevice(String id) =>
+      '$trustedDevices/${Uri.encodeComponent(id)}';
   static String legacySession(String id) =>
       '$legacySessions/${Uri.encodeComponent(id)}';
   static String deviceActivity(String id) => '${device(id)}/activity';
@@ -20,9 +23,9 @@ abstract final class PortalSecurityPaths {
 
 enum PortalDeviceCollectionKind { empty, physical, trustedGrants, ambiguous }
 
-/// Physical-device records carry posture/fingerprint fields. They share the
-/// same GET/DELETE route with MFA-skip grants in the current Snaplink server,
-/// so destructive UI must classify the payload before choosing its wording.
+/// Physical-device records carry posture/fingerprint fields. Classification
+/// remains a defensive schema check even though trusted grants now use their
+/// own resource path.
 bool isPhysicalDeviceRecord(Map<String, dynamic> value) =>
     value.containsKey('fingerprint') ||
     value.containsKey('device_name') ||

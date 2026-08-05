@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_widgets.dart';
 
 /// Change email card displayed in the security tab.
@@ -29,15 +31,17 @@ class SecurityChangeEmailCard extends StatelessWidget {
     title: 'Change email',
     children: [
       Text(
-        'We send a verification code to the new address. Enter it below to confirm the change.',
+        context.tr(
+          'We send a verification code to the new address. Enter it below to confirm the change.',
+        ),
         style: TextStyle(color: Colors.grey.shade500),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       TextField(
         controller: newEmailCtrl,
-        decoration: const InputDecoration(labelText: 'New email'),
+        decoration: InputDecoration(labelText: context.tr('New email')),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       Align(
         alignment: Alignment.centerLeft,
         child: FilledButton(
@@ -48,21 +52,23 @@ class SecurityChangeEmailCard extends StatelessWidget {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Send verification code'),
+              : Text(context.tr('Send verification code')),
         ),
       ),
       if (emailVerifyVisible) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: emailTokenCtrl,
-          decoration: const InputDecoration(labelText: 'Verification code'),
+          decoration: InputDecoration(
+            labelText: context.strings.verificationCode,
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton(
             onPressed: emailBusy ? null : onVerifyCode,
-            child: const Text('Confirm new email'),
+            child: Text(context.tr('Confirm new email')),
           ),
         ),
       ],

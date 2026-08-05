@@ -2,6 +2,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
@@ -41,7 +42,7 @@ class _TenantsTabState extends State<TenantsTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'tenants') return;
     if (route.isNew) {
       _openForm();
@@ -117,18 +118,21 @@ class _TenantsTabState extends State<TenantsTab> {
     if (!confirmed) return;
     setState(() => _busyId = id);
     try {
-      await widget.client.setTenantStatus(id, next);
-      if (mounted && next == 'suspended') {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(TenantLifecycleCopy.suspendedResult)),
-        );
+      final response = await widget.client.setTenantStatus(id, next);
+      if (mounted) {
+        final message = next == 'suspended'
+            ? TenantLifecycleCopy.result('Tenant suspended.', response)
+            : 'Tenant activated.';
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: LocalizedText(message)));
       }
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -147,10 +151,14 @@ class _TenantsTabState extends State<TenantsTab> {
     if (!confirmed) return;
     setState(() => _busyId = id);
     try {
-      await widget.client.deleteTenant(id);
+      final response = await widget.client.deleteTenant(id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(TenantLifecycleCopy.deletedResult)),
+          SnackBar(
+            content: LocalizedText(
+              TenantLifecycleCopy.result('Tenant deleted.', response),
+            ),
+          ),
         );
       }
       _reload();
@@ -158,7 +166,7 @@ class _TenantsTabState extends State<TenantsTab> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -202,11 +210,11 @@ class _TenantsTabState extends State<TenantsTab> {
                   controller: _filterCtrl,
                   onSubmitted: (_) => _reload(),
                   decoration: InputDecoration(
-                    labelText: 'Filter',
-                    hintText: 'e.g. status:active or name:acme',
+                    labelText: 'Filter'.localized,
+                    hintText: 'e.g. status:active or name:acme'.localized,
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter',
+                      tooltip: 'Apply filter'.localized,
                       onPressed: _reload,
                     ),
                   ),
@@ -215,23 +223,29 @@ class _TenantsTabState extends State<TenantsTab> {
               DropdownButton<String>(
                 value: _orderBy,
                 items: const [
-                  DropdownMenuItem(value: 'id', child: Text('ID ascending')),
-                  DropdownMenuItem(value: '-id', child: Text('ID descending')),
+                  DropdownMenuItem(
+                    value: 'id',
+                    child: LocalizedText('ID ascending'),
+                  ),
+                  DropdownMenuItem(
+                    value: '-id',
+                    child: LocalizedText('ID descending'),
+                  ),
                   DropdownMenuItem(
                     value: 'slug',
-                    child: Text('Slug ascending'),
+                    child: LocalizedText('Slug ascending'),
                   ),
                   DropdownMenuItem(
                     value: '-slug',
-                    child: Text('Slug descending'),
+                    child: LocalizedText('Slug descending'),
                   ),
                   DropdownMenuItem(
                     value: 'name',
-                    child: Text('Name ascending'),
+                    child: LocalizedText('Name ascending'),
                   ),
                   DropdownMenuItem(
                     value: '-name',
-                    child: Text('Name descending'),
+                    child: LocalizedText('Name descending'),
                   ),
                 ],
                 onChanged: (value) {
@@ -243,9 +257,18 @@ class _TenantsTabState extends State<TenantsTab> {
               DropdownButton<int>(
                 value: _pageSize,
                 items: const [
-                  DropdownMenuItem(value: 25, child: Text('25 per page')),
-                  DropdownMenuItem(value: 100, child: Text('100 per page')),
-                  DropdownMenuItem(value: 250, child: Text('250 per page')),
+                  DropdownMenuItem(
+                    value: 25,
+                    child: LocalizedText('25 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 100,
+                    child: LocalizedText('100 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 250,
+                    child: LocalizedText('250 per page'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
@@ -265,7 +288,7 @@ class _TenantsTabState extends State<TenantsTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: Text('Error: ${snap.error}'));
+                return Center(child: LocalizedText('Error: ${snap.error}'));
               }
               final page = snap.data!;
               final items = page.items;
@@ -302,7 +325,9 @@ class _TenantsTabState extends State<TenantsTab> {
                                       : Colors.greenAccent,
                                 ),
                                 title: Text(t['name']?.toString() ?? id),
-                                subtitle: Text('${t['slug'] ?? ''} · $status'),
+                                subtitle: LocalizedText(
+                                  '${t['slug'] ?? ''} · $status',
+                                ),
                                 trailing: busy
                                     ? const SizedBox(
                                         height: 18,
@@ -336,7 +361,7 @@ class _TenantsTabState extends State<TenantsTab> {
                                         itemBuilder: (context) => [
                                           PopupMenuItem(
                                             value: 'toggle',
-                                            child: Text(
+                                            child: LocalizedText(
                                               suspended
                                                   ? 'Activate'
                                                   : 'Suspend',
@@ -344,11 +369,11 @@ class _TenantsTabState extends State<TenantsTab> {
                                           ),
                                           const PopupMenuItem(
                                             value: 'edit',
-                                            child: Text('Edit'),
+                                            child: LocalizedText('Edit'),
                                           ),
                                           const PopupMenuItem(
                                             value: 'delete',
-                                            child: Text('Delete'),
+                                            child: LocalizedText('Delete'),
                                           ),
                                         ],
                                       ),

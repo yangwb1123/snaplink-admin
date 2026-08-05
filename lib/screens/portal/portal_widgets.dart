@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Inline success/error banner, the Flutter equivalent of app.js's
 /// `showMsg(el, text, ok)` (`<div class="msg err|ok">`) — green/red text,
@@ -13,9 +14,9 @@ class MessageBanner extends StatelessWidget {
     final t = text;
     if (t == null || t.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 12),
       child: Text(
-        t,
+        context.tr(t),
         style: TextStyle(color: ok ? Colors.greenAccent : Colors.redAccent),
       ),
     );
@@ -32,7 +33,10 @@ class EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(text, style: TextStyle(color: Colors.grey.shade500)),
+      child: Text(
+        context.tr(text),
+        style: TextStyle(color: Colors.grey.shade500),
+      ),
     );
   }
 }
@@ -48,11 +52,14 @@ class KvRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade400)),
+          Text(
+            context.tr(label),
+            style: TextStyle(color: Colors.grey.shade400),
+          ),
           Text(value),
         ],
       ),
@@ -61,8 +68,8 @@ class KvRow extends StatelessWidget {
 }
 
 /// Section card wrapper matching the established dark-theme look (relies on
-/// the app-wide ThemeData: Color(0xFF1E293B) card surface via CardTheme,
-/// brand Color(0xFF6366F1) via ColorScheme) — every portal section renders
+/// the app-wide ThemeData: AppColors.textMuted card surface via CardTheme,
+/// brand AppColors.primary via ColorScheme) — every portal section renders
 /// as one of these, same as app.js's `<div class="card">`.
 class PortalCard extends StatelessWidget {
   final String title;
@@ -78,8 +85,11 @@ class PortalCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 14),
+            Text(
+              context.tr(title),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
             ...children,
           ],
         ),

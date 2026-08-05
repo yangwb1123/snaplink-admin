@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
@@ -60,7 +61,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
   }
 
   void _initSectionFromRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     final section = route.subresource.isNotEmpty ? route.subresource : 'all';
     if (_sections.any((s) => s.id == section)) {
       setState(() => _currentSection = section);
@@ -222,9 +223,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
           : await widget.api.delete(path, body);
       if (!mounted) return;
       setState(() => _data['lastWrite'] = _safe(result));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('${_op.label} completed.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: LocalizedText('${_op.label} completed.')),
+      );
       await _refresh();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -303,7 +304,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
             const Spacer(),
             IconButton(
               onPressed: _loading || _writing ? null : _refresh,
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -345,7 +346,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
         .toList();
     return _section(context, title, [
       if (available.isEmpty)
-        const Text('This feature is not enabled on the connected replica.'),
+        const LocalizedText(
+          'This feature is not enabled on the connected replica.',
+        ),
       if (available.isNotEmpty)
         Wrap(
           spacing: 8,
@@ -355,7 +358,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
                 (spec) => OutlinedButton.icon(
                   onPressed: _loading ? null : () => _read(spec),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: Text('Refresh ${spec.title}'),
+                  label: LocalizedText('Refresh ${spec.title}'),
                 ),
               )
               .toList(growable: false),
@@ -371,24 +374,27 @@ class _GovernanceTabState extends State<GovernanceTab> {
     'Audit investigation',
     [
       if (!_has('GET', _auditPath))
-        const Text('Audit querying is not enabled on the connected replica.'),
+        const LocalizedText(
+          'Audit querying is not enabled on the connected replica.',
+        ),
       if (_has('GET', _auditPath)) ...[
         TextField(
           controller: _auditQuery,
           maxLines: 3,
           enabled: !_loading,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          decoration: const InputDecoration(
-            labelText: 'Audit filter JSON',
+          decoration: InputDecoration(
+            labelText: 'Audit filter JSON'.localized,
             helperText:
-                'Example: {"tenant_id":"acme","outcome":"failure","limit":100}',
+                'Example: {"tenant_id":"acme","outcome":"failure","limit":100}'
+                    .localized,
           ),
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
           onPressed: _loading ? null : _queryAudit,
           icon: const Icon(Icons.manage_search),
-          label: const Text('Query audit events'),
+          label: const LocalizedText('Query audit events'),
         ),
         if (_data.containsKey('audit')) _auditResults(context),
         if (_data.containsKey('facets'))
@@ -402,21 +408,21 @@ class _GovernanceTabState extends State<GovernanceTab> {
         (result['events'] as List?)?.cast<Map<String, dynamic>>().toList() ??
         const [];
     return _card('Audit results (${result['count'] ?? events.length})', [
-      if (events.isEmpty) const Text('No matching events.'),
+      if (events.isEmpty) const LocalizedText('No matching events.'),
       for (final event in events.take(20))
         ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          title: Text(
+          title: LocalizedText(
             event['type']?.toString() ?? event['id']?.toString() ?? 'Event',
           ),
-          subtitle: Text(
+          subtitle: LocalizedText(
             '${event['timestamp'] ?? event['created_at'] ?? ''} ${event['outcome'] ?? ''}'
                 .trim(),
           ),
         ),
       if (events.length > 20)
-        Text(
+        LocalizedText(
           '${events.length - 20} more results are present in the copied JSON.',
         ),
     ]);
@@ -430,17 +436,20 @@ class _GovernanceTabState extends State<GovernanceTab> {
     final selected = available.contains(_op) ? _op : available.first;
     if (_op != selected) _op = selected;
     return _section(context, 'Governed write composer', [
-      const Text(
+      const LocalizedText(
         'Use this for snapshots, deployments, disaster recovery, retention, and two-person change control.',
       ),
       const SizedBox(height: 8),
       DropdownButtonFormField<GovernanceWriteOperation>(
         initialValue: selected,
         isExpanded: true,
-        decoration: const InputDecoration(labelText: 'Operation'),
+        decoration: InputDecoration(labelText: 'Operation'.localized),
         items: available
             .map(
-              (item) => DropdownMenuItem(value: item, child: Text(item.label)),
+              (item) => DropdownMenuItem(
+                value: item,
+                child: LocalizedText(item.label),
+              ),
             )
             .toList(),
         onChanged: _writing
@@ -453,30 +462,30 @@ class _GovernanceTabState extends State<GovernanceTab> {
               }),
       ),
       if (selected.path.contains(':id')) ...[
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextField(
           controller: _resourceId,
-          decoration: const InputDecoration(labelText: 'Resource ID'),
+          decoration: InputDecoration(labelText: 'Resource ID'.localized),
         ),
       ],
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       TextField(
         controller: _writeBody,
         maxLines: 6,
         enabled: !_writing,
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-        decoration: const InputDecoration(labelText: 'Request JSON'),
+        decoration: InputDecoration(labelText: 'Request JSON'.localized),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       TextField(
         controller: _confirm,
         enabled: !_writing,
         decoration: InputDecoration(
-          labelText: 'Exact write confirmation',
+          labelText: 'Exact write confirmation'.localized,
           helperText: _writeConfirmationHint,
         ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       FilledButton.icon(
         onPressed: _writing ? null : _runWrite,
         icon: _writing
@@ -486,7 +495,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.warning_amber),
-        label: Text('Run ${selected.label}'),
+        label: LocalizedText('Run ${selected.label}'),
       ),
     ]);
   }

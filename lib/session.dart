@@ -7,16 +7,25 @@ import 'services/session_storage.dart';
 /// a Dart field the way it used to. sessionStorage (not localStorage) is
 /// intentional: signed-in state shouldn't outlive the browser tab.
 ///
-/// Web only: native builds have no comparable "redirect between paths"
-/// concept (there's no page to navigate), so [store]/[read]/[clear] are
-/// no-ops off web — callers fall back to the in-memory-only behavior that
-/// already existed before this.
+/// Native builds keep the same values only in process memory, allowing
+/// authenticated in-app route replacement without persisting bearer tokens
+/// to disk.
 class Session {
   static const _tokenKey = 'sso_access_token';
   static const _sessionIdKey = 'sso_session_id';
   static const _clientIdKey = 'sso_client_id';
 
-  static void store(String token, {String? sessionId, String? clientId}) {
+  /// Stores a freshly issued access token and verifies that the active
+  /// storage implementation accepted every related value. Browser
+  /// sessionStorage can be disabled or quota-blocked; silently navigating
+  /// after a failed write would present a false authenticated state and lose
+  /// the token on the next page load. Native memory storage always succeeds,
+  /// while web callers can use the boolean to fail closed before redirecting.
+  static bool store(String token, {String? sessionId, String? clientId}) {
+    if (token.isEmpty) {
+      clear();
+      return false;
+    }
     SessionStorage.setItem(_tokenKey, token);
     if (sessionId == null || sessionId.isEmpty) {
       SessionStorage.removeItem(_sessionIdKey);
@@ -28,6 +37,18 @@ class Session {
     } else {
       SessionStorage.setItem(_clientIdKey, clientId);
     }
+    final tokenStored = read() == token;
+    final sessionStored = sessionId == null || sessionId.isEmpty
+        ? readSessionId() == null
+        : readSessionId() == sessionId;
+    final clientStored = clientId == null || clientId.isEmpty
+        ? readClientId() == null
+        : readClientId() == clientId;
+    if (!tokenStored || !sessionStored || !clientStored) {
+      clear();
+      return false;
+    }
+    return true;
   }
 
   static String? read() => SessionStorage.getItem(_tokenKey);

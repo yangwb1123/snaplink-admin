@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -210,7 +211,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(message(result))));
+      ).showSnackBar(SnackBar(content: LocalizedText(message(result))));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -230,11 +231,11 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                LocalizedText(
                   'Device security',
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
-                const Text(
+                const LocalizedText(
                   'Fleet posture, device-level investigation, and bounded incident response.',
                 ),
               ],
@@ -243,14 +244,14 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
           OutlinedButton.icon(
             onPressed: _loading || _mutating ? null : _load,
             icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
+            label: const LocalizedText('Refresh'),
           ),
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: _loading || _mutating ? null : _bulkRevoke,
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             icon: const Icon(Icons.phonelink_erase),
-            label: const Text('Bulk revoke'),
+            label: const LocalizedText('Bulk revoke'),
           ),
         ],
       ),
@@ -273,7 +274,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
       ],
       if (_loading) ...[
         const SizedBox(height: 24),

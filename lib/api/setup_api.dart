@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../services/product_api_origin.dart';
+
 /// Result of `GET /api/v1/setup/status`. The JS wizard (interfaces/web/setup
 /// /app.js) reads `d.setup_required` — NOT `initialized` — so this mirrors
 /// that exact field name.
@@ -25,12 +27,42 @@ class SetupAdmin {
 class SetupApplication {
   final String name;
   final List<String> redirectUris;
-  const SetupApplication({required this.name, this.redirectUris = const []});
+  final String? recoveryClientId;
+  final String? recoveryClientSecret;
+  const SetupApplication({
+    required this.name,
+    this.redirectUris = const [],
+    this.recoveryClientId,
+    this.recoveryClientSecret,
+  });
 
   Map<String, dynamic> toJson() => {
     'name': name,
     if (redirectUris.isNotEmpty) 'redirect_uris': redirectUris,
+    if (recoveryClientId != null) 'recovery_client_id': recoveryClientId,
+    if (recoveryClientSecret != null)
+      'recovery_client_secret': recoveryClientSecret,
   };
+
+  static SetupApplication? fromRecovery(Object? value) {
+    if (value is! Map) return null;
+    final data = Map<String, dynamic>.from(value);
+    final id = data['recovery_client_id']?.toString();
+    final secret = data['recovery_client_secret']?.toString();
+    if (id == null || id.isEmpty || secret == null || secret.isEmpty) {
+      return null;
+    }
+    return SetupApplication(
+      name: data['name']?.toString() ?? '',
+      redirectUris:
+          (data['redirect_uris'] as List?)
+              ?.map((item) => item.toString())
+              .toList(growable: false) ??
+          const [],
+      recoveryClientId: id,
+      recoveryClientSecret: secret,
+    );
+  }
 }
 
 /// Outcome of `POST /api/v1/setup`, covering the three branches app.js's
@@ -42,6 +74,7 @@ class SetupResult {
   final String? createdAdmin;
   final String? clientId;
   final String? clientSecret;
+  final SetupApplication? recoveryApplication;
 
   const SetupResult._({
     this.alreadyInitialized = false,
@@ -49,6 +82,7 @@ class SetupResult {
     this.createdAdmin,
     this.clientId,
     this.clientSecret,
+    this.recoveryApplication,
   });
 
   const SetupResult.success({
@@ -64,27 +98,33 @@ class SetupResult {
   const SetupResult.alreadyDone() : this._(alreadyInitialized: true);
 
   const SetupResult.failed(String message) : this._(error: message);
+
+  const SetupResult.partial({
+    required String? admin,
+    required SetupApplication recovery,
+  }) : this._(createdAdmin: admin, recoveryApplication: recovery);
 }
 
 /// Thrown only for a transport-level failure (fetch/http.post never got a
 /// response) — mirrors app.js's `.catch(() => setError('Network error...'))`.
 class SetupNetworkError implements Exception {}
 
-/// Dedicated API helper for the setup wizard. Requests resolve against the
-/// page's own origin via `Uri.base` — this screen is served behind the same
-/// reverse proxy as the SSO API itself, so no cross-origin base URL field is
-/// needed (every screen in this app resolves the SSO API the same way).
+/// Dedicated API helper for the setup wizard. Requests stay same-origin on web
+/// and follow the configured Snaplink service origin on native platforms.
 class SetupApi {
   final http.Client _http;
+  final Uri _baseUri;
   final Duration requestTimeout;
 
   SetupApi({
     http.Client? client,
+    Uri? baseUri,
     this.requestTimeout = const Duration(seconds: 30),
-  }) : _http = client ?? http.Client();
+  }) : _http = client ?? http.Client(),
+       _baseUri = baseUri ?? ProductApiOrigin.baseUri;
 
-  Uri _statusUri() => Uri.base.resolve('/api/v1/setup/status');
-  Uri _setupUri() => Uri.base.resolve('/api/v1/setup');
+  Uri _statusUri() => _baseUri.resolve('/api/v1/setup/status');
+  Uri _setupUri() => _baseUri.resolve('/api/v1/setup');
 
   /// The setup route's 404 is meaningful: it says the one-time wizard is
   /// disabled. Other transport/status failures cannot safely be interpreted
@@ -151,6 +191,19 @@ class SetupApi {
         clientId: app?['client_id']?.toString(),
         clientSecret: app?['client_secret']?.toString(),
       );
+    }
+    if (resp.statusCode == 207 && data['status'] == 'partial_success') {
+      final created = data['created'] as Map<String, dynamic>? ?? const {};
+      final recovery = data['recovery'] as Map<String, dynamic>?;
+      final application = SetupApplication.fromRecovery(
+        recovery?['application'],
+      );
+      if (application != null) {
+        return SetupResult.partial(
+          admin: created['admin']?.toString(),
+          recovery: application,
+        );
+      }
     }
     if (resp.statusCode == 409) {
       return const SetupResult.alreadyDone();

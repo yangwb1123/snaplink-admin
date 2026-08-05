@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 
 import 'scim_models.dart';
@@ -18,7 +19,7 @@ class ScimMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Chip(
     avatar: const Icon(Icons.analytics_outlined, size: 16),
-    label: Text('$label: $value'),
+    label: LocalizedText('$label: $value'),
   );
 }
 
@@ -48,8 +49,10 @@ class ScimBulkResultSummary extends StatelessWidget {
               : Icons.warning_amber_outlined,
           color: succeeded == operations.length ? Colors.green : Colors.orange,
         ),
-        title: Text('$succeeded of ${operations.length} operations succeeded'),
-        subtitle: Text(
+        title: LocalizedText(
+          '$succeeded of ${operations.length} operations succeeded',
+        ),
+        subtitle: LocalizedText(
           unavailable > 0
               ? '$unavailable operations returned 404/501; the target '
                     'resource family may not be enabled.'
@@ -104,11 +107,12 @@ class ScimQueryBar extends StatelessWidget {
             child: TextField(
               controller: filterController,
               decoration: InputDecoration(
-                labelText: 'SCIM search filter',
+                labelText: 'SCIM search filter'.localized,
                 hintText: kind == ScimResourceKind.users
                     ? 'userName co "alice"'
                     : 'displayName sw "ops"',
-                helperText: 'RFC 7644 filter; blank returns all resources',
+                helperText:
+                    'RFC 7644 filter; blank returns all resources'.localized,
                 prefixIcon: const Icon(Icons.search),
               ),
               onSubmitted: (_) => busy ? null : onApply(),
@@ -120,9 +124,9 @@ class ScimQueryBar extends StatelessWidget {
               controller: startIndexController,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(
-                labelText: 'Start index',
-                helperText: '1-based',
+              decoration: InputDecoration(
+                labelText: 'Start index'.localized,
+                helperText: '1-based'.localized,
               ),
               onSubmitted: (_) => busy ? null : onApply(),
             ),
@@ -132,14 +136,16 @@ class ScimQueryBar extends StatelessWidget {
             child: DropdownButtonFormField<int>(
               initialValue: count,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Count',
-                helperText: 'Max 200',
+              decoration: InputDecoration(
+                labelText: 'Count'.localized,
+                helperText: 'Max 200'.localized,
               ),
               items: const [25, 50, 100, 200]
                   .map(
-                    (value) =>
-                        DropdownMenuItem(value: value, child: Text('$value')),
+                    (value) => DropdownMenuItem(
+                      value: value,
+                      child: LocalizedText('$value'),
+                    ),
                   )
                   .toList(),
               onChanged: busy
@@ -152,12 +158,15 @@ class ScimQueryBar extends StatelessWidget {
             child: DropdownButtonFormField<String>(
               initialValue: sortBy,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Sort by',
-                helperText: 'Before pagination',
+              decoration: InputDecoration(
+                labelText: 'Sort by'.localized,
+                helperText: 'Before pagination'.localized,
               ),
               items: [
-                const DropdownMenuItem(value: '', child: Text('Store order')),
+                const DropdownMenuItem(
+                  value: '',
+                  child: LocalizedText('Store order'),
+                ),
                 ...kind.sortAttributes.map(
                   (value) => DropdownMenuItem(
                     value: value,
@@ -173,13 +182,19 @@ class ScimQueryBar extends StatelessWidget {
             child: DropdownButtonFormField<bool>(
               initialValue: descending,
               isExpanded: true,
-              decoration: const InputDecoration(
-                labelText: 'Order',
-                helperText: 'Case-insensitive',
+              decoration: InputDecoration(
+                labelText: 'Order'.localized,
+                helperText: 'Case-insensitive'.localized,
               ),
               items: const [
-                DropdownMenuItem(value: false, child: Text('Ascending')),
-                DropdownMenuItem(value: true, child: Text('Descending')),
+                DropdownMenuItem(
+                  value: false,
+                  child: LocalizedText('Ascending'),
+                ),
+                DropdownMenuItem(
+                  value: true,
+                  child: LocalizedText('Descending'),
+                ),
               ],
               onChanged: busy
                   ? null
@@ -189,7 +204,7 @@ class ScimQueryBar extends StatelessWidget {
           FilledButton.icon(
             onPressed: busy ? null : onApply,
             icon: const Icon(Icons.manage_search),
-            label: const Text('Apply'),
+            label: const LocalizedText('Apply'),
           ),
         ],
       ),
@@ -232,7 +247,7 @@ class ScimResourceTile extends StatelessWidget {
         leading: CircleAvatar(
           child: Icon(isUser ? Icons.person_outline : Icons.groups_outlined),
         ),
-        title: Text(title),
+        title: LocalizedText(title),
         subtitle: Text(
           details.where((value) => value.isNotEmpty).join('\n'),
           maxLines: 3,
@@ -295,7 +310,7 @@ class ScimPager extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Text(
+        LocalizedText(
           page.totalResults == 0
               ? '0 results'
               : '${page.startIndex}–$last of ${page.totalResults}',
@@ -303,12 +318,12 @@ class ScimPager extends StatelessWidget {
         IconButton(
           onPressed: page.hasPrevious && !busy ? onPrevious : null,
           icon: const Icon(Icons.chevron_left),
-          tooltip: 'Previous page',
+          tooltip: 'Previous page'.localized,
         ),
         IconButton(
           onPressed: page.hasNext && !busy ? onNext : null,
           icon: const Icon(Icons.chevron_right),
-          tooltip: 'Next page',
+          tooltip: 'Next page'.localized,
         ),
       ],
     );
@@ -330,14 +345,14 @@ class ScimUnavailable extends StatelessWidget {
         children: [
           const Icon(Icons.extension_off_outlined, size: 48),
           const SizedBox(height: 12),
-          Text(
+          LocalizedText(
             kind == ScimResourceKind.groups
                 ? 'SCIM Groups are not enabled'
                 : 'SCIM is not enabled on this replica',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 6),
-          Text(
+          const SizedBox(height: 8),
+          LocalizedText(
             kind == ScimResourceKind.groups
                 ? 'Groups require scim.groups.enabled and a permissions provider.'
                 : 'The server returned 404 or 501 for this SCIM surface.',
@@ -347,7 +362,7 @@ class ScimUnavailable extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
-            label: const Text('Probe again'),
+            label: const LocalizedText('Probe again'),
           ),
         ],
       ),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'api/oidc_login_api.dart';
 import 'app_router.dart';
 import 'app_settings.dart';
+import 'services/app_navigator.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSettings.instance.initialize();
   runApp(const SSOConsoleApp());
 }
 
@@ -13,20 +17,20 @@ class SSOConsoleApp extends StatelessWidget {
 
   const SSOConsoleApp({super.key, this.oidcLoginApi});
 
-  static const _brand = Color(0xFF6366F1);
+  static const _brand = AppColors.primary;
 
   static final _darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: const Color(0xFF0F172A),
+    scaffoldBackgroundColor: AppColors.textStrong,
     colorScheme: ColorScheme.fromSeed(
       seedColor: _brand,
       brightness: Brightness.dark,
-      surface: const Color(0xFF1E293B),
+      surface: AppColors.textMuted,
     ),
-    cardColor: const Color(0xFF1E293B),
+    cardColor: AppColors.textMuted,
     appBarTheme: const AppBarTheme(
-      backgroundColor: Color(0xFF1E293B),
+      backgroundColor: AppColors.textMuted,
       elevation: 0,
     ),
     inputDecorationTheme: const InputDecorationTheme(
@@ -57,6 +61,8 @@ class SSOConsoleApp extends StatelessWidget {
       builder: (context, _) => MaterialApp(
         title: 'SSO Console',
         debugShowCheckedModeBanner: false,
+        navigatorKey: AppNavigator.key,
+        onGenerateRoute: buildProductRoute,
         theme: _lightTheme,
         darkTheme: _darkTheme,
         themeMode: AppSettings.instance.themeMode,

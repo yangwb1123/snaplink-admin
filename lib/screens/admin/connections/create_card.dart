@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class ConnectionCreateCard extends StatelessWidget {
   final TextEditingController idController;
@@ -36,52 +37,52 @@ class ConnectionCreateCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Create or replace connection',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text(
+          const LocalizedText(
             'Saving an existing ID replaces its configuration and domain routing.',
           ),
           const SizedBox(height: 12),
           TextField(
             controller: idController,
-            decoration: const InputDecoration(labelText: 'Connection ID'),
+            decoration: InputDecoration(labelText: 'Connection ID'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: tenantController,
-            decoration: const InputDecoration(labelText: 'Tenant ID'),
+            decoration: InputDecoration(labelText: 'Tenant ID'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: type,
-            decoration: const InputDecoration(labelText: 'Protocol'),
+            decoration: InputDecoration(labelText: 'Protocol'.localized),
             items: const [
-              DropdownMenuItem(value: 'oidc', child: Text('OIDC')),
-              DropdownMenuItem(value: 'saml', child: Text('SAML')),
+              DropdownMenuItem(value: 'oidc', child: LocalizedText('OIDC')),
+              DropdownMenuItem(value: 'saml', child: LocalizedText('SAML')),
             ],
             onChanged: mutating
                 ? null
                 : (value) => onTypeChanged(value ?? type),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: displayNameController,
-            decoration: const InputDecoration(labelText: 'Display name'),
+            decoration: InputDecoration(labelText: 'Display name'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: domainsController,
-            decoration: const InputDecoration(
-              labelText: 'Email domains',
-              hintText: 'example.com, subsidiary.example.com',
+            decoration: InputDecoration(
+              labelText: 'Email domains'.localized,
+              hintText: 'example.com, subsidiary.example.com'.localized,
             ),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Connection enabled'),
+            title: const LocalizedText('Connection enabled'),
             value: enabled,
             onChanged: mutating ? null : onEnabledChanged,
           ),
@@ -89,9 +90,9 @@ class ConnectionCreateCard extends StatelessWidget {
             controller: configController,
             minLines: 4,
             maxLines: 8,
-            decoration: const InputDecoration(
-              labelText: 'Protocol configuration (JSON)',
-              hintText: '{"oidc_issuer":"https://idp.example.com"}',
+            decoration: InputDecoration(
+              labelText: 'Protocol configuration (JSON)'.localized,
+              hintText: '{"oidc_issuer":"https://idp.example.com"}'.localized,
               alignLabelWithHint: true,
             ),
             style: const TextStyle(fontFamily: 'monospace'),
@@ -100,7 +101,7 @@ class ConnectionCreateCard extends StatelessWidget {
           FilledButton.icon(
             onPressed: mutating ? null : onSave,
             icon: const Icon(Icons.save_outlined),
-            label: const Text('Save connection'),
+            label: const LocalizedText('Save connection'),
           ),
         ],
       ),

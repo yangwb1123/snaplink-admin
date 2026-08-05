@@ -9,13 +9,36 @@ class SnaplinkAdminApiError implements Exception {
   final int status;
   final String? code;
   final String? description;
+  final Map<String, dynamic> data;
 
-  const SnaplinkAdminApiError(this.status, {this.code, this.description});
+  const SnaplinkAdminApiError(
+    this.status, {
+    this.code,
+    this.description,
+    this.data = const {},
+  });
 
   /// A 403 means this bearer is valid but does not hold the requested scope
   /// (or is outside the requested tenant boundary), so it must not destroy a
   /// still-valid console session.
   bool get isUnauthorized => status == 401;
+
+  /// Durable mutation failures carry a google.rpc.ErrorInfo detail so the
+  /// operator can reconcile the exact server-owned operation after a lost or
+  /// failed response.
+  String? get operationId {
+    final direct = data['operation_id']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final details = data['details'];
+    if (details is! List) return null;
+    for (final detail in details.whereType<Map>()) {
+      final metadata = detail['metadata'];
+      if (metadata is! Map) continue;
+      final value = metadata['operation_id']?.toString();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return null;
+  }
 
   @override
   String toString() => description ?? code ?? 'Admin request failed ($status).';
@@ -50,5 +73,6 @@ SnaplinkAdminApiError snaplinkAdminError(
         data['error_description']?.toString() ??
         data['message']?.toString() ??
         data['detail']?.toString(),
+    data: Map<String, dynamic>.unmodifiable(data),
   );
 }

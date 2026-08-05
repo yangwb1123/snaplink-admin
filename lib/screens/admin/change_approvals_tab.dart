@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
@@ -9,11 +10,9 @@ import 'package:sso_admin/services/sensitive_data.dart';
 
 import 'change_approval_models.dart';
 
-/// Two-person approval workflow for high-impact administrative changes.
 class ChangeApprovalsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
   const ChangeApprovalsTab({
     super.key,
     required this.api,
@@ -26,13 +25,11 @@ class ChangeApprovalsTab extends StatefulWidget {
 
 class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   static const _basePath = '/api/v1/admin/changes';
-
   List<Map<String, dynamic>> _changes = const [];
   String _status = 'all';
   String? _error;
   bool _loading = false;
   bool _mutating = false;
-
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_basePath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_basePath);
@@ -42,7 +39,6 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       : _changes
             .where((change) => change['status']?.toString() == _status)
             .toList(growable: false);
-
   @override
   void initState() {
     super.initState();
@@ -119,7 +115,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -132,7 +128,9 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Two-person administrative approvals are not enabled.'),
+        child: LocalizedText(
+          'Two-person administrative approvals are not enabled.',
+        ),
       );
     }
     return ListView(
@@ -141,7 +139,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         const AdminBreadcrumb(),
         Row(
           children: [
-            Text(
+            LocalizedText(
               'Change approvals',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
@@ -149,18 +147,18 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             IconButton(
               onPressed: _loading || _mutating ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _mutating ? null : _propose,
               icon: const Icon(Icons.add_task),
-              label: const Text('Propose change'),
+              label: const LocalizedText('Propose change'),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'High-impact changes require an independent administrator to approve them before application.',
         ),
         const SizedBox(height: 12),
@@ -176,7 +174,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
               'failed',
             ])
               ChoiceChip(
-                label: Text(status),
+                label: LocalizedText(status),
                 selected: _status == status,
                 onSelected: (_) => setState(() => _status = status),
               ),
@@ -206,15 +204,16 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     final status = change['status']?.toString() ?? 'unknown';
     final pending = status == 'pending';
     final decidedBy = change['approved_by']?.toString().trim() ?? '';
+    final action = change['action_type']?.toString() ?? 'Change request';
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
         leading: Icon(
           _statusIcon(status),
           color: _statusColor(context, status),
         ),
-        title: Text(change['action_type']?.toString() ?? 'Change request'),
-        subtitle: Text(
+        title: LocalizedText(action),
+        subtitle: LocalizedText(
           '$status · proposed by ${change['proposed_by'] ?? 'unknown'}\n${change['reason'] ?? ''}',
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -235,23 +234,23 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
               style: const TextStyle(color: Colors.redAccent),
             ),
           ],
-          const SizedBox(height: 10),
-          Text(
+          const SizedBox(height: 12),
+          LocalizedText(
             'Created ${change['created_at'] ?? ''}'
             '${decidedBy.isEmpty ? '' : ' · decided by $decidedBy'}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (pending) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             OverflowBar(
               children: [
                 OutlinedButton(
                   onPressed: _mutating ? null : () => _decide(change, false),
-                  child: const Text('Reject'),
+                  child: const LocalizedText('Reject'),
                 ),
                 FilledButton(
                   onPressed: _mutating ? null : () => _decide(change, true),
-                  child: const Text('Approve'),
+                  child: const LocalizedText('Approve'),
                 ),
               ],
             ),
@@ -282,7 +281,6 @@ class _ChangeDraft {
   final String actionType;
   final String reason;
   final Map<String, dynamic> payload;
-
   const _ChangeDraft({
     required this.actionType,
     required this.reason,
@@ -309,7 +307,6 @@ class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
   final _reasonCtrl = TextEditingController();
   final _payloadCtrl = TextEditingController(text: '{}');
   String? _error;
-
   @override
   void dispose() {
     _typeCtrl.dispose();
@@ -346,7 +343,7 @@ class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Propose governed change'),
+    title: const LocalizedText('Propose governed change'),
     content: Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -355,34 +352,38 @@ class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
           children: [
             TextFormField(
               controller: _typeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Action type',
-                helperText: 'Must match an action enabled by the server.',
+              decoration: InputDecoration(
+                labelText: 'Action type'.localized,
+                helperText:
+                    'Must match an action enabled by the server.'.localized,
               ),
               validator: (value) =>
                   value?.trim().isEmpty == true ? 'Required' : null,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _reasonCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Business justification / ticket',
+              decoration: InputDecoration(
+                labelText: 'Business justification / ticket'.localized,
               ),
               maxLines: 2,
               validator: (value) =>
                   value?.trim().isEmpty == true ? 'Required' : null,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _payloadCtrl,
-              decoration: const InputDecoration(labelText: 'Payload JSON'),
+              decoration: InputDecoration(labelText: 'Payload JSON'.localized),
               minLines: 4,
               maxLines: 8,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
-              Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              LocalizedText(
+                _error!,
+                style: const TextStyle(color: Colors.redAccent),
+              ),
             ],
           ],
         ),
@@ -391,9 +392,9 @@ class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Propose')),
+      FilledButton(onPressed: _submit, child: const LocalizedText('Propose')),
     ],
   );
 }

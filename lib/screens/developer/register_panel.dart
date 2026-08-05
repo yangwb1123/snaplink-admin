@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'dcr_credentials.dart';
 import 'dcr_form_controller.dart';
@@ -130,14 +131,13 @@ class _RegisterPanelState extends State<RegisterPanel> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Card(
+        Card(
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Text(
-              'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic '
-              'Client Registration. Public clients are forced to PKCE S256. '
-              'Issued credentials are displayed only until you confirm they '
-              'have been saved.',
+              context.tr(
+                'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic Client Registration. Public clients are forced to PKCE S256. Issued credentials are displayed only until you confirm they have been saved.',
+              ),
             ),
           ),
         ),
@@ -163,12 +163,13 @@ class _RegisterPanelState extends State<RegisterPanel> {
                   discovery: widget.discovery,
                   onChanged: () => setState(() => _error = null),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
                 SensitiveTokenField(
                   controller: _iatController,
                   label: 'Initial Access Token',
-                  hintText:
-                      'Leave blank only when open registration is enabled',
+                  hintText: context.tr(
+                    'Leave blank only when open registration is enabled',
+                  ),
                   enabled:
                       !_submitting &&
                       _result == null &&
@@ -183,18 +184,19 @@ class _RegisterPanelState extends State<RegisterPanel> {
                     }
                   },
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'The initial access token is sent once and cleared from this '
-                  'form as soon as registration starts.',
-                  style: TextStyle(fontSize: 12),
+                const SizedBox(height: 8),
+                Text(
+                  context.tr(
+                    'The initial access token is sent once and cleared from this form as soon as registration starts.',
+                  ),
+                  style: const TextStyle(fontSize: 12),
                 ),
                 if (_error != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   Semantics(
                     liveRegion: true,
                     child: Text(
-                      _error!,
+                      context.tr(_error!),
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.error,
                       ),
@@ -217,9 +219,11 @@ class _RegisterPanelState extends State<RegisterPanel> {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : Text(
-                          _result == null
-                              ? 'Register App'
-                              : 'Save or erase issued credentials first',
+                          context.tr(
+                            _result == null
+                                ? 'Register App'
+                                : 'Save or erase issued credentials first',
+                          ),
                         ),
                 ),
               ],
@@ -255,7 +259,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        message,
+        context.tr(message),
         style: TextStyle(
           color: warning
               ? colors.onErrorContainer

@@ -2,6 +2,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
@@ -40,7 +41,7 @@ class _UsersTabState extends State<UsersTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'users') return;
     if (route.isNew) {
       _openCreateDialog();
@@ -179,11 +180,11 @@ class _UsersTabState extends State<UsersTab> {
                   controller: _filterCtrl,
                   onSubmitted: (_) => _reload(),
                   decoration: InputDecoration(
-                    labelText: 'Filter',
-                    hintText: 'e.g. email:example.test',
+                    labelText: 'Filter'.localized,
+                    hintText: 'e.g. email:example.test'.localized,
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter',
+                      tooltip: 'Apply filter'.localized,
                       onPressed: _reload,
                     ),
                   ),
@@ -192,23 +193,29 @@ class _UsersTabState extends State<UsersTab> {
               DropdownButton<String>(
                 value: _orderBy,
                 items: const [
-                  DropdownMenuItem(value: 'id', child: Text('ID ascending')),
-                  DropdownMenuItem(value: '-id', child: Text('ID descending')),
+                  DropdownMenuItem(
+                    value: 'id',
+                    child: LocalizedText('ID ascending'),
+                  ),
+                  DropdownMenuItem(
+                    value: '-id',
+                    child: LocalizedText('ID descending'),
+                  ),
                   DropdownMenuItem(
                     value: 'provider',
-                    child: Text('Provider ascending'),
+                    child: LocalizedText('Provider ascending'),
                   ),
                   DropdownMenuItem(
                     value: '-provider',
-                    child: Text('Provider descending'),
+                    child: LocalizedText('Provider descending'),
                   ),
                   DropdownMenuItem(
                     value: 'created_at',
-                    child: Text('Created ascending'),
+                    child: LocalizedText('Created ascending'),
                   ),
                   DropdownMenuItem(
                     value: '-created_at',
-                    child: Text('Created descending'),
+                    child: LocalizedText('Created descending'),
                   ),
                 ],
                 onChanged: (value) {
@@ -220,9 +227,18 @@ class _UsersTabState extends State<UsersTab> {
               DropdownButton<int>(
                 value: _pageSize,
                 items: const [
-                  DropdownMenuItem(value: 25, child: Text('25 per page')),
-                  DropdownMenuItem(value: 100, child: Text('100 per page')),
-                  DropdownMenuItem(value: 250, child: Text('250 per page')),
+                  DropdownMenuItem(
+                    value: 25,
+                    child: LocalizedText('25 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 100,
+                    child: LocalizedText('100 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 250,
+                    child: LocalizedText('250 per page'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
@@ -242,7 +258,7 @@ class _UsersTabState extends State<UsersTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: Text('Error: ${snap.error}'));
+                return Center(child: LocalizedText('Error: ${snap.error}'));
               }
               final page = snap.data!;
               final items = page.items;
@@ -271,7 +287,7 @@ class _UsersTabState extends State<UsersTab> {
                                   'users',
                                   resourceId: u['id']?.toString() ?? '',
                                 ),
-                                subtitle: Text(
+                                subtitle: LocalizedText(
                                   'provider: ${u['provider'] ?? '?'}',
                                 ),
                                 trailing: Row(
@@ -300,11 +316,11 @@ class _UsersTabState extends State<UsersTab> {
                                       itemBuilder: (context) => const [
                                         PopupMenuItem(
                                           value: 'edit',
-                                          child: Text('Edit'),
+                                          child: LocalizedText('Edit'),
                                         ),
                                         PopupMenuItem(
                                           value: 'delete',
-                                          child: Text('Delete'),
+                                          child: LocalizedText('Delete'),
                                         ),
                                       ],
                                     ),

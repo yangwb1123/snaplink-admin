@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../i18n/app_strings.dart';
 import 'dcr_models.dart';
 import 'developer_api.dart';
+import 'discovery_region_notice.dart';
 import 'manage_panel.dart';
 import 'register_panel.dart';
 
@@ -93,16 +95,17 @@ class _DeveloperScreenState extends State<DeveloperScreen>
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Developer Portal'),
+        title: Text(strings.developerPortal),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
-          tabs: const [
-            Tab(text: 'Register a New App'),
-            Tab(text: 'Manage an Existing App'),
+          tabs: [
+            Tab(text: strings.registerNewApp),
+            Tab(text: strings.manageExistingApp),
           ],
         ),
       ),
@@ -113,7 +116,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
             MaterialBanner(
               content: Semantics(
                 liveRegion: true,
-                child: Text(_discoveryError!),
+                child: Text(context.tr(_discoveryError!)),
               ),
               leading: const Icon(Icons.cloud_off_outlined),
               actions: [
@@ -126,10 +129,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
                       : const Icon(Icons.refresh),
-                  label: const Text('Retry discovery'),
+                  label: Text(strings.retryDiscovery),
                 ),
               ],
             ),
+          if (_discovery?.servingRegion.isNotEmpty == true)
+            DiscoveryRegionNotice(servingRegion: _discovery!.servingRegion),
           Expanded(
             child: TabBarView(
               controller: _tabController,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class SnapshotRestoreDraft {
   final String mode;
@@ -56,7 +57,7 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Restore snapshot ${widget.snapshotId}'),
+    title: LocalizedText('Restore snapshot ${widget.snapshotId}'),
     content: SizedBox(
       width: 520,
       child: Column(
@@ -65,53 +66,56 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
         children: [
           DropdownButtonFormField<String>(
             initialValue: _mode,
-            decoration: const InputDecoration(labelText: 'Restore mode'),
+            isExpanded: true,
+            decoration: InputDecoration(labelText: 'Restore mode'.localized),
             items: const [
               DropdownMenuItem(
                 value: 'merge',
-                child: Text('Merge — insert missing records only'),
+                child: LocalizedText('Merge — insert missing records only'),
               ),
               DropdownMenuItem(
                 value: 'overwrite',
-                child: Text('Overwrite — upsert snapshot records'),
+                child: LocalizedText('Overwrite — upsert snapshot records'),
               ),
               DropdownMenuItem(
                 value: 'replace',
-                child: Text('Replace — wipe and seed managed state'),
+                child: LocalizedText('Replace — wipe and seed managed state'),
               ),
             ],
             onChanged: (value) => setState(() => _mode = value!),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: _excludeCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Excluded resource categories',
-              helperText: 'Optional, one per line.',
+            decoration: InputDecoration(
+              labelText: 'Excluded resource categories'.localized,
+              helperText: 'Optional, one per line.'.localized,
             ),
             minLines: 2,
             maxLines: 4,
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Dry run'),
-            subtitle: const Text('Calculate changes without persisting them.'),
+            title: const LocalizedText('Dry run'),
+            subtitle: const LocalizedText(
+              'Calculate changes without persisting them.',
+            ),
             value: _dryRun,
             onChanged: (value) => setState(() => _dryRun = value),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Advance bootstrap high-water mark'),
+            title: const LocalizedText('Advance bootstrap high-water mark'),
             value: _advanceBootstrap,
             onChanged: (value) => setState(() => _advanceBootstrap = value),
           ),
           if (_mode == 'replace')
-            const Text(
+            const LocalizedText(
               'Replace mode removes operator-managed state before seeding the snapshot. The server requires the snapshot ID as confirmation.',
               style: TextStyle(color: Colors.redAccent),
             ),
           if (!_dryRun)
-            const Text(
+            const LocalizedText(
               'A successful dry run with the same snapshot, mode, exclusions, '
               'and bootstrap setting is required before commit.',
               style: TextStyle(color: Colors.orangeAccent),
@@ -122,7 +126,7 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
       FilledButton(
         onPressed: () => Navigator.pop(
@@ -134,7 +138,7 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
             exclude: _split(_excludeCtrl.text),
           ),
         ),
-        child: Text(_dryRun ? 'Run preview' : 'Restore'),
+        child: LocalizedText(_dryRun ? 'Run preview' : 'Restore'),
       ),
     ],
   );
@@ -232,7 +236,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Register paired release'),
+    title: const LocalizedText('Register paired release'),
     content: SizedBox(
       width: 620,
       child: Form(
@@ -243,66 +247,70 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
             children: [
               TextFormField(
                 controller: _channelCtrl,
-                decoration: const InputDecoration(labelText: 'Channel'),
+                decoration: InputDecoration(labelText: 'Channel'.localized),
                 validator: (value) =>
                     value?.trim().isEmpty == true ? 'Required' : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _frontendRefCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Frontend Git reference',
+                decoration: InputDecoration(
+                  labelText: 'Frontend Git reference'.localized,
                 ),
                 validator: (_) =>
                     _hasArtifact(_frontendRefCtrl.text, _frontendUriCtrl.text)
                     ? null
                     : 'Set a frontend Git reference or URI',
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _frontendUriCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Frontend artifact URI',
+                decoration: InputDecoration(
+                  labelText: 'Frontend artifact URI'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _backendRefCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Backend Git reference',
+                decoration: InputDecoration(
+                  labelText: 'Backend Git reference'.localized,
                 ),
                 validator: (_) =>
                     _hasArtifact(_backendRefCtrl.text, _backendUriCtrl.text)
                     ? null
                     : 'Set a backend Git reference or URI',
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _backendUriCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Backend artifact URI',
+                decoration: InputDecoration(
+                  labelText: 'Backend artifact URI'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _schemaCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Schema version'),
+                decoration: InputDecoration(
+                  labelText: 'Schema version'.localized,
+                ),
                 validator: (value) => int.tryParse(value?.trim() ?? '') == null
                     ? 'Enter an integer'
                     : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _snapshotCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Config snapshot ID (optional)',
+                decoration: InputDecoration(
+                  labelText: 'Config snapshot ID (optional)'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _notesCtrl,
-                decoration: const InputDecoration(labelText: 'Release notes'),
+                decoration: InputDecoration(
+                  labelText: 'Release notes'.localized,
+                ),
                 maxLines: 3,
               ),
             ],
@@ -313,9 +321,9 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Register')),
+      FilledButton(onPressed: _submit, child: const LocalizedText('Register')),
     ],
   );
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Keyboard shortcuts reference dialog.
 /// Shows all available shortcuts grouped by category.
@@ -24,23 +25,26 @@ class ShortcutsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Keyboard Shortcuts'),
+    title: const LocalizedText('Keyboard Shortcuts'),
     content: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final group in _shortcuts) ...[
-          Text(group.name, style: Theme.of(context).textTheme.titleSmall),
+          LocalizedText(
+            group.name,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: 8),
           for (final (key, desc) in group.items)
             Padding(
-              padding: const EdgeInsets.only(left: 16, bottom: 6),
+              padding: const EdgeInsets.only(left: 16, bottom: 8),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                      horizontal: 8,
+                      vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: Theme.of(
@@ -57,7 +61,7 @@ class ShortcutsDialog extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Text(desc, style: const TextStyle(fontSize: 13)),
+                  LocalizedText(desc, style: const TextStyle(fontSize: 13)),
                 ],
               ),
             ),
@@ -68,7 +72,7 @@ class ShortcutsDialog extends StatelessWidget {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Close'),
+        child: const LocalizedText('Close'),
       ),
     ],
   );

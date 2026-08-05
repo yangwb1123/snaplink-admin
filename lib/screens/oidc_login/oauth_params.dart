@@ -26,7 +26,6 @@ class OAuthParams {
   final String authorizationDetails;
   final String claims;
   final String consentChallengeId;
-  final String deviceToken;
 
   OAuthParams({
     required this.clientId,
@@ -51,7 +50,6 @@ class OAuthParams {
     required this.authorizationDetails,
     required this.claims,
     required this.consentChallengeId,
-    required this.deviceToken,
   });
 
   factory OAuthParams.fromUri(Uri uri) {
@@ -80,7 +78,6 @@ class OAuthParams {
       authorizationDetails: q['authorization_details'] ?? '',
       claims: q['claims'] ?? '',
       consentChallengeId: q['consent_challenge_id'] ?? '',
-      deviceToken: q['device_token'] ?? '',
     );
   }
 
@@ -121,9 +118,39 @@ class OAuthParams {
     if (consentChallengeId.isNotEmpty) {
       payload['consent_challenge_id'] = consentChallengeId;
     }
-    if (deviceToken.isNotEmpty) payload['device_token'] = deviceToken;
     return payload;
   }
+
+  /// Authorization-shaped query used for a top-level federated redirect.
+  ///
+  /// Unlike [toLoginPayload], JSON-valued parameters stay as their original
+  /// strings and repeated `resource` values remain repeated URL parameters.
+  /// Credentials and one-time action data are never part of this projection.
+  Map<String, dynamic> toFederatedLoginQuery(String selectedProvider) => {
+    'provider': selectedProvider,
+    'client_id': clientId,
+    if (scope.isNotEmpty) 'scope': scope.join(' '),
+    if (state.isNotEmpty) 'state': state,
+    if (responseType.isNotEmpty) 'response_type': responseType,
+    if (redirectUri.isNotEmpty) 'redirect_uri': redirectUri,
+    if (nonce.isNotEmpty) 'nonce': nonce,
+    if (codeChallenge.isNotEmpty) 'code_challenge': codeChallenge,
+    if (codeChallengeMethod.isNotEmpty)
+      'code_challenge_method': codeChallengeMethod,
+    if (resource.isNotEmpty) 'resource': resource,
+    if (requestUri.isNotEmpty) 'request_uri': requestUri,
+    if (request.isNotEmpty) 'request': request,
+    if (prompt.isNotEmpty) 'prompt': prompt,
+    if (idTokenHint.isNotEmpty) 'id_token_hint': idTokenHint,
+    if (maxAge.isNotEmpty) 'max_age': maxAge,
+    if (loginHint.isNotEmpty) 'login_hint': loginHint,
+    if (responseMode.isNotEmpty) 'response_mode': responseMode,
+    if (acrValues.isNotEmpty) 'acr_values': acrValues,
+    if (uiLocales.isNotEmpty) 'ui_locales': uiLocales,
+    if (authorizationDetails.isNotEmpty)
+      'authorization_details': authorizationDetails,
+    if (claims.isNotEmpty) 'claims': claims,
+  };
 
   Object _jsonOrRaw(String value) {
     try {

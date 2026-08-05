@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../i18n/app_strings.dart';
+import '../../services/product_api_origin.dart';
 import 'hosted_login_models.dart';
 
-/// Login form backed entirely by Snaplink's provider-discovery descriptors.
 class LoginViewWidget extends StatelessWidget {
   final String provider;
   final List<LoginProviderDescriptor> providers;
@@ -96,37 +96,43 @@ class LoginViewWidget extends StatelessWidget {
               decoration: InputDecoration(labelText: strings.provider),
             ),
           if (signupConfirmed != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Semantics(
               liveRegion: true,
               child: Text(
-                signupConfirmed!,
+                context.tr(signupConfirmed!),
                 style: TextStyle(color: theme.colorScheme.primary),
               ),
             ),
           ],
           if (usesFederatedProvider)
             Padding(
-              padding: const EdgeInsets.only(top: 14, bottom: 14),
-              child: Text('Continue to ${selected.displayName} to sign in.'),
+              padding: const EdgeInsets.only(top: 16, bottom: 16),
+              child: Text(
+                context.tr('Continue to {provider} to sign in.', {
+                  'provider': selected.displayName,
+                }),
+              ),
             )
           else if (provider == 'webauthn')
-            const Padding(
-              padding: EdgeInsets.only(top: 14, bottom: 14),
-              child: Text('Choose a passkey to sign in without a password.'),
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 16),
+              child: Text(
+                context.tr('Choose a passkey to sign in without a password.'),
+              ),
             )
           else if (usesCodeProvider)
-            _codeForm()
+            _codeForm(context)
           else if (usesTotpProvider)
             _totpForm(strings)
           else
             _passwordForm(strings),
           if (error != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Semantics(
               liveRegion: true,
               child: Text(
-                error!,
+                context.tr(error!),
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
@@ -144,12 +150,12 @@ class LoginViewWidget extends StatelessWidget {
                     usesFederatedProvider
                         ? selected.effectiveButtonLabel
                         : provider == 'webauthn'
-                        ? 'Sign in with passkey'
+                        ? context.tr('Sign in with passkey')
                         : strings.signIn,
                   ),
           ),
           if (provider == 'password') ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -178,7 +184,7 @@ class LoginViewWidget extends StatelessWidget {
               child: TextButton.icon(
                 onPressed: loading ? null : onHomeRealm,
                 icon: const Icon(Icons.business_outlined),
-                label: const Text('Use organization sign-in'),
+                label: Text(context.tr('Use organization sign-in')),
               ),
             ),
           ],
@@ -188,7 +194,7 @@ class LoginViewWidget extends StatelessWidget {
               children: [
                 const Expanded(child: Divider()),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     strings.orDivider,
                     style: theme.textTheme.bodySmall,
@@ -197,10 +203,10 @@ class LoginViewWidget extends StatelessWidget {
                 const Expanded(child: Divider()),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             for (final item in federatedProviders)
               Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.only(bottom: 12),
                 child: _FederatedProviderButton(
                   provider: item,
                   loading: loading,
@@ -232,7 +238,7 @@ class LoginViewWidget extends StatelessWidget {
         textInputAction: TextInputAction.next,
         decoration: InputDecoration(labelText: strings.username),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       TextField(
         controller: passCtrl,
         enabled: !loading,
@@ -247,7 +253,7 @@ class LoginViewWidget extends StatelessWidget {
     ],
   );
 
-  Widget _codeForm() => Column(
+  Widget _codeForm(BuildContext context) => Column(
     children: [
       TextField(
         controller: codeTargetCtrl,
@@ -263,24 +269,28 @@ class LoginViewWidget extends StatelessWidget {
             : const [AutofillHints.email],
         textInputAction: TextInputAction.next,
         decoration: InputDecoration(
-          labelText: provider == 'phone' ? 'Phone number' : 'Email address',
+          labelText: context.tr(
+            provider == 'phone' ? 'Phone number' : 'Email address',
+          ),
         ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       OutlinedButton(
         onPressed: loading || magicLinkToken != null ? null : onSendCode,
         child: Text(
-          provider == 'magiclink'
-              ? (codeSent ? 'Resend link' : 'Send link')
-              : (codeSent ? 'Resend code' : 'Send code'),
+          context.tr(
+            provider == 'magiclink'
+                ? (codeSent ? 'Resend link' : 'Send link')
+                : (codeSent ? 'Resend code' : 'Send code'),
+          ),
         ),
       ),
       if (codeMessage != null) ...[
-        const SizedBox(height: 10),
-        Semantics(liveRegion: true, child: Text(codeMessage!)),
+        const SizedBox(height: 12),
+        Semantics(liveRegion: true, child: Text(context.tr(codeMessage!))),
       ],
       if (provider != 'magiclink' || magicLinkToken == null) ...[
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: providerCodeCtrl,
           enabled: !loading,
@@ -290,7 +300,9 @@ class LoginViewWidget extends StatelessWidget {
           autofillHints: const [AutofillHints.oneTimeCode],
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
-            labelText: provider == 'magiclink' ? 'Token' : 'Verification code',
+            labelText: context.tr(
+              provider == 'magiclink' ? 'Token' : 'Verification code',
+            ),
           ),
           onSubmitted: (_) => onSubmit(),
         ),
@@ -310,7 +322,7 @@ class LoginViewWidget extends StatelessWidget {
         textInputAction: TextInputAction.next,
         decoration: InputDecoration(labelText: strings.username),
       ),
-      const SizedBox(height: 14),
+      const SizedBox(height: 16),
       TextField(
         controller: providerCodeCtrl,
         enabled: !loading,
@@ -345,7 +357,7 @@ class _FederatedProviderButton extends StatelessWidget {
         : ThemeData.estimateBrightnessForColor(color) == Brightness.dark
         ? Colors.white
         : Colors.black;
-    final iconUrl = provider.safeIconUrl(Uri.base);
+    final iconUrl = provider.safeIconUrl(ProductApiOrigin.baseUri);
     final icon = iconUrl == null
         ? const Icon(Icons.login)
         : Image.network(
@@ -366,7 +378,7 @@ class _FederatedProviderButton extends StatelessWidget {
               side: BorderSide(color: color),
             ),
       icon: icon,
-      label: Text(provider.effectiveButtonLabel),
+      label: Text(context.tr(provider.effectiveButtonLabel)),
     );
   }
 

@@ -11,8 +11,7 @@ import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
 import 'package:sso_admin/services/event_bus.dart';
 
-export 'snaplink_admin_catalog.dart'
-    show SnaplinkAdminOperationCatalog, SnaplinkAdminSupplementalCatalog;
+export 'snaplink_admin_catalog.dart' show SnaplinkAdminOperationCatalog;
 export 'snaplink_admin_error.dart' show SnaplinkAdminApiError;
 export 'snaplink_admin_types.dart';
 

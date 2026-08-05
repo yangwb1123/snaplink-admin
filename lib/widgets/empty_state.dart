@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Reusable empty state widget shown when a list or view has no data.
 class EmptyState extends StatelessWidget {
@@ -27,7 +28,7 @@ class EmptyState extends StatelessWidget {
           Icon(icon, size: 64, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            title,
+            context.tr(title),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
@@ -35,7 +36,7 @@ class EmptyState extends StatelessWidget {
           if (subtitle != null) ...[
             const SizedBox(height: 8),
             Text(
-              subtitle!,
+              context.tr(subtitle!),
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
@@ -46,7 +47,7 @@ class EmptyState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onAction,
               icon: const Icon(Icons.add, size: 18),
-              label: Text(actionLabel!),
+              label: Text(context.tr(actionLabel!)),
             ),
           ],
         ],

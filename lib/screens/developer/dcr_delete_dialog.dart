@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 Future<bool> confirmDcrDeletion(
   BuildContext context, {
@@ -34,22 +35,23 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
   Widget build(BuildContext context) {
     final matches = _confirmation.text == widget.clientId;
     return AlertDialog(
-      title: const Text('Delete app permanently?'),
+      title: Text(context.tr('Delete app permanently?')),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'This removes the OAuth client and cannot be undone. Type the '
-              'exact client ID to confirm:',
+            Text(
+              context.tr(
+                'This removes the OAuth client and cannot be undone. Type the exact client ID to confirm:',
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             SelectableText(
               widget.clientId,
               style: const TextStyle(fontFamily: 'monospace'),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextField(
               controller: _confirmation,
               autofocus: true,
@@ -57,8 +59,8 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
               enableSuggestions: false,
               textCapitalization: TextCapitalization.none,
               textInputAction: TextInputAction.done,
-              decoration: const InputDecoration(
-                labelText: 'Client ID confirmation',
+              decoration: InputDecoration(
+                labelText: context.tr('Client ID confirmation'),
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) {
@@ -71,12 +73,12 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
+          child: Text(context.strings.cancel),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: Colors.red),
           onPressed: matches ? () => Navigator.of(context).pop(true) : null,
-          child: const Text('Delete App'),
+          child: Text(context.tr('Delete App')),
         ),
       ],
     );

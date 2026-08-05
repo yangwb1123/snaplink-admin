@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -26,7 +27,9 @@ class _SessionsTabState extends State<SessionsTab> {
 
   Future<PortalSessionsResult> _load() => loadPortalSessions(widget.api);
 
-  void _reload() => setState(() => _future = _load());
+  void _reload() => setState(() {
+    _future = _load();
+  });
 
   Future<void> _revoke(String id) async {
     if (id.isEmpty || !await _confirmSessionRevoke(id)) return;
@@ -42,7 +45,7 @@ class _SessionsTabState extends State<SessionsTab> {
       _reload();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not revoke this session.')),
+        SnackBar(content: Text(context.tr('Could not revoke this session.'))),
       );
     }
   }
@@ -70,7 +73,7 @@ class _SessionsTabState extends State<SessionsTab> {
         }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not revoke sessions.')),
+          SnackBar(content: Text(context.tr('Could not revoke sessions.'))),
         );
       }
       _reload();
@@ -85,22 +88,26 @@ class _SessionsTabState extends State<SessionsTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          isCurrentSession ? 'Sign out this browser?' : 'Revoke session?',
+          context.tr(
+            isCurrentSession ? 'Sign out this browser?' : 'Revoke session?',
+          ),
         ),
         content: Text(
-          isCurrentSession
-              ? 'This will sign out the browser you are using now.'
-              : 'This device will be signed out immediately.',
+          context.tr(
+            isCurrentSession
+                ? 'This will sign out the browser you are using now.'
+                : 'This device will be signed out immediately.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(isCurrentSession ? 'Sign out' : 'Revoke'),
+            child: Text(context.tr(isCurrentSession ? 'Sign out' : 'Revoke')),
           ),
         ],
       ),
@@ -113,27 +120,33 @@ class _SessionsTabState extends State<SessionsTab> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          preservesCurrentSession
-              ? 'Sign out of other devices?'
-              : 'Sign out everywhere?',
+          context.tr(
+            preservesCurrentSession
+                ? 'Sign out of other devices?'
+                : 'Sign out everywhere?',
+          ),
         ),
         content: Text(
-          preservesCurrentSession
-              ? 'All other active sessions and trusted-device grants will be revoked. This browser will remain signed in.'
-              : 'This opaque token does not identify the current session. Snaplink will revoke every session, including this browser.',
+          context.tr(
+            preservesCurrentSession
+                ? 'All other active sessions and trusted-device grants will be revoked. This browser will remain signed in.'
+                : 'This opaque token does not identify the current session. Snaplink will revoke every session, including this browser.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: Text(
-              preservesCurrentSession
-                  ? 'Sign out other devices'
-                  : 'Sign out everywhere',
+              context.tr(
+                preservesCurrentSession
+                    ? 'Sign out other devices'
+                    : 'Sign out everywhere',
+              ),
             ),
           ),
         ],
@@ -156,7 +169,7 @@ class _SessionsTabState extends State<SessionsTab> {
             runSpacing: 8,
             children: [
               Text(
-                'Active sessions',
+                context.tr('Active sessions'),
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               OverflowBar(
@@ -172,14 +185,16 @@ class _SessionsTabState extends State<SessionsTab> {
                           )
                         : const Icon(Icons.logout, color: Colors.redAccent),
                     label: Text(
-                      widget.api.currentSessionId == null
-                          ? 'Sign out everywhere'
-                          : 'Sign out of other devices',
+                      context.tr(
+                        widget.api.currentSessionId == null
+                            ? 'Sign out everywhere'
+                            : 'Sign out of other devices',
+                      ),
                       style: const TextStyle(color: Colors.redAccent),
                     ),
                   ),
                   IconButton(
-                    tooltip: 'Refresh sessions',
+                    tooltip: context.tr('Refresh sessions'),
                     onPressed: _reload,
                     icon: const Icon(Icons.refresh),
                   ),
@@ -196,7 +211,13 @@ class _SessionsTabState extends State<SessionsTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: Text('Error: ${snap.error}'));
+                return Center(
+                  child: Text(
+                    context.tr('Error: {error}', {
+                      'error': context.tr('${snap.error}'),
+                    }),
+                  ),
+                );
               }
               final result = snap.data;
               final items = result?.sessions ?? const [];
@@ -207,11 +228,12 @@ class _SessionsTabState extends State<SessionsTab> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   if (result?.usedLegacyEndpoint == true)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
-                        'Device enrichment is not enabled; showing legacy '
-                        'session metadata.',
+                        context.tr(
+                          'Device enrichment is not enabled; showing legacy session metadata.',
+                        ),
                       ),
                     ),
                   for (var i = 0; i < items.length; i++) ...[
@@ -221,11 +243,17 @@ class _SessionsTabState extends State<SessionsTab> {
                         final id = s['id']?.toString() ?? '';
                         final metaParts = <String>[];
                         if (s['created_at'] != null) {
-                          metaParts.add('since ${_shortDate(s['created_at'])}');
+                          metaParts.add(
+                            context.tr('since {date}', {
+                              'date': _shortDate(s['created_at']),
+                            }),
+                          );
                         }
                         if (s['expires_at'] != null) {
                           metaParts.add(
-                            'expires ${_shortDate(s['expires_at'])}',
+                            context.tr('expires {date}', {
+                              'date': _shortDate(s['expires_at']),
+                            }),
                           );
                         }
                         final devParts = <String>[];
@@ -233,7 +261,9 @@ class _SessionsTabState extends State<SessionsTab> {
                           devParts.add(s['ip'].toString());
                         }
                         if (s['user_agent'] != null) {
-                          devParts.add(_deviceHint(s['user_agent'].toString()));
+                          devParts.add(
+                            _deviceHint(context, s['user_agent'].toString()),
+                          );
                         }
                         if (s['device_name']?.toString().isNotEmpty == true) {
                           devParts.add(s['device_name'].toString());
@@ -246,7 +276,9 @@ class _SessionsTabState extends State<SessionsTab> {
                               true)
                             s['device_browser'].toString(),
                           if (s['trust_label']?.toString().isNotEmpty == true)
-                            'trust ${s['trust_label']}',
+                            context.tr('trust {value}', {
+                              'value': s['trust_label'],
+                            }),
                         ];
                         return ListTile(
                           title: Text(id),
@@ -267,7 +299,7 @@ class _SessionsTabState extends State<SessionsTab> {
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.redAccent,
                             ),
-                            child: const Text('Revoke'),
+                            child: Text(context.tr('Revoke')),
                           ),
                         );
                       },
@@ -291,7 +323,7 @@ String _shortDate(Object? v) {
 
 /// Reduces a raw User-Agent to a friendly "Browser on OS" label, ported
 /// verbatim (same regexes/precedence) from app.js's deviceHint().
-String _deviceHint(String ua) {
+String _deviceHint(BuildContext context, String ua) {
   String browser = '';
   if (ua.contains('Edg/')) {
     browser = 'Edge';
@@ -316,7 +348,9 @@ String _deviceHint(String ua) {
   } else if (ua.contains('Linux')) {
     os = 'Linux';
   }
-  if (browser.isNotEmpty && os.isNotEmpty) return '$browser on $os';
+  if (browser.isNotEmpty && os.isNotEmpty) {
+    return context.tr('{browser} on {os}', {'browser': browser, 'os': os});
+  }
   if (browser.isNotEmpty) return browser;
   if (os.isNotEmpty) return os;
   return ua.length > 40 ? '${ua.substring(0, 40)}…' : ua;

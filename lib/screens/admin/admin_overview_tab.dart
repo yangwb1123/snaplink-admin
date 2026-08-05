@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -41,7 +42,7 @@ class AdminOverviewTab extends StatelessWidget {
             IconButton(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh capabilities',
+              tooltip: 'Refresh capabilities'.localized,
             ),
           ],
         ),
@@ -76,18 +77,8 @@ class AdminOverviewTab extends StatelessWidget {
                 'modules stay visible for compatibility and report 404/501 as not enabled.',
             color: documentedOnly == 0 ? Colors.green : Colors.orange,
           ),
-          const SizedBox(height: 8),
-          _StatusCard(
-            icon: Icons.science_outlined,
-            title:
-                '${SnaplinkAdminSupplementalCatalog.endpoints.length} source-only routes under compatibility probing',
-            body:
-                'Branding, identity providers, and device security are mounted '
-                'by some Snaplink builds but still need OpenAPI and inventory coverage.',
-            color: Colors.blueGrey,
-          ),
           const SizedBox(height: 16),
-          Text(
+          LocalizedText(
             'Enabled feature surfaces',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -97,12 +88,14 @@ class AdminOverviewTab extends StatelessWidget {
             runSpacing: 8,
             children: capabilities.featureCounts.entries
                 .map(
-                  (entry) => Chip(label: Text('${entry.key} · ${entry.value}')),
+                  (entry) => Chip(
+                    label: LocalizedText('${entry.key} · ${entry.value}'),
+                  ),
                 )
                 .toList(growable: false),
           ),
           const SizedBox(height: 20),
-          Text(
+          LocalizedText(
             'Available management domains',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -111,8 +104,8 @@ class AdminOverviewTab extends StatelessWidget {
             Card(
               child: ExpansionTile(
                 leading: Icon(entry.value.icon),
-                title: Text(entry.key),
-                subtitle: Text(
+                title: LocalizedText(entry.key),
+                subtitle: LocalizedText(
                   '${entry.value.endpoints.length} live endpoints',
                 ),
                 children: [
@@ -214,8 +207,8 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ListTile(
       leading: Icon(icon, color: color),
-      title: Text(title),
-      subtitle: Text(body),
+      title: LocalizedText(title),
+      subtitle: LocalizedText(body),
     ),
   );
 }

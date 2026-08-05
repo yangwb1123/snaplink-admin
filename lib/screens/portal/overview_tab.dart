@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
@@ -170,7 +172,7 @@ class _OverviewTabState extends State<OverviewTab> {
           child: Row(
             children: [
               Text(
-                'Overview',
+                context.strings.overview,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Spacer(),
@@ -185,7 +187,11 @@ class _OverviewTabState extends State<OverviewTab> {
           child: _loading
               ? const Center(child: CircularProgressIndicator())
               : _loadError != null
-              ? Center(child: Text('Error: $_loadError'))
+              ? Center(
+                  child: Text(
+                    context.tr('Error: {error}', {'error': _loadError}),
+                  ),
+                )
               : _buildContent(context),
         ),
       ],
@@ -213,18 +219,18 @@ class _OverviewTabState extends State<OverviewTab> {
           children: [
             if (rows.isEmpty) const EmptyHint('No profile data.'),
             for (final r in rows) KvRow(r.key, r.value),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Display name',
+                    decoration: InputDecoration(
+                      labelText: context.tr('Display name'),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 FilledButton(
                   onPressed: _nameSaving ? null : _saveName,
                   child: _nameSaving
@@ -233,7 +239,7 @@ class _OverviewTabState extends State<OverviewTab> {
                           width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save name'),
+                      : Text(context.tr('Save name')),
                 ),
               ],
             ),
@@ -249,7 +255,7 @@ class _OverviewTabState extends State<OverviewTab> {
                   controller: entry.value,
                   decoration: InputDecoration(labelText: entry.key),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
               ],
               Align(
                 alignment: Alignment.centerLeft,
@@ -261,7 +267,7 @@ class _OverviewTabState extends State<OverviewTab> {
                           width: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save attributes'),
+                      : Text(context.tr('Save attributes')),
                 ),
               ),
               MessageBanner(_attrsMsg, ok: _attrsOk),
@@ -306,8 +312,11 @@ class _OverviewTabState extends State<OverviewTab> {
   ) {
     return [
       Padding(
-        padding: const EdgeInsets.only(top: 6, bottom: 4),
-        child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Text(
+          context.tr(title),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
       ),
       for (final raw in items)
         Builder(

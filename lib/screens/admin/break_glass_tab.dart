@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'admin_route.dart';
+import 'admin_navigation.dart';
 import 'break_glass_widgets.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -47,14 +49,17 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   void initState() {
     super.initState();
     _handleRoute();
+    _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
-    if (route.module != 'break-glass') return;
+    final route = AdminRoute.current();
+    // The dashboard mounts this tab under the "emergency-access" module id;
+    // the API base path is /api/v1/admin/break-glass.
+    if (route.module != AdminModuleId.emergencyAccess) return;
     if (route.isNew) {
       _create();
     }
@@ -142,7 +147,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       _targetCtrl.clear();
       _reasonCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Break-glass session created.')),
+        const SnackBar(content: LocalizedText('Break-glass session created.')),
       );
       if (mounted) AdminRoute.go('emergency-access');
       await _load();
@@ -174,9 +179,9 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     try {
       await widget.api.post('$_basePath/${Uri.encodeComponent(id)}/approve');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Break-glass approved.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Break-glass approved.')),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -189,10 +194,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke?',
-      message:
-          'Revoke this break-glass grant? The grant record will be marked '
-          'revoked, but the current backend does not report failures while '
-          'destroying derived sessions or tokens. Verify them afterward.',
+      message: BreakGlassRevocationCopy.confirmation,
       confirmLabel: 'Revoke',
       destructive: true,
       confirmText: id,
@@ -203,13 +205,13 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       _error = null;
     });
     try {
-      await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
+      final response = await widget.api.delete(
+        '$_basePath/${Uri.encodeComponent(id)}',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Grant record revoked. Verify all derived sessions and tokens.',
-          ),
+        SnackBar(
+          content: LocalizedText(BreakGlassRevocationCopy.result(response)),
         ),
       );
       await _load();
@@ -246,12 +248,12 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
-            title: const Text('Impersonation token'),
+            title: const LocalizedText('Impersonation token'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                const LocalizedText(
                   'This bearer is shown once and is not retained by the console.',
                 ),
                 const SizedBox(height: 12),
@@ -264,7 +266,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
             actions: [
               FilledButton(
                 onPressed: () => Navigator.pop(c),
-                child: const Text('I have saved it'),
+                child: const LocalizedText('I have saved it'),
               ),
             ],
           ),
@@ -288,7 +290,9 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Break-glass access is not enabled on this replica.'),
+        child: LocalizedText(
+          'Break-glass access is not enabled on this replica.',
+        ),
       );
     }
     return ListView(
@@ -300,7 +304,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'Create audited, time-bound emergency access to user accounts.',
         ),
         if (_error != null)

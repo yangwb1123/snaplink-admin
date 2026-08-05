@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -108,7 +109,9 @@ class _DRModeTabState extends State<DRModeTab> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Service mode changed to $_selectedMode.')),
+        SnackBar(
+          content: LocalizedText('Service mode changed to $_selectedMode.'),
+        ),
       );
       _reasonCtrl.clear();
       await _load();
@@ -131,7 +134,7 @@ class _DRModeTabState extends State<DRModeTab> {
       const SizedBox(height: 8),
       if (_loading) const SkeletonListTile(itemCount: 3),
       if (_error != null)
-        Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
       if (_status != null)
         Card(
           child: Padding(
@@ -152,11 +155,11 @@ class _DRModeTabState extends State<DRModeTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          LocalizedText(
                             'Current mode: ${_status!['mode'] ?? 'normal'}',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          Text(
+                          LocalizedText(
                             _modes[_status!['mode']] ??
                                 'Unknown service posture.',
                           ),
@@ -168,8 +171,8 @@ class _DRModeTabState extends State<DRModeTab> {
                 const Divider(),
                 DropdownButtonFormField<String>(
                   initialValue: _selectedMode,
-                  decoration: const InputDecoration(
-                    labelText: 'Target service mode',
+                  decoration: InputDecoration(
+                    labelText: 'Target service mode'.localized,
                   ),
                   items: _modes.entries
                       .map(
@@ -186,21 +189,21 @@ class _DRModeTabState extends State<DRModeTab> {
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(_modes[_selectedMode] ?? ''),
+                  child: LocalizedText(_modes[_selectedMode] ?? ''),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _reasonCtrl,
                   enabled: !_mutating,
-                  decoration: const InputDecoration(
-                    labelText: 'Reason / incident reference',
+                  decoration: InputDecoration(
+                    labelText: 'Reason / incident reference'.localized,
                   ),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   onPressed: _mutating ? null : _applyMode,
                   icon: const Icon(Icons.policy_outlined),
-                  label: const Text('Apply service mode'),
+                  label: const LocalizedText('Apply service mode'),
                 ),
               ],
             ),

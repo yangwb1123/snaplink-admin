@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// A single MFA factor tile showing method, label, and remove button.
 class SecurityFactorTile extends StatelessWidget {
@@ -19,8 +20,9 @@ class SecurityFactorTile extends StatelessWidget {
     var meta = factor['method']?.toString() ?? '';
     if (factor['added_at'] != null) {
       final addedAt = factor['added_at'].toString();
-      meta +=
-          ' · added ${addedAt.substring(0, addedAt.length < 10 ? addedAt.length : 10)}';
+      meta += context.tr(' · added {date}', {
+        'date': addedAt.substring(0, addedAt.length < 10 ? addedAt.length : 10),
+      });
     }
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -31,7 +33,7 @@ class SecurityFactorTile extends StatelessWidget {
       trailing: TextButton(
         onPressed: busy ? null : () => onRemove(id),
         style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-        child: const Text('Remove'),
+        child: Text(context.tr('Remove')),
       ),
     );
   }

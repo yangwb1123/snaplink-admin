@@ -1,15 +1,17 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_preview.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
-/// Safe editor for Snaplink's source-only tenant branding contract.
+/// Safe editor for Snaplink's tenant branding contract.
 ///
-/// The backend currently replaces the tenant's entire Settings map. This
-/// editor therefore round-trips unknown keys and makes reset semantics
-/// explicit instead of silently discarding settings it does not understand.
+/// Branding is an independently versioned tenant resource. Every mutation
+/// sends the last server version as If-Match so concurrent edits fail with
+/// 412 instead of overwriting one another or unrelated tenant settings.
 class TenantBrandingTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final String tenantId;
@@ -26,7 +28,6 @@ class TenantBrandingTab extends StatefulWidget {
 
 class _TenantBrandingTabState extends State<TenantBrandingTab> {
   static const _path = '/api/v1/admin/branding';
-  static const _knownKeys = {'brand_name', 'primary_color', 'logo_url'};
 
   final _brandName = TextEditingController();
   final _primaryColor = TextEditingController();
@@ -39,7 +40,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   bool _outcomeUnknown = false;
   String? _unknownOperation;
   int? _unknownStatus;
-  Map<String, String> _lastLoadedExtras = const {};
+  String? _version;
 
   String get _encodedTenant => Uri.encodeQueryComponent(widget.tenantId);
 
@@ -63,6 +64,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       _loading = true;
       _error = null;
       _unavailable = false;
+      _version = null;
     });
     try {
       final response = await widget.api.get(
@@ -71,14 +73,20 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         forceRefresh: true,
       );
       final raw = response['branding'];
+      final version = response['version']?.toString();
+      if (version == null || version.isEmpty) {
+        throw const FormatException(
+          'Branding response did not include a concurrency version.',
+        );
+      }
       final branding = raw is Map
           ? raw.map((key, value) => MapEntry(key.toString(), value.toString()))
           : <String, String>{};
       final extras = Map<String, String>.from(branding)
-        ..removeWhere((key, _) => _knownKeys.contains(key));
+        ..removeWhere((key, _) => tenantBrandingCoreKeys.contains(key));
       if (!mounted) return false;
       setState(() {
-        _lastLoadedExtras = Map<String, String>.unmodifiable(extras);
+        _version = version;
         _brandName.text = branding['brand_name'] ?? '';
         _primaryColor.text = branding['primary_color'] ?? '';
         _logoUrl.text = branding['logo_url'] ?? '';
@@ -150,56 +158,17 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     });
   }
 
-  Map<String, String> _draft() {
-    final decoded = jsonDecode(
-      _advanced.text.trim().isEmpty ? '{}' : _advanced.text,
-    );
-    if (decoded is! Map) {
-      throw const FormatException('Advanced branding must be a JSON object.');
-    }
-    final branding = <String, String>{};
-    for (final entry in decoded.entries) {
-      final key = entry.key.toString().trim();
-      if (key.isEmpty || _knownKeys.contains(key)) {
-        throw const FormatException(
-          'Advanced keys must be non-empty and must not duplicate core fields.',
-        );
-      }
-      if (entry.value is! String) {
-        throw const FormatException('Every branding value must be a string.');
-      }
-      branding[key] = entry.value as String;
-    }
-
-    final name = _brandName.text.trim();
-    final color = _primaryColor.text.trim();
-    final logo = _logoUrl.text.trim();
-    if (name.length > 100) {
-      throw const FormatException('Brand name must be 100 characters or less.');
-    }
-    if (color.isNotEmpty &&
-        !RegExp(r'^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$').hasMatch(color)) {
-      throw const FormatException(
-        'Primary color must use #RRGGBB or #RRGGBBAA.',
-      );
-    }
-    if (logo.isNotEmpty) {
-      final uri = Uri.tryParse(logo);
-      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) {
-        throw const FormatException('Logo URL must be an absolute HTTPS URL.');
-      }
-    }
-    if (name.isNotEmpty) branding['brand_name'] = name;
-    if (color.isNotEmpty) branding['primary_color'] = color;
-    if (logo.isNotEmpty) branding['logo_url'] = logo;
-    return branding;
-  }
-
   Future<void> _save() async {
-    if (_saving || _outcomeUnknown) return;
+    final version = _version;
+    if (_saving || _outcomeUnknown || version == null) return;
     Map<String, String> branding;
     try {
-      branding = _draft();
+      branding = tenantBrandingDraft(
+        advancedJson: _advanced.text,
+        brandName: _brandName.text,
+        primaryColor: _primaryColor.text,
+        logoUrl: _logoUrl.text,
+      );
     } on FormatException catch (error) {
       setState(() => _error = error.message);
       return;
@@ -209,16 +178,21 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       _error = null;
     });
     try {
-      await widget.api.put('$_path?tenant_id=$_encodedTenant', {
-        'branding': branding,
-      });
+      await widget.api.mutateIfMatch(
+        method: 'PUT',
+        path: '$_path?tenant_id=$_encodedTenant',
+        etag: '"branding-$version"',
+        body: {'branding': branding},
+      );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Tenant branding saved.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Tenant branding saved.')),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (error) {
-      if (_couldHaveApplied(error)) {
+      if (error.status == 412) {
+        await _handleConcurrentEdit();
+      } else if (_couldHaveApplied(error)) {
         await _reconcileUnknownOutcome('Branding save', status: error.status);
       } else if (mounted) {
         setState(() => _error = error.toString());
@@ -231,17 +205,16 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   }
 
   Future<void> _reset() async {
-    if (_saving || _outcomeUnknown) return;
-    final preservedSettings = Map<String, String>.from(_lastLoadedExtras);
+    final version = _version;
+    if (_saving || _outcomeUnknown || version == null) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Restore default branding?',
       message:
-          'The backend reset endpoint would clear every tenant setting, so '
-          'the console will instead preserve the Advanced settings from the '
-          'last refresh and remove only the known branding keys. Refresh '
-          'first if another administrator may be editing this tenant.',
-      confirmLabel: 'Remove branding keys',
+          'This clears only the dedicated branding resource. Tenant locale, '
+          'feature flags, and other settings are not part of this resource. '
+          'A concurrent branding edit will be rejected.',
+      confirmLabel: 'Clear branding',
       confirmText: widget.tenantId,
       destructive: true,
     );
@@ -251,13 +224,17 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       _error = null;
     });
     try {
-      await widget.api.put('$_path?tenant_id=$_encodedTenant', {
-        'branding': preservedSettings,
-      });
+      await widget.api.mutateIfMatch(
+        method: 'DELETE',
+        path: '$_path?tenant_id=$_encodedTenant',
+        etag: '"branding-$version"',
+      );
       if (!mounted) return;
       await _load();
     } on SnaplinkAdminApiError catch (error) {
-      if (_couldHaveApplied(error)) {
+      if (error.status == 412) {
+        await _handleConcurrentEdit();
+      } else if (_couldHaveApplied(error)) {
         await _reconcileUnknownOutcome('Branding reset', status: error.status);
       } else if (mounted) {
         setState(() => _error = error.toString());
@@ -269,36 +246,53 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     }
   }
 
+  Future<void> _handleConcurrentEdit() async {
+    final refreshed = await _load();
+    if (!mounted) return;
+    setState(() {
+      _error = refreshed
+          ? 'Branding changed on the server. The latest version is loaded; '
+                'review it before saving again.'
+          : 'Branding changed on the server and the latest version could not '
+                'be loaded. Refresh before saving.';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_unavailable) {
       return const Center(
-        child: Text('Branding is not enabled on this Snaplink deployment.'),
+        child: LocalizedText(
+          'Branding is not enabled on this Snaplink deployment.',
+        ),
       );
     }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
+        LocalizedText(
           'Hosted login branding',
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'These public values theme the hosted sign-in experience. Unknown '
           'settings are preserved when saving.',
         ),
         if (_error != null) ...[
-          const SizedBox(height: 10),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          const SizedBox(height: 12),
+          LocalizedText(
+            _error!,
+            style: const TextStyle(color: Colors.redAccent),
+          ),
         ],
         if (_outcomeUnknown) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton.tonalIcon(
             onPressed: _saving ? null : _retryReconciliation,
             icon: const Icon(Icons.sync),
-            label: const Text('Retry reconciliation'),
+            label: const LocalizedText('Retry reconciliation'),
           ),
         ],
         const SizedBox(height: 12),
@@ -310,26 +304,28 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                 TextField(
                   controller: _brandName,
                   enabled: !_saving && !_outcomeUnknown,
-                  decoration: const InputDecoration(labelText: 'Brand name'),
-                  onChanged: (_) => setState(() {}),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _primaryColor,
-                  enabled: !_saving && !_outcomeUnknown,
-                  decoration: const InputDecoration(
-                    labelText: 'Primary color',
-                    hintText: '#2563EB',
+                  decoration: InputDecoration(
+                    labelText: 'Brand name'.localized,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _primaryColor,
+                  enabled: !_saving && !_outcomeUnknown,
+                  decoration: InputDecoration(
+                    labelText: 'Primary color'.localized,
+                    hintText: '#2563EB'.localized,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _logoUrl,
                   enabled: !_saving && !_outcomeUnknown,
-                  decoration: const InputDecoration(
-                    labelText: 'Logo URL',
-                    hintText: 'https://cdn.example.com/logo.svg',
+                  decoration: InputDecoration(
+                    labelText: 'Logo URL'.localized,
+                    hintText: 'https://cdn.example.com/logo.svg'.localized,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
@@ -346,8 +342,10 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         const SizedBox(height: 12),
         Card(
           child: ExpansionTile(
-            title: const Text('Advanced settings'),
-            subtitle: const Text('Additional string keys preserved verbatim'),
+            title: const LocalizedText('Advanced settings'),
+            subtitle: const LocalizedText(
+              'Additional string keys preserved verbatim',
+            ),
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             children: [
               TextField(
@@ -356,7 +354,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                 minLines: 5,
                 maxLines: 12,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(labelText: 'JSON object'),
+                decoration: InputDecoration(labelText: 'JSON object'.localized),
               ),
             ],
           ),
@@ -365,12 +363,16 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         OverflowBar(
           children: [
             OutlinedButton(
-              onPressed: _saving || _outcomeUnknown ? null : _reset,
-              child: const Text('Restore defaults'),
+              onPressed: _saving || _outcomeUnknown || _version == null
+                  ? null
+                  : _reset,
+              child: const LocalizedText('Restore defaults'),
             ),
             FilledButton(
-              onPressed: _saving || _outcomeUnknown ? null : _save,
-              child: Text(_saving ? 'Saving…' : 'Save branding'),
+              onPressed: _saving || _outcomeUnknown || _version == null
+                  ? null
+                  : _save,
+              child: LocalizedText(_saving ? 'Saving…' : 'Save branding'),
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -10,6 +11,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
+import 'client_secret_lifecycle.dart';
 
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
@@ -25,6 +27,7 @@ class _ClientsTabState extends State<ClientsTab> {
   var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
+  var _expiringOnly = false;
   late final void Function() _cancelPopState;
 
   @override
@@ -38,7 +41,7 @@ class _ClientsTabState extends State<ClientsTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'clients') return;
     if (route.isNew) {
       _openCreateDialog();
@@ -65,12 +68,23 @@ class _ClientsTabState extends State<ClientsTab> {
     super.dispose();
   }
 
-  Future<SSOAdminListPage> _loadPage() => widget.client.listClients(
-    pageToken: _pageTokens[_pageIndex],
-    pageSize: _pageSize,
-    orderBy: _orderBy,
-    filter: _filterCtrl.text,
-  );
+  Future<SSOAdminListPage> _loadPage() async {
+    if (_expiringOnly) {
+      final items = await widget.client.listExpiringClients();
+      return SSOAdminListPage(
+        items: items,
+        nextPageToken: null,
+        totalSize: items.length,
+      );
+    }
+    return widget.client.listClients(
+      pageToken: _pageTokens[_pageIndex],
+      pageSize: _pageSize,
+      orderBy: _orderBy,
+      filter: _filterCtrl.text,
+    );
+  }
+
   void _reload() {
     setState(() {
       _pageTokens
@@ -132,7 +146,7 @@ class _ClientsTabState extends State<ClientsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Client $id approved.')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client $id approved.')));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -158,7 +172,7 @@ class _ClientsTabState extends State<ClientsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Client $id rejected.')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client $id rejected.')));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -199,16 +213,16 @@ class _ClientsTabState extends State<ClientsTab> {
       context,
       title: 'Rotate client secret?',
       message:
-          'The current secret for $id will stop working. Update every '
-          'integration with the new one-time value.',
+          'The current secret for $id remains valid for 24 hours. Update every '
+          'integration with the new one-time value before that window closes.',
       confirmLabel: 'Rotate secret',
       confirmText: id,
       destructive: true,
     );
     if (!confirmed) return;
-    String secret;
+    Map<String, dynamic> rotation;
     try {
-      secret = await widget.client.rotateClientSecret(id);
+      rotation = await widget.client.rotateClientSecretWithPolicy(id);
     } on SSOError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -217,10 +231,11 @@ class _ClientsTabState extends State<ClientsTab> {
       return;
     }
     if (!mounted) return;
+    final secret = rotation['secret']?.toString() ?? '';
     if (secret.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
+          content: LocalizedText(
             'The secret was rotated, but its one-time value was not returned.',
           ),
         ),
@@ -231,24 +246,27 @@ class _ClientsTabState extends State<ClientsTab> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('New client secret'),
+        title: const LocalizedText('New client secret'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('This secret will not be shown again.'),
+            const LocalizedText('This secret will not be shown again.'),
+            LocalizedText(clientSecretExpiryLabel(rotation)),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(child: SelectableText(secret)),
                 IconButton(
                   icon: const Icon(Icons.copy),
-                  tooltip: 'Copy to clipboard',
+                  tooltip: 'Copy to clipboard'.localized,
                   onPressed: () async {
                     await Clipboard.setData(ClipboardData(text: secret));
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Copied to clipboard')),
+                        const SnackBar(
+                          content: LocalizedText('Copied to clipboard'),
+                        ),
                       );
                     }
                   },
@@ -260,7 +278,7 @@ class _ClientsTabState extends State<ClientsTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('I have saved it'),
+            child: const LocalizedText('I have saved it'),
           ),
         ],
       ),
@@ -292,11 +310,11 @@ class _ClientsTabState extends State<ClientsTab> {
                   controller: _filterCtrl,
                   onSubmitted: (_) => _reload(),
                   decoration: InputDecoration(
-                    labelText: 'Filter',
-                    hintText: 'e.g. name:portal or active:true',
+                    labelText: 'Filter'.localized,
+                    hintText: 'e.g. name:portal or active:true'.localized,
                     suffixIcon: IconButton(
                       icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter',
+                      tooltip: 'Apply filter'.localized,
                       onPressed: _reload,
                     ),
                   ),
@@ -305,15 +323,21 @@ class _ClientsTabState extends State<ClientsTab> {
               DropdownButton<String>(
                 value: _orderBy,
                 items: const [
-                  DropdownMenuItem(value: 'id', child: Text('ID ascending')),
-                  DropdownMenuItem(value: '-id', child: Text('ID descending')),
+                  DropdownMenuItem(
+                    value: 'id',
+                    child: LocalizedText('ID ascending'),
+                  ),
+                  DropdownMenuItem(
+                    value: '-id',
+                    child: LocalizedText('ID descending'),
+                  ),
                   DropdownMenuItem(
                     value: 'name',
-                    child: Text('Name ascending'),
+                    child: LocalizedText('Name ascending'),
                   ),
                   DropdownMenuItem(
                     value: '-name',
-                    child: Text('Name descending'),
+                    child: LocalizedText('Name descending'),
                   ),
                 ],
                 onChanged: (value) {
@@ -325,13 +349,30 @@ class _ClientsTabState extends State<ClientsTab> {
               DropdownButton<int>(
                 value: _pageSize,
                 items: const [
-                  DropdownMenuItem(value: 25, child: Text('25 per page')),
-                  DropdownMenuItem(value: 100, child: Text('100 per page')),
-                  DropdownMenuItem(value: 250, child: Text('250 per page')),
+                  DropdownMenuItem(
+                    value: 25,
+                    child: LocalizedText('25 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 100,
+                    child: LocalizedText('100 per page'),
+                  ),
+                  DropdownMenuItem(
+                    value: 250,
+                    child: LocalizedText('250 per page'),
+                  ),
                 ],
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() => _pageSize = value);
+                  _reload();
+                },
+              ),
+              FilterChip(
+                label: const LocalizedText('Expiring within 30 days'),
+                selected: _expiringOnly,
+                onSelected: (value) {
+                  _expiringOnly = value;
                   _reload();
                 },
               ),
@@ -347,7 +388,7 @@ class _ClientsTabState extends State<ClientsTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: Text('Error: ${snap.error}'));
+                return Center(child: LocalizedText('Error: ${snap.error}'));
               }
               final page = snap.data!;
               final items = page.items;
@@ -383,7 +424,10 @@ class _ClientsTabState extends State<ClientsTab> {
                                       : Colors.grey,
                                 ),
                                 title: Text(c['id']?.toString() ?? '?'),
-                                subtitle: Text(c['name']?.toString() ?? ''),
+                                subtitle: Text(
+                                  '${c['name']?.toString() ?? ''} · '
+                                  '${clientSecretExpiryLabel(c)}',
+                                ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -420,23 +464,23 @@ class _ClientsTabState extends State<ClientsTab> {
                                       itemBuilder: (context) => const [
                                         PopupMenuItem(
                                           value: 'edit',
-                                          child: Text('Edit'),
+                                          child: LocalizedText('Edit'),
                                         ),
                                         PopupMenuItem(
                                           value: 'rotate',
-                                          child: Text('Rotate secret'),
+                                          child: LocalizedText('Rotate secret'),
                                         ),
                                         PopupMenuItem(
                                           value: 'approve',
-                                          child: Text('Approve'),
+                                          child: LocalizedText('Approve'),
                                         ),
                                         PopupMenuItem(
                                           value: 'reject',
-                                          child: Text('Reject'),
+                                          child: LocalizedText('Reject'),
                                         ),
                                         PopupMenuItem(
                                           value: 'delete',
-                                          child: Text('Delete'),
+                                          child: LocalizedText('Delete'),
                                         ),
                                       ],
                                     ),

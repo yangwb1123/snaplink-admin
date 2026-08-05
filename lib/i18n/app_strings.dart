@@ -1,9 +1,13 @@
 import 'package:flutter/widgets.dart';
+import 'app_strings_additional.dart';
+import 'app_strings_source.dart';
+
+part 'app_strings_context.dart';
 
 /// Lightweight EN/ZH string lookup — deliberately NOT flutter's ARB/
 /// gen-l10n codegen pipeline (that toolchain needs a build step wired into
-/// every dev workflow and CI job for what is, right now, one screen's worth
-/// of strings; revisit if/when coverage grows across the whole app). Keyed
+/// every dev workflow and CI job). The compact typed catalog covers shared
+/// controls and the six product entry shells. Keyed
 /// by [BuildContext] so callers read the SAME [AppSettings.locale] the rest
 /// of the app already reacts to (see main.dart's ListenableBuilder) — this
 /// class has no state of its own, it's a pure lookup.
@@ -14,8 +18,13 @@ class AppStrings {
   static AppStrings of(BuildContext context) =>
       AppStrings._(Localizations.localeOf(context));
 
+  static AppStrings forLocale(Locale locale) => AppStrings._(locale);
+
   String _t(String key) =>
-      _table[locale.languageCode]?[key] ?? _table['en']![key]!;
+      _table[locale.languageCode]?[key] ??
+      appAdditionalStrings[locale.languageCode]?[key] ??
+      _table['en']?[key] ??
+      appAdditionalStrings['en']![key]!;
 
   // Login screen
   String get signIn => _t('sign_in');
@@ -102,6 +111,119 @@ class AppStrings {
   String get governanceOperations => _t('governance_operations');
   String get tokenSessionSecurity => _t('token_session_security');
   String get authzChecks => _t('authz_checks');
+  String get overview => _t('overview');
+  String get localUsers => _t('local_users');
+  String get scimDirectory => _t('scim_directory');
+  String get deviceSecurity => _t('device_security');
+  String get usageInsights => _t('usage_insights');
+  String get networkPolicies => _t('network_policies');
+  String get changeApprovals => _t('change_approvals');
+  String get recoveryReleases => _t('recovery_releases');
+  String get privacyRetention => _t('privacy_retention');
+  String get auditLog => _t('audit_log');
+  String get health => _t('health');
+  String get ssoAdmin => _t('sso_admin');
+  String failedToLoadAdminConsole(Object error) =>
+      '${_t('failed_to_load_admin_console')}: $error';
+
+  // Portal
+  String get accountTitle => _t('account_title');
+  String get accountSubtitle => _t('account_subtitle');
+  String get accessToken => _t('access_token');
+  String get continueLabel => _t('continue');
+  String get security => _t('security');
+  String get devices => _t('devices');
+  String get sessions => _t('sessions');
+  String get activity => _t('activity');
+  String get linkedIdentities => _t('linked_identities');
+  String get connectedApps => _t('connected_apps');
+  String get privacy => _t('privacy');
+  String get signOut => _t('sign_out');
+  String get redirectingToSignIn => _t('redirecting_to_sign_in');
+  String get enterToken => _t('enter_token');
+  String get tokenNotAccepted => _t('token_not_accepted');
+  String get accountDeleted => _t('account_deleted');
+  String get sessionRevoked => _t('session_revoked');
+  String get sessionExpired => _t('session_expired');
+
+  // Developer portal
+  String get developerPortal => _t('developer_portal');
+  String get registerNewApp => _t('register_new_app');
+  String get manageExistingApp => _t('manage_existing_app');
+  String get retryDiscovery => _t('retry_discovery');
+
+  // First-run setup
+  String get setupUnavailable => _t('setup_unavailable');
+  String get setupStatusUnknown => _t('setup_status_unknown');
+  String get createAdministrator => _t('create_administrator');
+  String get createAdministratorDescription =>
+      _t('create_administrator_description');
+  String get adminUsername => _t('admin_username');
+  String get confirmPassword => _t('confirm_password');
+  String get firstApplication => _t('first_application');
+  String get optional => _t('optional');
+  String get firstApplicationDescription => _t('first_application_description');
+  String get applicationName => _t('application_name');
+  String get redirectUris => _t('redirect_uris');
+  String get oneHttpsUriPerLine => _t('one_https_uri_per_line');
+  String get createAndFinish => _t('create_and_finish');
+  String get skipAndFinish => _t('skip_and_finish');
+  String get networkErrorRetry => _t('network_error_retry');
+  String get setup => _t('setup');
+  String get checkingSystemStatus => _t('checking_system_status');
+  String get alreadySetUp => _t('already_set_up');
+  String get alreadyInitialized => _t('already_initialized');
+  String get goToAdminConsole => _t('go_to_admin_console');
+  String get setupUnavailableTitle => _t('setup_unavailable_title');
+  String get setupNotAvailable => _t('setup_not_available');
+  String get administratorUsername => _t('administrator_username');
+  String get clientId => _t('client_id');
+  String get clientSecret => _t('client_secret');
+  String get setupComplete => _t('setup_complete');
+  String get setupCompleteDescription => _t('setup_complete_description');
+  String get setupApplicationMissing => _t('setup_application_missing');
+  String get retryApplicationCreation => _t('retry_application_creation');
+  String get secretSavedConfirmation => _t('secret_saved_confirmation');
+  String get secretEraseWarning => _t('secret_erase_warning');
+  String get enterUsername => _t('enter_username');
+  String get passwordMinimum => _t('password_minimum');
+  String get passwordsMismatch => _t('passwords_mismatch');
+  String get appNameOrSkip => _t('app_name_or_skip');
+  String stepOf(int current, int total) =>
+      '${_t('step')} $current ${_t('of')} $total';
+  String shownOnce(String label) => '$label · ${_t('shown_once')}';
+  String copyLabel(String label) => '${_t('copy')} $label';
+  String copiedLabel(String label) => '$label ${_t('copied')}';
+
+  // Device authorization
+  String get authorizeDevice => _t('authorize_device');
+  String get deviceCodeInstruction => _t('device_code_instruction');
+  String get deviceCode => _t('device_code');
+  String get checkCode => _t('check_code');
+  String get checking => _t('checking');
+  String get approve => _t('approve');
+  String get deny => _t('deny');
+  String get signInAgain => _t('sign_in_again');
+  String get approveDeviceTitle => _t('approve_device_title');
+  String get denyDeviceTitle => _t('deny_device_title');
+  String get approveDeviceDescription => _t('approve_device_description');
+  String get denyDeviceDescription => _t('deny_device_description');
+  String get deviceCodeIncomplete => _t('device_code_incomplete');
+  String get deviceCodeVerified => _t('device_code_verified');
+  String get deviceApprovalContextMissing =>
+      _t('device_approval_context_missing');
+  String get deviceAlreadyApproved => _t('device_already_approved');
+  String get deviceAlreadyDenied => _t('device_already_denied');
+  String get deviceCodeExpired => _t('device_code_expired');
+  String get deviceCodeNotFound => _t('device_code_not_found');
+  String get deviceAuthorizationDisabled => _t('device_authorization_disabled');
+  String get deviceCodeCheckFailed => _t('device_code_check_failed');
+  String get deviceApproved => _t('device_approved');
+  String get deviceDenied => _t('device_denied');
+  String get signInExpired => _t('sign_in_expired');
+  String get deviceCodeInvalidExpired => _t('device_code_invalid_expired');
+  String get requestFailedRetry => _t('request_failed_retry');
+  String requestedScopes(String scopes) => '${_t('requested_scopes')}: $scopes';
 
   static const _table = <String, Map<String, String>>{
     'en': {
@@ -260,6 +382,17 @@ class AppStrings {
       'users': '用户',
       'tenants': '租户',
       'logout': '登出',
+    },
+  };
+
+  static final _sourceTranslations = <String, Map<String, String>>{
+    'zh': <String, String>{
+      for (final entry in _table['en']!.entries)
+        _table['en']![entry.key]!: _table['zh']![entry.key]!,
+      for (final entry in appAdditionalStrings['en']!.entries)
+        appAdditionalStrings['en']![entry.key]!:
+            appAdditionalStrings['zh']![entry.key]!,
+      ...appSourceStrings['zh']!,
     },
   };
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -211,7 +212,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           );
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Subject export downloaded without previewing it.'),
+              content: LocalizedText(
+                'Subject export downloaded without previewing it.',
+              ),
             ),
           );
         }
@@ -351,7 +354,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   Widget build(BuildContext context) {
     if (_adminEndpoints.isEmpty) {
       return const Center(
-        child: Text(
+        child: LocalizedText(
           'No optional administration routes are registered on this replica.',
         ),
       );
@@ -366,30 +369,29 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),
-        const Text(
+        const LocalizedText(
           'Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.',
         ),
         const SizedBox(height: 4),
-        const Text(
-          'Provider configuration routes are intentionally hidden because '
-          'the current backend DTO can echo stored client secrets. Decoded '
-          'snapshot-resource reads are also hidden because they may contain '
-          'credential attributes. High-impact workflows with dedicated '
-          'preview or reconciliation screens cannot be bypassed here.',
+        const LocalizedText(
+          'Provider and connection reads are server-redacted, secret fields '
+          'remain write-only, and ordinary snapshot detail is server-redacted. '
+          'High-impact workflows with dedicated preview or reconciliation '
+          'screens cannot be bypassed here.',
           style: TextStyle(color: Colors.orangeAccent),
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<SnaplinkAdminEndpoint>(
           initialValue: endpoint,
           isExpanded: true,
-          decoration: const InputDecoration(
-            labelText: 'Administration endpoint',
+          decoration: InputDecoration(
+            labelText: 'Administration endpoint'.localized,
           ),
           items: _adminEndpoints
               .map(
                 (item) => DropdownMenuItem(
                   value: item,
-                  child: Text(
+                  child: LocalizedText(
                     '${item.method} ${item.path}',
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -400,7 +402,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ),
         if (endpoint != null) ...[
           const SizedBox(height: 16),
-          Text(
+          LocalizedText(
             endpoint.feature == 'documented'
                 ? 'Availability: documented contract; this replica has not advertised the route.'
                 : 'Runtime feature surface: ${endpoint.feature}',
@@ -411,7 +413,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
               controller: entry.value,
               enabled: !_running && (!_isMutation || !_mutationOutcomeUnknown),
               decoration: InputDecoration(
-                labelText: 'Path parameter: ${entry.key}',
+                labelText: 'Path parameter: ${entry.key}'.localized,
               ),
             ),
           ],
@@ -421,9 +423,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             maxLines: 3,
             enabled: !_running && (!_isMutation || !_mutationOutcomeUnknown),
             style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-            decoration: const InputDecoration(
-              labelText: 'Query parameters JSON',
-              helperText: 'Use {} when none are required.',
+            decoration: InputDecoration(
+              labelText: 'Query parameters JSON'.localized,
+              helperText: 'Use {} when none are required.'.localized,
             ),
           ),
           if (_isMutation) ...[
@@ -433,14 +435,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
               maxLines: 8,
               enabled: !_running && !_mutationOutcomeUnknown,
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-              decoration: const InputDecoration(labelText: 'Request body JSON'),
+              decoration: InputDecoration(
+                labelText: 'Request body JSON'.localized,
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _confirmCtrl,
               enabled: !_running && !_mutationOutcomeUnknown,
               decoration: InputDecoration(
-                labelText: 'Exact write confirmation',
+                labelText: 'Exact write confirmation'.localized,
                 helperText: _confirmationHint,
               ),
             ),
@@ -457,7 +461,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.play_arrow),
-            label: Text('Run ${endpoint.method}'),
+            label: LocalizedText('Run ${endpoint.method}'),
           ),
         ],
         if (_mutationOutcomeUnknown) ...[
@@ -466,28 +470,34 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             color: Theme.of(context).colorScheme.errorContainer,
             child: ListTile(
               leading: const Icon(Icons.sync_problem_outlined),
-              title: const Text('Previous write outcome is unknown'),
-              subtitle: const Text(
+              title: const LocalizedText('Previous write outcome is unknown'),
+              subtitle: const LocalizedText(
                 'Mutation inputs are locked. Select and run a safe GET, or '
                 'use the dedicated resource screen, then explicitly '
                 'acknowledge reconciliation.',
               ),
               trailing: TextButton(
                 onPressed: _running ? null : _acknowledgeReconciliation,
-                child: const Text('I reconciled server state'),
+                child: const LocalizedText('I reconciled server state'),
               ),
             ),
           ),
         ],
         if (_error != null) ...[
           const SizedBox(height: 16),
-          Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          LocalizedText(
+            _error!,
+            style: const TextStyle(color: Colors.redAccent),
+          ),
         ],
         if (_response != null || _rawResponse != null) ...[
           const SizedBox(height: 16),
           Row(
             children: [
-              Text('Response', style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                'Response',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const Spacer(),
               TextButton.icon(
                 onPressed: () async {
@@ -503,13 +513,13 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Response copied to clipboard.'),
+                        content: LocalizedText('Response copied to clipboard.'),
                       ),
                     );
                   }
                 },
                 icon: const Icon(Icons.copy, size: 16),
-                label: const Text('Copy'),
+                label: const LocalizedText('Copy'),
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'scim_models.dart';
 
@@ -154,14 +155,14 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Patch ${widget.kind.singular} ${widget.resourceId}'),
+    title: LocalizedText('Patch ${widget.kind.singular} ${widget.resourceId}'),
     content: SizedBox(
       width: 700,
       height: MediaQuery.sizeOf(context).height * .62,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             widget.kind == ScimResourceKind.users
                 ? 'Operations run in order and are validated before the user '
                       'is persisted once. Invalid paths abort the patch.'
@@ -189,7 +190,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
             child: OutlinedButton.icon(
               onPressed: _addRow,
               icon: const Icon(Icons.add),
-              label: const Text('Add ordered operation'),
+              label: const LocalizedText('Add ordered operation'),
             ),
           ),
         ],
@@ -198,9 +199,12 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Apply patch')),
+      FilledButton(
+        onPressed: _submit,
+        child: const LocalizedText('Apply patch'),
+      ),
     ],
   );
 
@@ -221,7 +225,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
           children: [
             Row(
               children: [
-                Text(
+                LocalizedText(
                   'Operation ${index + 1}',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
@@ -229,7 +233,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                 IconButton(
                   onPressed: _rows.length > 1 ? () => _removeRow(index) : null,
                   icon: const Icon(Icons.remove_circle_outline),
-                  tooltip: 'Remove operation',
+                  tooltip: 'Remove operation'.localized,
                 ),
               ],
             ),
@@ -239,7 +243,9 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: row.op,
-                    decoration: const InputDecoration(labelText: 'Operation'),
+                    decoration: InputDecoration(
+                      labelText: 'Operation'.localized,
+                    ),
                     items: const ['add', 'replace', 'remove']
                         .map(
                           (value) => DropdownMenuItem(
@@ -262,7 +268,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                   flex: 2,
                   child: DropdownButtonFormField<String>(
                     initialValue: row.path,
-                    decoration: const InputDecoration(labelText: 'Path'),
+                    decoration: InputDecoration(labelText: 'Path'.localized),
                     items: paths
                         .map(
                           (value) => DropdownMenuItem(
@@ -281,10 +287,13 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
               if (row.path == 'active')
                 DropdownButtonFormField<bool>(
                   initialValue: row.activeValue,
-                  decoration: const InputDecoration(labelText: 'Value'),
+                  decoration: InputDecoration(labelText: 'Value'.localized),
                   items: const [
-                    DropdownMenuItem(value: true, child: Text('true')),
-                    DropdownMenuItem(value: false, child: Text('false')),
+                    DropdownMenuItem(value: true, child: LocalizedText('true')),
+                    DropdownMenuItem(
+                      value: false,
+                      child: LocalizedText('false'),
+                    ),
                   ],
                   onChanged: (value) =>
                       setState(() => row.activeValue = value!),
@@ -295,14 +304,16 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                   minLines: _multiLine(row.path) ? 2 : 1,
                   maxLines: _multiLine(row.path) ? 5 : 1,
                   decoration: InputDecoration(
-                    labelText: row.path == 'member by ID'
-                        ? 'Member user ID'
-                        : row.path == 'email by address'
-                        ? 'Email address'
-                        : row.path == 'emails by type'
-                        ? 'Email type'
-                        : 'Value',
-                    helperText: _helper(row.path),
+                    labelText:
+                        (row.path == 'member by ID'
+                                ? 'Member user ID'
+                                : row.path == 'email by address'
+                                ? 'Email address'
+                                : row.path == 'emails by type'
+                                ? 'Email type'
+                                : 'Value')
+                            .localized,
+                    helperText: _helper(row.path)?.localized,
                     border: _multiLine(row.path)
                         ? const OutlineInputBorder()
                         : null,

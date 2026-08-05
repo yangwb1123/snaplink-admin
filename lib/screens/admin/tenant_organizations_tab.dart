@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -214,7 +215,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       if (!mounted) return;
       downloadTenantExport(export, tenantId);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tenant export download started.')),
+        const SnackBar(
+          content: LocalizedText('Tenant export download started.'),
+        ),
       );
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -238,7 +241,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -263,7 +266,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   Widget build(BuildContext context) {
     if (!_supportsMembers && !_supportsInvitations && !_supportsExport) {
       return const Center(
-        child: Text(
+        child: LocalizedText(
           'Organization management is not enabled on this Snaplink replica.',
         ),
       );
@@ -288,16 +291,16 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         const SizedBox(height: 12),
         TextField(
           controller: _tenantCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Tenant ID',
-            hintText: 'acme',
+          decoration: InputDecoration(
+            labelText: 'Tenant ID'.localized,
+            hintText: 'acme'.localized,
           ),
           onSubmitted: (_) => _load(),
         ),
         const SizedBox(height: 12),
         FilledButton(
           onPressed: _loading ? null : _load,
-          child: const Text('Load organization'),
+          child: const LocalizedText('Load organization'),
         ),
         if (_error != null)
           Padding(

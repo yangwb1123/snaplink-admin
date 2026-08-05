@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -127,7 +128,10 @@ class _SecurityAccountCredentialsState
         });
       } else if (response.statusCode == 200) {
         setState(() {
-          _emailMessage = 'We sent a verification token to $value.';
+          _emailMessage = context.tr(
+            'We sent a verification token to {email}.',
+            {'email': value},
+          );
           _emailOk = true;
           _emailVerifyVisible = true;
         });

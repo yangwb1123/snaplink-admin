@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 
@@ -19,7 +20,7 @@ class GovernanceSection extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        LocalizedText(title, style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
         ...children,
       ],
@@ -44,8 +45,8 @@ class GovernanceCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
+          LocalizedText(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
           ...children,
         ],
       ),
@@ -82,13 +83,13 @@ class GovernanceJsonCard extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('JSON copied.')));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: LocalizedText('JSON copied.')),
+                );
               }
             },
             icon: const Icon(Icons.copy, size: 16),
-            label: const Text('Copy JSON'),
+            label: const LocalizedText('Copy JSON'),
           ),
         ),
       ],
@@ -103,7 +104,10 @@ class GovernanceErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 12),
-    child: Text(error, style: const TextStyle(color: Colors.redAccent)),
+    child: LocalizedText(
+      error,
+      style: const TextStyle(color: Colors.redAccent),
+    ),
   );
 }
 
@@ -127,23 +131,23 @@ class GovernanceAuditResults extends StatelessWidget {
         GovernanceCard(
           title: 'Audit results (${result['count'] ?? events.length})',
           children: [
-            if (events.isEmpty) const Text('No matching events.'),
+            if (events.isEmpty) const LocalizedText('No matching events.'),
             for (final event in events.take(20))
               ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: Text(
+                title: LocalizedText(
                   event['type']?.toString() ??
                       event['id']?.toString() ??
                       'Event',
                 ),
-                subtitle: Text(
+                subtitle: LocalizedText(
                   '${event['timestamp'] ?? event['created_at'] ?? ''} ${event['outcome'] ?? ''}'
                       .trim(),
                 ),
               ),
             if (events.length > 20)
-              Text('${events.length - 20} more results present.'),
+              LocalizedText('${events.length - 20} more results present.'),
           ],
         ),
         if (facets != null) ...[

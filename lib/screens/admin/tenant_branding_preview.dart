@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class TenantBrandingPreview extends StatelessWidget {
   final String brandName;
@@ -24,7 +25,7 @@ class TenantBrandingPreview extends StatelessWidget {
           );
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
@@ -38,15 +39,18 @@ class TenantBrandingPreview extends StatelessWidget {
               errorBuilder: (_, _, _) =>
                   const Icon(Icons.broken_image_outlined),
             ),
-          Text(
-            brandName.isEmpty ? 'Your organization' : brandName,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 10),
+          if (brandName.isEmpty)
+            LocalizedText(
+              'Your organization',
+              style: Theme.of(context).textTheme.titleMedium,
+            )
+          else
+            Text(brandName, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: color),
             onPressed: null,
-            child: const Text('Continue'),
+            child: const LocalizedText('Continue'),
           ),
         ],
       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../services/product_api_origin.dart';
 import 'dcr_models.dart';
 
 /// Thrown on any non-2xx response from the SSO server's Dynamic Client
@@ -33,8 +34,8 @@ class DeveloperApiError implements Exception {
 /// (a bearer sent only if the developer supplies one), and every
 /// subsequent read/update/delete of an already-registered app is
 /// authenticated solely by the registration_access_token that /register
-/// returned. Requests are built against the CURRENT origin (Uri.base) since
-/// this app is served from behind the same reverse proxy as the SSO API.
+/// returned. Requests stay same-origin on web and follow the configured
+/// Snaplink service origin on native platforms.
 class DeveloperApi {
   final http.Client _http;
   final Uri _baseUri;
@@ -45,7 +46,7 @@ class DeveloperApi {
     Uri? baseUri,
     Duration timeout = const Duration(seconds: 30),
   }) : _http = httpClient ?? http.Client(),
-       _baseUri = baseUri ?? Uri.base,
+       _baseUri = baseUri ?? ProductApiOrigin.baseUri,
        _timeout = timeout;
 
   Future<DcrDiscovery> loadDiscovery() async {
@@ -129,10 +130,9 @@ class DeveloperApi {
     return _handle(resp);
   }
 
-  /// PUT /register/:client_id — RFC 7592 full update. The current server
-  /// projection omits grant_types even though PUT replaces that field. Callers
-  /// must therefore establish an out-of-band trusted grant snapshot before
-  /// saving; [DcrRoundTripSafety] models this guard for the portal.
+  /// PUT /register/:client_id — RFC 7592 lossless full update. Current
+  /// Snaplink reads and writes return every persisted management field;
+  /// [DcrRoundTripSafety] retains a fail-closed guard for older replicas.
   Future<Map<String, dynamic>> saveApp({
     required String clientId,
     required String token,

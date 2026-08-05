@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'admin_route.dart';
@@ -74,7 +75,7 @@ class _HealthTabState extends State<HealthTab> {
       const AdminBreadcrumb(),
       Row(
         children: [
-          Text(
+          LocalizedText(
             'System Health',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
@@ -82,7 +83,7 @@ class _HealthTabState extends State<HealthTab> {
           IconButton(
             onPressed: _loading ? null : _refresh,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
           ),
         ],
       ),
@@ -118,17 +119,20 @@ class _HealthTabState extends State<HealthTab> {
             children: [
               const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
               const SizedBox(height: 8),
-              Text(
+              LocalizedText(
                 'Cannot reach backend',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 4),
-              Text(_error!, style: const TextStyle(color: Colors.grey)),
+              LocalizedText(
+                _error!,
+                style: const TextStyle(color: Colors.grey),
+              ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: _refresh,
                 icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
+                label: const LocalizedText('Retry'),
               ),
             ],
           ),
@@ -152,7 +156,7 @@ class _HealthTabState extends State<HealthTab> {
                   size: 32,
                 ),
                 const SizedBox(width: 12),
-                Text(
+                LocalizedText(
                   'Backend Server',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -194,12 +198,15 @@ class _HealthTabState extends State<HealthTab> {
             children: [
               Icon(icon, size: 24),
               const SizedBox(width: 8),
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ],
           ),
           const Divider(),
           if (data.isEmpty)
-            const Text('No data available')
+            const LocalizedText('No data available')
           else
             ...data.entries.map((e) => _row(e.key, e.value?.toString() ?? '—')),
         ],
@@ -217,7 +224,7 @@ class _HealthTabState extends State<HealthTab> {
             children: [
               const Icon(Icons.info_outline, size: 24),
               const SizedBox(width: 8),
-              Text(
+              LocalizedText(
                 'Quick Actions',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
@@ -229,20 +236,20 @@ class _HealthTabState extends State<HealthTab> {
             runSpacing: 8,
             children: [
               ActionChip(
-                label: const Text('Audit Log'),
+                label: const LocalizedText('Audit Log'),
                 onPressed: () => AdminRoute.go('audit-log'),
               ),
               ActionChip(
-                label: const Text('Refresh Cache'),
+                label: const LocalizedText('Refresh Cache'),
                 onPressed: () {
                   widget.api.clearCache();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Cache cleared')),
+                    const SnackBar(content: LocalizedText('Cache cleared')),
                   );
                 },
               ),
               ActionChip(
-                label: const Text('Test Connection'),
+                label: const LocalizedText('Test Connection'),
                 onPressed: _refresh,
               ),
             ],
@@ -253,7 +260,7 @@ class _HealthTabState extends State<HealthTab> {
   );
 
   Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
+    padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

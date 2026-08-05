@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import '../screens/admin/admin_route.dart';
 
 /// Breadcrumb navigation for admin detail pages.
@@ -21,6 +22,7 @@ class AdminBreadcrumb extends StatelessWidget {
     'scim-directory' => 'SCIM Directory',
     'clients' => 'Clients',
     'tenants' => 'Tenants',
+    'commerce' => 'Subscriptions & Billing',
     'connections' => 'Connections',
     'permissions' => 'Permissions',
     'webhooks' => 'Webhooks',
@@ -66,7 +68,7 @@ class AdminBreadcrumb extends StatelessWidget {
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             foregroundColor: theme.colorScheme.primary,
           ),
-          child: Text(
+          child: LocalizedText(
             _moduleLabel(route.module),
             style: const TextStyle(fontSize: 13),
           ),
@@ -85,9 +87,9 @@ class AdminBreadcrumb extends StatelessWidget {
           ),
         );
         crumbs.add(_separator());
-        crumbs.add(_crumb('Edit', null));
+        crumbs.add(_crumb('Edit', null, localized: true));
       } else if (route.action == 'new') {
-        crumbs.add(_crumb('New', null));
+        crumbs.add(_crumb('New', null, localized: true));
       } else if (route.subresource.isEmpty) {
         crumbs.add(_crumb(route.resourceId, null));
       } else {
@@ -103,13 +105,13 @@ class AdminBreadcrumb extends StatelessWidget {
     // Sub-resource
     if (route.subresource.isNotEmpty) {
       crumbs.add(_separator());
-      crumbs.add(_crumb(_subLabel(route.subresource), null));
+      crumbs.add(_crumb(_subLabel(route.subresource), null, localized: true));
     }
 
     // Extra trailing crumbs
     for (final t in trailing) {
       crumbs.add(_separator());
-      crumbs.add(_crumb(t, null));
+      crumbs.add(_crumb(t, null, localized: true));
     }
 
     // Override module label
@@ -122,7 +124,10 @@ class AdminBreadcrumb extends StatelessWidget {
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           foregroundColor: theme.colorScheme.primary,
         ),
-        child: Text(overrideModule!, style: const TextStyle(fontSize: 13)),
+        child: LocalizedText(
+          overrideModule!,
+          style: const TextStyle(fontSize: 13),
+        ),
       );
     }
 
@@ -143,7 +148,16 @@ class AdminBreadcrumb extends StatelessWidget {
     child: Icon(Icons.chevron_right, size: 14, color: Colors.grey),
   );
 
-  Widget _crumb(String text, VoidCallback? onTap) {
+  Widget _crumb(String text, VoidCallback? onTap, {bool localized = false}) {
+    final label = localized
+        ? LocalizedText(
+            text,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          )
+        : Text(
+            text,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          );
     if (onTap == null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -151,10 +165,7 @@ class AdminBreadcrumb extends StatelessWidget {
           color: Colors.blueGrey.shade50,
           borderRadius: BorderRadius.circular(4),
         ),
-        child: Text(
-          text,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        ),
+        child: label,
       );
     }
     return TextButton(
@@ -165,7 +176,9 @@ class AdminBreadcrumb extends StatelessWidget {
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: Colors.blueGrey.shade700,
       ),
-      child: Text(text, style: const TextStyle(fontSize: 13)),
+      child: localized
+          ? LocalizedText(text, style: const TextStyle(fontSize: 13))
+          : Text(text, style: const TextStyle(fontSize: 13)),
     );
   }
 

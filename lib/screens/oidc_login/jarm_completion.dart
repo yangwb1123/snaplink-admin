@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'authorization_redirect_policy.dart';
+
 /// The only terminal outcomes the hosted page accepts for a JARM request.
 ///
 /// The browser never signs or rewrites a JARM JWT. It may only deliver a
@@ -41,7 +43,7 @@ JarmCompletion resolveJarmCompletion({
   final registeredRedirect = Uri.tryParse(redirectUri);
   if (registeredRedirect == null ||
       redirectUri.isEmpty ||
-      !_isSafeRedirectUri(registeredRedirect) ||
+      !isSafeAuthorizationRedirectUri(registeredRedirect) ||
       registeredRedirect.fragment.isNotEmpty ||
       registeredRedirect.userInfo.isNotEmpty) {
     return const JarmCompletion.blocked();
@@ -90,6 +92,46 @@ JarmCompletion resolveJarmCompletion({
   return JarmCompletion.redirect(target);
 }
 
+/// Validates Snaplink's plain OIDC `form_post` document before the hosted page
+/// replaces itself with it. The server has already checked the redirect URI,
+/// but an HTML response has no JSON delivery metadata for the browser to
+/// inspect, so the form action and response field set are checked locally too.
+bool isTrustedAuthorizationFormPost(String html, Uri expectedRedirect) {
+  if (!isSafeAuthorizationRedirectUri(expectedRedirect) ||
+      expectedRedirect.fragment.isNotEmpty) {
+    return false;
+  }
+  final forms = RegExp(
+    r'<form\b[^>]*>',
+    caseSensitive: false,
+  ).allMatches(html).toList(growable: false);
+  if (forms.length != 1) return false;
+  final formTag = forms.single.group(0)!;
+  if (_attribute(formTag, 'method')?.toLowerCase() != 'post') return false;
+  final action = _attribute(formTag, 'action');
+  final parsedAction = action == null
+      ? null
+      : Uri.tryParse(_decodeHtmlAttribute(action));
+  if (parsedAction == null ||
+      !_sameUriWithoutFragment(parsedAction, expectedRedirect)) {
+    return false;
+  }
+
+  const allowedFields = {'code', 'state', 'iss'};
+  final counts = <String, int>{};
+  for (final input in RegExp(
+    r'<input\b[^>]*>',
+    caseSensitive: false,
+  ).allMatches(html)) {
+    final name = _attribute(input.group(0)!, 'name');
+    if (name == null || !allowedFields.contains(name)) return false;
+    final count = (counts[name] ?? 0) + 1;
+    if (count > 1) return false;
+    counts[name] = count;
+  }
+  return counts['code'] == 1;
+}
+
 const _jarmModes = {'jwt', 'query.jwt', 'fragment.jwt', 'form_post.jwt'};
 
 const _unsignedAuthorizationFields = {
@@ -106,30 +148,8 @@ const _unsignedAuthorizationFields = {
   'error_description',
 };
 
-const _blockedRedirectSchemes = {
-  'about',
-  'blob',
-  'data',
-  'file',
-  'javascript',
-  'vbscript',
-};
-
 bool _containsUnsignedAuthorizationFields(Map<String, dynamic> data) =>
     data.keys.any(_unsignedAuthorizationFields.contains);
-
-bool _isSafeRedirectUri(Uri uri) {
-  if (!uri.isAbsolute || _blockedRedirectSchemes.contains(uri.scheme)) {
-    return false;
-  }
-  if (uri.scheme == 'https') return uri.host.isNotEmpty;
-  if (uri.scheme == 'http') {
-    return const {'localhost', '127.0.0.1', '::1'}.contains(uri.host);
-  }
-  // Native application schemes are supported, while executable and local
-  // browser schemes above are never navigation targets.
-  return true;
-}
 
 bool _isDirectAuthorizationResponse(
   Uri? responseUrl,
@@ -218,8 +238,12 @@ bool _looksLikeSignedJwt(String value) {
 }
 
 bool _isTrustedJarmForm(String html, Uri expectedRedirect) {
-  final form = RegExp(r'<form\b[^>]*>', caseSensitive: false).firstMatch(html);
-  if (form == null) return false;
+  final forms = RegExp(
+    r'<form\b[^>]*>',
+    caseSensitive: false,
+  ).allMatches(html).toList(growable: false);
+  if (forms.length != 1) return false;
+  final form = forms.single;
   final formTag = form.group(0)!;
   final method = _attribute(formTag, 'method')?.toLowerCase();
   final action = _attribute(formTag, 'action');

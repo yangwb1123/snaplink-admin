@@ -6,6 +6,7 @@ import 'screens/setup/setup_screen.dart';
 import 'screens/portal/portal_screen.dart';
 import 'screens/developer/developer_screen.dart';
 import 'screens/device/device_verify_screen.dart';
+import 'services/product_entry_route.dart';
 
 /// One Flutter web build serves all six areas of the SSO product (extracted
 /// from the sso-server Go binary, which is now a pure API backend) — a
@@ -20,15 +21,30 @@ import 'screens/device/device_verify_screen.dart';
 /// ONE login screen every account kind (admin or regular) authenticates
 /// through; what happens afterward is decided by admin API access, not by
 /// which URL was used to sign in.
-Widget resolveInitialScreen({OidcLoginApi? oidcLoginApi}) {
-  final path = Uri.base.path;
-  if (path.startsWith('/setup')) return const SetupScreen();
-  if (path.startsWith('/portal')) return const PortalScreen();
-  if (path.startsWith('/developer')) return const DeveloperScreen();
-  if (path.startsWith('/device/verify')) return const DeviceVerifyScreen();
-  if (path.startsWith('/admin')) return const AdminGateScreen();
-  return OidcLoginScreen(
-    defaultClientId: 'sso-admin-console',
-    api: oidcLoginApi,
+Widget resolveInitialScreen({OidcLoginApi? oidcLoginApi}) =>
+    resolveProductScreen(Uri.base, oidcLoginApi: oidcLoginApi);
+
+Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
+  return switch (productEntryForPath(location.path)) {
+    ProductEntry.setup => const SetupScreen(),
+    ProductEntry.portal => PortalScreen(routeUri: location),
+    ProductEntry.developer => const DeveloperScreen(),
+    ProductEntry.deviceVerification => DeviceVerifyScreen(routeUri: location),
+    ProductEntry.admin => const AdminGateScreen(),
+    ProductEntry.login => OidcLoginScreen(
+      defaultClientId: 'sso-admin-console',
+      api: oidcLoginApi,
+      routeUri: location,
+    ),
+  };
+}
+
+/// Used by native shells when BrowserNavigation replaces an application
+/// location without a browser history or page reload.
+Route<dynamic> buildProductRoute(RouteSettings settings) {
+  final location = Uri.tryParse(settings.name ?? '/') ?? Uri(path: '/');
+  return MaterialPageRoute<void>(
+    settings: settings,
+    builder: (_) => resolveProductScreen(location),
   );
 }

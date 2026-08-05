@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Members management card for tenant organizations.
 class OrgMembersCard extends StatelessWidget {
@@ -29,35 +30,40 @@ class OrgMembersCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Members', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Members',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: memberUserController,
-            decoration: const InputDecoration(
-              labelText: 'User ID',
-              hintText: 'user@example.com',
+            decoration: InputDecoration(
+              labelText: 'User ID'.localized,
+              hintText: 'user@example.com'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: memberRole,
-            decoration: const InputDecoration(labelText: 'Organization role'),
+            decoration: InputDecoration(
+              labelText: 'Organization role'.localized,
+            ),
             items: const [
-              DropdownMenuItem(value: 'member', child: Text('Member')),
-              DropdownMenuItem(value: 'admin', child: Text('Admin')),
-              DropdownMenuItem(value: 'guest', child: Text('Guest')),
+              DropdownMenuItem(value: 'member', child: LocalizedText('Member')),
+              DropdownMenuItem(value: 'admin', child: LocalizedText('Admin')),
+              DropdownMenuItem(value: 'guest', child: LocalizedText('Guest')),
             ],
             onChanged: mutating ? null : (v) => onRoleChanged(v ?? memberRole),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: mutating ? null : onSaveMember,
-            child: const Text('Add or update member'),
+            child: const LocalizedText('Add or update member'),
           ),
           if (members.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No members loaded.'),
+              child: LocalizedText('No members loaded.'),
             ),
           for (final member in members)
             ListTile(
@@ -67,7 +73,7 @@ class OrgMembersCard extends StatelessWidget {
                     member['userId']?.toString() ??
                     '',
               ),
-              subtitle: Text(member['role']?.toString() ?? 'member'),
+              subtitle: LocalizedText(member['role']?.toString() ?? 'member'),
               trailing: TextButton(
                 onPressed: mutating
                     ? null
@@ -77,7 +83,7 @@ class OrgMembersCard extends StatelessWidget {
                             '',
                       ),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Remove'),
+                child: const LocalizedText('Remove'),
               ),
             ),
         ],

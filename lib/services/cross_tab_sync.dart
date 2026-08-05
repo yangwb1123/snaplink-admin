@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
-import 'dart:js_interop';
-import 'package:web/web.dart' as web;
+
+import 'cross_tab_sync_stub.dart'
+    if (dart.library.js_interop) 'cross_tab_sync_web.dart'
+    as platform;
+import 'local_storage.dart';
 
 /// Cross-tab synchronization service.
 ///
@@ -22,26 +26,24 @@ class CrossTabSync {
   Stream<SyncEvent> get onSync => _controller.stream;
 
   bool _initialized = false;
-  dynamic _storageHandler; // JS function reference
+  void Function()? _cancelStorageListener;
 
   /// Start listening for cross-tab changes.
   void init() {
     if (_initialized) return;
     _initialized = true;
 
-    _storageHandler = ((web.StorageEvent event) {
-      if (event.key != null && event.newValue != null) {
+    _cancelStorageListener = platform.listenToStorage((
+      key,
+      oldValue,
+      newValue,
+    ) {
+      if (key != null && newValue != null) {
         _controller.add(
-          SyncEvent(
-            key: event.key!,
-            oldValue: event.oldValue,
-            newValue: event.newValue,
-          ),
+          SyncEvent(key: key, oldValue: oldValue, newValue: newValue),
         );
       }
-    }).toJS;
-
-    web.window.addEventListener('storage', _storageHandler);
+    });
   }
 
   /// Broadcast a change to other tabs via localStorage.
@@ -49,21 +51,22 @@ class CrossTabSync {
   /// `storage` event in all OTHER tabs (but not the current one).
   static void broadcast(String key, String value) {
     try {
-      web.window.localStorage.setItem(key, value);
-    } catch (_) {}
+      LocalStorage.setItem(key, value);
+    } catch (e) { debugPrint('cross_tab_sync error: $e'); }
   }
 
   /// Remove a synced key from localStorage.
   static void remove(String key) {
     try {
-      web.window.localStorage.removeItem(key);
-    } catch (_) {}
+      LocalStorage.removeItem(key);
+    } catch (e) { debugPrint('cross_tab_sync error: $e'); }
   }
 
   /// Clean up.
   void dispose() {
-    if (_initialized && _storageHandler != null) {
-      web.window.removeEventListener('storage', _storageHandler);
+    if (_initialized) {
+      _cancelStorageListener?.call();
+      _cancelStorageListener = null;
       _initialized = false;
     }
     _controller.close();

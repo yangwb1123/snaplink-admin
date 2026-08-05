@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -139,7 +140,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
       await request();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(success ?? 'Operation completed.')),
+        SnackBar(content: LocalizedText(success ?? 'Operation completed.')),
       );
       await _load();
     } on SnaplinkAdminApiError catch (error) {
@@ -183,13 +184,13 @@ class _UserSupportTabState extends State<UserSupportTab> {
         TextField(
           key: const Key('support-user-id'),
           controller: _userCtrl,
-          decoration: const InputDecoration(labelText: 'User ID'),
+          decoration: InputDecoration(labelText: 'User ID'.localized),
           onSubmitted: (_) => _load(),
         ),
         const SizedBox(height: 12),
         FilledButton(
           onPressed: _loading ? null : _load,
-          child: const Text('Load account support data'),
+          child: const LocalizedText('Load account support data'),
         ),
         if (_error != null)
           Padding(

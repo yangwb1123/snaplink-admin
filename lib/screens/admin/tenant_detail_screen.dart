@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -8,6 +9,7 @@ import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_branding_tab.dart';
 import 'tenant_detail_tabs.dart';
+import 'tenant_residency_summary.dart';
 import 'usage_analytics_contract.dart';
 
 /// Tenant detail screen with sub-resource tabs.
@@ -63,7 +65,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   }
 
   void _initTabFromRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.resourceId != widget.tenantId) return;
     for (var i = 0; i < _tabs.length; i++) {
       if (_tabs[i].$1 == route.subresource) {
@@ -135,7 +137,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Tenant: ${widget.tenantId}'),
+        title: LocalizedText('Tenant: ${widget.tenantId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => AdminRoute.go('tenants'),
@@ -143,7 +145,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: 'Edit tenant',
+            tooltip: 'Edit tenant'.localized,
             onPressed: () => _editTenant(context),
           ),
         ],
@@ -161,7 +163,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                     color: Colors.redAccent,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  LocalizedText(
                     'Failed to load',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -180,7 +182,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                   OutlinedButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: const LocalizedText('Retry'),
                   ),
                 ],
               ),
@@ -202,40 +204,8 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     ],
   );
 
-  Widget _tenantHeader(BuildContext context) => Card(
-    margin: const EdgeInsets.all(16),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          const Icon(Icons.business, size: 48),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _tenant?['name']?.toString() ?? widget.tenantId,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text('ID: ${_tenant?['id'] ?? widget.tenantId}'),
-                Text(
-                  'Domain: ${_tenant?['domain'] ?? _tenant?['primary_domain'] ?? ''}',
-                ),
-              ],
-            ),
-          ),
-          if (_tenant?['status'] != null)
-            Chip(
-              label: Text(_tenant!['status'].toString()),
-              backgroundColor: _tenant!['status'] == 'active'
-                  ? Colors.green.shade100
-                  : Colors.orange.shade100,
-            ),
-        ],
-      ),
-    ),
-  );
+  Widget _tenantHeader(BuildContext context) =>
+      TenantResidencySummary(tenant: _tenant, fallbackId: widget.tenantId);
 
   Widget _tabBar(BuildContext context) => SizedBox(
     height: 48,
@@ -247,7 +217,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text('${_tabs[i].$2}  (${_countForTab(i)})'),
+              label: LocalizedText('${_tabs[i].$2}  (${_countForTab(i)})'),
               selected: _tabIndex == i,
               onSelected: (_) => _selectTab(i, _tabs[i].$1),
             ),
@@ -293,7 +263,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       case 3:
         return TenantBrandingTab(api: widget.api, tenantId: widget.tenantId);
       default:
-        return const Center(child: Text('Select a tab'));
+        return const Center(child: LocalizedText('Select a tab'));
     }
   }
 
@@ -313,13 +283,13 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Removed $userId')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Removed $userId')));
       _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('$e')));
       }
     }
   }
@@ -342,15 +312,15 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         {'email': email, 'role': invitation['role']?.toString() ?? 'member'},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invitation resent')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Invitation resent')),
+      );
       await _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Resend failed: $error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: LocalizedText('Resend failed: $error')),
+        );
       }
     }
   }
@@ -370,15 +340,15 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invitation revoked')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Invitation revoked')),
+      );
       _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Revoke failed: $error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: LocalizedText('Revoke failed: $error')),
+        );
       }
     }
   }

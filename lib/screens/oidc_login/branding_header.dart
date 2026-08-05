@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Branding header with logo and name.
 class BrandingHeader extends StatelessWidget {
@@ -23,7 +24,9 @@ class BrandingHeader extends StatelessWidget {
           height: 40,
           fit: BoxFit.contain,
           excludeFromSemantics: brandName != null,
-          semanticLabel: brandName == null ? 'Organization logo' : null,
+          semanticLabel: brandName == null
+              ? context.tr('Organization logo')
+              : null,
           errorBuilder: (_, _, _) => const SizedBox.shrink(),
         ),
         const SizedBox(width: 12),

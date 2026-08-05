@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'hosted_login_models.dart';
 
@@ -33,37 +34,44 @@ class ConsentView extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '${appName.isNotEmpty ? appName : 'This application'} wants access',
+          context.tr('{application} wants access', {
+            'application': appName.isNotEmpty
+                ? appName
+                : context.tr('This application'),
+          }),
           style: theme.textTheme.titleMedium,
         ),
         const SizedBox(height: 8),
-        const Text('Review every permission before you continue.'),
+        Text(context.tr('Review every permission before you continue.')),
         if (summary.scopes.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          Text('Permissions', style: theme.textTheme.labelLarge),
-          const SizedBox(height: 6),
+          const SizedBox(height: 16),
+          Text(context.strings.permissions, style: theme.textTheme.labelLarge),
+          const SizedBox(height: 8),
           for (final scope in summary.scopes) _ScopeRow(scope: scope),
         ],
         if (summary.authorizationDetails.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          Text('Fine-grained authorization', style: theme.textTheme.labelLarge),
+          const SizedBox(height: 16),
+          Text(
+            context.tr('Fine-grained authorization'),
+            style: theme.textTheme.labelLarge,
+          ),
           const SizedBox(height: 8),
           for (final indexed in summary.authorizationDetails.indexed)
             _AuthorizationDetailCard(index: indexed.$1, detail: indexed.$2),
         ],
         if (!summary.canAuthorize) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           _ConsentWarning(
             message:
                 summary.parseError ?? ConsentRequestSummary.consentSummaryError,
           ),
         ],
         if (error != null) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Semantics(
             liveRegion: true,
             child: Text(
-              error!,
+              context.tr(error!),
               style: TextStyle(color: theme.colorScheme.error),
             ),
           ),
@@ -74,7 +82,7 @@ class ConsentView extends StatelessWidget {
             Expanded(
               child: OutlinedButton(
                 onPressed: loading ? null : onDeny,
-                child: const Text('Deny'),
+                child: Text(context.strings.deny),
               ),
             ),
             const SizedBox(width: 12),
@@ -87,7 +95,7 @@ class ConsentView extends StatelessWidget {
                         width: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Allow'),
+                    : Text(context.tr('Allow')),
               ),
             ),
           ],
@@ -106,24 +114,24 @@ class _ScopeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final description = scope.description.isNotEmpty
         ? scope.description
-        : _fallbackScopeLabel(scope.scope);
+        : context.tr(_fallbackScopeLabel(scope.scope));
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Padding(
-            padding: EdgeInsets.only(top: 2),
+            padding: EdgeInsets.only(top: 4),
             child: Icon(Icons.check_circle_outline, size: 18),
           ),
-          const SizedBox(width: 9),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(description),
                 Text(
-                  'Scope: ${scope.scope}',
+                  context.tr('Scope: {scope}', {'scope': scope.scope}),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -154,29 +162,36 @@ class _AuthorizationDetailCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final type = detail['type']?.toString().trim() ?? '';
-    final summary = _commonFields(detail);
+    final summary = _commonFields(context, detail);
     final json = const JsonEncoder.withIndent('  ').convert(detail);
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              type.isEmpty ? 'Authorization detail ${index + 1}' : type,
+              type.isEmpty
+                  ? context.tr('Authorization detail {number}', {
+                      'number': index + 1,
+                    })
+                  : type,
               style: theme.textTheme.titleSmall,
             ),
             if (summary.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               for (final line in summary)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 3),
+                  padding: const EdgeInsets.only(bottom: 4),
                   child: Text(line),
                 ),
             ],
             const SizedBox(height: 8),
-            Text('Exact request', style: theme.textTheme.labelSmall),
+            Text(
+              context.tr('Exact request'),
+              style: theme.textTheme.labelSmall,
+            ),
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.all(8),
@@ -197,7 +212,7 @@ class _AuthorizationDetailCard extends StatelessWidget {
     );
   }
 
-  List<String> _commonFields(Map<String, dynamic> value) {
+  List<String> _commonFields(BuildContext context, Map<String, dynamic> value) {
     final lines = <String>[];
     for (final key in const [
       'actions',
@@ -209,7 +224,7 @@ class _AuthorizationDetailCard extends StatelessWidget {
       if (field == null) continue;
       final text = field is List ? field.join(', ') : field.toString();
       if (text.trim().isNotEmpty) {
-        lines.add('${_title(key)}: $text');
+        lines.add('${context.tr(_title(key))}: $text');
       }
     }
     return lines;
@@ -237,10 +252,12 @@ class _ConsentWarning extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.warning_amber_rounded, color: colors.onErrorContainer),
-          const SizedBox(width: 9),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$message Authorization has been disabled.',
+              context.tr('{message} Authorization has been disabled.', {
+                'message': context.tr(message),
+              }),
               style: TextStyle(color: colors.onErrorContainer),
             ),
           ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
@@ -146,7 +147,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -159,7 +160,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Network policy management is not enabled.'),
+        child: LocalizedText('Network policy management is not enabled.'),
       );
     }
     return ListView(
@@ -168,7 +169,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
         const AdminBreadcrumb(),
         Row(
           children: [
-            Text(
+            LocalizedText(
               'Network policies',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
@@ -176,18 +177,18 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
             IconButton(
               onPressed: _loading || _mutating ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _mutating ? null : _edit,
               icon: const Icon(Icons.add),
-              label: const Text('Add policy'),
+              label: const LocalizedText('Add policy'),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'Map trusted CIDRs and hostnames to advertised endpoints. Higher priority wins; hostname matches win over CIDRs.',
         ),
         const SizedBox(height: 12),
@@ -215,7 +216,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
     child: ListTile(
       leading: const Icon(Icons.lan_outlined),
       title: Text(policy['name']?.toString() ?? ''),
-      subtitle: Text(
+      subtitle: LocalizedText(
         'Priority ${policy['priority'] ?? 0}\n'
         'CIDRs: ${(policy['cidrs'] as List? ?? const []).join(', ')}\n'
         'Hosts: ${(policy['hostnames'] as List? ?? const []).join(', ')}',
@@ -225,7 +226,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
       trailing: IconButton(
         onPressed: _mutating ? null : () => _delete(policy),
         icon: const Icon(Icons.delete_outline),
-        tooltip: 'Delete',
+        tooltip: 'Delete'.localized,
       ),
     ),
   );
@@ -236,32 +237,34 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Policy classifier',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text('Test a network tuple before changing edge routing.'),
+          const LocalizedText(
+            'Test a network tuple before changing edge routing.',
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _remoteCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Remote address',
-              hintText: '10.0.0.5:54321',
+            decoration: InputDecoration(
+              labelText: 'Remote address'.localized,
+              hintText: '10.0.0.5:54321'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: _hostCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Host (optional)',
-              hintText: 'api.internal.example.com',
+            decoration: InputDecoration(
+              labelText: 'Host (optional)'.localized,
+              hintText: 'api.internal.example.com'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: _loading ? null : _classify,
-            child: const Text('Classify request'),
+            child: const LocalizedText('Classify request'),
           ),
           if (_classification != null) ...[
             const SizedBox(height: 12),

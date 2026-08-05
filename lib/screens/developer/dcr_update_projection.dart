@@ -14,9 +14,8 @@ class DcrUpdateProjection {
       ..remove('client_secret')
       ..remove('registration_access_token');
 
-    // The server omits these values from its PUT projection. Preserve only
-    // values this process just validated and submitted (or carried as a
-    // read-only registration receipt), never values guessed from a GET.
+    // Current servers return these fields. The fallbacks preserve only values
+    // this process just validated when talking to an older replica.
     wire.putIfAbsent('grant_types', () => submitted.grantTypes);
     wire.putIfAbsent('response_types', () => submitted.responseTypes);
     wire.putIfAbsent('contacts', () => submitted.contacts);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -81,27 +82,27 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   }
 
   Future<void> _compromise(String id) async {
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Mark key as compromised?',
-      message:
-          'Mark key $id as compromised. Snaplink performs retirement on a '
-          'best-effort basis; verify the key state in the authoritative key '
-          'inventory after this request.',
-      confirmLabel: 'Compromise',
-      destructive: true,
-      confirmText: id,
-    );
-    if (!confirmed) return;
+    final reason = await _compromiseReason(id);
+    if (reason == null) return;
     setState(() {
       _mutating = true;
       _error = null;
     });
     try {
-      await widget.api.post('$_keysPath/${Uri.encodeComponent(id)}/compromise');
+      final response = await widget.api.post(
+        '$_keysPath/${Uri.encodeComponent(id)}/compromise',
+        {'reason': reason},
+      );
       if (!mounted) return;
+      final key = response['key'] as Map?;
+      final retirement =
+          key?['retirement_status']?.toString() ?? 'not reported';
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Key marked as compromised.')),
+        SnackBar(
+          content: LocalizedText(
+            'Key marked as compromised. Source retirement: $retirement.',
+          ),
+        ),
       );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -126,11 +127,17 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       _error = null;
     });
     try {
-      await widget.api.post(_rotatePath);
+      final response = await widget.api.post(_rotatePath);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Key rotation initiated.')));
+      final keyClass = response['key_class']?.toString() ?? 'unknown';
+      final rollout = response['rollout_state']?.toString() ?? 'unknown';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText(
+            'Rotation completed for $keyClass. Rollout: $rollout.',
+          ),
+        ),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -139,14 +146,69 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     }
   }
 
+  Future<String?> _compromiseReason(String id) async {
+    final reason = TextEditingController();
+    final confirmation = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const LocalizedText('Mark key as compromised?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LocalizedText(
+              'The response will report whether source retirement completed, '
+              'failed, is unsupported, or still needs verification. Type $id '
+              'and provide an incident reference.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reason,
+              decoration: InputDecoration(
+                labelText: 'Reason / incident reference'.localized,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: confirmation,
+              decoration: InputDecoration(labelText: id),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const LocalizedText('Cancel'),
+          ),
+          ListenableBuilder(
+            listenable: Listenable.merge([reason, confirmation]),
+            builder: (_, _) => FilledButton(
+              onPressed:
+                  reason.text.trim().isNotEmpty &&
+                      confirmation.text.trim() == id
+                  ? () => Navigator.pop(dialogContext, reason.text.trim())
+                  : null,
+              child: const LocalizedText('Compromise'),
+            ),
+          ),
+        ],
+      ),
+    );
+    reason.dispose();
+    confirmation.dispose();
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Crypto key management is not enabled on this replica.'),
+        child: LocalizedText(
+          'Crypto key management is not enabled on this replica.',
+        ),
       );
     }
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     final rotating = route.subresource == 'rotate';
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -162,7 +224,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
           ],
         ),
@@ -183,11 +245,11 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
                   ? null
                   : () => AdminRoute.go('crypto-keys', subresource: 'rotate'),
               icon: const Icon(Icons.refresh),
-              label: const Text('Rotate signing key'),
+              label: const LocalizedText('Rotate signing key'),
             ),
           ),
         if (_loading) const SkeletonListTile(itemCount: 4),
-        if (!_loading && _keys.isEmpty) const Text('No keys found.'),
+        if (!_loading && _keys.isEmpty) const LocalizedText('No keys found.'),
         if (!_loading && _keys.isNotEmpty)
           ListView.builder(
             shrinkWrap: true,
@@ -205,12 +267,12 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          const Text(
+          const LocalizedText(
             'Rotate the signing key?',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'This endpoint rotates the active signing key; it does not rotate '
             'every encryption or credential key. Services may briefly reload '
             'the signing-key set.',
@@ -220,12 +282,12 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             children: [
               OutlinedButton(
                 onPressed: () => AdminRoute.go('crypto-keys'),
-                child: const Text('Cancel'),
+                child: const LocalizedText('Cancel'),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _mutating ? null : _rotate,
-                child: const Text('Confirm rotation'),
+                child: const LocalizedText('Confirm rotation'),
               ),
             ],
           ),
@@ -258,15 +320,15 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
               ? Colors.orange
               : Colors.green,
         ),
-        title: Text('$algorithm · $status'),
-        subtitle: Text('$id\ncreated: $createdAt'),
+        title: LocalizedText('$algorithm · $status'),
+        subtitle: LocalizedText('$id\ncreated: $createdAt'),
         isThreeLine: true,
         trailing: compromised || expired
             ? null
             : TextButton(
                 onPressed: _mutating ? null : () => _compromise(id),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Compromise'),
+                child: const LocalizedText('Compromise'),
               ),
       ),
     );
@@ -277,7 +339,10 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'crypto-keys') return;
+    if (route.subresource == 'rotate' && !_mutating) {
+      _rotate();
+    }
   }
 }

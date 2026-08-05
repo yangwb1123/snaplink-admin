@@ -7,6 +7,7 @@ class DcrDiscovery {
   final List<String> tokenEndpointAuthMethods;
   final List<String> codeChallengeMethods;
   final List<String> scopes;
+  final String servingRegion;
 
   const DcrDiscovery({
     required this.registrationEndpoint,
@@ -15,6 +16,7 @@ class DcrDiscovery {
     required this.tokenEndpointAuthMethods,
     required this.codeChallengeMethods,
     required this.scopes,
+    this.servingRegion = '',
   });
 
   factory DcrDiscovery.fromJson(Map<String, dynamic> value) {
@@ -30,6 +32,7 @@ class DcrDiscovery {
         value['code_challenge_methods_supported'],
       ),
       scopes: _stringList(value['scopes_supported']),
+      servingRegion: value['serving_region']?.toString().trim() ?? '',
     );
   }
 
@@ -162,9 +165,8 @@ class DcrClientMetadata {
     'require_pkce': requirePkce || isPublicClient,
   };
 
-  /// Snaplink's current RFC 7592 handler does not persist contacts or response
-  /// types and keeps tenant immutable. Omitting those fields is more honest
-  /// than presenting them as successfully managed.
+  /// tenant_id remains immutable on RFC 7592 PUT; every other typed
+  /// registration field round-trips through the management contract.
   Map<String, dynamic> toManagementWire() => {
     ...expertMetadata,
     'client_name': clientName,
@@ -173,6 +175,8 @@ class DcrClientMetadata {
     'token_endpoint_auth_method': tokenEndpointAuthMethod,
     'token_strategy': tokenStrategy,
     'grant_types': grantTypes,
+    'response_types': responseTypes,
+    'contacts': contacts,
     'post_logout_redirect_uris': postLogoutRedirectUris,
     'allowed_authenticators': allowedAuthenticators,
     'allowed_resources': allowedResources,
@@ -246,26 +250,18 @@ class DcrRoundTripSafety {
     );
   }
 
-  bool get canSafelyUpdate => grantTypesKnown;
+  bool get canSafelyUpdate =>
+      grantTypesKnown && responseTypesKnown && contactsKnown && tenantKnown;
 
   List<String> get warnings => [
     if (!grantTypesKnown)
       'GET omitted grant_types. A PUT would replace the stored grants, so '
           'saving is disabled.',
-    responseTypesKnown
-        ? 'response_types are shown from the registration snapshot, but the '
-              'current management handler does not return or persist them.'
-        : 'response_types are not returned or persisted by the current '
-              'management handler.',
-    contactsKnown
-        ? 'contacts are shown from the registration snapshot, but the current '
-              'management handler does not return or persist them.'
-        : 'contacts are not returned or persisted by the current management '
-              'handler.',
-    tenantKnown
-        ? 'tenant_id is shown from the registration snapshot; management '
-              'responses omit it and the server keeps it immutable.'
-        : 'tenant_id is omitted from management responses and remains '
-              'immutable on the server.',
+    if (!responseTypesKnown)
+      'GET omitted response_types; saving is disabled to prevent metadata loss.',
+    if (!contactsKnown)
+      'GET omitted contacts; saving is disabled to prevent metadata loss.',
+    if (!tenantKnown)
+      'GET omitted tenant_id; saving is disabled because the tenant binding cannot be verified.',
   ];
 }

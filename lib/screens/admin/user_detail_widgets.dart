@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class UserDetailHeader extends StatelessWidget {
   final Map<String, dynamic>? user;
@@ -22,8 +23,8 @@ class UserDetailHeader extends StatelessWidget {
                   user?['id']?.toString() ?? '',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                Text('Provider: ${user?['provider'] ?? ''}'),
-                Text(
+                LocalizedText('Provider: ${user?['provider'] ?? ''}'),
+                LocalizedText(
                   'External ID: '
                   '${user?['externalId'] ?? user?['external_id'] ?? ''}',
                 ),
@@ -78,7 +79,7 @@ class UserSessionsView extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: sessions.isEmpty
-        ? [const Text('No active sessions')]
+        ? [const LocalizedText('No active sessions')]
         : sessions
               .map(
                 (session) => Card(
@@ -86,7 +87,7 @@ class UserSessionsView extends StatelessWidget {
                   child: ListTile(
                     leading: const Icon(Icons.devices),
                     title: Text(session['id']?.toString() ?? ''),
-                    subtitle: Text(
+                    subtitle: LocalizedText(
                       'IP: ${session['ip'] ?? ''}  '
                       'UA: ${_truncatedUserAgent(session)}',
                     ),
@@ -118,7 +119,7 @@ class UserConsentsView extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: consents.isEmpty
-        ? [const Text('No consents granted')]
+        ? [const LocalizedText('No consents granted')]
         : consents
               .map(
                 (consent) => Card(
@@ -138,7 +139,7 @@ class UserConsentsView extends StatelessWidget {
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.redAccent,
                       ),
-                      child: const Text('Revoke'),
+                      child: const LocalizedText('Revoke'),
                     ),
                   ),
                 ),
@@ -163,7 +164,7 @@ class UserMfaView extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: factors.isEmpty
-        ? [const Text('No MFA factors registered')]
+        ? [const LocalizedText('No MFA factors registered')]
         : factors
               .map(
                 (factor) => Card(
@@ -175,7 +176,9 @@ class UserMfaView extends StatelessWidget {
                           factor['method']?.toString() ??
                           '',
                     ),
-                    subtitle: Text('Method: ${factor['method'] ?? ''}'),
+                    subtitle: LocalizedText(
+                      'Method: ${factor['method'] ?? ''}',
+                    ),
                     trailing: TextButton(
                       onPressed: mutating
                           ? null
@@ -183,7 +186,7 @@ class UserMfaView extends StatelessWidget {
                       style: TextButton.styleFrom(
                         foregroundColor: Colors.redAccent,
                       ),
-                      child: const Text('Remove'),
+                      child: const LocalizedText('Remove'),
                     ),
                   ),
                 ),
@@ -223,18 +226,21 @@ class UserLifecycleView extends StatelessWidget {
               children: [
                 const Icon(Icons.route, size: 48, color: Colors.blue),
                 const SizedBox(height: 8),
-                Text(
+                LocalizedText(
                   'Current state: $state',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (transitions.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  const Text('Allowed transitions:'),
+                  const LocalizedText('Allowed transitions:'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: transitions
-                        .map((transition) => Chip(label: Text(transition)))
+                        .map(
+                          (transition) =>
+                              Chip(label: LocalizedText(transition)),
+                        )
                         .toList(),
                   ),
                 ],
@@ -247,7 +253,7 @@ class UserLifecycleView extends StatelessWidget {
           OutlinedButton.icon(
             onPressed: onBack,
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Back to user list'),
+            label: const LocalizedText('Back to user list'),
           ),
         ],
       ],

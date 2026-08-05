@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -71,7 +72,9 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(child: Text('Token exchange audit is not enabled.'));
+      return const Center(
+        child: LocalizedText('Token exchange audit is not enabled.'),
+      );
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -87,18 +90,19 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
             Expanded(
               child: TextField(
                 controller: _searchCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Token ID (JTI)',
-                  hintText: 'Enter a token JTI to trace its exchange chain',
+                decoration: InputDecoration(
+                  labelText: 'Token ID (JTI)'.localized,
+                  hintText:
+                      'Enter a token JTI to trace its exchange chain'.localized,
                 ),
                 onSubmitted: (_) => _load(),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.search),
-              tooltip: 'Search',
+              tooltip: 'Search'.localized,
             ),
           ],
         ),
@@ -113,7 +117,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (_chain != null) ...[
           const SizedBox(height: 16),
-          Text(
+          LocalizedText(
             'Exchange chain',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -172,13 +176,13 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
   }
 
   Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
+    padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 120,
-          child: Text(
+          child: LocalizedText(
             '$label:',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),

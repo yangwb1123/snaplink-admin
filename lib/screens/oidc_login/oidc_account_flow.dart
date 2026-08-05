@@ -62,7 +62,9 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       return;
     }
 
+    _scrubOneTimeLoginData();
     _update(() {
+      _resetToken = null;
       _loading = true;
       _error = null;
     });
@@ -168,7 +170,9 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       _update(() => _error = 'This verification link is missing its token.');
       return;
     }
+    _scrubOneTimeLoginData();
     _update(() {
+      _verificationToken = null;
       _loading = true;
       _error = null;
     });
@@ -209,6 +213,12 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       _view = _View.accountResult;
       _error = null;
     });
+  }
+
+  void _scrubOneTimeLoginData() {
+    BrowserNavigation.replaceState(
+      hostedLoginLocationWithoutOneTimeData(_routeUri),
+    );
   }
 
   void _showLogin() {

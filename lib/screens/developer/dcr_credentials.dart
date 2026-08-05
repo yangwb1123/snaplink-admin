@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 class SensitiveTokenField extends StatefulWidget {
   final TextEditingController controller;
@@ -40,20 +41,22 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
       textInputAction: TextInputAction.done,
       onSubmitted: widget.onSubmitted,
       decoration: InputDecoration(
-        labelText: widget.label,
-        hintText: widget.hintText,
+        labelText: context.tr(widget.label),
+        hintText: widget.hintText == null ? null : context.tr(widget.hintText!),
         suffixIcon: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              tooltip: _visible ? 'Hide' : 'Show',
+              tooltip: context.tr(_visible ? 'Hide' : 'Show'),
               onPressed: widget.enabled
                   ? () => setState(() => _visible = !_visible)
                   : null,
               icon: Icon(_visible ? Icons.visibility_off : Icons.visibility),
             ),
             PopupMenuButton<String>(
-              tooltip: '${widget.label} actions',
+              tooltip: context.tr('{label} actions', {
+                'label': context.tr(widget.label),
+              }),
               onSelected: (action) {
                 if (action == 'copy') {
                   copyDcrValue(context, widget.label, widget.controller.text);
@@ -62,11 +65,11 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'copy', child: Text('Copy')),
+                PopupMenuItem(value: 'copy', child: Text(context.tr('Copy'))),
                 PopupMenuItem(
                   value: 'clear',
                   enabled: !widget.readOnly && widget.enabled,
-                  child: const Text('Clear'),
+                  child: Text(context.tr('Clear')),
                 ),
               ],
             ),
@@ -92,7 +95,7 @@ class CopyableDcrValue extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -100,19 +103,21 @@ class CopyableDcrValue extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  label.toUpperCase(),
+                  context.tr(label).toUpperCase(),
                   style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
               IconButton(
-                tooltip: 'Copy $label',
+                tooltip: context.tr('Copy {label}', {
+                  'label': context.tr(label),
+                }),
                 onPressed: () => copyDcrValue(context, label, value),
                 icon: const Icon(Icons.copy_outlined, size: 19),
               ),
             ],
           ),
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(6),
@@ -124,11 +129,11 @@ class CopyableDcrValue extends StatelessWidget {
             ),
           ),
           if (sensitive)
-            const Padding(
-              padding: EdgeInsets.only(top: 4),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
               child: Text(
-                'One-time credential',
-                style: TextStyle(fontSize: 11),
+                context.tr('One-time credential'),
+                style: const TextStyle(fontSize: 11),
               ),
             ),
         ],
@@ -145,9 +150,13 @@ Future<void> copyDcrValue(
   if (value.isEmpty) return;
   await Clipboard.setData(ClipboardData(text: value));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(
-    context,
-  ).showSnackBar(SnackBar(content: Text('$label copied.')));
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        context.tr('{label} copied.', {'label': context.tr(label)}),
+      ),
+    ),
+  );
 }
 
 class OneTimeRegistrationCredentials extends StatefulWidget {
@@ -193,18 +202,19 @@ class _OneTimeRegistrationCredentialsState
               header: true,
               liveRegion: true,
               child: Text(
-                'SAVE THESE CREDENTIALS NOW',
+                context.tr('SAVE THESE CREDENTIALS NOW'),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'The client secret and registration access token will not be '
-              'shown again. Copy each required value before continuing.',
+            const SizedBox(height: 8),
+            Text(
+              context.tr(
+                'The client secret and registration access token will not be shown again. Copy each required value before continuing.',
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             CopyableDcrValue(label: 'Client ID', value: clientId),
             if (clientSecret.isNotEmpty)
               CopyableDcrValue(
@@ -227,23 +237,25 @@ class _OneTimeRegistrationCredentialsState
               contentPadding: EdgeInsets.zero,
               value: _confirmed,
               onChanged: (value) => setState(() => _confirmed = value ?? false),
-              title: const Text(
-                'I have securely saved every credential I need.',
+              title: Text(
+                context.tr('I have securely saved every credential I need.'),
               ),
-              subtitle: const Text(
-                'Continuing erases the one-time credential display.',
+              subtitle: Text(
+                context.tr(
+                  'Continuing erases the one-time credential display.',
+                ),
               ),
             ),
             if (rat.isNotEmpty) ...[
               FilledButton(
                 onPressed: _confirmed ? widget.onManage : null,
-                child: const Text('Manage App'),
+                child: Text(context.tr('Manage App')),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
             ],
             OutlinedButton(
               onPressed: _confirmed ? widget.onWipe : null,
-              child: const Text('Done and Erase'),
+              child: Text(context.tr('Done and Erase')),
             ),
           ],
         ),
@@ -277,15 +289,16 @@ class _RotatedRegistrationTokenDialogState
       canPop: false,
       child: AlertDialog(
         icon: const Icon(Icons.key_outlined),
-        title: const Text('Registration token rotated'),
+        title: Text(context.tr('Registration token rotated')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'The previous registration access token is already invalid. '
-                'Save this replacement before closing the dialog.',
+              Text(
+                context.tr(
+                  'Save this replacement token now. The previous token remains valid only during the server-defined overlap window.',
+                ),
               ),
               const SizedBox(height: 12),
               CopyableDcrValue(
@@ -297,7 +310,7 @@ class _RotatedRegistrationTokenDialogState
                 contentPadding: EdgeInsets.zero,
                 value: _saved,
                 onChanged: (value) => setState(() => _saved = value ?? false),
-                title: const Text('I have securely saved the new token.'),
+                title: Text(context.tr('I have securely saved the new token.')),
               ),
             ],
           ),
@@ -310,7 +323,7 @@ class _RotatedRegistrationTokenDialogState
                     Navigator.of(context).pop();
                   }
                 : null,
-            child: const Text('Continue and Erase Display'),
+            child: Text(context.tr('Continue and Erase Display')),
           ),
         ],
       ),

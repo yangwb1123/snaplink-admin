@@ -19,6 +19,7 @@ abstract final class AdminModuleId {
   static const tokenSecurity = 'token-security';
   static const usageAnalytics = 'usage-analytics';
   static const tenants = 'tenants';
+  static const commerce = 'commerce';
   static const organizations = 'organizations';
   static const operations = 'operations';
   static const cryptoKeys = 'crypto-keys';
@@ -46,8 +47,8 @@ abstract final class AdminModuleId {
 /// Keeping these decisions together makes the endpoint contract independently
 /// testable and avoids rebuilding [SnaplinkAdminCapabilities] for every item.
 class AdminNavigationCapabilities {
-  /// Effective console contract: published routes and source-only
-  /// compatibility probes, with runtime entries taking precedence.
+  /// Effective console contract: published routes and runtime entries, with
+  /// runtime feature metadata taking precedence.
   ///
   /// Snaplink's runtime inventory currently omits some mounted gateway
   /// routes. Passing only that inventory to domain screens made the
@@ -56,22 +57,14 @@ class AdminNavigationCapabilities {
   /// 404/501, authorization, tenant, and feature-gate response as the final
   /// authority.
   final SnaplinkAdminCapabilities capabilities;
-  final List<SnaplinkAdminEndpoint> _documentedEndpoints;
-  final List<SnaplinkAdminEndpoint> _supplementalEndpoints;
 
   AdminNavigationCapabilities(
     List<SnaplinkAdminEndpoint> endpoints, {
     List<SnaplinkAdminEndpoint>? documentedEndpoints,
-    List<SnaplinkAdminEndpoint>? supplementalEndpoints,
-  }) : _documentedEndpoints =
-           documentedEndpoints ?? SnaplinkAdminOperationCatalog.endpoints,
-       _supplementalEndpoints =
-           supplementalEndpoints ?? SnaplinkAdminSupplementalCatalog.endpoints,
-       capabilities = SnaplinkAdminCapabilities(
+  }) : capabilities = SnaplinkAdminCapabilities(
          _mergeEndpoints(
            endpoints,
            documentedEndpoints ?? SnaplinkAdminOperationCatalog.endpoints,
-           supplementalEndpoints ?? SnaplinkAdminSupplementalCatalog.endpoints,
          ),
        );
 
@@ -151,28 +144,11 @@ class AdminNavigationCapabilities {
   bool get supportsConnections =>
       _hasAnyPathPrefix('/api/v1/admin/connections');
 
-  bool _has(String method, String path) =>
-      capabilities.has(method, path) ||
-      _documentedEndpoints.any(
-        (endpoint) =>
-            endpoint.method == method.toUpperCase() && endpoint.path == path,
-      ) ||
-      _supplementalEndpoints.any(
-        (endpoint) =>
-            endpoint.method == method.toUpperCase() &&
-            _normalizedPath(endpoint.path) == _normalizedPath(path),
-      );
+  bool _has(String method, String path) => capabilities.has(method, path);
 
-  bool _hasAnyPathPrefix(String prefix) =>
-      capabilities.endpoints.any(
-        (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
-      ) ||
-      _documentedEndpoints.any(
-        (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
-      ) ||
-      _supplementalEndpoints.any(
-        (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
-      );
+  bool _hasAnyPathPrefix(String prefix) => capabilities.endpoints.any(
+    (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
+  );
 
   static String _normalizedPath(String path) => path.replaceAllMapped(
     RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}'),
@@ -182,10 +158,9 @@ class AdminNavigationCapabilities {
   static List<SnaplinkAdminEndpoint> _mergeEndpoints(
     List<SnaplinkAdminEndpoint> runtime,
     List<SnaplinkAdminEndpoint> documented,
-    List<SnaplinkAdminEndpoint> supplemental,
   ) {
     final merged = <String, SnaplinkAdminEndpoint>{};
-    for (final endpoint in [...documented, ...supplemental, ...runtime]) {
+    for (final endpoint in [...documented, ...runtime]) {
       merged['${endpoint.method} ${_normalizedPath(endpoint.path)}'] = endpoint;
     }
     return merged.values.toList(growable: false);

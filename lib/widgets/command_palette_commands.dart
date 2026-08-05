@@ -71,6 +71,12 @@ const commandPaletteItems = <CommandPaletteItem>[
     'Navigate to tenant management',
   ),
   CommandPaletteItem(
+    'Go to Subscriptions & Billing',
+    '/admin/commerce',
+    Icons.payments_outlined,
+    'Manage plans, subscriptions, quotas, wallets, and top-ups',
+  ),
+  CommandPaletteItem(
     'Go to Organizations',
     '/admin/organizations',
     Icons.groups,

@@ -26,4 +26,7 @@ abstract final class BrowserDownload {
   }) {
     bytes(utf8.encode(content), filename: filename, contentType: contentType);
   }
+
+  /// Test-only hook: clears captured downloads (no-op on web).
+  static void resetForTest() => platform.resetForTest();
 }

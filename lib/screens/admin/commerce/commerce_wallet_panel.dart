@@ -1,0 +1,291 @@
+import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+
+class CommerceWalletPanel extends StatelessWidget {
+  final String currency;
+  final Map<String, dynamic>? wallet;
+  final List<Map<String, dynamic>> entries;
+  final List<Map<String, dynamic>> orders;
+  final String? eventOrderID;
+  final List<Map<String, dynamic>> events;
+  final Map<String, dynamic>? reconciliation;
+  final VoidCallback? onAdjust;
+  final VoidCallback? onTopUp;
+  final VoidCallback? onReconcile;
+  final ValueChanged<String>? onLoadEvents;
+  final ValueChanged<Map<String, dynamic>>? onCheckoutOrder;
+
+  const CommerceWalletPanel({
+    super.key,
+    required this.currency,
+    required this.wallet,
+    required this.entries,
+    required this.orders,
+    required this.eventOrderID,
+    required this.events,
+    required this.reconciliation,
+    required this.onAdjust,
+    required this.onTopUp,
+    required this.onReconcile,
+    required this.onLoadEvents,
+    required this.onCheckoutOrder,
+  });
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      _walletCard(context),
+      const SizedBox(height: 12),
+      _paymentsCard(context),
+    ],
+  );
+
+  Widget _walletCard(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: LocalizedText(
+                  'Wallet and immutable ledger',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: onAdjust,
+                icon: const Icon(Icons.post_add_outlined),
+                label: const LocalizedText('Post adjustment'),
+              ),
+            ],
+          ),
+          const LocalizedText(
+            'All values are integer minor units. Currency decimal exponents are never inferred by this console.',
+          ),
+          const Divider(),
+          if (wallet == null)
+            LocalizedText('No $currency wallet exists for this tenant.')
+          else
+            _walletSummary(context),
+          const SizedBox(height: 8),
+          ExpansionTile(
+            tilePadding: EdgeInsets.zero,
+            title: LocalizedText('Ledger entries (${entries.length})'),
+            children: entries.isEmpty
+                ? [const ListTile(title: LocalizedText('No ledger entries.'))]
+                : entries.map(_ledgerTile).toList(growable: false),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _walletSummary(BuildContext context) => Wrap(
+    spacing: 16,
+    runSpacing: 8,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      Icon(
+        wallet!['status'] == 'active'
+            ? Icons.account_balance_wallet
+            : Icons.lock,
+        color: wallet!['status'] == 'active' ? Colors.green : Colors.redAccent,
+        size: 32,
+      ),
+      LocalizedText(
+        '${wallet!['currency'] ?? currency} ${wallet!['balance_minor'] ?? 0} minor units',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
+      Chip(label: Text(wallet!['status']?.toString() ?? '—')),
+      LocalizedText('Wallet version ${wallet!['version'] ?? 0}'),
+    ],
+  );
+
+  Widget _ledgerTile(Map<String, dynamic> entry) => ListTile(
+    dense: true,
+    contentPadding: EdgeInsets.zero,
+    leading: Icon(
+      (entry['amount_minor'] as num? ?? 0) >= 0
+          ? Icons.add_circle_outline
+          : Icons.remove_circle_outline,
+    ),
+    title: LocalizedText(
+      '${entry['kind'] ?? 'unknown'} · ${entry['amount_minor'] ?? 0} minor units',
+    ),
+    subtitle: LocalizedText(
+      'Balance ${entry['balance_after'] ?? '—'} · ${entry['reference'] ?? '—'} · ${entry['occurred_at'] ?? '—'}',
+    ),
+    trailing: LocalizedText('v${entry['wallet_version'] ?? '—'}'),
+  );
+
+  Widget _paymentsCard(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: LocalizedText(
+                  'Top-up orders and payment facts',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onReconcile,
+                    icon: const Icon(Icons.rule_outlined),
+                    label: const LocalizedText('Reconcile'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: onTopUp,
+                    icon: const Icon(Icons.add_card_outlined),
+                    label: const LocalizedText('Create top-up order'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const LocalizedText(
+            'Only the authenticated payment adapter can apply captured, rejected, refunded, or chargeback facts. This console never handles card data or provider secrets.',
+          ),
+          const Divider(),
+          if (orders.isEmpty)
+            const LocalizedText('No top-up orders exist for this tenant.')
+          else
+            ...orders.map((order) => _orderTile(context, order)),
+          if (reconciliation != null) ...[
+            const Divider(),
+            _reconciliation(context),
+          ],
+        ],
+      ),
+    ),
+  );
+
+  Widget _orderTile(BuildContext context, Map<String, dynamic> order) {
+    final id = order['id']?.toString() ?? '';
+    final showingEvents = id.isNotEmpty && id == eventOrderID;
+    final checkoutReady =
+        order['status'] == 'pending' &&
+        order['provider'] == 'stripe' &&
+        (order['provider_order_id']?.toString() ?? '').isEmpty;
+    return Card.outlined(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: LocalizedText(
+                    '${order['status'] ?? 'unknown'} · ${order['currency'] ?? ''} ${order['amount_minor'] ?? 0} minor units',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Chip(
+                  label: LocalizedText('Revision ${order['revision'] ?? '—'}'),
+                ),
+              ],
+            ),
+            SelectableText(id.isEmpty ? '—' : id),
+            LocalizedText(
+              'Provider reference: ${order['provider'] ?? '—'} / ${order['provider_order_id'] ?? '—'}',
+            ),
+            LocalizedText(
+              'Paid ${order['paid_minor'] ?? 0} · refunded ${order['refunded_minor'] ?? 0}',
+            ),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: id.isEmpty || onLoadEvents == null
+                      ? null
+                      : () => onLoadEvents!(id),
+                  icon: const Icon(Icons.receipt_long_outlined),
+                  label: const LocalizedText('Load payment facts'),
+                ),
+                if (checkoutReady)
+                  FilledButton.tonalIcon(
+                    onPressed: onCheckoutOrder == null
+                        ? null
+                        : () => onCheckoutOrder!(order),
+                    icon: const Icon(Icons.open_in_new),
+                    label: const LocalizedText('Continue secure checkout'),
+                  ),
+              ],
+            ),
+            if (showingEvents) _eventList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _eventList() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Divider(),
+      if (events.isEmpty)
+        const LocalizedText('No normalized payment facts are recorded.')
+      else
+        ...events.map(
+          (event) => ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.verified_outlined),
+            title: LocalizedText(
+              '${event['type'] ?? 'unknown'} · ${event['amount_minor'] ?? 0} minor units',
+            ),
+            subtitle: LocalizedText(
+              '${event['id'] ?? '—'} · ${event['occurred_at'] ?? '—'}',
+            ),
+          ),
+        ),
+    ],
+  );
+
+  Widget _reconciliation(BuildContext context) {
+    final issues = _records(reconciliation!['issues']);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LocalizedText(
+          'Reconciliation report',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        LocalizedText(
+          '${reconciliation!['orders_checked'] ?? 0} orders checked · ${issues.length} issues',
+        ),
+        if (issues.isEmpty)
+          const LocalizedText('Order totals match the immutable ledger.')
+        else
+          ...issues.map(
+            (issue) => ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.error_outline, color: Colors.redAccent),
+              title: Text(issue['order_id']?.toString() ?? '—'),
+              subtitle: LocalizedText(
+                'Expected ${issue['expected_minor'] ?? 0} · ledger ${issue['ledger_minor'] ?? 0}',
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+List<Map<String, dynamic>> _records(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .whereType<Map>()
+      .map((record) => Map<String, dynamic>.from(record))
+      .toList(growable: false);
+}

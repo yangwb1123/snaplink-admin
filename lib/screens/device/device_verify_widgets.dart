@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../i18n/app_strings.dart';
 
 class DeviceRequestPreview extends StatelessWidget {
   final Map<String, dynamic> preview;
@@ -16,7 +17,9 @@ class DeviceRequestPreview extends StatelessWidget {
             '',
       ),
       subtitle: Text(
-        'Requested scopes: ${(preview['scopes'] as List).join(', ')}',
+        AppStrings.of(
+          context,
+        ).requestedScopes((preview['scopes'] as List).join(', ')),
       ),
     ),
   );
@@ -45,7 +48,7 @@ class DeviceDecisionButtons extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             foregroundColor: Theme.of(context).colorScheme.error,
           ),
-          child: const Text('Deny'),
+          child: Text(AppStrings.of(context).deny),
         ),
       ),
       const SizedBox(width: 12),
@@ -58,7 +61,7 @@ class DeviceDecisionButtons extends StatelessWidget {
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Approve'),
+              : Text(AppStrings.of(context).approve),
         ),
       ),
     ],

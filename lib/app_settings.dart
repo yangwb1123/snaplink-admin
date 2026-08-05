@@ -1,17 +1,19 @@
+import 'dart:async';
 import 'dart:ui';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:sso_admin/services/local_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// App-wide language/theme/SSO-base-URL preferences. A single ChangeNotifier
 /// instance (not per-screen state) so a change anywhere — the login screen's
 /// language toggle, the post-login settings screen — is visible everywhere
 /// immediately, including screens already on the widget stack.
 ///
-/// localStorage (not sessionStorage, unlike session.dart's access token):
-/// preferences are meant to survive a browser restart; the auth token
-/// deliberately isn't. Web only — native builds keep in-memory defaults for
-/// now (no settings UI wired for them yet; see [ssoBaseUrlOverride]'s doc).
+/// Preferences survive a restart, unlike session.dart's access token. Web uses
+/// localStorage synchronously; native platforms load and persist through
+/// SharedPreferencesAsync during application startup.
 class AppSettings extends ChangeNotifier {
   AppSettings._() {
     _locale = _loadLocale();
@@ -20,6 +22,7 @@ class AppSettings extends ChangeNotifier {
   }
 
   static final AppSettings instance = AppSettings._();
+  static SharedPreferencesAsync? _nativePreferences;
 
   static const _localeKey = 'sso_settings_locale';
   static const _themeKey = 'sso_settings_theme';
@@ -55,7 +58,7 @@ class AppSettings extends ChangeNotifier {
   String? _ssoBaseUrlOverride;
   String? get ssoBaseUrlOverride => kIsWeb ? null : _ssoBaseUrlOverride;
   set ssoBaseUrlOverride(String? value) {
-    final normalized = (value == null || value.isEmpty) ? null : value;
+    final normalized = normalizeSsoBaseUrl(value);
     if (_ssoBaseUrlOverride == normalized) return;
     _ssoBaseUrlOverride = normalized;
     if (normalized == null) {
@@ -66,8 +69,71 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Loads native preferences before the first widget builds. Storage failure
+  /// is deliberately non-fatal: safe defaults still leave the app usable.
+  Future<void> initialize() async {
+    if (kIsWeb) return;
+    final savedLocale = await _nativeLoad(_localeKey);
+    final savedTheme = await _nativeLoad(_themeKey);
+    final savedBaseUrl = await _nativeLoad(_baseUrlKey);
+
+    _locale = _localeFromSaved(savedLocale);
+    _themeMode = _themeModeFromSaved(savedTheme);
+    try {
+      _ssoBaseUrlOverride = normalizeSsoBaseUrl(savedBaseUrl);
+    } on FormatException {
+      _ssoBaseUrlOverride = null;
+      unawaited(_nativeRemove(_baseUrlKey));
+    }
+  }
+
+  /// Accepts only an origin, never a credential-bearing or path-scoped URL.
+  /// Plain HTTP is limited to loopback development servers.
+  static String? normalizeSsoBaseUrl(String? value) {
+    final input = value?.trim() ?? '';
+    if (input.isEmpty) return null;
+
+    late final Uri uri;
+    try {
+      uri = Uri.parse(input);
+    } on FormatException {
+      throw const FormatException('invalid_sso_base_url');
+    }
+    final scheme = uri.scheme.toLowerCase();
+    final rootPathOnly = uri.path.isEmpty || uri.path == '/';
+    if (!uri.hasAuthority ||
+        uri.host.isEmpty ||
+        (scheme != 'https' && scheme != 'http') ||
+        uri.userInfo.isNotEmpty ||
+        !rootPathOnly ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        (scheme == 'http' && !_isLoopbackHost(uri.host))) {
+      throw const FormatException('invalid_sso_base_url');
+    }
+    return Uri(
+      scheme: scheme,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : null,
+    ).toString();
+  }
+
+  static bool _isLoopbackHost(String value) {
+    final host = value.toLowerCase();
+    if (host == 'localhost' || host == '::1') return true;
+    final segments = host.split('.');
+    if (segments.length != 4 || segments.first != '127') return false;
+    return segments.every((segment) {
+      final octet = int.tryParse(segment);
+      return octet != null && octet >= 0 && octet <= 255;
+    });
+  }
+
   Locale _loadLocale() {
-    final saved = _load(_localeKey);
+    return _localeFromSaved(_load(_localeKey));
+  }
+
+  Locale _localeFromSaved(String? saved) {
     if (saved != null) {
       final match = supportedLocales.where((l) => l.languageCode == saved);
       if (match.isNotEmpty) return match.first;
@@ -82,7 +148,11 @@ class AppSettings extends ChangeNotifier {
   }
 
   ThemeMode _loadThemeMode() {
-    switch (_load(_themeKey)) {
+    return _themeModeFromSaved(_load(_themeKey));
+  }
+
+  ThemeMode _themeModeFromSaved(String? saved) {
+    switch (saved) {
       case 'light':
         return ThemeMode.light;
       case 'dark':
@@ -101,12 +171,45 @@ class AppSettings extends ChangeNotifier {
   }
 
   static void _save(String key, String value) {
-    if (!kIsWeb) return;
-    LocalStorage.setItem(key, value);
+    if (kIsWeb) {
+      LocalStorage.setItem(key, value);
+      return;
+    }
+    unawaited(_nativeSave(key, value));
   }
 
   static void _remove(String key) {
-    if (!kIsWeb) return;
-    LocalStorage.removeItem(key);
+    if (kIsWeb) {
+      LocalStorage.removeItem(key);
+      return;
+    }
+    unawaited(_nativeRemove(key));
   }
+
+  static Future<String?> _nativeLoad(String key) async {
+    try {
+      return await _preferences().getString(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> _nativeSave(String key, String value) async {
+    try {
+      await _preferences().setString(key, value);
+    } catch (_) {
+      // A preference write must not crash or block authentication.
+    }
+  }
+
+  static Future<void> _nativeRemove(String key) async {
+    try {
+      await _preferences().remove(key);
+    } catch (_) {
+      // A preference write must not crash or block authentication.
+    }
+  }
+
+  static SharedPreferencesAsync _preferences() =>
+      _nativePreferences ??= SharedPreferencesAsync();
 }

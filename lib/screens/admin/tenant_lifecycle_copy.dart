@@ -1,21 +1,37 @@
-/// Operator copy for tenant lifecycle actions whose credential revocation is
-/// best-effort in the current Snaplink backend.
+/// Operator copy for tenant lifecycle actions and their exact credential
+/// revocation report.
 abstract final class TenantLifecycleCopy {
   static String confirmation(String id, String next) => next == 'suspended'
-      ? 'Suspend $id? New access is blocked, but the current backend does not '
-            'report partial refresh-token or session revocation failures. '
-            'Verify active credentials after the change.'
+      ? 'Suspend $id? New access is blocked and Snaplink will report every '
+            'refresh-token and session revocation result with a stable retry '
+            'key for any failed item.'
       : 'Return $id to active service?';
 
   static String deletion(String id, String label) =>
-      'Delete $label ($id)? This cannot be undone. The current backend does '
-      'not report partial credential/session revocation failures, so '
-      'surviving access must be checked separately.';
+      'Delete $label ($id)? This cannot be undone. Snaplink will return the '
+      'exact refresh-token and session revocation report.';
 
-  static const suspendedResult =
-      'Tenant suspended. Verify refresh-token and session revocation in the '
-      'security inventories.';
+  static String result(String action, Map<String, dynamic> response) {
+    final value = response['credential_revocation'];
+    if (value is! Map) {
+      return '$action No credential-revocation report was returned.';
+    }
+    final report = Map<String, dynamic>.from(value);
+    final refreshTokens = _count(report['refresh_tokens_revoked']);
+    final sessions = _count(report['sessions_revoked']);
+    final results = report['results'] is List
+        ? (report['results'] as List).whereType<Map>().toList()
+        : const <Map>[];
+    final failed = results.where((item) => item['status'] != 'revoked').length;
+    if (report['complete'] == true && failed == 0) {
+      return '$action Revoked $refreshTokens refresh tokens and $sessions '
+          'sessions; every reported credential operation completed.';
+    }
+    return '$action Revoked $refreshTokens refresh tokens and $sessions '
+        'sessions, but $failed credential operations failed. Retry only the '
+        'reported idempotency keys.';
+  }
 
-  static const deletedResult =
-      'Tenant deleted. Verify that no refresh tokens or sessions remain active.';
+  static int _count(Object? value) =>
+      value is num ? value.toInt() : int.tryParse('$value') ?? 0;
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -47,7 +48,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   String? _editId;
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     _creating = route.isNew;
     _editing = route.isEdit;
     _editId = route.resourceId;
@@ -132,7 +133,9 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_editing ? 'Policy updated.' : 'Policy created.'),
+          content: LocalizedText(
+            _editing ? 'Policy updated.' : 'Policy created.',
+          ),
         ),
       );
       if (mounted) AdminRoute.go('threat-policies');
@@ -160,7 +163,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Policy deleted.')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Policy deleted.')));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -173,7 +176,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Threat policy management is not enabled.'),
+        child: LocalizedText('Threat policy management is not enabled.'),
       );
     }
     if (_creating || _editing) return _buildForm(context);
@@ -191,14 +194,14 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
           ],
         ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
+            child: LocalizedText(
               _error!,
               style: const TextStyle(color: Colors.redAccent),
             ),
@@ -207,7 +210,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         if (!_loading && _policies.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: Text('No threat policies configured.'),
+            child: LocalizedText('No threat policies configured.'),
           ),
         if (!_loading) ...[
           Padding(
@@ -215,7 +218,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
             child: FilledButton.icon(
               onPressed: () => AdminRoute.go('threat-policies', action: 'new'),
               icon: const Icon(Icons.add),
-              label: const Text('New policy'),
+              label: const LocalizedText('New policy'),
             ),
           ),
           for (final p in _policies)
@@ -227,7 +230,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                   color: p['enabled'] == true ? Colors.green : Colors.grey,
                 ),
                 title: Text(p['name']?.toString() ?? ''),
-                subtitle: Text(
+                subtitle: LocalizedText(
                   '${p['description']?.toString() ?? ''}\n${p['id'] ?? ''}',
                 ),
                 isThreeLine: true,
@@ -241,7 +244,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
-                  child: const Text('Delete'),
+                  child: const LocalizedText('Delete'),
                 ),
               ),
             ),
@@ -254,25 +257,25 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     padding: const EdgeInsets.all(16),
     children: [
       AdminBreadcrumb(),
-      Text(
+      LocalizedText(
         _editing ? 'Edit policy' : 'New policy',
         style: Theme.of(context).textTheme.headlineSmall,
       ),
       const SizedBox(height: 16),
       TextField(
         controller: _nameCtrl,
-        decoration: const InputDecoration(labelText: 'Name'),
+        decoration: InputDecoration(labelText: 'Name'.localized),
       ),
       const SizedBox(height: 12),
       TextField(
         controller: _descCtrl,
-        decoration: const InputDecoration(labelText: 'Description'),
+        decoration: InputDecoration(labelText: 'Description'.localized),
         maxLines: 2,
       ),
       const SizedBox(height: 12),
       TextField(
         controller: _rulesCtrl,
-        decoration: const InputDecoration(labelText: 'Rules / Config'),
+        decoration: InputDecoration(labelText: 'Rules / Config'.localized),
         maxLines: 4,
       ),
       const SizedBox(height: 16),
@@ -280,19 +283,22 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         children: [
           OutlinedButton(
             onPressed: () => AdminRoute.go('threat-policies'),
-            child: const Text('Cancel'),
+            child: const LocalizedText('Cancel'),
           ),
           const SizedBox(width: 8),
           FilledButton(
             onPressed: _mutating ? null : _save,
-            child: Text(_editing ? 'Update' : 'Create'),
+            child: LocalizedText(_editing ? 'Update' : 'Create'),
           ),
         ],
       ),
       if (_error != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
-          child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+          child: LocalizedText(
+            _error!,
+            style: const TextStyle(color: Colors.redAccent),
+          ),
         ),
     ],
   );

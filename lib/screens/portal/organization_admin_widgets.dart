@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 import 'portal_widgets.dart';
 
@@ -7,6 +9,22 @@ List<Map<String, dynamic>> organizationRecords(Object? values) =>
         .whereType<Map>()
         .map((value) => Map<String, dynamic>.from(value))
         .toList(growable: false);
+
+Future<bool> confirmOrganizationAction(
+  BuildContext context,
+  String title,
+  String detail,
+  String action, {
+  String? confirmText,
+  bool destructive = false,
+}) => ConfirmDialog.show(
+  context,
+  title: title,
+  message: detail,
+  confirmLabel: action,
+  confirmText: confirmText,
+  destructive: destructive,
+);
 
 class OrganizationAdminHeader extends StatelessWidget {
   final String tenantId;
@@ -26,20 +44,20 @@ class OrganizationAdminHeader extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       IconButton(
-        tooltip: 'Back to organizations',
+        tooltip: context.tr('Back to organizations'),
         onPressed: onClose,
         icon: const Icon(Icons.arrow_back),
       ),
       const SizedBox(width: 8),
       Expanded(
         child: Text(
-          'Manage $tenantId',
+          context.tr('Manage {tenantId}', {'tenantId': tenantId}),
           style: Theme.of(context).textTheme.headlineSmall,
           overflow: TextOverflow.ellipsis,
         ),
       ),
       IconButton(
-        tooltip: 'Refresh',
+        tooltip: context.strings.refresh,
         onPressed: disabled ? null : onRefresh,
         icon: const Icon(Icons.refresh),
       ),
@@ -79,15 +97,20 @@ class OrganizationInvitationCards extends StatelessWidget {
             controller: emailController,
             enabled: !busy,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email address'),
+            decoration: InputDecoration(labelText: context.tr('Email address')),
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: role,
-            decoration: const InputDecoration(labelText: 'Organization role'),
+            decoration: InputDecoration(
+              labelText: context.tr('Organization role'),
+            ),
             items: roles
                 .map(
-                  (value) => DropdownMenuItem(value: value, child: Text(value)),
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(context.tr(value)),
+                  ),
                 )
                 .toList(growable: false),
             onChanged: busy
@@ -101,7 +124,7 @@ class OrganizationInvitationCards extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: FilledButton(
               onPressed: busy ? null : onInvite,
-              child: const Text('Send invitation'),
+              child: Text(context.tr('Send invitation')),
             ),
           ),
         ],
@@ -109,7 +132,9 @@ class OrganizationInvitationCards extends StatelessWidget {
       PortalCard(
         title: 'Pending invitations',
         children: [
-          const Text('Invitation tokens are intentionally never displayed.'),
+          Text(
+            context.tr('Invitation tokens are intentionally never displayed.'),
+          ),
           const SizedBox(height: 8),
           if (invitations.isEmpty) const EmptyHint('No pending invitations.'),
           for (final invitation in invitations)
@@ -117,12 +142,12 @@ class OrganizationInvitationCards extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(invitation['email']?.toString() ?? ''),
               subtitle: Text(
-                '${invitation['role'] ?? 'member'}${invitation['expires_at'] == null ? '' : ' · expires ${invitation['expires_at']}'}',
+                '${context.tr('${invitation['role'] ?? 'member'}')}${invitation['expires_at'] == null ? '' : context.tr(' · expires {time}', {'time': invitation['expires_at']})}',
               ),
               trailing: TextButton(
                 onPressed: busy ? null : () => onRevoke(invitation),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Revoke'),
+                child: Text(context.tr('Revoke')),
               ),
             ),
         ],

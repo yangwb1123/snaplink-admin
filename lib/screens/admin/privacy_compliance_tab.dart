@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -70,7 +71,9 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Encrypted transport complete; export downloaded.'),
+            content: LocalizedText(
+              'Encrypted transport complete; export downloaded.',
+            ),
           ),
         );
       }
@@ -171,21 +174,21 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      Text(
+      LocalizedText(
         'Privacy and retention',
         style: Theme.of(context).textTheme.headlineSmall,
       ),
       const SizedBox(height: 4),
-      const Text(
+      const LocalizedText(
         'Execute data-subject requests with preview-first controls and keep '
         'sensitive exports out of the console display.',
       ),
       if (_error != null) ...[
-        const SizedBox(height: 10),
-        Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        const SizedBox(height: 12),
+        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
       ],
       if (_busy) ...[
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         const LinearProgressIndicator(),
       ],
       const SizedBox(height: 12),
@@ -201,12 +204,12 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Data-subject request',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text(
+          const LocalizedText(
             'Exports may contain PII. They download directly and are never '
             'placed in console history or clipboard.',
           ),
@@ -214,7 +217,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
           TextField(
             controller: _subject,
             enabled: !_busy,
-            decoration: const InputDecoration(labelText: 'User ID'),
+            decoration: InputDecoration(labelText: 'User ID'.localized),
             onChanged: (_) {
               if (_previewSubject != _subject.text.trim()) {
                 setState(() {
@@ -233,13 +236,13 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _export,
                   icon: const Icon(Icons.download_outlined),
-                  label: const Text('Download export'),
+                  label: const LocalizedText('Download export'),
                 ),
               if (_has('POST', '$_subjectPrefix/{id}/erase'))
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _previewErase,
                   icon: const Icon(Icons.fact_check_outlined),
-                  label: const Text('Preview erasure'),
+                  label: const LocalizedText('Preview erasure'),
                 ),
               if (_has('POST', '$_subjectPrefix/{id}/erase'))
                 FilledButton.icon(
@@ -248,7 +251,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
                       : _commitErase,
                   style: FilledButton.styleFrom(backgroundColor: Colors.red),
                   icon: const Icon(Icons.person_remove_outlined),
-                  label: const Text('Commit erasure'),
+                  label: const LocalizedText('Commit erasure'),
                 ),
             ],
           ),
@@ -271,11 +274,11 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Retention sweep',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const Text(
+          const LocalizedText(
             'A request cannot disable server-enforced dry-run mode. Audit '
             'events past retention are reported, never deleted by this sweep.',
           ),
@@ -285,11 +288,11 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
             children: [
               OutlinedButton(
                 onPressed: _busy ? null : () => _retention(dryRun: true),
-                child: const Text('Preview sweep'),
+                child: const LocalizedText('Preview sweep'),
               ),
               FilledButton(
                 onPressed: _busy ? null : () => _retention(dryRun: false),
-                child: const Text('Run governed sweep'),
+                child: const LocalizedText('Run governed sweep'),
               ),
             ],
           ),
@@ -316,10 +319,15 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            LocalizedText(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
             for (final entry in report.entries)
-              if (entry.key != 'errors') Text('${entry.key}: ${entry.value}'),
-            if (errors.isNotEmpty) Text('errors: ${errors.join(' · ')}'),
+              if (entry.key != 'errors')
+                LocalizedText('${entry.key}: ${entry.value}'),
+            if (errors.isNotEmpty)
+              LocalizedText('errors: ${errors.join(' · ')}'),
           ],
         ),
       ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'dcr_form_controller.dart';
 import 'dcr_models.dart';
@@ -56,15 +58,17 @@ class DcrMetadataForm extends StatelessWidget {
         TextField(
           controller: controller.clientName,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(labelText: 'App Name'),
+          decoration: InputDecoration(labelText: context.tr('App Name')),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         _lineField(
           controller.redirectUris,
-          'Redirect URIs (one per line)',
-          helper: 'Required for authorization_code. Fragments are not allowed.',
+          context.tr('Redirect URIs (one per line)'),
+          helper: context.tr(
+            'Required for authorization_code. Fragments are not allowed.',
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: controller.scope,
           autocorrect: false,
@@ -72,15 +76,20 @@ class DcrMetadataForm extends StatelessWidget {
           textCapitalization: TextCapitalization.none,
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
-            labelText: 'Scopes (space-separated)',
+            labelText: context.tr('Scopes (space-separated)'),
             helperText: discovery?.scopes.isNotEmpty == true
-                ? 'Advertised: ${discovery!.scopes.join(', ')}'
+                ? context.tr('Advertised: {values}', {
+                    'values': discovery!.scopes.join(', '),
+                  })
                 : null,
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         _sectionTitle(context, 'OAuth protocol'),
-        Text('Grant types', style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          context.tr('Grant types'),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -88,7 +97,7 @@ class DcrMetadataForm extends StatelessWidget {
           children: [
             for (final grant in grantOptions)
               FilterChip(
-                label: Text(_shortGrant(grant)),
+                label: LocalizedText(_shortGrant(grant)),
                 selected: controller.grantTypes.contains(grant),
                 onSelected:
                     managementMode && roundTripSafety?.grantTypesKnown == false
@@ -110,47 +119,39 @@ class DcrMetadataForm extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 14),
-        Text('Response types', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 16),
+        Text(
+          context.tr('Response types'),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         FilterChip(
           label: const Text('code'),
           selected: controller.responseTypes.contains('code'),
-          onSelected: managementMode
-              ? null
-              : (selected) {
-                  if (selected) {
-                    controller.responseTypes.add('code');
-                    controller.grantTypes.add('authorization_code');
-                  } else {
-                    controller.responseTypes.remove('code');
-                  }
-                  onChanged();
-                },
+          onSelected: (selected) {
+            if (selected) {
+              controller.responseTypes.add('code');
+              controller.grantTypes.add('authorization_code');
+            } else {
+              controller.responseTypes.remove('code');
+            }
+            onChanged();
+          },
         ),
-        if (managementMode)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              'Read-only: the current management handler does not persist '
-              'response_types.',
-              style: TextStyle(fontSize: 12),
-            ),
-          ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           key: ValueKey(
             'auth-${controller.tokenEndpointAuthMethod}-$managementMode',
           ),
           initialValue: controller.tokenEndpointAuthMethod,
-          decoration: const InputDecoration(
-            labelText: 'Token endpoint authentication',
+          decoration: InputDecoration(
+            labelText: context.tr('Token endpoint authentication'),
           ),
           items: [
             for (final method in authOptions)
               DropdownMenuItem(
                 value: method,
-                child: Text(_authMethodLabel(method)),
+                child: Text(context.tr(_authMethodLabel(method))),
               ),
           ],
           onChanged: managementMode
@@ -163,19 +164,20 @@ class DcrMetadataForm extends StatelessWidget {
                 },
         ),
         if (managementMode)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
-              'Client credential type is locked because RFC 7592 PUT does not '
-              'rotate or remove the stored client secret.',
-              style: TextStyle(fontSize: 12),
+              context.tr(
+                'Client credential type is locked because RFC 7592 PUT does not rotate or remove the stored client secret.',
+              ),
+              style: const TextStyle(fontSize: 12),
             ),
           ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           key: ValueKey('strategy-${controller.tokenStrategy}'),
           initialValue: controller.tokenStrategy,
-          decoration: const InputDecoration(labelText: 'Token strategy'),
+          decoration: InputDecoration(labelText: context.tr('Token strategy')),
           items: const [
             DropdownMenuItem(value: 'jwt', child: Text('jwt')),
             DropdownMenuItem(value: 'session', child: Text('session')),
@@ -189,11 +191,13 @@ class DcrMetadataForm extends StatelessWidget {
         const SizedBox(height: 8),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
-          title: const Text('Require PKCE'),
+          title: Text(context.tr('Require PKCE')),
           subtitle: Text(
-            controller.tokenEndpointAuthMethod == 'none'
-                ? 'Required for public clients; Snaplink stores S256 only.'
-                : 'When enabled, Snaplink stores S256 as the allowed method.',
+            context.tr(
+              controller.tokenEndpointAuthMethod == 'none'
+                  ? 'Required for public clients; Snaplink stores S256 only.'
+                  : 'When enabled, Snaplink stores S256 as the allowed method.',
+            ),
           ),
           value:
               controller.requirePkce ||
@@ -209,30 +213,25 @@ class DcrMetadataForm extends StatelessWidget {
         _sectionTitle(context, 'Application policy'),
         _lineField(
           controller.postLogoutRedirectUris,
-          'Post-logout redirect URIs (one per line)',
+          context.tr('Post-logout redirect URIs (one per line)'),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         _lineField(
           controller.allowedAuthenticators,
-          'Allowed authenticators (one per line)',
-          helper: 'Examples: password, webauthn, totp.',
+          context.tr('Allowed authenticators (one per line)'),
+          helper: context.tr('Examples: password, webauthn, totp.'),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         _lineField(
           controller.allowedResources,
-          'Allowed resources (one per line)',
-          helper: 'OAuth resource indicators accepted for this client.',
+          context.tr('Allowed resources (one per line)'),
+          helper: context.tr(
+            'OAuth resource indicators accepted for this client.',
+          ),
         ),
-        const SizedBox(height: 14),
-        _lineField(
-          controller.contacts,
-          'Contacts (one per line)',
-          enabled: !managementMode,
-          helper: managementMode
-              ? 'Read-only: contacts are not persisted by RFC 7592 PUT.'
-              : null,
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
+        _lineField(controller.contacts, context.tr('Contacts (one per line)')),
+        const SizedBox(height: 16),
         TextField(
           controller: controller.tenantId,
           enabled: !managementMode,
@@ -240,16 +239,19 @@ class DcrMetadataForm extends StatelessWidget {
           enableSuggestions: false,
           textCapitalization: TextCapitalization.none,
           decoration: InputDecoration(
-            labelText: managementMode
-                ? 'Tenant (immutable / not returned)'
-                : 'Tenant ID (operator-gated registration only)',
-            helperText: managementMode
-                ? 'Snaplink preserves the stored tenant and ignores tenant_id '
-                      'on PUT.'
-                : 'Open registration deliberately ignores this value.',
+            labelText: context.tr(
+              managementMode
+                  ? 'Tenant (immutable / not returned)'
+                  : 'Tenant ID (operator-gated registration only)',
+            ),
+            helperText: context.tr(
+              managementMode
+                  ? 'Snaplink preserves the stored tenant and ignores tenant_id on PUT.'
+                  : 'Open registration deliberately ignores this value.',
+            ),
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 24),
         _sectionTitle(context, 'Expert JSON'),
         TextField(
           controller: controller.expertJson,
@@ -260,11 +262,11 @@ class DcrMetadataForm extends StatelessWidget {
           keyboardType: TextInputType.multiline,
           textInputAction: TextInputAction.newline,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          decoration: const InputDecoration(
-            labelText: 'Additional metadata (JSON object)',
-            helperText:
-                'Typed and credential fields are rejected here. Unknown keys '
-                'may be ignored by Snaplink; the response is authoritative.',
+          decoration: InputDecoration(
+            labelText: context.tr('Additional metadata (JSON object)'),
+            helperText: context.tr(
+              'Typed and credential fields are rejected here. Unknown keys may be ignored by Snaplink; the response is authoritative.',
+            ),
             hintText: '{"id_token_encrypted_response_alg":"RSA-OAEP-256"}',
           ),
         ),
@@ -295,7 +297,10 @@ class DcrMetadataForm extends StatelessWidget {
 
   Widget _sectionTitle(BuildContext context, String text) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
-    child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+    child: Text(
+      context.tr(text),
+      style: Theme.of(context).textTheme.titleMedium,
+    ),
   );
 
   List<String> _mergeOptions(Iterable<String> values, Set<String> selected) {

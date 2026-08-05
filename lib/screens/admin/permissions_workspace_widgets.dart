@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class PermissionsClientSelector extends StatelessWidget {
   final TextEditingController controller;
@@ -23,9 +24,9 @@ class PermissionsClientSelector extends StatelessWidget {
         width: 300,
         child: TextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Client ID',
-            hintText: 'Enter client ID and press Search',
+          decoration: InputDecoration(
+            labelText: 'Client ID'.localized,
+            hintText: 'Enter client ID and press Search'.localized,
           ),
           onSubmitted: (_) => onSubmitted(),
         ),
@@ -33,7 +34,7 @@ class PermissionsClientSelector extends StatelessWidget {
       const SizedBox(width: 8),
       ElevatedButton(
         onPressed: loading ? null : onSearch,
-        child: const Text('Search'),
+        child: const LocalizedText('Search'),
       ),
       if (clientId case final value?) ...[
         const SizedBox(width: 8),
@@ -66,7 +67,7 @@ class PermissionSectionSelector extends StatelessWidget {
           ('menus', 'Menus'),
         ])
           Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
               label: Text(section.$2),
               selected: selectedSection == section.$1,
@@ -97,21 +98,21 @@ class PermissionMenusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Navigation tree (JSON)',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           TextField(
             controller: controller,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
+            decoration: InputDecoration(border: OutlineInputBorder()),
             maxLines: 6,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: mutating ? null : onSave,
-            child: const Text('Save menus'),
+            child: const LocalizedText('Save menus'),
           ),
         ],
       ),

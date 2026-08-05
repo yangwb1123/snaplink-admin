@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -24,9 +25,11 @@ class RecoveryReleasesTab extends StatefulWidget {
 class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   static const _snapshotsPath = '/api/v1/admin/snapshots';
   static const _releasesPath = '/api/v1/admin/releases';
+  static const _operationsPath = '/api/v1/admin/operations';
 
   List<Map<String, dynamic>> _snapshots = const [];
   List<Map<String, dynamic>> _releases = const [];
+  List<Map<String, dynamic>> _operations = const [];
   Map<String, dynamic>? _currentRelease;
   Map<String, dynamic>? _drStatus;
   Map<String, dynamic>? _lastReport;
@@ -77,6 +80,8 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
           _readSection('Current release', '$_releasesPath:current'),
         if (_has('GET', '/api/v1/admin/dr/status'))
           _readSection('DR status', '/api/v1/admin/dr/status'),
+        if (_has('GET', _operationsPath))
+          _readSection('Operations', _operationsPath),
       ];
       final results = await Future.wait(jobs);
       if (!mounted) return;
@@ -100,6 +105,9 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
               break;
             case 'DR status':
               _drStatus = data;
+              break;
+            case 'Operations':
+              _operations = recoveryRecords(data['operations']);
               break;
           }
         }
@@ -139,10 +147,9 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         context,
         title: 'Restore snapshot?',
         message:
-            'Apply ${draft.mode} restore from $id? Snaplink currently applies '
-            'resource families sequentially rather than transactionally. A '
-            'failure can leave partial changes, so verify the operation '
-            'report and reconcile every affected resource afterward.',
+            'Apply ${draft.mode} restore from $id? Resource families are '
+            'applied sequentially. Snaplink records every step and final '
+            'result in a durable operation journal for reconciliation.',
         confirmLabel: 'Restore',
         destructive: true,
         confirmText: id,
@@ -203,8 +210,8 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       'pin' => 'Pin $id as the current paired release?',
       'rollback' =>
         'Rollback frontend and backend to $id? Snapshot restore, traffic '
-            'pinning, and registry updates are not atomic. A failure may '
-            'leave a partially changed release state.',
+            'pinning, registry updates, and compensations are recorded in a '
+            'durable operation journal.',
       _ => 'Delete registered release $id?',
     };
     if (!await _confirm(
@@ -261,13 +268,23 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       final report = await operation();
       if (!mounted) return false;
       setState(() => _lastReport = report);
+      final operationId = report['operation_id']?.toString();
+      final operationState =
+          recoveryRecord(report['operation'])?['state']?.toString() ??
+          'recorded';
+      final result = operationId == null || operationId.isEmpty
+          ? success
+          : '$success Operation $operationId is $operationState.';
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(result)));
       await _load();
       return true;
     } on SnaplinkAdminApiError catch (error) {
-      await _reconcileFailedWrite(error.toString());
+      await _reconcileFailedWrite(
+        error.toString(),
+        operationId: error.operationId,
+      );
       return false;
     } catch (_) {
       await _reconcileFailedWrite(
@@ -279,15 +296,20 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     }
   }
 
-  Future<void> _reconcileFailedWrite(String message) async {
+  Future<void> _reconcileFailedWrite(
+    String message, {
+    String? operationId,
+  }) async {
     if (!mounted) return;
     await _load();
     if (!mounted) return;
     final sectionError = _error;
     setState(
       () => _error =
-          '$message The operation may have partially applied; visible state '
-          'was refreshed and external health/storage must be verified.'
+          '$message '
+          '${operationId == null ? '' : 'Operation $operationId failed. '}'
+          'The durable operation journal and visible state were refreshed; '
+          'inspect every failed step and compensation before retrying.'
           '${sectionError == null ? '' : '\n$sectionError'}',
     );
   }
@@ -302,30 +324,30 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
+          LocalizedText(
             'Recovery and releases',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           IconButton(
             onPressed: _loading || _mutating ? null : _load,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
           ),
           if (_has('POST', '/api/v1/admin/backup'))
             FilledButton.icon(
               onPressed: _mutating ? null : _backup,
               icon: const Icon(Icons.backup_outlined),
-              label: const Text('Online backup'),
+              label: const LocalizedText('Online backup'),
             ),
         ],
       ),
       const SizedBox(height: 4),
-      const Text(
+      const LocalizedText(
         'Manage encrypted state snapshots and coordinated frontend/backend release pins.',
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
       ],
       if (_loading) ...[
         const SizedBox(height: 12),
@@ -351,12 +373,14 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         onRegister: _registerRelease,
         onAction: _releaseAction,
       ),
+      const SizedBox(height: 12),
+      RecoveryOperationsCard(operations: _operations),
       if (_lastReport?.isNotEmpty == true) ...[
         const SizedBox(height: 12),
         Card(
           child: ListTile(
             leading: const Icon(Icons.task_alt),
-            title: const Text('Last operation report'),
+            title: const LocalizedText('Last operation report'),
             subtitle: SelectableText(_lastReport.toString()),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -43,7 +44,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     _cancelPopState = BrowserNavigation.listenToLocationChange(_onPopState);
     _handleRoute();
     _load();
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     for (var i = 0; i < _tabs.length; i++) {
       if (_tabs[i].$1 == route.subresource) {
         _tabIndex = i;
@@ -97,7 +98,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('Permissions: ${widget.clientId}'),
+      title: LocalizedText('Permissions: ${widget.clientId}'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('permissions'),
@@ -116,7 +117,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                   color: Colors.redAccent,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                LocalizedText(
                   'Failed to load',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -135,7 +136,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                 OutlinedButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
@@ -153,7 +154,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: ChoiceChip(
-                          label: Text(_tabs[i].$2),
+                          label: LocalizedText(_tabs[i].$2),
                           selected: _tabIndex == i,
                           onSelected: (_) => _selectTab(i, _tabs[i].$1),
                         ),
@@ -176,7 +177,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-          ? [const Center(child: Text('No roles defined'))]
+          ? [const Center(child: LocalizedText('No roles defined'))]
           : items
                 .map(
                   (r) => Card(
@@ -192,7 +193,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                         children: [
                           if (r['permissions'] != null)
                             Chip(
-                              label: Text(
+                              label: LocalizedText(
                                 '${(r['permissions'] as List?)?.length ?? 0} perms',
                               ),
                             ),
@@ -210,7 +211,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-          ? [const Center(child: Text('No assignments'))]
+          ? [const Center(child: LocalizedText('No assignments'))]
           : items
                 .map(
                   (a) => Card(
@@ -218,7 +219,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                     child: ListTile(
                       leading: const Icon(Icons.assignment_ind),
                       title: Text(a['role']?.toString() ?? ''),
-                      subtitle: Text(
+                      subtitle: LocalizedText(
                         'Subject: ${a['subject'] ?? a['user_id'] ?? a['group_id'] ?? ''}',
                       ),
                     ),
@@ -229,7 +230,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'permissions') return;
   }
 

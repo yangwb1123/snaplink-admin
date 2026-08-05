@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'scim_models.dart';
 
@@ -100,7 +101,7 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_editing ? 'Replace SCIM user' : 'Create SCIM user'),
+    title: LocalizedText(_editing ? 'Replace SCIM user' : 'Create SCIM user'),
     content: SizedBox(
       width: 720,
       height: MediaQuery.sizeOf(context).height * .68,
@@ -128,8 +129,8 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
               _field('externalId', 'External ID'),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: const Text('Active'),
-                subtitle: const Text('Turn off to deprovision'),
+                title: const LocalizedText('Active'),
+                subtitle: const LocalizedText('Turn off to deprovision'),
                 value: _active,
                 onChanged: (value) => setState(() => _active = value),
               ),
@@ -150,10 +151,11 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
               controller: _controllers['emails'],
               minLines: 2,
               maxLines: 5,
-              decoration: const InputDecoration(
-                labelText: 'Emails',
+              decoration: InputDecoration(
+                labelText: 'Emails'.localized,
                 helperText:
-                    'One per line: address | type | primary. Only one primary.',
+                    'One per line: address | type | primary. Only one primary.'
+                        .localized,
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
@@ -187,11 +189,11 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
       FilledButton(
         onPressed: _submit,
-        child: Text(_editing ? 'Replace user' : 'Create user'),
+        child: LocalizedText(_editing ? 'Replace user' : 'Create user'),
       ),
     ],
   );
@@ -203,7 +205,10 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
     String? helper,
   }) => TextFormField(
     controller: _controllers[key],
-    decoration: InputDecoration(labelText: label, helperText: helper),
+    decoration: InputDecoration(
+      labelText: label.localized,
+      helperText: helper?.localized,
+    ),
     validator: required
         ? (value) => value == null || value.trim().isEmpty ? 'Required' : null
         : null,
@@ -227,7 +232,7 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
 
   Widget _sectionTitle(BuildContext context, String text) => Padding(
     padding: const EdgeInsets.only(top: 20, bottom: 8),
-    child: Text(text, style: Theme.of(context).textTheme.titleMedium),
+    child: LocalizedText(text, style: Theme.of(context).textTheme.titleMedium),
   );
 
   String _text(String key) => _controllers[key]!.text.trim();
@@ -302,6 +307,6 @@ class _Notice extends StatelessWidget {
       color: Theme.of(context).colorScheme.secondaryContainer,
       borderRadius: BorderRadius.circular(8),
     ),
-    child: Text(text),
+    child: LocalizedText(text),
   );
 }

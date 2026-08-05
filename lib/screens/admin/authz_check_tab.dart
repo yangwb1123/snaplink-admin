@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -123,7 +124,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
   Widget build(BuildContext context) {
     if (!_hasRebac && !_hasWasm) {
       return const Center(
-        child: Text(
+        child: LocalizedText(
           'Authorization check tools are not enabled on this replica.',
         ),
       );
@@ -137,7 +138,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 4),
-        const Text('Test ReBAC and WASM authorization policies.'),
+        const LocalizedText('Test ReBAC and WASM authorization policies.'),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -158,7 +159,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'ReBAC policy check',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -167,13 +168,14 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
             controller: _rebacCtrl,
             maxLines: 4,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            decoration: const InputDecoration(
-              labelText: 'Check parameters',
+            decoration: InputDecoration(
+              labelText: 'Check parameters'.localized,
               hintText:
-                  '{"object":"document:42","relation":"viewer","subject":"user:alice"}',
+                  '{"object":"document:42","relation":"viewer","subject":"user:alice"}'
+                      .localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: _rebacLoading ? null : _checkRebac,
             child: _rebacLoading
@@ -182,11 +184,11 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
                     width: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Check ReBAC'),
+                : const LocalizedText('Check ReBAC'),
           ),
           if (_rebacResult != null) ...[
             const SizedBox(height: 12),
-            const Text(
+            const LocalizedText(
               'Result:',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
@@ -206,7 +208,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'WASM authorization check',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -215,12 +217,12 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
             controller: _wasmCtrl,
             maxLines: 4,
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            decoration: const InputDecoration(
-              labelText: 'Request JSON',
-              hintText: '{"principal":"","action":"","resource":{}}',
+            decoration: InputDecoration(
+              labelText: 'Request JSON'.localized,
+              hintText: '{"principal":"","action":"","resource":{}}'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: _wasmLoading ? null : _checkWasm,
             child: _wasmLoading
@@ -229,11 +231,11 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
                     width: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Check WASM'),
+                : const LocalizedText('Check WASM'),
           ),
           if (_wasmResult != null) ...[
             const SizedBox(height: 12),
-            const Text(
+            const LocalizedText(
               'Result:',
               style: TextStyle(fontWeight: FontWeight.w500),
             ),

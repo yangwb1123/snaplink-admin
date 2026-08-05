@@ -13,6 +13,7 @@ class DcrValidationResult {
 const dcrSafeAuthMethods = {
   'client_secret_basic',
   'client_secret_post',
+  'private_key_jwt',
   'none',
   'tls_client_auth',
   'self_signed_tls',
@@ -56,6 +57,29 @@ DcrValidationResult validateDcrMetadata(
       'The selected token endpoint authentication method is not accepted by '
       'Snaplink DCR.',
     );
+  }
+  final jwks = metadata.expertMetadata['jwks'];
+  final hasJwks =
+      jwks is Map && jwks['keys'] is List && (jwks['keys'] as List).isNotEmpty;
+  if (const {
+        'private_key_jwt',
+        'self_signed_tls',
+      }.contains(metadata.tokenEndpointAuthMethod) &&
+      !hasJwks) {
+    errors.add(
+      '${metadata.tokenEndpointAuthMethod} requires a non-empty jwks.keys array.',
+    );
+  }
+  if (metadata.tokenEndpointAuthMethod == 'tls_client_auth' &&
+      !const {
+        'tls_client_auth_subject_dn',
+        'tls_client_auth_san_dns',
+        'tls_client_auth_san_email',
+        'tls_client_auth_san_uri',
+      }.any(
+        (key) => metadata.expertMetadata[key]?.toString().isNotEmpty == true,
+      )) {
+    errors.add('tls_client_auth requires certificate binding metadata.');
   }
   if (!const {'jwt', 'session'}.contains(metadata.tokenStrategy)) {
     errors.add('Token strategy must be jwt or session.');

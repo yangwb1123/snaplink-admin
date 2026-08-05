@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -64,7 +65,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Token policy management is not enabled.'),
+        child: LocalizedText('Token policy management is not enabled.'),
       );
     }
     return ListView(
@@ -81,12 +82,14 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text('Token issuance and validation policy configuration.'),
+        const LocalizedText(
+          'Token issuance and validation policy configuration.',
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -99,7 +102,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
         if (!_loading && _policies.isEmpty)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: Text('No token policies configured.'),
+            child: LocalizedText('No token policies configured.'),
           ),
         if (!_loading)
           for (final p in _policies)
@@ -108,7 +111,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
               child: ListTile(
                 leading: Icon(Icons.policy_outlined, color: Colors.indigo),
                 title: Text(p['name']?.toString() ?? p['id']?.toString() ?? ''),
-                subtitle: Text(
+                subtitle: LocalizedText(
                   '${p['effect'] ?? p['action'] ?? 'allow'} · ${p['priority'] ?? ''}\n${p['description'] ?? ''}',
                 ),
                 isThreeLine: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 
 /// Create/edit form for an [AdminUser]. Reused for both flows: [existing]
@@ -103,7 +104,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEditing ? 'Edit User' : 'New User'),
+      title: LocalizedText(_isEditing ? 'Edit User' : 'New User'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -113,22 +114,22 @@ class _UserFormDialogState extends State<UserFormDialog> {
               TextFormField(
                 controller: _idController,
                 enabled: !_isEditing,
-                decoration: const InputDecoration(labelText: 'ID'),
+                decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               TextFormField(
                 controller: _externalIdController,
-                decoration: const InputDecoration(labelText: 'External ID'),
+                decoration: InputDecoration(labelText: 'External ID'.localized),
               ),
               TextFormField(
                 controller: _providerController,
-                decoration: const InputDecoration(labelText: 'Provider'),
+                decoration: InputDecoration(labelText: 'Provider'.localized),
               ),
               TextFormField(
                 controller: _attributesController,
-                decoration: const InputDecoration(
-                  labelText: 'Attributes (one key=value per line)',
+                decoration: InputDecoration(
+                  labelText: 'Attributes (one key=value per line)'.localized,
                   alignLabelWithHint: true,
                 ),
                 maxLines: 4,
@@ -140,7 +141,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
       actions: [
         TextButton(
           onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: const LocalizedText('Cancel'),
         ),
         FilledButton(
           onPressed: _submitting ? null : _submit,
@@ -150,7 +151,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                   height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(_isEditing ? 'Save' : 'Create'),
+              : LocalizedText(_isEditing ? 'Save' : 'Create'),
         ),
       ],
     );

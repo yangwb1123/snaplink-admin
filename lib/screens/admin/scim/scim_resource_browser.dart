@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
@@ -247,7 +248,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await _load(startIndex: resetToFirst ? 1 : _page?.startIndex);
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
@@ -271,7 +272,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
         children: [
           Row(
             children: [
-              Text(
+              LocalizedText(
                 'SCIM ${widget.kind.collection}',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
@@ -279,13 +280,15 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
               IconButton(
                 onPressed: _loading || _mutating ? null : _load,
                 icon: const Icon(Icons.refresh),
-                tooltip: 'Refresh',
+                tooltip: 'Refresh'.localized,
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: _mutating ? null : _create,
                 icon: const Icon(Icons.add),
-                label: Text('Create ${widget.kind.singular.toLowerCase()}'),
+                label: LocalizedText(
+                  'Create ${widget.kind.singular.toLowerCase()}',
+                ),
               ),
             ],
           ),
@@ -314,7 +317,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
                   Expanded(
                     child: page.resources.isEmpty
                         ? const Center(
-                            child: Text('No resources match this query.'),
+                            child: LocalizedText(
+                              'No resources match this query.',
+                            ),
                           )
                         : ListView.builder(
                             itemCount: page.resources.length,
@@ -350,11 +355,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     color: Theme.of(context).colorScheme.errorContainer,
     child: ListTile(
       leading: const Icon(Icons.error_outline),
-      title: Text(_error!),
+      title: LocalizedText(_error!),
       trailing: TextButton.icon(
         onPressed: _loading ? null : _load,
         icon: const Icon(Icons.refresh),
-        label: const Text('Retry'),
+        label: const LocalizedText('Retry'),
       ),
     ),
   );

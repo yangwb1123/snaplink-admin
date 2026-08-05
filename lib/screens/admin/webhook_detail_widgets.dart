@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class WebhookInfoCard extends StatelessWidget {
   final String subscriptionId;
@@ -9,6 +10,17 @@ class WebhookInfoCard extends StatelessWidget {
     required this.subscriptionId,
     required this.subscription,
   });
+
+  /// The API returns the URL either as a bare string or as a map with a
+  /// `url` key. Indexing a String with ['url'] would throw at runtime, so
+  /// the shape is checked explicitly.
+  static String _displayUrl(Object? raw) {
+    if (raw is Map) {
+      return raw['url']?.toString() ?? '—';
+    }
+    final text = raw?.toString() ?? '';
+    return text.isEmpty ? '—' : text;
+  }
 
   @override
   Widget build(BuildContext context) => Card(
@@ -25,19 +37,16 @@ class WebhookInfoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    LocalizedText(
                       'Webhook #$subscriptionId',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    Text(
-                      'URL: '
-                      '${subscription?['url']?['url'] ?? subscription?['url'] ?? '—'}',
-                    ),
+                    LocalizedText('URL: ${_displayUrl(subscription?['url'])}'),
                   ],
                 ),
               ),
               Chip(
-                label: Text(
+                label: LocalizedText(
                   subscription?['active'] == true ? 'Active' : 'Inactive',
                 ),
                 backgroundColor: subscription?['active'] == true
@@ -73,7 +82,7 @@ class WebhookEventsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Subscribed Events',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -137,7 +146,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
             onTap: onToggle,
             child: Row(
               children: [
-                Text(
+                LocalizedText(
                   'Dead Letters (${deadLetters.length})',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -149,7 +158,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
           if (expanded) ...[
             const SizedBox(height: 8),
             if (deadLetters.isEmpty)
-              const Text('No dead letters')
+              const LocalizedText('No dead letters')
             else
               ...deadLetters
                   .take(20)
@@ -159,10 +168,10 @@ class WebhookDeadLetterSection extends StatelessWidget {
                       child: Card(
                         color: Colors.red.shade50,
                         child: ListTile(
-                          title: Text(
+                          title: LocalizedText(
                             deadLetter['event_type']?.toString() ?? 'Event',
                           ),
-                          subtitle: Text(
+                          subtitle: LocalizedText(
                             '${deadLetter['error']?.toString() ?? ''}\n'
                             '${deadLetter['failed_at']?.toString() ?? ''}',
                           ),
@@ -172,14 +181,14 @@ class WebhookDeadLetterSection extends StatelessWidget {
                                 : () => onReplay(
                                     deadLetter['id']?.toString() ?? '',
                                   ),
-                            child: const Text('Replay'),
+                            child: const LocalizedText('Replay'),
                           ),
                         ),
                       ),
                     ),
                   ),
             if (deadLetters.length > 20)
-              Text(
+              LocalizedText(
                 '+ ${deadLetters.length - 20} more',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
@@ -187,7 +196,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
             if (deadLetters.isNotEmpty)
               OutlinedButton(
                 onPressed: mutating ? null : onReplayAll,
-                child: const Text('Replay all dead letters'),
+                child: const LocalizedText('Replay all dead letters'),
               ),
           ],
         ],

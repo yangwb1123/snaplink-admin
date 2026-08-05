@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class OrganizationInvitationsCard extends StatelessWidget {
   final List<Map<String, dynamic>> invitations;
@@ -28,7 +29,7 @@ class OrganizationInvitationsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Pending invitations',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -36,29 +37,29 @@ class OrganizationInvitationsCard extends StatelessWidget {
           TextField(
             controller: emailController,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email address'),
+            decoration: InputDecoration(labelText: 'Email address'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _OrganizationRolePicker(
             value: role,
             enabled: !mutating,
             onChanged: onRoleChanged,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: mutating ? null : onSend,
-            child: const Text('Send invitation'),
+            child: const LocalizedText('Send invitation'),
           ),
           if (invitations.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No pending invitations loaded.'),
+              child: LocalizedText('No pending invitations loaded.'),
             ),
           for (final invitation in invitations)
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(invitation['email']?.toString() ?? ''),
-              subtitle: Text(
+              subtitle: LocalizedText(
                 '${invitation['role'] ?? 'member'}'
                 '${invitation['expires_at'] == null ? '' : ' · expires ${invitation['expires_at']}'}',
               ),
@@ -67,7 +68,7 @@ class OrganizationInvitationsCard extends StatelessWidget {
                     ? null
                     : () => onRevoke(invitation['email']?.toString() ?? ''),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Revoke'),
+                child: const LocalizedText('Revoke'),
               ),
             ),
         ],
@@ -91,13 +92,13 @@ class TenantOrganizationExportCard extends StatelessWidget {
     margin: const EdgeInsets.only(top: 20),
     child: ListTile(
       leading: const Icon(Icons.download_outlined),
-      title: const Text('Tenant data export'),
-      subtitle: const Text(
+      title: const LocalizedText('Tenant data export'),
+      subtitle: const LocalizedText(
         'Creates Snaplink’s redacted tenant offboarding or migration bundle.',
       ),
       trailing: FilledButton(
         onPressed: mutating ? null : onExport,
-        child: const Text('Export'),
+        child: const LocalizedText('Export'),
       ),
     ),
   );
@@ -117,11 +118,11 @@ class _OrganizationRolePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DropdownButtonFormField<String>(
     initialValue: value,
-    decoration: const InputDecoration(labelText: 'Organization role'),
+    decoration: InputDecoration(labelText: 'Organization role'.localized),
     items: const [
-      DropdownMenuItem(value: 'member', child: Text('Member')),
-      DropdownMenuItem(value: 'admin', child: Text('Admin')),
-      DropdownMenuItem(value: 'guest', child: Text('Guest')),
+      DropdownMenuItem(value: 'member', child: LocalizedText('Member')),
+      DropdownMenuItem(value: 'admin', child: LocalizedText('Admin')),
+      DropdownMenuItem(value: 'guest', child: LocalizedText('Guest')),
     ],
     onChanged: enabled ? (next) => onChanged(next ?? value) : null,
   );

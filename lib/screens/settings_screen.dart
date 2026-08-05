@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../i18n/app_strings.dart';
+import '../services/browser_navigation.dart';
+import '../services/product_api_origin.dart';
+import '../session.dart';
 
 /// Post-login settings: language, theme, SSO base URL (native-only), and a
 /// read-only timezone display. Reads/writes [AppSettings.instance] directly —
@@ -15,6 +18,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final _baseUrlFormKey = GlobalKey<FormState>();
   late final TextEditingController _baseUrlController;
 
   @override
@@ -32,7 +36,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _saveBaseUrl() {
+    if (!(_baseUrlFormKey.currentState?.validate() ?? false)) return;
+    final previousOrigin = ProductApiOrigin.baseUri;
     AppSettings.instance.ssoBaseUrlOverride = _baseUrlController.text;
+    _baseUrlController.text = AppSettings.instance.ssoBaseUrlOverride ?? '';
+    final originChanged = previousOrigin != ProductApiOrigin.baseUri;
+    if (originChanged && Session.read() != null) {
+      // A bearer minted by one deployment must never be carried into a newly
+      // configured deployment. Treat the origin change as an authentication
+      // boundary and discard the entire navigation stack as well.
+      Session.clear();
+      BrowserNavigation.replaceLocation('/login/');
+      return;
+    }
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(AppStrings.of(context).saved)));
@@ -64,10 +80,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            TextFormField(
-              controller: _baseUrlController,
-              enabled: !kIsWeb,
-              decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
+            Form(
+              key: _baseUrlFormKey,
+              child: TextFormField(
+                controller: _baseUrlController,
+                enabled: !kIsWeb,
+                keyboardType: TextInputType.url,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
+                validator: (value) {
+                  if (kIsWeb) return null;
+                  try {
+                    AppSettings.normalizeSsoBaseUrl(value);
+                    return null;
+                  } on FormatException {
+                    return strings.translate(
+                      'Enter an absolute HTTPS server URL without credentials, '
+                      'path, query, or fragment. HTTP is allowed only for '
+                      'localhost or loopback addresses.',
+                    );
+                  }
+                },
+              ),
             ),
             const SizedBox(height: 12),
             Align(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Responsive title and primary actions for admin collection pages.
 class AdminListHeader extends StatelessWidget {
@@ -24,19 +25,22 @@ class AdminListHeader extends StatelessWidget {
       spacing: 12,
       runSpacing: 8,
       children: [
-        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          context.tr(title),
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         OverflowBar(
           spacing: 4,
           children: [
             IconButton(
               onPressed: onCreate,
               icon: const Icon(Icons.add),
-              tooltip: createTooltip,
+              tooltip: context.tr(createTooltip),
             ),
             IconButton(
               onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: context.strings.refresh,
             ),
           ],
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class TenantMembersTab extends StatelessWidget {
   final List<dynamic> members;
@@ -25,7 +26,7 @@ class TenantMembersTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (members.isEmpty)
-        const Center(child: Text('No members'))
+        const Center(child: LocalizedText('No members'))
       else
         for (final raw in members.whereType<Map>())
           _memberCard(Map<String, dynamic>.from(raw)),
@@ -40,13 +41,13 @@ class TenantMembersTab extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(child: Text(initial)),
         title: Text(id),
-        subtitle: Text('Role: ${member['role'] ?? 'member'}'),
+        subtitle: LocalizedText('Role: ${member['role'] ?? 'member'}'),
         trailing: member['role'] == 'owner'
             ? null
             : TextButton(
                 onPressed: id.isEmpty ? null : () => onRemove(id),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Remove'),
+                child: const LocalizedText('Remove'),
               ),
       ),
     );
@@ -80,7 +81,7 @@ class TenantInvitationsTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (invitations.isEmpty)
-        const Center(child: Text('No pending invitations'))
+        const Center(child: LocalizedText('No pending invitations'))
       else
         for (final raw in invitations.whereType<Map>())
           _invitationCard(Map<String, dynamic>.from(raw)),
@@ -94,7 +95,7 @@ class TenantInvitationsTab extends StatelessWidget {
       child: ListTile(
         leading: const Icon(Icons.mail_outline),
         title: Text(email),
-        subtitle: Text(
+        subtitle: LocalizedText(
           'Role: ${invitation['role'] ?? 'member'}  '
           'Expires: ${invitation['expires_at'] ?? invitation['expiry'] ?? ''}',
         ),
@@ -103,12 +104,12 @@ class TenantInvitationsTab extends StatelessWidget {
           children: [
             TextButton(
               onPressed: email.isEmpty ? null : () => onResend(invitation),
-              child: const Text('Resend'),
+              child: const LocalizedText('Resend'),
             ),
             TextButton(
               onPressed: email.isEmpty ? null : () => onRevoke(email),
               style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-              child: const Text('Revoke'),
+              child: const LocalizedText('Revoke'),
             ),
           ],
         ),
@@ -140,7 +141,7 @@ class TenantUsageTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (usage.isEmpty)
-        const Center(child: Text('No usage data'))
+        const Center(child: LocalizedText('No usage data'))
       else
         Card(
           child: Padding(
@@ -148,7 +149,7 @@ class TenantUsageTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                LocalizedText(
                   'Tenant usage',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -172,7 +173,7 @@ class TenantUsageTab extends StatelessWidget {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label),
+        LocalizedText(label),
         Text(
           value?.toString() ?? '—',
           style: const TextStyle(fontWeight: FontWeight.bold),
@@ -197,12 +198,12 @@ class _SectionUnavailable extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ListTile(
       leading: const Icon(Icons.info_outline, color: Colors.orange),
-      title: Text(title),
-      subtitle: Text(error),
+      title: LocalizedText(title),
+      subtitle: LocalizedText(error),
       trailing: IconButton(
         onPressed: onRetry,
         icon: const Icon(Icons.refresh),
-        tooltip: 'Retry',
+        tooltip: 'Retry'.localized,
       ),
     ),
   );

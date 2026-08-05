@@ -161,6 +161,10 @@ class AdminRoute {
     );
   }
 
+  /// Parse the platform-neutral current product location.
+  factory AdminRoute.current() =>
+      AdminRoute.fromUri(BrowserNavigation.currentUri);
+
   /// Build a URL string for a given route (no navigation).
   static String url(
     String module, {

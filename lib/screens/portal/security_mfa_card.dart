@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_widgets.dart';
 import 'security_factor_tile.dart';
 
@@ -63,34 +66,36 @@ class SecurityMfaCard extends StatelessWidget {
       const SizedBox(height: 8),
       OutlinedButton(
         onPressed: mfaBusy ? null : onBeginTotp,
-        child: const Text('Add authenticator app'),
+        child: Text(context.tr('Add authenticator app')),
       ),
       if (totpPanelOpen) ...[
         const Divider(height: 28),
-        const Text(
-          'Add this secret to your authenticator app, then enter the 6-digit code to confirm.',
+        Text(
+          context.tr(
+            'Add this secret to your authenticator app, then enter the 6-digit code to confirm.',
+          ),
         ),
         const SizedBox(height: 8),
         if (pendingSecret.isNotEmpty) KvRow('Secret', pendingSecret),
         if (pendingUri.isNotEmpty)
           SelectableText(
             pendingUri,
-            style: const TextStyle(color: Color(0xFF6366F1)),
+            style: const TextStyle(color: AppColors.primary),
           ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextField(
           controller: totpLabelCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Device name (optional)',
+          decoration: InputDecoration(
+            labelText: context.tr('Device name (optional)'),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextField(
           controller: totpCodeCtrl,
-          decoration: const InputDecoration(labelText: '6-digit code'),
+          decoration: InputDecoration(labelText: context.tr('6-digit code')),
           keyboardType: TextInputType.number,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
           child: Wrap(
@@ -104,11 +109,11 @@ class SecurityMfaCard extends StatelessWidget {
                         width: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Verify and save'),
+                    : Text(context.tr('Verify and save')),
               ),
               TextButton(
                 onPressed: totpBusy ? null : onCancelTotp,
-                child: const Text('Cancel and clear secret'),
+                child: Text(context.tr('Cancel and clear secret')),
               ),
             ],
           ),

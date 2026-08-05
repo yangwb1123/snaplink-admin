@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'scim_models.dart';
 
@@ -60,7 +61,7 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_editing ? 'Replace SCIM group' : 'Create SCIM group'),
+    title: LocalizedText(_editing ? 'Replace SCIM group' : 'Create SCIM group'),
     content: SizedBox(
       width: 560,
       child: Form(
@@ -70,7 +71,7 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (_editing) ...[
-              Text(
+              LocalizedText(
                 'PUT replaces the display name and reconciles membership to '
                 'exactly this list. Role and membership persistence is not a '
                 'cross-store transaction; reconcile after a partial failure.',
@@ -80,9 +81,10 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
             ],
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: 'Display name',
-                helperText: 'Required. The server assigns the immutable ID.',
+              decoration: InputDecoration(
+                labelText: 'Display name'.localized,
+                helperText:
+                    'Required. The server assigns the immutable ID.'.localized,
               ),
               validator: (value) =>
                   value == null || value.trim().isEmpty ? 'Required' : null,
@@ -92,9 +94,10 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
               controller: _membersController,
               minLines: 4,
               maxLines: 10,
-              decoration: const InputDecoration(
-                labelText: 'Member user IDs',
-                helperText: 'One per line or comma-separated; duplicates drop.',
+              decoration: InputDecoration(
+                labelText: 'Member user IDs'.localized,
+                helperText: 'One per line or comma-separated; duplicates drop.'
+                    .localized,
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
@@ -106,11 +109,11 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
       FilledButton(
         onPressed: _submit,
-        child: Text(_editing ? 'Replace group' : 'Create group'),
+        child: LocalizedText(_editing ? 'Replace group' : 'Create group'),
       ),
     ],
   );

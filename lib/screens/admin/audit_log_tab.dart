@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
@@ -57,18 +58,21 @@ class _AuditLogTabState extends State<AuditLogTab> {
       const AdminBreadcrumb(),
       Row(
         children: [
-          Text('Audit Log', style: Theme.of(context).textTheme.headlineSmall),
+          LocalizedText(
+            'Audit Log',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const Spacer(),
-          Text('${_logService.count} entries'),
+          LocalizedText('${_logService.count} entries'),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
             onPressed: _refresh,
           ),
           IconButton(
             icon: const Icon(Icons.delete_sweep),
-            tooltip: 'Clear log',
+            tooltip: 'Clear log'.localized,
             onPressed: () {
               _logService.clear();
               _refresh();
@@ -83,8 +87,8 @@ class _AuditLogTabState extends State<AuditLogTab> {
             width: 300,
             child: TextField(
               controller: _searchCtrl,
-              decoration: const InputDecoration(
-                hintText: 'Search by path, label...',
+              decoration: InputDecoration(
+                hintText: 'Search by path, label...'.localized,
                 prefixIcon: Icon(Icons.search, size: 20),
                 isDense: true,
                 border: OutlineInputBorder(),
@@ -100,11 +104,14 @@ class _AuditLogTabState extends State<AuditLogTab> {
           DropdownButton<String>(
             value: _methodFilter,
             items: const [
-              DropdownMenuItem(value: 'ALL', child: Text('All methods')),
-              DropdownMenuItem(value: 'POST', child: Text('Create')),
-              DropdownMenuItem(value: 'PUT', child: Text('Update')),
-              DropdownMenuItem(value: 'DELETE', child: Text('Delete')),
-              DropdownMenuItem(value: 'PATCH', child: Text('Modify')),
+              DropdownMenuItem(
+                value: 'ALL',
+                child: LocalizedText('All methods'),
+              ),
+              DropdownMenuItem(value: 'POST', child: LocalizedText('Create')),
+              DropdownMenuItem(value: 'PUT', child: LocalizedText('Update')),
+              DropdownMenuItem(value: 'DELETE', child: LocalizedText('Delete')),
+              DropdownMenuItem(value: 'PATCH', child: LocalizedText('Modify')),
             ],
             onChanged: (v) {
               setState(() => _methodFilter = v ?? 'ALL');
@@ -118,7 +125,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
         const Center(
           child: Padding(
             padding: EdgeInsets.only(top: 40),
-            child: Text('No audit entries yet. Operations will appear here.'),
+            child: LocalizedText(
+              'No audit entries yet. Operations will appear here.',
+            ),
           ),
         )
       else
@@ -140,8 +149,11 @@ class _AuditLogTabState extends State<AuditLogTab> {
             child: ListTile(
               dense: true,
               leading: Icon(icon, color: color, size: 20),
-              title: Text(entry.label, style: const TextStyle(fontSize: 13)),
-              subtitle: Text(
+              title: LocalizedText(
+                entry.label,
+                style: const TextStyle(fontSize: 13),
+              ),
+              subtitle: LocalizedText(
                 '${entry.path} · ${_formatTime(entry.timestamp)} · ${entry.method} ${entry.statusCode}',
                 style: const TextStyle(fontSize: 11),
               ),

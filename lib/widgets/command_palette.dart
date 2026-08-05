@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/screens/admin/admin_route.dart';
 import 'package:sso_admin/screens/settings_screen.dart';
 import 'package:sso_admin/widgets/command_palette_commands.dart';
@@ -68,6 +70,7 @@ class _CommandPaletteState extends State<CommandPalette> {
             .where(
               (cmd) =>
                   cmd.title.toLowerCase().contains(query) ||
+                  context.tr(cmd.title).toLowerCase().contains(query) ||
                   cmd.description.toLowerCase().contains(query) ||
                   cmd.path.toLowerCase().contains(query),
             )
@@ -96,7 +99,7 @@ class _CommandPaletteState extends State<CommandPalette> {
                 focusNode: _focusNode,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search commands...',
+                  hintText: 'Search commands...'.localized,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -114,7 +117,7 @@ class _CommandPaletteState extends State<CommandPalette> {
                   final cmd = _results[i];
                   return ListTile(
                     leading: Icon(cmd.icon, size: 20),
-                    title: Text(
+                    title: LocalizedText(
                       cmd.title,
                       style: const TextStyle(fontSize: 14),
                     ),
@@ -148,7 +151,7 @@ class _CommandPaletteState extends State<CommandPalette> {
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.grey.shade100,
-              child: Text(
+              child: LocalizedText(
                 'Type to search · ${_results.length} commands',
                 style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),

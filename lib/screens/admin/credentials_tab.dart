@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -56,7 +57,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     setState(() => _showReportForm = route.subresource == 'report');
   }
 
@@ -119,9 +120,9 @@ class _CredentialsTabState extends State<CredentialsTab> {
       );
       if (!mounted) return;
       _typeCtrl.clear();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Compromise reported.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Compromise reported.')),
+      );
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -133,7 +134,9 @@ class _CredentialsTabState extends State<CredentialsTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Credential management is not enabled on this replica.'),
+        child: LocalizedText(
+          'Credential management is not enabled on this replica.',
+        ),
       );
     }
     return ListView(
@@ -150,7 +153,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
             ),
           ],
         ),
@@ -164,7 +167,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
           ),
         if (_showReportForm) _buildReportForm(context),
         const SizedBox(height: 16),
-        Text(
+        LocalizedText(
           'Rotation inventory',
           style: Theme.of(context).textTheme.titleMedium,
         ),
@@ -172,7 +175,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
         if (!_loading && _credentials.isEmpty && !_showReportForm)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: Text('No credentials found.'),
+            child: LocalizedText('No credentials found.'),
           ),
         if (!_loading)
           for (final c in _credentials)
@@ -188,7 +191,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
                       c['credential_type']?.toString() ??
                       '',
                 ),
-                subtitle: Text(
+                subtitle: LocalizedText(
                   '${c['id'] ?? ''}\nstatus: ${c['status'] ?? 'unknown'} · rotated: ${c['rotated_at'] ?? c['last_rotated'] ?? 'never'}',
                 ),
                 isThreeLine: true,
@@ -202,7 +205,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
               onPressed: () =>
                   AdminRoute.go('credentials', subresource: 'report'),
               icon: const Icon(Icons.warning),
-              label: const Text('Report compromise'),
+              label: const LocalizedText('Report compromise'),
             ),
           ),
       ],
@@ -215,29 +218,29 @@ class _CredentialsTabState extends State<CredentialsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Report credential compromise',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _typeCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Credential type',
-              hintText: 'client_secret, signing_key, etc.',
+            decoration: InputDecoration(
+              labelText: 'Credential type'.localized,
+              hintText: 'client_secret, signing_key, etc.'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           OverflowBar(
             children: [
               OutlinedButton(
                 onPressed: () => AdminRoute.go('credentials'),
-                child: const Text('Cancel'),
+                child: const LocalizedText('Cancel'),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _mutating ? null : _reportCompromise,
-                child: const Text('Report compromise'),
+                child: const LocalizedText('Report compromise'),
               ),
             ],
           ),

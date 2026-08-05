@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class NetworkPolicyDraft {
   final String name;
@@ -139,7 +140,9 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_editing ? 'Edit network policy' : 'Create network policy'),
+    title: LocalizedText(
+      _editing ? 'Edit network policy' : 'Create network policy',
+    ),
     content: SizedBox(
       width: 620,
       child: Form(
@@ -151,71 +154,77 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               TextFormField(
                 controller: _nameCtrl,
                 enabled: !_editing,
-                decoration: const InputDecoration(labelText: 'Policy name'),
+                decoration: InputDecoration(labelText: 'Policy name'.localized),
                 validator: (value) =>
                     value?.trim().isEmpty == true ? 'Required' : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _cidrsCtrl,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'CIDR ranges',
-                  helperText: 'One per line, for example 10.0.0.0/8.',
+                decoration: InputDecoration(
+                  labelText: 'CIDR ranges'.localized,
+                  helperText: 'One per line, for example 10.0.0.0/8.'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _hostnamesCtrl,
                 minLines: 2,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Hostnames',
-                  helperText: 'Hostname matches take precedence over CIDRs.',
+                decoration: InputDecoration(
+                  labelText: 'Hostnames'.localized,
+                  helperText:
+                      'Hostname matches take precedence over CIDRs.'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _priorityCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Priority'),
+                decoration: InputDecoration(labelText: 'Priority'.localized),
                 validator: (value) => int.tryParse(value?.trim() ?? '') == null
                     ? 'Enter an integer'
                     : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _baseUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Advertised base URL',
+                decoration: InputDecoration(
+                  labelText: 'Advertised base URL'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _jwksUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Advertised JWKS URL',
+                decoration: InputDecoration(
+                  labelText: 'Advertised JWKS URL'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _logoutUrlCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Advertised logout URL',
+                decoration: InputDecoration(
+                  labelText: 'Advertised logout URL'.localized,
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _metadataCtrl,
                 minLines: 3,
                 maxLines: 6,
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(labelText: 'Metadata JSON'),
+                decoration: InputDecoration(
+                  labelText: 'Metadata JSON'.localized,
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+                LocalizedText(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent),
+                ),
               ],
             ],
           ),
@@ -225,9 +234,12 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Apply policy')),
+      FilledButton(
+        onPressed: _submit,
+        child: const LocalizedText('Apply policy'),
+      ),
     ],
   );
 }

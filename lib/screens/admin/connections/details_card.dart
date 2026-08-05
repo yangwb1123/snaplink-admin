@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 
 class ConnectionDetailsCard extends StatelessWidget {
@@ -48,14 +49,14 @@ class ConnectionDetailsCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
+                child: LocalizedText(
                   'Connection: $id',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
               IconButton(
                 onPressed: loading || mutating ? null : onRefresh,
-                tooltip: 'Refresh connection',
+                tooltip: 'Refresh connection'.localized,
                 icon: const Icon(Icons.refresh),
               ),
             ],
@@ -79,7 +80,7 @@ class ConnectionDetailsCard extends StatelessWidget {
                     foregroundColor: Theme.of(context).colorScheme.error,
                   ),
                   icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete connection'),
+                  label: const LocalizedText('Delete connection'),
                 ),
               ),
           ],
@@ -93,11 +94,11 @@ class ConnectionDetailsCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        LocalizedText(
           '${connection!['display_name'] ?? connection!['id']} · ${connection!['type'] ?? ''}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        Text(
+        LocalizedText(
           connection!['enabled'] == false ? 'Disabled' : 'Enabled',
           style: TextStyle(
             color: connection!['enabled'] == false
@@ -140,7 +141,7 @@ class ConnectionDetailsCard extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       child: ListTile(
         leading: Icon(Icons.monitor_heart_outlined, color: color),
-        title: Text('Upstream health: $status'),
+        title: LocalizedText('Upstream health: $status'),
         subtitle: Text(detail),
       ),
     );
@@ -150,13 +151,13 @@ class ConnectionDetailsCard extends StatelessWidget {
     margin: const EdgeInsets.only(top: 16),
     child: ListTile(
       leading: const Icon(Icons.network_ping_outlined),
-      title: const Text('Reachability probe'),
-      subtitle: const Text(
+      title: const LocalizedText('Reachability probe'),
+      subtitle: const LocalizedText(
         'Fetches the OIDC discovery document or SAML metadata and records the result.',
       ),
       trailing: FilledButton(
         onPressed: mutating ? null : onProbe,
-        child: const Text('Probe'),
+        child: const LocalizedText('Probe'),
       ),
     ),
   );
@@ -168,18 +169,18 @@ class ConnectionDetailsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Domain ownership',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text(
+          const LocalizedText(
             'Publish each DNS TXT record and then verify it. The challenge value is public DNS data, not a bearer secret.',
           ),
           if (domainClaims.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No domain claims found.'),
+              child: LocalizedText('No domain claims found.'),
             ),
           for (final claim in domainClaims)
             ListTile(
@@ -203,7 +204,7 @@ class ConnectionDetailsCard extends StatelessWidget {
                           : () => onVerifyDomain(
                               claim['domain']?.toString() ?? '',
                             ),
-                      child: const Text('Verify'),
+                      child: const LocalizedText('Verify'),
                     )
                   : null,
             ),

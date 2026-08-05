@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Reusable horizontal section selector chip bar.
 class SectionSelector extends StatelessWidget {
@@ -21,14 +22,14 @@ class SectionSelector extends StatelessWidget {
       children: [
         for (final s in sections)
           Padding(
-            padding: const EdgeInsets.only(right: 6),
+            padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
               label: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(s.icon, size: 16),
                   const SizedBox(width: 4),
-                  Text(s.label),
+                  Text(context.tr(s.label)),
                 ],
               ),
               selected: current == s.id,

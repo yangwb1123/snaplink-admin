@@ -1,9 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/services/admin_oauth_resources.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import '../../i18n/app_strings.dart';
 import 'dashboard_screen.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../setup/setup_api.dart';
+
+/// Builds the hosted-login return location for an unauthenticated Admin deep
+/// link. Only an in-product `/admin` path is retained; fragments and
+/// credential-like query values never cross the authentication boundary.
+String adminLoginLocation(Uri current, {List<String>? resources}) {
+  final requestedResources = resources ?? AdminOAuthResources.values;
+  final isAdminPath =
+      current.path == '/admin' || current.path.startsWith('/admin/');
+  final privateParameters = const {
+    'access_token',
+    'assertion',
+    'code',
+    'code_verifier',
+    'consent_challenge_id',
+    'consent_decision',
+    'credential',
+    'device_token',
+    'email',
+    'error',
+    'error_description',
+    'id_token',
+    'login_transaction_id',
+    'mfa_challenge_id',
+    'mfa_method',
+    'password',
+    'refresh_token',
+    'state',
+    'token',
+    'verification_code',
+  };
+  final query = isAdminPath
+      ? <String, dynamic>{
+          for (final entry in current.queryParametersAll.entries)
+            if (!privateParameters.contains(entry.key))
+              entry.key: entry.value.length == 1
+                  ? entry.value.single
+                  : entry.value,
+        }
+      : null;
+  final target = Uri(
+    path: isAdminPath ? _adminReturnPath(current) : '/admin/',
+    queryParameters: query == null || query.isEmpty ? null : query,
+  ).toString();
+  return Uri(
+    path: '/login/',
+    queryParameters: {
+      'redirect': target,
+      if (requestedResources.isNotEmpty) 'resource': requestedResources,
+    },
+  ).toString();
+}
+
+String _adminReturnPath(Uri current) {
+  final encoded = '/${current.pathSegments.map(Uri.encodeComponent).join('/')}';
+  if (current.path.endsWith('/') && !encoded.endsWith('/')) {
+    return '$encoded/';
+  }
+  return encoded;
+}
 
 /// /admin/'s auth+authz gate: no separate admin login screen — a visit here
 /// with no session (or a session that turns out to lack admin API access)
@@ -41,10 +102,10 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
       onUnauthorized: _redirectToLogin,
     );
     try {
-      // Reuses the exact request the dashboard itself makes, rather than
-      // parsing JWT claims or coupling to the permissions schema, to decide
-      // whether this session actually has admin API access.
-      await client.listClients();
+      // Probe the read-only runtime inventory rather than coupling entry to a
+      // managed resource such as OAuth clients. Snaplink applies the same
+      // admin:read middleware while returning no tenant/client records.
+      await client.probeAdminAccess();
       if (!mounted) return;
       setState(() => _client = client);
     } on SSOError catch (e) {
@@ -85,12 +146,13 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
 
   void _redirectToLogin() {
     BrowserNavigation.replaceLocation(
-      '/login/?redirect=${Uri.encodeComponent('/admin/')}',
+      adminLoginLocation(BrowserNavigation.currentUri),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     final client = _client;
     if (client != null) {
       return DashboardScreen(client: client);
@@ -101,9 +163,9 @@ class _AdminGateScreenState extends State<AdminGateScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Failed to load admin console: $_error'),
+              Text(strings.failedToLoadAdminConsole(_error!)),
               const SizedBox(height: 12),
-              FilledButton(onPressed: _checkAccess, child: const Text('Retry')),
+              FilledButton(onPressed: _checkAccess, child: Text(strings.retry)),
             ],
           ),
         ),

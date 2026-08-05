@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sso_admin/services/local_storage.dart';
 
 /// A recorded admin operation for audit purposes.
@@ -108,7 +109,7 @@ class AuditLogService {
     try {
       final jsonStr = jsonEncode(_entries.map((e) => e.toJson()).toList());
       LocalStorage.setItem(_storageKey, jsonStr);
-    } catch (_) {}
+    } catch (e) { debugPrint('audit_log persist/load error: $e'); }
   }
 
   void _load() {
@@ -120,6 +121,6 @@ class AuditLogService {
           list.map((e) => AuditEntry.fromJson(Map<String, dynamic>.from(e))),
         );
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('audit_log persist/load error: $e'); }
   }
 }

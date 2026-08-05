@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
@@ -117,7 +118,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
       title: Text(
         device['device_name']?.toString().isNotEmpty == true
             ? device['device_name'].toString()
-            : 'Device details',
+            : context.tr('Device details'),
       ),
       content: SizedBox(
         width: 680,
@@ -137,7 +138,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Close'),
+          child: Text(context.tr('Close')),
         ),
       ],
     );
@@ -148,7 +149,10 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Posture', style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          context.tr('Posture'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         if (_detailError != null) MessageBanner(_detailError),
         KvRow('Device ID', _id),
         if (device['type'] != null) KvRow('Type', '${device['type']}'),
@@ -168,7 +172,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
           KvRow('Location', '${device['last_location']}'),
         KvRow(
           'Trust',
-          '${device['trust_label'] ?? 'Unknown'}'
+          '${device['trust_label'] ?? context.tr('Unknown')}'
               '${device['trust_score'] == null ? '' : ' (${device['trust_score']})'}',
         ),
         if (device['first_seen_at'] != null)
@@ -184,7 +188,10 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   Widget _activitySection() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('Recent activity', style: Theme.of(context).textTheme.titleMedium),
+      Text(
+        context.tr('Recent activity'),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
       if (_activityLoading)
         const LinearProgressIndicator()
       else if (_activityError != null)
@@ -200,7 +207,9 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
                   ? Icons.error_outline
                   : Icons.login_outlined,
             ),
-            title: Text(event['success'] == false ? 'Failed login' : 'Login'),
+            title: Text(
+              context.tr(event['success'] == false ? 'Failed login' : 'Login'),
+            ),
             subtitle: Text(
               _parts([
                 event['time'],
@@ -216,7 +225,10 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   Widget _sessionsSection() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text('Active sessions', style: Theme.of(context).textTheme.titleMedium),
+      Text(
+        context.tr('Active sessions'),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
       if (_sessionsLoading)
         const LinearProgressIndicator()
       else if (_sessionsError != null)
@@ -228,7 +240,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.key_outlined),
-            title: Text(session['id']?.toString() ?? 'Session'),
+            title: Text(session['id']?.toString() ?? context.tr('Session')),
             subtitle: Text(
               _parts([
                 session['created_at'],

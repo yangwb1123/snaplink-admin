@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 
 import 'scim_browser_widgets.dart';
@@ -75,12 +76,12 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           children: [
             const Icon(Icons.error_outline, size: 48),
             const SizedBox(height: 8),
-            Text(_error!, textAlign: TextAlign.center),
+            LocalizedText(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _load,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry discovery'),
+              label: const LocalizedText('Retry discovery'),
             ),
           ],
         ),
@@ -93,7 +94,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
       children: [
         Row(
           children: [
-            Text(
+            LocalizedText(
               'Provider capabilities',
               style: Theme.of(context).textTheme.titleLarge,
             ),
@@ -101,7 +102,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
             IconButton(
               onPressed: _loading ? null : _load,
               icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh discovery',
+              tooltip: 'Refresh discovery'.localized,
             ),
           ],
         ),
@@ -187,8 +188,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
             color: Theme.of(context).colorScheme.tertiaryContainer,
             child: const ListTile(
               leading: Icon(Icons.info_outline),
-              title: Text('Conditional-write protection'),
-              subtitle: Text(
+              title: LocalizedText('Conditional-write protection'),
+              subtitle: LocalizedText(
                 'When a resource exposes meta.version, this console sends it '
                 'as If-Match on PUT, PATCH, and DELETE. Older resources that '
                 'omit a version cannot receive that concurrency protection.',
@@ -197,7 +198,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           ),
         ],
         const SizedBox(height: 20),
-        Text(
+        LocalizedText(
           'Implemented schemas',
           style: Theme.of(context).textTheme.titleLarge,
         ),
@@ -212,8 +213,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
                   ? Colors.green
                   : Colors.orange,
             ),
-            title: const Text('Group provisioning'),
-            subtitle: Text(
+            title: const LocalizedText('Group provisioning'),
+            subtitle: LocalizedText(
               _schemas.any((schema) => schema['name'] == 'Group')
                   ? 'Group schema and role-backed provisioning are enabled.'
                   : 'Not advertised. Enable scim.groups and a permissions '
@@ -222,7 +223,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           ),
         ),
         if (_schemas.isEmpty)
-          const Text('No resource schemas advertised.')
+          const LocalizedText('No resource schemas advertised.')
         else
           for (final schema in _schemas) _schemaCard(context, schema),
       ],
@@ -240,8 +241,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
               ? Icons.groups_outlined
               : Icons.person_outline,
         ),
-        title: Text(schema['name']?.toString() ?? 'Schema'),
-        subtitle: Text(
+        title: LocalizedText(schema['name']?.toString() ?? 'Schema'),
+        subtitle: LocalizedText(
           '${schema['id'] ?? ''}\n${attributes.length} top-level attributes',
         ),
         children: [
@@ -251,7 +252,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
               title: Text(attribute['name']?.toString() ?? ''),
               subtitle: Text(_attributeDetail(attribute)),
               trailing: attribute['required'] == true
-                  ? const Chip(label: Text('Required'))
+                  ? const Chip(label: LocalizedText('Required'))
                   : null,
             ),
         ],
@@ -298,8 +299,8 @@ class _FeatureCard extends StatelessWidget {
         supported ? Icons.check_circle_outline : Icons.cancel_outlined,
         color: supported ? Colors.green : Colors.grey,
       ),
-      title: Text(title),
-      subtitle: Text(supported ? detail : 'Not supported'),
+      title: LocalizedText(title),
+      subtitle: LocalizedText(supported ? detail : 'Not supported'),
     ),
   );
 }

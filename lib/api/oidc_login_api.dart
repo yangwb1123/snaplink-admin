@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+import '../services/product_api_origin.dart';
+
 /// Structured result of a POST to /auth/login or /auth/mfa: either a
 /// terminal outcome (code/tokens to redirect with, or no redirect_uri at
 /// all) or one of the two interactive continuations the hosted login page
@@ -31,7 +33,7 @@ class OidcLoginApi {
     Uri? baseUri,
     Duration timeout = const Duration(seconds: 30),
   }) : _http = httpClient ?? http.Client(),
-       _baseUri = baseUri ?? Uri.base,
+       _baseUri = baseUri ?? ProductApiOrigin.baseUri,
        _timeout = timeout;
 
   Uri _resolve(String path) => _baseUri.resolve(path);

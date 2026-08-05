@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
@@ -29,7 +30,7 @@ class ScimDirectoryTab extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!_advertised) {
       return const Center(
-        child: Text('SCIM 2.0 is not advertised by this deployment.'),
+        child: LocalizedText('SCIM 2.0 is not advertised by this deployment.'),
       );
     }
     return DefaultTabController(
@@ -54,12 +55,12 @@ class ScimDirectoryTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      LocalizedText(
                         'SCIM 2.0 Directory',
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 2),
-                      const Text(
+                      const SizedBox(height: 4),
+                      const LocalizedText(
                         'Discover provider capabilities, reconcile users and '
                         'groups, and run bounded provisioning batches.',
                       ),
@@ -68,7 +69,7 @@ class ScimDirectoryTab extends StatelessWidget {
                 ),
                 const Chip(
                   avatar: Icon(Icons.admin_panel_settings_outlined, size: 16),
-                  label: Text('admin:read / admin:write'),
+                  label: LocalizedText('admin:read / admin:write'),
                 ),
               ],
             ),

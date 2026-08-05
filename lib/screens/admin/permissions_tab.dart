@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'admin_route.dart';
 import 'permissions_role_dialog.dart';
@@ -64,13 +65,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void initState() {
     super.initState();
     _handleRoute();
+    if (_clientId != null) _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'permissions') return;
     if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) {
       _clientCtrl.text = route.resourceId;
@@ -298,7 +300,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(okMsg)));
+      ).showSnackBar(SnackBar(content: LocalizedText(okMsg)));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());

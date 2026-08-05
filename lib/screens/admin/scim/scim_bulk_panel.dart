@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -214,7 +215,10 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
       children: [
         Row(
           children: [
-            Text('SCIM Bulk', style: Theme.of(context).textTheme.titleLarge),
+            LocalizedText(
+              'SCIM Bulk',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
             const Spacer(),
             if (_loadingProfile)
               const SizedBox.square(
@@ -231,12 +235,12 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
                   ? null
                   : _loadTemplate,
               icon: const Icon(Icons.description_outlined),
-              label: const Text('Load template'),
+              label: const LocalizedText('Load template'),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        Text(
+        const SizedBox(height: 8),
+        LocalizedText(
           'Bounded expert mode · max $_maxOperations operations · '
           'max ${formatScimBytes(_maxPayload)}. POST operations require bulkId; '
           'targets are limited to /Users and /Groups.',
@@ -246,8 +250,8 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           color: Theme.of(context).colorScheme.secondaryContainer,
           child: const ListTile(
             leading: Icon(Icons.security_outlined),
-            title: Text('Validate before execution'),
-            subtitle: Text(
+            title: LocalizedText('Validate before execution'),
+            subtitle: LocalizedText(
               'Empty, malformed, oversized, recursive, or unsupported '
               'requests cannot be sent. Keep credentials and secrets out of '
               'the editor; the server returns per-operation status.',
@@ -262,13 +266,13 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           maxLines: 24,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
           decoration: InputDecoration(
-            labelText: 'BulkRequest JSON',
+            labelText: 'BulkRequest JSON'.localized,
             alignLabelWithHint: true,
             border: const OutlineInputBorder(),
             errorText: _controller.text.isEmpty ? null : preview?.error,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -298,28 +302,30 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Icon(Icons.play_arrow),
-              label: const Text('Execute bulk'),
+              label: const LocalizedText('Execute bulk'),
             ),
           ],
         ),
         if (!supported && !_loadingProfile && _error == null)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: Text('This service provider does not advertise Bulk.'),
+            child: LocalizedText(
+              'This service provider does not advertise Bulk.',
+            ),
           ),
         if (_outcomeUnknown)
           Card(
             color: Theme.of(context).colorScheme.errorContainer,
             child: ListTile(
               leading: const Icon(Icons.sync_problem_outlined),
-              title: const Text('Previous bulk outcome is unknown'),
-              subtitle: const Text(
+              title: const LocalizedText('Previous bulk outcome is unknown'),
+              subtitle: const LocalizedText(
                 'The retained request is locked until server state has been '
                 'reconciled.',
               ),
               trailing: TextButton(
                 onPressed: _acknowledgeReconciliation,
-                child: const Text('I reconciled server state'),
+                child: const LocalizedText('I reconciled server state'),
               ),
             ),
           ),
@@ -328,12 +334,12 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
             color: Theme.of(context).colorScheme.errorContainer,
             child: ListTile(
               leading: const Icon(Icons.error_outline),
-              title: Text(_error!),
+              title: LocalizedText(_error!),
               trailing: _profile == null && !_outcomeUnknown
                   ? TextButton.icon(
                       onPressed: _loadingProfile ? null : _loadProfile,
                       icon: const Icon(Icons.refresh),
-                      label: const Text('Retry discovery'),
+                      label: const LocalizedText('Retry discovery'),
                     )
                   : null,
             ),
@@ -344,8 +350,10 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             initiallyExpanded: true,
-            title: const Text('Bulk response'),
-            subtitle: const Text('Per-operation status; overall HTTP is 200'),
+            title: const LocalizedText('Bulk response'),
+            subtitle: const LocalizedText(
+              'Per-operation status; overall HTTP is 200',
+            ),
             children: [
               Container(
                 width: double.infinity,

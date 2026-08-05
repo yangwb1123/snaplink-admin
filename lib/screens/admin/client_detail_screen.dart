@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -6,6 +7,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'client_detail_secret_card.dart';
 import 'client_form_dialog.dart';
+import 'client_secret_lifecycle.dart';
 
 /// Client detail screen with actions (rotate-secret, approve, reject).
 /// URL: /admin/clients/{id}[/{action}]
@@ -72,7 +74,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Client: ${widget.clientId}'),
+        title: LocalizedText('Client: ${widget.clientId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => AdminRoute.go('clients'),
@@ -80,7 +82,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            tooltip: 'Edit client',
+            tooltip: 'Edit client'.localized,
             onPressed: () => _editClient(context),
           ),
         ],
@@ -98,7 +100,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                     color: Colors.redAccent,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  LocalizedText(
                     'Failed to load',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -117,7 +119,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   OutlinedButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: const LocalizedText('Retry'),
                   ),
                 ],
               ),
@@ -161,7 +163,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       _client?['name']?.toString() ?? widget.clientId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    Text('ID: ${_client?['id'] ?? widget.clientId}'),
+                    LocalizedText('ID: ${_client?['id'] ?? widget.clientId}'),
                   ],
                 ),
               ),
@@ -178,6 +180,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           _infoRow(
             'Redirect URIs',
             (_client?['redirect_uris'] as List?)?.join(', ') ?? '—',
+          ),
+          _infoRow(
+            'Login page URI',
+            _client?['login_page_uri']?.toString() ??
+                _client?['loginPageUri']?.toString() ??
+                '—',
           ),
           if (_client?['grant_types'] is List)
             _infoRow(
@@ -199,6 +207,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             'Token strategy',
             _client?['token_strategy']?.toString() ?? '—',
           ),
+          _infoRow('Client secret', clientSecretExpiryLabel(_client)),
         ],
       ),
     ),
@@ -209,7 +218,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         _client?['status']?.toString() ??
         (_client?['active'] == true ? 'active' : 'inactive');
     return Chip(
-      label: Text(status),
+      label: LocalizedText(status),
       backgroundColor: status == 'active'
           ? Colors.green.shade100
           : status == 'pending'
@@ -225,7 +234,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       children: [
         SizedBox(
           width: 120,
-          child: Text(
+          child: LocalizedText(
             label,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
@@ -241,7 +250,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Actions', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Actions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 12,
@@ -282,7 +294,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }) => OutlinedButton.icon(
     onPressed: _mutating ? null : onPressed,
     icon: Icon(icon),
-    label: Text(label),
+    label: LocalizedText(label),
     style: OutlinedButton.styleFrom(foregroundColor: color),
   );
 
@@ -291,14 +303,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       context,
       title: 'Rotate client secret?',
       message:
-          'This will invalidate the current secret. All integrations using this secret will stop working until updated.',
+          'The current secret remains valid for 24 hours. Update all integrations before that overlap window closes.',
       destructive: true,
       confirmText: widget.clientId,
     );
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      final newSecret = await widget.client.rotateClientSecret(widget.clientId);
+      final rotation = await widget.client.rotateClientSecretWithPolicy(
+        widget.clientId,
+      );
+      final newSecret = rotation['secret']?.toString() ?? '';
       if (!context.mounted) return;
       if (newSecret.isEmpty) {
         setState(
@@ -307,17 +322,21 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               'one-time value.',
         );
       } else {
-        await showClientDetailSecret(context, newSecret);
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(
+        await showClientDetailSecret(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Secret rotated.')));
+          newSecret,
+          expiresAt: clientSecretExpiryUnix(rotation),
+        );
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: LocalizedText('Secret rotated.')),
+        );
       }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -341,13 +360,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Client ${action}ed')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client ${action}ed')));
       _load();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

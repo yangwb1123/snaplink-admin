@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -62,7 +63,7 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     setState(() => _showForm = route.isNew);
   }
 
@@ -117,7 +118,7 @@ class _DomainsTabState extends State<DomainsTab> {
       _hostCtrl.clear();
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Domain added.')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Domain added.')));
       if (mounted) AdminRoute.go('domains');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -166,7 +167,7 @@ class _DomainsTabState extends State<DomainsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Domain deleted.')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Domain deleted.')));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -178,7 +179,9 @@ class _DomainsTabState extends State<DomainsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(child: Text('Domain management is not enabled.'));
+      return const Center(
+        child: LocalizedText('Domain management is not enabled.'),
+      );
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -189,7 +192,7 @@ class _DomainsTabState extends State<DomainsTab> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 4),
-        const Text('Manage email domains for home-realm discovery.'),
+        const LocalizedText('Manage email domains for home-realm discovery.'),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -203,21 +206,21 @@ class _DomainsTabState extends State<DomainsTab> {
         if (_domains.isNotEmpty) ...[
           Row(
             children: [
-              Text(
+              LocalizedText(
                 'Registered domains',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.download),
-                tooltip: 'Export CSV',
+                tooltip: 'Export CSV'.localized,
                 onPressed: () =>
                     ExportService.exportCsv(_filteredDomains, 'domains.csv'),
               ),
               IconButton(
                 onPressed: _loading ? null : _load,
                 icon: const Icon(Icons.refresh),
-                tooltip: 'Refresh',
+                tooltip: 'Refresh'.localized,
               ),
             ],
           ),
@@ -226,7 +229,7 @@ class _DomainsTabState extends State<DomainsTab> {
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (_domains.isNotEmpty)
           SearchFilterBar(
-            hintText: 'Search domains...',
+            hintText: 'Search domains...'.localized,
             onSearchChanged: _onSearchChanged,
             onRefresh: _load,
           ),
@@ -234,7 +237,7 @@ class _DomainsTabState extends State<DomainsTab> {
         if (!_loading && _filteredDomains.isEmpty && !_showForm)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: Text('No domains registered.'),
+            child: LocalizedText('No domains registered.'),
           ),
         if (!_loading)
           for (final d in _filteredDomains)
@@ -243,7 +246,7 @@ class _DomainsTabState extends State<DomainsTab> {
               child: ListTile(
                 leading: Icon(Icons.language, color: Colors.blue),
                 title: Text(d['hostname']?.toString() ?? ''),
-                subtitle: Text(
+                subtitle: LocalizedText(
                   'verified: ${d['verified'] == true ? 'yes' : 'no'} · ${d['id'] ?? ''}',
                 ),
                 trailing: TextButton(
@@ -253,7 +256,7 @@ class _DomainsTabState extends State<DomainsTab> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
-                  child: const Text('Delete'),
+                  child: const LocalizedText('Delete'),
                 ),
               ),
             ),
@@ -263,7 +266,7 @@ class _DomainsTabState extends State<DomainsTab> {
             child: OutlinedButton.icon(
               onPressed: () => AdminRoute.go('domains', action: 'new'),
               icon: const Icon(Icons.add),
-              label: const Text('Add domain'),
+              label: const LocalizedText('Add domain'),
             ),
           ),
       ],
@@ -277,26 +280,29 @@ class _DomainsTabState extends State<DomainsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Add domain', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Add domain',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _hostCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Hostname',
-              hintText: 'example.com',
+            decoration: InputDecoration(
+              labelText: 'Hostname'.localized,
+              hintText: 'example.com'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           OverflowBar(
             children: [
               OutlinedButton(
                 onPressed: () => AdminRoute.go('domains'),
-                child: const Text('Cancel'),
+                child: const LocalizedText('Cancel'),
               ),
               const SizedBox(width: 8),
               FilledButton(
                 onPressed: _mutating ? null : _create,
-                child: const Text('Add domain'),
+                child: const LocalizedText('Add domain'),
               ),
             ],
           ),

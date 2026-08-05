@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
+import 'break_glass_widgets.dart';
 
 /// Emergency (break-glass) access session detail.
 /// URL: /admin/emergency-access/{id}[/approve|/reject]
@@ -86,7 +88,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('Emergency Access: ${widget.sessionId}'),
+      title: LocalizedText('Emergency Access: ${widget.sessionId}'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('emergency-access'),
@@ -105,7 +107,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                   color: Colors.redAccent,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                LocalizedText(
                   'Failed to load',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -124,7 +126,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                 OutlinedButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
@@ -166,11 +168,11 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    LocalizedText(
                       'Break-Glass Session',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    Text('ID: ${widget.sessionId}'),
+                    LocalizedText('ID: ${widget.sessionId}'),
                   ],
                 ),
               ),
@@ -214,7 +216,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       default:
         bg = Colors.grey.shade200;
     }
-    return Chip(label: Text(status), backgroundColor: bg);
+    return Chip(label: LocalizedText(status), backgroundColor: bg);
   }
 
   Widget _actionsCard(BuildContext context) => Card(
@@ -223,7 +225,10 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Actions', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Actions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -231,7 +236,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                 child: FilledButton.icon(
                   onPressed: _mutating ? null : () => _approve(),
                   icon: const Icon(Icons.check),
-                  label: const Text('Approve'),
+                  label: const LocalizedText('Approve'),
                   style: FilledButton.styleFrom(backgroundColor: Colors.green),
                 ),
               ),
@@ -240,7 +245,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                 child: OutlinedButton.icon(
                   onPressed: _mutating ? null : () => _reject(),
                   icon: const Icon(Icons.close),
-                  label: const Text('Reject'),
+                  label: const LocalizedText('Reject'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
@@ -259,19 +264,22 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Audit Trail', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Audit Trail',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           if (_session?['audit'] != null)
             ...((_session!['audit'] as List?) ?? []).map(
               (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
+                child: LocalizedText(
                   '• ${entry['action'] ?? ''} by ${entry['actor'] ?? ''} at ${entry['timestamp'] ?? ''}',
                 ),
               ),
             )
           else
-            const Text('No audit entries'),
+            const LocalizedText('No audit entries'),
         ],
       ),
     ),
@@ -284,7 +292,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       children: [
         SizedBox(
           width: 120,
-          child: Text(
+          child: LocalizedText(
             label,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
@@ -312,13 +320,13 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Approved')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Approved')));
       _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('$e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -329,25 +337,20 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke emergency access?',
-      message:
-          'Revoke this pending or active emergency-access grant? The backend '
-          'does not report failures while destroying derived credentials, '
-          'which must be verified separately.',
+      message: BreakGlassRevocationCopy.confirmation,
       destructive: true,
       confirmText: widget.sessionId,
     );
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete(
+      final response = await widget.api.delete(
         '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}',
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Grant record revoked. Verify derived sessions and tokens.',
-          ),
+        SnackBar(
+          content: LocalizedText(BreakGlassRevocationCopy.result(response)),
         ),
       );
       _load();
@@ -355,7 +358,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('$e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -363,7 +366,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'emergency-access') return;
   }
 

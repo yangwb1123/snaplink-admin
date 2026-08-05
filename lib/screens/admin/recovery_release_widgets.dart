@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 List<Map<String, dynamic>> recoveryRecords(Object? value) => value is List
     ? value
@@ -19,13 +20,88 @@ class RecoveryStatusCard extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ListTile(
       leading: const Icon(Icons.health_and_safety_outlined),
-      title: const Text('Disaster-recovery readiness'),
+      title: const LocalizedText('Disaster-recovery readiness'),
       subtitle: Text(
         status.entries
             .map((entry) => '${entry.key}: ${entry.value}')
             .join(' · '),
       ),
     ),
+  );
+}
+
+class RecoveryOperationsCard extends StatelessWidget {
+  final List<Map<String, dynamic>> operations;
+
+  const RecoveryOperationsCard({super.key, required this.operations});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LocalizedText(
+            'Durable operation journal',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          const LocalizedText(
+            'Restore, pin, and rollback steps remain queryable after a client disconnect or server restart.',
+          ),
+          if (operations.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: LocalizedText('No recovery or release operations.'),
+            ),
+          for (final operation in operations)
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              leading: Icon(
+                operation['state'] == 'succeeded'
+                    ? Icons.task_alt
+                    : operation['state'] == 'failed'
+                    ? Icons.error_outline
+                    : Icons.pending_outlined,
+              ),
+              title: Text(operation['id']?.toString() ?? ''),
+              subtitle: Text(
+                '${operation['kind'] ?? ''} · ${operation['target'] ?? ''} · '
+                '${operation['state'] ?? ''}',
+              ),
+              children: [
+                for (final step in recoveryRecords(operation['steps']))
+                  _OperationStepTile(label: 'Step', step: step),
+                for (final step in recoveryRecords(operation['compensations']))
+                  _OperationStepTile(label: 'Compensation', step: step),
+                if (operation['error']?.toString().isNotEmpty == true)
+                  ListTile(
+                    dense: true,
+                    title: const LocalizedText('Operation error'),
+                    subtitle: SelectableText(operation['error'].toString()),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _OperationStepTile extends StatelessWidget {
+  final String label;
+  final Map<String, dynamic> step;
+
+  const _OperationStepTile({required this.label, required this.step});
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    title: Text('$label · ${step['name'] ?? ''} · ${step['state'] ?? ''}'),
+    subtitle: step['error']?.toString().isNotEmpty == true
+        ? SelectableText(step['error'].toString())
+        : null,
   );
 }
 
@@ -60,26 +136,29 @@ class RecoverySnapshotsCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Snapshots', style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                'Snapshots',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const Spacer(),
               if (canCreate)
                 FilledButton.icon(
                   onPressed: mutating ? null : onCreate,
                   icon: const Icon(Icons.camera_outlined),
-                  label: const Text('Export snapshot'),
+                  label: const LocalizedText('Export snapshot'),
                 ),
             ],
           ),
           if (snapshots.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No stored snapshots.'),
+              child: LocalizedText('No stored snapshots.'),
             ),
           for (final snapshot in snapshots)
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(snapshot['snapshot_id']?.toString() ?? ''),
-              subtitle: Text(
+              subtitle: LocalizedText(
                 '${snapshot['codec'] ?? ''} · ${snapshot['size_bytes'] ?? 0} '
                 'bytes · schema ${snapshot['schema_version'] ?? ''}',
               ),
@@ -89,8 +168,14 @@ class RecoverySnapshotsCard extends StatelessWidget {
                     ? onRestore(snapshot)
                     : onDelete(snapshot),
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'restore', child: Text('Restore')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  PopupMenuItem(
+                    value: 'restore',
+                    child: LocalizedText('Restore'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: LocalizedText('Delete'),
+                  ),
                 ],
               ),
             ),
@@ -127,7 +212,7 @@ class RecoveryReleasesCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
+              LocalizedText(
                 'Paired releases',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
@@ -136,7 +221,7 @@ class RecoveryReleasesCard extends StatelessWidget {
                 FilledButton.icon(
                   onPressed: mutating ? null : onRegister,
                   icon: const Icon(Icons.add),
-                  label: const Text('Register release'),
+                  label: const LocalizedText('Register release'),
                 ),
             ],
           ),
@@ -144,13 +229,13 @@ class RecoveryReleasesCard extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.push_pin, color: Colors.green),
-              title: Text('Current: ${current!['id'] ?? ''}'),
+              title: LocalizedText('Current: ${current!['id'] ?? ''}'),
               subtitle: Text(releaseSummary(current!)),
             ),
           if (releases.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No registered releases.'),
+              child: LocalizedText('No registered releases.'),
             ),
           for (final release in releases)
             ListTile(
@@ -161,9 +246,15 @@ class RecoveryReleasesCard extends StatelessWidget {
                 enabled: !mutating,
                 onSelected: (action) => onAction(release, action),
                 itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'pin', child: Text('Pin')),
-                  PopupMenuItem(value: 'rollback', child: Text('Rollback')),
-                  PopupMenuItem(value: 'delete', child: Text('Delete')),
+                  PopupMenuItem(value: 'pin', child: LocalizedText('Pin')),
+                  PopupMenuItem(
+                    value: 'rollback',
+                    child: LocalizedText('Rollback'),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: LocalizedText('Delete'),
+                  ),
                 ],
               ),
             ),

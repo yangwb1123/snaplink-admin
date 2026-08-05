@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// A single member row with role dropdown and remove button.
 class MemberRowTile extends StatelessWidget {
@@ -27,7 +28,12 @@ class MemberRowTile extends StatelessWidget {
       subtitle: DropdownButton<String>(
         value: roles.contains(role) ? role : 'member',
         items: roles
-            .map((value) => DropdownMenuItem(value: value, child: Text(value)))
+            .map(
+              (value) => DropdownMenuItem(
+                value: value,
+                child: Text(context.tr(value)),
+              ),
+            )
             .toList(growable: false),
         onChanged: busy
             ? null
@@ -38,7 +44,7 @@ class MemberRowTile extends StatelessWidget {
       trailing: TextButton(
         onPressed: busy ? null : () => onRemove(member),
         style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-        child: const Text('Remove'),
+        child: Text(context.tr('Remove')),
       ),
     );
   }

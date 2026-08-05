@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 
@@ -37,9 +38,12 @@ class DeviceListPanel extends StatelessWidget {
             children: [
               const Icon(Icons.devices_other),
               const SizedBox(width: 8),
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const Spacer(),
-              Chip(label: Text('${devices.length}')),
+              Chip(label: LocalizedText('${devices.length}')),
             ],
           ),
         ),
@@ -116,19 +120,19 @@ class DeviceListTile extends StatelessWidget {
           if (suspicious)
             const Chip(
               avatar: Icon(Icons.warning_amber, size: 16),
-              label: Text('Suspicious'),
+              label: LocalizedText('Suspicious'),
               visualDensity: VisualDensity.compact,
             ),
         ],
       ),
-      subtitle: Text(
-        details.isEmpty ? 'No activity metadata' : details.join(' · '),
-      ),
+      subtitle: details.isEmpty
+          ? const LocalizedText('No activity metadata')
+          : Text(details.join(' · ')),
       trailing: onActivity == null && onResetTrust == null && onRevoke == null
           ? null
           : PopupMenuButton<String>(
               enabled: actionsEnabled,
-              tooltip: 'Device actions',
+              tooltip: 'Device actions'.localized,
               onSelected: (action) {
                 switch (action) {
                   case 'activity':
@@ -145,7 +149,7 @@ class DeviceListTile extends StatelessWidget {
                     value: 'activity',
                     child: ListTile(
                       leading: Icon(Icons.history),
-                      title: Text('View activity'),
+                      title: LocalizedText('View activity'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -154,7 +158,7 @@ class DeviceListTile extends StatelessWidget {
                     value: 'trust',
                     child: ListTile(
                       leading: Icon(Icons.restart_alt),
-                      title: Text('Reset trust'),
+                      title: LocalizedText('Reset trust'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -163,7 +167,7 @@ class DeviceListTile extends StatelessWidget {
                     value: 'revoke',
                     child: ListTile(
                       leading: Icon(Icons.phonelink_erase, color: Colors.red),
-                      title: Text('Revoke device'),
+                      title: LocalizedText('Revoke device'),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -194,7 +198,10 @@ class LoginHistoryPanel extends StatelessWidget {
             children: [
               const Icon(Icons.manage_history),
               const SizedBox(width: 8),
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ],
           ),
         ),
@@ -247,7 +254,9 @@ class _LoginHistoryTile extends StatelessWidget {
         ].join('\n'),
       ),
       trailing: Chip(
-        label: Text(success ? 'Success' : 'Failed'),
+        label: success
+            ? const LocalizedText('Success')
+            : const LocalizedText('Failed'),
         visualDensity: VisualDensity.compact,
       ),
     );
@@ -304,12 +313,12 @@ class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
   Widget build(BuildContext context) {
     final records = loginHistoryFrom(_result);
     return AlertDialog(
-      title: const Text('Device activity'),
+      title: const LocalizedText('Device activity'),
       content: SizedBox(
         width: 720,
         height: 520,
         child: _error != null
-            ? Center(child: Text('Unable to load activity: $_error'))
+            ? Center(child: LocalizedText('Unable to load activity: $_error'))
             : _result == null
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(child: LoginHistoryPanel(records: records)),
@@ -317,7 +326,7 @@ class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+          child: const LocalizedText('Close'),
         ),
       ],
     );
@@ -342,7 +351,7 @@ class _TrustChip extends StatelessWidget {
         : Colors.green;
     return Chip(
       avatar: Icon(Icons.shield_outlined, size: 16, color: color),
-      label: Text(label),
+      label: LocalizedText(label),
       visualDensity: VisualDensity.compact,
     );
   }

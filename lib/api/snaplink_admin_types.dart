@@ -145,6 +145,7 @@ GET /api/v1/admin/config/history
 POST /api/v1/admin/backup
 GET /api/v1/admin/dr/status
 GET /api/v1/admin/access-policies
+POST /api/v1/admin/access-policies/converge
 GET /api/v1/admin/webhooks/subscriptions
 POST /api/v1/admin/webhooks/subscriptions
 DELETE /api/v1/admin/webhooks/subscriptions/{id}
@@ -166,12 +167,30 @@ GET /api/v1/admin/releases/{id}
 DELETE /api/v1/admin/releases/{id}
 POST /api/v1/admin/releases/{id}:pin
 POST /api/v1/admin/releases/{id}:rollback
+GET /api/v1/admin/operations
+GET /api/v1/admin/operations/{id}
 GET /api/v1/admin/tenants
 POST /api/v1/admin/tenants
 GET /api/v1/admin/tenants/{id}
 PUT /api/v1/admin/tenants/{id}
 DELETE /api/v1/admin/tenants/{id}
 GET /api/v1/admin/tenants/{id}/usage
+GET /api/v1/admin/commerce/plans
+POST /api/v1/admin/commerce/plans
+GET /api/v1/admin/commerce/tenants/{tenant_id}/subscriptions
+POST /api/v1/admin/commerce/tenants/{tenant_id}/subscriptions
+PATCH /api/v1/admin/commerce/subscriptions/{id}/status
+PATCH /api/v1/admin/commerce/subscriptions/{id}/plan
+POST /api/v1/admin/commerce/subscriptions/{id}/renew
+GET /api/v1/admin/commerce/tenants/{tenant_id}/entitlement
+GET /api/v1/admin/commerce/tenants/{tenant_id}/wallet
+GET /api/v1/admin/commerce/tenants/{tenant_id}/wallet/entries
+POST /api/v1/admin/commerce/tenants/{tenant_id}/wallet/adjustments
+GET /api/v1/admin/commerce/tenants/{tenant_id}/payments/orders
+POST /api/v1/admin/commerce/tenants/{tenant_id}/payments/orders
+GET /api/v1/admin/commerce/tenants/{tenant_id}/payments/orders/{order_id}
+GET /api/v1/admin/commerce/tenants/{tenant_id}/payments/orders/{order_id}/events
+POST /api/v1/admin/commerce/tenants/{tenant_id}/payments/reconcile
 GET /api/v1/admin/usage/top-tenants
 GET /api/v1/admin/tokens/usage
 GET /api/v1/admin/token-policies
@@ -197,6 +216,7 @@ GET /api/v1/admin/domains/{hostname}
 PUT /api/v1/admin/domains/{hostname}
 DELETE /api/v1/admin/domains/{hostname}
 GET /api/v1/admin/clients
+GET /api/v1/admin/clients/expiring
 POST /api/v1/admin/clients
 GET /api/v1/admin/clients/{id}
 PUT /api/v1/admin/clients/{id}
@@ -246,6 +266,23 @@ GET /api/v1/admin/connections/{id}/domains
 POST /api/v1/admin/connections/{id}/domains/{domain}/verify
 GET /api/v1/admin/connections/{id}/health
 POST /api/v1/admin/connections/{id}/probe
+GET /api/v1/admin/branding
+PUT /api/v1/admin/branding
+DELETE /api/v1/admin/branding
+GET /api/v1/admin/providers
+POST /api/v1/admin/providers
+GET /api/v1/admin/providers/{id}
+PUT /api/v1/admin/providers/{id}
+DELETE /api/v1/admin/providers/{id}
+GET /api/v1/admin/users/{id}/devices
+DELETE /api/v1/admin/users/{id}/devices/{deviceId}
+GET /api/v1/admin/devices
+GET /api/v1/admin/devices/stats
+POST /api/v1/admin/devices/bulk-revoke
+GET /api/v1/admin/devices/{id}/activity
+POST /api/v1/admin/devices/{id}/trust
+GET /api/v1/admin/users/{id}/login-history
+GET /api/v1/admin/security/activity
 GET /api/v1/admin/tenants/{id}/members
 PUT /api/v1/admin/tenants/{id}/members/{user_id}
 DELETE /api/v1/admin/tenants/{id}/members/{user_id}
@@ -300,30 +337,4 @@ GET /api/v1/scim/v2/Groups/{id}
 PUT /api/v1/scim/v2/Groups/{id}
 PATCH /api/v1/scim/v2/Groups/{id}
 DELETE /api/v1/scim/v2/Groups/{id}
-''';
-
-/// Routes mounted by Snaplink's SSO interface that are not yet published in
-/// its OpenAPI document or runtime endpoint inventory.
-///
-/// Keep this deliberately separate from [routes]: these endpoints need a
-/// backend contract update before generated clients can treat them as stable.
-/// UI callers must handle 404/501 as "not enabled on this deployment".
-const supplementalRoutes = '''
-GET /api/v1/admin/branding
-PUT /api/v1/admin/branding
-DELETE /api/v1/admin/branding
-GET /api/v1/admin/providers
-POST /api/v1/admin/providers
-GET /api/v1/admin/providers/{id}
-PUT /api/v1/admin/providers/{id}
-DELETE /api/v1/admin/providers/{id}
-GET /api/v1/admin/users/{id}/devices
-DELETE /api/v1/admin/users/{id}/devices/{device_id}
-GET /api/v1/admin/devices
-GET /api/v1/admin/devices/stats
-POST /api/v1/admin/devices/bulk-revoke
-GET /api/v1/admin/devices/{id}/activity
-POST /api/v1/admin/devices/{id}/trust
-GET /api/v1/admin/users/{id}/login-history
-GET /api/v1/admin/security/activity
 ''';

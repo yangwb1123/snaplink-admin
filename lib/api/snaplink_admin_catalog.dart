@@ -49,24 +49,3 @@ class SnaplinkAdminOperationCatalog {
     (match) => ':${match.group(1)}',
   );
 }
-
-/// Temporary compatibility manifest for mounted routes that Snaplink has not
-/// yet included in OpenAPI or its runtime inventory.
-///
-/// Presence here means "known to exist in some server builds", not
-/// "advertised by this replica". Screens must probe these routes safely and
-/// degrade cleanly when a deployment returns 404 or 501.
-class SnaplinkAdminSupplementalCatalog {
-  static final endpoints = supplementalRoutes
-      .trim()
-      .split('\n')
-      .map((line) {
-        final space = line.indexOf(' ');
-        return SnaplinkAdminEndpoint(
-          method: line.substring(0, space),
-          path: line.substring(space + 1),
-          feature: 'source-only',
-        );
-      })
-      .toList(growable: false);
-}

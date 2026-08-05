@@ -1,7 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/session.dart';
+import 'package:sso_admin/services/admin_oauth_resources.dart';
+import 'package:sso_admin/services/product_api_origin.dart';
 
 /// Thrown on any non-2xx response from the SSO server; carries the parsed
 /// error body when the response was JSON.
@@ -52,13 +53,10 @@ class SSOAdminClient {
   }) : baseUrl = _stripTrailingSlash(baseUrl),
        _http = httpClient ?? http.Client();
 
-  /// Same-origin default: the Flutter bundle and the SSO API are always
-  /// served from the same origin in every deployment mode this app
-  /// supports (OpenResty fronts both on web; native builds fall back to
-  /// [nativeDefaultBaseUrl]) — mirrors how oidc_login_api.dart resolves
-  /// `/auth/login` etc. relative to Uri.base with no configurable field.
+  /// Uses the current page origin on web and the configured service origin on
+  /// native platforms.
   factory SSOAdminClient.sameOrigin() =>
-      SSOAdminClient(_sameOriginBaseUrl() ?? nativeDefaultBaseUrl);
+      SSOAdminClient(ProductApiOrigin.baseUrl);
 
   /// Wraps an access_token already obtained elsewhere (the unified /login
   /// screen) as a logged-in client, without a second network round trip.
@@ -68,29 +66,14 @@ class SSOAdminClient {
     void Function()? onUnauthorized,
   }) {
     final client = SSOAdminClient(
-      baseUrl ?? _sameOriginBaseUrl() ?? nativeDefaultBaseUrl,
+      baseUrl ?? ProductApiOrigin.baseUrl,
       onUnauthorized: onUnauthorized,
     );
     client._token = accessToken;
     return client;
   }
 
-  /// Compiled-in fallback for native (non-web) builds, which have no page
-  /// origin to infer from. Native builds don't yet expose a way to override
-  /// this — a settings screen for that is a documented follow-up, not
-  /// silently omitted.
-  static const nativeDefaultBaseUrl = 'https://sso.ywbsd.site';
-
-  static String? _sameOriginBaseUrl() {
-    if (!kIsWeb) return null;
-    final origin = Uri.base;
-    if (origin.host.isEmpty) return null;
-    return Uri(
-      scheme: origin.scheme,
-      host: origin.host,
-      port: origin.hasPort ? origin.port : null,
-    ).toString();
-  }
+  static const nativeDefaultBaseUrl = ProductApiOrigin.nativeDefaultBaseUrl;
 
   static String _stripTrailingSlash(String s) =>
       s.replaceAll(RegExp(r'/+$'), '');
@@ -101,11 +84,14 @@ class SSOAdminClient {
     String username,
     String password, {
     String clientId = 'sso-admin-console',
+    List<String>? resources,
   }) async {
+    final requestedResources = resources ?? AdminOAuthResources.values;
     final body = await _post('/auth/login', {
       'provider': 'password',
       'client_id': clientId,
       'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
+      if (requestedResources.isNotEmpty) 'resource': requestedResources,
       'credential': {'username': username, 'password': password},
     }, auth: false);
     final map = body as Map<String, dynamic>;
@@ -117,6 +103,12 @@ class SSOAdminClient {
 
   void logout() {
     _token = null;
+  }
+
+  /// Verifies the bearer has read access to the admin control plane without
+  /// coupling entry authorization to any managed resource collection.
+  Future<void> probeAdminAccess() async {
+    await _get('/api/v1/admin/endpoints');
   }
 
   Future<SSOAdminListPage> listClients({
@@ -161,10 +153,12 @@ class SSOAdminClient {
     filter: filter,
   );
 
-  Future<void> setTenantStatus(String id, String status) async {
-    await _post('/api/v1/admin/tenants/${Uri.encodeComponent(id)}:set-status', {
-      'status': status,
-    });
+  Future<Map<String, dynamic>> setTenantStatus(String id, String status) async {
+    final data = await _post(
+      '/api/v1/admin/tenants/${Uri.encodeComponent(id)}:set-status',
+      {'status': status},
+    );
+    return data is Map ? Map<String, dynamic>.from(data) : const {};
   }
 
   // ---- clients CRUD ----
@@ -189,14 +183,35 @@ class SSOAdminClient {
     await _delete('/api/v1/admin/clients/${Uri.encodeComponent(id)}');
   }
 
-  Future<String> rotateClientSecret(String id) async {
+  Future<Map<String, dynamic>> rotateClientSecretWithPolicy(
+    String id, {
+    Duration? overlap,
+    Duration? lifetime,
+  }) async {
+    final body = <String, dynamic>{};
+    if (overlap != null) body['overlap_seconds'] = overlap.inSeconds;
+    if (lifetime != null) body['lifetime_seconds'] = lifetime.inSeconds;
     final data =
         await _post(
               '/api/v1/admin/clients/${Uri.encodeComponent(id)}/rotate-secret',
-              const {},
+              body,
             )
             as Map<String, dynamic>;
-    return data['secret'] as String? ?? '';
+    return data;
+  }
+
+  Future<String> rotateClientSecret(String id) async =>
+      (await rotateClientSecretWithPolicy(id))['secret'] as String? ?? '';
+
+  Future<List<Map<String, dynamic>>> listExpiringClients({
+    Duration? within,
+  }) async {
+    final query = within == null ? '' : '?within_seconds=${within.inSeconds}';
+    final data = await _get('/api/v1/admin/clients/expiring$query');
+    final rows = data is Map ? data['clients'] : null;
+    return rows is List
+        ? rows.whereType<Map>().map(Map<String, dynamic>.from).toList()
+        : const [];
   }
 
   Future<void> approveClient(String id) async {
@@ -274,8 +289,11 @@ class SSOAdminClient {
     return (data['tenant'] as Map<String, dynamic>?) ?? const {};
   }
 
-  Future<void> deleteTenant(String id) async {
-    await _delete('/api/v1/admin/tenants/${Uri.encodeComponent(id)}');
+  Future<Map<String, dynamic>> deleteTenant(String id) async {
+    final data = await _delete(
+      '/api/v1/admin/tenants/${Uri.encodeComponent(id)}',
+    );
+    return data is Map ? Map<String, dynamic>.from(data) : const {};
   }
 
   /// Fetch a single connection by id.
@@ -389,8 +407,11 @@ class SSOAdminClient {
   }
 
   /// Delete a break-glass session by id.
-  Future<void> deleteBreakGlassSession(String id) async {
-    await _delete('/api/v1/admin/break-glass/${Uri.encodeComponent(id)}');
+  Future<Map<String, dynamic>> deleteBreakGlassSession(String id) async {
+    final data = await _delete(
+      '/api/v1/admin/break-glass/${Uri.encodeComponent(id)}',
+    );
+    return data is Map ? Map<String, dynamic>.from(data) : const {};
   }
 
   /// Create a new webhook subscription.

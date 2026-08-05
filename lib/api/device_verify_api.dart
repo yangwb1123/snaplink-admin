@@ -2,15 +2,20 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../services/product_api_origin.dart';
+
 /// Bearer-authenticated user leg of RFC 8628 device authorization.
 class DeviceVerifyApi {
   final http.Client _http;
+  final Uri _baseUri;
   final Duration requestTimeout;
 
   DeviceVerifyApi({
     http.Client? httpClient,
+    Uri? baseUri,
     this.requestTimeout = const Duration(seconds: 30),
-  }) : _http = httpClient ?? http.Client();
+  }) : _http = httpClient ?? http.Client(),
+       _baseUri = baseUri ?? ProductApiOrigin.baseUri;
 
   static String normalizeUserCode(String value) {
     final compact = value.toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
@@ -23,7 +28,7 @@ class DeviceVerifyApi {
     final normalized = normalizeUserCode(userCode);
     final response = await _http
         .get(
-          Uri.base
+          _baseUri
               .resolve('/device/verify')
               .replace(queryParameters: {'check': normalized}),
           headers: const {'Accept': 'application/json'},
@@ -49,7 +54,7 @@ class DeviceVerifyApi {
   }) {
     return _http
         .post(
-          Uri.base.resolve('/device/verify'),
+          _baseUri.resolve('/device/verify'),
           headers: {
             'Authorization': 'Bearer $accessToken',
             'Content-Type': 'application/json',

@@ -1,8 +1,37 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:web/web.dart' as web;
+
+import '../../services/browser_navigation.dart';
+import '../../services/product_api_origin.dart';
+import '../../services/session_storage.dart';
+
+/// Extracts the server-minted, one-use transaction used to resume an RP
+/// authorization after an upstream OIDC or SAML callback.
+///
+/// Snaplink places this value in the fragment so it is not sent as a referrer
+/// or included in ordinary server access logs. Only the exact 32-byte
+/// base64url representation minted by Snaplink is accepted; unrelated or
+/// malformed fragments remain inert.
+String? hostedFederatedTransactionId(Uri location) {
+  if (location.fragment.isEmpty || location.fragment.length > 256) return null;
+  try {
+    final values = Uri(query: location.fragment).queryParametersAll;
+    if (values.length != 1 ||
+        !values.containsKey('login_transaction_id') ||
+        values['login_transaction_id']!.length != 1) {
+      return null;
+    }
+    final transactionId = values['login_transaction_id']!.single;
+    return RegExp(r'^[A-Za-z0-9_-]{43}$').hasMatch(transactionId)
+        ? transactionId
+        : null;
+  } on FormatException {
+    return null;
+  }
+}
 
 /// Handles the "Sign in with [a federated provider]" round trip for a
 /// first-party login (this app itself is the OAuth client — a public PKCE
@@ -14,17 +43,17 @@ import 'package:web/web.dart' as web;
 /// redirect_uri is always the CURRENT page's path with no query/fragment —
 /// it must stay byte-stable to match what's registered for this OAuth
 /// client, so it can't carry the eventual "jump to this path after login"
-/// target. That travels in `state` instead (`<random>|<encoded target>`),
-/// which round-trips through the whole flow including the external IdP hop
-/// with no registration/exact-match constraint. sessionStorage (not
-/// localStorage) is intentional: the verifier must not outlive this one
-/// login attempt/tab.
+/// target. Both that target and the verifier stay in sessionStorage; `state`
+/// is an opaque random nonce and never carries Portal action credentials
+/// through the external IdP hop. sessionStorage (not localStorage) is
+/// intentional: none of this state may outlive one login attempt/tab.
 class FederatedLogin {
   static const _exchangeTimeout = Duration(seconds: 30);
   static const _verifierKey = 'sso_pkce_verifier';
   static const _stateKey = 'sso_pkce_state';
   static const _clientIdKey = 'sso_pkce_client_id';
   static const _redirectKey = 'sso_pkce_redirect_uri';
+  static const _targetKey = 'sso_pkce_redirect_target';
 
   static String _randomUrlSafe(int bytes) {
     final rnd = Random.secure();
@@ -34,6 +63,19 @@ class FederatedLogin {
 
   static String _currentPathNoQuery() =>
       Uri.base.replace(queryParameters: const {}, fragment: '').toString();
+
+  /// Returns true only for a callback that belongs to a PKCE attempt started
+  /// by this tab. The hosted login screen uses this before provider discovery
+  /// so a callback cannot race a second `/auth/login` probe (or be redirected
+  /// by branding/login-page discovery) while its one-time code is exchanged.
+  static bool hasPendingReturn({Uri? location}) {
+    if (!kIsWeb) return false;
+    final states = (location ?? Uri.base).queryParametersAll['state'];
+    if (states == null || states.length != 1 || states.single.isEmpty) {
+      return false;
+    }
+    return SessionStorage.getItem(_stateKey) == states.single;
+  }
 
   /// Builds the /auth/login URL for a federated connection and stashes the
   /// PKCE verifier + state in sessionStorage. Caller MUST navigate the
@@ -46,20 +88,31 @@ class FederatedLogin {
     required String redirectTarget,
     List<String> scope = const ['openid', 'profile', 'email'],
   }) {
+    if (!kIsWeb) {
+      throw StateError('Federated sign-in requires the web console.');
+    }
     final verifier = _randomUrlSafe(32);
     final challengeBytes = sha256.convert(utf8.encode(verifier)).bytes;
     final challenge = base64Url.encode(challengeBytes).replaceAll('=', '');
-    final state =
-        '${_randomUrlSafe(16)}|${Uri.encodeComponent(redirectTarget)}';
+    final state = _randomUrlSafe(16);
     final redirectUri = _currentPathNoQuery();
 
-    web.window.sessionStorage.setItem(_verifierKey, verifier);
-    web.window.sessionStorage.setItem(_stateKey, state);
-    web.window.sessionStorage.setItem(_clientIdKey, clientId);
-    web.window.sessionStorage.setItem(_redirectKey, redirectUri);
+    SessionStorage.setItem(_verifierKey, verifier);
+    SessionStorage.setItem(_stateKey, state);
+    SessionStorage.setItem(_clientIdKey, clientId);
+    SessionStorage.setItem(_redirectKey, redirectUri);
+    SessionStorage.setItem(_targetKey, redirectTarget);
+    if (SessionStorage.getItem(_verifierKey) != verifier ||
+        SessionStorage.getItem(_stateKey) != state ||
+        SessionStorage.getItem(_clientIdKey) != clientId ||
+        SessionStorage.getItem(_redirectKey) != redirectUri ||
+        SessionStorage.getItem(_targetKey) != redirectTarget) {
+      _clearPendingAttempt();
+      throw StateError('pkce_storage_unavailable');
+    }
 
-    return Uri.base
-        .resolve('../auth/login')
+    return ProductApiOrigin.baseUri
+        .resolve('/auth/login')
         .replace(
           queryParameters: {
             'provider': connectionId,
@@ -81,53 +134,78 @@ class FederatedLogin {
   /// RP's own authorization_code landing here — the state won't match
   /// anything of ours, so this correctly no-ops rather than misfiring).
   /// Throws on a state mismatch (CSRF/replay) or a failed exchange.
-  static Future<FederatedLoginResult?> consumeReturnIfPresent() async {
-    final q = Uri.base.queryParameters;
-    final state = q['state'];
-    if (state == null) return null;
-
-    final storedState = web.window.sessionStorage.getItem(_stateKey);
+  static Future<FederatedLoginResult?> consumeReturnIfPresent({
+    http.Client? httpClient,
+  }) async {
+    if (!kIsWeb) return null;
+    final query = Uri.base.queryParametersAll;
+    final stateValues = query['state'];
+    final storedState = SessionStorage.getItem(_stateKey);
+    if (stateValues == null) return null;
+    if (stateValues.length != 1) {
+      if (storedState == null) return null;
+      BrowserNavigation.replaceState(_currentPathNoQuery());
+      _clearPendingAttempt();
+      throw StateError('invalid_state');
+    }
+    final state = stateValues.single;
     if (storedState == null || storedState != state) {
       // Not ours — most likely an RP's own authorization_code response
       // landing on a path this app also serves. Leave it for whatever else
       // reads Uri.base; nothing to consume.
       return null;
     }
-    final verifier = web.window.sessionStorage.getItem(_verifierKey);
-    final clientId = web.window.sessionStorage.getItem(_clientIdKey);
-    final redirectUri = web.window.sessionStorage.getItem(_redirectKey);
-    web.window.sessionStorage.removeItem(_stateKey);
-    web.window.sessionStorage.removeItem(_verifierKey);
-    web.window.sessionStorage.removeItem(_clientIdKey);
-    web.window.sessionStorage.removeItem(_redirectKey);
+    final verifier = SessionStorage.getItem(_verifierKey);
+    final clientId = SessionStorage.getItem(_clientIdKey);
+    final redirectUri = SessionStorage.getItem(_redirectKey);
+    final redirectTarget = SessionStorage.getItem(_targetKey);
+    // A matched callback is one-shot even if the token exchange times out or
+    // has an unknown result. Remove the authorization response from the
+    // current history entry before any network await or external resource can
+    // observe it, then consume every tab-scoped PKCE value.
+    BrowserNavigation.replaceState(_currentPathNoQuery());
+    _clearPendingAttempt();
 
-    final code = q['code'];
+    final codeValues = query['code'];
+    if (codeValues != null && codeValues.length != 1) {
+      throw StateError('invalid_authorization_response');
+    }
+    final code = codeValues?.single;
     if (code == null) {
+      final errors = query['error'];
+      if (errors != null && errors.length != 1) {
+        throw StateError('invalid_authorization_response');
+      }
+      final descriptions = query['error_description'];
+      final description = descriptions != null && descriptions.length == 1
+          ? descriptions.first
+          : null;
       throw StateError(
-        q['error_description'] ?? q['error'] ?? 'federated_login_failed',
+        description ?? errors?.single ?? 'federated_login_failed',
       );
     }
-    if (verifier == null || clientId == null || redirectUri == null) {
+    if (verifier == null ||
+        clientId == null ||
+        redirectUri == null ||
+        redirectTarget == null) {
       throw StateError('missing_pkce_state');
     }
-    final pipeIndex = state.indexOf('|');
-    final redirectTarget = pipeIndex >= 0
-        ? Uri.decodeComponent(state.substring(pipeIndex + 1))
-        : '/admin/';
+    if (!_isSafeRedirectTarget(redirectTarget)) {
+      throw StateError('invalid_redirect_target');
+    }
 
-    final resp = await http
-        .post(
-          Uri.base.resolve('../token'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'grant_type': 'authorization_code',
-            'code': code,
-            'client_id': clientId,
-            'redirect_uri': redirectUri,
-            'code_verifier': verifier,
-          }),
-        )
-        .timeout(_exchangeTimeout);
+    final request = (httpClient?.post ?? http.post)(
+      ProductApiOrigin.baseUri.resolve('/token'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'grant_type': 'authorization_code',
+        'code': code,
+        'client_id': clientId,
+        'redirect_uri': redirectUri,
+        'code_verifier': verifier,
+      }),
+    );
+    final resp = await request.timeout(_exchangeTimeout);
     Map<String, dynamic> body = const {};
     if (resp.body.isNotEmpty) {
       try {
@@ -147,6 +225,26 @@ class FederatedLogin {
       accessToken: accessToken,
       redirectTarget: redirectTarget,
     );
+  }
+
+  static void _clearPendingAttempt() {
+    SessionStorage.removeItem(_stateKey);
+    SessionStorage.removeItem(_verifierKey);
+    SessionStorage.removeItem(_clientIdKey);
+    SessionStorage.removeItem(_redirectKey);
+    SessionStorage.removeItem(_targetKey);
+  }
+
+  static bool _isSafeRedirectTarget(String value) {
+    if (value.isEmpty || value.contains('\\')) return false;
+    final target = Uri.tryParse(value);
+    if (target == null) return false;
+    if (!target.hasScheme && !target.hasAuthority) {
+      return target.path.startsWith('/');
+    }
+    return target.hasAuthority &&
+        (target.scheme == 'https' || target.scheme == 'http') &&
+        target.origin == Uri.base.origin;
   }
 }
 

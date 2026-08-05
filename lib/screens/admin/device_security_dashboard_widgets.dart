@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'device_security_models.dart';
 
@@ -35,8 +36,8 @@ class DeviceStatsCards extends StatelessWidget {
             child: Card(
               child: ListTile(
                 leading: Icon(value.$3),
-                title: Text('${value.$2}'),
-                subtitle: Text(value.$1),
+                title: LocalizedText('${value.$2}'),
+                subtitle: LocalizedText(value.$1),
               ),
             ),
           ),
@@ -105,17 +106,17 @@ class DeviceFleetFilters extends StatelessWidget {
             'very_high',
           ], onTrustLevelChanged),
           FilterChip(
-            label: const Text('Suspicious only'),
+            label: const LocalizedText('Suspicious only'),
             selected: suspiciousOnly,
             onSelected: onSuspiciousChanged,
           ),
           FilledButton(
             onPressed: loading ? null : onApply,
-            child: const Text('Apply filters'),
+            child: const LocalizedText('Apply filters'),
           ),
           TextButton(
             onPressed: loading ? null : onClear,
-            child: const Text('Clear'),
+            child: const LocalizedText('Clear'),
           ),
         ],
       ),
@@ -128,7 +129,7 @@ class DeviceFleetFilters extends StatelessWidget {
         child: TextField(
           controller: controller,
           onSubmitted: (_) => onApply(),
-          decoration: InputDecoration(labelText: label),
+          decoration: InputDecoration(labelText: label.localized),
         ),
       );
 
@@ -142,12 +143,14 @@ class DeviceFleetFilters extends StatelessWidget {
     child: DropdownButtonFormField<String>(
       initialValue: value,
       isExpanded: true,
-      decoration: InputDecoration(labelText: label),
+      decoration: InputDecoration(labelText: label.localized),
       items: [
         for (final item in values)
           DropdownMenuItem(
             value: item,
-            child: Text(item.isEmpty ? 'Any' : item.replaceAll('_', ' ')),
+            child: item.isEmpty
+                ? const LocalizedText('Any')
+                : LocalizedText(item.replaceAll('_', ' ')),
           ),
       ],
       onChanged: (next) => changed(next ?? ''),
@@ -170,13 +173,17 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
     child: ExpansionTile(
       initiallyExpanded: events.isNotEmpty,
       leading: const Icon(Icons.policy_outlined),
-      title: const Text('Security activity'),
-      subtitle: Text('${events.length} devices currently require attention'),
+      title: const LocalizedText('Security activity'),
+      subtitle: LocalizedText(
+        '${events.length} devices currently require attention',
+      ),
       children: events.isEmpty
           ? const [
               ListTile(
                 leading: Icon(Icons.verified_user_outlined),
-                title: Text('No suspicious or very-low-trust devices found.'),
+                title: LocalizedText(
+                  'No suspicious or very-low-trust devices found.',
+                ),
               ),
             ]
           : [
@@ -186,17 +193,17 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                     Icons.warning_amber,
                     color: Colors.redAccent,
                   ),
-                  title: Text(
-                    event['device_name']?.toString().isNotEmpty == true
-                        ? event['device_name'].toString()
-                        : event['device_id']?.toString() ?? 'Unknown device',
-                  ),
-                  subtitle: Text(
+                  title: event['device_name']?.toString().isNotEmpty == true
+                      ? Text(event['device_name'].toString())
+                      : LocalizedText(
+                          event['device_id']?.toString() ?? 'Unknown device',
+                        ),
+                  subtitle: LocalizedText(
                     'User ${event['user_id'] ?? '—'} · Trust ${event['trust_score'] ?? '—'} · ${event['time'] ?? ''}',
                   ),
                   trailing: TextButton(
                     onPressed: () => onInvestigate(event),
-                    child: const Text('Investigate'),
+                    child: const LocalizedText('Investigate'),
                   ),
                 ),
             ],

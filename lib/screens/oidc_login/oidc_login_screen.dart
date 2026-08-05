@@ -1,17 +1,21 @@
 import 'dart:async';
-import 'dart:js_interop';
-import 'dart:js_interop_unsafe';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:web/web.dart' as web;
 
 import '../../i18n/app_strings.dart';
+import '../../services/browser_auth_response.dart';
+import '../../services/browser_navigation.dart';
+import '../../services/product_api_origin.dart';
 import '../../session.dart';
 import '../../widgets/responsive_entry_card.dart';
+import '../settings_screen.dart';
 import 'account_flow_views.dart';
+import 'authorization_delivery.dart';
 import 'branding_header.dart';
 import 'consent_view.dart';
 import 'federated_login.dart';
+import 'hosted_login_location.dart';
 import 'hosted_login_models.dart';
 import 'jarm_completion.dart';
 import 'language_toggle.dart';
@@ -48,20 +52,39 @@ class OidcLoginScreen extends StatefulWidget {
   /// case (direct /login/ or /admin/ access).
   final String? defaultClientId;
   final OidcLoginApi? api;
+  final Uri? routeUri;
 
-  const OidcLoginScreen({super.key, this.defaultClientId, this.api});
+  const OidcLoginScreen({
+    super.key,
+    this.defaultClientId,
+    this.api,
+    this.routeUri,
+  });
 
   @override
   State<OidcLoginScreen> createState() => _OidcLoginScreenState();
 }
 
 /// Redirect target validation for first-party login.
-String _safeRedirectTarget() {
-  final raw = Uri.base.queryParameters['redirect'];
-  if (raw == null || raw.isEmpty || raw.contains('\\')) return '/admin/';
+String _safeRedirectTarget(Uri current) {
+  final values = current.queryParametersAll['redirect'] ?? const <String>[];
+  // Never resolve an ambiguous continuation by silently choosing the last
+  // duplicate query value.
+  if (values.length != 1) return '/admin/';
+  final raw = values.single;
+  if (raw.isEmpty || raw.contains('\\')) return '/admin/';
   try {
-    final resolved = Uri.base.resolve(raw);
-    if (!resolved.hasAuthority || resolved.origin != Uri.base.origin) {
+    final target = Uri.parse(raw);
+    if (!current.hasAuthority) {
+      if (target.hasScheme ||
+          target.hasAuthority ||
+          !target.path.startsWith('/')) {
+        return '/admin/';
+      }
+      return raw;
+    }
+    final resolved = current.resolve(raw);
+    if (!resolved.hasAuthority || resolved.origin != current.origin) {
       return '/admin/';
     }
   } catch (_) {
@@ -71,9 +94,13 @@ String _safeRedirectTarget() {
 }
 
 class _OidcLoginScreenState extends State<OidcLoginScreen> {
-  late final OAuthParams _params = OAuthParams.fromUri(Uri.base);
-  late final HostedLoginRoute _route = HostedLoginRoute.fromUri(Uri.base);
-  late final OidcLoginApi _api;
+  late final Uri _routeUri = widget.routeUri ?? Uri.base;
+  late final OAuthParams _params = OAuthParams.fromUri(_routeUri);
+  late final HostedLoginRoute _route = HostedLoginRoute.fromUri(_routeUri);
+  late final String? _federatedContinuationId = hostedFederatedTransactionId(
+    _routeUri,
+  );
+  late OidcLoginApi _api;
   late final bool _ownsApi;
 
   _View _view = _View.login;
@@ -82,6 +109,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     LoginProviderDescriptor.password(),
   ];
   bool _providerDiscoveryComplete = false;
+  bool _serverOwnedAuthorizationRequestSupported = false;
 
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
@@ -104,7 +132,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   final _mfaCodeCtrl = TextEditingController();
   bool _trustThisDevice = false;
 
-  Map<String, dynamic>? _pendingLoginPayload;
+  String _loginTransactionId = '';
   String _consentChallengeId = '';
   String _consentClientName = '';
   ConsentRequestSummary _consentSummary = const ConsentRequestSummary.invalid();
@@ -121,6 +149,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   String _accountResultTitle = '';
   String _accountResultMessage = '';
   IconData _accountResultIcon = Icons.check_circle_outline;
+  String? _magicLinkToken;
+  String? _resetToken;
+  String? _verificationToken;
 
   bool _checkingFederatedReturn = true;
 
@@ -141,14 +172,15 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         !LoginProviderDescriptor.builtinProviderIds.contains(_provider);
   }
 
-  String? get _magicLinkToken => _route.magicLinkToken;
-
-  String? get _resetToken => _route.resetToken;
-
-  String? get _verificationToken => _route.verificationToken;
-
   bool get _isRpFlow =>
-      _params.clientId.isNotEmpty && _params.redirectUri.isNotEmpty;
+      _params.clientId.isNotEmpty &&
+      (_params.redirectUri.isNotEmpty ||
+          _params.requestUri.isNotEmpty ||
+          _params.request.isNotEmpty);
+
+  bool get _requestsTokenResponse => _params.responseType
+      .split(RegExp(r'\s+'))
+      .any((value) => value == 'token' || value == 'id_token');
 
   bool get _usesJarm =>
       _params.responseMode == 'jwt' || _params.responseMode.endsWith('.jwt');
@@ -160,23 +192,30 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     _api = widget.api ?? OidcLoginApi();
     _provider = _params.provider.isNotEmpty ? _params.provider : 'password';
     _userCtrl.text = _params.loginHint;
+    _magicLinkToken = _route.magicLinkToken;
+    _resetToken = _route.resetToken;
+    _verificationToken = _route.verificationToken;
+    if (_routeUri.queryParametersAll.containsKey('device_token')) {
+      BrowserNavigation.replaceState(
+        hostedLoginLocationWithoutDeviceCredential(_routeUri),
+      );
+    }
     _applyInitialFlow();
 
-    if (Uri.base.queryParameters['verified'] == 'email') {
+    if (_routeUri.queryParameters['verified'] == 'email') {
       _signupConfirmed = 'Email verified.';
     }
 
     _loadBranding();
-    final loginFlow =
-        _route.flow == HostedLoginFlow.login ||
-        _route.flow == HostedLoginFlow.magicLink;
-    if (loginFlow) {
+    if (_route.requiresAuthentication) {
       _checkFederatedReturn();
     } else {
       _checkingFederatedReturn = false;
     }
     if (_effectiveClientId.isNotEmpty &&
-        _route.flow == HostedLoginFlow.login &&
+        _route.requiresAuthentication &&
+        _federatedContinuationId == null &&
+        !FederatedLogin.hasPendingReturn(location: _routeUri) &&
         !_route.shouldAutoSubmitMagicLink &&
         !_params.hasPromptNone) {
       _probeProviders();
@@ -201,6 +240,10 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
         _provider = 'magiclink';
         _view = _View.login;
         break;
+      case HostedLoginFlow.changeEmail:
+      case HostedLoginFlow.invitation:
+        _view = _View.login;
+        break;
       case HostedLoginFlow.login:
         _view = _View.login;
         break;
@@ -217,6 +260,20 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   }
 
   void _update(VoidCallback change) => setState(change);
+
+  Future<void> _openNativeSettings() async {
+    final previousOrigin = ProductApiOrigin.baseUri;
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
+    if (!mounted || previousOrigin == ProductApiOrigin.baseUri) {
+      return;
+    }
+    // Credentials, challenges, verifier links, OAuth transaction parameters,
+    // and identities all belong to the old deployment. Replacing the whole
+    // entry guarantees none can be submitted to the newly configured origin.
+    BrowserNavigation.replaceLocation('/login/');
+  }
 
   @override
   void dispose() {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'connections/connection_contract.dart';
 import 'connections_widgets.dart';
 import 'snaplink_admin_api.dart';
@@ -56,7 +57,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'connections') return;
     if (route.isNew) {
       _upsertConnection();
@@ -301,7 +302,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(success)));
+      ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await afterSuccess();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -333,7 +334,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
         !_availability.canCreate &&
         !_availability.canGet) {
       return const Center(
-        child: Text(
+        child: LocalizedText(
           'Identity connection management is not enabled on this Snaplink replica.',
         ),
       );

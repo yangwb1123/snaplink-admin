@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/webauthn_registration.dart';
 import 'portal_api.dart';
@@ -91,11 +92,13 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
   Widget build(BuildContext context) => PortalCard(
     title: 'Add a passkey',
     children: [
-      const Text('Use a biometric or security key for future sign-ins.'),
+      Text(context.tr('Use a biometric or security key for future sign-ins.')),
       const SizedBox(height: 12),
       TextField(
         controller: _nameCtrl,
-        decoration: const InputDecoration(labelText: 'Passkey name (optional)'),
+        decoration: InputDecoration(
+          labelText: context.tr('Passkey name (optional)'),
+        ),
       ),
       const SizedBox(height: 12),
       Align(
@@ -108,7 +111,7 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Add a passkey'),
+              : Text(context.tr('Add a passkey')),
         ),
       ),
       MessageBanner(_message, ok: _ok),

@@ -5,8 +5,8 @@ import 'session_storage_memory.dart'
 /// Tab-scoped storage abstraction used by [Session].
 ///
 /// Browser builds delegate to `window.sessionStorage`; VM and native builds
-/// intentionally expose no persistent store because browser redirect
-/// continuity does not exist there.
+/// use process memory so credentials survive in-app route replacement but are
+/// still discarded when the application exits.
 class SessionStorage {
   static String? getItem(String key) => implementation.getItem(key);
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
@@ -100,18 +101,20 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Security activity',
+                  context.tr('Security activity'),
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Review new devices, locations, and recent authentication history.',
+                Text(
+                  context.tr(
+                    'Review new devices, locations, and recent authentication history.',
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Refresh activity',
+            tooltip: context.tr('Refresh activity'),
             onPressed: _activityLoading || _historyLoading ? null : _loadAll,
             icon: const Icon(Icons.refresh),
           ),
@@ -163,7 +166,7 @@ class _SecurityEventTile extends StatelessWidget {
         risky ? Icons.shield_outlined : Icons.history,
         color: risky ? Colors.orangeAccent : null,
       ),
-      title: Text(_eventTitle(type)),
+      title: Text(context.tr(_eventTitle(type))),
       subtitle: Text(
         _join([
           event['time'],
@@ -186,8 +189,8 @@ class _LoginHistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final success = record['success'] != false;
     final flags = <String>[
-      if (record['device_is_new'] == true) 'new device',
-      if (record['location_is_new'] == true) 'new location',
+      if (record['device_is_new'] == true) context.tr('new device'),
+      if (record['location_is_new'] == true) context.tr('new location'),
     ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -195,7 +198,7 @@ class _LoginHistoryTile extends StatelessWidget {
         success ? Icons.login : Icons.gpp_bad_outlined,
         color: success ? null : Colors.redAccent,
       ),
-      title: Text(success ? 'Successful login' : 'Failed login'),
+      title: Text(context.tr(success ? 'Successful login' : 'Failed login')),
       subtitle: Text(
         _join([
           record['time'],

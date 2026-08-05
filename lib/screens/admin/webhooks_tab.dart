@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -42,13 +43,14 @@ class _WebhooksTabState extends State<WebhooksTab> {
   void initState() {
     super.initState();
     _handleRoute();
+    _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'webhooks') return;
     if (route.isNew) {
       _create();
@@ -139,7 +141,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       _eventsCtrl.clear();
       _secretCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Webhook subscription created.')),
+        const SnackBar(content: LocalizedText('Webhook subscription created.')),
       );
       if (mounted) AdminRoute.go('webhooks');
       await _load();
@@ -168,9 +170,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
     try {
       await widget.api.delete('$_subsPath/${Uri.encodeComponent(id)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Subscription deleted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Subscription deleted.')),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -194,20 +196,20 @@ class _WebhooksTabState extends State<WebhooksTab> {
       _error = null;
     });
     try {
-      await widget.api.post('$_deadPath/${Uri.encodeComponent(id)}/replay');
+      final response = await widget.api.post(
+        '$_deadPath/${Uri.encodeComponent(id)}/replay',
+      );
       if (!mounted) return;
       await _load();
       if (!mounted) return;
-      final stillQueued = _deadLetters.any(
-        (item) => item['id']?.toString() == id,
-      );
+      final cleanupComplete = response['cleanup_status'] == 'complete';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            stillQueued
-                ? 'Delivery was sent, but the dead letter is still queued. '
-                      'Do not replay again until queue cleanup is verified.'
-                : 'Delivery sent and no longer present in the refreshed queue.',
+          content: LocalizedText(
+            cleanupComplete
+                ? 'Delivery sent and dead-letter cleanup completed.'
+                : 'Delivery succeeded; cleanup remains pending. Retrying this '
+                      'entry is cleanup-only and cannot redeliver it.',
           ),
         ),
       );
@@ -222,7 +224,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
   Widget build(BuildContext context) {
     if (!_hasSubscriptions && !_hasDeadLetters) {
       return const Center(
-        child: Text('Webhook management is not enabled on this replica.'),
+        child: LocalizedText(
+          'Webhook management is not enabled on this replica.',
+        ),
       );
     }
     return ListView(
@@ -234,7 +238,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'Manage event notification webhook subscriptions and dead letters.',
         ),
         if (_error != null)
@@ -263,44 +267,44 @@ class _WebhooksTabState extends State<WebhooksTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'New subscription',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _urlCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Webhook URL',
-              hintText: 'https://hooks.example.com/events',
+            decoration: InputDecoration(
+              labelText: 'Webhook URL'.localized,
+              hintText: 'https://hooks.example.com/events'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: _eventsCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Event types (comma-separated)',
-              hintText: 'user.created, session.revoked',
+            decoration: InputDecoration(
+              labelText: 'Event types (comma-separated)'.localized,
+              hintText: 'user.created, session.revoked'.localized,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: _secretCtrl,
-            decoration: const InputDecoration(
-              labelText: 'Signing secret (optional)',
+            decoration: InputDecoration(
+              labelText: 'Signing secret (optional)'.localized,
             ),
             obscureText: true,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Active'),
+            title: const LocalizedText('Active'),
             value: _active,
             onChanged: (v) => setState(() => _active = v),
           ),
           FilledButton(
             onPressed: () => AdminRoute.go('webhooks', action: 'new'),
-            child: const Text('Create subscription'),
+            child: const LocalizedText('Create subscription'),
           ),
         ],
       ),
@@ -312,12 +316,15 @@ class _WebhooksTabState extends State<WebhooksTab> {
     children: [
       Row(
         children: [
-          Text('Subscriptions', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Subscriptions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const Spacer(),
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
           ),
         ],
       ),
@@ -325,7 +332,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       if (!_loading && _subscriptions.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 12),
-          child: Text('No subscriptions.'),
+          child: LocalizedText('No subscriptions.'),
         ),
       if (!_loading)
         for (final s in _subscriptions)
@@ -341,7 +348,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
                 color: s['active'] == true ? Colors.green : Colors.grey,
               ),
               title: Text(s['url']?.toString() ?? ''),
-              subtitle: Text(
+              subtitle: LocalizedText(
                 '${s['id'] ?? ''} · events: ${(s['event_types'] as List?)?.join(', ') ?? 'all'}',
               ),
               trailing: TextButton(
@@ -349,22 +356,24 @@ class _WebhooksTabState extends State<WebhooksTab> {
                     ? null
                     : () => _delete(s['id']?.toString() ?? ''),
                 style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-                child: const Text('Delete'),
+                child: const LocalizedText('Delete'),
               ),
             ),
           ),
     ],
   );
-
   Widget _deadLettersCard(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text('Dead letters', style: Theme.of(context).textTheme.titleMedium),
+      LocalizedText(
+        'Dead letters',
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
       if (_loading) const SkeletonListTile(itemCount: 3),
       if (!_loading && _deadLetters.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 12),
-          child: Text('No dead letters.'),
+          child: LocalizedText('No dead letters.'),
         ),
       if (!_loading)
         for (final d in _deadLetters)
@@ -372,17 +381,17 @@ class _WebhooksTabState extends State<WebhooksTab> {
             margin: const EdgeInsets.only(top: 8),
             child: ListTile(
               leading: const Icon(Icons.error_outline, color: Colors.redAccent),
-              title: Text(
+              title: LocalizedText(
                 d['event_type']?.toString() ??
                     d['type']?.toString() ??
                     'Unknown',
               ),
-              subtitle: Text('${d['id'] ?? ''}\n${d['error'] ?? ''}'),
+              subtitle: LocalizedText('${d['id'] ?? ''}\n${d['error'] ?? ''}'),
               trailing: TextButton(
                 onPressed: _mutating
                     ? null
                     : () => _replay(d['id']?.toString() ?? ''),
-                child: const Text('Replay'),
+                child: const LocalizedText('Replay'),
               ),
             ),
           ),

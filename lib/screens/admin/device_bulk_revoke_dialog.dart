@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
@@ -130,7 +131,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Bulk revoke devices'),
+    title: const LocalizedText('Bulk revoke devices'),
     content: SizedBox(
       width: 620,
       child: SingleChildScrollView(
@@ -138,7 +139,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            const LocalizedText(
               'Define a bounded risk segment. Empty filters are blocked '
               'because the operation can permanently remove every matched '
               'device. Verify devices and sessions after it completes.',
@@ -153,20 +154,38 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                   child: DropdownButtonFormField<double?>(
                     initialValue: _trustBelow,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Trust score below',
+                    decoration: InputDecoration(
+                      labelText: 'Trust score below'.localized,
                     ),
                     items: const [
                       DropdownMenuItem(
                         value: null,
-                        child: Text('Not filtered'),
+                        child: LocalizedText('Not filtered'),
                       ),
-                      DropdownMenuItem(value: 0.2, child: Text('0.20')),
-                      DropdownMenuItem(value: 0.3, child: Text('0.30')),
-                      DropdownMenuItem(value: 0.4, child: Text('0.40')),
-                      DropdownMenuItem(value: 0.5, child: Text('0.50')),
-                      DropdownMenuItem(value: 0.6, child: Text('0.60')),
-                      DropdownMenuItem(value: 0.8, child: Text('0.80')),
+                      DropdownMenuItem(
+                        value: 0.2,
+                        child: LocalizedText('0.20'),
+                      ),
+                      DropdownMenuItem(
+                        value: 0.3,
+                        child: LocalizedText('0.30'),
+                      ),
+                      DropdownMenuItem(
+                        value: 0.4,
+                        child: LocalizedText('0.40'),
+                      ),
+                      DropdownMenuItem(
+                        value: 0.5,
+                        child: LocalizedText('0.50'),
+                      ),
+                      DropdownMenuItem(
+                        value: 0.6,
+                        child: LocalizedText('0.60'),
+                      ),
+                      DropdownMenuItem(
+                        value: 0.8,
+                        child: LocalizedText('0.80'),
+                      ),
                     ],
                     onChanged: (value) {
                       _trustBelow = value;
@@ -179,24 +198,41 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                   child: DropdownButtonFormField<String>(
                     initialValue: _deviceType,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Device type'),
+                    decoration: InputDecoration(
+                      labelText: 'Device type'.localized,
+                    ),
                     items: const [
-                      DropdownMenuItem(value: '', child: Text('All types')),
+                      DropdownMenuItem(
+                        value: '',
+                        child: LocalizedText('All types'),
+                      ),
                       DropdownMenuItem(
                         value: 'browser',
-                        child: Text('Browser'),
+                        child: LocalizedText('Browser'),
                       ),
-                      DropdownMenuItem(value: 'mobile', child: Text('Mobile')),
-                      DropdownMenuItem(value: 'app', child: Text('App')),
+                      DropdownMenuItem(
+                        value: 'mobile',
+                        child: LocalizedText('Mobile'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'app',
+                        child: LocalizedText('App'),
+                      ),
                       DropdownMenuItem(
                         value: 'desktop',
-                        child: Text('Desktop'),
+                        child: LocalizedText('Desktop'),
                       ),
-                      DropdownMenuItem(value: 'tablet', child: Text('Tablet')),
-                      DropdownMenuItem(value: 'bot', child: Text('Bot')),
+                      DropdownMenuItem(
+                        value: 'tablet',
+                        child: LocalizedText('Tablet'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'bot',
+                        child: LocalizedText('Bot'),
+                      ),
                       DropdownMenuItem(
                         value: 'unknown',
-                        child: Text('Unknown'),
+                        child: LocalizedText('Unknown'),
                       ),
                     ],
                     onChanged: (value) {
@@ -210,9 +246,9 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                   child: TextField(
                     controller: _platformCtrl,
                     onChanged: (_) => _filterChanged(),
-                    decoration: const InputDecoration(
-                      labelText: 'Platform (exact)',
-                      hintText: 'Windows, macOS, iOS…',
+                    decoration: InputDecoration(
+                      labelText: 'Platform (exact)'.localized,
+                      hintText: 'Windows, macOS, iOS…'.localized,
                     ),
                   ),
                 ),
@@ -225,8 +261,8 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                 _filterChanged();
               },
               contentPadding: EdgeInsets.zero,
-              title: const Text('Only devices flagged suspicious'),
-              subtitle: const Text(
+              title: const LocalizedText('Only devices flagged suspicious'),
+              subtitle: const LocalizedText(
                 'Conditions are combined with AND, matching Snaplink server semantics.',
               ),
             ),
@@ -249,8 +285,8 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                         ? Icons.verified_outlined
                         : Icons.warning_amber,
                   ),
-                  title: Text('Estimated matches: $_estimatedCount'),
-                  subtitle: Text(
+                  title: LocalizedText('Estimated matches: $_estimatedCount'),
+                  subtitle: LocalizedText(
                     _estimatedCount == 0
                         ? 'No devices currently match; revocation is disabled.'
                         : 'A typed confirmation is required before sending the request.',
@@ -264,7 +300,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
     actions: [
       TextButton(
         onPressed: _estimating ? null : () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
       OutlinedButton.icon(
         onPressed: _estimating ? null : _estimate,
@@ -275,7 +311,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.calculate_outlined),
-        label: const Text('Estimate matches'),
+        label: const LocalizedText('Estimate matches'),
       ),
       FilledButton.icon(
         onPressed: _estimateIsCurrent && (_estimatedCount ?? 0) > 0
@@ -283,7 +319,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
             : null,
         style: FilledButton.styleFrom(backgroundColor: Colors.red),
         icon: const Icon(Icons.phonelink_erase),
-        label: const Text('Continue'),
+        label: const LocalizedText('Continue'),
       ),
     ],
   );

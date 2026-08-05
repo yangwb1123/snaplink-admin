@@ -8,7 +8,18 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const LanguageToggle(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Expanded(child: LanguageToggle()),
+                if (!kIsWeb)
+                  IconButton(
+                    onPressed: _loading ? null : _openNativeSettings,
+                    tooltip: AppStrings.of(context).settings,
+                    icon: const Icon(Icons.settings_outlined),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             if (_brandName != null || _brandLogoUrl != null) ...[
               BrandingHeader(
@@ -108,7 +119,11 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
-          const Text('No sign-in methods are available for this application.'),
+          Text(
+            context.tr(
+              'No sign-in methods are available for this application.',
+            ),
+          ),
         ],
       );
     }
@@ -156,6 +171,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     selectedMfaMethod: _selectedMfaMethod,
     mfaMethodData: _mfaMethodData,
     mfaCodeCtrl: _mfaCodeCtrl,
+    allowTrustDevice: kIsWeb,
     trustThisDevice: _trustThisDevice,
     loading: _loading,
     error: _error,

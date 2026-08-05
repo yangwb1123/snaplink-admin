@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
@@ -54,9 +55,9 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       });
       if (!mounted) return;
       _identifierController.clear();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Account lockout cleared.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Account lockout cleared.')),
+      );
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -72,37 +73,42 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Account lockout recovery',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 10),
-          const Text(
+          const SizedBox(height: 12),
+          const LocalizedText(
             'Lockouts are scoped by OAuth client and the exact username, email, '
             'or phone value used at login—not by the internal user ID.',
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             key: const Key('lockout-client-id'),
             controller: _clientController,
-            decoration: const InputDecoration(labelText: 'Client ID'),
+            decoration: InputDecoration(labelText: 'Client ID'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             key: const Key('lockout-identifier'),
             controller: _identifierController,
-            decoration: const InputDecoration(labelText: 'Login identifier'),
+            decoration: InputDecoration(
+              labelText: 'Login identifier'.localized,
+            ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('clear-account-lockout'),
             onPressed: _mutating ? null : _clear,
             icon: const Icon(Icons.lock_open),
-            label: const Text('Clear account lockout'),
+            label: const LocalizedText('Clear account lockout'),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+            LocalizedText(
+              _error!,
+              style: const TextStyle(color: Colors.redAccent),
+            ),
           ],
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 export 'account_lockout_card.dart';
 
 /// Session list card displayed in user support view.
@@ -10,13 +11,13 @@ class SessionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _card(context, 'Active sessions', [
     if (sessions.isEmpty)
-      const Text('No active sessions.')
+      const LocalizedText('No active sessions.')
     else
       for (final session in sessions)
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(session['id']?.toString() ?? ''),
-          subtitle: Text(
+          subtitle: LocalizedText(
             '${session['ip'] ?? ''} ${session['user_agent'] ?? ''}'.trim(),
           ),
         ),
@@ -40,7 +41,7 @@ class ConsentsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _card(context, 'Application consents', [
-    if (consents.isEmpty) const Text('No grants found.'),
+    if (consents.isEmpty) const LocalizedText('No grants found.'),
     for (final consent in consents)
       ListTile(
         contentPadding: EdgeInsets.zero,
@@ -51,7 +52,7 @@ class ConsentsCard extends StatelessWidget {
               ? null
               : () => onRevoke(consent['client_id'].toString()),
           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-          child: const Text('Revoke'),
+          child: const LocalizedText('Revoke'),
         ),
       ),
   ]);
@@ -76,7 +77,7 @@ class MfaFactorsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _card(context, 'Second factors', [
-    if (factors.isEmpty) const Text('No registered factors.'),
+    if (factors.isEmpty) const LocalizedText('No registered factors.'),
     for (final factor in factors)
       ListTile(
         contentPadding: EdgeInsets.zero,
@@ -87,13 +88,13 @@ class MfaFactorsCard extends StatelessWidget {
         trailing: TextButton(
           onPressed: mutating ? null : () => onRemove(factor['id'].toString()),
           style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-          child: const Text('Remove'),
+          child: const LocalizedText('Remove'),
         ),
       ),
     if (canResetRecoveryCodes)
       OutlinedButton(
         onPressed: mutating ? null : onResetRecoveryCodes,
-        child: const Text('Reset recovery codes'),
+        child: const LocalizedText('Reset recovery codes'),
       ),
   ]);
 }
@@ -129,31 +130,36 @@ class _LifecycleCardState extends State<LifecycleCard> {
             .map((value) => value.toString())
             .toList();
     return _card(context, 'Account lifecycle', [
-      Text('Current state: ${widget.lifecycleData['state'] ?? 'active'}'),
-      const SizedBox(height: 10),
+      LocalizedText(
+        'Current state: ${widget.lifecycleData['state'] ?? 'active'}',
+      ),
+      const SizedBox(height: 12),
       DropdownButtonFormField<String>(
         initialValue: allowed.contains(widget.nextState)
             ? widget.nextState
             : null,
-        decoration: const InputDecoration(labelText: 'Transition to'),
+        decoration: InputDecoration(labelText: 'Transition to'.localized),
         items: allowed
-            .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+            .map(
+              (state) =>
+                  DropdownMenuItem(value: state, child: LocalizedText(state)),
+            )
             .toList(growable: false),
         onChanged: widget.mutating ? null : widget.onStateChanged,
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       TextField(
         controller: widget.reasonController,
-        decoration: const InputDecoration(
-          labelText: 'Reason / ticket reference',
+        decoration: InputDecoration(
+          labelText: 'Reason / ticket reference'.localized,
         ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 12),
       FilledButton(
         onPressed: widget.mutating || widget.nextState == null
             ? null
             : widget.onApply,
-        child: const Text('Apply transition'),
+        child: const LocalizedText('Apply transition'),
       ),
     ]);
   }
@@ -187,50 +193,53 @@ class CredentialRecoveryCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) =>
-      _card(context, 'Credential recovery and containment', [
-        if (passwordResetData != null)
-          _recoveryStatus('Active password-reset links', passwordResetData!),
-        if (emailChangeData != null)
-          _recoveryStatus('Active email-change links', emailChangeData!),
-        if (canSetPassword) ...[
-          TextField(
-            controller: passwordController,
-            obscureText: true,
-            autocorrect: false,
-            enableSuggestions: false,
-            decoration: const InputDecoration(labelText: 'New password'),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: mutating || passwordController.text.isEmpty
-                ? null
-                : onSetPassword,
-            child: const Text('Set password'),
-          ),
-        ],
-        if (canSetEmail) ...[
-          const SizedBox(height: 12),
-          TextField(
-            controller: emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Replacement email'),
-          ),
-          const SizedBox(height: 10),
-          FilledButton(
-            onPressed: mutating || emailController.text.trim().isEmpty
-                ? null
-                : onSetEmail,
-            child: const Text('Set email'),
-          ),
-        ],
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: dangerActions.map((a) => a.build(context)).toList(),
+  Widget build(BuildContext context) => _card(
+    context,
+    'Credential recovery and containment',
+    [
+      if (passwordResetData != null)
+        _recoveryStatus('Active password-reset links', passwordResetData!),
+      if (emailChangeData != null)
+        _recoveryStatus('Active email-change links', emailChangeData!),
+      if (canSetPassword) ...[
+        TextField(
+          controller: passwordController,
+          obscureText: true,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: InputDecoration(labelText: 'New password'.localized),
         ),
-      ]);
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: mutating || passwordController.text.isEmpty
+              ? null
+              : onSetPassword,
+          child: const LocalizedText('Set password'),
+        ),
+      ],
+      if (canSetEmail) ...[
+        const SizedBox(height: 12),
+        TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: InputDecoration(labelText: 'Replacement email'.localized),
+        ),
+        const SizedBox(height: 12),
+        FilledButton(
+          onPressed: mutating || emailController.text.trim().isEmpty
+              ? null
+              : onSetEmail,
+          child: const LocalizedText('Set email'),
+        ),
+      ],
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: dangerActions.map((a) => a.build(context)).toList(),
+      ),
+    ],
+  );
 
   Widget _recoveryStatus(String label, Map<String, dynamic> data) {
     final records = data['tokens'] ?? data['links'] ?? data['items'];
@@ -239,8 +248,8 @@ class CredentialRecoveryCard extends StatelessWidget {
         data['count'] ??
         (records is List ? records.length : 0);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Text('$label: $count'),
+      padding: const EdgeInsets.only(bottom: 12),
+      child: LocalizedText('$label: $count'),
     );
   }
 }
@@ -266,7 +275,7 @@ class DangerAction {
         foregroundColor: Colors.redAccent,
         side: const BorderSide(color: Colors.redAccent),
       ),
-      child: Text(label),
+      child: LocalizedText(label),
     );
   }
 }
@@ -279,8 +288,8 @@ Widget _card(BuildContext context, String title, List<Widget> children) => Card(
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 10),
+        LocalizedText(title, style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 12),
         ...children,
       ],
     ),

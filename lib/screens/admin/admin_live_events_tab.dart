@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'snaplink_admin_api.dart';
 import '../../widgets/admin_breadcrumb.dart';
@@ -169,7 +170,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Audit event $id'),
+          title: LocalizedText('Audit event $id'),
           content: SingleChildScrollView(
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(detail),
@@ -179,7 +180,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: const LocalizedText('Close'),
             ),
           ],
         ),
@@ -195,12 +196,12 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       padding: const EdgeInsets.all(16),
       children: [
         AdminBreadcrumb(),
-        Text(
+        LocalizedText(
           AppStrings.of(context).liveActivity,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),
-        Text(
+        LocalizedText(
           _advertised
               ? 'The replica advertises the event broker. The feed shows only Snaplink\'s redacted event summaries; select an item to request its full audit record.'
               : 'The documented event broker is not listed by this replica\'s inventory. You can connect when the route is mounted; otherwise use audit queries.',
@@ -215,9 +216,10 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
               child: TextField(
                 controller: _typesCtrl,
                 enabled: !_connecting && !_connected,
-                decoration: const InputDecoration(
-                  labelText: 'Event types',
-                  helperText: 'Comma-separated; empty includes all types.',
+                decoration: InputDecoration(
+                  labelText: 'Event types'.localized,
+                  helperText:
+                      'Comma-separated; empty includes all types.'.localized,
                 ),
               ),
             ),
@@ -226,8 +228,8 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
               child: TextField(
                 controller: _tenantCtrl,
                 enabled: !_connecting && !_connected,
-                decoration: const InputDecoration(
-                  labelText: 'Tenant ID (optional)',
+                decoration: InputDecoration(
+                  labelText: 'Tenant ID (optional)'.localized,
                 ),
               ),
             ),
@@ -240,18 +242,18 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
             FilledButton.icon(
               onPressed: _connecting || _connected ? null : _connect,
               icon: const Icon(Icons.play_arrow),
-              label: Text(_connecting ? 'Connecting…' : 'Connect'),
+              label: LocalizedText(_connecting ? 'Connecting…' : 'Connect'),
             ),
             OutlinedButton.icon(
               onPressed: _connected || _connecting ? _disconnect : null,
               icon: const Icon(Icons.stop),
-              label: const Text('Disconnect'),
+              label: const LocalizedText('Disconnect'),
             ),
             TextButton(
               onPressed: _events.isEmpty
                   ? null
                   : () => setState(() => _events.clear()),
-              child: const Text('Clear feed'),
+              child: const LocalizedText('Clear feed'),
             ),
           ],
         ),
@@ -263,7 +265,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
           ),
         ],
         const SizedBox(height: 16),
-        Text(
+        LocalizedText(
           _connected
               ? 'Connected · latest $_maximumEvents events are retained locally.'
               : 'Disconnected',
@@ -274,7 +276,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
           const Card(
             child: Padding(
               padding: EdgeInsets.all(16),
-              child: Text('No events received yet.'),
+              child: LocalizedText('No events received yet.'),
             ),
           )
         else

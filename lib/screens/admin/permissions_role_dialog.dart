@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class PermissionsRoleDraft {
   final String code;
@@ -87,7 +88,7 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_editing ? 'Edit role' : 'Create role'),
+    title: LocalizedText(_editing ? 'Edit role' : 'Create role'),
     content: SizedBox(
       width: 480,
       child: SingleChildScrollView(
@@ -99,24 +100,24 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
               TextFormField(
                 controller: _codeCtrl,
                 enabled: !_editing,
-                decoration: const InputDecoration(labelText: 'Role code'),
+                decoration: InputDecoration(labelText: 'Role code'.localized),
                 validator: (value) =>
                     value == null || value.trim().isEmpty ? 'Required' : null,
               ),
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: 'Name'.localized),
               ),
               TextFormField(
                 controller: _descriptionCtrl,
-                decoration: const InputDecoration(labelText: 'Description'),
+                decoration: InputDecoration(labelText: 'Description'.localized),
                 maxLines: 2,
               ),
               TextFormField(
                 controller: _permissionsCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Permissions',
-                  helperText: 'Comma or line separated',
+                decoration: InputDecoration(
+                  labelText: 'Permissions'.localized,
+                  helperText: 'Comma or line separated'.localized,
                 ),
                 minLines: 2,
                 maxLines: 5,
@@ -129,9 +130,9 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Continue')),
+      FilledButton(onPressed: _submit, child: const LocalizedText('Continue')),
     ],
   );
 }

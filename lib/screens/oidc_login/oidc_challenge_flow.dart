@@ -3,13 +3,46 @@ part of 'oidc_login_screen.dart';
 extension _OidcChallengeFlow on _OidcLoginScreenState {
   void _handleLoginError(LoginOutcome outcome) {
     if (outcome.isMfaRequired) {
+      // A grant presented for this client did not skip MFA. Treat it as stale
+      // so future sign-ins do not keep replaying a bearer-equivalent value the
+      // server has already declined.
+      TrustedDeviceToken.clear(_effectiveClientId);
+      final challengeId =
+          outcome.data['mfa_challenge_id']?.toString().trim() ?? '';
+      final rawMethods = outcome.data['mfa_methods'];
+      final methods = (rawMethods is List ? rawMethods : const <Object?>[])
+          .whereType<String>()
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
+      // The server owns the MFA state machine. Never render a challenge that
+      // cannot be addressed with a real one-time id and at least one
+      // server-declared factor; otherwise a malformed response would make the
+      // page issue a guaranteed-invalid /auth/mfa request.
+      if (challengeId.isEmpty || methods.isEmpty) {
+        _update(() {
+          _mfaChallengeId = '';
+          _mfaMethods = const [];
+          _mfaMethodData = const {};
+          _selectedMfaMethod = null;
+          _mfaCodeCtrl.clear();
+          _passCtrl.clear();
+          _providerCodeCtrl.clear();
+          _view = _View.login;
+          _error =
+              'Snaplink returned an incomplete verification challenge. '
+              'Sign in again to request a new challenge.';
+        });
+        return;
+      }
       _update(() {
-        _mfaChallengeId = outcome.data['mfa_challenge_id']?.toString() ?? '';
-        _mfaMethods = (outcome.data['mfa_methods'] as List? ?? [])
-            .map((item) => item.toString())
-            .toList();
+        _mfaChallengeId = challengeId;
+        _mfaMethods = methods;
         _mfaMethodData = _methodData(outcome.data['mfa_method_data']);
-        _selectedMfaMethod = _mfaMethods.length == 1 ? _mfaMethods.first : null;
+        _selectedMfaMethod = methods.length == 1 ? methods.first : null;
+        _passCtrl.clear();
+        _providerCodeCtrl.clear();
         _view = _View.mfa;
         _error = null;
       });
@@ -18,14 +51,23 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
     if (outcome.isConsentRequired) {
       final challengeId =
           outcome.data['consent_challenge_id']?.toString().trim() ?? '';
+      final transactionId =
+          outcome.data['login_transaction_id']?.toString().trim() ?? '';
       final parsedSummary = ConsentRequestSummary.fromResponse(outcome.data);
       _update(() {
         _consentChallengeId = challengeId;
+        _loginTransactionId = transactionId;
+        _passCtrl.clear();
+        _providerCodeCtrl.clear();
         _consentClientName =
             outcome.data['client_name']?.toString().trim() ?? '';
         _consentSummary = challengeId.isEmpty
             ? const ConsentRequestSummary.invalid(
                 'The server did not provide a consent challenge.',
+              )
+            : transactionId.isEmpty
+            ? const ConsentRequestSummary.invalid(
+                'The server did not provide a secure authorization transaction.',
               )
             : parsedSummary;
         _view = _View.consent;
@@ -147,7 +189,6 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       _selectedMfaMethod = null;
       _mfaCodeCtrl.clear();
       _trustThisDevice = false;
-      _pendingLoginPayload = null;
       _passCtrl.clear();
       _view = _View.login;
       _error = message;
@@ -155,23 +196,16 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
   }
 
   Future<void> _submitConsent(bool allow) async {
-    if (!allow) {
-      _clearConsentState();
-      if (_isRpFlow && !_usesJarm) {
-        _redirectAuthorizationResponse({
-          'error': 'access_denied',
-          if (_params.state.isNotEmpty) 'state': _params.state,
-        }, tokenResponse: false);
-      } else {
-        _update(() {
-          _view = _View.login;
-          _error = null;
-        });
-      }
+    if (!allow && _loginTransactionId.isEmpty) {
+      _update(
+        () => _error =
+            'Snaplink did not provide a secure authorization transaction. '
+            'The request was not approved or denied.',
+      );
       return;
     }
-    if (!_consentSummary.canAuthorize ||
-        _pendingLoginPayload == null ||
+    if ((allow && !_consentSummary.canAuthorize) ||
+        _loginTransactionId.isEmpty ||
         _consentChallengeId.isEmpty) {
       _update(
         () => _error =
@@ -180,24 +214,47 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       return;
     }
 
+    final transactionId = _loginTransactionId;
+    final challengeId = _consentChallengeId;
     _update(() {
       _loading = true;
       _error = null;
+      // The server transaction is one-shot. Move it out of page state before
+      // the mutation so an ambiguous timeout or lost response can never make
+      // the same consent decision available for replay.
+      _loginTransactionId = '';
+      _consentChallengeId = '';
+      _consentSummary = const ConsentRequestSummary.invalid(
+        'The authorization decision was submitted. Restart authorization if '
+        'no result is received.',
+      );
     });
     try {
+      final payload = <String, dynamic>{
+        'client_id': _effectiveClientId,
+        'login_transaction_id': transactionId,
+      };
       final outcome = await _api.login({
-        ..._pendingLoginPayload!,
-        'consent_challenge_id': _consentChallengeId,
+        ...payload,
+        'consent_challenge_id': challengeId,
+        'consent_decision': allow ? 'allow' : 'deny',
       });
       if (!mounted) return;
       if (outcome.ok) {
         _handleSuccess(outcome);
+      } else if (!allow && outcome.error == 'access_denied') {
+        _clearConsentState();
+        _redirectAuthorizationError(outcome);
       } else {
         _handleLoginError(outcome);
       }
     } catch (_) {
       if (mounted) {
-        _update(() => _error = AppStrings.of(context).networkError);
+        _update(
+          () => _error =
+              'The authorization result is unknown. Restart authorization; '
+              'this decision was not replayed.',
+        );
       }
     } finally {
       if (mounted) _update(() => _loading = false);
@@ -205,7 +262,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
   }
 
   void _clearConsentState() {
-    _pendingLoginPayload = null;
+    _loginTransactionId = '';
     _consentChallengeId = '';
     _consentClientName = '';
     _consentSummary = const ConsentRequestSummary.invalid();

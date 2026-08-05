@@ -21,3 +21,6 @@ void downloadBytes(
   anchor.remove();
   web.URL.revokeObjectURL(url);
 }
+
+/// Test-only hook; a real browser triggers a download immediately.
+void resetForTest() {}

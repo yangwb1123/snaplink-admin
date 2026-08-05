@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -42,7 +43,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (mounted) _handleRoute();
     });
     _load();
-    if (AdminRoute.fromUri(Uri.base).subresource == 'deadletters') {
+    if (AdminRoute.current().subresource == 'deadletters') {
       _showDeadLetters = true;
     }
   }
@@ -106,7 +107,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('Webhook: ${widget.subId}'),
+      title: LocalizedText('Webhook: ${widget.subId}'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('webhooks'),
@@ -114,7 +115,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       actions: [
         IconButton(
           icon: const Icon(Icons.delete_outline),
-          tooltip: 'Delete subscription',
+          tooltip: 'Delete subscription'.localized,
           onPressed: _mutating ? null : () => _delete(context),
         ),
       ],
@@ -132,7 +133,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                   color: Colors.redAccent,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                LocalizedText(
                   'Failed to load',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -151,7 +152,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                 OutlinedButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
@@ -204,29 +205,29 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.post(
+      final response = await widget.api.post(
         '/api/v1/admin/webhooks/deadletters/${Uri.encodeComponent(dlId)}/replay',
         {},
       );
       if (!mounted) return;
       await _load();
       if (!mounted) return;
-      final stillQueued = _deadLetters.whereType<Map>().any(
-        (item) => item['id']?.toString() == dlId,
-      );
+      final cleanupComplete = response['cleanup_status'] == 'complete';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            stillQueued
-                ? 'Delivery was sent, but queue cleanup was not confirmed. '
-                      'Do not replay it again yet.'
-                : 'Delivery sent and removed from the refreshed queue.',
+          content: LocalizedText(
+            cleanupComplete
+                ? 'Delivery sent and dead-letter cleanup completed.'
+                : 'Delivery succeeded; cleanup remains pending. Retrying this '
+                      'entry is cleanup-only and cannot redeliver it.',
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: LocalizedText('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -251,18 +252,31 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     );
     if (!confirmed) return;
     setState(() => _mutating = true);
-    var succeeded = 0;
-    var failed = 0;
-    for (final id in ids) {
+    // Parallel replay: independent per-id operations (N+1 fix — the
+    // sequential await-per-id loop is replaced with Future.wait).
+    final results = await Future.wait(ids.map((id) async {
       try {
-        await widget.api.post(
-          '/api/v1/admin/webhooks/deadletters/${Uri.encodeComponent(id)}/replay',
+        final response = await widget.api.post(
+          '/api/v1/admin/webhooks/deadletters/'
+              '${Uri.encodeComponent(id)}/replay',
           {},
         );
-        succeeded++;
+        return (
+          delivered: 1,
+          cleanupPending: response['cleanup_status'] != 'complete' ? 1 : 0,
+          failed: 0,
+        );
       } catch (_) {
-        failed++;
+        return (delivered: 0, cleanupPending: 0, failed: 1);
       }
+    }));
+    var delivered = 0;
+    var cleanupPending = 0;
+    var failed = 0;
+    for (final r in results) {
+      delivered += r.delivered;
+      cleanupPending += r.cleanupPending;
+      failed += r.failed;
     }
     try {
       if (!mounted) return;
@@ -276,22 +290,22 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            remainingQueued > 0
-                ? '$succeeded sends returned success, but $remainingQueued '
-                      'dead letters are still queued. Do not replay them again '
-                      'until cleanup is verified.'
+            cleanupPending > 0
+                ? '$delivered deliveries succeeded; cleanup is pending for '
+                      '$cleanupPending. Retrying those entries is cleanup-only '
+                      'and cannot redeliver them.'
                 : failed == 0
-                ? 'All $succeeded deliveries were sent and removed from the queue.'
-                : '$succeeded deliveries were sent; $failed failed.',
+                ? 'All $delivered deliveries were sent and cleaned up.'
+                : '$delivered deliveries were sent; $failed failed.',
           ),
         ),
       );
-      if (failed > 0 || remainingQueued > 0) {
+      if (failed > 0 || cleanupPending > 0 || remainingQueued > 0) {
         setState(
           () => _error =
-              'Replay requires reconciliation: $succeeded sends returned '
-              'success, $failed failed, and $remainingQueued selected dead '
-              'letters remain queued.',
+              'Replay result: $delivered delivered, $failed failed, '
+              '$cleanupPending awaiting cleanup, and $remainingQueued '
+              'selected dead letters remain visible.',
         );
       }
     } finally {
@@ -317,19 +331,21 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Deleted')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Deleted')));
       AdminRoute.go('webhooks');
     } catch (e) {
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: LocalizedText('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'webhooks') return;
   }
 }

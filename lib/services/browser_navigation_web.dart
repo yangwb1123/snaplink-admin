@@ -4,6 +4,8 @@ import 'package:web/web.dart' as web;
 
 const _locationChangeEvent = 'snaplink-location-change';
 
+Uri currentUri() => Uri.base;
+
 void pushState(String path) {
   web.window.history.pushState(null, '', path);
   _dispatchLocationChange();
@@ -16,6 +18,16 @@ void replaceState(String path) {
 
 void assignLocation(String path) {
   web.window.location.href = path;
+}
+
+bool assignExternalLocation(Uri target) {
+  if (target.scheme != 'https' ||
+      target.host.isEmpty ||
+      target.userInfo.isNotEmpty) {
+    return false;
+  }
+  web.window.location.href = target.toString();
+  return true;
 }
 
 void replaceLocation(String path) {
@@ -42,3 +54,6 @@ void Function() listenToLocationChange(void Function() listener) {
 void _dispatchLocationChange() {
   web.window.dispatchEvent(web.Event(_locationChangeEvent));
 }
+
+/// Test-only hook; a real browser always reflects the current document URL.
+void resetForTest() {}

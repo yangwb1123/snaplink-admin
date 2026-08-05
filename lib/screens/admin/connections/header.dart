@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
 class ConnectionWorkspaceHeader extends StatelessWidget {
@@ -20,17 +21,20 @@ class ConnectionWorkspaceHeader extends StatelessWidget {
       Row(
         children: [
           AdminBreadcrumb(),
-          Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          LocalizedText(
+            title,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
           const Spacer(),
           IconButton(
             onPressed: refreshEnabled ? onRefresh : null,
-            tooltip: 'Refresh connection list',
+            tooltip: 'Refresh connection list'.localized,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
       const SizedBox(height: 4),
-      const Text(
+      const LocalizedText(
         'Configure a tenant\'s OIDC or SAML upstream and verify its email-domain routing.',
       ),
     ],

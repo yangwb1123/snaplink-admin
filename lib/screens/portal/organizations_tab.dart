@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'organization_admin_tab.dart';
 import 'portal_api.dart';
@@ -73,19 +74,22 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Leave organization?'),
+        title: Text(context.tr('Leave organization?')),
         content: Text(
-          'You will lose access to $tenantId and its organization resources until an administrator invites you again.',
+          context.tr(
+            'You will lose access to {tenantId} and its organization resources until an administrator invites you again.',
+            {'tenantId': tenantId},
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Leave'),
+            child: Text(context.tr('Leave')),
           ),
         ],
       ),
@@ -187,7 +191,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
           child: Row(
             children: [
               Text(
-                'Organizations',
+                context.strings.organizations,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Spacer(),
@@ -215,17 +219,17 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                     if (_available) ...[
                       const SizedBox(height: 20),
                       Text(
-                        'Accept an invitation',
+                        context.tr('Accept an invitation'),
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       TextField(
                         controller: _inviteCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'Invitation token',
+                        decoration: InputDecoration(
+                          labelText: context.tr('Invitation token'),
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Align(
                         alignment: Alignment.centerLeft,
                         child: FilledButton(
@@ -238,7 +242,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Text('Join organization'),
+                              : Text(context.tr('Join organization')),
                         ),
                       ),
                       MessageBanner(_msg, ok: _ok),
@@ -256,14 +260,14 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     final canManage = role == 'admin' && tenantId.isNotEmpty;
     return ListTile(
       title: Text(tenantId),
-      subtitle: Text(role),
+      subtitle: Text(context.tr(role)),
       trailing: Wrap(
         spacing: 4,
         children: [
           if (canManage)
             TextButton(
               onPressed: () => setState(() => _managedTenantId = tenantId),
-              child: const Text('Manage'),
+              child: Text(context.tr('Manage')),
             ),
           TextButton(
             onPressed: tenantId.isEmpty || _leavingTenantId != null
@@ -276,7 +280,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Leave'),
+                : Text(context.tr('Leave')),
           ),
         ],
       ),

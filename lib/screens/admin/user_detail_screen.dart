@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -64,7 +65,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   void _initTabFromRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.resourceId != widget.userId) return;
     for (var i = 0; i < _tabs.length; i++) {
       if (_tabs[i].$1 == route.subresource) {
@@ -127,7 +128,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('User: ${widget.userId}'),
+        title: LocalizedText('User: ${widget.userId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => AdminRoute.go('users'),
@@ -146,7 +147,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                     color: Colors.redAccent,
                   ),
                   const SizedBox(height: 16),
-                  Text(
+                  LocalizedText(
                     'Failed to load user',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -165,7 +166,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                   OutlinedButton.icon(
                     onPressed: _load,
                     icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    label: const LocalizedText('Retry'),
                   ),
                 ],
               ),
@@ -230,7 +231,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       case 4:
         return UserDeviceSecurityPanel(api: widget.api, userId: widget.userId);
       default:
-        return const Center(child: Text('Select a tab'));
+        return const Center(child: LocalizedText('Select a tab'));
     }
   }
 
@@ -245,7 +246,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           children: [
             const Icon(Icons.info_outline, size: 40),
             const SizedBox(height: 12),
-            Text('This user resource is unavailable.'),
+            LocalizedText('This user resource is unavailable.'),
             const SizedBox(height: 8),
             Text(
               error,
@@ -258,7 +259,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             OutlinedButton.icon(
               onPressed: _load,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: const LocalizedText('Retry'),
             ),
           ],
         ),
@@ -283,13 +284,13 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Consent revoked')));
+      ).showSnackBar(const SnackBar(content: LocalizedText('Consent revoked')));
       _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -311,15 +312,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa/${Uri.encodeComponent(factorId)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('MFA factor removed')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('MFA factor removed')),
+      );
       _load();
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $error')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: $error')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:sso_admin/services/local_storage.dart';
 
 /// Persists and restores list page state (filter, pagination, sort).
@@ -18,7 +19,7 @@ class ListStateManager {
     try {
       final json = jsonEncode(state);
       LocalStorage.setItem('$_prefix$listKey', json);
-    } catch (_) {}
+    } catch (e) { debugPrint('list_state_manager error: $e'); }
   }
 
   /// Restore the saved state for a list view.

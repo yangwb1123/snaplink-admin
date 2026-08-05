@@ -1,4 +1,4 @@
-import 'dart:convert';
+export 'consent_models.dart';
 
 /// A provider descriptor returned by Snaplink's provider-discovery response.
 ///
@@ -141,116 +141,107 @@ Uri? resolveSafeHostedUrl(String? raw, Uri pageUri) {
 /// OAuth request parameters are forwarded to the custom page, while query
 /// parameters configured on the target take precedence. Returning null avoids
 /// unsafe targets and redirects back to the current page.
+bool isSafeHostedReturnTarget(String raw, Uri currentUri) {
+  if (raw.isEmpty || raw.contains('\\')) return false;
+  final target = Uri.tryParse(raw);
+  if (target == null || target.fragment.isNotEmpty) return false;
+  if (!currentUri.hasAuthority) {
+    return !target.hasScheme &&
+        !target.hasAuthority &&
+        target.path.startsWith('/');
+  }
+  final resolved = currentUri.resolve(raw);
+  return resolved.hasAuthority &&
+      resolved.userInfo.isEmpty &&
+      (resolved.scheme == 'http' || resolved.scheme == 'https') &&
+      resolved.origin == currentUri.origin;
+}
+
 Uri? buildLoginPageRedirect(String? raw, Uri currentUri) {
   final target = resolveSafeHostedUrl(raw, currentUri);
   if (target == null) return null;
 
+  // These fields are action verifiers, identity hints used by one-time flows,
+  // or bearer-equivalent MFA-skip credentials. They are not OAuth request
+  // parameters and must not cross into a separately hosted login page, even
+  // when a stale link or target configuration happens to contain them.
+  const privateParameters = {
+    // Account/action and MFA credentials.
+    'device_token',
+    'token',
+    'email',
+    'password',
+    'credential',
+    'code_verifier',
+    'assertion',
+    'verification_code',
+    'mfa_challenge_id',
+    'mfa_method',
+    // Server-owned, one-use authorization continuations.
+    'login_transaction_id',
+    'consent_challenge_id',
+    'consent_decision',
+    // Authorization responses must never be copied into a login-page URL.
+    'code',
+    'access_token',
+    'refresh_token',
+    'id_token',
+    'error',
+    'error_description',
+  };
   final query = <String, dynamic>{
     for (final entry in currentUri.queryParametersAll.entries)
-      entry.key: entry.value.length == 1 ? entry.value.first : entry.value,
+      if (!privateParameters.contains(entry.key) &&
+          (entry.key != 'redirect' ||
+              (entry.value.length == 1 &&
+                  isSafeHostedReturnTarget(entry.value.single, currentUri))))
+        entry.key: entry.value.length == 1 ? entry.value.first : entry.value,
     for (final entry in target.queryParametersAll.entries)
-      entry.key: entry.value.length == 1 ? entry.value.first : entry.value,
+      if (!privateParameters.contains(entry.key))
+        entry.key: entry.value.length == 1 ? entry.value.first : entry.value,
   };
   final redirect = target.replace(queryParameters: query, fragment: '');
   final current = currentUri.replace(fragment: '');
   return redirect == current ? null : redirect;
 }
 
-class ConsentScopeDescriptor {
-  final String scope;
-  final String description;
-
-  const ConsentScopeDescriptor({required this.scope, this.description = ''});
-}
-
-/// A fail-closed rendering model for a `consent_required` response.
-class ConsentRequestSummary {
-  final List<ConsentScopeDescriptor> scopes;
-  final List<Map<String, dynamic>> authorizationDetails;
-  final String? parseError;
-
-  const ConsentRequestSummary({
-    required this.scopes,
-    required this.authorizationDetails,
-    this.parseError,
-  });
-
-  const ConsentRequestSummary.invalid([this.parseError = consentSummaryError])
-    : scopes = const [],
-      authorizationDetails = const [];
-
-  static const consentSummaryError =
-      'The authorization request could not be summarized safely.';
-
-  factory ConsentRequestSummary.fromResponse(Map<String, dynamic> response) {
-    final parsedScopes = <ConsentScopeDescriptor>[];
-    final rawScopes = response['scopes'];
-    if (rawScopes is! List) {
-      return const ConsentRequestSummary.invalid();
-    }
-    for (final rawScope in rawScopes) {
-      if (rawScope is String) {
-        final scope = rawScope.trim();
-        if (scope.isEmpty) {
-          return const ConsentRequestSummary.invalid();
-        }
-        parsedScopes.add(ConsentScopeDescriptor(scope: scope));
-        continue;
-      }
-      if (rawScope is! Map) {
-        return const ConsentRequestSummary.invalid();
-      }
-      final scope = rawScope['scope']?.toString().trim() ?? '';
-      if (scope.isEmpty) {
-        return const ConsentRequestSummary.invalid();
-      }
-      parsedScopes.add(
-        ConsentScopeDescriptor(
-          scope: scope,
-          description: rawScope['description']?.toString().trim() ?? '',
-        ),
-      );
-    }
-
-    final parsedDetails = <Map<String, dynamic>>[];
-    if (response.containsKey('authorization_details')) {
-      Object? rawDetails = response['authorization_details'];
-      if (rawDetails is String) {
-        try {
-          rawDetails = jsonDecode(rawDetails);
-        } on FormatException {
-          return const ConsentRequestSummary.invalid();
-        }
-      }
-      if (rawDetails is! List || rawDetails.isEmpty) {
-        return const ConsentRequestSummary.invalid();
-      }
-      for (final rawDetail in rawDetails) {
-        if (rawDetail is! Map || rawDetail.isEmpty) {
-          return const ConsentRequestSummary.invalid();
-        }
-        parsedDetails.add({
-          for (final entry in rawDetail.entries)
-            entry.key.toString(): entry.value,
-        });
-      }
-    }
-
-    final summary = ConsentRequestSummary(
-      scopes: List.unmodifiable(parsedScopes),
-      authorizationDetails: List.unmodifiable(parsedDetails),
-    );
-    if (!summary.hasTerms) {
-      return const ConsentRequestSummary.invalid(
-        'The authorization request contains no permissions to review.',
-      );
-    }
-    return summary;
-  }
-
-  bool get hasTerms => scopes.isNotEmpty || authorizationDetails.isNotEmpty;
-
-  bool get canAuthorize => parseError == null && hasTerms;
+/// Returns true when a first-party login URL carries sensitive material inside
+/// its validated `redirect` target. Action tokens are kept nested so they can
+/// return to the same-origin Portal after authentication, but they must not be
+/// copied into a separately hosted login page's query string.
+bool hostedLoginRedirectContainsSensitiveData(Uri currentUri) {
+  final redirectValues =
+      currentUri.queryParametersAll['redirect'] ?? const <String>[];
+  // A repeated continuation is ambiguous. Do not let queryParameters pick a
+  // winner and then send the request to a separately hosted login page.
+  if (redirectValues.length != 1) return redirectValues.isNotEmpty;
+  final raw = redirectValues.single;
+  if (raw.trim().isEmpty) return false;
+  final target = Uri.tryParse(raw);
+  if (target == null) return false;
+  const privateParameters = {
+    'access_token',
+    'assertion',
+    'code',
+    'code_verifier',
+    'consent_challenge_id',
+    'consent_decision',
+    'credential',
+    'device_token',
+    'email',
+    'error',
+    'error_description',
+    'id_token',
+    'login_transaction_id',
+    'mfa_challenge_id',
+    'mfa_method',
+    'password',
+    'refresh_token',
+    'state',
+    'token',
+    'verification_code',
+  };
+  return target.queryParametersAll.keys.any(privateParameters.contains);
 }
 
 enum HostedLoginFlow {
@@ -260,6 +251,8 @@ enum HostedLoginFlow {
   signup,
   verifyEmail,
   magicLink,
+  changeEmail,
+  invitation,
 }
 
 /// Routes opaque email tokens only when the URL explicitly identifies their
@@ -270,29 +263,41 @@ class HostedLoginRoute {
   final bool hasExplicitFlow;
   final String? token;
   final String? magicLinkEmail;
+  final bool malformed;
 
   const HostedLoginRoute({
     required this.flow,
     required this.hasExplicitFlow,
     required this.token,
     required this.magicLinkEmail,
+    this.malformed = false,
   });
 
   factory HostedLoginRoute.fromUri(Uri uri) {
-    final rawFlow = uri.queryParameters['flow']?.trim() ?? '';
+    final flowValues = uri.queryParametersAll['flow'] ?? const <String>[];
+    final tokenValues = uri.queryParametersAll['token'] ?? const <String>[];
+    final emailValues = uri.queryParametersAll['email'] ?? const <String>[];
+    final rawFlow = flowValues.length == 1 ? flowValues.single.trim() : '';
     final fragmentEmail = uri.fragment.isEmpty
         ? null
         : Uri(query: uri.fragment).queryParameters['email']?.trim();
     final flow = _parseFlow(rawFlow);
-    final explicitMagicEmail = flow == HostedLoginFlow.magicLink
-        ? uri.queryParameters['email']?.trim()
+    final explicitMagicEmail =
+        flow == HostedLoginFlow.magicLink && emailValues.length == 1
+        ? emailValues.single.trim()
         : null;
     return HostedLoginRoute(
       flow: flow,
       hasExplicitFlow: rawFlow.isNotEmpty,
-      token: _nonEmptyOrNull(uri.queryParameters['token']),
+      token: tokenValues.length == 1
+          ? _nonEmptyOrNull(tokenValues.single)
+          : null,
       magicLinkEmail:
           _nonEmptyOrNull(explicitMagicEmail) ?? _nonEmptyOrNull(fragmentEmail),
+      malformed:
+          flowValues.length > 1 ||
+          tokenValues.length > 1 ||
+          emailValues.length > 1,
     );
   }
 
@@ -302,14 +307,42 @@ class HostedLoginRoute {
   String? get verificationToken =>
       flow == HostedLoginFlow.verifyEmail ? token : null;
 
+  String? get portalActionTarget {
+    final action = switch (flow) {
+      HostedLoginFlow.changeEmail => 'change_email',
+      HostedLoginFlow.invitation => 'invitation',
+      _ => null,
+    };
+    if (action == null || token == null) return null;
+    return Uri(
+      path: '/portal/',
+      queryParameters: {'flow': action, 'token': token},
+    ).toString();
+  }
+
+  bool get requiresAuthentication =>
+      !malformed &&
+      (flow == HostedLoginFlow.login ||
+          flow == HostedLoginFlow.magicLink ||
+          flow == HostedLoginFlow.changeEmail ||
+          flow == HostedLoginFlow.invitation);
+
+  /// A separately hosted login page may receive ordinary OAuth parameters,
+  /// but it must not receive (or be expected to reconstruct) one-time account
+  /// action material.  Keep magic-link, email-change, and invitation flows on
+  /// this built-in page so the action token remains in the same-origin flow and
+  /// can be handed to the authenticated Portal exactly once.
+  bool get allowsCustomLoginPage => !malformed && flow == HostedLoginFlow.login;
+
   String? get magicLinkToken {
+    if (malformed) return null;
     if (flow == HostedLoginFlow.magicLink) return token;
     if (!hasExplicitFlow && magicLinkEmail != null) return token;
     return null;
   }
 
   bool get shouldAutoSubmitMagicLink =>
-      magicLinkToken != null && magicLinkEmail != null;
+      !malformed && magicLinkToken != null && magicLinkEmail != null;
 
   static HostedLoginFlow _parseFlow(String raw) {
     switch (raw.toLowerCase()) {
@@ -328,6 +361,12 @@ class HostedLoginRoute {
       case 'magiclink':
       case 'magic_link':
         return HostedLoginFlow.magicLink;
+      case 'change_email':
+      case 'email_change':
+        return HostedLoginFlow.changeEmail;
+      case 'invitation':
+      case 'invite':
+        return HostedLoginFlow.invitation;
       default:
         return HostedLoginFlow.login;
     }

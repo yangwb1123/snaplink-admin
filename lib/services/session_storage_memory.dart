@@ -1,5 +1,7 @@
-String? getItem(String key) => null;
+final _values = <String, String>{};
 
-void setItem(String key, String value) {}
+String? getItem(String key) => _values[key];
 
-void removeItem(String key) {}
+void setItem(String key, String value) => _values[key] = value;
+
+void removeItem(String key) => _values.remove(key);

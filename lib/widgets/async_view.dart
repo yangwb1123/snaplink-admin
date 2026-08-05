@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'empty_state.dart';
 
 /// Unified three-state widget for async data loading.
@@ -71,12 +72,12 @@ class AsyncView<T> extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Failed to load',
+                context.tr('Failed to load'),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
               Text(
-                error!,
+                context.tr(error!),
                 textAlign: TextAlign.center,
                 style: Theme.of(
                   context,
@@ -87,7 +88,7 @@ class AsyncView<T> extends StatelessWidget {
                 OutlinedButton.icon(
                   onPressed: onRetry,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: Text(context.strings.retry),
                 ),
               ],
             ],
@@ -100,9 +101,11 @@ class AsyncView<T> extends StatelessWidget {
     if (dataValue == null || _isEmpty(dataValue)) {
       return EmptyState(
         icon: Icons.inbox_outlined,
-        title: emptyTitle ?? 'No data',
-        subtitle: emptySubtitle,
-        actionLabel: emptyActionLabel,
+        title: context.tr(emptyTitle ?? 'No data'),
+        subtitle: emptySubtitle == null ? null : context.tr(emptySubtitle!),
+        actionLabel: emptyActionLabel == null
+            ? null
+            : context.tr(emptyActionLabel!),
         onAction: onEmptyAction,
       );
     }

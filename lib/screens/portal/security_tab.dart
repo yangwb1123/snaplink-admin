@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'passkey_enrollment_card.dart';
 import 'security_account_credentials.dart';
 import 'security_mfa_card.dart';
@@ -92,19 +94,21 @@ class _SecurityTabState extends State<SecurityTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove second factor?'),
-        content: const Text(
-          'You may lose access if this is your only sign-in backup. You can add another factor afterward.',
+        title: Text(context.tr('Remove second factor?')),
+        content: Text(
+          context.tr(
+            'You may lose access if this is your only sign-in backup. You can add another factor afterward.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(context.tr('Remove')),
           ),
         ],
       ),
@@ -235,7 +239,10 @@ class _SecurityTabState extends State<SecurityTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Security', style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          context.strings.security,
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         const SizedBox(height: 12),
         SecurityMfaCard(
           mfaLoading: _mfaLoading,

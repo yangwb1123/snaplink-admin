@@ -37,3 +37,17 @@ Map<String, dynamic> normalizeTopTenantsPayload(Map<String, dynamic> payload) {
         .toList(growable: false),
   };
 }
+
+String formatUsageMetricSummary(Map<dynamic, dynamic> tenant) {
+  const fields = [
+    ('logins', 'logins'),
+    ('tokens_issued', 'tokens'),
+    ('active_users', 'active users'),
+    ('active_clients', 'active clients'),
+    ('mfa_challenges', 'MFA challenges'),
+  ];
+  return fields
+      .where((field) => tenant[field.$1] != null)
+      .map((field) => '${tenant[field.$1]} ${field.$2}')
+      .join(' · ');
+}

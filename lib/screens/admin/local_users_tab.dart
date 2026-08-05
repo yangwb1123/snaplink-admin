@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
@@ -96,7 +97,7 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LocalizedText(
             existing == null ? 'Local user created.' : 'Local user updated.',
           ),
         ),
@@ -127,9 +128,9 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
     try {
       await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Local user deleted.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: LocalizedText('Local user deleted.')),
+      );
       final nextPage = _users.length == 1 && _page > 1 ? _page - 1 : _page;
       await _load(page: nextPage);
     } on SnaplinkAdminApiError catch (error) {
@@ -143,7 +144,9 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
   Widget build(BuildContext context) {
     if (!_available) {
       return const Center(
-        child: Text('Local password users are not enabled on this replica.'),
+        child: LocalizedText(
+          'Local password users are not enabled on this replica.',
+        ),
       );
     }
     return ListView(
@@ -152,26 +155,26 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
         const AdminBreadcrumb(),
         Row(
           children: [
-            Text(
+            LocalizedText(
               'Local users',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const Spacer(),
             IconButton(
               onPressed: _loading || _mutating ? null : _load,
-              tooltip: 'Refresh',
+              tooltip: 'Refresh'.localized,
               icon: const Icon(Icons.refresh),
             ),
             const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _mutating ? null : _openForm,
               icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Create local user'),
+              label: const LocalizedText('Create local user'),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        const Text(
+        const LocalizedText(
           'Password-authenticated accounts managed by this SSO server.',
         ),
         const SizedBox(height: 12),
@@ -196,7 +199,7 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
                           ? user['display_name'].toString()
                           : user['username']?.toString() ?? '',
                     ),
-                    subtitle: Text(
+                    subtitle: LocalizedText(
                       '${user['username'] ?? ''}\n${user['email'] ?? ''}',
                     ),
                     isThreeLine: true,
@@ -207,8 +210,14 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
                         if (action == 'delete') _delete(user);
                       },
                       itemBuilder: (_) => const [
-                        PopupMenuItem(value: 'edit', child: Text('Edit')),
-                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                        PopupMenuItem(
+                          value: 'edit',
+                          child: LocalizedText('Edit'),
+                        ),
+                        PopupMenuItem(
+                          value: 'delete',
+                          child: LocalizedText('Delete'),
+                        ),
                       ],
                     ),
                   ),
@@ -220,7 +229,7 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Text('Page $_page · $_total users'),
+              LocalizedText('Page $_page · $_total users'),
               IconButton(
                 onPressed: _page > 1 && !_loading
                     ? () => _load(page: _page - 1)
@@ -326,7 +335,7 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(_editing ? 'Edit local user' : 'Create local user'),
+    title: LocalizedText(_editing ? 'Edit local user' : 'Create local user'),
     content: Form(
       key: _formKey,
       child: SingleChildScrollView(
@@ -336,28 +345,28 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
             TextFormField(
               controller: _usernameCtrl,
               enabled: !_editing,
-              decoration: const InputDecoration(labelText: 'Username'),
+              decoration: InputDecoration(labelText: 'Username'.localized),
               validator: validateSnaplinkLocalUsername,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email'),
+              decoration: InputDecoration(labelText: 'Email'.localized),
               keyboardType: TextInputType.emailAddress,
               validator: validateSnaplinkLocalEmail,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(labelText: 'Display name'),
+              decoration: InputDecoration(labelText: 'Display name'.localized),
             ),
             if (!_editing) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextFormField(
                 controller: _passwordCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Initial password',
+                decoration: InputDecoration(
+                  labelText: 'Initial password'.localized,
                 ),
                 validator: validateSnaplinkInitialPassword,
               ),
@@ -369,9 +378,9 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
+        child: const LocalizedText('Cancel'),
       ),
-      FilledButton(onPressed: _submit, child: const Text('Save')),
+      FilledButton(onPressed: _submit, child: const LocalizedText('Save')),
     ],
   );
 }

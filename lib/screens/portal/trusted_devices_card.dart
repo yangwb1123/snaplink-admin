@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -21,7 +22,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   bool _busy = false;
   List<Map<String, dynamic>> _devices = const [];
   String? _message;
-  bool _routeConflict = false;
+  bool _invalidPayload = false;
 
   @override
   void initState() {
@@ -32,7 +33,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final response = await widget.api.get(PortalSecurityPaths.devices);
+      final response = await widget.api.get(PortalSecurityPaths.trustedDevices);
       if (!mounted) return;
       if (response.statusCode == 200) {
         final devices = portalObjectList(PortalApi.decode(response), 'devices');
@@ -41,17 +42,14 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
             kind == PortalDeviceCollectionKind.ambiguous) {
           setState(() {
             _devices = const [];
-            _routeConflict = true;
+            _invalidPayload = true;
             _message =
-                'Physical-device tracking owns /me/devices in this '
-                'deployment. Snaplink currently overlaps that route with '
-                'MFA trusted-browser grants, so grant revocation is disabled '
-                'here to prevent deleting a physical device by mistake.';
+                'The trusted-device endpoint returned an invalid physical-device payload. Grant revocation is disabled.';
           });
         } else {
           setState(() {
             _devices = devices;
-            _routeConflict = false;
+            _invalidPayload = false;
             _message = null;
           });
         }
@@ -113,10 +111,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   }
 
   Future<void> _revoke(Map<String, dynamic> device) async {
-    // This route is shared with destructive physical-device deletion in the
-    // current server. A shape mismatch must never be interpreted as an MFA
-    // trusted grant, even if a future caller bypasses the list UI.
-    if (_routeConflict || !isTrustedDeviceGrant(device)) {
+    if (_invalidPayload || !isTrustedDeviceGrant(device)) {
       setState(
         () => _message =
             'Blocked: this record is not an MFA trusted-browser grant.',
@@ -131,17 +126,21 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Revoke trusted device?'),
-        content: Text('$label will need to complete MFA again.'),
+        title: Text(context.tr('Revoke trusted device?')),
+        content: Text(
+          context.tr('{label} will need to complete MFA again.', {
+            'label': label,
+          }),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Revoke'),
+            child: Text(context.tr('Revoke')),
           ),
         ],
       ),
@@ -149,7 +148,9 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
     if (confirmed != true || !mounted) return;
     setState(() => _busy = true);
     try {
-      final response = await widget.api.delete(PortalSecurityPaths.device(id));
+      final response = await widget.api.delete(
+        PortalSecurityPaths.trustedDevice(id),
+      );
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final clientId = device['client_id']?.toString();
         if (clientId != null) {
@@ -172,33 +173,38 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
   Widget build(BuildContext context) => PortalCard(
     title: 'Trusted devices',
     children: [
-      const Text(
-        'Trusted browsers can skip a future MFA prompt when policy allows it.',
+      Text(
+        context.tr(
+          'Trusted browsers can skip a future MFA prompt when policy allows it.',
+        ),
       ),
       const SizedBox(height: 12),
       OutlinedButton(
         onPressed: _busy || (widget.api.currentClientId?.isEmpty ?? true)
             ? null
             : _trustCurrentDevice,
-        child: const Text('Trust this browser'),
+        child: Text(context.tr('Trust this browser')),
       ),
       if (widget.api.currentClientId?.isEmpty ?? true)
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
           child: Text(
-            'Sign in through the hosted login page before creating a trusted-browser credential.',
+            context.tr(
+              'Sign in through the hosted login page before creating a trusted-browser credential.',
+            ),
           ),
         ),
       MessageBanner(
         _message,
         ok: _message?.startsWith('This browser') ?? false,
       ),
-      if (_routeConflict)
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
+      if (_invalidPayload)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
           child: Text(
-            'Use the Devices section to manage these physical records. '
-            'No DELETE request will be issued from this card.',
+            context.tr(
+              'This response does not match the trusted-device schema. No DELETE request will be issued from this card.',
+            ),
           ),
         ),
       if (_loading)
@@ -213,12 +219,12 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
               device['label']?.toString() ?? device['id']?.toString() ?? '',
             ),
             subtitle: Text(
-              '${device['client_id'] ?? ''}${device['expires_at'] == null ? '' : ' · expires ${device['expires_at']}'}',
+              '${device['client_id'] ?? ''}${device['expires_at'] == null ? '' : context.tr(' · expires {time}', {'time': device['expires_at']})}',
             ),
             trailing: TextButton(
               onPressed: _busy ? null : () => _revoke(device),
               style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-              child: const Text('Revoke'),
+              child: Text(context.tr('Revoke')),
             ),
           ),
     ],

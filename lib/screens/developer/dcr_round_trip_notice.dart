@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'dcr_models.dart';
 
@@ -11,7 +12,7 @@ class DcrRoundTripNotice extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: safety.canSafelyUpdate
             ? colors.secondaryContainer
@@ -22,16 +23,18 @@ class DcrRoundTripNotice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            safety.canSafelyUpdate
-                ? 'Round-trip limitations'
-                : 'Saving disabled: incomplete RFC 7592 representation',
+            context.tr(
+              safety.canSafelyUpdate
+                  ? 'Lossless RFC 7592 representation'
+                  : 'Saving disabled: incomplete RFC 7592 representation',
+            ),
             style: Theme.of(context).textTheme.titleSmall,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           for (final warning in safety.warnings)
             Padding(
-              padding: const EdgeInsets.only(bottom: 3),
-              child: Text('• $warning'),
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• ${context.tr(warning)}'),
             ),
         ],
       ),

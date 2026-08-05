@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Cursor-based pagination controls shared across admin list tabs.
 /// Replaces duplicated _PaginationControls, _UserPaginationControls,
@@ -30,18 +31,23 @@ class PaginationControls extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: canGoBack ? onPrevious : null,
           icon: const Icon(Icons.chevron_left),
-          label: const Text('Previous'),
+          label: Text(context.tr('Previous')),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            total == null ? 'Page $page' : 'Page $page · $total total',
+            total == null
+                ? context.tr('Page {page}', {'page': page})
+                : context.tr('Page {page} · {total} total', {
+                    'page': page,
+                    'total': total,
+                  }),
           ),
         ),
         OutlinedButton.icon(
           onPressed: canGoNext ? onNext : null,
           icon: const Icon(Icons.chevron_right),
-          label: const Text('Next'),
+          label: Text(context.tr('Next')),
         ),
       ],
     ),

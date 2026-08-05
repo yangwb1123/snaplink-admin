@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'scim_models.dart';
 
@@ -30,7 +31,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
                 : Icons.groups_outlined,
           ),
           const SizedBox(width: 8),
-          Expanded(child: Text(_title)),
+          Expanded(child: LocalizedText(_title)),
         ],
       ),
       content: SizedBox(
@@ -49,7 +50,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
                       resource['active'] == false ? Icons.block : Icons.check,
                       size: 16,
                     ),
-                    label: Text(
+                    label: LocalizedText(
                       resource['active'] == false ? 'Inactive' : 'Active',
                     ),
                   ),
@@ -71,8 +72,8 @@ class ScimResourceDetailDialog extends StatelessWidget {
             const SizedBox(height: 8),
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              title: const Text('Raw SCIM resource'),
-              subtitle: const Text('Read-only expert view'),
+              title: const LocalizedText('Raw SCIM resource'),
+              subtitle: const LocalizedText('Read-only expert view'),
               children: [
                 Container(
                   width: double.infinity,
@@ -94,23 +95,23 @@ class ScimResourceDetailDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close'),
+          child: const LocalizedText('Close'),
         ),
         OutlinedButton.icon(
           onPressed: () => Navigator.pop(context, ScimDetailAction.patch),
           icon: const Icon(Icons.edit_note),
-          label: const Text('Patch'),
+          label: const LocalizedText('Patch'),
         ),
         FilledButton.tonalIcon(
           onPressed: () => Navigator.pop(context, ScimDetailAction.replace),
           icon: const Icon(Icons.sync),
-          label: const Text('Replace'),
+          label: const LocalizedText('Replace'),
         ),
         IconButton(
           onPressed: () => Navigator.pop(context, ScimDetailAction.delete),
           icon: const Icon(Icons.delete_outline),
           color: Theme.of(context).colorScheme.error,
-          tooltip: 'Delete',
+          tooltip: 'Delete'.localized,
         ),
       ],
     );
@@ -180,20 +181,23 @@ class ScimResourceDetailDialog extends StatelessWidget {
 
   Widget _section(BuildContext context, String text) => Padding(
     padding: const EdgeInsets.only(top: 12, bottom: 4),
-    child: Text(text, style: Theme.of(context).textTheme.titleSmall),
+    child: LocalizedText(text, style: Theme.of(context).textTheme.titleSmall),
   );
 
   Widget _row(String label, Object? value) {
     final text = value?.toString() ?? '';
     if (text.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
             width: 130,
-            child: Text(label, style: const TextStyle(color: Colors.grey)),
+            child: LocalizedText(
+              label,
+              style: const TextStyle(color: Colors.grey),
+            ),
           ),
           Expanded(child: SelectableText(text)),
         ],
@@ -203,7 +207,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
 
   Widget _objectList(Object? value, {required String emptyText}) {
     final items = value is List ? value.whereType<Map>().toList() : const [];
-    if (items.isEmpty) return Text(emptyText);
+    if (items.isEmpty) return LocalizedText(emptyText);
     return Column(
       children: [
         for (final item in items)
@@ -211,7 +215,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
             dense: true,
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.chevron_right),
-            title: Text(
+            title: LocalizedText(
               item['value']?.toString() ??
                   item['display']?.toString() ??
                   'Item',
@@ -227,8 +231,10 @@ class ScimResourceDetailDialog extends StatelessWidget {
     );
   }
 
-  Widget _chip(String label, String value) =>
-      Chip(label: Text('$label: $value'), visualDensity: VisualDensity.compact);
+  Widget _chip(String label, String value) => Chip(
+    label: LocalizedText('$label: $value'),
+    visualDensity: VisualDensity.compact,
+  );
 
   static Map<String, dynamic> _map(Object? value) =>
       value is Map ? Map<String, dynamic>.from(value) : const {};
@@ -252,7 +258,7 @@ class _ConcurrencyNotice extends StatelessWidget {
         const Icon(Icons.info_outline, size: 20),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
+          child: LocalizedText(
             protected
                 ? 'Replace, patch, and delete send this version with If-Match. '
                       'A concurrent change is rejected instead of overwritten.'

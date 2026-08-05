@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
+
+import 'tenant_residency_fields.dart';
 
 /// Create/edit form for a single tenant. `existing` is null for create;
 /// when editing, `id` is fixed and `status` is intentionally omitted from
@@ -19,7 +22,10 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
   late final TextEditingController _idController;
   late final TextEditingController _slugController;
   late final TextEditingController _nameController;
+  late final TextEditingController _homeRegionController;
+  late final TextEditingController _allowedRegionsController;
   String _status = 'active';
+  bool _enforceWrites = false;
   bool _saving = false;
 
   bool get _isEdit => widget.existing != null;
@@ -31,13 +37,25 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
     _idController = TextEditingController(text: e?['id']?.toString() ?? '');
     _slugController = TextEditingController(text: e?['slug']?.toString() ?? '');
     _nameController = TextEditingController(text: e?['name']?.toString() ?? '');
+    _homeRegionController = TextEditingController(
+      text: e?['home_region']?.toString() ?? '',
+    );
+    _allowedRegionsController = TextEditingController(
+      text: _joinList(e?['allowed_regions']),
+    );
+    _enforceWrites = e?['enforce_writes'] == true;
   }
+
+  static String _joinList(dynamic value) =>
+      value is List ? value.map((item) => item.toString()).join('\n') : '';
 
   @override
   void dispose() {
     _idController.dispose();
     _slugController.dispose();
     _nameController.dispose();
+    _homeRegionController.dispose();
+    _allowedRegionsController.dispose();
     super.dispose();
   }
 
@@ -46,22 +64,18 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
     setState(() => _saving = true);
     try {
       final body = <String, dynamic>{
-        'slug': _slugController.text,
-        'name': _nameController.text,
+        'slug': _slugController.text.trim(),
+        'name': _nameController.text.trim(),
+        'home_region': _homeRegionController.text.trim(),
+        'allowed_regions': parseTenantRegions(_allowedRegionsController.text),
+        'enforce_writes': _enforceWrites,
       };
       if (_isEdit) {
         final e = widget.existing!;
         if (e['settings'] != null) body['settings'] = e['settings'];
-        if (e['home_region'] != null) body['home_region'] = e['home_region'];
-        if (e['allowed_regions'] != null) {
-          body['allowed_regions'] = e['allowed_regions'];
-        }
-        if (e['enforce_writes'] != null) {
-          body['enforce_writes'] = e['enforce_writes'];
-        }
         await widget.client.updateTenant(_idController.text, body);
       } else {
-        body['id'] = _idController.text;
+        body['id'] = _idController.text.trim();
         body['status'] = _status;
         await widget.client.createTenant(body);
       }
@@ -70,7 +84,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -80,7 +94,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEdit ? 'Edit tenant' : 'New tenant'),
+      title: LocalizedText(_isEdit ? 'Edit tenant' : 'New tenant'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -90,33 +104,44 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
               TextFormField(
                 controller: _idController,
                 enabled: !_isEdit,
-                decoration: const InputDecoration(labelText: 'ID'),
+                decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
               TextFormField(
                 controller: _slugController,
-                decoration: const InputDecoration(labelText: 'Slug'),
+                decoration: InputDecoration(labelText: 'Slug'.localized),
               ),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: 'Name'.localized),
               ),
               if (!_isEdit) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _status,
-                  decoration: const InputDecoration(labelText: 'Status'),
+                  decoration: InputDecoration(labelText: 'Status'.localized),
                   items: const [
-                    DropdownMenuItem(value: 'active', child: Text('active')),
+                    DropdownMenuItem(
+                      value: 'active',
+                      child: LocalizedText('active'),
+                    ),
                     DropdownMenuItem(
                       value: 'suspended',
-                      child: Text('suspended'),
+                      child: LocalizedText('suspended'),
                     ),
                   ],
                   onChanged: (v) => setState(() => _status = v ?? 'active'),
                 ),
               ],
+              TenantResidencyFields(
+                homeRegionController: _homeRegionController,
+                allowedRegionsController: _allowedRegionsController,
+                enforceWrites: _enforceWrites,
+                onEnforceWritesChanged: (value) {
+                  setState(() => _enforceWrites = value);
+                },
+              ),
             ],
           ),
         ),
@@ -124,7 +149,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context, false),
-          child: const Text('Cancel'),
+          child: const LocalizedText('Cancel'),
         ),
         FilledButton(
           onPressed: _saving ? null : _submit,
@@ -134,7 +159,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(_isEdit ? 'Save' : 'Create'),
+              : LocalizedText(_isEdit ? 'Save' : 'Create'),
         ),
       ],
     );

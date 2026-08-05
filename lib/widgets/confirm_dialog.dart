@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Shared confirmation dialog used across admin tabs.
 /// Supports destructive actions with optional type-to-confirm.
@@ -59,12 +60,12 @@ class ConfirmDialog extends StatelessWidget {
       );
     }
     return AlertDialog(
-      title: Text(title),
-      content: Text(message),
+      title: Text(context.tr(title)),
+      content: Text(context.tr(message)),
       actions: [
         TextButton(
           onPressed: isLoading ? null : () => Navigator.pop(context, false),
-          child: Text(cancelLabel),
+          child: Text(context.tr(cancelLabel)),
         ),
         FilledButton(
           onPressed: isLoading ? null : () => Navigator.pop(context, true),
@@ -77,7 +78,7 @@ class ConfirmDialog extends StatelessWidget {
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(confirmLabel),
+              : Text(context.tr(confirmLabel)),
         ),
       ],
     );
@@ -120,15 +121,17 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text(context.tr(widget.title)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.message),
+          Text(context.tr(widget.message)),
           const SizedBox(height: 16),
           Text(
-            'Type "${widget.confirmText}" to confirm:',
+            context.tr('Type "{value}" to confirm:', {
+              'value': widget.confirmText,
+            }),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
@@ -147,7 +150,7 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
           onPressed: widget.isLoading
               ? null
               : () => Navigator.pop(context, false),
-          child: Text(widget.cancelLabel),
+          child: Text(context.tr(widget.cancelLabel)),
         ),
         FilledButton(
           onPressed: (!_match || widget.isLoading)
@@ -160,7 +163,7 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : Text(widget.confirmLabel),
+              : Text(context.tr(widget.confirmLabel)),
         ),
       ],
     );
@@ -206,7 +209,7 @@ class DangerActionTile extends StatelessWidget {
               if (confirmed) onConfirmed();
             },
       icon: Icon(icon),
-      label: Text(label),
+      label: Text(context.tr(label)),
       style: OutlinedButton.styleFrom(
         foregroundColor: Colors.redAccent,
         side: const BorderSide(color: Colors.redAccent),

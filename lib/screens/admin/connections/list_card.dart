@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 class ConnectionsListCard extends StatelessWidget {
   final TextEditingController tenantController;
@@ -36,44 +37,46 @@ class ConnectionsListCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Tenant connections',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
           TextField(
             controller: tenantController,
-            decoration: const InputDecoration(
-              labelText: 'Tenant ID',
-              hintText: 'acme',
+            decoration: InputDecoration(
+              labelText: 'Tenant ID'.localized,
+              hintText: 'acme'.localized,
             ),
             onSubmitted: (_) => onLoadList(),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: !canList || loadingList || mutating ? null : onLoadList,
-            child: Text(loadingList ? 'Loading…' : 'List connections'),
+            child: loadingList
+                ? const LocalizedText('Loading…')
+                : const LocalizedText('List connections'),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: lookupController,
-            decoration: const InputDecoration(
-              labelText: 'Connection ID',
-              hintText: 'acme-okta',
+            decoration: InputDecoration(
+              labelText: 'Connection ID'.localized,
+              hintText: 'acme-okta'.localized,
             ),
             onSubmitted: (_) => onLoadSelected(),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           OutlinedButton(
             onPressed: !canGet || loadingConnection || mutating
                 ? null
                 : onLoadSelected,
-            child: const Text('Get connection'),
+            child: const LocalizedText('Get connection'),
           ),
           if (connections.isEmpty && !loadingList)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No connections loaded.'),
+              child: LocalizedText('No connections loaded.'),
             ),
           for (final connection in connections)
             ListTile(
@@ -84,7 +87,7 @@ class ConnectionsListCard extends StatelessWidget {
                     : Icons.link_outlined,
               ),
               title: Text(_connectionTitle(connection)),
-              subtitle: Text(
+              subtitle: LocalizedText(
                 '${connection['id'] ?? ''} · ${connection['type'] ?? ''}${connection['enabled'] == false ? ' · disabled' : ''}',
               ),
               trailing: const Icon(Icons.chevron_right),

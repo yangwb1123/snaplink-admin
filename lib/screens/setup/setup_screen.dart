@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../i18n/app_strings.dart';
 import '../../services/browser_navigation.dart';
 import '../../widgets/responsive_entry_card.dart';
 import 'setup_api.dart';
@@ -42,6 +43,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String? _createdAdminName;
   String? _createdClientId;
   String? _createdClientSecret;
+  SetupApplication? _recoveryApplication;
   bool _requestedApplicationMissing = false;
   @override
   void initState() {
@@ -72,15 +74,14 @@ class _SetupScreenState extends State<SetupScreen> {
             ? _Step.unavailable
             : (status.setupRequired ? _Step.admin : _Step.alreadyInitialized);
         if (!status.available) {
-          _unavailableMessage = 'The setup wizard is disabled on this server.';
+          _unavailableMessage = AppStrings.of(context).setupUnavailable;
         }
       });
     } on SetupNetworkError {
       if (mounted) {
         setState(() {
           _step = _Step.unavailable;
-          _unavailableMessage =
-              'Could not determine whether setup is available.';
+          _unavailableMessage = AppStrings.of(context).setupStatusUnknown;
         });
       }
     }
@@ -89,20 +90,21 @@ class _SetupScreenState extends State<SetupScreen> {
   // Step 1: client-side validation only (no network call) — identical
   // ordering to app.js's admin-form submit handler.
   void _continueFromAdminStep() {
+    final strings = AppStrings.of(context);
     setState(() => _adminError = null);
     final u = _usernameCtrl.text.trim();
     final p = _passwordCtrl.text;
     final p2 = _password2Ctrl.text;
     if (u.isEmpty) {
-      setState(() => _adminError = 'Please enter a username.');
+      setState(() => _adminError = strings.enterUsername);
       return;
     }
     if (p.length < 8) {
-      setState(() => _adminError = 'Password must be at least 8 characters.');
+      setState(() => _adminError = strings.passwordMinimum);
       return;
     }
     if (p != p2) {
-      setState(() => _adminError = 'Passwords do not match.');
+      setState(() => _adminError = strings.passwordsMismatch);
       return;
     }
     _pendingAdmin = SetupAdmin(username: u, password: p);
@@ -110,11 +112,10 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Future<void> _submitAppStep() async {
+    final strings = AppStrings.of(context);
     final name = _appNameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(
-        () => _appError = 'Enter an application name, or use Skip and finish.',
-      );
+      setState(() => _appError = strings.appNameOrSkip);
       return;
     }
     late final List<String> redirects;
@@ -151,13 +152,13 @@ class _SetupScreenState extends State<SetupScreen> {
         _createdAdminName = result.createdAdmin;
         _createdClientId = result.clientId;
         _createdClientSecret = result.clientSecret;
-        _requestedApplicationMissing =
-            application != null && result.clientId == null;
+        _recoveryApplication = result.recoveryApplication;
+        _requestedApplicationMissing = result.recoveryApplication != null;
         _step = _Step.done;
       });
     } on SetupNetworkError {
       if (!mounted) return;
-      setState(() => _appError = 'Network error. Please try again.');
+      setState(() => _appError = AppStrings.of(context).networkErrorRetry);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -179,12 +180,13 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildStep(BuildContext context) {
+    final strings = AppStrings.of(context);
     switch (_step) {
       case _Step.loading:
         return const SetupLoadingPanel();
       case _Step.unavailable:
         return SetupUnavailablePanel(
-          message: _unavailableMessage ?? 'Setup is not available.',
+          message: _unavailableMessage ?? strings.setupNotAvailable,
           onRetry: _checkStatus,
           onContinue: _goToAdminConsole,
         );
@@ -200,6 +202,7 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildAdminForm(BuildContext context) {
+    final strings = AppStrings.of(context);
     return AutofillGroup(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -208,22 +211,22 @@ class _SetupScreenState extends State<SetupScreen> {
           const SetupLogo(),
           const SizedBox(height: 12),
           SetupStepDots(activeCount: 1),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Text(
-            'Create administrator',
+            strings.createAdministrator,
             style: Theme.of(context).textTheme.titleLarge,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            'This first account gets full admin:* access. You can add more users later in the console.',
+            strings.createAdministratorDescription,
             style: Theme.of(context).textTheme.bodySmall,
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           if (_adminError != null) ...[
             SetupErrorBox(text: _adminError!),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
           ],
           TextField(
             controller: _usernameCtrl,
@@ -232,12 +235,12 @@ class _SetupScreenState extends State<SetupScreen> {
             textCapitalization: TextCapitalization.none,
             autofillHints: const [AutofillHints.newUsername],
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Admin username',
+            decoration: InputDecoration(
+              labelText: strings.adminUsername,
               hintText: 'admin',
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           TextField(
             controller: _passwordCtrl,
             obscureText: true,
@@ -245,12 +248,12 @@ class _SetupScreenState extends State<SetupScreen> {
             enableSuggestions: false,
             autofillHints: const [AutofillHints.newPassword],
             textInputAction: TextInputAction.next,
-            decoration: const InputDecoration(
-              labelText: 'Password',
-              hintText: 'at least 8 characters',
+            decoration: InputDecoration(
+              labelText: strings.password,
+              hintText: context.tr('at least 8 characters'),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           TextField(
             controller: _password2Ctrl,
             obscureText: true,
@@ -258,13 +261,13 @@ class _SetupScreenState extends State<SetupScreen> {
             enableSuggestions: false,
             autofillHints: const [AutofillHints.newPassword],
             textInputAction: TextInputAction.done,
-            decoration: const InputDecoration(labelText: 'Confirm password'),
+            decoration: InputDecoration(labelText: strings.confirmPassword),
             onSubmitted: (_) => _continueFromAdminStep(),
           ),
           const SizedBox(height: 20),
           FilledButton(
             onPressed: _continueFromAdminStep,
-            child: const Text('Continue'),
+            child: Text(strings.continueLabel),
           ),
         ],
       ),
@@ -272,6 +275,7 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   Widget _buildAppForm(BuildContext context) {
+    final strings = AppStrings.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -279,7 +283,7 @@ class _SetupScreenState extends State<SetupScreen> {
         const SetupLogo(),
         const SizedBox(height: 12),
         SetupStepDots(activeCount: 2),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         Wrap(
           alignment: WrapAlignment.center,
           crossAxisAlignment: WrapCrossAlignment.center,
@@ -287,32 +291,32 @@ class _SetupScreenState extends State<SetupScreen> {
           runSpacing: 4,
           children: [
             Text(
-              'First application',
+              strings.firstApplication,
               style: Theme.of(context).textTheme.titleLarge,
             ),
-            const SetupOptionalTag(),
+            SetupOptionalTag(label: strings.optional),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Text(
-          'Register a first OAuth/OIDC client now, or skip and add applications later in the console.',
+          strings.firstApplicationDescription,
           style: Theme.of(context).textTheme.bodySmall,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         if (_appError != null) ...[
           SetupErrorBox(text: _appError!),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
         ],
         TextField(
           controller: _appNameCtrl,
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'Application name',
-            hintText: 'My App',
+          decoration: InputDecoration(
+            labelText: strings.applicationName,
+            hintText: context.tr('My App'),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: _appRedirectCtrl,
           keyboardType: TextInputType.multiline,
@@ -320,9 +324,9 @@ class _SetupScreenState extends State<SetupScreen> {
           textCapitalization: TextCapitalization.none,
           autocorrect: false,
           enableSuggestions: false,
-          decoration: const InputDecoration(
-            labelText: 'Redirect URIs',
-            hintText: 'One HTTPS URI per line',
+          decoration: InputDecoration(
+            labelText: strings.redirectUris,
+            hintText: strings.oneHttpsUriPerLine,
           ),
           minLines: 2,
           maxLines: 5,
@@ -336,12 +340,12 @@ class _SetupScreenState extends State<SetupScreen> {
                   width: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Create and finish'),
+              : Text(strings.createAndFinish),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         OutlinedButton(
           onPressed: _submitting ? null : _skip,
-          child: const Text('Skip and finish'),
+          child: Text(strings.skipAndFinish),
         ),
       ],
     );
@@ -352,6 +356,9 @@ class _SetupScreenState extends State<SetupScreen> {
     clientId: _createdClientId,
     clientSecret: _createdClientSecret,
     applicationRequestedButMissing: _requestedApplicationMissing,
+    onRetryApplication: _recoveryApplication == null
+        ? null
+        : () => _finish(_recoveryApplication),
     onDone: () => BrowserNavigation.replaceLocation('/admin/'),
   );
 }

@@ -2,19 +2,39 @@ part of 'oidc_login_screen.dart';
 
 extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   void _redirect(String url) {
-    web.window.location.replace(url);
+    BrowserNavigation.replaceLocation(url);
   }
 
   void _handleSuccess(LoginOutcome outcome) {
+    // Authentication credentials are no longer needed once the server has
+    // reached a terminal success. Clear them even when redirect/JARM delivery
+    // is later blocked and this widget remains mounted.
+    _passCtrl.clear();
+    _providerCodeCtrl.clear();
+    _mfaCodeCtrl.clear();
     final data = outcome.data;
-    if (_usesJarm) {
+    final jarmEnvelope = (data['response']?.toString().trim() ?? '').isNotEmpty;
+    final code = data['code']?.toString().trim() ?? '';
+    final accessToken = data['access_token']?.toString().trim() ?? '';
+    final idToken = data['id_token']?.toString().trim() ?? '';
+    if (_usesJarm || jarmEnvelope) {
+      final delivery = resolveAuthorizationDelivery(
+        request: _params,
+        response: data,
+        errorResponse: false,
+        tokenResponse: false,
+      );
+      if (delivery == null || !delivery.usesJarm) {
+        _update(() => _error = JarmCompletion.blockedMessage);
+        return;
+      }
       final completion = resolveJarmCompletion(
-        responseMode: _params.responseMode,
-        redirectUri: _params.redirectUri,
+        responseMode: delivery.responseMode,
+        redirectUri: delivery.redirectUri.toString(),
         responseData: data,
         serverContinuation: outcome.redirectUrl,
         serverFormPost: outcome.html,
-        authorizationEndpoint: Uri.base.resolve('../auth/login'),
+        authorizationEndpoint: ProductApiOrigin.baseUri.resolve('/auth/login'),
       );
       if (!completion.accepted) {
         _update(() => _error = completion.error);
@@ -30,47 +50,92 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
     }
 
     _storeTrustedDeviceToken(outcome);
+    if (outcome.isFormPost && !_isRpFlow) {
+      _update(
+        () => _error =
+            'Snaplink returned an authorization form without a relying-party '
+            'request. Sign in again.',
+      );
+      return;
+    }
     if (outcome.isFormPost && _isRpFlow) {
+      final redirectUri = Uri.tryParse(_params.redirectUri);
+      if (_params.responseMode != 'form_post' ||
+          redirectUri == null ||
+          !isTrustedAuthorizationFormPost(outcome.html!, redirectUri)) {
+        _authorizationDeliveryBlocked();
+        return;
+      }
       _submitServerFormPost(outcome.html!);
       return;
     }
-    final redirectUri = _params.redirectUri;
-    if (data['code'] != null && redirectUri.isNotEmpty) {
+    if (code.isNotEmpty && _isRpFlow) {
+      final delivery = resolveAuthorizationDelivery(
+        request: _params,
+        response: data,
+        errorResponse: false,
+        tokenResponse: false,
+      );
+      if (delivery == null || delivery.usesJarm) {
+        _authorizationDeliveryBlocked();
+        return;
+      }
       _redirectAuthorizationResponse({
-        'code': data['code'].toString(),
-        if ((data['state'] ?? _params.state).toString().isNotEmpty)
-          'state': (data['state'] ?? _params.state).toString(),
+        'code': code,
+        if (data['state']?.toString().isNotEmpty == true)
+          'state': data['state'].toString(),
         if (data['iss'] != null) 'iss': data['iss'].toString(),
-      }, tokenResponse: false);
+        if (data['session_state'] != null)
+          'session_state': data['session_state'].toString(),
+      }, delivery: delivery);
       return;
     }
-    if (redirectUri.isNotEmpty &&
-        (data['access_token'] != null || data['id_token'] != null)) {
+    if (_isRpFlow && (accessToken.isNotEmpty || idToken.isNotEmpty)) {
+      final delivery = resolveAuthorizationDelivery(
+        request: _params,
+        response: data,
+        errorResponse: false,
+        tokenResponse: true,
+      );
+      if (delivery == null || delivery.usesJarm) {
+        _authorizationDeliveryBlocked();
+        return;
+      }
       _redirectAuthorizationResponse({
-        if (data['access_token'] != null)
-          'access_token': data['access_token'].toString(),
-        if (data['access_token'] != null)
+        if (accessToken.isNotEmpty) 'access_token': accessToken,
+        if (accessToken.isNotEmpty)
           'token_type': (data['token_type'] ?? 'Bearer').toString(),
         if (data['expires_in'] != null)
           'expires_in': data['expires_in'].toString(),
-        if (data['id_token'] != null) 'id_token': data['id_token'].toString(),
+        if (idToken.isNotEmpty) 'id_token': idToken,
         if (data['scope'] != null) 'scope': data['scope'].toString(),
-        if ((data['state'] ?? _params.state).toString().isNotEmpty)
-          'state': (data['state'] ?? _params.state).toString(),
+        if (data['state']?.toString().isNotEmpty == true)
+          'state': data['state'].toString(),
         if (data['session_state'] != null)
           'session_state': data['session_state'].toString(),
         if (data['iss'] != null) 'iss': data['iss'].toString(),
-      }, tokenResponse: true);
+      }, delivery: delivery);
       return;
     }
-    if (data['access_token'] != null) {
+    if (accessToken.isNotEmpty) {
       _completeFirstPartyLogin(
-        data['access_token'].toString(),
+        accessToken,
         sessionId: data['session_id']?.toString(),
       );
       return;
     }
-    _update(() => _view = _View.success);
+    if (_isRpFlow) {
+      // A relying-party authorization request is not complete merely because
+      // the primary login endpoint returned 2xx. Without a code, token,
+      // server form-post, or signed JARM envelope there is no safe response
+      // to deliver and the page must not claim a successful sign-in.
+      _authorizationDeliveryBlocked();
+      return;
+    }
+    _update(
+      () => _error =
+          'Snaplink did not return an access token. Sign in again to retry.',
+    );
   }
 
   void _storeTrustedDeviceToken(LoginOutcome outcome) {
@@ -84,17 +149,14 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   /// Delivers non-JARM authorization responses in the RP-requested mode.
   void _redirectAuthorizationResponse(
     Map<String, String> response, {
-    required bool tokenResponse,
+    required AuthorizationDelivery delivery,
   }) {
-    final redirectUri = _params.redirectUri;
-    if (redirectUri.isEmpty) return;
-    if (_params.responseMode == 'form_post') {
-      _submitAuthorizationFormPost(redirectUri, response);
+    if (delivery.responseMode == 'form_post') {
+      _submitAuthorizationFormPost(delivery.redirectUri.toString(), response);
       return;
     }
-    final target = Uri.parse(redirectUri);
-    if (_params.responseMode == 'fragment' ||
-        (_params.responseMode.isEmpty && tokenResponse)) {
+    final target = delivery.redirectUri;
+    if (delivery.responseMode == 'fragment') {
       _redirect(
         target
             .replace(fragment: Uri(queryParameters: response).query)
@@ -116,14 +178,22 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
     // allowlist check. Redirect only when the server explicitly attests that
     // validation; otherwise an attacker-controlled login URL becomes an open
     // redirect. Current Snaplink does not yet emit this attestation.
-    final redirectValidated = outcome.data['redirect_uri_validated'] == true;
-    if (!_isRpFlow || _usesJarm || !redirectValidated) {
+    final delivery = _isRpFlow
+        ? resolveAuthorizationDelivery(
+            request: _params,
+            response: outcome.data,
+            errorResponse: true,
+            tokenResponse: _requestsTokenResponse,
+          )
+        : null;
+    final requiresJarm = _usesJarm || delivery?.usesJarm == true;
+    if (!_isRpFlow || requiresJarm || delivery == null) {
       _update(
-        () => _error = switch ((_usesJarm, redirectValidated)) {
+        () => _error = switch ((requiresJarm, delivery != null)) {
           (true, _) => 'Snaplink could not deliver the signed JARM response.',
           (false, false) =>
-            'Snaplink did not confirm the redirect URI for this error. '
-                'No authorization error was redirected.',
+            'Snaplink did not provide a server-validated authorization '
+                'continuation. No code, token, or error was redirected.',
           _ => error,
         },
       );
@@ -133,25 +203,26 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       'error': error,
       if (outcome.data['error_description'] != null)
         'error_description': outcome.data['error_description'].toString(),
-      if (_params.state.isNotEmpty) 'state': _params.state,
+      if (outcome.data['state']?.toString().isNotEmpty == true)
+        'state': outcome.data['state'].toString(),
       if (outcome.data['iss'] != null) 'iss': outcome.data['iss'].toString(),
-    }, tokenResponse: false);
+    }, delivery: delivery);
+  }
+
+  void _authorizationDeliveryBlocked() {
+    _update(
+      () => _error =
+          'Snaplink did not provide a server-validated authorization '
+          'continuation. No code, token, or error was redirected.',
+    );
   }
 
   void _submitAuthorizationFormPost(String uri, Map<String, String> response) {
-    final form = web.HTMLFormElement()
-      ..method = 'post'
-      ..action = uri;
-    for (final entry in response.entries) {
-      form.append(
-        web.HTMLInputElement()
-          ..type = 'hidden'
-          ..name = entry.key
-          ..value = entry.value,
+    if (!BrowserAuthResponse.submitForm(uri, response)) {
+      _update(
+        () => _error = 'The form_post response mode requires the web console.',
       );
     }
-    web.window.document.body?.append(form);
-    form.submit();
   }
 
   /// The POST remains same-origin even when the RP redirect is external; the
@@ -185,10 +256,11 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
 
   /// Writes Snaplink's escaped form-post document into this same-origin page.
   void _submitServerFormPost(String html) {
-    final document = web.window.document;
-    document.callMethod<JSAny?>('open'.toJS);
-    document.callMethod<JSAny?>('write'.toJS, html.toJS);
-    document.callMethod<JSAny?>('close'.toJS);
+    if (!BrowserAuthResponse.replaceDocument(html)) {
+      _update(
+        () => _error = 'The server form response requires the web console.',
+      );
+    }
   }
 
   Future<void> _submitLogin() async {
@@ -201,7 +273,8 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       return;
     }
 
-    final code = _magicLinkToken ?? _providerCodeCtrl.text.trim();
+    final magicLinkToken = _magicLinkToken;
+    final code = magicLinkToken ?? _providerCodeCtrl.text.trim();
     if (_usesCodeProvider &&
         (_codeTargetCtrl.text.trim().isEmpty || code.isEmpty)) {
       _update(() => _error = 'Request or enter a verification code.');
@@ -211,7 +284,9 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       _update(() => _error = 'Enter your username and verification code.');
       return;
     }
+    if (magicLinkToken != null) _scrubOneTimeLoginData();
     _update(() {
+      if (magicLinkToken != null) _magicLinkToken = null;
       _loading = true;
       _error = null;
     });
@@ -231,8 +306,6 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
         : _usesTotpProvider
         ? {'username': _userCtrl.text.trim(), 'code': code}
         : {'username': _userCtrl.text.trim(), 'password': _passCtrl.text};
-    _pendingLoginPayload = payload;
-
     try {
       final outcome = await _api.login(payload);
       if (!mounted) return;
@@ -300,7 +373,6 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
         payload['device_token'] = trustedDeviceToken;
       }
       payload['credential'] = {'session_id': sessionId, 'assertion': assertion};
-      _pendingLoginPayload = payload;
       final outcome = await _api.login(payload);
       if (!mounted) return;
       if (outcome.ok) {

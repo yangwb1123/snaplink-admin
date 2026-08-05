@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 class DeviceMetadataUpdate {
@@ -8,64 +9,86 @@ class DeviceMetadataUpdate {
   const DeviceMetadataUpdate({required this.name, required this.notes});
 }
 
-Future<DeviceMetadataUpdate?> showDeviceEditDialog(
-  BuildContext context,
-  Map<String, dynamic> device,
-) async {
-  final name = TextEditingController(
-    text: device['device_name']?.toString() ?? '',
+/// The dialog owns its [TextEditingController]s so they are disposed only
+/// when the route is actually removed from the tree. Disposing them in a
+/// `finally` right after `showDialog` completes would destroy them while the
+/// exit animation still references the TextFields ("used after being
+/// disposed").
+class _DeviceEditDialog extends StatefulWidget {
+  final Map<String, dynamic> device;
+
+  const _DeviceEditDialog({required this.device});
+
+  @override
+  State<_DeviceEditDialog> createState() => _DeviceEditDialogState();
+}
+
+class _DeviceEditDialogState extends State<_DeviceEditDialog> {
+  late final TextEditingController _name = TextEditingController(
+    text: widget.device['device_name']?.toString() ?? '',
   );
-  final notes = TextEditingController(text: device['notes']?.toString() ?? '');
-  try {
-    return await showDialog<DeviceMetadataUpdate>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit device'),
-        content: SizedBox(
-          width: 440,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: name,
-                maxLength: 120,
-                decoration: const InputDecoration(labelText: 'Device name'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: notes,
-                maxLength: 500,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'Private notes',
-                  hintText: 'For example: work laptop',
-                ),
-              ),
-            ],
+  late final TextEditingController _notes = TextEditingController(
+    text: widget.device['notes']?.toString() ?? '',
+  );
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _notes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(context.tr('Edit device')),
+    content: SizedBox(
+      width: 440,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _name,
+            maxLength: 120,
+            decoration: InputDecoration(labelText: context.tr('Device name')),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(
-              DeviceMetadataUpdate(
-                name: name.text.trim(),
-                notes: notes.text.trim(),
-              ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _notes,
+            maxLength: 500,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: context.tr('Private notes'),
+              hintText: context.tr('For example: work laptop'),
             ),
-            child: const Text('Save'),
           ),
         ],
       ),
-    );
-  } finally {
-    name.dispose();
-    notes.dispose();
-  }
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.of(context).pop(),
+        child: Text(context.strings.cancel),
+      ),
+      FilledButton(
+        onPressed: () => Navigator.of(context).pop(
+          DeviceMetadataUpdate(
+            name: _name.text.trim(),
+            notes: _notes.text.trim(),
+          ),
+        ),
+        child: Text(context.strings.save),
+      ),
+    ],
+  );
 }
+
+Future<DeviceMetadataUpdate?> showDeviceEditDialog(
+  BuildContext context,
+  Map<String, dynamic> device,
+) => showDialog<DeviceMetadataUpdate>(
+  context: context,
+  builder: (_) => _DeviceEditDialog(device: device),
+);
 
 Future<bool> confirmDeviceAction(
   BuildContext context, {

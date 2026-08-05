@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
@@ -38,19 +40,22 @@ class _ConsentsTabState extends State<ConsentsTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Revoke application access?'),
+        title: Text(context.tr('Revoke application access?')),
         content: Text(
-          '$clientId will no longer be able to use the permissions you granted. You can authorize it again later.',
+          context.tr(
+            '{clientId} will no longer be able to use the permissions you granted. You can authorize it again later.',
+            {'clientId': clientId},
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Revoke'),
+            child: Text(context.tr('Revoke')),
           ),
         ],
       ),
@@ -68,7 +73,9 @@ class _ConsentsTabState extends State<ConsentsTab> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not revoke application access.')),
+          SnackBar(
+            content: Text(context.tr('Could not revoke application access.')),
+          ),
         );
       }
     } finally {
@@ -86,7 +93,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
           child: Row(
             children: [
               Text(
-                'Connected applications',
+                context.tr('Connected applications'),
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const Spacer(),
@@ -102,7 +109,13 @@ class _ConsentsTabState extends State<ConsentsTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: Text('Error: ${snap.error}'));
+                return Center(
+                  child: Text(
+                    context.tr('Error: {error}', {
+                      'error': context.tr('${snap.error}'),
+                    }),
+                  ),
+                );
               }
               final items = snap.data ?? const [];
               if (items.isEmpty) {
@@ -135,7 +148,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
                               height: 16,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Revoke'),
+                          : Text(context.tr('Revoke')),
                     ),
                   );
                 },

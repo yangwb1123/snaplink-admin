@@ -14,3 +14,10 @@ void Function() listen(void Function(bool isOnline) listener) {
     web.window.removeEventListener('offline', offlineListener);
   };
 }
+
+/// Test-only hooks; a real browser owns its own online/offline state.
+void testEmitStatus(bool isOnline) {}
+void resetForTest() {}
+
+/// Test-only introspection; a real browser always has live DOM listeners.
+int get listenerCount => 0;

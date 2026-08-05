@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_api.dart';
 import 'portal_export_download.dart';
 import 'portal_widgets.dart';
@@ -61,8 +63,13 @@ class _PrivacyTabState extends State<PrivacyTab> {
         });
         return;
       }
-      downloadPortalExport(r);
-      setState(() => _exportMsg = 'Your download has started.');
+      final started = downloadPortalExport(r);
+      setState(() {
+        _exportMsg = started
+            ? 'Your download has started.'
+            : 'Data export download is available in the web console.';
+        _exportOk = started;
+      });
     } catch (_) {
       setState(() {
         _exportMsg = 'Request failed.';
@@ -102,12 +109,18 @@ class _PrivacyTabState extends State<PrivacyTab> {
 
   String _eraseSummary(Map<String, dynamic> d) {
     final parts = <String>[
-      'Refresh tokens: ${d['refresh_tokens_deleted'] ?? 0}',
-      'Sessions: ${d['sessions_destroyed'] ?? 0}',
-      'User record: ${d['user_deleted'] == true ? 'yes' : 'no'}',
+      context.tr('Refresh tokens: {count}', {
+        'count': d['refresh_tokens_deleted'] ?? 0,
+      }),
+      context.tr('Sessions: {count}', {'count': d['sessions_destroyed'] ?? 0}),
+      context.tr('User record: {state}', {
+        'state': context.tr(d['user_deleted'] == true ? 'yes' : 'no'),
+      }),
     ];
     final skipped = (d['skipped'] as List?) ?? const [];
-    if (skipped.isNotEmpty) parts.add('Skipped: ${skipped.join(', ')}');
+    if (skipped.isNotEmpty) {
+      parts.add(context.tr('Skipped: {items}', {'items': skipped.join(', ')}));
+    }
     return parts.join(' · ');
   }
 
@@ -149,7 +162,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          'Data and privacy',
+          context.tr('Data and privacy'),
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 12),
@@ -157,10 +170,12 @@ class _PrivacyTabState extends State<PrivacyTab> {
           title: 'Download your data',
           children: [
             Text(
-              'Export a copy of the data we hold about your account.',
+              context.tr(
+                'Export a copy of the data we hold about your account.',
+              ),
               style: TextStyle(color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton(
@@ -171,7 +186,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
                         width: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Export my data'),
+                    : Text(context.tr('Export my data')),
               ),
             ),
             MessageBanner(_exportMsg, ok: _exportOk),
@@ -181,10 +196,12 @@ class _PrivacyTabState extends State<PrivacyTab> {
           title: 'Delete your account',
           children: [
             Text(
-              'This permanently removes your account, sessions and tokens. This cannot be undone.',
+              context.tr(
+                'This permanently removes your account, sessions and tokens. This cannot be undone.',
+              ),
               style: TextStyle(color: Colors.grey.shade500),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton(
@@ -198,25 +215,27 @@ class _PrivacyTabState extends State<PrivacyTab> {
                         width: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Preview deletion (dry run)'),
+                    : Text(context.tr('Preview deletion (dry run)')),
               ),
             ),
             if (_previewSummary != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Text(
-                'Would remove — $_previewSummary',
+                context.tr('Would remove — {summary}', {
+                  'summary': _previewSummary,
+                }),
                 style: TextStyle(color: Colors.grey.shade400),
               ),
             ],
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             TextField(
               controller: _confirmCtrl,
               decoration: InputDecoration(
-                labelText: 'Type your subject to confirm',
+                labelText: context.tr('Type your subject to confirm'),
                 hintText: widget.mySub,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton(
@@ -230,7 +249,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
                         width: 16,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Permanently delete my account'),
+                    : Text(context.tr('Permanently delete my account')),
               ),
             ),
             MessageBanner(_eraseMsg, ok: false),

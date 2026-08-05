@@ -25,9 +25,9 @@ class ForgotPasswordView extends StatelessWidget {
     final strings = AppStrings.of(context);
     return _AccountFlowLayout(
       title: strings.resetPassword,
-      description:
-          'Enter your username or email. If the account is eligible, '
-          'Snaplink will send recovery instructions.',
+      description: context.tr(
+        'Enter your username or email. If the account is eligible, Snaplink will send recovery instructions.',
+      ),
       fields: [
         TextField(
           controller: identifierController,
@@ -88,9 +88,9 @@ class ResetPasswordView extends StatelessWidget {
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(labelText: 'New password'),
+          decoration: InputDecoration(labelText: context.tr('New password')),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: confirmController,
           enabled: !loading,
@@ -99,7 +99,9 @@ class ResetPasswordView extends StatelessWidget {
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(labelText: 'Confirm new password'),
+          decoration: InputDecoration(
+            labelText: context.tr('Confirm new password'),
+          ),
           onSubmitted: (_) => onSubmit(),
         ),
       ],
@@ -140,9 +142,9 @@ class SignupView extends StatelessWidget {
     final strings = AppStrings.of(context);
     return _AccountFlowLayout(
       title: strings.createAccount,
-      description:
-          'Create a Snaplink account. Some organizations require email '
-          'verification before the account becomes active.',
+      description: context.tr(
+        'Create a Snaplink account. Some organizations require email verification before the account becomes active.',
+      ),
       fields: [
         TextField(
           controller: usernameController,
@@ -154,7 +156,7 @@ class SignupView extends StatelessWidget {
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(labelText: strings.username),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: emailController,
           enabled: !loading,
@@ -166,7 +168,7 @@ class SignupView extends StatelessWidget {
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(labelText: strings.emailOptional),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: passwordController,
           enabled: !loading,
@@ -177,7 +179,7 @@ class SignupView extends StatelessWidget {
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(labelText: strings.password),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         TextField(
           controller: confirmController,
           enabled: !loading,
@@ -186,7 +188,7 @@ class SignupView extends StatelessWidget {
           enableSuggestions: false,
           autofillHints: const [AutofillHints.newPassword],
           textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(labelText: 'Confirm password'),
+          decoration: InputDecoration(labelText: strings.confirmPassword),
           onSubmitted: (_) => onSubmit(),
         ),
       ],
@@ -218,15 +220,17 @@ class EmailVerificationView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _AccountFlowLayout(
-      title: 'Verify your email',
+      title: context.tr('Verify your email'),
       description: tokenAvailable
-          ? 'Confirm below to finish creating your account.'
-          : 'This verification link is missing its token. Request a new link.',
+          ? context.tr('Confirm below to finish creating your account.')
+          : context.tr(
+              'This verification link is missing its token. Request a new link.',
+            ),
       fields: const [],
       error: error,
       loading: loading,
       primaryEnabled: tokenAvailable,
-      primaryLabel: 'Verify email',
+      primaryLabel: context.tr('Verify email'),
       onPrimary: onVerify,
       onBack: onBack,
     );
@@ -257,14 +261,17 @@ class AccountFlowResultView extends StatelessWidget {
         Icon(icon, size: 44, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
         Text(
-          title,
+          context.tr(title),
           textAlign: TextAlign.center,
           style: theme.textTheme.titleLarge,
         ),
-        const SizedBox(height: 10),
-        Text(message, textAlign: TextAlign.center),
-        const SizedBox(height: 22),
-        FilledButton(onPressed: onBack, child: const Text('Back to sign in')),
+        const SizedBox(height: 12),
+        Text(context.tr(message), textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        FilledButton(
+          onPressed: onBack,
+          child: Text(context.tr('Back to sign in')),
+        ),
       ],
     );
   }
@@ -303,26 +310,29 @@ class _AccountFlowLayout extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            context.tr(title),
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 8),
-          Text(description),
+          Text(context.tr(description)),
           if (fields.isNotEmpty) ...[const SizedBox(height: 20), ...fields],
           if (message != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Semantics(
               liveRegion: true,
               child: Text(
-                message!,
+                context.tr(message!),
                 style: TextStyle(color: Theme.of(context).colorScheme.primary),
               ),
             ),
           ],
           if (error != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             Semantics(
               liveRegion: true,
               child: Text(
-                error!,
+                context.tr(error!),
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
@@ -336,7 +346,7 @@ class _AccountFlowLayout extends StatelessWidget {
                     width: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(primaryLabel),
+                : Text(context.tr(primaryLabel)),
           ),
           TextButton(
             onPressed: loading ? null : onBack,

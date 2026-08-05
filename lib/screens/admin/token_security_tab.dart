@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -212,7 +213,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ).showSnackBar(SnackBar(content: LocalizedText(message)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -257,7 +258,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Text(
+            child: LocalizedText(
               _error!,
               style: const TextStyle(color: Colors.redAccent),
             ),
@@ -299,7 +300,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _findingsCard(BuildContext context) {
     final findings = _list('suspicious', 'findings');
     return _card(context, 'Detected token anomalies', [
-      if (findings.isEmpty) const Text('No anomaly findings.'),
+      if (findings.isEmpty) const LocalizedText('No anomaly findings.'),
       for (final finding in findings)
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -311,7 +312,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
                 ? Colors.redAccent
                 : Colors.orangeAccent,
           ),
-          title: Text(
+          title: LocalizedText(
             '${finding['type'] ?? 'finding'} · ${finding['subject_id'] ?? ''}',
           ),
           subtitle: Text(finding['detail']?.toString() ?? ''),
@@ -322,12 +323,12 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _sessionsCard(BuildContext context) {
     final sessions = _list('sessions', 'sessions');
     return _card(context, 'Active sessions', [
-      Text('Total: ${_data['sessions']?['total'] ?? sessions.length}'),
+      LocalizedText('Total: ${_data['sessions']?['total'] ?? sessions.length}'),
       for (final session in sessions.take(100))
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(session['id']?.toString() ?? ''),
-          subtitle: Text(
+          subtitle: LocalizedText(
             '${session['user_id'] ?? session['userId'] ?? ''} · ${session['ip'] ?? ''}',
           ),
         ),
@@ -337,14 +338,14 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _adminTokensCard(BuildContext context) {
     final tokens = _list('tokens', 'tokens');
     return _card(context, 'Administrator bearer tokens', [
-      if (tokens.isEmpty) const Text('No administrator tokens found.'),
+      if (tokens.isEmpty) const LocalizedText('No administrator tokens found.'),
       for (final token in tokens)
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(
             token['label']?.toString() ?? token['id']?.toString() ?? '',
           ),
-          subtitle: Text(
+          subtitle: LocalizedText(
             '${token['admin_id'] ?? ''} · ${(token['scopes'] as List? ?? const []).join(' ')}',
           ),
           trailing: _supportsAdminTokenRevoke
@@ -355,7 +356,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
-                  child: const Text('Revoke'),
+                  child: const LocalizedText('Revoke'),
                 )
               : null,
         ),
@@ -365,12 +366,13 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _expiringCard(BuildContext context) {
     final tokens = _list('expiring', 'tokens');
     return _card(context, 'Refresh tokens expiring soon', [
-      if (tokens.isEmpty) const Text('No refresh-token expiry records.'),
+      if (tokens.isEmpty)
+        const LocalizedText('No refresh-token expiry records.'),
       for (final token in tokens)
         ListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(token['subject']?.toString() ?? ''),
-          subtitle: Text(
+          subtitle: LocalizedText(
             '${token['client_id'] ?? ''} · ${token['expires_at'] ?? ''}',
           ),
         ),
@@ -380,20 +382,20 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _bulkRevokeCard(
     BuildContext context,
   ) => _card(context, 'Bounded refresh-token revocation', [
-    const Text(
+    const LocalizedText(
       'Supply at least one boundary. Snaplink rejects an unscoped revoke and may require confirmation for large batches.',
     ),
     const SizedBox(height: 12),
     TextField(
       key: const Key('bulk-revoke-subject'),
       controller: _subjectCtrl,
-      decoration: const InputDecoration(labelText: 'Subject (optional)'),
+      decoration: InputDecoration(labelText: 'Subject (optional)'.localized),
     ),
-    const SizedBox(height: 10),
+    const SizedBox(height: 12),
     TextField(
       key: const Key('bulk-revoke-client'),
       controller: _clientCtrl,
-      decoration: const InputDecoration(labelText: 'Client ID (optional)'),
+      decoration: InputDecoration(labelText: 'Client ID (optional)'.localized),
     ),
     const SizedBox(height: 12),
     OutlinedButton(
@@ -403,12 +405,12 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         foregroundColor: Colors.redAccent,
         side: const BorderSide(color: Colors.redAccent),
       ),
-      child: const Text('Bulk revoke refresh tokens'),
+      child: const LocalizedText('Bulk revoke refresh tokens'),
     ),
   ]);
   Widget _metric(String label, Object? value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Text('$label: ${value ?? 0}'),
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: LocalizedText('$label: ${value ?? 0}'),
   );
   Widget _card(BuildContext context, String title, List<Widget> children) =>
       Card(
@@ -418,8 +420,11 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 10),
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
               ...children,
             ],
           ),
@@ -500,7 +505,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _revokeTokenCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LocalizedText(
             _revokeKind == 'token' ? 'Token revoked.' : 'Session revoked.',
           ),
         ),
@@ -514,7 +519,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   }
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'token-security') return;
     final section = route.subresource.isNotEmpty ? route.subresource : 'all';
     if (_sectionDefs.any((s) => s.id == section)) {
@@ -542,24 +547,24 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         TextField(
           key: const Key('temp-token-user-id'),
           controller: _createUserCtrl,
-          decoration: const InputDecoration(labelText: 'User ID'),
+          decoration: InputDecoration(labelText: 'User ID'.localized),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextField(
           controller: _createScopesCtrl,
-          decoration: const InputDecoration(
-            labelText: 'Scopes (space-separated)',
+          decoration: InputDecoration(
+            labelText: 'Scopes (space-separated)'.localized,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         FilledButton(
           key: const Key('temp-token-submit'),
           onPressed: _mutating ? null : _createTempToken,
-          child: const Text('Create temp token'),
+          child: const LocalizedText('Create temp token'),
         ),
         if (_tempToken != null) ...[
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Save this token now. It will not be shown again.',
             style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
           ),
@@ -572,7 +577,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             alignment: Alignment.centerLeft,
             child: FilledButton(
               onPressed: () => setState(() => _tempToken = null),
-              child: const Text('I have saved it — clear token'),
+              child: const LocalizedText('I have saved it — clear token'),
             ),
           ),
         ],
@@ -581,16 +586,19 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       _card(context, 'Revoke token or session', [
         DropdownButtonFormField<String>(
           initialValue: _revokeKind,
-          decoration: const InputDecoration(labelText: 'Credential type'),
+          decoration: InputDecoration(labelText: 'Credential type'.localized),
           items: const [
-            DropdownMenuItem(value: 'session_id', child: Text('Session ID')),
-            DropdownMenuItem(value: 'token', child: Text('Raw token')),
+            DropdownMenuItem(
+              value: 'session_id',
+              child: LocalizedText('Session ID'),
+            ),
+            DropdownMenuItem(value: 'token', child: LocalizedText('Raw token')),
           ],
           onChanged: _mutating
               ? null
               : (value) => setState(() => _revokeKind = value!),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextField(
           key: const Key('single-revoke-value'),
           controller: _revokeTokenCtrl,
@@ -598,10 +606,11 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           enableSuggestions: false,
           autocorrect: false,
           decoration: InputDecoration(
-            labelText: _revokeKind == 'token' ? 'Raw token' : 'Session ID',
+            labelText:
+                (_revokeKind == 'token' ? 'Raw token' : 'Session ID').localized,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         OutlinedButton(
           key: const Key('single-revoke-submit'),
           onPressed: _mutating ? null : _revokeToken,
@@ -609,7 +618,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             foregroundColor: Colors.redAccent,
             side: const BorderSide(color: Colors.redAccent),
           ),
-          child: const Text('Revoke token'),
+          child: const LocalizedText('Revoke token'),
         ),
       ]);
 }

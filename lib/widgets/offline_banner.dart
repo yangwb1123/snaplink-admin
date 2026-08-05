@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/services/connectivity_service.dart';
 
 /// Offline banner widget that shows when the browser goes offline.
@@ -41,8 +42,8 @@ class _OfflineBannerState extends State<OfflineBanner> {
         if (_offline)
           MaterialBanner(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            content: const Text(
-              'You are offline. Some features may be unavailable.',
+            content: Text(
+              context.tr('You are offline. Some features may be unavailable.'),
             ),
             leading: const Icon(Icons.wifi_off, color: Colors.white),
             backgroundColor: Colors.orange.shade800,
@@ -50,9 +51,9 @@ class _OfflineBannerState extends State<OfflineBanner> {
             actions: [
               TextButton(
                 onPressed: () {},
-                child: const Text(
-                  'Dismiss',
-                  style: TextStyle(color: Colors.white70),
+                child: Text(
+                  context.tr('Dismiss'),
+                  style: const TextStyle(color: Colors.white70),
                 ),
               ),
             ],

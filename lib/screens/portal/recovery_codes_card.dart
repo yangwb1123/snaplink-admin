@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -59,18 +60,20 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Replace recovery codes?'),
-        content: const Text(
-          'Any unused recovery codes will stop working immediately.',
+        title: Text(context.tr('Replace recovery codes?')),
+        content: Text(
+          context.tr(
+            'Any unused recovery codes will stop working immediately.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Replace codes'),
+            child: Text(context.tr('Replace codes')),
           ),
         ],
       ),
@@ -122,8 +125,12 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
       else ...[
         Text(
           _remaining == null
-              ? 'Use one-time recovery codes if you lose your second factor.'
-              : 'Recovery codes remaining: $_remaining',
+              ? context.tr(
+                  'Use one-time recovery codes if you lose your second factor.',
+                )
+              : context.tr('Recovery codes remaining: {count}', {
+                  'count': _remaining,
+                }),
         ),
         const SizedBox(height: 12),
         OutlinedButton(
@@ -134,7 +141,7 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Generate new recovery codes'),
+              : Text(context.tr('Generate new recovery codes')),
         ),
         MessageBanner(_message, ok: _newCodes != null),
         if (_newCodes != null) ...[
@@ -149,7 +156,7 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
                 _message =
                     'Recovery codes hidden. Keep your saved copy secure.';
               }),
-              child: const Text('I have saved these codes'),
+              child: Text(context.tr('I have saved these codes')),
             ),
           ),
         ],

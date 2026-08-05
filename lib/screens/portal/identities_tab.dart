@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -65,18 +66,20 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Unlink identity?'),
-        content: const Text(
-          'You may be unable to sign in with this provider after unlinking it.',
+        title: Text(context.tr('Unlink identity?')),
+        content: Text(
+          context.tr(
+            'You may be unable to sign in with this provider after unlinking it.',
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(context.strings.cancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Unlink'),
+            child: Text(context.tr('Unlink')),
           ),
         ],
       ),
@@ -113,7 +116,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
       Row(
         children: [
           Text(
-            'Linked identities',
+            context.strings.linkedIdentities,
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const Spacer(),
@@ -139,14 +142,14 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                 contentPadding: EdgeInsets.zero,
                 title: Text(identity['provider']?.toString() ?? ''),
                 subtitle: Text(
-                  '${identity['subject'] ?? ''}${identity['linked_at'] == null ? '' : ' · linked ${identity['linked_at']}'}',
+                  '${identity['subject'] ?? ''}${identity['linked_at'] == null ? '' : context.tr(' · linked {time}', {'time': identity['linked_at']})}',
                 ),
                 trailing: TextButton(
                   onPressed: () => _unlink(identity),
                   style: TextButton.styleFrom(
                     foregroundColor: Colors.redAccent,
                   ),
-                  child: const Text('Unlink'),
+                  child: Text(context.tr('Unlink')),
                 ),
               ),
           ],

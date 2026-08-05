@@ -1,16 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+
 import 'portal_api.dart';
 import 'organization_admin_widgets.dart';
 import 'portal_widgets.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'member_row_tile.dart';
 
-/// Delegated tenant administration for a user's own organizations.
-///
-/// This deliberately uses the self-service `/me/organizations/...` surface,
-/// not the platform-wide admin API. Snaplink authorizes it from the user's
-/// tenant-admin membership and returns an intentionally non-specific 403 for
-/// every other case, so this screen does not try to infer why access failed.
 class OrganizationAdminPanel extends StatefulWidget {
   final PortalApi api;
   final String tenantId;
@@ -128,28 +123,18 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
     }
   }
 
-  Future<bool> _confirm(
-    String title,
-    String detail,
-    String action, {
-    String? confirmText,
-    bool destructive = false,
-  }) async => ConfirmDialog.show(
-    context,
-    title: title,
-    message: detail,
-    confirmLabel: action,
-    confirmText: confirmText,
-    destructive: destructive,
-  );
-
   Future<void> _changeRole(Map<String, dynamic> member, String role) async {
     final userId = member['user_id']?.toString() ?? '';
     final oldRole = member['role']?.toString() ?? '';
     if (userId.isEmpty || role == oldRole) return;
-    final accepted = await _confirm(
+    final accepted = await confirmOrganizationAction(
+      context,
       'Change member role?',
-      'Change $userId from $oldRole to $role.',
+      context.tr('Change {userId} from {oldRole} to {role}.', {
+        'userId': userId,
+        'oldRole': oldRole,
+        'role': role,
+      }),
       'Change role',
       confirmText: userId,
       destructive: true,
@@ -197,9 +182,12 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   Future<void> _remove(Map<String, dynamic> member) async {
     final userId = member['user_id']?.toString() ?? '';
     if (userId.isEmpty) return;
-    final accepted = await _confirm(
+    final accepted = await confirmOrganizationAction(
+      context,
       'Remove member?',
-      '$userId will lose access to this organization.',
+      context.tr('{userId} will lose access to this organization.', {
+        'userId': userId,
+      }),
       'Remove',
       confirmText: userId,
       destructive: true,
@@ -252,9 +240,13 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       });
       return;
     }
-    final accepted = await _confirm(
+    final accepted = await confirmOrganizationAction(
+      context,
       'Send invitation?',
-      'Send a $_inviteRole invitation to $email.',
+      context.tr('Send a {role} invitation to {email}.', {
+        'role': _inviteRole,
+        'email': email,
+      }),
       'Send invitation',
     );
     if (!accepted) return;
@@ -301,9 +293,12 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   Future<void> _revoke(Map<String, dynamic> invitation) async {
     final email = invitation['email']?.toString() ?? '';
     if (email.isEmpty) return;
-    final accepted = await _confirm(
+    final accepted = await confirmOrganizationAction(
+      context,
       'Revoke invitation?',
-      'Revoke all pending invitations for $email.',
+      context.tr('Revoke all pending invitations for {email}.', {
+        'email': email,
+      }),
       'Revoke',
       confirmText: email,
       destructive: true,

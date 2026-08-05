@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Roles management card.
 class RolesCard extends StatelessWidget {
@@ -29,36 +30,39 @@ class RolesCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('Roles', style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                'Roles',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const Spacer(),
               FilledButton.icon(
                 onPressed: mutating || clientId == null ? null : onCreateRole,
                 icon: const Icon(Icons.add),
-                label: const Text('Create role'),
+                label: const LocalizedText('Create role'),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          if (roles.isEmpty) const Text('No roles loaded.'),
+          const SizedBox(height: 12),
+          if (roles.isEmpty) const LocalizedText('No roles loaded.'),
           for (final role in roles)
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text(
                 role['name']?.toString() ?? role['code']?.toString() ?? '',
               ),
-              subtitle: Text(
+              subtitle: LocalizedText(
                 "${role['code'] ?? ''}\n${(role['permissions'] as List?)?.map((e) => e.toString()).join(', ') ?? ''}",
               ),
               isThreeLine: role['description']?.toString().isNotEmpty == true,
               trailing: Wrap(
                 children: [
                   IconButton(
-                    tooltip: 'Edit role',
+                    tooltip: 'Edit role'.localized,
                     onPressed: mutating ? null : () => onEditRole(role),
                     icon: const Icon(Icons.edit_outlined),
                   ),
                   IconButton(
-                    tooltip: 'Delete role',
+                    tooltip: 'Delete role'.localized,
                     onPressed: mutating
                         ? null
                         : () => onDeleteRole(role['code']?.toString() ?? ''),
@@ -103,35 +107,36 @@ class AssignmentsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'User role assignments',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: userController,
-            decoration: const InputDecoration(labelText: 'User ID'),
+            decoration: InputDecoration(labelText: 'User ID'.localized),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: roleCodesController,
-            decoration: const InputDecoration(
-              labelText: 'Role codes',
+            decoration: InputDecoration(
+              labelText: 'Role codes'.localized,
               helperText:
-                  'Comma or line separated. Snaplink validates that each role exists.',
+                  'Comma or line separated. Snaplink validates that each role exists.'
+                      .localized,
             ),
             minLines: 1,
             maxLines: 3,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: mutating || clientId == null ? null : onAssignRoles,
-            child: const Text('Assign roles'),
+            child: const LocalizedText('Assign roles'),
           ),
           if (assignments.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: Text('No assignments loaded.'),
+              child: LocalizedText('No assignments loaded.'),
             ),
           for (final assignment in assignments)
             _AssignmentRowTile(
@@ -203,26 +208,26 @@ class MenusCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Menu tree JSON',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 10),
-          const Text(
+          const SizedBox(height: 12),
+          const LocalizedText(
             'Provide an array of menu items. Each item needs id and name; children and buttons are nested arrays.',
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           TextField(
             controller: menusController,
-            decoration: const InputDecoration(labelText: 'Menu tree'),
+            decoration: InputDecoration(labelText: 'Menu tree'.localized),
             minLines: 8,
             maxLines: 16,
             style: TextStyle(fontFamily: 'monospace'),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           FilledButton(
             onPressed: mutating || clientId == null ? null : onSetMenus,
-            child: const Text('Replace menu tree'),
+            child: const LocalizedText('Replace menu tree'),
           ),
         ],
       ),

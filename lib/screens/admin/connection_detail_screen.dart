@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -83,7 +84,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text('Connection: ${widget.connectionId}'),
+      title: LocalizedText('Connection: ${widget.connectionId}'),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('connections'),
@@ -102,7 +103,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                   color: Colors.redAccent,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                LocalizedText(
                   'Failed to load',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -121,7 +122,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                 OutlinedButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Retry'),
+                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
@@ -166,7 +167,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                       _conn?['name']?.toString() ?? widget.connectionId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    Text('ID: ${_conn?['id'] ?? widget.connectionId}'),
+                    LocalizedText('ID: ${_conn?['id'] ?? widget.connectionId}'),
                   ],
                 ),
               ),
@@ -195,14 +196,16 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     return Column(
       children: [
         Chip(
-          label: Text(status),
+          label: LocalizedText(status),
           backgroundColor: status == 'active'
               ? Colors.green.shade100
               : Colors.orange.shade100,
         ),
         if (_health != null && _health!.isNotEmpty)
           Chip(
-            label: Text(isHealthy ? 'Healthy' : 'Unhealthy'),
+            label: isHealthy
+                ? const LocalizedText('Healthy')
+                : const LocalizedText('Unhealthy'),
             backgroundColor: isHealthy
                 ? Colors.green.shade100
                 : Colors.red.shade100,
@@ -218,7 +221,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       children: [
         SizedBox(
           width: 100,
-          child: Text(
+          child: LocalizedText(
             label,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
@@ -234,7 +237,10 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Health', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Health',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           _infoRow('Last checked', _health?['last_checked']?.toString() ?? '—'),
           _infoRow(
@@ -248,7 +254,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
           OutlinedButton.icon(
             onPressed: () => _probe(),
             icon: const Icon(Icons.refresh),
-            label: const Text('Probe now'),
+            label: const LocalizedText('Probe now'),
           ),
         ],
       ),
@@ -276,7 +282,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       setState(() => _health = h);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LocalizedText(
             h?['healthy'] == true ? 'Connection healthy' : 'Probe failed',
           ),
         ),
@@ -285,7 +291,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -302,7 +308,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             onTap: () => setState(() => _showConfig = !_showConfig),
             child: Row(
               children: [
-                Text(
+                LocalizedText(
                   'Configuration',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -338,7 +344,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   );
 
   void _handleRoute() {
-    final route = AdminRoute.fromUri(Uri.base);
+    final route = AdminRoute.current();
     if (route.module != 'connections') return;
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'dcr_credentials.dart';
 import 'dcr_delete_dialog.dart';
@@ -274,7 +275,7 @@ class ManagePanelState extends State<ManagePanel> {
   void _showMessage(String message) {
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ).showSnackBar(SnackBar(content: Text(context.tr(message))));
   }
 
   @override
@@ -295,9 +296,11 @@ class ManagePanelState extends State<ManagePanel> {
                   enableSuggestions: false,
                   textCapitalization: TextCapitalization.none,
                   textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(labelText: 'Client ID'),
+                  decoration: InputDecoration(
+                    labelText: context.strings.clientId,
+                  ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
                 SensitiveTokenField(
                   controller: _tokenController,
                   label: 'Registration Access Token',
@@ -312,7 +315,7 @@ class ManagePanelState extends State<ManagePanel> {
                   Semantics(
                     liveRegion: true,
                     child: Text(
-                      _loadError!,
+                      context.tr(_loadError!),
                       style: TextStyle(
                         color: _credentialError
                             ? Theme.of(context).colorScheme.error
@@ -330,7 +333,11 @@ class ManagePanelState extends State<ManagePanel> {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : Text(_loadError == null ? 'Load App' : 'Retry Load'),
+                      : Text(
+                          context.tr(
+                            _loadError == null ? 'Load App' : 'Retry Load',
+                          ),
+                        ),
                 ),
               ],
             ),
@@ -367,15 +374,17 @@ class ManagePanelState extends State<ManagePanel> {
                             width: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('Save Changes'),
+                        : Text(context.tr('Save Changes')),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   OutlinedButton(
                     onPressed: _saving || _deleting ? null : _confirmDelete,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Theme.of(context).colorScheme.error,
                     ),
-                    child: Text(_deleting ? 'Deleting…' : 'Delete App'),
+                    child: Text(
+                      context.tr(_deleting ? 'Deleting…' : 'Delete App'),
+                    ),
                   ),
                 ],
               ),

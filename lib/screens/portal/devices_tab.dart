@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'device_action_dialogs.dart';
 import 'device_center_widgets.dart';
@@ -201,18 +202,20 @@ class _DevicesTabState extends State<DevicesTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Devices',
+                  context.strings.devices,
                   style: Theme.of(context).textTheme.headlineSmall,
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'Physical clients Snaplink has observed during authentication.',
+                Text(
+                  context.tr(
+                    'Physical clients Snaplink has observed during authentication.',
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Refresh devices',
+            tooltip: context.tr('Refresh devices'),
             onPressed: _loading || _busy ? null : _load,
             icon: const Icon(Icons.refresh),
           ),

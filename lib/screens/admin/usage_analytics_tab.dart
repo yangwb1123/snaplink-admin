@@ -1,22 +1,20 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
 import 'usage_analytics_contract.dart';
 
-/// Tenant, token, and cross-protocol session operational insights.
 class UsageAnalyticsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
   const UsageAnalyticsTab({
     super.key,
     required this.api,
     required this.capabilities,
   });
-
   @override
   State<UsageAnalyticsTab> createState() => _UsageAnalyticsTabState();
 }
@@ -26,7 +24,6 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
   static const _usagePath = '/api/v1/admin/tokens/usage';
   static const _subjectPath = '/api/v1/admin/tokens/subjects/{subject}';
   static const _linkedSessionsPath = '/api/v1/admin/sessions/linked/{subject}';
-
   final _startCtrl = TextEditingController();
   final _clientCtrl = TextEditingController();
   final _subjectCtrl = TextEditingController();
@@ -38,13 +35,11 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
   String? _error;
   bool _loading = false;
   bool _subjectLoading = false;
-
   bool _has(String path) =>
       widget.capabilities.has('GET', path) ||
       SnaplinkAdminOperationCatalog.endpoints.any(
         (endpoint) => endpoint.method == 'GET' && endpoint.path == path,
       );
-
   @override
   void initState() {
     super.initState();
@@ -179,7 +174,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       const AdminBreadcrumb(),
       Row(
         children: [
-          Text(
+          LocalizedText(
             'Usage and session insights',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
@@ -187,19 +182,19 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh',
+            tooltip: 'Refresh'.localized,
           ),
         ],
       ),
       const SizedBox(height: 4),
-      const Text(
+      const LocalizedText(
         'Operational telemetry is aggregated and may lag live authentication traffic slightly.',
       ),
       const SizedBox(height: 12),
       _filters(context),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
       ],
       if (_loading) ...[
         const SizedBox(height: 20),
@@ -215,7 +210,6 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       _subjectInspector(context),
     ],
   );
-
   Widget _filters(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(12),
@@ -228,10 +222,10 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
             width: 150,
             child: DropdownButtonFormField<String>(
               initialValue: _period,
-              decoration: const InputDecoration(labelText: 'Period'),
+              decoration: InputDecoration(labelText: 'Period'.localized),
               items: const [
-                DropdownMenuItem(value: 'day', child: Text('Day')),
-                DropdownMenuItem(value: 'month', child: Text('Month')),
+                DropdownMenuItem(value: 'day', child: LocalizedText('Day')),
+                DropdownMenuItem(value: 'month', child: LocalizedText('Month')),
               ],
               onChanged: (value) => setState(() => _period = value!),
             ),
@@ -240,9 +234,9 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
             width: 180,
             child: TextField(
               controller: _startCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Start date',
-                hintText: 'YYYY-MM-DD',
+              decoration: InputDecoration(
+                labelText: 'Start date'.localized,
+                hintText: 'YYYY-MM-DD'.localized,
               ),
             ),
           ),
@@ -250,12 +244,14 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
             width: 220,
             child: TextField(
               controller: _clientCtrl,
-              decoration: const InputDecoration(labelText: 'Client ID filter'),
+              decoration: InputDecoration(
+                labelText: 'Client ID filter'.localized,
+              ),
             ),
           ),
           FilledButton(
             onPressed: _loading ? null : _load,
-            child: const Text('Apply filters'),
+            child: const LocalizedText('Apply filters'),
           ),
         ],
       ),
@@ -268,17 +264,23 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       context,
       'Top tenants',
       tenants.isEmpty
-          ? const [Text('Tenant usage metering is unavailable or has no data.')]
+          ? const [
+              LocalizedText(
+                'Tenant usage metering is unavailable or has no data.',
+              ),
+            ]
           : [
               for (var index = 0; index < tenants.length; index++)
                 ListTile(
-                  leading: CircleAvatar(child: Text('${index + 1}')),
-                  title: Text(
+                  leading: CircleAvatar(child: LocalizedText('${index + 1}')),
+                  title: LocalizedText(
                     (tenants[index] as Map)['tenant_name']?.toString() ??
                         (tenants[index] as Map)['tenant_id']?.toString() ??
                         'Tenant',
                   ),
-                  subtitle: Text(_metricSummary(tenants[index] as Map)),
+                  subtitle: Text(
+                    formatUsageMetricSummary(tenants[index] as Map),
+                  ),
                 ),
             ],
     );
@@ -290,7 +292,11 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       context,
       'Token traffic',
       buckets.isEmpty
-          ? const [Text('Token usage telemetry is unavailable or has no data.')]
+          ? const [
+              LocalizedText(
+                'Token usage telemetry is unavailable or has no data.',
+              ),
+            ]
           : [
               for (final raw in buckets.take(50))
                 Builder(
@@ -299,18 +305,20 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
                     return ListTile(
                       dense: true,
                       leading: const Icon(Icons.token_outlined),
-                      title: Text(
+                      title: LocalizedText(
                         '${bucket['client_id'] ?? 'unknown client'} · ${bucket['kind'] ?? 'token'}',
                       ),
-                      subtitle: Text(
+                      subtitle: LocalizedText(
                         '${bucket['endpoint'] ?? ''} · ${bucket['minute'] ?? ''}',
                       ),
-                      trailing: Text('${bucket['count'] ?? 0}'),
+                      trailing: LocalizedText('${bucket['count'] ?? 0}'),
                     );
                   },
                 ),
               if (buckets.length > 50)
-                Text('${buckets.length - 50} additional buckets omitted.'),
+                LocalizedText(
+                  '${buckets.length - 50} additional buckets omitted.',
+                ),
             ],
     );
   }
@@ -318,23 +326,23 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
   Widget _subjectInspector(
     BuildContext context,
   ) => _section(context, 'Subject investigation', [
-    const Text(
+    const LocalizedText(
       'Inspect active refresh-token counts and linked OIDC/SAML session legs without exposing credential values.',
     ),
-    const SizedBox(height: 10),
+    const SizedBox(height: 12),
     Row(
       children: [
         Expanded(
           child: TextField(
             controller: _subjectCtrl,
-            decoration: const InputDecoration(labelText: 'Subject'),
+            decoration: InputDecoration(labelText: 'Subject'.localized),
             onSubmitted: (_) => _inspectSubject(),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         FilledButton(
           onPressed: _subjectLoading ? null : _inspectSubject,
-          child: const Text('Inspect'),
+          child: const LocalizedText('Inspect'),
         ),
       ],
     ),
@@ -359,7 +367,10 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium),
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const Divider(),
               ...children,
             ],
@@ -367,24 +378,10 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
         ),
       );
 
-  String _metricSummary(Map<dynamic, dynamic> tenant) {
-    const fields = [
-      ('logins', 'logins'),
-      ('tokens_issued', 'tokens'),
-      ('active_users', 'active users'),
-      ('active_clients', 'active clients'),
-      ('mfa_challenges', 'MFA challenges'),
-    ];
-    return fields
-        .where((field) => tenant[field.$1] != null)
-        .map((field) => '${tenant[field.$1]} ${field.$2}')
-        .join(' · ');
-  }
-
   Widget _jsonResult(String title, Map<String, dynamic> value) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      LocalizedText(title, style: const TextStyle(fontWeight: FontWeight.w600)),
       SelectableText(
         const JsonEncoder.withIndent('  ').convert(value),
         style: const TextStyle(fontFamily: 'monospace', fontSize: 12),

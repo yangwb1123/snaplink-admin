@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../i18n/app_strings.dart';
+import '../../i18n/localized_text.dart';
 import 'admin_route.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
@@ -53,6 +54,8 @@ import 'recovery_releases_tab.dart';
 import 'privacy_compliance_tab.dart';
 import 'usage_analytics_tab.dart';
 import 'scim/scim_directory_tab.dart';
+import 'commerce/commerce_tab.dart';
+import 'commerce/commerce_api.dart';
 
 class DashboardScreen extends StatefulWidget {
   final SSOAdminClient client;
@@ -72,6 +75,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final SnaplinkAdminApi _api;
   List<SnaplinkAdminEndpoint> _endpoints = const [];
   Object? _capabilitiesError;
+  bool _commerceAvailable = false;
+  Object? _commerceProbeError;
   late final void Function() _cancelLocationChange;
 
   @override
@@ -82,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       accessToken: Session.read() ?? '',
       onUnauthorized: _localLogout,
     );
-    _currentRoute = AdminRoute.fromUri(Uri.base);
+    _currentRoute = AdminRoute.current();
     _selectedModule = _currentRoute.module;
     _refreshCapabilities();
     _initShortcuts();
@@ -100,7 +105,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _syncRouteFromLocation() {
     if (!mounted) return;
-    final nextRoute = AdminRoute.fromUri(Uri.base);
+    final nextRoute = AdminRoute.current();
     if (nextRoute == _currentRoute) return;
     setState(() {
       _currentRoute = nextRoute;
@@ -110,6 +115,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _refreshCapabilities() async {
     setState(() => _capabilitiesError = null);
+    final commerceProbe = _probeCommerce();
     try {
       final endpoints = await _api.listEndpoints();
       if (!mounted) return;
@@ -118,6 +124,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
       });
     } catch (error) {
       if (mounted) setState(() => _capabilitiesError = error);
+    }
+    await commerceProbe;
+  }
+
+  Future<void> _probeCommerce() async {
+    try {
+      await _api.get('/api/v1/admin/commerce/plans', forceRefresh: true);
+      if (mounted) {
+        setState(() {
+          _commerceAvailable = true;
+          _commerceProbeError = null;
+        });
+      }
+    } on SnaplinkAdminApiError catch (error) {
+      if (!mounted) return;
+      final unavailable =
+          commerceProbeState(error) == CommerceProbeState.unavailable;
+      setState(() {
+        _commerceAvailable = !unavailable;
+        _commerceProbeError = unavailable ? null : error;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _commerceAvailable = true;
+          _commerceProbeError = error;
+        });
+      }
     }
   }
 
@@ -180,9 +214,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final entries = <AdminNavigationEntry<NavigationRailDestination, Widget>>[
       AdminNavigationEntry(
         module: AdminModuleId.overview,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          label: Text('Overview'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.dashboard_outlined),
+          label: Text(strings.overview),
         ),
         page: AdminOverviewTab(
           endpoints: _endpoints,
@@ -209,79 +243,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (navigation.supportsLocalUsers)
         AdminNavigationEntry(
           module: AdminModuleId.localUsers,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.password_outlined),
-            label: Text('Local users'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.password_outlined),
+            label: Text(strings.localUsers),
           ),
           page: LocalUsersTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsScimDirectory)
         AdminNavigationEntry(
           module: AdminModuleId.scimDirectory,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.account_tree_outlined),
-            label: Text('SCIM directory'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.account_tree_outlined),
+            label: Text(strings.scimDirectory),
           ),
           page: ScimDirectoryTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsPermissions)
         AdminNavigationEntry(
           module: AdminModuleId.permissions,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.admin_panel_settings_outlined),
-            label: Text('Permissions'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            label: Text(strings.permissions),
           ),
           page: PermissionsTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsConnections)
         AdminNavigationEntry(
           module: AdminModuleId.connections,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.hub_outlined),
-            label: Text('Connections'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.hub_outlined),
+            label: Text(strings.connections),
           ),
           page: ConnectionsTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsUserSupport)
         AdminNavigationEntry(
           module: AdminModuleId.userSupport,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            label: Text('User support'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.support_agent_outlined),
+            label: Text(strings.userSupport),
           ),
           page: UserSupportTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsDeviceSecurity)
         AdminNavigationEntry(
           module: AdminModuleId.deviceSecurity,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.devices_other_outlined),
-            label: Text('Device security'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.devices_other_outlined),
+            label: Text(strings.deviceSecurity),
           ),
           page: DeviceSecurityTab(api: _api),
         ),
       AdminNavigationEntry(
         module: AdminModuleId.liveActivity,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.sensors_outlined),
-          label: Text('Live activity'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.sensors_outlined),
+          label: Text(strings.liveActivity),
         ),
         page: AdminLiveEventsTab(api: _api, endpoints: _endpoints),
       ),
       AdminNavigationEntry(
         module: AdminModuleId.tokenSecurity,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.shield_outlined),
-          label: Text('Token security'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.shield_outlined),
+          label: Text(strings.tokenSecurity),
         ),
         page: TokenSecurityTab(api: _api, capabilities: capabilities),
       ),
       if (navigation.supportsUsageAnalytics)
         AdminNavigationEntry(
           module: AdminModuleId.usageAnalytics,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.insights_outlined),
-            label: Text('Usage insights'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.insights_outlined),
+            label: Text(strings.usageInsights),
           ),
           page: UsageAnalyticsTab(api: _api, capabilities: capabilities),
         ),
@@ -293,179 +327,188 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         page: TenantsTab(client: widget.client),
       ),
+      if (_commerceAvailable)
+        AdminNavigationEntry(
+          module: AdminModuleId.commerce,
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.payments_outlined),
+            label: const LocalizedText('Subscriptions & Billing'),
+          ),
+          page: CommerceTab(api: _api, availabilityError: _commerceProbeError),
+        ),
       if (navigation.supportsOrganizations)
         AdminNavigationEntry(
           module: AdminModuleId.organizations,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.groups_outlined),
-            label: Text('Organizations'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.groups_outlined),
+            label: Text(strings.organizations),
           ),
           page: TenantOrganizationsTab(api: _api, capabilities: capabilities),
         ),
       AdminNavigationEntry(
         module: AdminModuleId.operations,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.terminal_outlined),
-          label: Text('Operations'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.terminal_outlined),
+          label: Text(strings.operations),
         ),
         page: AdminOperationsTab(api: _api, endpoints: _endpoints),
       ),
       if (navigation.supportsCryptoKeys)
         AdminNavigationEntry(
           module: AdminModuleId.cryptoKeys,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.vpn_key_outlined),
-            label: Text('Crypto keys'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.vpn_key_outlined),
+            label: Text(strings.cryptoKeys),
           ),
           page: CryptoKeysTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsCredentials)
         AdminNavigationEntry(
           module: AdminModuleId.credentials,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.verified_user_outlined),
-            label: Text('Credentials'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.verified_user_outlined),
+            label: Text(strings.credentials),
           ),
           page: CredentialsTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsTokenPolicies)
         AdminNavigationEntry(
           module: AdminModuleId.tokenPolicies,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.policy_outlined),
-            label: Text('Token policies'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.policy_outlined),
+            label: Text(strings.tokenPolicies),
           ),
           page: TokenPoliciesTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsTokenExchange)
         AdminNavigationEntry(
           module: AdminModuleId.tokenExchange,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.swap_horiz_outlined),
-            label: Text('Token exchange'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.swap_horiz_outlined),
+            label: Text(strings.tokenExchange),
           ),
           page: TokenExchangeTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsAuthzChecks)
         AdminNavigationEntry(
           module: AdminModuleId.authzChecks,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.verified_outlined),
-            label: Text('Authz checks'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.verified_outlined),
+            label: Text(strings.authzChecks),
           ),
           page: AuthzCheckTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsDomains)
         AdminNavigationEntry(
           module: AdminModuleId.domains,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.language_outlined),
-            label: Text('Domains'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.language_outlined),
+            label: Text(strings.domains),
           ),
           page: DomainsTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsNetworkPolicies)
         AdminNavigationEntry(
           module: AdminModuleId.networkPolicies,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.lan_outlined),
-            label: Text('Network policies'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.lan_outlined),
+            label: Text(strings.networkPolicies),
           ),
           page: NetworkPoliciesTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsAccessPolicies)
         AdminNavigationEntry(
           module: AdminModuleId.accessPolicies,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.verified_user_outlined),
-            label: Text('Access policies'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.verified_user_outlined),
+            label: Text(strings.accessPolicies),
           ),
           page: AccessPoliciesTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsDrMode)
         AdminNavigationEntry(
           module: AdminModuleId.drMode,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.monitor_heart_outlined),
-            label: Text('DR mode'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.monitor_heart_outlined),
+            label: Text(strings.drMode),
           ),
           page: DRModeTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsThreatPolicies)
         AdminNavigationEntry(
           module: AdminModuleId.threatPolicies,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.warning_amber_outlined),
-            label: Text('Threat policies'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.warning_amber_outlined),
+            label: Text(strings.threatPolicies),
           ),
           page: ThreatPoliciesTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsWebhooks)
         AdminNavigationEntry(
           module: AdminModuleId.webhooks,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.webhook_outlined),
-            label: Text('Webhooks'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.webhook_outlined),
+            label: Text(strings.webhooks),
           ),
           page: WebhooksTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsEmergencyAccess)
         AdminNavigationEntry(
           module: AdminModuleId.emergencyAccess,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.emergency_outlined),
-            label: Text('Emergency access'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.emergency_outlined),
+            label: Text(strings.emergencyAccess),
           ),
           page: BreakGlassTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsChangeApprovals)
         AdminNavigationEntry(
           module: AdminModuleId.changeApprovals,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.approval_outlined),
-            label: Text('Change approvals'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.approval_outlined),
+            label: Text(strings.changeApprovals),
           ),
           page: ChangeApprovalsTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsRecoveryReleases)
         AdminNavigationEntry(
           module: AdminModuleId.recoveryReleases,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.settings_backup_restore_outlined),
-            label: Text('Recovery & releases'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.settings_backup_restore_outlined),
+            label: Text(strings.recoveryReleases),
           ),
           page: RecoveryReleasesTab(api: _api, capabilities: capabilities),
         ),
       if (navigation.supportsPrivacyCompliance)
         AdminNavigationEntry(
           module: AdminModuleId.privacyCompliance,
-          destination: const NavigationRailDestination(
-            icon: Icon(Icons.privacy_tip_outlined),
-            label: Text('Privacy & retention'),
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.privacy_tip_outlined),
+            label: Text(strings.privacyRetention),
           ),
           page: PrivacyComplianceTab(api: _api, capabilities: capabilities),
         ),
       AdminNavigationEntry(
         module: AdminModuleId.governance,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.verified_user_outlined),
-          label: Text('Governance'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.verified_user_outlined),
+          label: Text(strings.governance),
         ),
         page: GovernanceTab(api: _api, capabilities: capabilities),
       ),
-      const AdminNavigationEntry(
+      AdminNavigationEntry(
         module: AdminModuleId.auditLog,
         destination: NavigationRailDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          label: Text('Audit Log'),
+          icon: const Icon(Icons.receipt_long_outlined),
+          label: Text(strings.auditLog),
         ),
-        page: AuditLogTab(),
+        page: const AuditLogTab(),
       ),
       AdminNavigationEntry(
         module: AdminModuleId.health,
-        destination: const NavigationRailDestination(
-          icon: Icon(Icons.monitor_heart_outlined),
-          label: Text('Health'),
+        destination: NavigationRailDestination(
+          icon: const Icon(Icons.monitor_heart_outlined),
+          label: Text(strings.health),
         ),
         page: HealthTab(api: _api),
       ),
@@ -529,10 +572,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         AdminRoute.go(module);
       },
       destinations: destinations,
-      drawerHeader: 'SSO administration',
+      drawerHeader: strings.ssoAdmin,
       body: page,
       appBar: AppBar(
-        title: const Text('SSO Admin'),
+        title: Text(strings.ssoAdmin),
         actions: [
           IconButton(
             onPressed: () => Navigator.of(

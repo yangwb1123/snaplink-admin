@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Reusable search and filter bar for list pages.
 /// Supports text search, filter chips, and sort selection.
@@ -58,7 +59,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                 child: TextField(
                   controller: _searchCtrl,
                   decoration: InputDecoration(
-                    hintText: widget.hintText,
+                    hintText: context.tr(widget.hintText),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -79,7 +80,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                     _showFilters ? Icons.filter_list_off : Icons.filter_list,
                     size: 20,
                   ),
-                  tooltip: 'Toggle filters',
+                  tooltip: context.tr('Toggle filters'),
                   onPressed: () => setState(() => _showFilters = !_showFilters),
                 ),
               ],
@@ -87,7 +88,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                 const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
-                  tooltip: 'Refresh',
+                  tooltip: context.strings.refresh,
                   onPressed: widget.onRefresh,
                 ),
               ],
@@ -101,7 +102,10 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
               children: [
                 for (final option in widget.filterOptions)
                   FilterChip(
-                    label: Text(option, style: const TextStyle(fontSize: 12)),
+                    label: Text(
+                      context.tr(option),
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     selected: widget.selectedFilter == option,
                     onSelected: (_) => widget.onFilterChanged?.call(
                       widget.selectedFilter == option ? null : option,

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+
+import '../services/product_api_origin.dart';
 
 /// Thrown for any response the caller didn't explicitly ask to inspect.
 /// Screens generally branch on `response.statusCode` themselves (mirroring
@@ -29,12 +32,11 @@ class PortalApiError implements Exception {
 /// `/roles/me`, `/permissions/me`, `/menus/me` — NOT the admin API under
 /// `/api/v1/admin`). app.js reaches them via `".." + path` because the SPA
 /// is itself served one path segment down at `/portal/`; this client
-/// achieves the same "root of the current origin" resolution via
-/// `Uri.base.resolve('/path')`, since a leading slash always replaces the
-/// whole path regardless of what page loaded this app — no configurable
-/// base URL needed because the reverse proxy fronts both on one origin.
+/// achieves the same root-path resolution through [ProductApiOrigin], which
+/// is same-origin on web and configurable on native platforms.
 class PortalApi {
   final http.Client _http;
+  final Uri _baseUri;
   final Duration requestTimeout;
   String? _token;
   String? _sessionId;
@@ -42,8 +44,10 @@ class PortalApi {
 
   PortalApi({
     http.Client? httpClient,
+    Uri? baseUri,
     this.requestTimeout = const Duration(seconds: 30),
-  }) : _http = httpClient ?? http.Client();
+  }) : _http = httpClient ?? http.Client(),
+       _baseUri = baseUri ?? ProductApiOrigin.baseUri;
 
   /// Fired the first time an authenticated call comes back 401/403 while
   /// this is set — mid-session token expiry/revocation. Left unarmed until
@@ -89,7 +93,7 @@ class PortalApi {
     return null;
   }
 
-  Uri _uri(String path) => Uri.base.resolve(path);
+  Uri _uri(String path) => _baseUri.resolve(path);
 
   Map<String, String> _headers({bool json = false}) => {
     if (_token != null) 'Authorization': 'Bearer $_token',
@@ -109,6 +113,47 @@ class PortalApi {
         .timeout(requestTimeout);
     _notifyIfSessionExpired(r);
     return r;
+  }
+
+  /// Opens the bearer-authenticated notification SSE feed. EventSource cannot
+  /// attach Authorization, so this uses the same streamed HTTP client as the
+  /// admin console and parses frames incrementally.
+  Stream<Map<String, dynamic>> notificationEvents({
+    String? lastEventId,
+  }) async* {
+    if (!hasToken) throw PortalApiError(401, 'A bearer token is required.');
+    final request = http.Request('GET', _uri('/me/notifications/stream'))
+      ..headers.addAll({
+        'Accept': 'text/event-stream',
+        'Authorization': 'Bearer $_token',
+        if (lastEventId?.isNotEmpty ?? false) 'Last-Event-ID': lastEventId!,
+      });
+    final response = await _http.send(request).timeout(requestTimeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (response.statusCode == 401) onSessionExpired?.call();
+      throw PortalApiError(response.statusCode);
+    }
+    final data = <String>[];
+    await for (final line
+        in response.stream
+            .transform(utf8.decoder)
+            .transform(const LineSplitter())) {
+      if (line.isEmpty) {
+        if (data.isNotEmpty) {
+          final decoded = jsonDecode(data.join('\n'));
+          if (decoded is Map<String, dynamic>) yield decoded;
+        }
+        data.clear();
+        continue;
+      }
+      if (line.startsWith('data:')) {
+        data.add(line.substring(5).trimLeft());
+      }
+    }
+    if (data.isNotEmpty) {
+      final decoded = jsonDecode(data.join('\n'));
+      if (decoded is Map<String, dynamic>) yield decoded;
+    }
   }
 
   Future<http.Response> post(String path, [Object? body]) async {
