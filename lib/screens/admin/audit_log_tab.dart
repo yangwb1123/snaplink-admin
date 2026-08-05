@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -51,6 +52,40 @@ class _AuditLogTabState extends State<AuditLogTab> {
     });
   }
 
+  /// 导出当前过滤结果为 CSV（剪贴板，跨平台通用）。
+  /// 单元格以 = + - @ 开头时加前缀防 CSV 公式注入（security spec）。
+  Future<void> _exportCsv() async {
+    final sb = StringBuffer('timestamp,method,path,status,label\n');
+    for (final e in _entries) {
+      final cells = [
+        e.timestamp.toUtc().toIso8601String(),
+        e.method,
+        e.path,
+        '${e.statusCode}',
+        e.label,
+      ].map(_csvCell).join(',');
+      sb.writeln(cells);
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText(
+              'Exported ${_entries.length} entries as CSV to clipboard'),
+        ),
+      );
+    }
+  }
+
+  /// CSV 单元格转义：引号翻倍；公式注入前缀字符转义。
+  String _csvCell(String value) {
+    var cell = value.replaceAll('"', '""');
+    if (cell.startsWith(RegExp(r'[=+\-@]'))) {
+      cell = "'$cell";
+    }
+    return '"$cell"';
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
@@ -69,6 +104,11 @@ class _AuditLogTabState extends State<AuditLogTab> {
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh'.localized,
             onPressed: _refresh,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_download_outlined),
+            tooltip: 'Export CSV'.localized,
+            onPressed: _exportCsv,
           ),
           IconButton(
             icon: const Icon(Icons.delete_sweep),
