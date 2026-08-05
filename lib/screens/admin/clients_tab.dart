@@ -388,7 +388,19 @@ class _ClientsTabState extends State<ClientsTab> {
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: LocalizedText('Error: ${snap.error}'));
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LocalizedText('Error: ${snap.error}'),
+                      const SizedBox(height: 12),
+                      FilledButton.tonal(
+                        onPressed: _reload,
+                        child: const LocalizedText('Retry'),
+                      ),
+                    ],
+                  ),
+                );
               }
               final page = snap.data!;
               final items = page.items;
