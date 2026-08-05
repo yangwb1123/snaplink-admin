@@ -1,0 +1,31 @@
+name: Spec Gates (ai-dev-gates)
+
+# AI 生成规范持续门禁：UI 规范 + 前端工程质量。
+# 由 ai-batch-runner 的检查器驱动（tools/ai-dev-gates/，纯 stdlib 自包含）。
+# 魔法间距/硬编码颜色/inline style 或 console.log/吞异常/测试跳过出现即红。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  spec-gates:
+    name: Spec Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: UI spec gate (spacing/colors/inline styles)
+        run: make ui-check
+
+      - name: UI quality gate (swallowed exceptions, skips, N+1)
+        run: make ui-quality
+
+      - name: Dart analyze
+        run: make analyze

@@ -77,17 +77,17 @@ full-stack:
 # ── AI 生成规范门禁（由 ai-batch-runner 的检查器驱动，dogfooding）──
 # 魔法间距/硬编码颜色/inline style：项目级扫描，违规 exit 1
 ui-check:
-	PYENV_VERSION=3.12.9 python3 $(HOME)/ai-batch-runner/scripts/check-ui-spec.py --dir lib --all --json -o /tmp/snap-ui-report.json
+	PYENV_VERSION=3.12.9 python3 tools/ai-dev-gates/check-ui-spec.py --dir lib --all --json -o /tmp/snap-ui-report.json
 	@echo "UI spec gate: OK (see /tmp/snap-ui-report.json)"
 
 # 前端工程质量门禁：console.log/any/吞异常/测试跳过（恒失败项）
 ui-quality:
-	PYENV_VERSION=3.12.9 python3 $(HOME)/ai-batch-runner/scripts/check-frontend-quality.py --dir lib --json -o /tmp/snap-quality.json
+	PYENV_VERSION=3.12.9 python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib --json -o /tmp/snap-quality.json
 	@echo "UI quality gate: OK (see /tmp/snap-quality.json)"
 
 # 深度工程审计（上帝文件/复杂度/嵌套——需人工评审后逐步清零）
 ui-quality-strict:
-	PYENV_VERSION=3.12.9 python3 $(HOME)/ai-batch-runner/scripts/check-frontend-quality.py --dir lib --strict --json -o /tmp/snap-quality-strict.json
+	PYENV_VERSION=3.12.9 python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib --strict --json -o /tmp/snap-quality-strict.json
 	@echo "Strict audit: see /tmp/snap-quality-strict.json"
 
 # 一键规范自检（接入 ci 前可手工运行）

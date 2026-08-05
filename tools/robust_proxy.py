@@ -1,14 +1,32 @@
-import os, sys, socket, threading, time, json, urllib.request, urllib.error, urllib.parse
+import json
+import os
+from pathlib import Path
+import socket
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
 
-PORT = int(os.environ.get('PORT', '4444'))
-BACKEND = os.environ.get('BACKEND', 'http://localhost:8080')
-STATIC = os.environ.get('STATIC_DIR', '/home/dwp/sso-console/build/web')
+PORT = int(os.environ.get('PORT', os.environ.get('SNAPLINK_PROXY_PORT', '4444')))
+BACKEND = os.environ.get(
+    'BACKEND',
+    os.environ.get('SNAPLINK_API_URL', 'http://localhost:8080'),
+).rstrip('/')
+STRIPE_ADAPTER_BACKEND = os.environ.get(
+    'SNAPLINK_STRIPE_ADAPTER_URL', BACKEND,
+).rstrip('/')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+STATIC = Path(
+    os.environ.get('STATIC_DIR', PROJECT_ROOT / 'build' / 'web')
+).expanduser().resolve()
 
 API_PREFIXES = (
-    '/auth/', '/api/', '/me', '/.well-known/', '/health', '/token',
-    '/branding', '/logout', '/userinfo', '/roles/', '/permissions/',
-    '/menus/', '/sessions/', '/consents/',
+    '/auth/', '/api/', '/.well-known/', '/roles/', '/permissions/', '/menus/',
+    '/sessions/', '/consents/',
 )
+API_ROOTS = ('/me', '/health', '/token', '/branding', '/logout', '/userinfo')
 
 CONTENT_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -79,7 +97,7 @@ def parse_request(conn):
     
     return method, path, headers, body
 
-def serve_file(conn, filepath):
+def serve_file(conn, filepath, include_body=True):
     """Serve a static file."""
     try:
         with open(filepath, 'rb') as f:
@@ -97,7 +115,7 @@ def serve_file(conn, filepath):
             f'Connection: close\r\n'
             f'\r\n'
         )
-        conn.sendall(resp.encode() + body)
+        conn.sendall(resp.encode() + (body if include_body else b''))
     except FileNotFoundError:
         send_error(conn, 404, 'Not Found')
     except Exception as e:
@@ -135,16 +153,50 @@ def should_proxy(method, path):
         query = urllib.parse.parse_qs(parsed.query, keep_blank_values=True)
         return method != 'GET' or 'check' in query
 
-    return any(clean_path.startswith(prefix) for prefix in API_PREFIXES)
+    return (
+        any(clean_path.startswith(prefix) for prefix in API_PREFIXES)
+        or any(
+            clean_path == root or clean_path.startswith(f'{root}/')
+            for root in API_ROOTS
+        )
+    )
+
+def resolve_static_file(path):
+    """Resolve a request to a file inside STATIC, with an SPA fallback.
+
+    Production bundles use ``/app/`` as their asset prefix even though the
+    local proxy serves the build directory at its root. Encoded traversal and
+    symlink escapes are rejected rather than turned into SPA navigations.
+    """
+    clean_path = urllib.parse.unquote(urllib.parse.urlsplit(path).path)
+    uses_app_prefix = clean_path == '/app' or clean_path.startswith('/app/')
+    if clean_path == '/app':
+        clean_path = '/'
+    elif clean_path.startswith('/app/'):
+        clean_path = clean_path[len('/app'):]
+
+    relative = clean_path.lstrip('/') or 'index.html'
+    candidate = (STATIC / relative).resolve()
+    try:
+        candidate.relative_to(STATIC)
+    except ValueError:
+        return None
+
+    if candidate.is_file():
+        return candidate
+    if uses_app_prefix:
+        return None
+    return STATIC / 'index.html'
 
 def proxy_request(conn, method, path, headers, body):
     """Proxy request to backend server."""
     try:
         # Build backend URL
+        backend = backend_for(path)
         qs = ''
         if '?' in path:
             path, qs = path.split('?', 1)
-        url = f"{BACKEND}{path}"
+        url = f"{backend}{path}"
         if qs:
             url += f'?{qs}'
         
@@ -154,7 +206,9 @@ def proxy_request(conn, method, path, headers, body):
             if k.lower() not in ('host', 'content-length', 'transfer-encoding', 'connection'):
                 req_headers[k] = v
         incoming_host = headers.get('host')
-        req_headers['Host'] = incoming_host or urllib.parse.urlsplit(BACKEND).netloc
+        req_headers['Host'] = (
+            incoming_host or urllib.parse.urlsplit(backend).netloc
+        )
         if incoming_host:
             req_headers['X-Forwarded-Host'] = incoming_host
         req_headers['X-Forwarded-Proto'] = 'http'
@@ -193,6 +247,13 @@ def proxy_request(conn, method, path, headers, body):
     except Exception as e:
         send_error(conn, 502, f'Proxy error: {e}')
 
+def backend_for(path):
+    """Resolve the explicitly separate same-origin Checkout upstream."""
+    clean_path = urllib.parse.urlsplit(path).path
+    if clean_path == '/api/v1/checkout/sessions':
+        return STRIPE_ADAPTER_BACKEND
+    return BACKEND
+
 def handle(conn):
     """Handle a single HTTP connection."""
     try:
@@ -206,7 +267,7 @@ def handle(conn):
             resp = (
                 'HTTP/1.1 204 No Content\r\n'
                 'Access-Control-Allow-Origin: *\r\n'
-                'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n'
+                'Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS\r\n'
                 'Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With\r\n'
                 'Access-Control-Max-Age: 86400\r\n'
                 'Content-Length: 0\r\n'
@@ -215,8 +276,6 @@ def handle(conn):
             conn.sendall(resp.encode())
             return
         
-        clean_path = path.split('?')[0]
-        
         # API proxy
         is_api = should_proxy(method, path)
         if is_api:
@@ -224,15 +283,12 @@ def handle(conn):
             return
         
         # Static file serving with SPA fallback
-        if method == 'GET':
-            if clean_path == '/':
-                clean_path = '/index.html'
-            
-            filepath = os.path.join(STATIC, clean_path.lstrip('/'))
-            if not os.path.exists(filepath) or os.path.isdir(filepath):
-                filepath = os.path.join(STATIC, 'index.html')
-            
-            serve_file(conn, filepath)
+        if method in ('GET', 'HEAD'):
+            filepath = resolve_static_file(path)
+            if filepath is None:
+                send_error(conn, 404, 'Not Found')
+                return
+            serve_file(conn, filepath, include_body=method == 'GET')
         else:
             send_error(conn, 405, 'Method Not Allowed')
     except Exception:
