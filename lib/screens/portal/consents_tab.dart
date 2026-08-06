@@ -121,7 +121,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
                       const SizedBox(height: 12),
                       FilledButton.tonal(
                         onPressed: _reload,
-                        child: const Text('Retry'),
+                        child: const LocalizedText('Retry'),
                       ),
                     ],
                   ),
