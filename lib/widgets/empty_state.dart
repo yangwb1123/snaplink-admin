@@ -28,8 +28,16 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）。
-          Container(
+          // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）+ 入场弹入。
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) => Transform.scale(
+              scale: 0.82 + 0.18 * value,
+              child: child,
+            ),
+            child: Container(
             width: 72,
             height: 72,
             decoration: BoxDecoration(
@@ -43,7 +51,8 @@ class EmptyState extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Icon(icon, size: 32, color: scheme.primary),
+              child: Icon(icon, size: 32, color: scheme.primary),
+            ),
           ),
           const SizedBox(height: 16),
           Text(

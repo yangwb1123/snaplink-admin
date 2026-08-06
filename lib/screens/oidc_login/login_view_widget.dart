@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/pressable_scale.dart';
 
 import '../../i18n/app_strings.dart';
 import '../../services/product_api_origin.dart';
@@ -147,7 +148,8 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
             ),
           ],
           const SizedBox(height: 20),
-          FilledButton(
+          PressableScale(
+            child: FilledButton(
             onPressed: widget.loading ? null : widget.onSubmit,
             child: widget.loading
                 ? const SizedBox(
@@ -162,6 +164,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
                         ? context.tr('Sign in with passkey')
                         : strings.signIn,
                   ),
+          ),
           ),
           if (widget.provider == 'password') ...[
             const SizedBox(height: 16),

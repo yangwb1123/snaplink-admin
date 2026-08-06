@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/pressable_scale.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Responsive title and primary actions for admin collection pages.
@@ -58,10 +59,12 @@ class AdminListHeader extends StatelessWidget {
           ] else ...[
             // 主操作 = 带文字按钮（最高视觉等级）；次级 = 刷新图标。
             if (onCreate != null) ...[
-              FilledButton.icon(
-                onPressed: onCreate,
-                icon: const Icon(Icons.add, size: 18),
-                label: Text(context.tr(createTooltip)),
+              PressableScale(
+                child: FilledButton.icon(
+                  onPressed: onCreate,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(context.tr(createTooltip)),
+                ),
               ),
               const SizedBox(width: 4),
             ],

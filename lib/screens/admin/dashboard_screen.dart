@@ -5,6 +5,7 @@ import 'admin_route.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
+import 'package:sso_admin/widgets/page_transition.dart';
 import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
@@ -581,7 +582,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       destinations: destinations,
       drawerHeader: strings.ssoAdmin,
-      body: page,
+      body: PageTransition(
+        pageKey: ValueKey(_selectedModule),
+        child: page,
+      ),
       appBar: AppBar(
         title: Text(strings.ssoAdmin),
         actions: [

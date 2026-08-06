@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -425,7 +426,9 @@ class _TenantsTabState extends State<TenantsTab>
                                   t['status']?.toString() ?? 'active';
                               final suspended = status == 'suspended';
                               final busy = _busyId == id;
-                              return ListTile(
+                              return StaggeredFadeIn(
+                                index: i,
+                                child: ListTile(
                                 onTap: selecting
                                     ? () => toggleSelect(id)
                                     : () => AdminRoute.go(
@@ -513,6 +516,7 @@ class _TenantsTabState extends State<TenantsTab>
                                           ),
                                         ],
                                       ),
+                              ),
                               );
                             },
                           ),

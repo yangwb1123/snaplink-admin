@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/count_up.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -33,19 +34,62 @@ class AdminOverviewTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).platformOverview,
-              style: Theme.of(context).textTheme.headlineSmall,
+        // 品牌 hero：浅渐变 + 标题 + 摘要 + 刷新（Vercel/Supabase 风格头部）。
+        Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.10),
+                Theme.of(context).colorScheme.surface,
+              ],
             ),
-            const Spacer(),
-            IconButton(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh capabilities'.localized,
-            ),
-          ],
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      AppStrings.of(context).platformOverview,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onRefresh,
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Refresh capabilities'.localized,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const LocalizedText(
+                'Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _HeroStat(
+                    label: 'Endpoints',
+                    value: endpoints.length,
+                    icon: Icons.hub_outlined,
+                  ),
+                  const SizedBox(width: 24),
+                  _HeroStat(
+                    label: 'Feature groups',
+                    value: capabilities.featureCounts.length,
+                    icon: Icons.widgets_outlined,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         if (loadError != null)
@@ -231,6 +275,44 @@ class _EndpointGroup {
   final List<SnaplinkAdminEndpoint> endpoints = [];
 
   _EndpointGroup(this.icon);
+}
+
+/// Hero 统计项：图标 + CountUp 数字 + 标签。
+class _HeroStat extends StatelessWidget {
+  final String label;
+  final int value;
+  final IconData icon;
+
+  const _HeroStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        CountUp(
+          value: value,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        LocalizedText(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _StatusCard extends StatelessWidget {

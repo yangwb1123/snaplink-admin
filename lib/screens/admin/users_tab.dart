@@ -3,6 +3,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -357,7 +358,9 @@ class _UsersTabState extends State<UsersTab>
                             itemBuilder: (context, i) {
                               final u = items[i];
                               final uid = u['id']?.toString() ?? '';
-                              return ListTile(
+                              return StaggeredFadeIn(
+                                index: i,
+                                child: ListTile(
                                 onTap: selecting
                                     ? () => toggleSelect(uid)
                                     : () => AdminRoute.go(
@@ -413,6 +416,7 @@ class _UsersTabState extends State<UsersTab>
                                     ),
                                   ],
                                 ),
+                              ),
                               );
                             },
                           ),

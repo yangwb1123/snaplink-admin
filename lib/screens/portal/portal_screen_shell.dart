@@ -85,7 +85,9 @@ extension _PortalScreenShell on _PortalScreenState {
               message: _actionNotice!,
               succeeded: _actionSucceeded,
             ),
-          Expanded(child: page),
+          Expanded(
+            child: PageTransition(pageKey: ValueKey(_navIndex), child: page),
+          ),
         ],
       ),
       appBar: AppBar(

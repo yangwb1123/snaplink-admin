@@ -1,6 +1,7 @@
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
@@ -582,7 +583,9 @@ class _ClientsTabState extends State<ClientsTab>
                               final c = items[i];
                               final active = c['active'] == true;
                               final cid = c['id']?.toString() ?? '';
-                              return ListTile(
+                              return StaggeredFadeIn(
+                                index: i,
+                                child: ListTile(
                                 onTap: selecting
                                     ? () => toggleSelect(cid)
                                     : () => AdminRoute.go(
@@ -676,6 +679,7 @@ class _ClientsTabState extends State<ClientsTab>
                                     ),
                                   ],
                                 ),
+                              ),
                               );
                             },
                           ),

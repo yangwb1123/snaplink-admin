@@ -35,6 +35,9 @@ const appAdminCoreSourceZh = <String, String>{
   'User: {widget_userId}': '用户：{widget_userId}',
   'Webhook: {widget_subId}': 'Webhook：{widget_subId}',
   'errors: {list}': '错误：{list}',
+  'Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.': '本副本公布的每个模块的运行时清单，含 OpenAPI 仅目录回退。',
+  'Endpoints': '端点',
+  'Feature groups': '功能组',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
