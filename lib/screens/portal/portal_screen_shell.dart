@@ -12,34 +12,42 @@ extension _PortalScreenShell on _PortalScreenState {
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.devices_other_outlined),
+      selectedIcon: const Icon(Icons.devices_other),
       label: Text(strings.devices),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.devices_outlined),
+      selectedIcon: const Icon(Icons.devices),
       label: Text(strings.sessions),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.security_outlined),
+      selectedIcon: const Icon(Icons.security),
       label: Text(strings.activity),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.link_outlined),
+      selectedIcon: const Icon(Icons.link),
       label: Text(strings.linkedIdentities),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.apps_outlined),
+      selectedIcon: const Icon(Icons.apps),
       label: Text(strings.connectedApps),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.business_outlined),
+      selectedIcon: const Icon(Icons.business),
       label: Text(strings.organizations),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.notifications_outlined),
+      selectedIcon: const Icon(Icons.notifications),
       label: Text(strings.translate('Notifications')),
     ),
     NavigationRailDestination(
       icon: const Icon(Icons.privacy_tip_outlined),
+      selectedIcon: const Icon(Icons.privacy_tip),
       label: Text(strings.privacy),
     ),
   ];

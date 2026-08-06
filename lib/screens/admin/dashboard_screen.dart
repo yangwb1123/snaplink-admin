@@ -217,6 +217,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.overview,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.dashboard_outlined),
+          selectedIcon: const Icon(Icons.dashboard),
           label: Text(strings.overview),
         ),
         page: AdminOverviewTab(
@@ -246,6 +247,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.localUsers,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.password_outlined),
+            selectedIcon: const Icon(Icons.password),
             label: Text(strings.localUsers),
           ),
           page: LocalUsersTab(api: _api, capabilities: capabilities),
@@ -255,6 +257,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.scimDirectory,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.account_tree_outlined),
+            selectedIcon: const Icon(Icons.account_tree),
             label: Text(strings.scimDirectory),
           ),
           page: ScimDirectoryTab(api: _api, capabilities: capabilities),
@@ -264,6 +267,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.permissions,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.admin_panel_settings_outlined),
+            selectedIcon: const Icon(Icons.admin_panel_settings),
             label: Text(strings.permissions),
           ),
           page: PermissionsTab(api: _api, capabilities: capabilities),
@@ -273,6 +277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.connections,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.hub_outlined),
+            selectedIcon: const Icon(Icons.hub),
             label: Text(strings.connections),
           ),
           page: ConnectionsTab(api: _api, capabilities: capabilities),
@@ -282,6 +287,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.userSupport,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.support_agent_outlined),
+            selectedIcon: const Icon(Icons.support_agent),
             label: Text(strings.userSupport),
           ),
           page: UserSupportTab(api: _api, capabilities: capabilities),
@@ -291,6 +297,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.deviceSecurity,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.devices_other_outlined),
+            selectedIcon: const Icon(Icons.devices_other),
             label: Text(strings.deviceSecurity),
           ),
           page: DeviceSecurityTab(api: _api),
@@ -299,6 +306,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.liveActivity,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.sensors_outlined),
+          selectedIcon: const Icon(Icons.sensors),
           label: Text(strings.liveActivity),
         ),
         page: AdminLiveEventsTab(api: _api, endpoints: _endpoints),
@@ -307,6 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.tokenSecurity,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.shield_outlined),
+          selectedIcon: const Icon(Icons.shield),
           label: Text(strings.tokenSecurity),
         ),
         page: TokenSecurityTab(api: _api, capabilities: capabilities),
@@ -316,6 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.usageAnalytics,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.insights_outlined),
+            selectedIcon: const Icon(Icons.insights),
             label: Text(strings.usageInsights),
           ),
           page: UsageAnalyticsTab(api: _api, capabilities: capabilities),
@@ -333,6 +343,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.commerce,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.payments_outlined),
+            selectedIcon: const Icon(Icons.payments),
             label: const LocalizedText('Subscriptions & Billing'),
           ),
           page: CommerceTab(api: _api, availabilityError: _commerceProbeError),
@@ -342,6 +353,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.organizations,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.groups_outlined),
+            selectedIcon: const Icon(Icons.groups),
             label: Text(strings.organizations),
           ),
           page: TenantOrganizationsTab(api: _api, capabilities: capabilities),
@@ -350,6 +362,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.operations,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.terminal_outlined),
+          selectedIcon: const Icon(Icons.terminal),
           label: Text(strings.operations),
         ),
         page: AdminOperationsTab(api: _api, endpoints: _endpoints),
@@ -359,6 +372,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.cryptoKeys,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.vpn_key_outlined),
+            selectedIcon: const Icon(Icons.vpn_key),
             label: Text(strings.cryptoKeys),
           ),
           page: CryptoKeysTab(api: _api, capabilities: capabilities),
@@ -368,6 +382,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.credentials,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.verified_user_outlined),
+            selectedIcon: const Icon(Icons.verified_user),
             label: Text(strings.credentials),
           ),
           page: CredentialsTab(api: _api, capabilities: capabilities),
@@ -377,6 +392,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.tokenPolicies,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.policy_outlined),
+            selectedIcon: const Icon(Icons.policy),
             label: Text(strings.tokenPolicies),
           ),
           page: TokenPoliciesTab(api: _api, capabilities: capabilities),
@@ -386,6 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.tokenExchange,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.swap_horiz_outlined),
+            selectedIcon: const Icon(Icons.swap_horiz),
             label: Text(strings.tokenExchange),
           ),
           page: TokenExchangeTab(api: _api, capabilities: capabilities),
@@ -395,6 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.authzChecks,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.verified_outlined),
+            selectedIcon: const Icon(Icons.verified),
             label: Text(strings.authzChecks),
           ),
           page: AuthzCheckTab(api: _api, capabilities: capabilities),
@@ -404,6 +422,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.domains,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.language_outlined),
+            selectedIcon: const Icon(Icons.language),
             label: Text(strings.domains),
           ),
           page: DomainsTab(api: _api, capabilities: capabilities),
@@ -413,6 +432,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.networkPolicies,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.lan_outlined),
+            selectedIcon: const Icon(Icons.lan),
             label: Text(strings.networkPolicies),
           ),
           page: NetworkPoliciesTab(api: _api, capabilities: capabilities),
@@ -422,6 +442,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.accessPolicies,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.verified_user_outlined),
+            selectedIcon: const Icon(Icons.verified_user),
             label: Text(strings.accessPolicies),
           ),
           page: AccessPoliciesTab(api: _api, capabilities: capabilities),
@@ -431,6 +452,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.drMode,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.monitor_heart_outlined),
+            selectedIcon: const Icon(Icons.monitor_heart),
             label: Text(strings.drMode),
           ),
           page: DRModeTab(api: _api, capabilities: capabilities),
@@ -440,6 +462,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.threatPolicies,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.warning_amber_outlined),
+            selectedIcon: const Icon(Icons.warning_amber),
             label: Text(strings.threatPolicies),
           ),
           page: ThreatPoliciesTab(api: _api, capabilities: capabilities),
@@ -449,6 +472,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.webhooks,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.webhook_outlined),
+            selectedIcon: const Icon(Icons.webhook),
             label: Text(strings.webhooks),
           ),
           page: WebhooksTab(api: _api, capabilities: capabilities),
@@ -458,6 +482,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.emergencyAccess,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.emergency_outlined),
+            selectedIcon: const Icon(Icons.emergency),
             label: Text(strings.emergencyAccess),
           ),
           page: BreakGlassTab(api: _api, capabilities: capabilities),
@@ -467,6 +492,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.changeApprovals,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.approval_outlined),
+            selectedIcon: const Icon(Icons.approval),
             label: Text(strings.changeApprovals),
           ),
           page: ChangeApprovalsTab(api: _api, capabilities: capabilities),
@@ -476,6 +502,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.recoveryReleases,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.settings_backup_restore_outlined),
+            selectedIcon: const Icon(Icons.settings_backup_restore),
             label: Text(strings.recoveryReleases),
           ),
           page: RecoveryReleasesTab(api: _api, capabilities: capabilities),
@@ -485,6 +512,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module: AdminModuleId.privacyCompliance,
           destination: NavigationRailDestination(
             icon: const Icon(Icons.privacy_tip_outlined),
+            selectedIcon: const Icon(Icons.privacy_tip),
             label: Text(strings.privacyRetention),
           ),
           page: PrivacyComplianceTab(api: _api, capabilities: capabilities),
@@ -493,6 +521,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.governance,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.verified_user_outlined),
+          selectedIcon: const Icon(Icons.verified_user),
           label: Text(strings.governance),
         ),
         page: GovernanceTab(api: _api, capabilities: capabilities),
@@ -501,6 +530,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.auditLog,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.receipt_long_outlined),
+          selectedIcon: const Icon(Icons.receipt_long),
           label: Text(strings.auditLog),
         ),
         page: const AuditLogTab(),
@@ -509,6 +539,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         module: AdminModuleId.health,
         destination: NavigationRailDestination(
           icon: const Icon(Icons.monitor_heart_outlined),
+          selectedIcon: const Icon(Icons.monitor_heart),
           label: Text(strings.health),
         ),
         page: HealthTab(api: _api),

@@ -74,7 +74,15 @@ class NotificationBell extends StatelessWidget {
           Positioned(
             right: -8,
             top: -7,
-            child: Container(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 260),
+              curve: Curves.easeOutBack,
+              builder: (context, value, child) => Transform.scale(
+                scale: 0.5 + 0.5 * value,
+                child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+              ),
+              child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.error,
@@ -87,6 +95,7 @@ class NotificationBell extends StatelessWidget {
                   fontSize: 10,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
               ),
             ),
           ),

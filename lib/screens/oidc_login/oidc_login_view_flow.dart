@@ -22,7 +22,30 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   ],
           ),
         ),
-        child: ResponsiveEntryCard(
+        child: Stack(
+          children: [
+            // 装饰光斑（Vercel 登录质感）：柔和的品牌色光晕。
+            Positioned(
+              top: -80,
+              right: -60,
+              child: _GlowOrb(
+                size: 220,
+                color: dark
+                    ? AppColors.primary.withValues(alpha: 0.10)
+                    : AppColors.primaryTint.withValues(alpha: 0.35),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              left: -70,
+              child: _GlowOrb(
+                size: 260,
+                color: dark
+                    ? AppColors.accentBlue.withValues(alpha: 0.08)
+                    : AppColors.accentBlue.withValues(alpha: 0.18),
+              ),
+            ),
+            ResponsiveEntryCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -84,6 +107,8 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               ),
             ],
           ),
+        ),
+          ],
         ),
       ),
     );
@@ -286,5 +311,27 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     loading: _loading,
     onAllow: () => _submitConsent(true),
     onDeny: () => _submitConsent(false),
+  );
+}
+
+/// 装饰光斑：模糊圆形渐变（仅装饰，不拦截交互）。
+class _GlowOrb extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _GlowOrb({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
+      ),
+    ),
   );
 }

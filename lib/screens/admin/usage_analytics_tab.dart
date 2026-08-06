@@ -261,6 +261,14 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
 
   Widget _tenantLeaderboard(BuildContext context) {
     final tenants = _topTenants?['tenants'] as List? ?? const [];
+    final metrics = tenants.whereType<Map>().toList();
+    final maxLogins = metrics.fold<num>(
+      0,
+      (max, t) {
+        final v = t['logins'];
+        return v is num && v > max ? v : max;
+      },
+    );
     return _section(
       context,
       'Top tenants',
@@ -272,15 +280,39 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
             ]
           : [
               for (var index = 0; index < tenants.length; index++)
-                ListTile(
-                  leading: CircleAvatar(child: LocalizedText('${index + 1}')),
-                  title: LocalizedText(
-                    (tenants[index] as Map)['tenant_name']?.toString() ??
-                        (tenants[index] as Map)['tenant_id']?.toString() ??
-                        'Tenant',
-                  ),
-                  subtitle: Text(
-                    formatUsageMetricSummary(tenants[index] as Map),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: CircleAvatar(
+                          radius: 14,
+                          child: LocalizedText('${index + 1}'),
+                        ),
+                        title: LocalizedText(
+                          (tenants[index] as Map)['tenant_name']
+                                  ?.toString() ??
+                              (tenants[index] as Map)['tenant_id']
+                                  ?.toString() ??
+                              'Tenant',
+                        ),
+                        subtitle: Text(
+                          formatUsageMetricSummary(tenants[index] as Map),
+                        ),
+                      ),
+                      if (maxLogins > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 48, right: 16),
+                          child: _UsageBar(
+                            fraction: ((tenants[index] as Map)['logins'] as num? ??
+                                    0) /
+                                maxLogins,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
             ],
@@ -389,4 +421,43 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       ),
     ],
   );
+}
+
+/// 用量比例条：宽度按 logins/max 动画增长（Linear 风格迷你条形图）。
+class _UsageBar extends StatelessWidget {
+  final double fraction;
+
+  const _UsageBar({required this.fraction});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        height: 4,
+        color: scheme.primary.withValues(alpha: 0.12),
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: fraction.clamp(0.0, 1.0)),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, _) => FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: value,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                gradient: LinearGradient(
+                  colors: [
+                    scheme.primary,
+                    scheme.primary.withValues(alpha: 0.65),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
