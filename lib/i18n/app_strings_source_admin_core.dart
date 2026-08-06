@@ -1,5 +1,13 @@
 /// Common administration controls, field labels, statuses, and empty states.
 const appAdminCoreSourceZh = <String, String>{
+  'Back': '返回',
+  'Delete': '删除',
+  'Edit': '编辑',
+  'Save': '保存',
+  'Cancel': '取消',
+  'Copy': '复制',
+  'Refresh': '刷新',
+
   'Approve {n} clients?': '批准 {n} 个客户端？',
   'Reject {n} clients?': '拒绝 {n} 个客户端？',
   'This will approve {n} selected clients in one operation.': '此操作将一次性批准 {n} 个选中的客户端。',
