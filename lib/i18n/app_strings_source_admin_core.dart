@@ -1,6 +1,15 @@
 /// Common administration controls, field labels, statuses, and empty states.
 const appAdminCoreSourceZh = <String, String>{
-  'Back': '返回',
+  'Continue': '继续',
+  'Create': '创建',
+  'OIDC': 'OIDC',
+  'SAML': 'SAML',
+  'Search': '搜索',
+  'Retry discovery': '重试发现',
+  'session': '会话',
+  'true': '是',
+  'false': '否',
+'Back': '返回',
   'Delete': '删除',
   'Edit': '编辑',
   'Save': '保存',
