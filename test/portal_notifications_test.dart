@@ -188,4 +188,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(opened, isTrue);
   });
+
+  testWidgets('mark all read cancels without marking', (tester) async {
+    final markedRead = <String>[];
+    var changed = 0;
+    final api = PortalApi(
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/me/notifications' &&
+            request.method == 'GET') {
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 'notification-1',
+                  'title': 'New device sign-in',
+                  'body': 'Firefox on Linux',
+                  'severity': 'warning',
+                },
+              ],
+              'unread_count': 1,
+              'preferences': {},
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/me/notifications/notification-1/read' &&
+            request.method == 'POST') {
+          markedRead.add('notification-1');
+          return http.Response('{}', 200);
+        }
+        if (request.url.path == '/me/notifications/preferences') {
+          return http.Response('{}', 200);
+        }
+        return http.Response('{"error":"not found"}', 404);
+      }),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: NotificationsTab(api: api, onChanged: () => changed++),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Mark all as read'));
+    await tester.pumpAndSettle();
+    // 取消确认——不执行任何标记。
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(markedRead, isEmpty);
+    expect(changed, 0);
+  });
 }
