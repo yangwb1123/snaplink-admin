@@ -293,7 +293,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

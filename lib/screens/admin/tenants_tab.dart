@@ -170,7 +170,7 @@ class _TenantsTabState extends State<TenantsTab>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
-            LocalizedText('${selected.length} selected'),
+            LocalizedText('{count} selected', args: {'count': selected.length}),
             const Spacer(),
             TextButton.icon(
               onPressed: () => _batchSetStatus('suspended'),

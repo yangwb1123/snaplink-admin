@@ -250,7 +250,7 @@ class CredentialRecoveryCard extends StatelessWidget {
         (records is List ? records.length : 0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: LocalizedText('$label: $count'),
+      child: LocalizedText('{label}: {count}', args: {'label': label, 'count': count}),
     );
   }
 }

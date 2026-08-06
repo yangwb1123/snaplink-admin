@@ -38,8 +38,11 @@
 ## i18n 进展（第 21-30 轮）
 
 - 静态文案缺失：431 → **0**（5 轮推进 + 扫描方式修正：spread catalog 需逐文件查）
-- 剩余：46 条动态消息（Dart `$` 插值）——需改造为 {n} 模板风格才能走 pattern 翻译；记录待处理。
-  已推进：LocalizedText 支持 args 透传；'Client {id} approved./rejected.' 等 3 条高频操作反馈已模板化 + zh 注册
+- 剩余：34 条动态消息（Dart `$` 插值）——需改造为 {n} 模板风格才能走 pattern 翻译；记录待处理。
+  已推进（两轮）：LocalizedText 支持 args 透传；操作反馈（Client approved/rejected/actioned、
+  {op} completed）、计数（{count} selected/entries）、错误前缀（Error: {detail}）、
+  {label}: {count}、{resource} unavailable、{count} more results 共 12 条已模板化 + zh 注册。
+  纯数据展示（'$e' 错误原文、'{devices.length}'、索引类）保持原文不模板化（无语言骨架）。
 - [ ] **深色模式语义色点缀对比 <3**：dark 表面（#1E293B）上 danger/warning
   accentBlue 点缀对比 2.26-2.83（WCAG 非文本 ≥3）。StatusChip 内图标已用
   50% 叠表面提亮补偿；列表图标等使用点待 AppColors 支持主题化（或 dark

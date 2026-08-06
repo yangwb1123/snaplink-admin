@@ -264,7 +264,7 @@ class _ClientsTabState extends State<ClientsTab>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
-            LocalizedText('${selected.length} selected'),
+            LocalizedText('{count} selected', args: {'count': selected.length}),
             const Spacer(),
             TextButton.icon(
               onPressed: _batchApprove,
@@ -545,7 +545,7 @@ class _ClientsTabState extends State<ClientsTab>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      LocalizedText('Error: ${snap.error}'),
+                      LocalizedText('Error: {detail}', args: {'detail': snap.error}),
                       const SizedBox(height: 12),
                       FilledButton.tonal(
                         onPressed: _reload,

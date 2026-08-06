@@ -338,7 +338,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -368,7 +368,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

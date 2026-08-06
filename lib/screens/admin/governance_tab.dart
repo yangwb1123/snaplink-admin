@@ -224,7 +224,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
       if (!mounted) return;
       setState(() => _data['lastWrite'] = _safe(result));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LocalizedText('${_op.label} completed.')),
+        SnackBar(content: LocalizedText('{op} completed.', args: {'op': _op.label})),
       );
       await _refresh();
     } on SnaplinkAdminApiError catch (error) {
@@ -423,7 +423,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         ),
       if (events.length > 20)
         LocalizedText(
-          '${events.length - 20} more results are present in the copied JSON.',
+          '{count} more results are present in the copied JSON.',
         ),
     ]);
   }

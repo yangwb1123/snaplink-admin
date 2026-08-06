@@ -99,7 +99,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
         subtitle: 'All authentication and administrative events recorded on this device.',
         onRefresh: _refresh,
         actions: [
-          LocalizedText('${_logService.count} entries'),
+          LocalizedText('{count} entries', args: {'count': _logService.count}),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),

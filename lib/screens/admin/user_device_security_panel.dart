@@ -204,7 +204,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
     color: AppColors.warning.withValues(alpha: 0.08),
     child: ListTile(
       leading: const Icon(Icons.info_outline, color: AppColors.warning),
-      title: LocalizedText('$resource unavailable'),
+      title: LocalizedText('{resource} unavailable', args: {'resource': resource}),
       subtitle: LocalizedText(error),
     ),
   );

@@ -166,7 +166,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
-            LocalizedText('${selected.length} selected'),
+            LocalizedText('{count} selected', args: {'count': selected.length}),
             const Spacer(),
             TextButton.icon(
               onPressed: _mutating ? null : _batchDelete,

@@ -148,7 +148,7 @@ class GovernanceAuditResults extends StatelessWidget {
                 ),
               ),
             if (events.length > 20)
-              LocalizedText('${events.length - 20} more results present.'),
+              LocalizedText('{count} more results present.', args: {'count': events.length - 20}),
           ],
         ),
         if (facets != null) ...[
