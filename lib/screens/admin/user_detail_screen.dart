@@ -131,6 +131,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         title: LocalizedText('User: ${widget.userId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back'.localized,
           onPressed: () => AdminRoute.go('users'),
         ),
       ),

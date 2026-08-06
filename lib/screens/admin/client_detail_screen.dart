@@ -77,6 +77,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         title: LocalizedText('Client: ${widget.clientId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back'.localized,
           onPressed: () => AdminRoute.go('clients'),
         ),
         actions: [

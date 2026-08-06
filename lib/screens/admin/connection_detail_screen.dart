@@ -86,7 +86,8 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     appBar: AppBar(
       title: LocalizedText('Connection: ${widget.connectionId}'),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back'.localized,
+          icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('connections'),
       ),
     ),

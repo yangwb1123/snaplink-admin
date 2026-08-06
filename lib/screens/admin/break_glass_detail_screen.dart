@@ -90,7 +90,8 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     appBar: AppBar(
       title: LocalizedText('Emergency Access: ${widget.sessionId}'),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back'.localized,
+          icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('emergency-access'),
       ),
     ),

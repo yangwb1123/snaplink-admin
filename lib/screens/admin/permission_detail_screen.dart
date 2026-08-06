@@ -100,7 +100,8 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     appBar: AppBar(
       title: LocalizedText('Permissions: ${widget.clientId}'),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back'.localized,
+          icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('permissions'),
       ),
     ),

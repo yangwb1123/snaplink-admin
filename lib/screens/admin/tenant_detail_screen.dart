@@ -140,6 +140,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         title: LocalizedText('Tenant: ${widget.tenantId}'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
+          tooltip: 'Back'.localized,
           onPressed: () => AdminRoute.go('tenants'),
         ),
         actions: [

@@ -109,7 +109,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     appBar: AppBar(
       title: LocalizedText('Webhook: ${widget.subId}'),
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back'.localized,
+          icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('webhooks'),
       ),
       actions: [
