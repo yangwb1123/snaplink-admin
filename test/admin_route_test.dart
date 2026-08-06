@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/screens/admin/admin_route.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 
 void main() {
   group('fromUri - Level 1: Module', () {
@@ -451,11 +452,21 @@ void main() {
       expect(route.subresource, 'sessions');
     });
 
-    test('navigation is a safe no-op off web', () {
-      expect(
-        () => AdminRoute.go('clients', resourceId: 'client-1'),
-        returnsNormally,
+    test('navigation updates the native route and notifies listeners', () {
+      var notifications = 0;
+      final cancel = BrowserNavigation.listenToLocationChange(
+        () => notifications++,
       );
+      addTearDown(() {
+        cancel();
+        BrowserNavigation.replaceState('/');
+      });
+
+      AdminRoute.go('clients', resourceId: 'client-1');
+
+      expect(BrowserNavigation.currentUri.path, '/admin/clients/client-1');
+      expect(AdminRoute.current().resourceId, 'client-1');
+      expect(notifications, 1);
     });
   });
 }

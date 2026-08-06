@@ -80,7 +80,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       find.text(
-        'The previous registration access token is already invalid. Save this replacement before closing the dialog.',
+        'Save this replacement token now. The previous token remains valid only during the server-defined overlap window.',
       ),
       findsOneWidget,
     );

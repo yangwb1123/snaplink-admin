@@ -40,7 +40,7 @@ void main() {
     final api = PortalApi(
       httpClient: MockClient((request) async {
         if (request.url.path == '/me') return http.Response('{}', 200);
-        if (request.url.path == '/me/devices') {
+        if (request.url.path == '/me/trusted-devices') {
           return http.Response(
             '{"devices":[{"id":"physical-1","fingerprint":"fp",'
             '"platform":"macOS","device_name":"Work Mac"}]}',
@@ -60,12 +60,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      find.textContaining('Physical-device tracking owns'),
+      find.textContaining('invalid physical-device payload'),
       findsOneWidget,
     );
     expect(find.text('Revoke'), findsNothing);
     expect(
-      find.textContaining('No DELETE request will be issued'),
+      find.textContaining('does not match the trusted-device schema'),
       findsOneWidget,
     );
   });

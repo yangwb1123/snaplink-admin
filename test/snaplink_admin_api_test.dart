@@ -208,6 +208,34 @@ void main() {
     },
   );
 
+  test('keeps durable operation ID from gRPC error details', () async {
+    final api = SnaplinkAdminApi(
+      baseUrl: 'https://sso.example.test',
+      accessToken: 'admin-token',
+      httpClient: MockClient(
+        (_) async => http.Response(
+          '{"code":13,"message":"restore failed","details":['
+          '{"@type":"type.googleapis.com/google.rpc.ErrorInfo",'
+          '"reason":"OPERATION_FAILED","metadata":{'
+          '"operation_id":"op_restore_42",'
+          '"operation_url":"/api/v1/admin/operations/op_restore_42"}}]}',
+          500,
+        ),
+      ),
+    );
+
+    await expectLater(
+      api.post('/api/v1/admin/snapshots/snap-1:restore', const {}),
+      throwsA(
+        isA<SnaplinkAdminApiError>().having(
+          (error) => error.operationId,
+          'operation ID',
+          'op_restore_42',
+        ),
+      ),
+    );
+  });
+
   test('downloads a subject export without decoding its PII JSON', () async {
     final api = SnaplinkAdminApi(
       baseUrl: 'https://sso.example.test',

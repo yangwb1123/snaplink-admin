@@ -68,6 +68,31 @@ void main() {
     expect(continued, isTrue);
   });
 
+  testWidgets('partial setup offers an in-place recovery action', (
+    tester,
+  ) async {
+    var retried = false;
+    await _useNarrowViewport(tester);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ResponsiveEntryCard(
+            child: SetupDonePanel(
+              adminUsername: 'root',
+              applicationRequestedButMissing: true,
+              onRetryApplication: () async => retried = true,
+              onDone: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.ensureVisible(find.text('Retry application creation'));
+    await tester.tap(find.text('Retry application creation'));
+    expect(retried, isTrue);
+  });
+
   testWidgets('editing a checked device code invalidates its old preview', (
     tester,
   ) async {

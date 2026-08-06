@@ -66,6 +66,39 @@ void main() {
     expect(result.error, contains('trace-123'));
   });
 
+  test(
+    'partial setup exposes an idempotent application recovery request',
+    () async {
+      final api = SetupApi(
+        client: MockClient(
+          (_) async => http.Response(
+            '{"ok":false,"status":"partial_success",'
+            '"created":{"admin":"root"},"failed":[{"resource":"application"}],'
+            '"recovery":{"application":{"name":"Console",'
+            '"redirect_uris":["https://console.example/cb"],'
+            '"recovery_client_id":"client-1",'
+            '"recovery_client_secret":"secret-1"}}}',
+            207,
+            headers: {'content-type': 'application/json'},
+          ),
+        ),
+      );
+
+      final result = await api.submit(
+        admin: const SetupAdmin(username: 'root', password: 'long-enough'),
+        application: const SetupApplication(name: 'Console'),
+      );
+
+      expect(result.createdAdmin, 'root');
+      expect(result.recoveryApplication?.toJson(), {
+        'name': 'Console',
+        'redirect_uris': ['https://console.example/cb'],
+        'recovery_client_id': 'client-1',
+        'recovery_client_secret': 'secret-1',
+      });
+    },
+  );
+
   test('maps a bounded setup timeout to a transport error', () async {
     var attempts = 0;
     final api = SetupApi(

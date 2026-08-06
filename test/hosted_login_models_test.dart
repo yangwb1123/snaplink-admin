@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sso_admin/screens/oidc_login/hosted_login_location.dart';
 import 'package:sso_admin/screens/oidc_login/hosted_login_models.dart';
 
 void main() {
@@ -80,6 +81,57 @@ void main() {
       expect(redirect.queryParametersAll['resource'], ['one', 'two']);
     });
 
+    test('does not forward an external first-party return target', () {
+      final redirect = buildLoginPageRedirect(
+        'https://login.example/hosted',
+        Uri.parse(
+          'https://console.example/login/?client_id=rp&'
+          'redirect=https%3A%2F%2Fevil.example%2Fafter-login',
+        ),
+      )!;
+
+      expect(redirect.queryParameters, {'client_id': 'rp'});
+      expect(redirect, isNot(contains('evil.example')));
+    });
+
+    test('never forwards action or trusted-device credentials', () {
+      final redirect = buildLoginPageRedirect(
+        'https://login.example/hosted?theme=dark&device_token=configured',
+        Uri.parse(
+          'https://console.example/login/?client_id=rp&state=state-1&'
+          'device_token=trusted-secret&token=action-secret&'
+          'email=user%40example.test',
+        ),
+      )!;
+
+      expect(redirect.queryParameters['client_id'], 'rp');
+      expect(redirect.queryParameters['state'], 'state-1');
+      expect(redirect.queryParameters, isNot(contains('device_token')));
+      expect(redirect.queryParameters, isNot(contains('token')));
+      expect(redirect.queryParameters, isNot(contains('email')));
+    });
+
+    test(
+      'does not forward authorization responses or one-use continuations',
+      () {
+        final redirect = buildLoginPageRedirect(
+          'https://login.example/hosted',
+          Uri.parse(
+            'https://console.example/login/?client_id=rp&state=state-1&'
+            'code=authorization-code&access_token=bearer&'
+            'id_token=id-token&error=access_denied&'
+            'login_transaction_id=transaction-once&'
+            'consent_challenge_id=consent-once',
+          ),
+        )!;
+
+        expect(redirect.queryParameters, {
+          'client_id': 'rp',
+          'state': 'state-1',
+        });
+      },
+    );
+
     test('avoids redirecting back to the exact current login page', () {
       expect(buildLoginPageRedirect('/login/', httpsPage), isNull);
     });
@@ -132,6 +184,107 @@ void main() {
   });
 
   group('HostedLoginRoute', () {
+    test('detects sensitive values nested in a first-party redirect', () {
+      expect(
+        hostedLoginRedirectContainsSensitiveData(
+          Uri.parse(
+            'https://console.example/login/?redirect=%2Fportal%2F%3Fflow%3D'
+            'invitation%26token%3Dinvite-secret',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        hostedLoginRedirectContainsSensitiveData(
+          Uri.parse(
+            'https://console.example/login/?redirect=%2Fportal%2F%3Ftoken%3D'
+            'untyped-secret',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        hostedLoginRedirectContainsSensitiveData(
+          Uri.parse(
+            'https://console.example/login/?redirect=%2Fportal%2Fsafe&'
+            'redirect=%2Fportal%2F%3Ftoken%3Dhidden-secret',
+          ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('only ordinary login flows may use a separately hosted page', () {
+      final login = HostedLoginRoute.fromUri(
+        Uri.parse('https://console.example/login/?client_id=client-1'),
+      );
+      final magicLink = HostedLoginRoute.fromUri(
+        Uri.parse(
+          'https://console.example/login/?flow=magiclink&'
+          'token=magic-1&email=user@example.test',
+        ),
+      );
+      final changeEmail = HostedLoginRoute.fromUri(
+        Uri.parse(
+          'https://console.example/login/?flow=change_email&token=email-1',
+        ),
+      );
+
+      expect(login.allowsCustomLoginPage, isTrue);
+      expect(magicLink.allowsCustomLoginPage, isFalse);
+      expect(changeEmail.allowsCustomLoginPage, isFalse);
+
+      final duplicateAction = HostedLoginRoute.fromUri(
+        Uri.parse(
+          'https://console.example/login/?flow=reset&flow=login&'
+          'token=reset-secret',
+        ),
+      );
+      expect(duplicateAction.malformed, isTrue);
+      expect(duplicateAction.allowsCustomLoginPage, isFalse);
+    });
+
+    test('scrubs an inbound trusted-device credential immediately', () {
+      final location = hostedLoginLocationWithoutDeviceCredential(
+        Uri.parse(
+          'https://console.example/login/?client_id=client-1&'
+          'device_token=bearer-secret&scope=openid#fragment',
+        ),
+      );
+      final sanitized = Uri.parse(location);
+
+      expect(sanitized.path, '/login/');
+      expect(sanitized.queryParameters, {
+        'client_id': 'client-1',
+        'scope': 'openid',
+      });
+      expect(sanitized.fragment, isEmpty);
+      expect(location, isNot(contains('bearer-secret')));
+    });
+
+    test(
+      'scrubs one-time data but preserves OAuth continuation parameters',
+      () {
+        final location = hostedLoginLocationWithoutOneTimeData(
+          Uri.parse(
+            'https://console.example/login/reset?flow=reset&token=secret&'
+            'email=user%40example.test&client_id=client-1&scope=openid&'
+            'scope=profile#email=user@example.test',
+          ),
+        );
+        final sanitized = Uri.parse(location);
+
+        expect(sanitized.path, '/login/reset');
+        expect(sanitized.queryParametersAll, {
+          'client_id': ['client-1'],
+          'scope': ['openid', 'profile'],
+        });
+        expect(location, isNot(contains('secret')));
+        expect(location, isNot(contains('user%40example.test')));
+        expect(sanitized.fragment, isEmpty);
+      },
+    );
+
     test('routes reset and verification tokens only to explicit flows', () {
       final reset = HostedLoginRoute.fromUri(
         Uri.parse('https://console.example/login/?flow=reset&token=reset-1'),
@@ -170,6 +323,32 @@ void main() {
       expect(legacy.shouldAutoSubmitMagicLink, isTrue);
       expect(ambiguous.magicLinkToken, isNull);
       expect(unknownExplicitFlow.magicLinkToken, isNull);
+    });
+
+    test('carries authenticated account actions into the portal', () {
+      final changeEmail = HostedLoginRoute.fromUri(
+        Uri.parse(
+          'https://console.example/login/'
+          '?flow=change_email&token=email-token',
+        ),
+      );
+      final invitation = HostedLoginRoute.fromUri(
+        Uri.parse(
+          'https://console.example/login/'
+          '?flow=invitation&token=invite-token',
+        ),
+      );
+
+      expect(
+        changeEmail.portalActionTarget,
+        '/portal/?flow=change_email&token=email-token',
+      );
+      expect(changeEmail.requiresAuthentication, isTrue);
+      expect(
+        invitation.portalActionTarget,
+        '/portal/?flow=invitation&token=invite-token',
+      );
+      expect(invitation.requiresAuthentication, isTrue);
     });
   });
 }

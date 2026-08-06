@@ -316,9 +316,9 @@ void main() {
         find.text('Create your first client to get started.'),
         findsOneWidget,
       );
-      // The header's "+" tooltip and the empty-state action both lead to
-      // the create flow; the visible label is the empty-state one.
-      expect(find.text('Create client'), findsOneWidget);
+      // The header's primary action (now a labeled button) and the
+      // empty-state action both lead to the create flow.
+      expect(find.text('Create client'), findsNWidgets(2));
     });
 
 

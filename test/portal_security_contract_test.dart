@@ -12,6 +12,14 @@ void main() {
         '/me/devices/phone%20%2F%20one',
       );
       expect(
+        PortalSecurityPaths.trustedDevice('browser / one'),
+        '/me/trusted-devices/browser%20%2F%20one',
+      );
+      expect(
+        PortalSecurityPaths.trustCurrentBrowser,
+        '/me/trusted-devices/trust',
+      );
+      expect(
         PortalSecurityPaths.deviceActivity('device-1'),
         '/me/devices/device-1/activity',
       );

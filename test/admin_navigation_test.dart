@@ -209,36 +209,23 @@ void main() {
     });
 
     test('recognizes a partial runtime SCIM deployment', () {
-      final navigation = AdminNavigationCapabilities(
-        const [
-          SnaplinkAdminEndpoint(
-            method: 'GET',
-            path: '/api/v1/scim/v2/Users',
-            feature: 'scim',
-          ),
-        ],
-        documentedEndpoints: const [],
-        supplementalEndpoints: const [],
-      );
+      final navigation = AdminNavigationCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/scim/v2/Users',
+          feature: 'scim',
+        ),
+      ], documentedEndpoints: const []);
 
       expect(navigation.supportsScimDirectory, isTrue);
     });
 
-    test('keeps source-only routes distinct from documented routes', () {
-      final navigation = AdminNavigationCapabilities(
-        const [],
-        documentedEndpoints: const [],
-      );
+    test('uses published device routes when runtime inventory is empty', () {
+      final navigation = AdminNavigationCapabilities(const []);
 
       expect(navigation.supportsDeviceSecurity, isTrue);
       expect(
         SnaplinkAdminOperationCatalog.endpoints.any(
-          (endpoint) => endpoint.path == '/api/v1/admin/devices',
-        ),
-        isFalse,
-      );
-      expect(
-        SnaplinkAdminSupplementalCatalog.endpoints.any(
           (endpoint) => endpoint.path == '/api/v1/admin/devices',
         ),
         isTrue,

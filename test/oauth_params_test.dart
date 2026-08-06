@@ -31,7 +31,7 @@ void main() {
         'acr': {'essential': true},
       },
     });
-    expect(payload['device_token'], 'trusted-device');
+    expect(payload, isNot(contains('device_token')));
   });
 
   test('recognizes prompt none among OIDC prompt values', () {
@@ -47,5 +47,38 @@ void main() {
       ).hasPromptNone,
       isFalse,
     );
+  });
+
+  test('projects every authorization extension into federated navigation', () {
+    final params = OAuthParams.fromUri(
+      Uri.parse(
+        'https://console.example/login/?client_id=rp&scope=openid%20profile'
+        '&response_type=code&redirect_uri=https%3A%2F%2Frp.example%2Fcb'
+        '&request_uri=urn%3Aietf%3Aparams%3Aoauth%3Arequest_uri%3Aone'
+        '&request=signed.request.jwt&resource=https%3A%2F%2Fapi.one'
+        '&resource=https%3A%2F%2Fapi.two&prompt=login&max_age=300'
+        '&id_token_hint=id-token&authorization_details=%5B%7B%22type%22%3A%22payment%22%7D%5D'
+        '&claims=%7B%22userinfo%22%3A%7B%22email%22%3Anull%7D%7D',
+      ),
+    );
+
+    final target = Uri.parse(
+      'https://as.example/auth/login',
+    ).replace(queryParameters: params.toFederatedLoginQuery('workforce'));
+
+    expect(target.queryParameters['provider'], 'workforce');
+    expect(target.queryParameters['request'], 'signed.request.jwt');
+    expect(target.queryParameters['request_uri'], contains('request_uri:one'));
+    expect(target.queryParameters['id_token_hint'], 'id-token');
+    expect(target.queryParameters['max_age'], '300');
+    expect(
+      target.queryParameters['authorization_details'],
+      '[{"type":"payment"}]',
+    );
+    expect(target.queryParameters['claims'], '{"userinfo":{"email":null}}');
+    expect(target.queryParametersAll['resource'], [
+      'https://api.one',
+      'https://api.two',
+    ]);
   });
 }

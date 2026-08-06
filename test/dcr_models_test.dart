@@ -30,13 +30,13 @@ void main() {
       });
     });
 
-    test('management wire excludes fields the handler cannot update', () {
+    test('management wire preserves all mutable typed fields', () {
       final wire = _metadata().toManagementWire();
 
       expect(wire['grant_types'], ['authorization_code', 'refresh_token']);
       expect(wire['allowed_resources'], ['https://api.example']);
-      expect(wire, isNot(contains('response_types')));
-      expect(wire, isNot(contains('contacts')));
+      expect(wire['response_types'], ['code']);
+      expect(wire['contacts'], ['security@example.com']);
       expect(wire, isNot(contains('tenant_id')));
     });
 
@@ -65,10 +65,7 @@ void main() {
 
       expect(safety.canSafelyUpdate, isFalse);
       expect(safety.warnings.first, contains('saving is disabled'));
-      expect(
-        safety.warnings,
-        contains(contains('response_types are not returned or persisted')),
-      );
+      expect(safety.warnings, contains(contains('GET omitted response_types')));
     });
 
     test('allows a trusted registration snapshot with explicit grants', () {
@@ -80,10 +77,7 @@ void main() {
       }, trustedRegistrationSnapshot: true);
 
       expect(safety.canSafelyUpdate, isTrue);
-      expect(
-        safety.warnings,
-        contains(contains('shown from the registration snapshot')),
-      );
+      expect(safety.warnings, isEmpty);
     });
 
     test('PUT projection preserves only known omitted values', () {
@@ -153,7 +147,7 @@ void main() {
         discovery: discovery,
       );
 
-      expect(result.message, contains('not accepted by Snaplink DCR'));
+      expect(result.message, contains('requires a non-empty jwks.keys array'));
       expect(result.message, contains('not advertised by Snaplink'));
       expect(result.message, contains('Response type is not advertised'));
       expect(result.message, contains('does not advertise PKCE S256'));
@@ -201,11 +195,13 @@ void main() {
       'token_endpoint_auth_methods_supported': ['none'],
       'code_challenge_methods_supported': ['S256'],
       'scopes_supported': ['openid', 'profile'],
+      'serving_region': ' eu-west-1 ',
     });
 
     expect(discovery.registrationEnabled, isTrue);
     expect(discovery.grantTypes, contains('refresh_token'));
     expect(discovery.codeChallengeMethods, ['S256']);
+    expect(discovery.servingRegion, 'eu-west-1');
   });
 }
 

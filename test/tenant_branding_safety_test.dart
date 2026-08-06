@@ -9,22 +9,22 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_tab.dart';
 
 void main() {
-  testWidgets('branding reset preserves non-brand tenant settings via PUT', (
+  testWidgets('branding reset conditionally clears only branding', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(900, 1100);
     addTearDown(tester.view.reset);
-    Map<String, dynamic>? savedBody;
     final methods = <String>[];
+    String? ifMatch;
     final api = SnaplinkAdminApi(
       baseUrl: 'https://sso.example',
       accessToken: 'token',
       httpClient: MockClient((request) async {
         methods.add(request.method);
-        if (request.method == 'PUT') {
-          savedBody = jsonDecode(request.body) as Map<String, dynamic>;
-          return http.Response('{}', 200);
+        if (request.method == 'DELETE') {
+          ifMatch = request.headers['if-match'];
+          return http.Response('{"branding":{},"version":"8"}', 200);
         }
         return http.Response(
           jsonEncode({
@@ -34,6 +34,7 @@ void main() {
               'locale': 'en-US',
               'feature_flag': 'enabled',
             },
+            'version': '7',
           }),
           200,
         );
@@ -71,14 +72,11 @@ void main() {
       'tenant-1',
     );
     await tester.pump();
-    await tester.tap(find.text('Remove branding keys'));
+    await tester.tap(find.text('Clear branding'));
     await tester.pumpAndSettle();
 
-    expect(methods, ['GET', 'PUT', 'GET']);
-    expect(savedBody?['branding'], {
-      'locale': 'en-US',
-      'feature_flag': 'enabled',
-    });
+    expect(methods, ['GET', 'DELETE', 'GET']);
+    expect(ifMatch, '"branding-7"');
   });
 
   testWidgets(
@@ -104,6 +102,7 @@ void main() {
                 'brand_name': getCount == 1 ? 'Before' : 'Server state',
                 'locale': 'en-US',
               },
+              'version': getCount.toString(),
             }),
             200,
           );
@@ -137,6 +136,62 @@ void main() {
     },
   );
 
+  testWidgets('branding save refreshes instead of overwriting on 412', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final methods = <String>[];
+    var getCount = 0;
+    String? ifMatch;
+    final api = SnaplinkAdminApi(
+      baseUrl: 'https://sso.example',
+      accessToken: 'token',
+      httpClient: MockClient((request) async {
+        methods.add(request.method);
+        if (request.method == 'PUT') {
+          ifMatch = request.headers['if-match'];
+          return http.Response('{"error":"invalid_request"}', 412);
+        }
+        getCount++;
+        return http.Response(
+          jsonEncode({
+            'branding': {
+              'brand_name': getCount == 1 ? 'Before' : 'Concurrent value',
+            },
+            'version': getCount.toString(),
+          }),
+          200,
+        );
+      }),
+    )..maxRetries = 1;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: TenantBrandingTab(api: api, tenantId: 'tenant-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField && widget.decoration?.labelText == 'Brand name',
+      ),
+      'My stale draft',
+    );
+    await tester.ensureVisible(find.text('Save branding'));
+    await tester.tap(find.text('Save branding'));
+    await tester.pumpAndSettle();
+
+    expect(methods, ['GET', 'PUT', 'GET']);
+    expect(ifMatch, '"branding-1"');
+    expect(find.textContaining('Branding changed on the server'), findsOne);
+    expect(find.text('Concurrent value'), findsNWidgets(2));
+  });
+
   testWidgets(
     'branding reset reports unknown HTTP result when safe refresh fails',
     (tester) async {
@@ -150,7 +205,7 @@ void main() {
         accessToken: 'token',
         httpClient: MockClient((request) async {
           methods.add(request.method);
-          if (request.method == 'PUT') {
+          if (request.method == 'DELETE') {
             return http.Response(
               jsonEncode({'message': 'gateway unavailable'}),
               503,
@@ -166,6 +221,7 @@ void main() {
                 'brand_name': getCount == 1 ? 'Example' : 'Reconciled',
                 'locale': 'en-US',
               },
+              'version': getCount.toString(),
             }),
             200,
           );
@@ -191,10 +247,10 @@ void main() {
         'tenant-1',
       );
       await tester.pump();
-      await tester.tap(find.text('Remove branding keys'));
+      await tester.tap(find.text('Clear branding'));
       await tester.pumpAndSettle();
 
-      expect(methods, ['GET', 'PUT', 'GET']);
+      expect(methods, ['GET', 'DELETE', 'GET']);
       expect(
         find.textContaining('Branding reset result is unknown (HTTP 503)'),
         findsOne,
@@ -232,8 +288,8 @@ void main() {
       await tester.tap(find.text('Retry reconciliation'));
       await tester.pumpAndSettle();
 
-      expect(methods, ['GET', 'PUT', 'GET', 'GET']);
-      expect(methods.where((method) => method == 'PUT'), hasLength(1));
+      expect(methods, ['GET', 'DELETE', 'GET', 'GET']);
+      expect(methods.where((method) => method == 'DELETE'), hasLength(1));
       expect(find.text('Retry reconciliation'), findsNothing);
       expect(find.textContaining('current state is now reconciled'), findsOne);
       expect(

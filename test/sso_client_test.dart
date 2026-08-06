@@ -7,6 +7,28 @@ import 'package:http/testing.dart';
 import 'package:sso_admin/sso_client.dart';
 
 void main() {
+  test('direct Admin login requests the default OAuth resources', () async {
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/auth/login');
+        expect(jsonDecode(request.body), {
+          'provider': 'password',
+          'client_id': 'sso-admin-console',
+          'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
+          'resource': ['billing-api', 'stripe-adapter-api'],
+          'credential': {'username': 'admin', 'password': 'password'},
+        });
+        return http.Response('{"access_token":"admin-token"}', 200);
+      }),
+    );
+
+    await client.login('admin', 'password');
+
+    expect(client.isLoggedIn, isTrue);
+  });
+
   test('preserves list paging, order, and filter query parameters', () async {
     var requestNumber = 0;
     final client = SSOAdminClient(
@@ -370,12 +392,17 @@ void main() {
           '/api/v1/admin/tenants/acme%20west%2F1:set-status',
         );
         expect(jsonDecode(request.body), {'status': 'suspended'});
-        return http.Response('{}', 200);
+        return http.Response(
+          '{"credential_revocation":{"complete":true,'
+          '"refresh_tokens_revoked":2,"sessions_revoked":1,"results":[]}}',
+          200,
+        );
       }),
     );
     await client.login('admin', 'password');
 
-    await client.setTenantStatus('acme west/1', 'suspended');
+    final response = await client.setTenantStatus('acme west/1', 'suspended');
+    expect(response['credential_revocation'], isA<Map>());
   });
 
   test(
@@ -428,6 +455,29 @@ void main() {
 
     expect(client.isLoggedIn, isFalse);
     expect(unauthorizedCalls, 1);
+  });
+
+  test('admin access probe uses the read-only runtime inventory', () async {
+    var requestNumber = 0;
+    final client = SSOAdminClient(
+      'https://sso.example.test',
+      httpClient: MockClient((request) async {
+        requestNumber++;
+        if (requestNumber == 1) {
+          return http.Response('{"access_token":"admin-token"}', 200);
+        }
+        expect(request.method, 'GET');
+        expect(request.url.path, '/api/v1/admin/endpoints');
+        expect(request.headers['authorization'], 'Bearer admin-token');
+        return http.Response('{"status":"ok","endpoints":[]}', 200);
+      }),
+    );
+    await client.login('admin', 'password');
+
+    await client.probeAdminAccess();
+
+    expect(requestNumber, 2);
+    expect(client.isLoggedIn, isTrue);
   });
 
   test('a 403 preserves a valid under-scoped session', () async {

@@ -3,7 +3,6 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 
 void main() {
   final documented = SnaplinkAdminOperationCatalog.endpoints;
-  final supplemental = SnaplinkAdminSupplementalCatalog.endpoints;
 
   bool has(
     Iterable<SnaplinkAdminEndpoint> endpoints,
@@ -15,7 +14,7 @@ void main() {
 
   group('generated OpenAPI route catalog', () {
     test('contains the complete unique operation inventory', () {
-      expect(documented, hasLength(178));
+      expect(documented, hasLength(215));
       expect(
         documented
             .map((endpoint) => '${endpoint.method} ${endpoint.path}')
@@ -39,6 +38,12 @@ void main() {
       expect(has(documented, 'GET', '/api/v1/admin/rebac/check'), isTrue);
       expect(has(documented, 'GET', '/api/v1/admin/dr/mode'), isTrue);
       expect(has(documented, 'POST', '/api/v1/admin/dr/mode'), isTrue);
+      expect(has(documented, 'GET', '/api/v1/admin/operations'), isTrue);
+      expect(has(documented, 'GET', '/api/v1/admin/operations/{id}'), isTrue);
+      expect(
+        has(documented, 'POST', '/api/v1/admin/access-policies/converge'),
+        isTrue,
+      );
 
       expect(has(documented, 'GET', '/api/v1/admin/health/storage'), isFalse);
       expect(
@@ -72,41 +77,26 @@ void main() {
     });
   });
 
-  group('source-only compatibility manifest', () {
-    test('tracks exactly the 17 mounted but unpublished operations', () {
-      expect(supplemental, hasLength(17));
-      expect(
-        supplemental
-            .map((endpoint) => '${endpoint.method} ${endpoint.path}')
-            .toSet(),
-        hasLength(17),
-      );
-    });
-
-    test('keeps unpublished routes out of the OpenAPI catalog', () {
-      for (final endpoint in supplemental) {
-        expect(
-          has(documented, endpoint.method, endpoint.path),
-          isFalse,
-          reason: '${endpoint.method} ${endpoint.path}',
-        );
-      }
-    });
-
+  group('published management route coverage', () {
     test('covers branding, providers, devices, and security activity', () {
-      expect(has(supplemental, 'GET', '/api/v1/admin/branding'), isTrue);
-      expect(has(supplemental, 'POST', '/api/v1/admin/providers'), isTrue);
-      expect(has(supplemental, 'GET', '/api/v1/admin/devices/stats'), isTrue);
+      expect(has(documented, 'GET', '/api/v1/admin/branding'), isTrue);
+      expect(has(documented, 'POST', '/api/v1/admin/providers'), isTrue);
+      expect(has(documented, 'GET', '/api/v1/admin/devices/stats'), isTrue);
       expect(
-        has(supplemental, 'POST', '/api/v1/admin/devices/bulk-revoke'),
+        has(documented, 'POST', '/api/v1/admin/devices/bulk-revoke'),
         isTrue,
       );
       expect(
-        has(supplemental, 'GET', '/api/v1/admin/users/{id}/login-history'),
+        has(documented, 'GET', '/api/v1/admin/users/{id}/login-history'),
         isTrue,
       );
+      expect(has(documented, 'GET', '/api/v1/admin/security/activity'), isTrue);
       expect(
-        has(supplemental, 'GET', '/api/v1/admin/security/activity'),
+        has(
+          documented,
+          'DELETE',
+          '/api/v1/admin/users/{id}/devices/{deviceId}',
+        ),
         isTrue,
       );
     });

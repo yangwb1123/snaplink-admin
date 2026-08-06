@@ -56,7 +56,7 @@ void main() {
     expect(redacted['token_count'], 4);
   });
 
-  test('generic admin console blocks provider DTOs that echo config', () {
+  test('generic admin console allows server-redacted provider DTOs', () {
     for (final path in const [
       '/api/v1/admin/providers',
       '/api/v1/admin/providers/oidc',
@@ -69,7 +69,7 @@ void main() {
             feature: 'supplemental',
           ),
         ),
-        isTrue,
+        isFalse,
       );
     }
     expect(
@@ -94,7 +94,7 @@ void main() {
     );
   });
 
-  test('generic operations block decoded snapshot resource reads', () {
+  test('generic operations allow server-redacted snapshot detail reads', () {
     expect(
       AdminOpsHelpers.exposesDecodedSnapshotResources(
         const SnaplinkAdminEndpoint(
@@ -103,7 +103,7 @@ void main() {
           feature: 'documented',
         ),
       ),
-      isTrue,
+      isFalse,
     );
     expect(
       AdminOpsHelpers.exposesDecodedSnapshotResources(

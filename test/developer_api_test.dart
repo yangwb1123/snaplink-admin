@@ -132,7 +132,8 @@ void main() {
           '"grant_types_supported":["authorization_code"],'
           '"response_types_supported":["code"],'
           '"token_endpoint_auth_methods_supported":["none"],'
-          '"code_challenge_methods_supported":["S256"]}',
+          '"code_challenge_methods_supported":["S256"],'
+          '"serving_region":"eu-west-1"}',
           200,
         );
       }),
@@ -142,6 +143,7 @@ void main() {
 
     expect(discovery.registrationEnabled, isTrue);
     expect(discovery.tokenEndpointAuthMethods, ['none']);
+    expect(discovery.servingRegion, 'eu-west-1');
   });
 
   test('PUT sends the guarded typed body and exposes a rotated RAT', () async {

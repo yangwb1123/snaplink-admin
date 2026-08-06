@@ -168,6 +168,22 @@ void main() {
 
       expect(result.accepted, isFalse);
     });
+
+    test('rejects duplicate JARM forms', () {
+      final html =
+          '<form method="post" action="https://rp.example/callback">'
+          '<input name="response" value="$signedResponse"></form>'
+          '<form method="post" action="https://rp.example/callback">'
+          '<input name="response" value="$signedResponse"></form>';
+      final result = resolveJarmCompletion(
+        responseMode: 'form_post.jwt',
+        redirectUri: 'https://rp.example/callback',
+        responseData: const {},
+        serverFormPost: html,
+      );
+
+      expect(result.accepted, isFalse);
+    });
   });
 }
 
