@@ -1,5 +1,23 @@
 /// Commercial plan, subscription, entitlement, wallet, and payment copy.
 const appCommerceSourceZh = <String, String>{
+  'Cancel': '取消',
+  'Create subscription': '创建订阅',
+  'Change plan': '变更套餐',
+  'Post adjustment': '提交调整',
+  'No ledger entries.': '暂无账本记录。',
+  'Reconcile': '对账',
+  'Create top-up order': '创建充值订单',
+  'No top-up orders exist for this tenant.': '该租户暂无充值订单。',
+  'Load payment facts': '加载支付事实',
+  'Continue secure checkout': '继续安全结算',
+  'No normalized payment facts are recorded.': '暂无标准化支付事实记录。',
+  'Order totals match the immutable ledger.': '订单总额与不可变账本一致。',
+  'Load tenant commerce': '加载租户商业数据',
+  'Commerce service error': '商业服务错误',
+  'Publish plan version': '发布套餐版本',
+  'No plan versions are available.': '暂无可用套餐版本。',
+  'This tenant has no subscriptions.': '该租户暂无订阅。',
+
   'Subscriptions & Billing': '订阅与计费',
   'Go to Subscriptions & Billing': '前往订阅与计费',
   'Manage plans, subscriptions, quotas, wallets, and top-ups':
