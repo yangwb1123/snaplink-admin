@@ -36,6 +36,7 @@ start_dev.sh
 /build/
 /coverage/
 ephemeral/
+/config.local.yaml
 
 # Symbolication related
 app.*.symbols
@@ -47,3 +48,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ai-batch-runner runtime artifacts
+.pi-batch/
+logs/
+docs/archive/
+docs/auto/
+docs/requirements/runs/
