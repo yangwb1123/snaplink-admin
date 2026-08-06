@@ -1,10 +1,10 @@
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
-import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -352,77 +352,117 @@ class _UsersTabState extends State<UsersTab>
                             onAction: () =>
                                 AdminRoute.go('users', action: 'new'),
                           )
-                        : ListView.separated(
-                            itemCount: items.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, i) {
-                              final u = items[i];
-                              final uid = u['id']?.toString() ?? '';
-                              return StaggeredFadeIn(
-                                index: i,
-                                child: ListTile(
-                                onTap: selecting
-                                    ? () => toggleSelect(uid)
-                                    : () => AdminRoute.go(
-                                          'users',
-                                          resourceId: uid,
-                                        ),
-                                onLongPress: () => toggleSelect(uid),
-                                leading: selecting
-                                    ? Checkbox(
-                                        value: selected.contains(uid),
-                                        onChanged: (_) => toggleSelect(uid),
-                                      )
-                                    : UserAvatar(
-                                        name: u['id']?.toString() ?? '?',
-                                        radius: 16,
-                                      ),
-                                title: Text(u['id']?.toString() ?? '?'),
-                                subtitle: LocalizedText(
-                                  'provider: ${u['provider'] ?? '?'}',
+                        : AdminDataTable(
+                            scrollable: true,
+                            minWidth: 720,
+                            onRowTap: selecting
+                                ? (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  )
+                                : (i) => AdminRoute.go(
+                                    'users',
+                                    resourceId: items[i]['id']?.toString() ?? '',
+                                  ),
+                            onRowLongPress: selecting
+                                ? null
+                                : (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  ),
+                            columns: [
+                              if (selecting)
+                                AdminDataColumn(
+                                  id: 'select',
+                                  label: '',
+                                  width: 44,
+                                  builder: (context, i) {
+                                    final uid = items[i]['id']?.toString() ?? '';
+                                    return Checkbox(
+                                      value: selected.contains(uid),
+                                      onChanged: (_) => toggleSelect(uid),
+                                    );
+                                  },
                                 ),
-                                trailing: selecting
-                                    ? null
-                                    : Row(
+                              AdminDataColumn(
+                                id: 'user',
+                                label: 'USER',
+                                width: 260,
+                                sortable: true,
+                                builder: (context, i) => Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      u['externalId']?.toString() ??
-                                          u['external_id']?.toString() ??
-                                          '',
+                                    UserAvatar(
+                                      name: items[i]['id']?.toString() ?? '?',
+                                      radius: 14,
                                     ),
-                                    PopupMenuButton<String>(
-                                      enabled: _busyId == null,
-                                      onSelected: (value) {
-                                        if (value == 'edit') {
-                                          AdminRoute.go(
-                                            'users',
-                                            action: 'edit',
-                                            resourceId:
-                                                u['id']?.toString() ?? '',
-                                          );
-                                        }
-                                        if (value == 'delete') {
-                                          _confirmDelete(u);
-                                        }
-                                      },
-                                      itemBuilder: (context) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: LocalizedText('Edit'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: LocalizedText('Delete'),
-                                        ),
-                                      ],
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: TableCellText(
+                                        items[i]['id']?.toString() ?? '?',
+                                        bold: true,
+                                        maxLines: 1,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                              );
-                            },
+                              AdminDataColumn(
+                                id: 'provider',
+                                label: 'PROVIDER',
+                                width: 140,
+                                sortable: true,
+                                builder: (context, i) => TableCellText(
+                                  items[i]['provider']?.toString() ?? '?',
+                                  muted: true,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'external',
+                                label: 'EXTERNAL ID',
+                                builder: (context, i) => TableCellText(
+                                  items[i]['externalId']?.toString() ??
+                                      items[i]['external_id']?.toString() ??
+                                      '',
+                                  muted: true,
+                                  maxLines: 1,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'actions',
+                                label: '',
+                                width: 60,
+                                builder: (context, i) {
+                                  final u = items[i];
+                                  return PopupMenuButton<String>(
+                                    enabled: _busyId == null,
+                                    onSelected: (value) {
+                                      if (value == 'edit') {
+                                        AdminRoute.go(
+                                          'users',
+                                          action: 'edit',
+                                          resourceId:
+                                              u['id']?.toString() ?? '',
+                                        );
+                                      }
+                                      if (value == 'delete') {
+                                        _confirmDelete(u);
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: LocalizedText('Edit'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: LocalizedText('Delete'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                            itemCount: items.length,
+                            rowBuilder: (context, i) => const SizedBox.shrink(),
                           ),
                   ),
                   PaginationControls(

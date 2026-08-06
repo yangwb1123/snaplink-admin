@@ -716,7 +716,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('user-1'), findsOneWidget);
-      expect(find.text('provider: local'), findsOneWidget);
+      expect(find.text('local'), findsWidgets);
 
       await tester.ensureVisible(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
