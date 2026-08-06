@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/sparkline.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -343,20 +344,47 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
                     height: 36,
                   ),
                 ),
-              for (final raw in buckets.take(50))
+              for (var index = 0; index < buckets.length && index < 50; index++)
                 Builder(
                   builder: (_) {
-                    final bucket = raw as Map;
+                    final bucket = buckets[index] as Map;
+                    final count = (bucket['count'] as num?) ?? 0;
+                    // 异常优先：最高流量前 3 名高亮（峰值即关注点）。
+                    final peak = index < 3 && count > 0;
+                    final hot = index < 6 && count > 0;
                     return ListTile(
                       dense: true,
-                      leading: const Icon(Icons.token_outlined),
+                      leading: Icon(
+                        Icons.token_outlined,
+                        color: peak
+                            ? AppColors.danger
+                            : hot
+                            ? AppColors.warning
+                            : null,
+                      ),
                       title: LocalizedText(
                         '${bucket['client_id'] ?? 'unknown client'} · ${bucket['kind'] ?? 'token'}',
+                        style: TextStyle(
+                          fontWeight: peak ? FontWeight.w700 : null,
+                          color: peak ? AppColors.danger : null,
+                        ),
                       ),
                       subtitle: LocalizedText(
                         '${bucket['endpoint'] ?? ''} · ${bucket['minute'] ?? ''}',
                       ),
-                      trailing: LocalizedText('${bucket['count'] ?? 0}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (peak)
+                            StatusChip(
+                              label: 'Peak',
+                              color: AppColors.danger,
+                              icon: Icons.local_fire_department,
+                            ),
+                          const SizedBox(width: 8),
+                          LocalizedText('$count'),
+                        ],
+                      ),
                     );
                   },
                 ),

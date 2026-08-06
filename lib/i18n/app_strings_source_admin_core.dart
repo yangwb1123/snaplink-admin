@@ -46,6 +46,7 @@ const appAdminCoreSourceZh = <String, String>{
   'A subsystem needs attention': '有子系统需要关注',
   'All subsystems healthy': '全部子系统健康',
   'down': '异常',
+  'Peak': '峰值',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
