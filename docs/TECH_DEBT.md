@@ -34,3 +34,8 @@
 
 - setup_screen_test: 'walks through admin creation and finish' —— enterText 找不到 'Admin username' TextField（待查：可能与 MaterialApp 无 localizations 环境相关）
 - oidc_account_flow_test: 'signup registers an account' —— posted.single 为空（确认对话框流程/API mock 时序待查）
+
+## i18n 进展（第 21-30 轮）
+
+- 静态文案缺失：431 → **0**（5 轮推进 + 扫描方式修正：spread catalog 需逐文件查）
+- 剩余：50 条动态消息（Dart `$` 插值，如 'Client $id approved.'）——需改造为 {n} 模板风格才能走 pattern 翻译；记录待处理
