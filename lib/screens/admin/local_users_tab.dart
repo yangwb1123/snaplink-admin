@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/user_avatar.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -281,8 +282,9 @@ class _LocalUsersTabState extends State<LocalUsersTab>
                             onChanged: (_) =>
                                 toggleSelect(user['id']?.toString() ?? ''),
                           )
-                        : const CircleAvatar(
-                            child: Icon(Icons.person_outline),
+                        : UserAvatar(
+                            name: user['id']?.toString() ?? '?',
+                            radius: 16,
                           ),
                     title: Text(
                       user['display_name']?.toString().isNotEmpty == true
