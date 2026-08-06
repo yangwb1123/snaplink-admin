@@ -291,30 +291,43 @@ class _GovernanceTabState extends State<GovernanceTab> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    // 子菜单固定在最上面一行（非滚动区）——Material TabBar 模式。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AdminBreadcrumb(),
+              Row(
+                children: [
+                  Text(
+                    AppStrings.of(context).governanceOperations,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _loading || _writing ? null : _refresh,
+                    tooltip: 'Refresh'.localized,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SectionSelector(
+                sections: _sections,
+                current: _currentSection,
+                onSelected: _selectSection,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).governanceOperations,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: _loading || _writing ? null : _refresh,
-              tooltip: 'Refresh'.localized,
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SectionSelector(
-          sections: _sections,
-          current: _currentSection,
-          onSelected: _selectSection,
-        ),
         if (_error != null) _errorBanner(),
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (_currentSection == 'all' || _currentSection == 'health')
@@ -335,6 +348,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
           _writeArea(context),
         if (_data.containsKey('lastWrite'))
           _jsonCard(context, 'Last write response', _data['lastWrite']!),
+      ],
+        ),
+      ),
       ],
     );
   }

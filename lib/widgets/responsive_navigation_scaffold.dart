@@ -41,9 +41,19 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                        child: Text(
-                          drawerHeader,
-                          style: Theme.of(context).textTheme.titleLarge,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.admin_panel_settings,
+                              size: 22,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              drawerHeader,
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                          ],
                         ),
                       ),
                       const Divider(height: 1),

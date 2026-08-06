@@ -235,39 +235,53 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       );
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    // 子菜单固定在最上面一行（非滚动区）——Material TabBar 模式。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).tokenSessionSecurity,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
-      ),
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Token issuance, lifetimes and rotation policies across clients.',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSubtle,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AdminBreadcrumb(),
+              Row(
+                children: [
+                  Text(
+                    AppStrings.of(context).tokenSessionSecurity,
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: _loading ? null : _load,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const LocalizedText(
+                'Token issuance, lifetimes and rotation policies across clients.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSubtle,
+                ),
+              ),
+              const SizedBox(height: 8),
+              SectionSelector(
+                sections: _sectionDefs,
+                current: _currentSection,
+                onSelected: _selectSection,
+              ),
+            ],
           ),
         ),
-        SectionSelector(
-          sections: _sectionDefs,
-          current: _currentSection,
-          onSelected: _selectSection,
-        ),
+        Expanded(
+          child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -298,6 +312,9 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           if (_shows('revoke') && _supportsSingleRevoke)
             _revokeTokenCard(context),
         ],
+      ],
+        ),
+      ),
       ],
     );
   }

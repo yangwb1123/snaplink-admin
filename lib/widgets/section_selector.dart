@@ -32,7 +32,7 @@ class SectionSelector extends StatelessWidget {
                   // 长 label（如 'Subscriptions & Billing'）限制宽度 + 省略号，
                   // 避免文字超出 chip/容器（横向子菜单溢出修复）。
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 160),
+                    constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
                       context.tr(s.label),
                       maxLines: 1,
