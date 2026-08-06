@@ -425,6 +425,38 @@ void main() {
       await tester.pumpAndSettle();
       expect(requestedQuery, contains('active%3Atrue'));
     });
+
+    testWidgets('batch approve cancels without executing', (tester) async {
+      var approveCalls = 0;
+      final client = _client({
+        '/api/v1/admin/clients': (request) => http.Response(
+          jsonEncode({
+            'clients': [clientRow],
+            'total_size': 1,
+          }),
+          200,
+        ),
+        '/api/v1/admin/clients/portal-client/approve': (request) {
+          approveCalls++;
+          return http.Response('{}', 200);
+        },
+      });
+      await tester.pumpWidget(_wrap(ClientsTab(client: client)));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('portal-client'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+
+      // 打开确认框后取消——不执行任何调用。
+      await tester.tap(find.byIcon(Icons.check_circle_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(approveCalls, 0);
+      // 选择保留（用户可继续操作或清除）。
+      expect(find.text('1 selected'), findsOneWidget);
+    });
   });
 
   group('TenantsTab', () {
