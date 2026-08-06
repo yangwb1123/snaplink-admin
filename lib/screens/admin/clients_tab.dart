@@ -424,6 +424,7 @@ class _ClientsTabState extends State<ClientsTab>
         AdminBreadcrumb(),
         AdminListHeader(
           title: AppStrings.of(context).clients,
+          subtitle: 'Manage OAuth clients, secrets and expiring credentials.',
           createTooltip: 'Create client',
           onCreate: () => AdminRoute.go('clients', action: 'new'),
           onRefresh: _reload,

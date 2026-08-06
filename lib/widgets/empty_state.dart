@@ -19,13 +19,32 @@ class EmptyState extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Center(
     child: SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 64, color: Colors.grey.shade400),
+          // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）。
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.primary.withValues(alpha: 0.16),
+                  scheme.primary.withValues(alpha: 0.04),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Icon(icon, size: 32, color: scheme.primary),
+          ),
           const SizedBox(height: 16),
           Text(
             context.tr(title),
@@ -54,4 +73,5 @@ class EmptyState extends StatelessWidget {
       ),
     ),
   );
+  }
 }

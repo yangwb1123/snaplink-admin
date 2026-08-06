@@ -1,7 +1,5 @@
 /// Commercial plan, subscription, entitlement, wallet, and payment copy.
 const appCommerceSourceZh = <String, String>{
-  'Cancel': '取消',
-  'Create subscription': '创建订阅',
   'Change plan': '变更套餐',
   'Post adjustment': '提交调整',
   'No ledger entries.': '暂无账本记录。',

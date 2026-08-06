@@ -4,9 +4,12 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'admin_route.dart';
+import 'distributed_cluster_panel.dart';
 
 /// System health dashboard.
-/// Shows connection status to the backend and basic server info.
+/// Shows connection status to the backend, the distributed-cluster
+/// (Tier B) control plane ([DistributedClusterPanel]), storage and
+/// federation health, and quick actions.
 class HealthTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   const HealthTab({super.key, required this.api});
@@ -38,17 +41,16 @@ class _HealthTabState extends State<HealthTab> {
     super.dispose();
   }
 
+  Future<Map<String, dynamic>> _quiet(String path) =>
+      widget.api.get(path).catchError((_) => <String, dynamic>{});
+
   Future<void> _refresh() async {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
         widget.api.get('/health'),
-        widget.api
-            .get('/api/v1/admin/storage-health')
-            .catchError((_) => <String, dynamic>{}),
-        widget.api
-            .get('/api/v1/admin/federation/health')
-            .catchError((_) => <String, dynamic>{}),
+        _quiet('/api/v1/admin/storage-health'),
+        _quiet('/api/v1/admin/federation/health'),
       ]);
       if (!mounted) return;
       setState(() {
@@ -89,6 +91,8 @@ class _HealthTabState extends State<HealthTab> {
       ),
       const SizedBox(height: 8),
       _serverCard(context),
+      const SizedBox(height: 12),
+      DistributedClusterPanel(api: widget.api),
       if (_storageHealth?.isNotEmpty ?? false) ...[
         const SizedBox(height: 12),
         _card(context, 'Storage Health', _storageHealth!, Icons.storage),
@@ -142,6 +146,10 @@ class _HealthTabState extends State<HealthTab> {
     final h = _health ?? {};
     final status = h['status']?.toString() ?? 'unknown';
     final isOk = status == 'ok';
+    final revision = h['vcs_revision']?.toString() ?? '';
+    final revisionShort = revision.length >= 12
+        ? revision.substring(0, 12)
+        : (revision.isEmpty ? '—' : revision);
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -172,10 +180,7 @@ class _HealthTabState extends State<HealthTab> {
             const Divider(),
             _row('Version', h['version']?.toString() ?? '—'),
             _row('Issuer', h['issuer']?.toString() ?? '—'),
-            _row(
-              'Revision',
-              (h['vcs_revision']?.toString() ?? '—').substring(0, 12),
-            ),
+            _row('Revision', revisionShort),
             _row('Build Time', h['vcs_time']?.toString() ?? '—'),
           ],
         ),

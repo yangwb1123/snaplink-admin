@@ -281,6 +281,7 @@ class _TenantsTabState extends State<TenantsTab>
         AdminBreadcrumb(),
         AdminListHeader(
           title: AppStrings.of(context).tenants,
+          subtitle: 'Manage tenant lifecycle, status and residency.',
           createTooltip: 'Create tenant',
           onCreate: () => AdminRoute.go('tenants', action: 'new'),
           onRefresh: _reload,

@@ -234,6 +234,7 @@ class _UsersTabState extends State<UsersTab>
         AdminBreadcrumb(),
         AdminListHeader(
           title: AppStrings.of(context).users,
+          subtitle: 'Directory users across providers.',
           createTooltip: 'Create user',
           onCreate: () => AdminRoute.go('users', action: 'new'),
           onRefresh: _reload,

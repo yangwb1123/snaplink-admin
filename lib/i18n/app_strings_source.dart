@@ -1,5 +1,6 @@
 import 'app_strings_source_common.dart';
 import 'app_strings_source_admin_core.dart';
+import 'app_strings_source_admin_distributed.dart';
 import 'app_strings_source_admin_dynamic.dart';
 import 'app_strings_source_admin_features.dart';
 import 'app_strings_source_admin_indirect.dart';
@@ -22,6 +23,7 @@ const appSourceStrings = <String, Map<String, String>>{
     ...appDeveloperSourceZh,
     ...appOidcSourceZh,
     ...appAdminCoreSourceZh,
+    ...appAdminDistributedSourceZh,
     ...appAdminFeatureSourceZh,
     ...appAdminIndirectSourceZh,
     ...appAdminDynamicSourceZh,

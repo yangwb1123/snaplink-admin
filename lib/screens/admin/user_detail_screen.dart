@@ -15,12 +15,14 @@ class UserDetailScreen extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SSOAdminClient client;
   final String userId;
+  final SnaplinkAdminCapabilities capabilities;
 
   const UserDetailScreen({
     super.key,
     required this.api,
     required this.client,
     required this.userId,
+    required this.capabilities,
   });
 
   @override
@@ -40,13 +42,47 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   int _tabIndex = 0;
   late final void Function() _cancelPopState;
 
-  static const _tabs = [
-    ('sessions', 'Sessions', Icons.devices),
-    ('consents', 'Consents', Icons.checklist),
-    ('mfa', 'MFA', Icons.security),
-    ('lifecycle', 'Lifecycle', Icons.route),
-    ('device-security', 'Device security', Icons.phonelink_lock),
+  static const _tabSpecs = [
+    (
+      'sessions',
+      'Sessions',
+      Icons.devices,
+      'GET',
+      '/api/v1/admin/users/:id/sessions',
+    ),
+    (
+      'consents',
+      'Consents',
+      Icons.checklist,
+      'GET',
+      '/api/v1/admin/users/:id/consents',
+    ),
+    ('mfa', 'MFA', Icons.security, 'GET', '/api/v1/admin/users/:id/mfa'),
+    (
+      'lifecycle',
+      'Lifecycle',
+      Icons.route,
+      'GET',
+      '/api/v1/admin/users/:id/lifecycle',
+    ),
+    (
+      'device-security',
+      'Device security',
+      Icons.phonelink_lock,
+      'GET',
+      '/api/v1/admin/users/:id/devices',
+    ),
   ];
+
+  /// Tabs backed by a runtime-inventory endpoint; while the inventory is
+  /// still loading (empty) every tab stays visible.
+  List<(String, String, IconData)> get _tabs =>
+      widget.capabilities.endpoints.isEmpty
+      ? [for (final s in _tabSpecs) (s.$1, s.$2, s.$3)]
+      : [
+          for (final s in _tabSpecs)
+            if (widget.capabilities.has(s.$4, s.$5)) (s.$1, s.$2, s.$3),
+        ];
 
   @override
   void initState() {
@@ -88,19 +124,22 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     try {
       final user = await widget.client.getUser(widget.userId);
       final uid = Uri.encodeComponent(widget.userId);
-      final results = await Future.wait([
-        _optionalGet('sessions', '/api/v1/admin/users/$uid/sessions'),
-        _optionalGet('consents', '/api/v1/admin/users/$uid/consents'),
-        _optionalGet('mfa', '/api/v1/admin/users/$uid/mfa'),
-        _optionalGet('lifecycle', '/api/v1/admin/users/$uid/lifecycle'),
-      ]);
+      final sections = <String, Map<String, dynamic>>{};
+      for (final tab in _tabs) {
+        if (tab.$1 == 'device-security') continue; // self-loading panel
+        final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
+        sections[tab.$1] = await _optionalGet(
+          tab.$1,
+          spec.$5.replaceAll(':id', uid),
+        );
+      }
       if (!mounted) return;
       setState(() {
         _user = user;
-        _sessions = results[0];
-        _consents = results[1];
-        _mfa = results[2];
-        _lifecycle = results[3];
+        _sessions = sections['sessions'] ?? <String, dynamic>{};
+        _consents = sections['consents'] ?? <String, dynamic>{};
+        _mfa = sections['mfa'] ?? <String, dynamic>{};
+        _lifecycle = sections['lifecycle'] ?? <String, dynamic>{};
         _loading = false;
       });
     } catch (e) {
@@ -194,15 +233,15 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   );
 
   Widget _tabContent(BuildContext context) {
-    switch (_tabIndex) {
-      case 0:
+    switch (_tabs[_tabIndex].$1) {
+      case 'sessions':
         return _optionalSection(
           'sessions',
           UserSessionsView(
             sessions: _sessions?['sessions'] as List? ?? const [],
           ),
         );
-      case 1:
+      case 'consents':
         return _optionalSection(
           'consents',
           UserConsentsView(
@@ -211,7 +250,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             onRevoke: _revokeConsent,
           ),
         );
-      case 2:
+      case 'mfa':
         return _optionalSection(
           'mfa',
           UserMfaView(
@@ -220,7 +259,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             onRemove: _removeMfa,
           ),
         );
-      case 3:
+      case 'lifecycle':
         return _optionalSection(
           'lifecycle',
           UserLifecycleView(
@@ -229,8 +268,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
             onBack: () => AdminRoute.go('users'),
           ),
         );
-      case 4:
-        return UserDeviceSecurityPanel(api: widget.api, userId: widget.userId);
+      case 'device-security':
+        return UserDeviceSecurityPanel(
+          api: widget.api,
+          userId: widget.userId,
+        );
       default:
         return const Center(child: LocalizedText('Select a tab'));
     }

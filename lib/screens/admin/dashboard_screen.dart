@@ -523,12 +523,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final rid = route.resourceId;
     if (rid.isNotEmpty) {
       final detail = <String, WidgetBuilder>{
-        AdminModuleId.users: (_) =>
-            UserDetailScreen(api: _api, client: widget.client, userId: rid),
+        AdminModuleId.users: (_) => UserDetailScreen(
+          api: _api,
+          client: widget.client,
+          userId: rid,
+          capabilities: capabilities,
+        ),
         AdminModuleId.clients: (_) =>
             ClientDetailScreen(api: _api, client: widget.client, clientId: rid),
-        AdminModuleId.tenants: (_) =>
-            TenantDetailScreen(api: _api, client: widget.client, tenantId: rid),
+        AdminModuleId.tenants: (_) => TenantDetailScreen(
+          api: _api,
+          client: widget.client,
+          tenantId: rid,
+          capabilities: capabilities,
+        ),
         AdminModuleId.connections: (_) => ConnectionDetailScreen(
           api: _api,
           client: widget.client,

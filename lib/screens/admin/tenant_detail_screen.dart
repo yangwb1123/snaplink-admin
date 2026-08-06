@@ -18,12 +18,14 @@ class TenantDetailScreen extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SSOAdminClient client;
   final String tenantId;
+  final SnaplinkAdminCapabilities capabilities;
 
   const TenantDetailScreen({
     super.key,
     required this.api,
     required this.client,
     required this.tenantId,
+    required this.capabilities,
   });
 
   @override
@@ -41,12 +43,22 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   int _tabIndex = 0;
   late final void Function() _cancelPopState;
 
-  static const _tabs = [
-    ('members', 'Members', Icons.people),
-    ('invitations', 'Invitations', Icons.mail_outline),
-    ('usage', 'Usage', Icons.bar_chart),
-    ('branding', 'Branding', Icons.palette_outlined),
+  static const _tabSpecs = [
+    ('members', 'Members', Icons.people, 'GET', '/api/v1/admin/tenants/:id/members'),
+    ('invitations', 'Invitations', Icons.mail_outline, 'GET', '/api/v1/admin/tenants/:id/invitations'),
+    ('usage', 'Usage', Icons.bar_chart, 'GET', '/api/v1/admin/tenants/:id/usage'),
+    ('branding', 'Branding', Icons.palette_outlined, 'GET', '/api/v1/admin/branding'),
   ];
+
+  /// Tabs backed by a runtime-inventory endpoint; while the inventory is
+  /// still loading (empty) every tab stays visible.
+  List<(String, String, IconData)> get _tabs =>
+      widget.capabilities.endpoints.isEmpty
+      ? [for (final s in _tabSpecs) (s.$1, s.$2, s.$3)]
+      : [
+          for (final s in _tabSpecs)
+            if (widget.capabilities.has(s.$4, s.$5)) (s.$1, s.$2, s.$3),
+        ];
 
   @override
   void initState() {
@@ -92,17 +104,21 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     try {
       final tid = Uri.encodeComponent(widget.tenantId);
       final tenant = await widget.client.getTenant(widget.tenantId);
-      final results = await Future.wait([
-        _optionalGet('members', '/api/v1/admin/tenants/$tid/members'),
-        _optionalGet('invitations', '/api/v1/admin/tenants/$tid/invitations'),
-        _optionalGet('usage', '/api/v1/admin/tenants/$tid/usage'),
-      ]);
+      final sections = <String, Map<String, dynamic>>{};
+      for (final tab in _tabs) {
+        if (tab.$1 == 'branding') continue; // self-loading tab
+        final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
+        sections[tab.$1] = await _optionalGet(
+          tab.$1,
+          spec.$5.replaceAll(':id', tid),
+        );
+      }
       if (!mounted) return;
       setState(() {
         _tenant = tenant;
-        _members = _firstList(results[0]);
-        _invitations = _firstList(results[1]);
-        _usage = normalizeTenantUsageRecord(results[2]);
+        _members = _firstList(sections['members'] ?? const {});
+        _invitations = _firstList(sections['invitations'] ?? const {});
+        _usage = normalizeTenantUsageRecord(sections['usage'] ?? const {});
         _loading = false;
       });
     } catch (e) {
@@ -239,15 +255,15 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   }
 
   Widget _tabContent(BuildContext context) {
-    switch (_tabIndex) {
-      case 0:
+    switch (_tabs[_tabIndex].$1) {
+      case 'members':
         return TenantMembersTab(
           members: _members,
           error: _sectionErrors['members'],
           onRetry: _load,
           onRemove: _removeMember,
         );
-      case 1:
+      case 'invitations':
         return TenantInvitationsTab(
           invitations: _invitations,
           error: _sectionErrors['invitations'],
@@ -255,13 +271,13 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           onResend: _resendInvitation,
           onRevoke: _revokeInvitation,
         );
-      case 2:
+      case 'usage':
         return TenantUsageTab(
           usage: _usage ?? const {},
           error: _sectionErrors['usage'],
           onRetry: _load,
         );
-      case 3:
+      case 'branding':
         return TenantBrandingTab(api: widget.api, tenantId: widget.tenantId);
       default:
         return const Center(child: LocalizedText('Select a tab'));

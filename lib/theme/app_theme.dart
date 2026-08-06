@@ -35,6 +35,7 @@ abstract final class AppTheme {
           : const Color(0xFFF5F7FA), // 浅灰品牌背景（区别于纯白模板）
     );
     return base.copyWith(
+      hoverColor: scheme.primary.withValues(alpha: 0.06),
       cardTheme: CardThemeData(
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
@@ -123,6 +124,7 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(8),
         ),
         iconColor: scheme.primary,
+        selectedColor: scheme.primary,
       ),
       navigationRailTheme: const NavigationRailThemeData(
         indicatorShape: RoundedRectangleBorder(

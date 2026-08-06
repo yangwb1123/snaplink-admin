@@ -84,6 +84,17 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
                         ? NavigationRailLabelType.all
                         : NavigationRailLabelType.selected,
                     scrollable: true,
+                    // 品牌化：窄轨道 + 选中态圆角块（Linear/Vercel 风格）。
+                    groupAlignment: -0.9,
+                    selectedIconTheme: IconThemeData(
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    unselectedIconTheme: IconThemeData(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    indicatorColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.12),
                     destinations: destinations,
                   ),
                   const VerticalDivider(width: 1),
