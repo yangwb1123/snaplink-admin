@@ -72,6 +72,16 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               ),
               const SizedBox(height: 20),
               _buildView(),
+              const SizedBox(height: 12),
+              Text(
+                context.tr('© {year} snaplink · secure identity platform', {
+                  'year': '2026',
+                }),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
             ],
           ),
         ),

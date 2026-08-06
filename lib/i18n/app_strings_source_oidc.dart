@@ -3,6 +3,7 @@ const appOidcSourceZh = <String, String>{
     'snaplink console': 'snaplink 控制台',
   'Identity & Access Management': '身份与访问管理',
   'Enterprise-grade identity & access management': '企业级身份与访问管理',
+  '© {year} snaplink · secure identity platform': '© {year} snaplink · 安全身份平台',
 'Show password': '显示密码',
   'Hide password': '隐藏密码',
 
