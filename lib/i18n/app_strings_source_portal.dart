@@ -1,5 +1,9 @@
 /// Account portal copy. Dynamic values use `{name}` placeholders.
 const appPortalSourceZh = <String, String>{
+  'Mark all as read?': '全部标记为已读？',
+  'Mark all': '全部已读',
+  'This will mark {n} notifications as read.': '这将把 {n} 条通知标记为已读。',
+
   'Data export download is available in the web console.':
       '数据导出下载仅在 Web 控制台中可用。',
   'Notifications': '通知',
