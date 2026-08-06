@@ -1,3 +1,4 @@
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -446,8 +447,18 @@ class _TenantsTabState extends State<TenantsTab>
                                             : Colors.greenAccent,
                                       ),
                                 title: Text(t['name']?.toString() ?? id),
-                                subtitle: LocalizedText(
-                                  '${t['slug'] ?? ''} · $status',
+                                subtitle: Row(
+                                  children: [
+                                    Flexible(
+                                      child: LocalizedText(
+                                        '${t['slug'] ?? ''}',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    suspended
+                                        ? StatusChip.suspended()
+                                        : StatusChip.active(),
+                                  ],
                                 ),
                                 trailing: selecting || busy
                                     ? busy

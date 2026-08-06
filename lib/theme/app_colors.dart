@@ -27,6 +27,11 @@ abstract final class AppColors {
   static const Color dangerDark = Color(0xFF7F1D1D);
   static const Color dangerTint = Color(0xFFFECACA);
 
+  /// 警告（amber）
+  static const Color warning = Color(0xFFD97706);
+
+  /// 中性灰（inactive 等）
+  static const Color muted = Color(0xFF94A3B8);
   /// 辅助（indigo 淡色）
   static const Color primaryTint = Color(0xFFC7D2FE);
 }

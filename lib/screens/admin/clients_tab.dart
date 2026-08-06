@@ -7,6 +7,7 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -614,6 +615,10 @@ class _ClientsTabState extends State<ClientsTab>
                                     : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
+                                    active
+                                        ? StatusChip.active()
+                                        : StatusChip.inactive(),
+                                    const SizedBox(width: 8),
                                     Text(
                                       c['tokenStrategy']?.toString() ??
                                           c['token_strategy']?.toString() ??

@@ -487,8 +487,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Acme Corp'), findsOneWidget);
-      expect(find.text('acme · active'), findsOneWidget);
-      expect(find.text('globex · suspended'), findsOneWidget);
+      expect(find.text('acme'), findsOneWidget);
+      expect(find.text('Active'), findsWidgets);  // StatusChip label
+      expect(find.text('globex'), findsOneWidget);
+      expect(find.text('Suspended'), findsWidgets);
     });
 
     testWidgets('batch suspends selected tenants', (tester) async {
