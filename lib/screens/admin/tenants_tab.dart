@@ -1,3 +1,4 @@
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
@@ -5,8 +6,6 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/staggered_fade_in.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -415,110 +414,136 @@ class _TenantsTabState extends State<TenantsTab>
                             onAction: () =>
                                 AdminRoute.go('tenants', action: 'new'),
                           )
-                        : ListView.separated(
-                            itemCount: items.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, i) {
-                              final t = items[i];
-                              final id = t['id']?.toString() ?? '';
-                              final status =
-                                  t['status']?.toString() ?? 'active';
-                              final suspended = status == 'suspended';
-                              final busy = _busyId == id;
-                              return StaggeredFadeIn(
-                                index: i,
-                                child: ListTile(
-                                onTap: selecting
-                                    ? () => toggleSelect(id)
-                                    : () => AdminRoute.go(
-                                          'tenants',
-                                          resourceId: id,
-                                        ),
-                                onLongPress: () => toggleSelect(id),
-                                leading: selecting
-                                    ? Checkbox(
-                                        value: selected.contains(id),
-                                        onChanged: (_) => setState(() {
-                                          if (!selected.remove(id)) {
-                                            toggleSelect(id);
-                                          }
-                                        }),
-                                      )
-                                    : Icon(
-                                        Icons.business,
-                                        color: suspended
-                                            ? AppColors.danger
-                                            : AppColors.success,
-                                      ),
-                                title: Text(t['name']?.toString() ?? id),
-                                subtitle: Row(
-                                  children: [
-                                    Flexible(
-                                      child: LocalizedText(
-                                        '${t['slug'] ?? ''}',
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    suspended
-                                        ? StatusChip.suspended()
-                                        : StatusChip.active(),
-                                  ],
+                        : AdminDataTable(
+                            scrollable: true,
+                            minWidth: 760,
+                            onRowTap: selecting
+                                ? (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  )
+                                : (i) => AdminRoute.go(
+                                    'tenants',
+                                    resourceId: items[i]['id']?.toString() ?? '',
+                                  ),
+                            onRowLongPress: selecting
+                                ? null
+                                : (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  ),
+                            columns: [
+                              if (selecting)
+                                AdminDataColumn(
+                                  id: 'select',
+                                  label: '',
+                                  width: 44,
+                                  builder: (context, i) {
+                                    final id = items[i]['id']?.toString() ?? '';
+                                    return Checkbox(
+                                      value: selected.contains(id),
+                                      onChanged: (_) => setState(() {
+                                        if (!selected.remove(id)) {
+                                          toggleSelect(id);
+                                        }
+                                      }),
+                                    );
+                                  },
                                 ),
-                                trailing: selecting || busy
-                                    ? busy
-                                        ? const SizedBox(
-                                            height: 18,
-                                            width: 18,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                            ),
-                                          )
-                                        : null
-                                    : PopupMenuButton<String>(
-                                        onSelected: (value) {
-                                          switch (value) {
-                                            case 'toggle':
-                                              _toggleStatus(id, status);
-                                              break;
-                                            case 'edit':
-                                              AdminRoute.go(
-                                                'tenants',
-                                                action: 'edit',
-                                                resourceId:
-                                                    t['id']?.toString() ?? '',
-                                              );
-                                              break;
-                                            case 'delete':
-                                              _delete(
-                                                id,
-                                                t['name']?.toString() ?? id,
-                                              );
-                                              break;
-                                          }
-                                        },
-                                        itemBuilder: (context) => [
-                                          PopupMenuItem(
-                                            value: 'toggle',
-                                            child: LocalizedText(
-                                              suspended
-                                                  ? 'Activate'
-                                                  : 'Suspend',
-                                            ),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'edit',
-                                            child: LocalizedText('Edit'),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: LocalizedText('Delete'),
-                                          ),
-                                        ],
-                                      ),
+                              AdminDataColumn(
+                                id: 'name',
+                                label: 'TENANT',
+                                width: 240,
+                                sortable: true,
+                                builder: (context, i) => TableCellText(
+                                  items[i]['name']?.toString() ??
+                                      items[i]['id']?.toString() ??
+                                      '?',
+                                  bold: true,
+                                  maxLines: 2,
+                                ),
                               ),
-                              );
-                            },
+                              AdminDataColumn(
+                                id: 'slug',
+                                label: 'SLUG',
+                                width: 140,
+                                builder: (context, i) => TableCellText(
+                                  items[i]['slug']?.toString() ?? '',
+                                  muted: true,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'status',
+                                label: 'STATUS',
+                                width: 190,
+                                sortable: true,
+                                builder: (context, i) {
+                                  final status =
+                                      items[i]['status']?.toString() ?? 'active';
+                                  return status == 'suspended'
+                                      ? StatusChip.suspended()
+                                      : StatusChip.active();
+                                },
+                              ),
+                              AdminDataColumn(
+                                id: 'actions',
+                                label: '',
+                                width: 60,
+                                builder: (context, i) {
+                                  final t = items[i];
+                                  final id = t['id']?.toString() ?? '';
+                                  final status =
+                                      t['status']?.toString() ?? 'active';
+                                  final suspended = status == 'suspended';
+                                  final busy = _busyId == id;
+                                  return busy
+                                      ? const SizedBox(
+                                          height: 18,
+                                          width: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : PopupMenuButton<String>(
+                                          onSelected: (value) {
+                                            switch (value) {
+                                              case 'toggle':
+                                                _toggleStatus(id, status);
+                                              case 'edit':
+                                                AdminRoute.go(
+                                                  'tenants',
+                                                  action: 'edit',
+                                                  resourceId: id,
+                                                );
+                                              case 'delete':
+                                                _delete(
+                                                  id,
+                                                  t['name']?.toString() ?? id,
+                                                );
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            PopupMenuItem(
+                                              value: 'toggle',
+                                              child: LocalizedText(
+                                                suspended
+                                                    ? 'Activate'
+                                                    : 'Suspend',
+                                              ),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'edit',
+                                              child: LocalizedText('Edit'),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'delete',
+                                              child: LocalizedText('Delete'),
+                                            ),
+                                          ],
+                                        );
+                                },
+                              ),
+                            ],
+                            itemCount: items.length,
+                            rowBuilder: (context, i) => const SizedBox.shrink(),
                           ),
                   ),
                   PaginationControls(
