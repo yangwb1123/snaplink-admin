@@ -3,6 +3,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/user_avatar.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -373,7 +374,10 @@ class _UsersTabState extends State<UsersTab>
                                         value: selected.contains(uid),
                                         onChanged: (_) => toggleSelect(uid),
                                       )
-                                    : const Icon(Icons.person),
+                                    : UserAvatar(
+                                        name: u['id']?.toString() ?? '?',
+                                        radius: 16,
+                                      ),
                                 title: Text(u['id']?.toString() ?? '?'),
                                 subtitle: LocalizedText(
                                   'provider: ${u['provider'] ?? '?'}',
