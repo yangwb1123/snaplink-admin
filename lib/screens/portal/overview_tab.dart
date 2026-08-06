@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
@@ -214,6 +217,8 @@ class _OverviewTabState extends State<OverviewTab> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
+        // 账户摘要（信息优先级：用户 3 秒知道自己的安全状态）。
+        _accountSummary(context, _me),
         PortalCard(
           title: 'Profile',
           children: [
@@ -300,6 +305,77 @@ class _OverviewTabState extends State<OverviewTab> {
                 ),
             ],
           ),
+      ],
+    );
+  }
+
+  Widget _accountSummary(BuildContext context, Map<String, dynamic>? me) {
+    final sessions = (me?['active_sessions'] as num?)?.toInt() ?? 0;
+    final apps = (me?['granted_apps'] as num?)?.toInt() ?? 0;
+    final mfaEnabled = me?['mfa_enabled'] == true;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  mfaEnabled ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
+                  color: mfaEnabled ? AppColors.success : AppColors.warning,
+                ),
+                const SizedBox(width: 8),
+                LocalizedText(
+                  mfaEnabled ? 'Account protected' : 'Enable MFA to protect your account',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: mfaEnabled ? AppColors.success : AppColors.warning,
+                  ),
+                ),
+                const Spacer(),
+                StatusChip(
+                  label: mfaEnabled ? 'MFA on' : 'MFA off',
+                  color: mfaEnabled ? AppColors.success : AppColors.warning,
+                  icon: mfaEnabled ? Icons.shield : Icons.shield_outlined,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _summaryStat(context, Icons.devices, sessions, 'Active sessions'),
+                const SizedBox(width: 24),
+                _summaryStat(context, Icons.apps, apps, 'Connected apps'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryStat(BuildContext context, IconData icon, int value, String label) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 6),
+        Text(
+          '$value',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 6),
+        LocalizedText(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

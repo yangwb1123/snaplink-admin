@@ -141,6 +141,8 @@ void main() {
         find.widgetWithText(TextField, 'Display name'),
         'Grace Hopper',
       );
+      await tester.ensureVisible(find.text('Save name'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Save name'));
       await tester.pumpAndSettle();
       expect(patches.first, {'name': 'Grace Hopper'});
@@ -150,6 +152,8 @@ void main() {
         find.widgetWithText(TextField, 'department'),
         'Compiler Lab',
       );
+      await tester.ensureVisible(find.text('Save attributes'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Save attributes'));
       await tester.pumpAndSettle();
       expect(patches.last, {

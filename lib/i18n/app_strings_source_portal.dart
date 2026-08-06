@@ -1,5 +1,9 @@
 /// Account portal copy. Dynamic values use `{name}` placeholders.
 const appPortalSourceZh = <String, String>{
+  'Account protected': '账户受保护',
+  'Enable MFA to protect your account': '开启 MFA 保护您的账户',
+  'MFA on': 'MFA 已开启',
+  'MFA off': 'MFA 未开启',
   'Account': '账户',
   'Data': '数据',
 
