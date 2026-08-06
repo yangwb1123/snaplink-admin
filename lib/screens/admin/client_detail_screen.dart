@@ -75,7 +75,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('Client: ${widget.clientId}'),
+        title: LocalizedText('Client: {id}', args: {'id': widget.clientId}),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
@@ -165,7 +165,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       _client?['name']?.toString() ?? widget.clientId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('ID: ${_client?['id'] ?? widget.clientId}'),
+                    LocalizedText('ID: {id}', args: {'id': _client?['id'] ?? widget.clientId}),
                   ],
                 ),
               ),

@@ -11,6 +11,7 @@ const appAdminCoreSourceZh = <String, String>{
   '{targetUser} · {status}': '{targetUser} · {status}',
   '{id}\ncreated: {createdAt}': '{id}\n创建于 {createdAt}',
   '{reason}\nby {createdBy} · scope: {scope} · {id}': '{reason}\n发起人 {createdBy} · 范围 {scope} · {id}',
+  'Client: {id}': '客户端：{id}',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 

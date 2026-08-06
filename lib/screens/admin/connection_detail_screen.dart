@@ -169,7 +169,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                       _conn?['name']?.toString() ?? widget.connectionId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('ID: ${_conn?['id'] ?? widget.connectionId}'),
+                    LocalizedText('ID: {id}', args: {'id': _conn?['id'] ?? widget.connectionId}),
                   ],
                 ),
               ),

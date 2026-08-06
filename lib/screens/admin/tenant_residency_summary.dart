@@ -35,7 +35,7 @@ class TenantResidencySummary extends StatelessWidget {
                     tenant?['name']?.toString() ?? fallbackId,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  LocalizedText('ID: ${tenant?['id'] ?? fallbackId}'),
+                  LocalizedText('ID: {id}', args: {'id': tenant?['id'] ?? fallbackId}),
                   LocalizedText(
                     'Domain: ${tenant?['domain'] ?? tenant?['primary_domain'] ?? ''}',
                   ),

@@ -174,7 +174,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                       'Break-Glass Session',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('ID: ${widget.sessionId}'),
+                    LocalizedText('ID: {id}', args: {'id': widget.sessionId}),
                   ],
                 ),
               ),
