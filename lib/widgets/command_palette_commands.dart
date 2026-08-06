@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/screens/admin/admin_module_groups.dart';
 
 class CommandPaletteItem {
   final String title;
@@ -6,7 +7,16 @@ class CommandPaletteItem {
   final IconData icon;
   final String description;
 
-  const CommandPaletteItem(this.title, this.path, this.icon, this.description);
+  /// 组标题行（浏览态按导航分组显示）。
+  final bool isGroupHeader;
+
+  const CommandPaletteItem(
+    this.title,
+    this.path,
+    this.icon,
+    this.description, {
+    this.isGroupHeader = false,
+  });
 
   String get routeModule {
     final parts = path.replaceFirst('/admin/', '').split('/');
@@ -280,11 +290,35 @@ List<CommandPaletteItem> commandPaletteItemsForModules(
   Iterable<String> modules,
 ) {
   final availableModules = modules.toSet();
-  return commandPaletteItems
+  final filtered = commandPaletteItems
       .where((command) {
         if (!command.path.startsWith('/admin/')) return true;
         final module = command.routeModule;
         return module.isEmpty || availableModules.contains(module);
       })
       .toList(growable: false);
+  // 浏览态插入组标题（按 adminModuleGroups 顺序）。
+  final result = <CommandPaletteItem>[];
+  for (final group in adminModuleGroups) {
+    final groupItems = filtered.where((c) {
+      if (!c.path.startsWith('/admin/')) {
+        // 非 admin 命令（如 /settings）只归 Overview 组。
+        return group.id == 'overview';
+      }
+      return adminGroupForModule(c.routeModule) == group.id;
+    });
+    if (groupItems.isNotEmpty) {
+      result.add(
+        CommandPaletteItem(
+          group.labelKey.toUpperCase(),
+          '',
+          Icons.label_outline,
+          '',
+          isGroupHeader: true,
+        ),
+      );
+      result.addAll(groupItems);
+    }
+  }
+  return result;
 }

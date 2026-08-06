@@ -67,20 +67,23 @@ Portal 分组后一级 NavigationRail 3 项 + 页内 tabs（当前 10 项 Rail �
 - **二级**：SectionSelector 水平 chips（已有组件），当前模块高亮
 - **层级感**：面包屑升级为 `Overview › Identity › Clients`（管理员知道身处何处）
 
-## 7. 实施计划（确认后）
+## 7. 实施状态（已完成）
 
-| 阶段 | 内容 | 风险 |
-|---|---|---|
-| 1 | 新增 `groups.dart`（module→group 映射 + 组定义：图标/标签/顺序） | 零（纯数据） |
-| 2 | dashboard_screen 渲染改为 group 级 NavigationRail + 组内模块页承接 SectionSelector | 中（导航状态机） |
-| 3 | 各 tab 页嵌入 SectionSelector（35 页中 30 页需加，工作量集中在壳层） | 中 |
-| 4 | 命令面板分组、面包屑升级、能力裁剪适配 | 低 |
-| 5 | portal 3 组（可选项） | 低 |
+| 阶段 | 状态 |
+|---|---|
+| 1. groups 元数据（admin_module_groups.dart：6 组 + module→group 映射） | ✅ |
+| 2. dashboard：rail 6 组 + 壳层 SectionSelector（组内模块 chips） | ✅ |
+| 3. 组标签 i18n（Overview/Identity/Security/Tenants/Developers/System） | ✅ |
+| 4. 面包屑 group 前缀（Identity › Clients） | ✅ |
+| 5. 命令面板按组标题分节（非 admin 命令归 Overview） | ✅ |
+| 6. portal 3 组（Account/Connections/Data）+ 壳层 SectionSelector | ✅ |
+| 7. 测试适配（窄 rail label Offstage → 组图标交互） | ✅ |
 
-**关键设计决策（待确认）**：
-- A. 一级点击 → 直接进组内模块（推荐，Supabase 式）；还是点击展开子列表（GitHub 式折叠）？
-- B. Security 组 14 项：直接用 14 chips（横向滚动）；还是 chip 分组头再分 3 子群（Policies / Keys / Access）？
-- C. Portal 侧是否本轮一起分组（可后续单独做）？
+**架构决策**（按推荐方案落地）：
+- 一级点击 → 直接进组内默认模块（Supabase 式）
+- Security 组 14 项 → 直接横滚 chips（克制，不分子群）
+- Portal 本轮一起完成
+- 路由零破坏：module id/URL 不变，group 纯导航层派生
 
 ## 8. 验收标准
 

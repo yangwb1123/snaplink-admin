@@ -115,6 +115,21 @@ class _CommandPaletteState extends State<CommandPalette> {
                 itemCount: _results.length,
                 itemBuilder: (_, i) {
                   final cmd = _results[i];
+                  // 组标题（仅浏览态显示；搜索态标题也跟随过滤，简单跳过）。
+                  if (cmd.isGroupHeader) {
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Text(
+                        cmd.title,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
                   return ListTile(
                     leading: Icon(cmd.icon, size: 20),
                     title: LocalizedText(
