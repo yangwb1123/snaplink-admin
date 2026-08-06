@@ -104,6 +104,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
       return;
     }
     if (unread.isEmpty) return;
+    if (!mounted) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Mark all as read?'),

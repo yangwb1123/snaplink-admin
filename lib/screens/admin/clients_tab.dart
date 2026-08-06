@@ -71,16 +71,20 @@ class _ClientsTabState extends State<ClientsTab> {
     super.dispose();
   }
 
+  SSOAdminListPage? _lastPage;
+
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
       final items = await widget.client.listExpiringClients();
-      return SSOAdminListPage(
+      final page = SSOAdminListPage(
         items: items,
         nextPageToken: null,
         totalSize: items.length,
       );
+      _lastPage = page;
+      return page;
     }
-    return widget.client.listClients(
+    final page = await widget.client.listClients(
       pageToken: _pageTokens[_pageIndex],
       pageSize: _pageSize,
       orderBy: _orderBy,
@@ -89,7 +93,41 @@ class _ClientsTabState extends State<ClientsTab> {
           : _filterCtrl.text.trim().isEmpty
               ? 'active:${_statusFilter == 'active'}'
               : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
-    );
+  );
+    _lastPage = page;
+    return page;
+  }
+
+  /// 导出当前页客户端为 CSV（剪贴板；公式注入防护）。
+  Future<void> _exportCsv(List<Map<String, dynamic>> items) async {
+    final sb = StringBuffer('id,name,active,strategy\n');
+    for (final c in items) {
+      final cells = [
+        c['id']?.toString() ?? '',
+        c['name']?.toString() ?? '',
+        c['active'] == true ? 'active' : 'inactive',
+        c['tokenStrategy']?.toString() ?? c['token_strategy']?.toString() ?? '',
+      ].map(_csvCell).join(',');
+      sb.writeln(cells);
+    }
+    await Clipboard.setData(ClipboardData(text: sb.toString()));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText(
+              'Exported ${items.length} clients as CSV to clipboard'),
+        ),
+      );
+    }
+  }
+
+  /// CSV 单元格转义 + 公式注入防护（= + - @ 前缀）。
+  String _csvCell(String value) {
+    var cell = value.replaceAll('"', '""');
+    if (cell.startsWith(RegExp(r'[=+\-@]'))) {
+      cell = "'$cell";
+    }
+    return '"$cell"';
   }
 
   void _reload() {
@@ -438,6 +476,13 @@ class _ClientsTabState extends State<ClientsTab> {
                 },
               ),
               const SizedBox(width: 12),
+              IconButton(
+                tooltip: 'Export CSV'.localized,
+                icon: const Icon(Icons.file_download_outlined),
+                onPressed: _lastPage == null || _lastPage!.items.isEmpty
+                    ? null
+                    : () => _exportCsv(_lastPage!.items),
+              ),
               StatusFilterDropdown(
                 value: _statusFilter,
                 options: const {
