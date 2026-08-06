@@ -11,6 +11,15 @@ import 'package:sso_admin/services/sensitive_data.dart';
 
 import 'change_approval_models.dart';
 
+/// 变更审批状态（后端规范 02：状态集中定义，防散落字符串漂移）。
+abstract final class ChangeStatus {
+  static const all = 'all';
+  static const pending = 'pending';
+  static const approved = 'approved';
+  static const rejected = 'rejected';
+}
+
+
 class ChangeApprovalsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -27,7 +36,7 @@ class ChangeApprovalsTab extends StatefulWidget {
 class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   static const _basePath = '/api/v1/admin/changes';
   List<Map<String, dynamic>> _changes = const [];
-  String _status = 'all';
+  String _status = ChangeStatus.all;
   String? _error;
   bool _loading = false;
   bool _mutating = false;
@@ -35,7 +44,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       widget.capabilities.hasAnyPathPrefix(_basePath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_basePath);
 
-  List<Map<String, dynamic>> get _visible => _status == 'all'
+  List<Map<String, dynamic>> get _visible => _status == ChangeStatus.all
       ? _changes
       : _changes
             .where((change) => change['status']?.toString() == _status)
@@ -167,11 +176,11 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
           spacing: 8,
           children: [
             for (final status in const [
-              'all',
-              'pending',
-              'approved',
+              ChangeStatus.all,
+              ChangeStatus.pending,
+              ChangeStatus.approved,
               'applied',
-              'rejected',
+              ChangeStatus.rejected,
               'failed',
             ])
               ChoiceChip(
@@ -188,7 +197,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
           data: _visible,
           onRetry: _load,
           emptyTitle: 'No change requests',
-          emptySubtitle: _status == 'all'
+          emptySubtitle: _status == ChangeStatus.all
               ? 'No governed changes have been proposed.'
               : 'No requests currently have this status.',
           dataBuilder: (changes) => Column(
@@ -203,7 +212,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
 
   Widget _changeCard(BuildContext context, Map<String, dynamic> change) {
     final status = change['status']?.toString() ?? 'unknown';
-    final pending = status == 'pending';
+    final pending = status == ChangeStatus.pending;
     final decidedBy = change['approved_by']?.toString().trim() ?? '';
     final action = change['action_type']?.toString() ?? 'Change request';
     return Card(
