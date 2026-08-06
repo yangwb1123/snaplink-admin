@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -100,15 +101,17 @@ class _NotificationsTabState extends State<NotificationsTab> {
       unread = await _allUnread();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.tr('Some notifications could not be marked as read.'),
-          ),
-        ),
-      );
       return;
     }
+    if (unread.isEmpty) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: context.tr('Mark all as read?'),
+      message: context.tr(
+          'This will mark {n} notifications as read.', {'n': '${unread.length}'}),
+      confirmLabel: context.tr('Mark all'),
+    );
+    if (!confirmed) return;
     var failed = false;
     var marked = 0;
     // Parallel mark-read: independent per-id posts (N+1 fix).
