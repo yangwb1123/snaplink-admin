@@ -1,5 +1,6 @@
 /// Shared controls, state messages, and reusable widget copy.
 const appCommonSourceZh = <String, String>{
+
   'App language and regional display preferences.': '应用语言与区域显示偏好。',
   'Appearance follows the system or your explicit choice.': '外观跟随系统或您的显式选择。',
   'Server endpoint used for OIDC and API calls.': '用于 OIDC 与 API 调用的服务器端点。',

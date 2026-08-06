@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -21,6 +22,8 @@ class _AuditLogTabState extends State<AuditLogTab> {
   final _searchCtrl = TextEditingController();
   String _methodFilter = 'ALL';
   List<AuditEntry> _entries = [];
+  String _sortColumn = 'time';
+  bool _sortAscending = false;
 
   @override
   void initState() {
@@ -52,6 +55,39 @@ class _AuditLogTabState extends State<AuditLogTab> {
             .toList();
       }
       _entries = filtered;
+      _sortEntries();
+    });
+  }
+
+  void _sortEntries() {
+    final column = _sortColumn;
+    final sorted = [..._entries];
+    sorted.sort((a, b) {
+      int cmp;
+      switch (column) {
+        case 'method':
+          cmp = a.method.compareTo(b.method);
+        case 'status':
+          cmp = a.statusCode.compareTo(b.statusCode);
+        case 'label':
+          cmp = a.label.toLowerCase().compareTo(b.label.toLowerCase());
+        default:
+          cmp = a.timestamp.compareTo(b.timestamp);
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
+    _entries = sorted;
+  }
+
+  void _onSort(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+      _sortEntries();
     });
   }
 
@@ -183,35 +219,91 @@ class _AuditLogTabState extends State<AuditLogTab> {
           ),
         )
       else
-        ...List.generate(_entries.length, (i) {
-          final entry = _entries[i];
-          final icon = switch (entry.method) {
-            'POST' => Icons.add_circle_outline,
-            'PUT' => Icons.edit_outlined,
-            'DELETE' => Icons.remove_circle_outline,
-            _ => Icons.change_circle_outlined,
-          };
-          final color = switch (entry.method) {
-            'POST' => AppColors.success,
-            'DELETE' => AppColors.danger,
-            _ => AppColors.muted,
-          };
-          return Card(
-            margin: const EdgeInsets.only(bottom: 4),
-            child: ListTile(
-              dense: true,
-              leading: Icon(icon, color: color, size: 20),
-              title: LocalizedText(
-                entry.label,
-                style: const TextStyle(fontSize: 13),
-              ),
-              subtitle: LocalizedText(
-                '${entry.path} · ${_formatTime(entry.timestamp)} · ${entry.method} ${entry.statusCode}',
-                style: const TextStyle(fontSize: 11),
+        AdminDataTable(
+          sortColumn: _sortColumn,
+          sortAscending: _sortAscending,
+          onSort: _onSort,
+          minWidth: 900,
+          columns: [
+            AdminDataColumn(
+              id: 'time',
+              label: 'TIME',
+              width: 180,
+              sortable: true,
+              builder: (context, i) => TableCellText(
+                _formatTime(_entries[i].timestamp),
+                muted: true,
               ),
             ),
-          );
-        }),
+            AdminDataColumn(
+              id: 'method',
+              label: 'METHOD',
+              width: 130,
+              sortable: true,
+              builder: (context, i) {
+                final entry = _entries[i];
+                final color = switch (entry.method) {
+                  'POST' => AppColors.success,
+                  'DELETE' => AppColors.danger,
+                  _ => AppColors.muted,
+                };
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      entry.method == 'POST'
+                          ? Icons.add_circle_outline
+                          : entry.method == 'DELETE'
+                          ? Icons.remove_circle_outline
+                          : Icons.change_circle_outlined,
+                      size: 14,
+                      color: color,
+                    ),
+                    const SizedBox(width: 8),
+                    TableCellText(entry.method, bold: true),
+                  ],
+                );
+              },
+            ),
+            AdminDataColumn(
+              id: 'status',
+              label: 'STATUS',
+              width: 100,
+              sortable: true,
+              builder: (context, i) {
+                final code = _entries[i].statusCode;
+                return TableCellText(
+                  '$code',
+                  color: code >= 400
+                      ? AppColors.danger
+                      : code >= 300
+                      ? AppColors.warning
+                      : AppColors.success,
+                  bold: true,
+                );
+              },
+            ),
+            AdminDataColumn(
+              id: 'label',
+              label: 'EVENT',
+              width: 220,
+              sortable: true,
+              builder: (context, i) =>
+                  TableCellText(_entries[i].label, bold: true),
+            ),
+            AdminDataColumn(
+              id: 'path',
+              label: 'PATH',
+              builder: (context, i) => TableCellText(
+                _entries[i].path,
+                muted: true,
+                maxLines: 2,
+              ),
+            ),
+          ],
+          itemCount: _entries.length,
+          rowBuilder: (context, i) => const SizedBox.shrink(),
+        ),
     ],
   );
 

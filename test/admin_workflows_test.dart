@@ -63,7 +63,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('portal-client'), findsOneWidget);
-      expect(find.text('Portal client · Never expires'), findsOneWidget);
+      expect(find.text('Portal client'), findsOneWidget);
+      expect(find.text('Never expires'), findsWidgets);
       expect(find.text('pending-app'), findsOneWidget);
       expect(find.text('Page 1'), findsOneWidget);
       expect(find.text('42 total'), findsOneWidget);
@@ -129,6 +130,8 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Approve'));
@@ -160,6 +163,8 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Reject'));
@@ -221,6 +226,8 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
@@ -270,6 +277,8 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Rotate secret'));
@@ -552,6 +561,8 @@ void main() {
       await tester.pumpWidget(_wrap(TenantsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Suspend'));
@@ -590,6 +601,8 @@ void main() {
       await tester.pumpWidget(_wrap(TenantsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Activate'));
@@ -619,6 +632,8 @@ void main() {
       await tester.pumpWidget(_wrap(TenantsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
@@ -703,6 +718,8 @@ void main() {
       expect(find.text('user-1'), findsOneWidget);
       expect(find.text('provider: local'), findsOneWidget);
 
+      await tester.ensureVisible(find.byType(PopupMenuButton<String>));
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));

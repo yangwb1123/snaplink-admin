@@ -1,8 +1,7 @@
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/staggered_fade_in.dart';
-import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -32,6 +31,8 @@ class _ClientsTabState extends State<ClientsTab>
   late Future<SSOAdminListPage> _future;
   var _pageIndex = 0;
   var _pageSize = 100;
+  String _sortColumn = 'id';
+  bool _sortAscending = true;
   var _orderBy = 'id';
   var _expiringOnly = false;
   var _statusFilter = 'all';
@@ -103,6 +104,36 @@ class _ClientsTabState extends State<ClientsTab>
   }
 
   /// 导出当前页客户端为 CSV（剪贴板；公式注入防护）。
+  void _sortItems(List<Map<String, dynamic>> items) {
+    final column = _sortColumn;
+    items.sort((a, b) {
+      int cmp;
+      switch (column) {
+        case 'name':
+          cmp = (a['name']?.toString() ?? '')
+              .toLowerCase()
+              .compareTo((b['name']?.toString() ?? '').toLowerCase());
+        case 'status':
+          cmp = (a['active'] == true ? 0 : 1) - (b['active'] == true ? 0 : 1);
+        default:
+          cmp = (a['id']?.toString() ?? '')
+              .compareTo(b['id']?.toString() ?? '');
+      }
+      return _sortAscending ? cmp : -cmp;
+    });
+  }
+
+  void _onSort(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+    });
+  }
+
   Future<void> _exportCsv(List<Map<String, dynamic>> items) async {
     final sb = StringBuffer('id,name,active,strategy\n');
     for (final c in items) {
@@ -557,7 +588,8 @@ class _ClientsTabState extends State<ClientsTab>
                 );
               }
               final page = snap.data!;
-              final items = page.items;
+              final items = [...page.items];
+              _sortItems(items);
               return Column(
                 children: [
                   if (selecting) ...[
@@ -575,113 +607,146 @@ class _ClientsTabState extends State<ClientsTab>
                             onAction: () =>
                                 AdminRoute.go('clients', action: 'new'),
                           )
-                        : ListView.separated(
-                            itemCount: items.length,
-                            separatorBuilder: (_, _) =>
-                                const Divider(height: 1),
-                            itemBuilder: (context, i) {
-                              final c = items[i];
-                              final active = c['active'] == true;
-                              final cid = c['id']?.toString() ?? '';
-                              return StaggeredFadeIn(
-                                index: i,
-                                child: ListTile(
-                                onTap: selecting
-                                    ? () => toggleSelect(cid)
-                                    : () => AdminRoute.go(
-                                          'clients',
-                                          resourceId: cid,
-                                        ),
-                                // Long-press enters selection mode (the
-                                // first selection has no checkbox yet).
-                                onLongPress: () => toggleSelect(cid),
-                                leading: selecting
-                                    ? Checkbox(
-                                        value: selected.contains(cid),
-                                        onChanged: (_) => setState(() {
-                                          if (!selected.remove(cid)) {
-                                            toggleSelect(cid);
-                                          }
-                                        }),
-                                      )
-                                    : Icon(
-                                        Icons.apps,
-                                        color: active
-                                            ? AppColors.success
-                                            : Colors.grey,
-                                      ),
-                                title: Text(c['id']?.toString() ?? '?'),
-                                subtitle: Text(
-                                  '${c['name']?.toString() ?? ''} · '
-                                  '${clientSecretExpiryLabel(c)}',
-                                ),
-                                trailing: selecting
-                                    ? null
-                                    : Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    active
-                                        ? StatusChip.active()
-                                        : StatusChip.inactive(),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      c['tokenStrategy']?.toString() ??
-                                          c['token_strategy']?.toString() ??
-                                          '',
-                                    ),
-                                    PopupMenuButton<String>(
-                                      onSelected: (value) {
-                                        switch (value) {
-                                          case 'edit':
-                                            AdminRoute.go(
-                                              'clients',
-                                              action: 'edit',
-                                              resourceId:
-                                                  c['id']?.toString() ?? '',
-                                            );
-                                            break;
-                                          case 'rotate':
-                                            _rotateSecret(c);
-                                            break;
-                                          case 'approve':
-                                            _approveClient(c);
-                                            break;
-                                          case 'reject':
-                                            _rejectClient(c);
-                                            break;
-                                          case 'delete':
-                                            _confirmDelete(c);
-                                            break;
+                        : AdminDataTable(
+                            scrollable: true,
+                            minWidth: 980,
+                            sortColumn: _sortColumn,
+                            sortAscending: _sortAscending,
+                            onSort: _onSort,
+                            onRowTap: selecting
+                                ? (i) => toggleSelect(items[i]['id']?.toString() ?? '')
+                                : (i) => AdminRoute.go(
+                                    'clients',
+                                    resourceId: items[i]['id']?.toString() ?? '',
+                                  ),
+                            onRowLongPress: selecting
+                                ? null
+                                : (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  ),
+                            columns: [
+                              if (selecting)
+                                AdminDataColumn(
+                                  id: 'select',
+                                  label: '',
+                                  width: 44,
+                                  builder: (context, i) {
+                                    final cid = items[i]['id']?.toString() ?? '';
+                                    return Checkbox(
+                                      value: selected.contains(cid),
+                                      onChanged: (_) => setState(() {
+                                        if (!selected.remove(cid)) {
+                                          toggleSelect(cid);
                                         }
-                                      },
-                                      itemBuilder: (context) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: LocalizedText('Edit'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'rotate',
-                                          child: LocalizedText('Rotate secret'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'approve',
-                                          child: LocalizedText('Approve'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'reject',
-                                          child: LocalizedText('Reject'),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: LocalizedText('Delete'),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      }),
+                                    );
+                                  },
+                                ),
+                              AdminDataColumn(
+                                id: 'id',
+                                label: 'CLIENT ID',
+                                width: 190,
+                                builder: (context, i) => CopyableCell(
+                                  text: items[i]['id']?.toString() ?? '?',
+                                  contextProvider: () => context,
+                                  enabled: !selecting,
                                 ),
                               ),
-                              );
-                            },
+                              AdminDataColumn(
+                                id: 'name',
+                                label: 'NAME',
+                                width: 180,
+                                builder: (context, i) => TableCellText(
+                                  items[i]['name']?.toString() ?? '',
+                                  bold: true,
+                                  maxLines: 2,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'status',
+                                label: 'STATUS',
+                                width: 160,
+                                builder: (context, i) {
+                                  final active = items[i]['active'] == true;
+                                  return active
+                                      ? StatusChip.active()
+                                      : StatusChip.inactive();
+                                },
+                              ),
+                              AdminDataColumn(
+                                id: 'strategy',
+                                label: 'TOKEN',
+                                width: 110,
+                                builder: (context, i) => TableCellText(
+                                  items[i]['tokenStrategy']?.toString() ??
+                                      items[i]['token_strategy']?.toString() ??
+                                      '',
+                                  muted: true,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'expiry',
+                                label: 'SECRET',
+                                width: 170,
+                                builder: (context, i) => TableCellText(
+                                  clientSecretExpiryLabel(items[i]),
+                                  muted: true,
+                                ),
+                              ),
+                              AdminDataColumn(
+                                id: 'actions',
+                                label: '',
+                                width: 60,
+                                builder: (context, i) {
+                                  final c = items[i];
+                                  return PopupMenuButton<String>(
+                                    onSelected: (value) {
+                                      switch (value) {
+                                        case 'edit':
+                                          AdminRoute.go(
+                                            'clients',
+                                            action: 'edit',
+                                            resourceId:
+                                                c['id']?.toString() ?? '',
+                                          );
+                                        case 'rotate':
+                                          _rotateSecret(c);
+                                        case 'approve':
+                                          _approveClient(c);
+                                        case 'reject':
+                                          _rejectClient(c);
+                                        case 'delete':
+                                          _confirmDelete(c);
+                                      }
+                                    },
+                                    itemBuilder: (context) => const [
+                                      PopupMenuItem(
+                                        value: 'edit',
+                                        child: LocalizedText('Edit'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'rotate',
+                                        child: LocalizedText('Rotate secret'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'approve',
+                                        child: LocalizedText('Approve'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'reject',
+                                        child: LocalizedText('Reject'),
+                                      ),
+                                      PopupMenuItem(
+                                        value: 'delete',
+                                        child: LocalizedText('Delete'),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ],
+                            itemCount: items.length,
+                            rowBuilder: (context, i) => const SizedBox.shrink(),
                           ),
                   ),
                   PaginationControls(
