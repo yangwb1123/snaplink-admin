@@ -114,7 +114,13 @@ def cmd_build():
 def cmd_format():
     """Check dart format."""
     print("--- dart format --check ---")
-    result = run("dart", "format", "--check", ".")
+    result = run(
+        "dart",
+        "format",
+        "--output=none",
+        "--set-exit-if-changed",
+        ".",
+    )
     if result.returncode != 0:
         print("FAIL: formatting issues found")
         return 1

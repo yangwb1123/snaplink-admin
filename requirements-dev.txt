@@ -1,0 +1,2 @@
+# Python dependency used by the declarative engineering checks.
+PyYAML>=6.0.2,<7

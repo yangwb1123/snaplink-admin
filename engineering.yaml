@@ -159,6 +159,7 @@ coverage:
 
 build:
   output_dir: build/web
+  base_href: /app/
   binaries:
     - name: sso-admin-web
       path: lib/main.dart

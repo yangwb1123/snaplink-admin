@@ -16,9 +16,15 @@ BUILD = _cfg.build
 
 
 def run() -> int:
-    print("--- flutter build web ---")
+    print(f"--- flutter build web (base href: {BUILD.base_href}) ---")
     result = subprocess.run(
-        ["flutter", "build", "web", "--release"],
+        [
+            "flutter",
+            "build",
+            "web",
+            "--release",
+            f"--base-href={BUILD.base_href}",
+        ],
         capture_output=True, text=True, check=False,
         cwd=Path.cwd()
     )

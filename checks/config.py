@@ -66,6 +66,7 @@ class RootPolicyConfig:
 @dataclass
 class BuildConfig:
     output_dir: str = "build/web"
+    base_href: str = "/"
     binaries: list = field(default_factory=list)
 
 

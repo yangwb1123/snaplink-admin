@@ -15,19 +15,30 @@ from pathlib import Path
 ROOT = Path.cwd()
 
 
-def grep(pattern: str, include: str = "*.dart", count_only: bool = True) -> int:
-    """Count or list files matching a grep pattern."""
-    cmd = ["grep", "-rl" if count_only else "-rn", pattern, "--include=" + include, "."]
+def search(pattern: str, include: str = "*.dart") -> int:
+    """Count source files matching a regular expression."""
+    cmd = [
+        "rg",
+        "--files-with-matches",
+        "--glob",
+        include,
+        "--glob",
+        "!.dart_tool/**",
+        "--glob",
+        "!.git/**",
+        "--glob",
+        "!build/**",
+        pattern,
+        ".",
+    ]
     result = subprocess.run(
         cmd,
         capture_output=True, text=True, check=False,
         cwd=str(ROOT)
     )
-    matches = [
-        l for l in result.stdout.split("\n")
-        if l.strip() and ".dart_tool" not in l and ".git" not in l and "build/" not in l
-    ]
-    return len(matches)
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"rg failed for {pattern!r}: {result.stderr.strip()}")
+    return len([line for line in result.stdout.splitlines() if line.strip()])
 
 
 def run() -> int:
@@ -37,42 +48,41 @@ def run() -> int:
     # --- Security invariants ---
     
     # 1. Hardcoded secrets check (basic heuristic)
-    n = grep(r'api[Kk]ey\s*[:=]\s*["\'][A-Za-z0-9]{16,}', count_only=True)
+    n = search(r"""api[Kk]ey\s*[:=]\s*["'][A-Za-z0-9]{16,}""")
     results.append((n == 0, f"No hardcoded API keys (found {n} potential violations)"))
     if n > 0:
         print("  [*] WARNING: potential hardcoded API keys detected. Use config/env.")
     
     # 2. Bearer token handling patterns
-    n = grep("sessionStorage", include="*.dart", count_only=True)
+    n = search("sessionStorage")
     results.append((n > 0, f"sessionStorage usage in {n} files (expected for web session)"))
     
-    n = grep("localStorage", include="*.dart", count_only=True)
+    n = search("localStorage")
     results.append((n > 0, f"localStorage usage in {n} files (expected for preferences)"))
     
     # 3. mounted check pattern after async
-    n = grep(r'await\b', include="*.dart", count_only=True)
-    mounted_files = grep(r'if\s*\(!mounted\)', include="*.dart", count_only=True)
+    mounted_files = search(r'if\s*\(!mounted\)')
     # Check for use_build_context_synchronously violations (approximate)
     # The dart analyze rule catches actual violations; this is a structural heuristic
     results.append((True, f"Found {mounted_files} files with async-safe 'mounted' checks"))
     
     # 4. No print() in production code
-    n = grep(r'\bprint\(', include="*.dart", count_only=True)
+    n = search(r'\bprint\(')
     results.append((n == 0, f"No print() statements in production code (found {n})"))
     
     # 5. Error handling patterns
-    n = grep("SSOError", include="*.dart", count_only=True)
+    n = search("SSOError")
     results.append((n > 0, f"SSOError usage in {n} files"))
     
-    n = grep("SnaplinkAdminApiError", include="*.dart", count_only=True)
+    n = search("SnaplinkAdminApiError")
     results.append((n > 0, f"SnaplinkAdminApiError usage in {n} files"))
     
     # 6. Import organization - verify package imports are used (good practice)
-    n = grep(r'import\s+["\']package:', include="*.dart", count_only=True)
+    n = search(r"""import\s+["']package:""")
     results.append((True, f"Package imports found in {n} locations"))
     
     # 7. API path consistency - check that operations tab uses documented routes
-    n = grep("SnaplinkAdminOperationCatalog", include="*.dart", count_only=True)
+    n = search("SnaplinkAdminOperationCatalog")
     results.append((n > 0, f"SnaplinkAdminOperationCatalog used in {n} files"))
     
     # 8. Documentation files exist
