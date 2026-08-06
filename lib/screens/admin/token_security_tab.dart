@@ -242,7 +242,10 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           children: [
             Text(
               AppStrings.of(context).tokenSessionSecurity,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+      ),
             ),
             const Spacer(),
             IconButton(
@@ -250,6 +253,14 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
               icon: const Icon(Icons.refresh),
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Token issuance, lifetimes and rotation policies across clients.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSubtle,
+          ),
         ),
         SectionSelector(
           sections: _sectionDefs,

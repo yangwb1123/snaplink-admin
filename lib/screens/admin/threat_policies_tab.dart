@@ -189,7 +189,10 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           children: [
             Text(
               AppStrings.of(context).threatPolicies,
-              style: Theme.of(context).textTheme.headlineSmall,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+      ),
             ),
             const Spacer(),
             IconButton(
@@ -198,6 +201,14 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
               tooltip: 'Refresh'.localized,
             ),
           ],
+        ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Realtime threat detection rules protecting authentication flows.',
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSubtle,
+          ),
         ),
         if (_error != null)
           Padding(

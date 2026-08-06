@@ -1,5 +1,11 @@
 /// Common administration controls, field labels, statuses, and empty states.
 const appAdminCoreSourceZh = <String, String>{
+  'All authentication and administrative events recorded on this device.': '此设备上记录的全部认证与管理事件。',
+  'Health checks aggregate runtime reachability of the server, storage and cluster.': '健康检查汇总服务器、存储与集群的运行时可达性。',
+  'Token issuance, lifetimes and rotation policies across clients.': '各客户端的令牌签发、生命周期与轮换策略。',
+  'Realtime threat detection rules protecting authentication flows.': '保护认证流程的实时威胁检测规则。',
+  'Disaster recovery modes let you serve authentication when the primary replica is unavailable.': '灾难恢复模式在主副本不可用时继续提供认证服务。',
+
   'Continue': '继续',
   'Create': '创建',
   'OIDC': 'OIDC',

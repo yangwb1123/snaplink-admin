@@ -130,9 +130,20 @@ class _DRModeTabState extends State<DRModeTab> {
       AdminBreadcrumb(),
       Text(
         AppStrings.of(context).drMode,
-        style: Theme.of(context).textTheme.headlineSmall,
+        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+      ),
       ),
       const SizedBox(height: 8),
+      const SizedBox(height: 4),
+      const LocalizedText(
+        'Disaster recovery modes let you serve authentication when the primary replica is unavailable.',
+        style: TextStyle(
+          fontSize: 12,
+          color: AppColors.textSubtle,
+        ),
+      ),
       if (_loading) const SkeletonListTile(itemCount: 3),
       if (_error != null)
         LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),

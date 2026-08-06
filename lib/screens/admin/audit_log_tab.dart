@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -93,13 +94,11 @@ class _AuditLogTabState extends State<AuditLogTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      Row(
-        children: [
-          LocalizedText(
-            'Audit Log',
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const Spacer(),
+      AdminListHeader(
+        title: 'Audit Log',
+        subtitle: 'All authentication and administrative events recorded on this device.',
+        onRefresh: _refresh,
+        actions: [
           LocalizedText('${_logService.count} entries'),
           const SizedBox(width: 8),
           IconButton(

@@ -80,7 +80,10 @@ class _HealthTabState extends State<HealthTab> {
         children: [
           LocalizedText(
             'System Health',
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.3,
+      ),
           ),
           const Spacer(),
           IconButton(
@@ -89,6 +92,14 @@ class _HealthTabState extends State<HealthTab> {
             tooltip: 'Refresh'.localized,
           ),
         ],
+      ),
+      const SizedBox(height: 4),
+      const LocalizedText(
+        'Health checks aggregate runtime reachability of the server, storage and cluster.',
+        style: TextStyle(
+          fontSize: 12,
+          color: AppColors.textSubtle,
+        ),
       ),
       const SizedBox(height: 8),
       _serverCard(context),
