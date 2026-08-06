@@ -24,6 +24,7 @@ class TenantsTab extends StatefulWidget {
 
 class _TenantsTabState extends State<TenantsTab> {
   final _filterCtrl = TextEditingController();
+  final _selected = <String>{};
   var _statusFilter = 'all';
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -109,6 +110,85 @@ class _TenantsTabState extends State<TenantsTab> {
       _pageIndex++;
       _future = _loadPage();
     });
+  }
+
+  /// 批量切换选中租户状态（suspend 或 activate）。
+  Future<void> _batchSetStatus(String next) async {
+    final ids = _selected.toList();
+    if (ids.isEmpty) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: next == 'suspended'
+          ? 'Suspend ${ids.length} tenants?'
+          : 'Activate ${ids.length} tenants?',
+      message: 'This will ${next == 'suspended' ? 'suspend' : 'activate'} '
+          '${ids.length} selected tenants in one operation.',
+      confirmLabel: next == 'suspended' ? 'Suspend tenants' : 'Activate tenants',
+      destructive: next == 'suspended',
+    );
+    if (!confirmed) return;
+    final failures = <String>[];
+    var ok = 0;
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await widget.client.setTenantStatus(id, next);
+        return null;
+      } catch (e) {
+        return '$id: $e';
+      }
+    }));
+    for (final failure in results) {
+      if (failure == null) {
+        ok++;
+      } else {
+        failures.add(failure);
+      }
+    }
+    if (!mounted) return;
+    _selected.clear();
+    final message = failures.isEmpty
+        ? '${next == 'suspended' ? 'Suspended' : 'Activated'} $ok of '
+              '${ids.length} tenants.'
+        : '${next == 'suspended' ? 'Suspend' : 'Activate'}: $ok succeeded, '
+              '${failures.length} failed. ${failures.take(3).join('; ')}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+    _reload();
+  }
+
+  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择。
+  Widget _batchBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            LocalizedText('${_selected.length} selected'),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _batchSetStatus('suspended'),
+              icon: const Icon(Icons.pause_circle_outline, size: 18),
+              label: const LocalizedText('Suspend'),
+            ),
+            const SizedBox(width: 4),
+            TextButton.icon(
+              onPressed: () => _batchSetStatus('active'),
+              icon: const Icon(Icons.play_circle_outline, size: 18),
+              label: const LocalizedText('Activate'),
+            ),
+            IconButton(
+              tooltip: 'Clear selection'.localized,
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: () => setState(_selected.clear),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleStatus(String id, String currentStatus) async {
@@ -203,6 +283,13 @@ class _TenantsTabState extends State<TenantsTab> {
           onCreate: () => AdminRoute.go('tenants', action: 'new'),
           onRefresh: _reload,
         ),
+        if (_selected.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _batchBar(context),
+          ),
+          const SizedBox(height: 8),
+        ],
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -335,26 +422,50 @@ class _TenantsTabState extends State<TenantsTab> {
                               final suspended = status == 'suspended';
                               final busy = _busyId == id;
                               return ListTile(
-                                onTap: () =>
-                                    AdminRoute.go('tenants', resourceId: id),
-                                leading: Icon(
-                                  Icons.business,
-                                  color: suspended
-                                      ? Colors.redAccent
-                                      : Colors.greenAccent,
-                                ),
+                                onTap: _selected.isNotEmpty
+                                    ? () => setState(() {
+                                          if (!_selected.remove(id)) {
+                                            _selected.add(id);
+                                          }
+                                        })
+                                    : () => AdminRoute.go(
+                                          'tenants',
+                                          resourceId: id,
+                                        ),
+                                onLongPress: () => setState(() {
+                                  if (!_selected.remove(id)) {
+                                    _selected.add(id);
+                                  }
+                                }),
+                                leading: _selected.isNotEmpty
+                                    ? Checkbox(
+                                        value: _selected.contains(id),
+                                        onChanged: (_) => setState(() {
+                                          if (!_selected.remove(id)) {
+                                            _selected.add(id);
+                                          }
+                                        }),
+                                      )
+                                    : Icon(
+                                        Icons.business,
+                                        color: suspended
+                                            ? Colors.redAccent
+                                            : Colors.greenAccent,
+                                      ),
                                 title: Text(t['name']?.toString() ?? id),
                                 subtitle: LocalizedText(
                                   '${t['slug'] ?? ''} · $status',
                                 ),
-                                trailing: busy
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
+                                trailing: _selected.isNotEmpty || busy
+                                    ? busy
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : null
                                     : PopupMenuButton<String>(
                                         onSelected: (value) {
                                           switch (value) {
