@@ -43,6 +43,9 @@ const appAdminCoreSourceZh = <String, String>{
   'All contract routes are live': '全部契约路由已在线',
   '{count} documented routes not advertised': '{count} 条文档路由未公布',
   'Every OpenAPI contract route is advertised by this replica — no fallback access needed.': '本副本公布了全部 OpenAPI 契约路由——无需回退访问。',
+  'A subsystem needs attention': '有子系统需要关注',
+  'All subsystems healthy': '全部子系统健康',
+  'down': '异常',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 

@@ -102,6 +102,9 @@ class _HealthTabState extends State<HealthTab> {
         ),
       ),
       const SizedBox(height: 8),
+      // 健康总览（异常优先：三个子系统状态一眼可见）。
+      _healthOverview(context),
+      const SizedBox(height: 12),
       _serverCard(context),
       const SizedBox(height: 12),
       DistributedClusterPanel(api: widget.api),
@@ -117,6 +120,83 @@ class _HealthTabState extends State<HealthTab> {
       _debugCard(context),
     ],
   );
+
+  /// 健康总览：子系统状态徽章组（双编码 + 异常优先）。
+  Widget _healthOverview(BuildContext context) {
+    final entries = <(String, bool, IconData)>[
+      ('Server', _health?['status']?.toString() == 'ok',
+       Icons.dns_outlined),
+      ('Storage', _storageHealth?.isNotEmpty == true &&
+          _storageStatusOk(_storageHealth!),
+       Icons.storage_outlined),
+      ('Federation', _federationHealth?.isNotEmpty == true &&
+          _federationStatusOk(_federationHealth!),
+       Icons.lan_outlined),
+    ];
+    final anyDown = entries.any((e) => !e.$2);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            Icon(
+              anyDown ? Icons.warning_amber_outlined : Icons.verified_user_outlined,
+              color: anyDown ? AppColors.warning : AppColors.success,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LocalizedText(
+                anyDown ? 'A subsystem needs attention' : 'All subsystems healthy',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            for (final (label, ok, icon) in entries)
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: Tooltip(
+                  message: '$label: ${ok ? 'ok' : 'down'}',
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        icon,
+                        size: 16,
+                        color: ok ? AppColors.success : AppColors.danger,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: ok
+                              ? AppColors.success
+                              : AppColors.danger,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _storageStatusOk(Map<String, dynamic> data) {
+    final status = data['status']?.toString() ?? '';
+    if (status.isNotEmpty) return status == 'ok' || status == 'healthy';
+    return data.values.any((v) => v?.toString() == 'ok');
+  }
+
+  bool _federationStatusOk(Map<String, dynamic> data) {
+    final status = data['status']?.toString() ?? '';
+    if (status.isNotEmpty) return status == 'ok' || status == 'healthy';
+    return data.values.any((v) => v?.toString() == 'ok');
+  }
 
   Widget _serverCard(BuildContext context) {
     if (_loading && _health == null) {
