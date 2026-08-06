@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "contracts": [
+    {
+      "id": "BC-001",
+      "status": "resolved",
+      "title": "Provider and connection read DTOs never transmit stored secrets",
+      "frontend_mitigation": "Resolved: consume server-redacted read DTOs, keep secret fields write-only, and retain defense-in-depth rendering redaction.",
+      "acceptance": ["Read responses omit secret values or return fixed redaction markers.", "Secret fields are write-only in the published schema."]
+    },
+    {
+      "id": "BC-002",
+      "status": "resolved",
+      "title": "Physical devices and trusted-browser grants use distinct resource paths",
+      "frontend_mitigation": "Resolved: use the distinct physical-device and trusted-browser-grant resources and their stable schemas.",
+      "acceptance": ["Physical-device and trusted-grant endpoints cannot collide.", "Each endpoint publishes a stable response schema."]
+    },
+    {
+      "id": "BC-003",
+      "status": "resolved",
+      "title": "Device revocation reports every session and device failure",
+      "frontend_mitigation": "Resolved: render the server's per-device and per-session multi-status result with stable retry keys.",
+      "acceptance": ["Optional stores are nil-guarded.", "Bulk and single-device mutations return per-item status instead of unconditional success."]
+    },
+    {
+      "id": "BC-004",
+      "status": "resolved",
+      "title": "Device authorization preview identifies the requester and requested access",
+      "frontend_mitigation": "Resolved: render authoritative client, scope, and expiry context and keep approval closed if a required field is absent.",
+      "acceptance": ["Pending-code preview contains client_id or client_name.", "Pending-code preview contains authoritative scopes and expiry."]
+    },
+    {
+      "id": "BC-005",
+      "status": "resolved",
+      "title": "Email actions carry an authenticated action type",
+      "frontend_mitigation": "Resolved: consume server-owned reset, verification, email-change, and invitation action flows.",
+      "acceptance": ["Reset, verification, email-change, and invitation links are distinguishable.", "The action type is signed or server-owned and cannot be changed by the browser."]
+    },
+    {
+      "id": "BC-006",
+      "status": "resolved",
+      "title": "RFC 7592 reads are complete enough for lossless replacement",
+      "frontend_mitigation": "Resolved: use the complete management representation for lossless GET-to-PUT replacement.",
+      "acceptance": ["GET and PUT return grant_types, response_types, contacts, tenant_id, and all persisted metadata.", "A no-op GET-to-PUT round trip preserves registration state."]
+    },
+    {
+      "id": "BC-007",
+      "status": "resolved",
+      "title": "Dynamic registration schema, validation, and persistence agree",
+      "frontend_mitigation": "Resolved: validate against the unified Discovery, OpenAPI, redirect URI, JWKS, certificate, and JWE contract.",
+      "acceptance": ["Published auth methods match validator behavior.", "JWKS, certificate binding, JWE metadata, and redirect URI rules have one tested contract."]
+    },
+    {
+      "id": "BC-008",
+      "status": "resolved",
+      "title": "Registration access token rotation is recoverable",
+      "frontend_mitigation": "Resolved: acknowledge the replacement token during the server's audited overlap window and never auto-retry an ambiguous update.",
+      "acceptance": ["A lost update response cannot permanently orphan management access.", "Rotation provides idempotency, overlap, or an audited recovery flow."]
+    },
+    {
+      "id": "BC-009",
+      "status": "resolved",
+      "title": "JARM and redirect continuation are server-owned",
+      "frontend_mitigation": "Resolved: follow only server-attested redirect targets and signed JARM delivery envelopes.",
+      "acceptance": ["The browser receives a validated redirect envelope or server-driven top-level continuation.", "XHR/CORS behavior cannot consume or rewrite the authorization result."]
+    },
+    {
+      "id": "BC-010",
+      "status": "resolved",
+      "title": "Primary authentication, MFA, consent, and response delivery share one transaction",
+      "frontend_mitigation": "Resolved: advance the one-time server transaction through primary authentication, MFA, consent, and response delivery.",
+      "acceptance": ["A one-time transaction records completed stages.", "Network retry cannot replay credentials or consume an MFA factor twice."]
+    },
+    {
+      "id": "BC-011",
+      "status": "resolved",
+      "title": "Tenant usage uses a stable snake_case wire schema",
+      "frontend_mitigation": "Resolved: consume the published snake_case usage DTO while retaining legacy-read compatibility.",
+      "acceptance": ["Usage DTOs have explicit JSON tags.", "OpenAPI examples and contract tests match the emitted body."]
+    },
+    {
+      "id": "BC-012",
+      "status": "resolved",
+      "title": "Change requests expose a stable structured payload",
+      "frontend_mitigation": "Resolved: consume the explicit structured JSON DTO and deeply redact rendered payloads.",
+      "acceptance": ["Change request DTO fields have explicit wire names.", "Payload is structured JSON rather than an implicit byte-array encoding."]
+    },
+    {
+      "id": "BC-013",
+      "status": "resolved",
+      "title": "Runtime inventory and OpenAPI include every mounted console route",
+      "frontend_mitigation": "Resolved: consume the published OpenAPI catalog and merge runtime feature metadata.",
+      "acceptance": ["Mounted routes are generated into OpenAPI and runtime inventory.", "CI fails when route mounts, inventory, and OpenAPI drift."]
+    },
+    {
+      "id": "BC-014",
+      "status": "resolved",
+      "title": "First-run setup has explicit atomic or recoverable partial-success semantics",
+      "frontend_mitigation": "Resolved: render committed resources and retry the server-issued idempotent application recovery envelope.",
+      "acceptance": ["The response identifies every created resource.", "Partial completion supplies an idempotent recovery workflow or the operation is transactional."]
+    },
+    {
+      "id": "BC-015",
+      "status": "resolved",
+      "title": "Tenant branding cannot overwrite unrelated settings",
+      "frontend_mitigation": "Resolved: edit a dedicated branding resource and require a current If-Match value for every mutation.",
+      "acceptance": ["Branding has a dedicated namespace or field-level patch contract.", "Conditional writes prevent concurrent lost updates."]
+    },
+    {
+      "id": "BC-016",
+      "status": "resolved",
+      "title": "Snapshot detail never exposes credential material to ordinary admin reads",
+      "frontend_mitigation": "Resolved: ordinary snapshot detail is unconditionally server-redacted; sealed artifacts remain a separate privileged concern.",
+      "acceptance": ["Server-side redaction is mandatory for readable snapshots.", "Any sealed artifact download is no-store and protected by a distinct high privilege."]
+    },
+    {
+      "id": "BC-017",
+      "status": "resolved",
+      "title": "Restore and release operations expose durable progress and partial results",
+      "frontend_mitigation": "Resolved: display the durable operation ID, steps, compensations, result, and failure after reconnect or restart.",
+      "acceptance": ["Mutations return a durable operation ID.", "Step, compensation, and final states remain queryable after client disconnect."]
+    },
+    {
+      "id": "BC-018",
+      "status": "resolved",
+      "title": "Tenant lifecycle changes report credential-revocation results",
+      "frontend_mitigation": "Resolved: report exact refresh-token and session revocation counts, failures, and stable idempotency keys.",
+      "acceptance": ["Session and refresh-token revocation failures are returned.", "The caller receives multi-status or a retryable reconciliation job."]
+    },
+    {
+      "id": "BC-019",
+      "status": "resolved",
+      "title": "Break-glass grants and derived sessions have verifiable lifecycle coupling",
+      "frontend_mitigation": "Resolved: create pending grants before credential minting, atomically activate them, and display every derived-credential revoke result.",
+      "acceptance": ["Grant creation cannot leave an untracked orphan session.", "Revocation returns every derived-session result or compensates atomically."]
+    },
+    {
+      "id": "BC-020",
+      "status": "resolved",
+      "title": "Replay and cross-resource batch operations are idempotent and reconcilable",
+      "frontend_mitigation": "Resolved: use atomic ReBAC batches and stable webhook replay claims so cleanup retry cannot redeliver.",
+      "acceptance": ["Webhook replay cannot redeliver solely because DLQ cleanup failed.", "ReBAC and other batches return per-item status with stable idempotency keys."]
+    },
+    {
+      "id": "BC-021",
+      "status": "resolved",
+      "title": "Crypto administration reports exact retirement and rollout state",
+      "frontend_mitigation": "Resolved: display source retirement status and the exact signing-key class and rollout state.",
+      "acceptance": ["Compromise actions report whether source keys were retired.", "Rotation responses identify affected key classes and rollout state."]
+    },
+    {
+      "id": "BC-022",
+      "status": "resolved",
+      "title": "Federated OIDC and SAML callbacks resume the effective authorization request exactly once",
+      "frontend_mitigation": "Resolved: Snaplink binds the complete federated request to provider state, hands the verified identity back through a one-use hosted-login transaction, and advertises authorization_request_passthrough_supported only when that continuation is configured. The console scrubs and consumes the transaction once, keeps older deployments fail closed, and accepts terminal delivery only from server-attested metadata.",
+      "acceptance": ["Federated GET binding preserves request_uri, request, repeated resource, authorization_details, claims, id_token_hint, and max_age before upstream redirect.", "OIDC and SAML callbacks consume provider state before verification and resume account, policy, MFA, consent, and response-delivery gates without creating an unrelated session.", "The hosted page removes login_transaction_id from the fragment before its one POST, skips concurrent provider discovery, and never replays an unknown outcome.", "Terminal JSON responses attest the effective redirect_uri and response_mode and echo only the effective server-owned state."]
+    }
+  ]
+}

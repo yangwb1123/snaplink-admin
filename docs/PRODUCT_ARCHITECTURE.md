@@ -27,7 +27,7 @@
 | 最终用户 | 登录、同意授权并自助管理账户、安全、设备和隐私 | `/login/`、`/portal/` |
 | 应用开发者 | 动态注册和维护 OAuth/OIDC 应用 | `/developer/` |
 | 部署所有者 | 完成首次管理员和首个应用初始化 | `/setup/` |
-| 设备码用户 | 看清请求方和权限后批准或拒绝设备登录 | `/device/verify` |
+| 设备码用户 | 看清请求方和权限后批准或拒绝；上下文缺失时只能拒绝 | `/device/verify` |
 
 ## 3. 领域边界
 
@@ -80,7 +80,18 @@ Source-only compatibility ──┘                               │
 ## 5. 安全和隐私不变量
 
 - Access Token 仅保存在 tab 级 `sessionStorage`；显式退出同时清理会话上下文。
-- 可信浏览器 grant 才允许按 client ID 存入 `localStorage`，并可由用户撤销。
+- 可信浏览器 grant 只允许在用户明确选择后按 client ID 存入 `localStorage`，
+  并可由用户撤销；该 bearer 等价凭据不从 URL 接收，也不转交自定义登录页。
+- 联合登录的 PKCE verifier、返回目标和随机 `state` 只存在当前 tab；Portal
+  action token 不进入 `state`，匹配的授权回调会在换取 Token 前清除地址栏和
+  整组一次性状态。
+- RP 的 OIDC/SAML 上游回调只通过服务器绑定的一次性事务恢复原授权请求；
+  `login_transaction_id` 只进入 URL fragment，控制台在 POST 前清除它，且不会
+  与 provider discovery 并发。MFA、Consent 和终态交付继续使用同一服务端状态机。
+- PAR/JAR 可以覆盖地址栏中的 `redirect_uri`、`state` 和 `response_mode`；
+  终态交付只接受后端验证后回显的有效值。只有后端明确返回
+  `authorization_request_passthrough_supported=true` 才开放任何 RP 联邦入口；
+  旧部署或缺少有效 `login_page_uri` 时显式关闭，不降级成另一条授权请求。
 - client secret、Registration Access Token、临时 Token、恢复码和模拟 Token
   只进入隔离的一次性视图；不进入通用响应、缓存、日志或跨页状态。
 - Provider/Connection 等后端可能回显配置的资源，在 UI 深层脱敏；长期修复
@@ -90,6 +101,8 @@ Source-only compatibility ──┘                               │
   输入资源标识或预估命中数量。
 - 批量与跨资源操作逐项呈现结果，HTTP 2xx 不自动等价为全部成功。
 - `401` 结束登录态；`403` 只表示当前身份无权执行该操作。
+- Admin 入口只探测受 `admin:read` 保护的只读运行时能力目录，不以读取某一类
+  客户端、用户或租户资源作为全局授权替代判断。
 
 ## 6. 关键流程验收
 
@@ -97,8 +110,9 @@ Source-only compatibility ──┘                               │
 
 1. 加载客户端品牌和服务端身份源。
 2. 保留经校验的 OAuth 参数和返回目标。
-3. 完成密码或外部身份源登录；challenge 失效后重新认证。
-4. Consent 显示服务端权威 Scope/RAR，再同意或拒绝。
+3. 完成密码或外部身份源登录；联合回调恢复原 RP 请求，challenge 失效后重新认证。
+4. Consent 显示服务端权威 Scope/RAR，只用一次性登录事务同意或拒绝；不在
+   浏览器内保留、重放主密码或验证码。
 5. 按后端结果返回调用方或建立本地 Portal/Admin 会话。
 
 ### 高风险管理变更
@@ -108,6 +122,20 @@ Source-only compatibility ──┘                               │
 3. 要求适当级别的确认。
 4. 发送一次写请求，不做自动重放。
 5. 清除秘密、失效缓存、刷新服务端状态并显示真实结果。
+
+### 充值 Checkout
+
+1. 当前 Admin Token 必须同时具有 `admin:write` 与 Stripe Adapter
+   的精确 audience；浏览器中不存放 machine client secret。
+2. Console 先向 Billing 创建 `provider=stripe` 且无
+   `provider_order_id` 的 pending 订单，金额与币种从此后不再由
+   Checkout 请求提供。
+3. 通过同源 `POST /api/v1/checkout/sessions` 发送显式 `tenant_id`、
+   `order_id` 和从可信 Console origin 构造的成功/取消回跳地址。
+4. 只将经 HTTPS 结构校验的 `redirect_url` 交给真实浏览器导航；
+   不将它渲染成 HTML，native shell 不会误当作产品内路由。
+5. Adapter 不可用或导航失败时，pending 订单保留且可从订单行
+   重试；UI 只显示有界的安全错误，不回显上游详情。
 
 ### 动态客户端注册
 
@@ -125,6 +153,7 @@ Source-only compatibility ──┘                               │
 | 可靠性 | 明确 loading/empty/error/retry；并发冲突和部分成功可见 |
 | 可维护性 | 领域文件不超过工程行数预算；浏览器 API 使用条件适配层 |
 | 可测试性 | API 契约、模型和关键风险控件可在 VM 测试；浏览器状态另跑 Chrome |
+| 国际化 | 六个入口统一支持 EN/ZH；静态、动态和表单文案受自动漏译门禁保护 |
 | 可部署性 | 单一静态产物；六个前缀由网关做 SPA fallback 和同源 API 路由 |
 | 可观测性 | 服务端审计/SSE 为权威，本地操作日志只辅助当前操作者 |
 

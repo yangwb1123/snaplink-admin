@@ -1,0 +1,385 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:sso_admin/app_settings.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+
+/// Distributed-cluster (Tier B) control-plane panel.
+///
+/// Renders the signing fleet (one key per replica, aggregated through the
+/// etcd key registry), the readiness checks for the distributed control
+/// plane (etcd registry, invalidation bus, key aggregation), the backend
+/// module map, and a self-test that exercises cross-replica token
+/// validation through the load balancer.
+class DistributedClusterPanel extends StatefulWidget {
+  final SnaplinkAdminApi api;
+  const DistributedClusterPanel({super.key, required this.api});
+  @override
+  State<DistributedClusterPanel> createState() => _PanelState();
+}
+
+class _ClusterCheck {
+  final String label;
+  final bool passed;
+  final String detail;
+  const _ClusterCheck(this.label, this.passed, this.detail);
+}
+
+class _PanelState extends State<DistributedClusterPanel> {
+  Map<String, dynamic>? _readyz;
+  Map<String, dynamic>? _status;
+  Map<String, dynamic>? _keys;
+  List<String> _jwksKids = const [];
+  List<_ClusterCheck>? _testResults;
+  bool _testing = false;
+  Timer? _autoRefresh;
+
+  static const _distributedReadyzChecks = [
+    'etcd-signing-key-registry',
+    'invalidation-bus',
+    'signing-key-aggregation',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+    _autoRefresh = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refresh(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  String _t(String source, [Map<String, Object?> values = const {}]) =>
+      AppStrings.forLocale(AppSettings.instance.locale).translate(source, values);
+
+  Future<Map<String, dynamic>> _quiet(String path) =>
+      widget.api.get(path).catchError((_) => <String, dynamic>{});
+
+  Future<void> _refresh() async {
+    final results = await Future.wait([
+      _quiet('/readyz'),
+      _quiet('/api/v1/status'),
+      _quiet('/api/v1/admin/keys'),
+      _quiet('/.well-known/jwks.json'),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _readyz = results[0] as Map<String, dynamic>?;
+      _status = results[1] as Map<String, dynamic>?;
+      _keys = results[2] as Map<String, dynamic>?;
+      _jwksKids = ((results[3] as Map<String, dynamic>?)?['keys'] as List?)
+              ?.map((k) => (k as Map)['kid']?.toString() ?? '')
+              .where((k) => k.isNotEmpty)
+              .toList() ??
+          const [];
+    });
+  }
+
+  List<Map<String, dynamic>> get _signingKeys =>
+      ((_keys?['keys'] as List?) ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+
+  Future<void> _runSelfTest() async {
+    setState(() {
+      _testing = true;
+      _testResults = null;
+    });
+    final results = <_ClusterCheck>[];
+
+    // 1. Fleet aggregation: exactly one active key, peers adopted verify-only.
+    final keys = _signingKeys;
+    final active = keys.where((k) => k['state'] == 'active').length;
+    final total = keys.length;
+    final fleetOk = total >= 2 && active == 1;
+    final fleetDetail = fleetOk
+        ? _t('Registry aggregation OK: {n} keys', {'n': total})
+        : (total == 0
+              ? _t('No signing keys reported')
+              : _t('Expected >= 2 keys for a multi-replica fleet'));
+    results.add(_ClusterCheck(_t('Fleet aggregation'), fleetOk, fleetDetail));
+
+    // 2. Cross-replica token validation: 5 probes through the LB; every
+    // request may land on a different replica, so any 401 means the
+    // replicas disagree about this token's key.
+    var unauthorized = 0;
+    // Bounded retry probe (5 attempts): the await is intentional —
+    // replicas may disagree about this token's key (not an N+1 list).
+    for (var i = 0; i < 5; i++) {
+      try {
+        await widget.api.get('/api/v1/admin/endpoints');
+      } catch (_) {
+        unauthorized++;
+      }
+    }
+    results.add(_ClusterCheck(
+      _t('Cross-replica token validation'),
+      unauthorized == 0,
+      unauthorized == 0
+          ? _t('5/5 probes authorized')
+          : _t('{n} of 5 probes unauthorized', {'n': unauthorized}),
+    ));
+
+    // 3. Distributed control plane (etcd registry + bus + aggregation).
+    final checks = (_readyz?['checks'] as Map?) ?? const {};
+    final failing = _distributedReadyzChecks
+        .where((name) => checks[name] != 'ok')
+        .toList();
+    results.add(_ClusterCheck(
+      _t('Control plane checks'),
+      failing.isEmpty,
+      failing.isEmpty
+          ? _t('Distributed checks healthy')
+          : _t('{n} distributed check(s) failing', {'n': failing.length}),
+    ));
+
+    // 4. Backend modules (per-store ping from /api/v1/status).
+    final modules = (_status?['modules'] as Map?) ?? const {};
+    final badModules = modules.entries
+        .where((e) => e.value.toString() != 'ok')
+        .map((e) => e.key)
+        .toList();
+    results.add(_ClusterCheck(
+      _t('Backend module checks'),
+      badModules.isEmpty,
+      badModules.isEmpty
+          ? _t('All backends reachable')
+          : _t('{n} backend module(s) failing', {'n': badModules.length}),
+    ));
+
+    if (!mounted) return;
+    setState(() {
+      _testResults = results;
+      _testing = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final keys = _signingKeys;
+    final active = keys.where((k) => k['state'] == 'active').toList();
+    final verifyOnly = keys
+        .where((k) => k['state'] != 'active' && k['kid'] != null)
+        .toList();
+    final checks = (_readyz?['checks'] as Map?) ?? const {};
+    final modules = (_status?['modules'] as Map?) ?? const {};
+    final results = _testResults;
+    final passed = results?.where((r) => r.passed).length ?? 0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.hub, size: 24),
+                    const SizedBox(width: 8),
+                    LocalizedText(
+                      'Distributed Cluster',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
+                ),
+                const Divider(),
+                _row(
+                  _t('Replica keys'),
+                  _t(
+                    '{n} replica keys (1 active, {m} verify-only)',
+                    {'n': keys.length, 'm': verifyOnly.length},
+                  ),
+                ),
+                if (active.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: _kidChip(_t('Active key'), active.first, true),
+                  ),
+                if (verifyOnly.isNotEmpty) ...[
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4, bottom: 2),
+                    child: LocalizedText(
+                      'Adopted peer keys (verify-only)',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final k in verifyOnly) _kidChip('', k, false),
+                    ],
+                  ),
+                ],
+                if (_jwksKids.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _row(
+                    _t('JWKS union'),
+                    '${_jwksKids.length} kid(s): ${_jwksKids.join(', ')}',
+                  ),
+                ],
+                const Divider(),
+                _row(
+                  _t('Control Plane'),
+                  _t('Distributed control plane (etcd bus / key registry)'),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final name in _distributedReadyzChecks)
+                      _statusChip(name, checks[name]?.toString()),
+                  ],
+                ),
+                if (modules.isNotEmpty) ...[
+                  const Divider(),
+                  _row(_t('Backend Modules'), '${modules.length} module(s)'),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final e in modules.entries)
+                        _statusChip(e.key, e.value?.toString()),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.science_outlined, size: 24),
+                    const SizedBox(width: 8),
+                    LocalizedText(
+                      'Cluster Self-Test',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed: _testing ? null : _runSelfTest,
+                      icon: _testing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.play_arrow, size: 18),
+                      label: LocalizedText(
+                        _testing ? 'Running...' : 'Run Cluster Self-Test',
+                      ),
+                    ),
+                  ],
+                ),
+                if (results != null) ...[
+                  const Divider(),
+                  ...results.map((r) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      r.passed ? Icons.check_circle : Icons.cancel,
+                      color: r.passed ? Colors.green : Colors.redAccent,
+                    ),
+                    title: Text(r.label),
+                    subtitle: Text(r.detail),
+                  )),
+                  Text(
+                    passed == results.length
+                        ? _t('All {n} checks passed', {'n': results.length})
+                        : _t('{passed} of {n} checks passed', {
+                            'passed': passed,
+                            'n': results.length,
+                          }),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: passed == results.length
+                          ? Colors.green
+                          : Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _kidChip(String label, Map<String, dynamic> key, bool active) {
+    final kid = key['kid']?.toString() ?? '—';
+    final alg = key['alg']?.toString() ?? '';
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label.isNotEmpty) ...[
+          LocalizedText(label, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+        ],
+        Chip(
+          avatar: Icon(
+            active ? Icons.verified_user : Icons.people_outline,
+            size: 16,
+            color: active ? Colors.green : Colors.blueGrey,
+          ),
+          label: Text('$kid ${alg.isNotEmpty ? '($alg)' : ''}'),
+          visualDensity: VisualDensity.compact,
+          backgroundColor: active ? Colors.green.shade50 : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _statusChip(String name, String? value) {
+    final ok = value == 'ok';
+    return Chip(
+      avatar: Icon(
+        ok ? Icons.check_circle : Icons.error,
+        size: 16,
+        color: ok ? Colors.green : Colors.redAccent,
+      ),
+      label: Text(name),
+      visualDensity: VisualDensity.compact,
+      backgroundColor: ok ? Colors.green.shade50 : Colors.red.shade50,
+    );
+  }
+
+  Widget _row(String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 170,
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+          ),
+        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+      ],
+    ),
+  );
+}
