@@ -678,31 +678,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       destinations: groupDestinations,
       drawerHeader: strings.ssoAdmin,
-      body: Column(
-        children: [
-          if (groupModules.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: SectionSelector(
-                sections: sectionDefs,
-                current: _selectedModule,
-                onSelected: (module) {
-                  if (module == _selectedModule) return;
-                  _groupLastModule[currentGroupId] = module;
-                  AdminRoute.go(module);
-                },
-              ),
-            ),
-          Expanded(
-            child: PageTransition(
-              pageKey: ValueKey(_selectedModule),
-              child: page,
-            ),
-          ),
-        ],
+      body: PageTransition(
+        pageKey: ValueKey(_selectedModule),
+        child: page,
       ),
       appBar: AppBar(
-        title: Text(strings.ssoAdmin),
+        // 左上角：纯品牌 icon 代替文字（语义标签保证可访问性）。
+        title: Tooltip(
+          message: strings.ssoAdmin,
+          child: Icon(
+            Icons.admin_panel_settings,
+            size: 28,
+            color: Theme.of(context).colorScheme.primary,
+            semanticLabel: strings.ssoAdmin,
+          ),
+        ),
+        // 子菜单放最上面一行（AppBar bottom，随页面固定）——Material TabBar 模式。
+        bottom: groupModules.length > 1
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SectionSelector(
+                    sections: sectionDefs,
+                    current: _selectedModule,
+                    onSelected: (module) {
+                      if (module == _selectedModule) return;
+                      _groupLastModule[currentGroupId] = module;
+                      AdminRoute.go(module);
+                    },
+                  ),
+                ),
+              )
+            : null,
         actions: [
           IconButton(
             onPressed: () => Navigator.of(

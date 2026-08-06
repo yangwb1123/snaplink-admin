@@ -105,29 +105,34 @@ extension _PortalScreenShell on _PortalScreenState {
               message: _actionNotice!,
               succeeded: _actionSucceeded,
             ),
-          if (groupTabs.length > 1)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: SectionSelector(
-                sections: [
-                  for (final tab in groupTabs)
-                    SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
-                ],
-                current: '$_navIndex',
-                onSelected: (id) {
-                  final target = int.tryParse(id);
-                  if (target != null && target != _navIndex) {
-                    _update(() => _navIndex = target);
-                  }
-                },
-              ),
-            ),
           Expanded(
             child: PageTransition(pageKey: ValueKey(_navIndex), child: page),
           ),
         ],
       ),
       appBar: AppBar(
+        // 子菜单最上面一行（AppBar bottom，Material TabBar 模式）。
+        bottom: groupTabs.length > 1
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: SectionSelector(
+                    sections: [
+                      for (final tab in groupTabs)
+                        SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
+                    ],
+                    current: '$_navIndex',
+                    onSelected: (id) {
+                      final target = int.tryParse(id);
+                      if (target != null && target != _navIndex) {
+                        _update(() => _navIndex = target);
+                      }
+                    },
+                  ),
+                ),
+              )
+            : null,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

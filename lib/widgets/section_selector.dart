@@ -29,7 +29,16 @@ class SectionSelector extends StatelessWidget {
                 children: [
                   Icon(s.icon, size: 16),
                   const SizedBox(width: 4),
-                  Text(context.tr(s.label)),
+                  // 长 label（如 'Subscriptions & Billing'）限制宽度 + 省略号，
+                  // 避免文字超出 chip/容器（横向子菜单溢出修复）。
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 160),
+                    child: Text(
+                      context.tr(s.label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
               ),
               selected: current == s.id,
