@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -27,7 +28,8 @@ class LocalUsersTab extends StatefulWidget {
   State<LocalUsersTab> createState() => _LocalUsersTabState();
 }
 
-class _LocalUsersTabState extends State<LocalUsersTab> {
+class _LocalUsersTabState extends State<LocalUsersTab>
+    with BatchSelection<LocalUsersTab> {
   static const _basePath = '/api/v1/admin/local-users';
   static const _pageSize = 25;
 
@@ -110,6 +112,77 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
     }
   }
 
+  /// 批量删除本地用户（确认影响数量 → 并行执行 → 明细报告）。
+  Future<void> _batchDelete() async {
+    final ids = selected.toList();
+    if (ids.isEmpty) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Delete ${ids.length} local users?',
+      message:
+          'This will delete ${ids.length} selected local users and their '
+          'password credentials. This cannot be undone.',
+      confirmLabel: 'Delete users',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    final failures = <String>[];
+    var ok = 0;
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
+        return null;
+      } catch (e) {
+        return '$id: $e';
+      }
+    }));
+    for (final failure in results) {
+      if (failure == null) {
+        ok++;
+      } else {
+        failures.add(failure);
+      }
+    }
+    if (!mounted) return;
+    clearSelection();
+    final message = failures.isEmpty
+        ? 'Deleted $ok of ${ids.length} local users.'
+        : 'Delete: $ok succeeded, ${failures.length} failed. '
+              '${failures.take(3).join('; ')}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+    await _load();
+  }
+
+  /// 批量操作栏（列表顶部）。
+  Widget _batchBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            LocalizedText('${selected.length} selected'),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _mutating ? null : _batchDelete,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const LocalizedText('Delete'),
+            ),
+            IconButton(
+              tooltip: 'Clear selection'.localized,
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: clearSelection,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _delete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
     if (id.isEmpty) return;
@@ -152,6 +225,10 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (selecting) ...[
+          _batchBar(context),
+          const SizedBox(height: 8),
+        ],
         const AdminBreadcrumb(),
         Row(
           children: [
@@ -191,9 +268,21 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
                 Card(
                   margin: const EdgeInsets.only(bottom: 8),
                   child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.person_outline),
-                    ),
+                    onTap: selecting
+                        ? () => toggleSelect(user['id']?.toString() ?? '')
+                        : null,
+                    onLongPress: () =>
+                        toggleSelect(user['id']?.toString() ?? ''),
+                    leading: selecting
+                        ? Checkbox(
+                            value: selected.contains(
+                                user['id']?.toString() ?? ''),
+                            onChanged: (_) =>
+                                toggleSelect(user['id']?.toString() ?? ''),
+                          )
+                        : const CircleAvatar(
+                            child: Icon(Icons.person_outline),
+                          ),
                     title: Text(
                       user['display_name']?.toString().isNotEmpty == true
                           ? user['display_name'].toString()
@@ -203,7 +292,9 @@ class _LocalUsersTabState extends State<LocalUsersTab> {
                       '${user['username'] ?? ''}\n${user['email'] ?? ''}',
                     ),
                     isThreeLine: true,
-                    trailing: PopupMenuButton<String>(
+                    trailing: selecting
+                        ? null
+                        : PopupMenuButton<String>(
                       enabled: !_mutating,
                       onSelected: (action) {
                         if (action == 'edit') _openForm(user);
