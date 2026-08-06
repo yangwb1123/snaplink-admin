@@ -1,5 +1,13 @@
 /// Account portal copy. Dynamic values use `{name}` placeholders.
 const appPortalSourceZh = <String, String>{
+  'Multi-factor authentication and the security factors on your account.': '您账户的多因素认证与安全因子。',
+  'Browser and device sessions currently signed in with your account.': '当前使用您账户登录的浏览器与设备会话。',
+  'Recent sign-in and security events on your account.': '您账户最近的登录与安全事件。',
+  'Third-party identities linked to your account for sign-in.': '与您账户关联用于登录的第三方身份。',
+  'Applications you have authorized to access your account data.': '您已授权访问账户数据的应用。',
+  'Teams and organizations you belong to.': '您所属的团队与组织。',
+  'Data shared with this server and your export or deletion options.': '与此服务器共享的数据及您的导出或删除选项。',
+
   'Mark all as read?': '全部标记为已读？',
   'Mark all': '全部已读',
   'This will mark {n} notifications as read.': '这将把 {n} 条通知标记为已读。',

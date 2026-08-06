@@ -321,8 +321,8 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
               ? AppColors.warning
               : AppColors.success,
         ),
-        title: LocalizedText('$algorithm · $status'),
-        subtitle: LocalizedText('$id\ncreated: $createdAt'),
+        title: LocalizedText('{algorithm} · {status}', args: {'algorithm': algorithm, 'status': status}),
+        subtitle: LocalizedText('{id}\ncreated: {createdAt}', args: {'id': id, 'createdAt': createdAt}),
         isThreeLine: true,
         trailing: compromised || expired
             ? null

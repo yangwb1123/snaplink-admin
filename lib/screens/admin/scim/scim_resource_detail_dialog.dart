@@ -232,7 +232,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
   }
 
   Widget _chip(String label, String value) => Chip(
-    label: LocalizedText('$label: $value'),
+    label: LocalizedText('{label}: {value}', args: {'label': label, 'value': value}),
     visualDensity: VisualDensity.compact,
   );
 

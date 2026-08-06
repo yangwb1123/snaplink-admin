@@ -422,7 +422,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   ]);
   Widget _metric(String label, Object? value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
-    child: LocalizedText('$label: ${value ?? 0}'),
+    child: LocalizedText('{label}: {value}', args: {'label': label, 'value': value ?? 0}),
   );
   Widget _card(BuildContext context, String title, List<Widget> children) =>
       Card(

@@ -1,14 +1,16 @@
 /// Common administration controls, field labels, statuses, and empty states.
 const appAdminCoreSourceZh = <String, String>{
   'Error: {detail}': '错误：{detail}',
-  '{count} selected': '已选 {count} 项',
   '{count} entries': '共 {count} 条',
   '{label}: {count}': '{label}：{count}',
   '{op} completed.': '{op} 已完成。',
   '{resource} unavailable': '{resource} 不可用',
-  '{count} more results present.': '另有 {count} 条结果。',
   '{count} more results are present in the copied JSON.': '复制的 JSON 中另有 {count} 条结果。',
 
+  '{algorithm} · {status}': '{algorithm} · {status}',
+  '{targetUser} · {status}': '{targetUser} · {status}',
+  '{id}\ncreated: {createdAt}': '{id}\n创建于 {createdAt}',
+  '{reason}\nby {createdBy} · scope: {scope} · {id}': '{reason}\n发起人 {createdBy} · 范围 {scope} · {id}',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 

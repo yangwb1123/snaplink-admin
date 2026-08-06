@@ -20,7 +20,7 @@ class ScimMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Chip(
     avatar: const Icon(Icons.analytics_outlined, size: 16),
-    label: LocalizedText('$label: $value'),
+    label: LocalizedText('{label}: {value}', args: {'label': label, 'value': value}),
   );
 }
 

@@ -233,8 +233,8 @@ class _BreakGlassSessionCard extends StatelessWidget {
               ? AppColors.success
               : Colors.grey,
         ),
-        title: LocalizedText('$targetUser · $status'),
-        subtitle: LocalizedText('$reason\nby $createdBy · scope: $scope · $id'),
+        title: LocalizedText('{targetUser} · {status}', args: {'targetUser': targetUser, 'status': status}),
+        subtitle: LocalizedText('{reason}\nby {createdBy} · scope: {scope} · {id}', args: {'reason': reason, 'createdBy': createdBy, 'scope': scope, 'id': id}),
         isThreeLine: true,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
