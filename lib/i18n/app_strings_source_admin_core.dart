@@ -109,7 +109,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Emails': '邮箱',
   'Escalate': '升级处理',
   'Estimate matches': '估算匹配数',
-  'Execute bulk': '执行批量操作',
+'Execute bulk': '执行批量操作',
     'Export CSV': '导出 CSV',
   'Exported {n} clients as CSV to clipboard': '已将 {n} 个客户端以 CSV 导出到剪贴板',
 'Export snapshot': '导出快照',
