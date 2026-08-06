@@ -337,6 +337,69 @@ class _WebhooksTabState extends State<WebhooksTab> {
         .toList();
   }
 
+  /// 订阅健康摘要（活跃占比一眼可见）。
+  Widget _subscriptionsHealth(BuildContext context) {
+    final total = _visibleSubscriptions.length;
+    final active = _visibleSubscriptions
+        .where((s) => s['active'] == true)
+        .length;
+    final activeFraction = total == 0 ? 0.0 : active / total;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              LocalizedText(
+                'Subscriptions health',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$active of $total active',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: activeFraction >= 0.7
+                      ? AppColors.success
+                      : activeFraction >= 0.4
+                      ? AppColors.warning
+                      : AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              height: 6,
+              color: AppColors.success.withValues(alpha: 0.15),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: activeFraction.clamp(0.0, 1.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.success,
+                        AppColors.success.withValues(alpha: 0.6),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _subscriptionsCard(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -355,6 +418,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
         ],
       ),
       if (_loading) const SkeletonListTile(itemCount: 3),
+      if (!_loading && _visibleSubscriptions.isNotEmpty)
+        _subscriptionsHealth(context),
       if (!_loading && _visibleSubscriptions.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 12),
