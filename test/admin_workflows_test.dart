@@ -491,6 +491,44 @@ void main() {
       expect(find.text('globex · suspended'), findsOneWidget);
     });
 
+    testWidgets('batch suspends selected tenants', (tester) async {
+      var setStatus = <String>[];
+      final client = _client({
+        '/api/v1/admin/tenants': (_) => http.Response(
+          jsonEncode({
+            'tenants': [activeTenant, suspendedTenant],
+            'total_size': 2,
+          }),
+          200,
+        ),
+        '/api/v1/admin/tenants/tenant-a:set-status': (request) {
+          setStatus.add(request.body);
+          return http.Response('{}', 200);
+        },
+        '/api/v1/admin/tenants/tenant-b:set-status': (request) {
+          setStatus.add(request.body);
+          return http.Response('{}', 200);
+        },
+      });
+      await tester.pumpWidget(_wrap(TenantsTab(client: client)));
+      await tester.pumpAndSettle();
+
+      // 长按进入选择 → 勾选两行 → 批量挂起。
+      await tester.longPress(find.text('Acme Corp'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Globex'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.pause_circle_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Suspend tenants').last);
+      await tester.pumpAndSettle();
+
+      expect(setStatus, hasLength(2));
+      expect(setStatus.every((b) => b.contains('"status":"suspended"')), isTrue);
+    });
+
     testWidgets('suspends a tenant with typed confirmation', (tester) async {
       var setStatus = <String>[];
       final client = _client({
