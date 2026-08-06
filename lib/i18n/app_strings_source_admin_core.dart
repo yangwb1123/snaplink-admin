@@ -35,6 +35,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Admin': '管理员',
   'Advanced settings': '高级设置',
   'All methods': '所有方法',
+  'admin:read / admin:write': 'admin:read / admin:write',
     'All statuses': '全部状态',
   'Active only': '仅启用',
   'Inactive only': '仅停用',
