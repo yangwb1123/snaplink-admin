@@ -1,5 +1,10 @@
 /// Administration navigation, command palette, and shortcut copy.
 const appAdminNavigationSourceZh = <String, String>{
+  'Overview': '总览',
+  'Security': '安全',
+  'Developers': '开发者',
+  'System': '系统',
+
   'Users': '用户',
   'Local Users': '本地用户',
   'SCIM Directory': 'SCIM 目录',

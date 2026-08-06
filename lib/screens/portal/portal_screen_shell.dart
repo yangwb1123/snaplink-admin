@@ -2,55 +2,48 @@ part of 'portal_screen.dart';
 
 extension _PortalScreenShell on _PortalScreenState {
   List<NavigationRailDestination> _destinations(AppStrings strings) => [
-    NavigationRailDestination(
-      icon: const Icon(Icons.person_outline),
-      label: Text(strings.overview),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.lock_outline),
-      label: Text(strings.security),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.devices_other_outlined),
-      selectedIcon: const Icon(Icons.devices_other),
-      label: Text(strings.devices),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.devices_outlined),
-      selectedIcon: const Icon(Icons.devices),
-      label: Text(strings.sessions),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.security_outlined),
-      selectedIcon: const Icon(Icons.security),
-      label: Text(strings.activity),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.link_outlined),
-      selectedIcon: const Icon(Icons.link),
-      label: Text(strings.linkedIdentities),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.apps_outlined),
-      selectedIcon: const Icon(Icons.apps),
-      label: Text(strings.connectedApps),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.business_outlined),
-      selectedIcon: const Icon(Icons.business),
-      label: Text(strings.organizations),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.notifications_outlined),
-      selectedIcon: const Icon(Icons.notifications),
-      label: Text(strings.translate('Notifications')),
-    ),
-    NavigationRailDestination(
-      icon: const Icon(Icons.privacy_tip_outlined),
-      selectedIcon: const Icon(Icons.privacy_tip),
-      label: Text(strings.privacy),
-    ),
+    // 分组渲染：一级导航只显示 3 组，组内用壳层 SectionSelector。
+    for (final group in _portalGroups) ...[
+      NavigationRailDestination(
+        icon: Icon(group.$1),
+        selectedIcon: Icon(group.$2),
+        label: Text(strings.translate(group.$3)),
+      ),
+    ],
   ];
+
+  String _portalTabLabel(int tab, AppStrings strings) => switch (tab) {
+    0 => strings.overview,
+    1 => strings.security,
+    2 => strings.devices,
+    3 => strings.sessions,
+    4 => strings.activity,
+    5 => strings.linkedIdentities,
+    6 => strings.translate('Connected applications'),
+    7 => strings.organizations,
+    8 => strings.translate('Notifications'),
+    _ => strings.privacy,
+  };
+
+  /// Portal 分组：Account / Connections / Data。
+  static const _portalGroups = <(IconData, IconData, String)>[
+    (Icons.person_outline, Icons.person, 'Account'),
+    (Icons.link_outlined, Icons.link, 'Connections'),
+    (Icons.data_usage_outlined, Icons.data_usage, 'Data'),
+  ];
+
+  /// 各 tab 的组归属（与 _destinations 顺序一致，用组标签作 key）。
+  static const _portalTabGroups = [
+    'Account', 'Account', 'Account', 'Account', 'Account', // overview..activity
+    'Connections', 'Connections', 'Connections', // identities..notifications
+    'Data', 'Data', // organizations, privacy
+  ];
+
+  static const _portalGroupTabs = <String, List<int>>{
+    'Account': [0, 1, 2, 3, 4],
+    'Connections': [5, 6, 7],
+    'Data': [8, 9],
+  };
 
   Widget _buildApp(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -79,10 +72,16 @@ extension _PortalScreenShell on _PortalScreenState {
         onAccountDeleted: _onAccountDeleted,
       ),
     };
+    final currentGroup = _portalTabGroups[_navIndex];
+    final groupTabs = _portalGroupTabs[currentGroup] ?? const <int>[0];
     return ResponsiveNavigationScaffold(
-      selectedIndex: _navIndex,
+      selectedIndex: _portalGroups.indexWhere((g) => g.$3 == currentGroup),
       onDestinationSelected: (index) {
-        if (index != _navIndex) _update(() => _navIndex = index);
+        if (index < 0 || index >= _portalGroups.length) return;
+        final group = _portalGroups[index].$3;
+        final tabs = _portalGroupTabs[group] ?? const <int>[0];
+        final target = tabs.contains(_navIndex) ? _navIndex : tabs.first;
+        if (target != _navIndex) _update(() => _navIndex = target);
       },
       destinations: _destinations(strings),
       drawerHeader: strings.accountTitle,
@@ -92,6 +91,27 @@ extension _PortalScreenShell on _PortalScreenState {
             PortalActionNotice(
               message: _actionNotice!,
               succeeded: _actionSucceeded,
+            ),
+          if (groupTabs.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SectionSelector(
+                sections: [
+                  for (final tab in groupTabs)
+                    SectionDef(
+                      '$tab',
+                      _portalTabLabel(tab, strings),
+                      Icons.circle_outlined,
+                    ),
+                ],
+                current: '$_navIndex',
+                onSelected: (id) {
+                  final target = int.tryParse(id);
+                  if (target != null && target != _navIndex) {
+                    _update(() => _navIndex = target);
+                  }
+                },
+              ),
             ),
           Expanded(
             child: PageTransition(pageKey: ValueKey(_navIndex), child: page),

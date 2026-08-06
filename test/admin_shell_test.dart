@@ -66,14 +66,19 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // The shell renders with the overview module and navigation.
-      expect(find.text('Clients'), findsOneWidget);
-      expect(find.text('Users'), findsOneWidget);
+      // 分组导航：一级 rail 显示 6 组；组内模块在 SectionSelector。
+      expect(find.text('Identity'), findsOneWidget);
+      expect(find.text('Security'), findsOneWidget);
+      expect(find.text('Tenants'), findsOneWidget);
 
-      // Switch to the clients module.
-      await tester.tap(find.text('Clients'));
+      // 进入 Identity 组（默认模块 clients）→ 组 tabs 出现。
+      await tester.tap(find.text('Identity'));
       await tester.pumpAndSettle();
-      expect(find.text('No clients'), findsOneWidget);
+      expect(find.text('Clients'), findsWidgets);
+
+      // 切到组内 users 模块。
+      await tester.tap(find.text('Users'));
+      await tester.pumpAndSettle();
 
       // Dashboard teardown disposes the shared shortcut service.
       await tester.pumpWidget(const SizedBox());

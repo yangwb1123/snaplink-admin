@@ -6,6 +6,8 @@ import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
 import 'package:sso_admin/widgets/page_transition.dart';
+import 'admin_module_groups.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
@@ -207,6 +209,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     return OfflineBanner(child: _buildBody(context, strings));
+  }
+
+  Map<String, String> _moduleLabels(
+    List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
+  ) => {
+    for (final entry in entries) entry.module: _labelOf(entry.destination.label),
+  };
+
+  String _labelOf(Widget label) {
+    if (label is Text) return label.data ?? '';
+    if (label is LocalizedText) return label.data;
+    return '';
+  }
+
+  IconData _iconOf(
+    String module,
+    List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
+  ) {
+    for (final entry in entries) {
+      if (entry.module != module) continue;
+      final icon = entry.destination.icon;
+      if (icon is Icon) return icon.icon ?? Icons.circle_outlined;
+    }
+    return Icons.circle_outlined;
   }
 
   Widget _buildBody(BuildContext context, AppStrings strings) {
@@ -546,10 +572,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
     _visibleModules = adminNavigationModules(entries);
-    final selectedIndex = adminNavigationIndexForModule(
-      entries,
-      _selectedModule,
-    );
     Widget page;
     final route = _currentRoute;
     final rid = route.resourceId;
@@ -591,18 +613,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: builder(context),
         );
       } else {
-        page = ErrorBoundary(child: entries[selectedIndex].page);
+        page = ErrorBoundary(
+          child: entries[adminNavigationIndexForModule(entries, _selectedModule)]
+              .page,
+        );
       }
     } else {
-      page = ErrorBoundary(child: entries[selectedIndex].page);
+      page = ErrorBoundary(
+        child: entries[adminNavigationIndexForModule(entries, _selectedModule)]
+            .page,
+      );
     }
-    final destinations = entries
-        .map((entry) => entry.destination)
-        .toList(growable: false);
+    // 一级导航 = 分组（≤6）；组内模块用壳层 SectionSelector 切换。
+    final visibleGroups = [
+      for (final group in adminModuleGroups)
+        if (adminGroupVisibleModules(group, _visibleModules).isNotEmpty) group,
+    ];
+    final currentGroupId = adminGroupForModule(_selectedModule);
+    var selectedGroupIndex = visibleGroups.indexWhere(
+      (group) => group.id == currentGroupId,
+    );
+    if (selectedGroupIndex < 0) selectedGroupIndex = 0;
+    final groupDestinations = [
+      for (final group in visibleGroups)
+        NavigationRailDestination(
+          icon: Icon(group.icon),
+          selectedIcon: Icon(group.selectedIcon),
+          label: adminGroupLabel(group),
+        ),
+    ];
+    final groupModules = adminGroupVisibleModules(
+      visibleGroups[selectedGroupIndex],
+      _visibleModules,
+    );
+    final moduleLabels = _moduleLabels(entries);
+    final sectionDefs = [
+      for (final module in groupModules)
+        SectionDef(
+          module,
+          moduleLabels[module] ?? module,
+          _iconOf(module, entries),
+        ),
+    ];
     return ResponsiveNavigationScaffold(
-      selectedIndex: selectedIndex,
+      selectedIndex: selectedGroupIndex,
       onDestinationSelected: (index) {
-        final module = adminNavigationModuleAt(entries, index);
+        if (index < 0 || index >= visibleGroups.length) return;
+        final module = adminGroupDefaultModule(
+          visibleGroups[index],
+          _visibleModules,
+        );
         if (module == null) return;
         final destinationRoute = AdminRoute(module: module);
         if (_currentRoute == destinationRoute) return;
@@ -611,11 +671,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // drawer navigation.
         AdminRoute.go(module);
       },
-      destinations: destinations,
+      destinations: groupDestinations,
       drawerHeader: strings.ssoAdmin,
-      body: PageTransition(
-        pageKey: ValueKey(_selectedModule),
-        child: page,
+      body: Column(
+        children: [
+          if (groupModules.length > 1)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SectionSelector(
+                sections: sectionDefs,
+                current: _selectedModule,
+                onSelected: (module) {
+                  if (module != _selectedModule) AdminRoute.go(module);
+                },
+              ),
+            ),
+          Expanded(
+            child: PageTransition(
+              pageKey: ValueKey(_selectedModule),
+              child: page,
+            ),
+          ),
+        ],
       ),
       appBar: AppBar(
         title: Text(strings.ssoAdmin),

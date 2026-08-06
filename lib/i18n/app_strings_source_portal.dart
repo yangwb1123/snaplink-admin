@@ -1,5 +1,8 @@
 /// Account portal copy. Dynamic values use `{name}` placeholders.
 const appPortalSourceZh = <String, String>{
+  'Account': '账户',
+  'Data': '数据',
+
   'Multi-factor authentication and the security factors on your account.': '您账户的多因素认证与安全因子。',
   'Browser and device sessions currently signed in with your account.': '当前使用您账户登录的浏览器与设备会话。',
   'Recent sign-in and security events on your account.': '您账户最近的登录与安全事件。',

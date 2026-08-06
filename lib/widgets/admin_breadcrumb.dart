@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import '../screens/admin/admin_module_groups.dart';
 import '../screens/admin/admin_route.dart';
 
 /// Breadcrumb navigation for admin detail pages.
@@ -52,11 +53,40 @@ class AdminBreadcrumb extends StatelessWidget {
     _ => module[0].toUpperCase() + module.substring(1),
   };
 
+  static String _groupLabel(AdminModuleGroup group) => switch (group.id) {
+    'overview' => 'Overview',
+    'identity' => 'Identity',
+    'security' => 'Security',
+    'tenants' => 'Tenants',
+    'developers' => 'Developers',
+    'system' => 'System',
+    _ => group.labelKey,
+  };
+
   @override
   Widget build(BuildContext context) {
     final route = AdminRoute.fromUri(Uri.base);
     final theme = Theme.of(context);
     final crumbs = <Widget>[];
+
+    // Group prefix（Identity › ...）——非 overview 模块显示分组层级。
+    final groupId = route.module.isEmpty ? '' : adminGroupForModule(route.module);
+    final group = groupId.isEmpty
+        ? null
+        : adminModuleGroups.where((g) => g.id == groupId).firstOrNull;
+    if (group != null && group.modules.length > 1) {
+      crumbs.add(
+        Text(
+          _groupLabel(group),
+          style: TextStyle(
+            fontSize: 13,
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+      crumbs.add(_separator(context));
+    }
 
     // Module link
     if (route.module.isNotEmpty) {
