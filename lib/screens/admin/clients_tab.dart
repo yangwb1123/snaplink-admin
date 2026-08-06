@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -21,7 +22,8 @@ class ClientsTab extends StatefulWidget {
   State<ClientsTab> createState() => _ClientsTabState();
 }
 
-class _ClientsTabState extends State<ClientsTab> {
+class _ClientsTabState extends State<ClientsTab>
+    with BatchSelection<ClientsTab> {
   final _filterCtrl = TextEditingController();
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -31,7 +33,6 @@ class _ClientsTabState extends State<ClientsTab> {
   var _expiringOnly = false;
   var _statusFilter = 'all';
   late final void Function() _cancelPopState;
-  final _selected = <String>{};
 
   @override
   void initState() {
@@ -212,7 +213,7 @@ class _ClientsTabState extends State<ClientsTab> {
 
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
   Future<void> _runBatch(String action, Future<void> Function(String) run) async {
-    final ids = _selected.toList();
+    final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
@@ -240,7 +241,7 @@ class _ClientsTabState extends State<ClientsTab> {
       }
     }
     if (!mounted) return;
-    _selected.clear();
+    clearSelection();
     final message = failures.isEmpty
         ? '$action completed for $ok of ${ids.length} clients.'
         : '$action: $ok succeeded, ${failures.length} failed. '
@@ -261,7 +262,7 @@ class _ClientsTabState extends State<ClientsTab> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
-            LocalizedText('${_selected.length} selected'),
+            LocalizedText('${selected.length} selected'),
             const Spacer(),
             TextButton.icon(
               onPressed: _batchApprove,
@@ -277,7 +278,7 @@ class _ClientsTabState extends State<ClientsTab> {
             IconButton(
               tooltip: 'Clear selection'.localized,
               icon: const Icon(Icons.close, size: 18),
-              onPressed: () => setState(_selected.clear),
+              onPressed: () => clearSelection(),
             ),
           ],
         ),
@@ -555,7 +556,7 @@ class _ClientsTabState extends State<ClientsTab> {
               final items = page.items;
               return Column(
                 children: [
-                  if (_selected.isNotEmpty) ...[
+                  if (selecting) ...[
                     _batchBar(context),
                     const SizedBox(height: 8),
                   ],
@@ -579,29 +580,21 @@ class _ClientsTabState extends State<ClientsTab> {
                               final active = c['active'] == true;
                               final cid = c['id']?.toString() ?? '';
                               return ListTile(
-                                onTap: _selected.isNotEmpty
-                                    ? () => setState(() {
-                                          if (!_selected.remove(cid)) {
-                                            _selected.add(cid);
-                                          }
-                                        })
+                                onTap: selecting
+                                    ? () => toggleSelect(cid)
                                     : () => AdminRoute.go(
                                           'clients',
                                           resourceId: cid,
                                         ),
                                 // Long-press enters selection mode (the
                                 // first selection has no checkbox yet).
-                                onLongPress: () => setState(() {
-                                  if (!_selected.remove(cid)) {
-                                    _selected.add(cid);
-                                  }
-                                }),
-                                leading: _selected.isNotEmpty
+                                onLongPress: () => toggleSelect(cid),
+                                leading: selecting
                                     ? Checkbox(
-                                        value: _selected.contains(cid),
+                                        value: selected.contains(cid),
                                         onChanged: (_) => setState(() {
-                                          if (!_selected.remove(cid)) {
-                                            _selected.add(cid);
+                                          if (!selected.remove(cid)) {
+                                            toggleSelect(cid);
                                           }
                                         }),
                                       )
@@ -616,7 +609,7 @@ class _ClientsTabState extends State<ClientsTab> {
                                   '${c['name']?.toString() ?? ''} · '
                                   '${clientSecretExpiryLabel(c)}',
                                 ),
-                                trailing: _selected.isNotEmpty
+                                trailing: selecting
                                     ? null
                                     : Row(
                                   mainAxisSize: MainAxisSize.min,

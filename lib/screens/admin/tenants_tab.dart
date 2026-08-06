@@ -1,3 +1,4 @@
+import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
@@ -22,9 +23,9 @@ class TenantsTab extends StatefulWidget {
   State<TenantsTab> createState() => _TenantsTabState();
 }
 
-class _TenantsTabState extends State<TenantsTab> {
+class _TenantsTabState extends State<TenantsTab>
+    with BatchSelection<TenantsTab> {
   final _filterCtrl = TextEditingController();
-  final _selected = <String>{};
   var _statusFilter = 'all';
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -114,7 +115,7 @@ class _TenantsTabState extends State<TenantsTab> {
 
   /// 批量切换选中租户状态（suspend 或 activate）。
   Future<void> _batchSetStatus(String next) async {
-    final ids = _selected.toList();
+    final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
@@ -145,7 +146,7 @@ class _TenantsTabState extends State<TenantsTab> {
       }
     }
     if (!mounted) return;
-    _selected.clear();
+    clearSelection();
     final message = failures.isEmpty
         ? '${next == 'suspended' ? 'Suspended' : 'Activated'} $ok of '
               '${ids.length} tenants.'
@@ -167,7 +168,7 @@ class _TenantsTabState extends State<TenantsTab> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         child: Row(
           children: [
-            LocalizedText('${_selected.length} selected'),
+            LocalizedText('${selected.length} selected'),
             const Spacer(),
             TextButton.icon(
               onPressed: () => _batchSetStatus('suspended'),
@@ -183,7 +184,7 @@ class _TenantsTabState extends State<TenantsTab> {
             IconButton(
               tooltip: 'Clear selection'.localized,
               icon: const Icon(Icons.close, size: 18),
-              onPressed: () => setState(_selected.clear),
+              onPressed: () => clearSelection(),
             ),
           ],
         ),
@@ -283,7 +284,7 @@ class _TenantsTabState extends State<TenantsTab> {
           onCreate: () => AdminRoute.go('tenants', action: 'new'),
           onRefresh: _reload,
         ),
-        if (_selected.isNotEmpty) ...[
+        if (selecting) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _batchBar(context),
@@ -422,27 +423,19 @@ class _TenantsTabState extends State<TenantsTab> {
                               final suspended = status == 'suspended';
                               final busy = _busyId == id;
                               return ListTile(
-                                onTap: _selected.isNotEmpty
-                                    ? () => setState(() {
-                                          if (!_selected.remove(id)) {
-                                            _selected.add(id);
-                                          }
-                                        })
+                                onTap: selecting
+                                    ? () => toggleSelect(id)
                                     : () => AdminRoute.go(
                                           'tenants',
                                           resourceId: id,
                                         ),
-                                onLongPress: () => setState(() {
-                                  if (!_selected.remove(id)) {
-                                    _selected.add(id);
-                                  }
-                                }),
-                                leading: _selected.isNotEmpty
+                                onLongPress: () => toggleSelect(id),
+                                leading: selecting
                                     ? Checkbox(
-                                        value: _selected.contains(id),
+                                        value: selected.contains(id),
                                         onChanged: (_) => setState(() {
-                                          if (!_selected.remove(id)) {
-                                            _selected.add(id);
+                                          if (!selected.remove(id)) {
+                                            toggleSelect(id);
                                           }
                                         }),
                                       )
@@ -456,7 +449,7 @@ class _TenantsTabState extends State<TenantsTab> {
                                 subtitle: LocalizedText(
                                   '${t['slug'] ?? ''} · $status',
                                 ),
-                                trailing: _selected.isNotEmpty || busy
+                                trailing: selecting || busy
                                     ? busy
                                         ? const SizedBox(
                                             height: 18,
