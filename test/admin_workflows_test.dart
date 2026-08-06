@@ -631,6 +631,45 @@ void main() {
 
       expect(deleted, ['/api/v1/admin/tenants/tenant-a']);
     });
+
+    testWidgets('batch deletes selected users', (tester) async {
+      var deleted = <String>[];
+      final client = _client({
+        '/api/v1/admin/users': (_) => http.Response(
+          jsonEncode({
+            'users': [
+              {'id': 'user-1', 'provider': 'local'},
+              {'id': 'user-2', 'provider': 'local'},
+            ],
+            'total_size': 2,
+          }),
+          200,
+        ),
+        '/api/v1/admin/users/user-1': (request) {
+          if (request.method == 'DELETE') deleted.add('user-1');
+          return http.Response('{}', 200);
+        },
+        '/api/v1/admin/users/user-2': (request) {
+          if (request.method == 'DELETE') deleted.add('user-2');
+          return http.Response('{}', 200);
+        },
+      });
+      await tester.pumpWidget(_wrap(UsersTab(client: client)));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('user-1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('user-2'));
+      await tester.pumpAndSettle();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete users').last);
+      await tester.pumpAndSettle();
+
+      expect(deleted, containsAll(['user-1', 'user-2']));
+    });
   });
 
   group('UsersTab', () {
