@@ -67,16 +67,18 @@ void main() {
       await tester.pumpAndSettle();
 
       // 分组导航：一级 rail 显示 6 组；组内模块在 SectionSelector。
+      // 窄 rail（<1180）只显示选中项 label——未选中组标签在 Offstage，
+      // 断言存在但交互需点击组图标（M3 标准行为）。
       expect(find.text('Identity'), findsOneWidget);
       expect(find.text('Security'), findsOneWidget);
       expect(find.text('Tenants'), findsOneWidget);
 
       // 进入 Identity 组（默认模块 clients）→ 组 tabs 出现。
-      await tester.tap(find.text('Identity'));
+      await tester.tap(find.byIcon(Icons.people_outline));
       await tester.pumpAndSettle();
       expect(find.text('Clients'), findsWidgets);
 
-      // 切到组内 users 模块。
+      // 切到组内 users 模块（SectionSelector chip）。
       await tester.tap(find.text('Users'));
       await tester.pumpAndSettle();
 
