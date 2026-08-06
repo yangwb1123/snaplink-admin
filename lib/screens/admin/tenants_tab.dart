@@ -1,3 +1,4 @@
+import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
@@ -23,6 +24,7 @@ class TenantsTab extends StatefulWidget {
 
 class _TenantsTabState extends State<TenantsTab> {
   final _filterCtrl = TextEditingController();
+  var _statusFilter = 'all';
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
   String? _busyId;
@@ -73,7 +75,11 @@ class _TenantsTabState extends State<TenantsTab> {
     pageToken: _pageTokens[_pageIndex],
     pageSize: _pageSize,
     orderBy: _orderBy,
-    filter: _filterCtrl.text,
+    filter: _statusFilter == 'all'
+        ? _filterCtrl.text
+        : _filterCtrl.text.trim().isEmpty
+            ? 'status:$_statusFilter'
+            : '${_filterCtrl.text.trim()} and status:$_statusFilter',
   );
 
   void _reload() {
@@ -208,7 +214,6 @@ class _TenantsTabState extends State<TenantsTab> {
                 width: 280,
                 child: TextField(
                   controller: _filterCtrl,
-                  onSubmitted: (_) => _reload(),
                   decoration: InputDecoration(
                     labelText: 'Filter'.localized,
                     hintText: 'e.g. status:active or name:acme'.localized,
@@ -218,7 +223,21 @@ class _TenantsTabState extends State<TenantsTab> {
                       onPressed: _reload,
                     ),
                   ),
+                  onSubmitted: (_) => _reload(),
                 ),
+              ),
+              const SizedBox(width: 12),
+              StatusFilterDropdown(
+                value: _statusFilter,
+                options: const {
+                  'all': 'All statuses',
+                  'active': 'Active only',
+                  'suspended': 'Suspended only',
+                },
+                onChanged: (value) {
+                  setState(() => _statusFilter = value);
+                  _reload();
+                },
               ),
               DropdownButton<String>(
                 value: _orderBy,

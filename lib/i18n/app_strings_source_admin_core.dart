@@ -19,6 +19,7 @@ const appAdminCoreSourceZh = <String, String>{
     'All statuses': '全部状态',
   'Active only': '仅启用',
   'Inactive only': '仅停用',
+  'Suspended only': '仅暂停',
 'All types': '所有类型',
   'Allowed authenticators': '允许的身份验证方式',
   'Allowed scopes': '允许的权限范围',

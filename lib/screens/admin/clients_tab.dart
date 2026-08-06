@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -437,24 +438,14 @@ class _ClientsTabState extends State<ClientsTab> {
                 },
               ),
               const SizedBox(width: 12),
-              DropdownButton<String>(
+              StatusFilterDropdown(
                 value: _statusFilter,
-                items: const [
-                  DropdownMenuItem(
-                    value: 'all',
-                    child: LocalizedText('All statuses'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'active',
-                    child: LocalizedText('Active only'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'inactive',
-                    child: LocalizedText('Inactive only'),
-                  ),
-                ],
+                options: const {
+                  'all': 'All statuses',
+                  'active': 'Active only',
+                  'inactive': 'Inactive only',
+                },
                 onChanged: (value) {
-                  if (value == null) return;
                   setState(() => _statusFilter = value);
                   _reload();
                 },
