@@ -78,23 +78,23 @@ class AdminBreadcrumb extends StatelessWidget {
 
     // Resource ID or action
     if (route.resourceId.isNotEmpty) {
-      crumbs.add(_separator());
+      crumbs.add(_separator(context));
       if (route.action == 'edit') {
         crumbs.add(
-          _crumb(
+          _crumb(context, 
             route.resourceId,
             () => AdminRoute.go(route.module, resourceId: route.resourceId),
           ),
         );
-        crumbs.add(_separator());
-        crumbs.add(_crumb('Edit', null, localized: true));
+        crumbs.add(_separator(context));
+        crumbs.add(_crumb(context, 'Edit', null, localized: true));
       } else if (route.action == 'new') {
-        crumbs.add(_crumb('New', null, localized: true));
+        crumbs.add(_crumb(context, 'New', null, localized: true));
       } else if (route.subresource.isEmpty) {
-        crumbs.add(_crumb(route.resourceId, null));
+        crumbs.add(_crumb(context, route.resourceId, null));
       } else {
         crumbs.add(
-          _crumb(
+          _crumb(context, 
             route.resourceId,
             () => AdminRoute.go(route.module, resourceId: route.resourceId),
           ),
@@ -104,14 +104,14 @@ class AdminBreadcrumb extends StatelessWidget {
 
     // Sub-resource
     if (route.subresource.isNotEmpty) {
-      crumbs.add(_separator());
-      crumbs.add(_crumb(_subLabel(route.subresource), null, localized: true));
+      crumbs.add(_separator(context));
+      crumbs.add(_crumb(context, _subLabel(route.subresource), null, localized: true));
     }
 
     // Extra trailing crumbs
     for (final t in trailing) {
-      crumbs.add(_separator());
-      crumbs.add(_crumb(t, null, localized: true));
+      crumbs.add(_separator(context));
+      crumbs.add(_crumb(context, t, null, localized: true));
     }
 
     // Override module label
@@ -143,21 +143,26 @@ class AdminBreadcrumb extends StatelessWidget {
     );
   }
 
-  Widget _separator() => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 4),
-    child: Icon(Icons.chevron_right, size: 14, color: Colors.grey),
+  Widget _separator(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: Icon(
+      Icons.chevron_right,
+      size: 14,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
   );
 
-  Widget _crumb(String text, VoidCallback? onTap, {bool localized = false}) {
+  Widget _crumb(BuildContext context, String text, VoidCallback? onTap, {bool localized = false}) {
+    final style = TextStyle(
+      fontSize: 13,
+      fontWeight: onTap == null ? FontWeight.w700 : FontWeight.w500,
+      color: onTap == null
+          ? Theme.of(context).colorScheme.onSurface
+          : Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     final label = localized
-        ? LocalizedText(
-            text,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          )
-        : Text(
-            text,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-          );
+        ? LocalizedText(text, style: style)
+        : Text(text, style: style);
     if (onTap == null) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),

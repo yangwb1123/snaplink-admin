@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
@@ -325,10 +327,7 @@ class _NotificationTile extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       onTap: onTap,
-      leading: Icon(
-        _severityIcon(item['severity']?.toString()),
-        color: unread ? Theme.of(context).colorScheme.primary : null,
-      ),
+      leading: _severityChip(item['severity']?.toString()),
       title: Text(
         item['title']?.toString() ?? context.tr('Security notification'),
         style: unread ? const TextStyle(fontWeight: FontWeight.w700) : null,
@@ -354,10 +353,22 @@ String _join(Object? first, Object? second) => [
   first,
   second,
 ].where((v) => v != null && v.toString().isNotEmpty).join(' · ');
-IconData _severityIcon(String? severity) => switch (severity) {
-  'critical' => Icons.gpp_bad_outlined,
-  'warning' => Icons.warning_amber_outlined,
-  _ => Icons.notifications_outlined,
+Widget _severityChip(String? severity) => switch (severity) {
+  'critical' => StatusChip(
+      label: 'Critical',
+      color: AppColors.danger,
+      icon: Icons.gpp_bad_outlined,
+    ),
+  'warning' => StatusChip(
+      label: 'Warning',
+      color: AppColors.warning,
+      icon: Icons.warning_amber,
+    ),
+  _ => StatusChip(
+      label: 'Notice',
+      color: AppColors.muted,
+      icon: Icons.notifications_outlined,
+    ),
 };
 String _channelLabel(String value) => value == 'email' ? 'Email' : 'In-app';
 String _typeLabel(String value) => switch (value) {

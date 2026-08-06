@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -118,10 +120,10 @@ class DeviceListTile extends StatelessWidget {
           Text(name),
           _TrustChip(device: device),
           if (suspicious)
-            const Chip(
-              avatar: Icon(Icons.warning_amber, size: 16),
-              label: LocalizedText('Suspicious'),
-              visualDensity: VisualDensity.compact,
+            StatusChip(
+              label: 'Suspicious',
+              color: AppColors.warning,
+              icon: Icons.warning_amber,
             ),
         ],
       ),
@@ -253,12 +255,13 @@ class _LoginHistoryTile extends StatelessWidget {
           if (flags.isNotEmpty) flags.join(', '),
         ].join('\n'),
       ),
-      trailing: Chip(
-        label: success
-            ? const LocalizedText('Success')
-            : const LocalizedText('Failed'),
-        visualDensity: VisualDensity.compact,
-      ),
+      trailing: success
+          ? StatusChip.healthy()
+          : StatusChip(
+              label: 'Failed',
+              color: AppColors.danger,
+              icon: Icons.error,
+            ),
     );
   }
 }
