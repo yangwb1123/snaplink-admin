@@ -29,3 +29,8 @@
 - 硬编码颜色 19 → 0（AppColors）
 - N+1 ×4、吞异常 ×18 → 0
 - 检查器误报（.dart_tool/test/ephemeral/Python 断言风格/TS any）→ 0
+
+## 既有测试失败（非本次迭代引入，stash 验证与所有改动无关）
+
+- setup_screen_test: 'walks through admin creation and finish' —— enterText 找不到 'Admin username' TextField（待查：可能与 MaterialApp 无 localizations 环境相关）
+- oidc_account_flow_test: 'signup registers an account' —— posted.single 为空（确认对话框流程/API mock 时序待查）
