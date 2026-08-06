@@ -32,6 +32,10 @@ abstract final class AppColors {
 
   /// 中性灰（inactive 等）——slate-500：对白底点缀对比 ≥3（WCAG 非文本）
   static const Color muted = Color(0xFF64748B);
+  /// 头像/标签辅助色（UserAvatar 调色板）
+  static const Color violet = Color(0xFF7C3AED);
+  static const Color cyan = Color(0xFF0891B2);
+  static const Color pink = Color(0xFFDB2777);
   /// 辅助（indigo 淡色）
   static const Color primaryTint = Color(0xFFC7D2FE);
 }

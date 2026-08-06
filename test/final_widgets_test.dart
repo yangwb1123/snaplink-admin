@@ -24,6 +24,7 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
       expect(find.text('Fleet devices'), findsOneWidget);
       expect(find.text('12'), findsWidgets);
       expect(find.text('Suspicious'), findsOneWidget);

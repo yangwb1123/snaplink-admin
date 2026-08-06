@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/user_avatar.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -25,6 +26,7 @@ class MemberRowTile extends StatelessWidget {
     final role = member['role']?.toString() ?? 'member';
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      leading: UserAvatar(name: userId, radius: 16),
       title: Text(userId),
       subtitle: DropdownButton<String>(
         value: roles.contains(role) ? role : 'member',

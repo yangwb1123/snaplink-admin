@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/sparkline.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -331,6 +332,17 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
               ),
             ]
           : [
+              if (buckets.length >= 3)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Sparkline(
+                    data: [
+                      for (final raw in buckets.take(30))
+                        ((raw as Map)['count'] as num?) ?? 0,
+                    ],
+                    height: 36,
+                  ),
+                ),
               for (final raw in buckets.take(50))
                 Builder(
                   builder: (_) {

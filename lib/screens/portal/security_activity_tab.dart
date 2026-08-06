@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/timeline_list.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -141,7 +142,11 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
           else if (_events.isEmpty)
             const EmptyHint('No security events have been recorded.')
           else
-            for (final event in _events) _SecurityEventTile(event: event),
+            TimelineList(
+              items: [
+                for (final event in _events) _toTimelineItem(event),
+              ],
+            ),
         ],
       ),
       PortalCard(
@@ -154,73 +159,52 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
           else if (_history.isEmpty)
             const EmptyHint('No login history has been recorded.')
           else
-            for (final record in _history) _LoginHistoryTile(record: record),
+            TimelineList(
+              items: [
+                for (final record in _history) _toHistoryItem(record),
+              ],
+            ),
         ],
       ),
     ],
   );
 }
 
-class _SecurityEventTile extends StatelessWidget {
-  final Map<String, dynamic> event;
-
-  const _SecurityEventTile({required this.event});
-
-  @override
-  Widget build(BuildContext context) {
-    final type = event['type']?.toString() ?? 'activity';
-    final risky = type == 'new_device' || type == 'new_location';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        risky ? Icons.shield_outlined : Icons.history,
-        color: risky ? AppColors.warning : null,
-      ),
-      title: Text(context.tr(_eventTitle(type))),
-      subtitle: Text(
-        _join([
-          event['time'],
-          event['detail'],
-          event['location'],
-          event['ip'],
-          event['trust_label'],
-        ]),
-      ),
-    );
-  }
+/// 事件 → 时间线条目（语义色编码：新设备/新位置 = 警告）。
+TimelineItem _toTimelineItem(Map<String, dynamic> event) {
+  final type = event['type']?.toString() ?? 'activity';
+  final risky = type == 'new_device' || type == 'new_location';
+  return TimelineItem(
+    icon: risky ? Icons.shield_outlined : Icons.history,
+    color: risky ? AppColors.warning : null,
+    title: _eventTitle(type),
+    subtitle: _join([
+      event['time'],
+      event['detail'],
+      event['location'],
+      event['ip'],
+      event['trust_label'],
+    ]),
+  );
 }
 
-class _LoginHistoryTile extends StatelessWidget {
-  final Map<String, dynamic> record;
-
-  const _LoginHistoryTile({required this.record});
-
-  @override
-  Widget build(BuildContext context) {
-    final success = record['success'] != false;
-    final flags = <String>[
-      if (record['device_is_new'] == true) context.tr('new device'),
-      if (record['location_is_new'] == true) context.tr('new location'),
-    ];
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        success ? Icons.login : Icons.gpp_bad_outlined,
-        color: success ? null : AppColors.danger,
-      ),
-      title: Text(context.tr(success ? 'Successful login' : 'Failed login')),
-      subtitle: Text(
-        _join([
-          record['time'],
-          record['device'],
-          record['location'],
-          record['ip'],
-          record['provider'],
-          if (flags.isNotEmpty) flags.join(', '),
-        ]),
-      ),
-    );
-  }
+/// 登录记录 → 时间线条目（成功/失败色编码）。
+TimelineItem _toHistoryItem(Map<String, dynamic> record) {
+  final success = record['success'] != false;
+  final flags = <String>[
+    if (record['device_is_new'] == true) 'new device',
+    if (record['location_is_new'] == true) 'new location',
+  ];
+  return TimelineItem(
+    icon: success ? Icons.login : Icons.gpp_bad_outlined,
+    color: success ? null : AppColors.danger,
+    title: success ? 'Successful login' : 'Failed login',
+    subtitle: _join([
+      record['time'],
+      record['device'],
+      ...flags,
+    ]),
+  );
 }
 
 String _eventTitle(String type) => switch (type) {

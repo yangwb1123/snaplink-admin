@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/stat_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -27,19 +28,24 @@ class DeviceStatsCards extends StatelessWidget {
       ('Very low trust', risky, Icons.shield_outlined),
       ('Platforms', (stats['platforms'] as Map?)?.length ?? 0, Icons.computer),
     ];
+    final palette = <Color>[
+      AppColors.primary,
+      AppColors.warning,
+      AppColors.danger,
+      AppColors.accentBlue,
+    ];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        for (final value in values)
+        for (var index = 0; index < values.length; index++)
           SizedBox(
             width: 190,
-            child: Card(
-              child: ListTile(
-                leading: Icon(value.$3),
-                title: LocalizedText('${value.$2}'),
-                subtitle: LocalizedText(value.$1),
-              ),
+            child: StatCard(
+              icon: values[index].$3,
+              label: values[index].$1,
+              value: values[index].$2,
+              color: palette[index % palette.length],
             ),
           ),
       ],
