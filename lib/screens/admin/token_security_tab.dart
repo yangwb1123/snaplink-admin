@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/count_up.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -281,6 +282,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             child: Center(child: CircularProgressIndicator()),
           ),
         if (!_loading) ...[
+          _securitySummary(context),
           if (_shows('portfolio') && _data.containsKey('portfolio'))
             _portfolioCard(context),
           if (_shows('suspicious') && _data.containsKey('suspicious'))
@@ -552,6 +554,57 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     } else {
       AdminRoute.go('token-security', subresource: section);
     }
+  }
+
+  /// 安全摘要（异常优先）：可疑/临期计数大数字，第一时间看到风险量级。
+  Widget _securitySummary(BuildContext context) {
+    final suspicious = _list('suspicious', 'findings').length;
+    final expiring = _list('expiring', 'tokens').length;
+    final sessions = _data['sessions']?['total'] ?? 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
+      child: Row(
+        children: [
+          _summaryStat(context, 'Anomalies', suspicious,
+              suspicious > 0 ? AppColors.danger : AppColors.muted,
+              Icons.warning_amber_outlined),
+          const SizedBox(width: 24),
+          _summaryStat(context, 'Expiring', expiring,
+              expiring > 0 ? AppColors.warning : AppColors.muted,
+              Icons.timer_outlined),
+          const SizedBox(width: 24),
+          _summaryStat(context, 'Sessions', sessions,
+              AppColors.muted, Icons.devices_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryStat(BuildContext context, String label, int value,
+      Color color, IconData icon) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        CountUp(
+          value: value,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 6),
+        LocalizedText(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _tempTokenCard(BuildContext context) =>
