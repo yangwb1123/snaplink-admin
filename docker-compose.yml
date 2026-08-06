@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   snaplink:
     image: snaplink/sso-server:latest
@@ -16,11 +14,22 @@ services:
       retries: 5
 
   console:
-    build: .
+    build:
+      context: .
+      args:
+        SNAPLINK_ADMIN_OAUTH_RESOURCES: ${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api}
     ports:
-      - "4444:4444"
+      - "4444:80"
     depends_on:
       snaplink:
         condition: service_healthy
     environment:
-      - SNAPLINK_URL=http://snaplink:8080
+      SNAPLINK_UPSTREAM: http://snaplink:8080
+      SNAPLINK_SERVER_NAME: ${SNAPLINK_SERVER_NAME:-snaplink}
+      SNAPLINK_CA: ${SNAPLINK_CA:-/etc/ssl/certs/ca-certificates.crt}
+      SNAPLINK_BILLING_UPSTREAM: ${SNAPLINK_BILLING_UPSTREAM:-http://snaplink:8080}
+      SNAPLINK_BILLING_SERVER_NAME: ${SNAPLINK_BILLING_SERVER_NAME:-snaplink-billing}
+      SNAPLINK_BILLING_CA: ${SNAPLINK_BILLING_CA:-/etc/ssl/certs/ca-certificates.crt}
+      SNAPLINK_STRIPE_ADAPTER_UPSTREAM: ${SNAPLINK_STRIPE_ADAPTER_UPSTREAM:-http://snaplink:8080}
+      SNAPLINK_STRIPE_ADAPTER_SERVER_NAME: ${SNAPLINK_STRIPE_ADAPTER_SERVER_NAME:-snaplink-stripe-adapter}
+      SNAPLINK_STRIPE_ADAPTER_CA: ${SNAPLINK_STRIPE_ADAPTER_CA:-/etc/ssl/certs/ca-certificates.crt}

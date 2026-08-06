@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sso-console
+  namespace: sv-sso
+spec:
+  template:
+    spec:
+      containers:
+        - name: sso-console
+          env:
+            - name: SNAPLINK_BILLING_UPSTREAM
+              value: http://sso-server.sv-sso.svc.cluster.local:8080
+            - name: SNAPLINK_BILLING_SERVER_NAME
+              value: sso-server.sv-sso.svc.cluster.local
+            - name: SNAPLINK_BILLING_CA
+              value: /etc/ssl/certs/ca-certificates.crt
+            - name: SNAPLINK_STRIPE_ADAPTER_UPSTREAM
+              value: http://sso-server.sv-sso.svc.cluster.local:8080
+            - name: SNAPLINK_STRIPE_ADAPTER_SERVER_NAME
+              value: sso-server.sv-sso.svc.cluster.local
+            - name: SNAPLINK_STRIPE_ADAPTER_CA
+              value: /etc/ssl/certs/ca-certificates.crt
+          volumeMounts:
+            - name: billing-ca
+              $patch: delete
+            - name: stripe-adapter-ca
+              $patch: delete
+      volumes:
+        - name: billing-ca
+          $patch: delete
+        - name: stripe-adapter-ca
+          $patch: delete

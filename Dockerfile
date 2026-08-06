@@ -1,5 +1,8 @@
 FROM python:3.12-slim AS build
 
+ARG FLUTTER_VERSION=3.38.8
+ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api
+
 WORKDIR /app
 
 # Install Flutter SDK dependencies
@@ -8,7 +11,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Flutter SDK
-ENV FLUTTER_VERSION=3.38.8
 RUN curl -fsSL https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.gz \
     | tar xz -C /opt \
     && /opt/flutter/bin/flutter config --enable-web \
@@ -20,34 +22,29 @@ ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
-RUN flutter build web --release
+RUN flutter build web --release --base-href=/app/ \
+    --dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES="${SNAPLINK_ADMIN_OAUTH_RESOURCES}"
 
 # ── Production stage ──
 FROM nginx:alpine
 
+ENV SNAPLINK_UPSTREAM=http://snaplink:8080
+ENV SNAPLINK_SERVER_NAME=snaplink
+ENV SNAPLINK_CA=/etc/ssl/certs/ca-certificates.crt
+ENV SNAPLINK_BILLING_UPSTREAM=http://snaplink:8080
+ENV SNAPLINK_BILLING_SERVER_NAME=snaplink-billing
+ENV SNAPLINK_BILLING_CA=/etc/ssl/certs/ca-certificates.crt
+ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=http://snaplink:8080
+ENV SNAPLINK_STRIPE_ADAPTER_SERVER_NAME=snaplink-stripe-adapter
+ENV SNAPLINK_STRIPE_ADAPTER_CA=/etc/ssl/certs/ca-certificates.crt
+
 # Copy Flutter build output
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-# Copy nginx config for SPA routing
-RUN echo 'server { \
-    listen 4444; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /api/ { \
-        proxy_pass http://snaplink:8080; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-    } \
-    location /auth/ { \
-        proxy_pass http://snaplink:8080; \
-        proxy_set_header Host $host; \
-        proxy_set_header X-Real-IP $remote_addr; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# The official entrypoint renders environment variables in this template.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+RUN rm /etc/nginx/conf.d/default.conf
 
-EXPOSE 4444
+EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]

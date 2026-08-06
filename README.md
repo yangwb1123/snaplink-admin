@@ -40,6 +40,22 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 - `lib/api/snaplink_admin_api.dart`：认证、缓存、重试和契约传输
 - `lib/api/snaplink_admin_types.dart`：已发布及补充路由清单
 - `lib/app_router.dart`：六个产品入口的顶层分发
+- `lib/i18n/app_strings*.dart`：共享 EN/ZH 文案、领域目录和动态占位符翻译
+
+所有六个入口与管理后台均支持英文和中文。页面文案使用 canonical English
+源字符串查找，API 返回值和资源标识保持原样；`test/i18n_coverage_test.dart`
+会阻止新增未本地化的直接文案、表单标签和运行时提示。
+
+原生客户端可在登录页打开设置并指定 Snaplink 服务来源，设置会跨重启保存，
+且对登录、用户门户、设备授权、Setup、开发者注册和管理 API 统一生效。生产
+来源必须是纯 HTTPS origin；仅 localhost、127/8 和 `::1` 环回地址允许 HTTP。
+Web 版本始终使用当前页面同源，不接受来源覆盖。
+
+密码、邮箱/手机验证码和 TOTP 登录可在原生壳中完成，Bearer 只保存在进程
+内存并通过应用内路由续接；未认证 Portal 会进入统一登录并在成功后安全返回
+原页面，Admin 的模块、详情和子资源路由也使用同一应用内历史状态。依赖浏览器
+安全上下文或页面提交语义的联合登录、WebAuthn/Passkey
+和 OIDC `form_post` 会在原生端明确提示需使用 Web 控制台。
 
 ## 本地开发
 
@@ -47,7 +63,10 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 # 需要 Flutter 3 / Dart 3
 flutter pub get
 
-# 启动开发代理；Snaplink 后端默认监听 localhost:8080
+# 工程结构检查读取 engineering.yaml
+python3 -m pip install -r requirements-dev.txt
+
+# 启动开发代理；地址可通过 SNAPLINK_API_URL/SNAPLINK_PROXY_PORT 覆盖
 make serve
 
 # 另一个终端构建 Web 产物
@@ -61,8 +80,8 @@ make build
 
 ```bash
 flutter analyze
-flutter test
-flutter build web --release
+make test
+make build-prod
 git diff --check
 ```
 

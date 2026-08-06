@@ -1,0 +1,149 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sso-console
+  namespace: sv-sso
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: { maxUnavailable: 0, maxSurge: 1 }
+  selector:
+    matchLabels: { app: sso-console }
+  template:
+    metadata:
+      labels: { app: sso-console }
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: sso-console }
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels: { app: sso-console }
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: sso-console
+          image: snaplink/sso-console:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: SNAPLINK_UPSTREAM
+              value: http://sso-server.sv-sso.svc.cluster.local:8080
+            - name: SNAPLINK_SERVER_NAME
+              value: sso-server.sv-sso.svc.cluster.local
+            - name: SNAPLINK_CA
+              value: /etc/ssl/certs/ca-certificates.crt
+            - name: SNAPLINK_BILLING_UPSTREAM
+              value: https://snaplink-billing.sv-sso.svc.cluster.local:443
+            - name: SNAPLINK_BILLING_SERVER_NAME
+              value: snaplink-billing.sv-sso.svc.cluster.local
+            - name: SNAPLINK_BILLING_CA
+              value: /etc/snaplink-billing/ca/ca.crt
+            - name: SNAPLINK_STRIPE_ADAPTER_UPSTREAM
+              value: https://snaplink-stripe-adapter.sv-sso.svc.cluster.local:443
+            - name: SNAPLINK_STRIPE_ADAPTER_SERVER_NAME
+              value: snaplink-stripe-adapter.sv-sso.svc.cluster.local
+            - name: SNAPLINK_STRIPE_ADAPTER_CA
+              value: /etc/snaplink-stripe-adapter/ca/ca.crt
+          ports:
+            - { containerPort: 80, name: http }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            # nginx binds the privileged port 80 as the non-root UID above;
+            # every other capability is still dropped.
+            capabilities: { drop: [ALL], add: [NET_BIND_SERVICE] }
+          volumeMounts:
+            # nginx:alpine renders the environment-aware template at startup
+            # and also needs writable cache/pid directories.
+            - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
+            - { name: nginx-cache, mountPath: /var/cache/nginx }
+            - { name: nginx-run, mountPath: /var/run }
+            - name: billing-ca
+              mountPath: /etc/snaplink-billing/ca
+              readOnly: true
+            - name: stripe-adapter-ca
+              mountPath: /etc/snaplink-stripe-adapter/ca
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 2
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          startupProbe:
+            httpGet: { path: /, port: http }
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests: { cpu: 50m, memory: 32Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+      volumes:
+        - { name: nginx-conf, emptyDir: {} }
+        - { name: nginx-cache, emptyDir: {} }
+        - { name: nginx-run, emptyDir: {} }
+        - name: billing-ca
+          secret:
+            secretName: snaplink-billing-client-ca
+        - name: stripe-adapter-ca
+          secret:
+            secretName: snaplink-stripe-adapter-client-ca
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sso-console
+  namespace: sv-sso
+spec:
+  type: ClusterIP
+  selector: { app: sso-console }
+  ports:
+    - { name: http, port: 80, targetPort: 80 }
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: sso-console
+  namespace: sv-sso
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels: { app: sso-console }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: sso-console
+  namespace: sv-sso
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sso-console
+  minReplicas: 3
+  maxReplicas: 10
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

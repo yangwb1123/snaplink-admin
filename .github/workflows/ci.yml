@@ -23,22 +23,31 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
       - name: Install dependencies
         run: |
-          pip install pyyaml
+          pip install -r requirements-dev.txt
           flutter pub get
 
       - name: Analyze
         run: make analyze
 
       - name: Build
-        run: make build
+        run: make build-prod
 
       - name: Engineering gates
         run: python3 cli.py harness
 
+      - name: Kubernetes profile renders
+        run: make k8s-render
+
       - name: Unit tests
         run: make test
+
+      - name: Browser tests
+        run: make test-browser
 
   integration:
     runs-on: ubuntu-latest
@@ -57,8 +66,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: |
-          pip install pyyaml requests
+        run: pip install -r requirements-dev.txt
 
       - name: Wait for backend
         run: |
@@ -68,4 +76,8 @@ jobs:
           done
 
       - name: Integration tests
+        env:
+          # Credentials belong only to the disposable CI fixture.
+          SNAPLINK_TEST_USERNAME: admin
+          SNAPLINK_TEST_PASSWORD: admin
         run: make integration

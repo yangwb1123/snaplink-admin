@@ -84,7 +84,6 @@ sleep 2
 # Verify proxy
 if curl -s --max-time 3 -o /dev/null -w '%{http_code}' http://localhost:4444/ 2>/dev/null | grep -q 200; then
   info "Proxy is ready: http://localhost:4444"
-  info "Login: admin / admin"
   echo ""
   info "Press Ctrl+C to stop."
 else
