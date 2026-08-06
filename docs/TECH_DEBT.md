@@ -41,10 +41,10 @@
 - N+1 ×4、吞异常 ×18 → 0
 - 检查器误报（.dart_tool/test/ephemeral/Python 断言风格/TS any）→ 0
 
-## 既有测试失败（非本次迭代引入，stash 验证与所有改动无关）
+## 既有测试失败（已解决）
 
-- setup_screen_test: 'walks through admin creation and finish' —— enterText 找不到 'Admin username' TextField（待查：可能与 MaterialApp 无 localizations 环境相关）
-- oidc_account_flow_test: 'signup registers an account' —— posted.single 为空（确认对话框流程/API mock 时序待查）
+- setup_screen_test / oidc_account_flow_test 两个既有失败已在用户并行提交中修复
+  （stash 验证与历史改动无关）；当前全量 671 测试 0 失败。
 
 ## i18n 进展（第 21-30 轮）
 

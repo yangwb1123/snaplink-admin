@@ -70,6 +70,9 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedModule = AdminModuleId.overview;
   AdminRoute _currentRoute = const AdminRoute(module: AdminModuleId.overview);
+
+  /// 每组最后访问的模块（切组回来记住位置，Linear/Supabase 行为）。
+  final Map<String, String> _groupLastModule = <String, String>{};
   List<String> _visibleModules = const [
     AdminModuleId.overview,
     AdminModuleId.clients,
@@ -659,10 +662,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       selectedIndex: selectedGroupIndex,
       onDestinationSelected: (index) {
         if (index < 0 || index >= visibleGroups.length) return;
-        final module = adminGroupDefaultModule(
-          visibleGroups[index],
-          _visibleModules,
-        );
+        final group = visibleGroups[index];
+        var module = _groupLastModule[group.id];
+        final visible = adminGroupVisibleModules(group, _visibleModules);
+        if (module == null || !visible.contains(module)) {
+          module = visible.isEmpty ? null : visible.first;
+        }
         if (module == null) return;
         final destinationRoute = AdminRoute(module: module);
         if (_currentRoute == destinationRoute) return;
@@ -682,7 +687,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 sections: sectionDefs,
                 current: _selectedModule,
                 onSelected: (module) {
-                  if (module != _selectedModule) AdminRoute.go(module);
+                  if (module == _selectedModule) return;
+                  _groupLastModule[currentGroupId] = module;
+                  AdminRoute.go(module);
                 },
               ),
             ),
