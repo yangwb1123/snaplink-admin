@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -192,9 +193,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
             _ => Icons.change_circle_outlined,
           };
           final color = switch (entry.method) {
-            'POST' => Colors.green,
-            'DELETE' => Colors.redAccent,
-            _ => Colors.blueGrey,
+            'POST' => AppColors.success,
+            'DELETE' => AppColors.danger,
+            _ => AppColors.muted,
           };
           return Card(
             margin: const EdgeInsets.only(bottom: 4),

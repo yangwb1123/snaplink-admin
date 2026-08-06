@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -55,7 +56,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(context.tr('Revoke')),
           ),
         ],
@@ -151,7 +152,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
                           ? () => _revoke(clientId)
                           : null,
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
+                        foregroundColor: AppColors.danger,
                       ),
                       child: _revokingClientId == clientId
                           ? const SizedBox(

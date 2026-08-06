@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -194,7 +195,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       _filters(context),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
       ],
       if (_loading) ...[
         const SizedBox(height: 20),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -121,7 +122,7 @@ class _HealthTabState extends State<HealthTab> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              const Icon(Icons.cloud_off, size: 48, color: Colors.redAccent),
+              const Icon(Icons.cloud_off, size: 48, color: AppColors.danger),
               const SizedBox(height: 8),
               LocalizedText(
                 'Cannot reach backend',
@@ -160,7 +161,7 @@ class _HealthTabState extends State<HealthTab> {
               children: [
                 Icon(
                   isOk ? Icons.check_circle : Icons.error,
-                  color: isOk ? Colors.green : Colors.redAccent,
+                  color: isOk ? AppColors.success : AppColors.danger,
                   size: 32,
                 ),
                 const SizedBox(width: 12),
@@ -172,8 +173,8 @@ class _HealthTabState extends State<HealthTab> {
                 Chip(
                   label: Text(status.toUpperCase()),
                   backgroundColor: isOk
-                      ? Colors.green.shade100
-                      : Colors.red.shade100,
+                      ? AppColors.success.withValues(alpha: 0.10)
+                      : AppColors.danger.withValues(alpha: 0.10),
                 ),
               ],
             ),

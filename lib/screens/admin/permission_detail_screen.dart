@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -115,7 +116,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                 const Icon(
                   Icons.error_outline,
                   size: 48,
-                  color: Colors.redAccent,
+                  color: AppColors.danger,
                 ),
                 const SizedBox(height: 16),
                 LocalizedText(

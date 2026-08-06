@@ -55,7 +55,7 @@ class AdminOverviewTab extends StatelessWidget {
             body:
                 'The console is using its versioned OpenAPI catalog and will '
                 'probe optional pages safely. Runtime error: $loadError',
-            color: Colors.orange,
+            color: AppColors.warning,
           )
         else if (endpoints.isEmpty)
           const _StatusCard(
@@ -63,7 +63,7 @@ class AdminOverviewTab extends StatelessWidget {
             title: 'Loading runtime capabilities',
             body:
                 'Contract-backed modules remain discoverable while this replica is queried.',
-            color: Colors.blue,
+            color: AppColors.accentBlue,
           )
         else ...[
           _StatusCard(
@@ -76,7 +76,7 @@ class AdminOverviewTab extends StatelessWidget {
             body:
                 'Runtime inventory proves deployment availability. OpenAPI-only '
                 'modules stay visible for compatibility and report 404/501 as not enabled.',
-            color: documentedOnly == 0 ? Colors.green : Colors.orange,
+            color: documentedOnly == 0 ? AppColors.success : AppColors.warning,
           ),
           const SizedBox(height: 16),
           LocalizedText(

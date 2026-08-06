@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -90,8 +91,8 @@ class TenantResidencySummary extends StatelessWidget {
               Chip(
                 label: LocalizedText(tenant!['status'].toString()),
                 backgroundColor: tenant!['status'] == 'active'
-                    ? Colors.green.shade100
-                    : Colors.orange.shade100,
+                    ? AppColors.success.withValues(alpha: 0.10)
+                    : AppColors.warning.withValues(alpha: 0.10),
               ),
           ],
         ),

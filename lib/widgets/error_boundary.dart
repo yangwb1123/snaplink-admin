@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Error boundary widget that catches exceptions from its child subtree.
@@ -47,7 +48,7 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.orange),
+              const Icon(Icons.error_outline, size: 48, color: AppColors.warning),
               const SizedBox(height: 16),
               LocalizedText(
                 widget.label ?? 'Something went wrong',

@@ -24,7 +24,7 @@ abstract final class AppTheme {
       brightness: brightness,
       surface: isDark ? AppColors.textMuted : Colors.white,
       primary: isDark ? AppColors.primary : AppColors.primary,
-      secondary: isDark ? AppColors.primaryTint : AppColors.primaryDark,
+      secondary: isDark ? AppColors.primary : AppColors.primaryDark,
     );
     final base = ThemeData(
       useMaterial3: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -200,9 +201,9 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
   );
 
   Widget _warning(String resource, String error) => Card(
-    color: Colors.orange.withValues(alpha: 0.08),
+    color: AppColors.warning.withValues(alpha: 0.08),
     child: ListTile(
-      leading: const Icon(Icons.info_outline, color: Colors.orange),
+      leading: const Icon(Icons.info_outline, color: AppColors.warning),
       title: LocalizedText('$resource unavailable'),
       subtitle: LocalizedText(error),
     ),

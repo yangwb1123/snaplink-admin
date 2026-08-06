@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'empty_state.dart';
 
@@ -68,7 +69,7 @@ class AsyncView<T> extends StatelessWidget {
               const Icon(
                 Icons.error_outline,
                 size: 48,
-                color: Colors.redAccent,
+                color: AppColors.danger,
               ),
               const SizedBox(height: 16),
               Text(

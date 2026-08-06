@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -134,7 +135,7 @@ class _DRModeTabState extends State<DRModeTab> {
       const SizedBox(height: 8),
       if (_loading) const SkeletonListTile(itemCount: 3),
       if (_error != null)
-        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
       if (_status != null)
         Card(
           child: Padding(
@@ -147,8 +148,8 @@ class _DRModeTabState extends State<DRModeTab> {
                       Icons.sync_problem,
                       size: 48,
                       color: _status!['mode'] == 'normal'
-                          ? Colors.green
-                          : Colors.red,
+                          ? AppColors.success
+                          : AppColors.danger,
                     ),
                     const SizedBox(width: 16),
                     Expanded(

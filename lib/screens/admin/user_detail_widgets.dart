@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class UserDetailHeader extends StatelessWidget {
@@ -137,7 +138,7 @@ class UserConsentsView extends StatelessWidget {
                               consent['client_id']?.toString() ?? '',
                             ),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
+                        foregroundColor: AppColors.danger,
                       ),
                       child: const LocalizedText('Revoke'),
                     ),
@@ -184,7 +185,7 @@ class UserMfaView extends StatelessWidget {
                           ? null
                           : () => onRemove(factor['id']?.toString() ?? ''),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.redAccent,
+                        foregroundColor: AppColors.danger,
                       ),
                       child: const LocalizedText('Remove'),
                     ),
@@ -224,7 +225,7 @@ class UserLifecycleView extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                const Icon(Icons.route, size: 48, color: Colors.blue),
+                const Icon(Icons.route, size: 48, color: AppColors.accentBlue),
                 const SizedBox(height: 8),
                 LocalizedText(
                   'Current state: $state',

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 void main() {
@@ -107,7 +108,10 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      expect(button.style?.backgroundColor?.resolve({}), Colors.red);
+      expect(
+        button.style?.backgroundColor?.resolve({}),
+        AppColors.danger,
+      );
     });
 
     testWidgets('type-to-confirm requires matching text', (tester) async {

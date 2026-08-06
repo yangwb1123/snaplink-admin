@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/app_settings.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -300,7 +301,7 @@ class _PanelState extends State<DistributedClusterPanel> {
                     contentPadding: EdgeInsets.zero,
                     leading: Icon(
                       r.passed ? Icons.check_circle : Icons.cancel,
-                      color: r.passed ? Colors.green : Colors.redAccent,
+                      color: r.passed ? AppColors.success : AppColors.danger,
                     ),
                     title: Text(r.label),
                     subtitle: Text(r.detail),
@@ -315,8 +316,8 @@ class _PanelState extends State<DistributedClusterPanel> {
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: passed == results.length
-                          ? Colors.green
-                          : Colors.redAccent,
+                          ? AppColors.success
+                          : AppColors.danger,
                     ),
                   ),
                 ],
@@ -342,11 +343,11 @@ class _PanelState extends State<DistributedClusterPanel> {
           avatar: Icon(
             active ? Icons.verified_user : Icons.people_outline,
             size: 16,
-            color: active ? Colors.green : Colors.blueGrey,
+            color: active ? AppColors.success : AppColors.muted,
           ),
           label: Text('$kid ${alg.isNotEmpty ? '($alg)' : ''}'),
           visualDensity: VisualDensity.compact,
-          backgroundColor: active ? Colors.green.shade50 : null,
+          backgroundColor: active ? AppColors.success.withValues(alpha: 0.05) : null,
         ),
       ],
     );
@@ -358,11 +359,11 @@ class _PanelState extends State<DistributedClusterPanel> {
       avatar: Icon(
         ok ? Icons.check_circle : Icons.error,
         size: 16,
-        color: ok ? Colors.green : Colors.redAccent,
+        color: ok ? AppColors.success : AppColors.danger,
       ),
       label: Text(name),
       visualDensity: VisualDensity.compact,
-      backgroundColor: ok ? Colors.green.shade50 : Colors.red.shade50,
+      backgroundColor: ok ? AppColors.success.withValues(alpha: 0.05) : AppColors.danger.withValues(alpha: 0.05),
     );
   }
 

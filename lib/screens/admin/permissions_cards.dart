@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Roles management card.
@@ -66,7 +67,7 @@ class RolesCard extends StatelessWidget {
                     onPressed: mutating
                         ? null
                         : () => onDeleteRole(role['code']?.toString() ?? ''),
-                    color: Colors.redAccent,
+                    color: AppColors.danger,
                     icon: const Icon(Icons.delete_outline),
                   ),
                 ],

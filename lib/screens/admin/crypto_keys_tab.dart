@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -233,7 +234,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.danger),
             ),
           ),
         if (rotating) _buildRotateConfirm(context),
@@ -262,7 +263,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   }
 
   Widget _buildRotateConfirm(BuildContext context) => Card(
-    color: Colors.orange.shade50,
+    color: AppColors.warning.withValues(alpha: 0.05),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -315,10 +316,10 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
               ? Icons.hourglass_empty
               : Icons.vpn_key,
           color: compromised
-              ? Colors.red
+              ? AppColors.danger
               : expired
-              ? Colors.orange
-              : Colors.green,
+              ? AppColors.warning
+              : AppColors.success,
         ),
         title: LocalizedText('$algorithm · $status'),
         subtitle: LocalizedText('$id\ncreated: $createdAt'),
@@ -327,7 +328,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             ? null
             : TextButton(
                 onPressed: _mutating ? null : () => _compromise(id),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Compromise'),
               ),
       ),

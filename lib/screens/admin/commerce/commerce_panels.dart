@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'commerce_models.dart';
@@ -274,7 +275,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
       children: [
         Icon(
           entitlement!['active'] == true ? Icons.check_circle : Icons.block,
-          color: entitlement!['active'] == true ? Colors.green : Colors.orange,
+          color: entitlement!['active'] == true ? AppColors.success : AppColors.warning,
         ),
         LocalizedText(
           '${entitlement!['active'] == true ? 'Active' : 'Inactive'} · '
@@ -349,7 +350,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
     final grant = _map(value);
     if (grant['unlimited'] == true) return const Icon(Icons.all_inclusive);
     if (grant['hard'] == 0) {
-      return const Icon(Icons.block, color: Colors.redAccent);
+      return const Icon(Icons.block, color: AppColors.danger);
     }
     return const Icon(Icons.speed_outlined);
   }

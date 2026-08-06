@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'admin_route.dart';
@@ -335,7 +336,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.danger),
             ),
           ),
         if (_loading) const SkeletonListTile(itemCount: 3),

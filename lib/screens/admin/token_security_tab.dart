@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -260,7 +261,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             padding: const EdgeInsets.only(top: 12),
             child: LocalizedText(
               _error!,
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.danger),
             ),
           ),
         if (_loading)
@@ -309,8 +310,8 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
                 ? Icons.warning_amber
                 : Icons.info_outline,
             color: finding['severity'] == 'critical'
-                ? Colors.redAccent
-                : Colors.orangeAccent,
+                ? AppColors.danger
+                : AppColors.warning,
           ),
           title: LocalizedText(
             '${finding['type'] ?? 'finding'} · ${finding['subject_id'] ?? ''}',
@@ -354,7 +355,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
                       ? null
                       : () => _revokeAdminToken(token['id']?.toString() ?? ''),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
+                    foregroundColor: AppColors.danger,
                   ),
                   child: const LocalizedText('Revoke'),
                 )
@@ -402,8 +403,8 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       key: const Key('bulk-revoke-submit'),
       onPressed: _mutating ? null : _bulkRevoke,
       style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.redAccent,
-        side: const BorderSide(color: Colors.redAccent),
+        foregroundColor: AppColors.danger,
+        side: const BorderSide(color: AppColors.danger),
       ),
       child: const LocalizedText('Bulk revoke refresh tokens'),
     ),
@@ -566,7 +567,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           const SizedBox(height: 8),
           const LocalizedText(
             'Save this token now. It will not be shown again.',
-            style: TextStyle(color: Colors.orangeAccent, fontSize: 12),
+            style: TextStyle(color: AppColors.warning, fontSize: 12),
           ),
           SelectableText(
             _tempToken!,
@@ -615,8 +616,8 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           key: const Key('single-revoke-submit'),
           onPressed: _mutating ? null : _revokeToken,
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.redAccent,
-            side: const BorderSide(color: Colors.redAccent),
+            foregroundColor: AppColors.danger,
+            side: const BorderSide(color: AppColors.danger),
           ),
           child: const LocalizedText('Revoke token'),
         ),

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
@@ -284,7 +285,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
           const SizedBox(height: 12),
           LocalizedText(
             _error!,
-            style: const TextStyle(color: Colors.redAccent),
+            style: const TextStyle(color: AppColors.danger),
           ),
         ],
         if (_outcomeUnknown) ...[

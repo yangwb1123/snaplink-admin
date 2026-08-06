@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
@@ -139,7 +140,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(context.tr('Revoke')),
           ),
         ],
@@ -223,7 +224,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
             ),
             trailing: TextButton(
               onPressed: _busy ? null : () => _revoke(device),
-              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
               child: Text(context.tr('Revoke')),
             ),
           ),

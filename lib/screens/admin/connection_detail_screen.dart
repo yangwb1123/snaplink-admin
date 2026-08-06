@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -101,7 +102,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                 const Icon(
                   Icons.error_outline,
                   size: 48,
-                  color: Colors.redAccent,
+                  color: AppColors.danger,
                 ),
                 const SizedBox(height: 16),
                 LocalizedText(
@@ -199,8 +200,8 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
         Chip(
           label: LocalizedText(status),
           backgroundColor: status == 'active'
-              ? Colors.green.shade100
-              : Colors.orange.shade100,
+              ? AppColors.success.withValues(alpha: 0.10)
+              : AppColors.warning.withValues(alpha: 0.10),
         ),
         if (_health != null && _health!.isNotEmpty)
           Chip(
@@ -208,8 +209,8 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                 ? const LocalizedText('Healthy')
                 : const LocalizedText('Unhealthy'),
             backgroundColor: isHealthy
-                ? Colors.green.shade100
-                : Colors.red.shade100,
+                ? AppColors.success.withValues(alpha: 0.10)
+                : AppColors.danger.withValues(alpha: 0.10),
           ),
       ],
     );

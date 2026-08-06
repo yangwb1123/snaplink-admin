@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
@@ -207,7 +208,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
               child: OutlinedButton(
                 onPressed: _previewBusy ? null : _previewErase,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.redAccent,
+                  foregroundColor: AppColors.danger,
                 ),
                 child: _previewBusy
                     ? const SizedBox(
@@ -241,7 +242,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
               child: FilledButton(
                 onPressed: _eraseBusy ? null : _erase,
                 style: FilledButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: AppColors.danger,
                 ),
                 child: _eraseBusy
                     ? const SizedBox(

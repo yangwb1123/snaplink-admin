@@ -156,7 +156,7 @@ class SetupOptionalTag extends StatelessWidget {
     ),
     child: Text(
       label,
-      style: const TextStyle(color: AppColors.primaryTint, fontSize: 11),
+      style: const TextStyle(color: AppColors.primary, fontSize: 11),
     ),
   );
 }
@@ -177,7 +177,7 @@ class SetupErrorBox extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: AppColors.dangerTint, fontSize: 13),
+        style: const TextStyle(color: AppColors.danger, fontSize: 13),
       ),
     ),
   );
@@ -199,7 +199,7 @@ class SetupSuccessBox extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: AppColors.successTint, fontSize: 14),
+        style: const TextStyle(color: AppColors.success, fontSize: 14),
       ),
     ),
   );
@@ -301,7 +301,7 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.check_circle_outline, size: 72, color: Colors.green),
+        const Icon(Icons.check_circle_outline, size: 72, color: AppColors.success),
         const SizedBox(height: 16),
         Text(
           strings.setupComplete,

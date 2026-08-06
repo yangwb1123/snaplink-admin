@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -98,7 +99,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   const Icon(
                     Icons.error_outline,
                     size: 48,
-                    color: Colors.redAccent,
+                    color: AppColors.danger,
                   ),
                   const SizedBox(height: 16),
                   LocalizedText(
@@ -221,9 +222,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     return Chip(
       label: LocalizedText(status),
       backgroundColor: status == 'active'
-          ? Colors.green.shade100
+          ? AppColors.success.withValues(alpha: 0.10)
           : status == 'pending'
-          ? Colors.orange.shade100
+          ? AppColors.warning.withValues(alpha: 0.10)
           : Colors.grey.shade200,
     );
   }
@@ -264,20 +265,20 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 _actionButton(
                   icon: Icons.check_circle_outline,
                   label: 'Approve',
-                  color: Colors.green,
+                  color: AppColors.success,
                   onPressed: () => _doAction('approve'),
                 ),
               if (_client?['status'] == 'pending')
                 _actionButton(
                   icon: Icons.cancel_outlined,
                   label: 'Reject',
-                  color: Colors.redAccent,
+                  color: AppColors.danger,
                   onPressed: () => _doAction('reject'),
                 ),
               _actionButton(
                 icon: Icons.key,
                 label: 'Rotate Secret',
-                color: Colors.orange,
+                color: AppColors.warning,
                 onPressed: () => _rotateSecret(context),
               ),
             ],

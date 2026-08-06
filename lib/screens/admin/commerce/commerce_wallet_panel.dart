@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class CommerceWalletPanel extends StatelessWidget {
@@ -91,7 +92,7 @@ class CommerceWalletPanel extends StatelessWidget {
         wallet!['status'] == 'active'
             ? Icons.account_balance_wallet
             : Icons.lock,
-        color: wallet!['status'] == 'active' ? Colors.green : Colors.redAccent,
+        color: wallet!['status'] == 'active' ? AppColors.success : AppColors.danger,
         size: 32,
       ),
       LocalizedText(
@@ -270,7 +271,7 @@ class CommerceWalletPanel extends StatelessWidget {
             (issue) => ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.error_outline, color: Colors.redAccent),
+              leading: const Icon(Icons.error_outline, color: AppColors.danger),
               title: Text(issue['order_id']?.toString() ?? '—'),
               subtitle: LocalizedText(
                 'Expected ${issue['expected_minor'] ?? 0} · ledger ${issue['ledger_minor'] ?? 0}',

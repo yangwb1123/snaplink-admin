@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 List<Map<String, dynamic>> recoveryRecords(Object? value) => value is List
@@ -228,7 +229,7 @@ class RecoveryReleasesCard extends StatelessWidget {
           if (current != null)
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.push_pin, color: Colors.green),
+              leading: const Icon(Icons.push_pin, color: AppColors.success),
               title: LocalizedText('Current: ${current!['id'] ?? ''}'),
               subtitle: Text(releaseSummary(current!)),
             ),

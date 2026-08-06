@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class SnapshotRestoreDraft {
@@ -112,13 +113,13 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
           if (_mode == 'replace')
             const LocalizedText(
               'Replace mode removes operator-managed state before seeding the snapshot. The server requires the snapshot ID as confirmation.',
-              style: TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: AppColors.danger),
             ),
           if (!_dryRun)
             const LocalizedText(
               'A successful dry run with the same snapshot, mode, exclusions, '
               'and bootstrap setting is required before commit.',
-              style: TextStyle(color: Colors.orangeAccent),
+              style: TextStyle(color: AppColors.warning),
             ),
         ],
       ),

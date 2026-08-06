@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// A floating action bar for batch operations on list selections.
@@ -44,7 +45,7 @@ class BatchActionBar extends StatelessWidget {
             onPressed: isLoading ? null : onDelete,
             icon: const Icon(Icons.delete_outline, size: 18),
             label: Text(context.strings.delete),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
           ),
           TextButton(
             onPressed: isLoading ? null : onClearSelection,

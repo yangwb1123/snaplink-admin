@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 Future<bool> confirmDcrDeletion(
@@ -76,7 +77,7 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
           child: Text(context.strings.cancel),
         ),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
           onPressed: matches ? () => Navigator.of(context).pop(true) : null,
           child: Text(context.tr('Delete App')),
         ),

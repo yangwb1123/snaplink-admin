@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -105,7 +106,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                 const Icon(
                   Icons.error_outline,
                   size: 48,
-                  color: Colors.redAccent,
+                  color: AppColors.danger,
                 ),
                 const SizedBox(height: 16),
                 LocalizedText(
@@ -163,7 +164,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber, size: 40, color: Colors.orange),
+              const Icon(Icons.warning_amber, size: 40, color: AppColors.warning),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -203,13 +204,13 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     Color bg;
     switch (status) {
       case 'active':
-        bg = Colors.red.shade100;
+        bg = AppColors.danger.withValues(alpha: 0.10);
         break;
       case 'approved':
-        bg = Colors.green.shade100;
+        bg = AppColors.success.withValues(alpha: 0.10);
         break;
       case 'pending':
-        bg = Colors.orange.shade100;
+        bg = AppColors.warning.withValues(alpha: 0.10);
         break;
       case 'rejected':
         bg = Colors.grey.shade200;
@@ -238,7 +239,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                   onPressed: _mutating ? null : () => _approve(),
                   icon: const Icon(Icons.check),
                   label: const LocalizedText('Approve'),
-                  style: FilledButton.styleFrom(backgroundColor: Colors.green),
+                  style: FilledButton.styleFrom(backgroundColor: AppColors.success),
                 ),
               ),
               const SizedBox(width: 12),
@@ -248,7 +249,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                   icon: const Icon(Icons.close),
                   label: const LocalizedText('Reject'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
+                    foregroundColor: AppColors.danger,
                   ),
                 ),
               ),

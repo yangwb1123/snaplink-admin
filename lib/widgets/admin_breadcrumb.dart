@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import '../screens/admin/admin_route.dart';
 
@@ -167,7 +168,7 @@ class AdminBreadcrumb extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.blueGrey.shade50,
+          color: AppColors.muted.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(4),
         ),
         child: label,
@@ -179,7 +180,7 @@ class AdminBreadcrumb extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 4),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: Colors.blueGrey.shade700,
+        foregroundColor: AppColors.muted,
       ),
       child: localized
           ? LocalizedText(text, style: const TextStyle(fontSize: 13))

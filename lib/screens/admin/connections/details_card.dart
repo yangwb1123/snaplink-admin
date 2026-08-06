@@ -125,10 +125,10 @@ class ConnectionDetailsCard extends StatelessWidget {
   Widget _healthCard(BuildContext context) {
     final status = health!['status']?.toString() ?? 'unknown';
     final color = switch (status) {
-      'healthy' => Colors.green,
-      'degraded' => Colors.orange,
-      'unreachable' => Colors.red,
-      _ => Colors.blueGrey,
+      'healthy' => AppColors.success,
+      'degraded' => AppColors.warning,
+      'unreachable' => AppColors.danger,
+      _ => AppColors.muted,
     };
     final checked = health!['last_checked_at']?.toString();
     final success = health!['last_success_at']?.toString();
@@ -205,8 +205,8 @@ class ConnectionDetailsCard extends StatelessWidget {
                     ? Icons.verified_outlined
                     : Icons.pending_outlined,
                 color: claim['status'] == 'verified'
-                    ? Colors.green
-                    : Colors.orange,
+                    ? AppColors.success
+                    : AppColors.warning,
               ),
               title: Text(claim['domain']?.toString() ?? ''),
               subtitle: SelectableText(

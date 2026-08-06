@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class WebhookInfoCard extends StatelessWidget {
@@ -50,7 +51,7 @@ class WebhookInfoCard extends StatelessWidget {
                   subscription?['active'] == true ? 'Active' : 'Inactive',
                 ),
                 backgroundColor: subscription?['active'] == true
-                    ? Colors.green.shade100
+                    ? AppColors.success.withValues(alpha: 0.10)
                     : Colors.grey.shade200,
               ),
             ],
@@ -166,7 +167,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
                     (deadLetter) => Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Card(
-                        color: Colors.red.shade50,
+                        color: AppColors.danger.withValues(alpha: 0.05),
                         child: ListTile(
                           title: LocalizedText(
                             deadLetter['event_type']?.toString() ?? 'Event',

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class NetworkPolicyDraft {
@@ -223,7 +224,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
                 const SizedBox(height: 8),
                 LocalizedText(
                   _error!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.danger),
                 ),
               ],
             ],

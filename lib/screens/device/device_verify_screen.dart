@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 
 import '../../i18n/app_strings.dart';
 import '../../services/browser_navigation.dart';
@@ -203,7 +204,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                 style: approve
                     ? null
                     : FilledButton.styleFrom(
-                        backgroundColor: Colors.red.shade700,
+                        backgroundColor: AppColors.danger,
                       ),
                 child: Text(approve ? strings.approve : strings.deny),
               ),

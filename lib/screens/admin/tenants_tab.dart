@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -444,8 +445,8 @@ class _TenantsTabState extends State<TenantsTab>
                                     : Icon(
                                         Icons.business,
                                         color: suspended
-                                            ? Colors.redAccent
-                                            : Colors.greenAccent,
+                                            ? AppColors.danger
+                                            : AppColors.success,
                                       ),
                                 title: Text(t['name']?.toString() ?? id),
                                 subtitle: Row(

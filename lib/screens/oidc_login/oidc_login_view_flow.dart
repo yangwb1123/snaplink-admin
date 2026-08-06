@@ -17,7 +17,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     theme.scaffoldBackgroundColor,
                   ]
                 : [
-                    AppColors.primaryTint.withValues(alpha: 0.6),
+                    AppColors.primary.withValues(alpha: 0.6),
                     theme.scaffoldBackgroundColor,
                   ],
           ),

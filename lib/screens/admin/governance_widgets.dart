@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
@@ -106,7 +107,7 @@ class GovernanceErrorBanner extends StatelessWidget {
     padding: const EdgeInsets.only(top: 12),
     child: LocalizedText(
       error,
-      style: const TextStyle(color: Colors.redAccent),
+      style: const TextStyle(color: AppColors.danger),
     ),
   );
 }

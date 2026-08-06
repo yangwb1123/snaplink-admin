@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'passkey_enrollment_card.dart';
@@ -107,7 +108,7 @@ class _SecurityTabState extends State<SecurityTab> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(context.tr('Remove')),
           ),
         ],

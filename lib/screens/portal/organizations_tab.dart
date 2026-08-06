@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'organization_admin_tab.dart';
@@ -88,7 +89,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(context.tr('Leave')),
           ),
         ],
@@ -273,7 +274,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
             onPressed: tenantId.isEmpty || _leavingTenantId != null
                 ? null
                 : () => _leave(tenantId),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: _leavingTenantId == tenantId
                 ? const SizedBox(
                     width: 16,

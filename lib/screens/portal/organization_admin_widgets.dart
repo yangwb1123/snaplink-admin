@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
@@ -146,7 +147,7 @@ class OrganizationInvitationCards extends StatelessWidget {
               ),
               trailing: TextButton(
                 onPressed: busy ? null : () => onRevoke(invitation),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: Text(context.tr('Revoke')),
               ),
             ),

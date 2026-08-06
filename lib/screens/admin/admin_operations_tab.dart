@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 
@@ -378,7 +379,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           'remain write-only, and ordinary snapshot detail is server-redacted. '
           'High-impact workflows with dedicated preview or reconciliation '
           'screens cannot be bypassed here.',
-          style: TextStyle(color: Colors.orangeAccent),
+          style: TextStyle(color: AppColors.warning),
         ),
         const SizedBox(height: 16),
         DropdownButtonFormField<SnaplinkAdminEndpoint>(
@@ -487,7 +488,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           const SizedBox(height: 16),
           LocalizedText(
             _error!,
-            style: const TextStyle(color: Colors.redAccent),
+            style: const TextStyle(color: AppColors.danger),
           ),
         ],
         if (_response != null || _rawResponse != null) ...[

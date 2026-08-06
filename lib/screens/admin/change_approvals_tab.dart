@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -231,7 +232,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             const SizedBox(height: 8),
             Text(
               change['failure_note'].toString(),
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.danger),
             ),
           ],
           const SizedBox(height: 12),
@@ -270,9 +271,9 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   };
 
   Color _statusColor(BuildContext context, String status) => switch (status) {
-    'pending' => Colors.orange,
-    'approved' || 'applied' => Colors.green,
-    'rejected' || 'failed' => Colors.red,
+    'pending' => AppColors.warning,
+    'approved' || 'applied' => AppColors.success,
+    'rejected' || 'failed' => AppColors.danger,
     _ => Theme.of(context).colorScheme.onSurfaceVariant,
   };
 }
@@ -382,7 +383,7 @@ class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
               const SizedBox(height: 8),
               LocalizedText(
                 _error!,
-                style: const TextStyle(color: Colors.redAccent),
+                style: const TextStyle(color: AppColors.danger),
               ),
             ],
           ],

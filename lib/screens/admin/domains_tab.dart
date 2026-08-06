@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -201,7 +202,7 @@ class _DomainsTabState extends State<DomainsTab> {
                 Expanded(
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
                 TextButton.icon(
@@ -255,7 +256,7 @@ class _DomainsTabState extends State<DomainsTab> {
             Card(
               margin: const EdgeInsets.only(top: 8),
               child: ListTile(
-                leading: Icon(Icons.language, color: Colors.blue),
+                leading: Icon(Icons.language, color: AppColors.accentBlue),
                 title: Text(d['hostname']?.toString() ?? ''),
                 subtitle: LocalizedText(
                   'verified: ${d['verified'] == true ? 'yes' : 'no'} · ${d['id'] ?? ''}',
@@ -265,7 +266,7 @@ class _DomainsTabState extends State<DomainsTab> {
                       ? null
                       : () => _delete(d['hostname']?.toString() ?? ''),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
+                    foregroundColor: AppColors.danger,
                   ),
                   child: const LocalizedText('Delete'),
                 ),

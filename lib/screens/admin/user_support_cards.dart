@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 export 'account_lockout_card.dart';
 
@@ -51,7 +52,7 @@ class ConsentsCard extends StatelessWidget {
           onPressed: mutating
               ? null
               : () => onRevoke(consent['client_id'].toString()),
-          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
           child: const LocalizedText('Revoke'),
         ),
       ),
@@ -87,7 +88,7 @@ class MfaFactorsCard extends StatelessWidget {
         subtitle: Text(factor['method']?.toString() ?? ''),
         trailing: TextButton(
           onPressed: mutating ? null : () => onRemove(factor['id'].toString()),
-          style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
           child: const LocalizedText('Remove'),
         ),
       ),
@@ -272,8 +273,8 @@ class DangerAction {
     return OutlinedButton(
       onPressed: onConfirmed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.redAccent,
-        side: const BorderSide(color: Colors.redAccent),
+        foregroundColor: AppColors.danger,
+        side: const BorderSide(color: AppColors.danger),
       ),
       child: LocalizedText(label),
     );

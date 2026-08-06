@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -98,7 +99,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
                 Expanded(
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
                 TextButton.icon(

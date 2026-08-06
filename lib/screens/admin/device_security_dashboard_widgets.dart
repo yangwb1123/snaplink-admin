@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'device_security_models.dart';
@@ -191,7 +192,7 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                 ListTile(
                   leading: const Icon(
                     Icons.warning_amber,
-                    color: Colors.redAccent,
+                    color: AppColors.danger,
                   ),
                   title: event['device_name']?.toString().isNotEmpty == true
                       ? Text(event['device_name'].toString())

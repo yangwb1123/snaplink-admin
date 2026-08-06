@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
@@ -227,9 +228,9 @@ class _BreakGlassSessionCard extends StatelessWidget {
               ? Icons.flash_on
               : Icons.cancel,
           color: pending
-              ? Colors.orange
+              ? AppColors.warning
               : active
-              ? Colors.green
+              ? AppColors.success
               : Colors.grey,
         ),
         title: LocalizedText('$targetUser · $status'),
@@ -251,7 +252,7 @@ class _BreakGlassSessionCard extends StatelessWidget {
             if (pending || active)
               TextButton(
                 onPressed: mutating ? null : () => onRevoke(id),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Revoke'),
               ),
           ],

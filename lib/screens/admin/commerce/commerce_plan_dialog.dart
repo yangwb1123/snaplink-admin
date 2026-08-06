@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class CommercePlanDialog extends StatefulWidget {
@@ -159,7 +160,7 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
             ],

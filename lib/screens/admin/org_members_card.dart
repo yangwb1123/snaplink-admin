@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Members management card for tenant organizations.
@@ -82,7 +83,7 @@ class OrgMembersCard extends StatelessWidget {
                             member['userId']?.toString() ??
                             '',
                       ),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Remove'),
               ),
             ),

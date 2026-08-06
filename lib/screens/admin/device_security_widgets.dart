@@ -107,9 +107,9 @@ class DeviceListTile extends StatelessWidget {
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: suspicious
-            ? Colors.red.withValues(alpha: 0.12)
-            : Colors.blue.withValues(alpha: 0.12),
-        foregroundColor: suspicious ? Colors.redAccent : Colors.blue,
+            ? AppColors.danger.withValues(alpha: 0.12)
+            : AppColors.accentBlue.withValues(alpha: 0.12),
+        foregroundColor: suspicious ? AppColors.danger : AppColors.accentBlue,
         child: Icon(_deviceIcon(device['type']?.toString())),
       ),
       title: Wrap(
@@ -168,7 +168,7 @@ class DeviceListTile extends StatelessWidget {
                   const PopupMenuItem(
                     value: 'revoke',
                     child: ListTile(
-                      leading: Icon(Icons.phonelink_erase, color: Colors.red),
+                      leading: Icon(Icons.phonelink_erase, color: AppColors.danger),
                       title: LocalizedText('Revoke device'),
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -246,7 +246,7 @@ class _LoginHistoryTile extends StatelessWidget {
     return ListTile(
       leading: Icon(
         success ? Icons.login : Icons.gpp_bad_outlined,
-        color: success ? Colors.green : Colors.redAccent,
+        color: success ? AppColors.success : AppColors.danger,
       ),
       title: Text(_readableTime(record['time'])),
       subtitle: Text(
@@ -348,10 +348,10 @@ class _TrustChip extends StatelessWidget {
         ? device['trust_label'].toString()
         : '${(score * 100).round()}%';
     final color = score < 0.3
-        ? Colors.red
+        ? AppColors.danger
         : score < 0.6
-        ? Colors.orange
-        : Colors.green;
+        ? AppColors.warning
+        : AppColors.success;
     return Chip(
       avatar: Icon(Icons.shield_outlined, size: 16, color: color),
       label: LocalizedText(label),

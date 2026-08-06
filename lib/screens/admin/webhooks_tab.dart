@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -262,7 +263,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
             padding: const EdgeInsets.only(top: 8),
             child: Text(
               _error!,
-              style: const TextStyle(color: Colors.redAccent),
+              style: const TextStyle(color: AppColors.danger),
             ),
           ),
         if (_hasSubscriptions) ...[
@@ -379,7 +380,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
                 onPressed: _mutating
                     ? null
                     : () => _delete(s['id']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Delete'),
               ),
             ),
@@ -404,7 +405,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
           Card(
             margin: const EdgeInsets.only(top: 8),
             child: ListTile(
-              leading: const Icon(Icons.error_outline, color: Colors.redAccent),
+              leading: const Icon(Icons.error_outline, color: AppColors.danger),
               title: LocalizedText(
                 d['event_type']?.toString() ??
                     d['type']?.toString() ??

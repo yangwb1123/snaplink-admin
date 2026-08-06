@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -249,7 +250,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
           const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: _loading || _mutating ? null : _bulkRevoke,
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             icon: const Icon(Icons.phonelink_erase),
             label: const LocalizedText('Bulk revoke'),
           ),
@@ -274,7 +275,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        LocalizedText(_error!, style: const TextStyle(color: Colors.redAccent)),
+        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
       ],
       if (_loading) ...[
         const SizedBox(height: 24),

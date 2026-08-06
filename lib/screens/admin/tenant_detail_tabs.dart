@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class TenantMembersTab extends StatelessWidget {
@@ -46,7 +47,7 @@ class TenantMembersTab extends StatelessWidget {
             ? null
             : TextButton(
                 onPressed: id.isEmpty ? null : () => onRemove(id),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Remove'),
               ),
       ),
@@ -108,7 +109,7 @@ class TenantInvitationsTab extends StatelessWidget {
             ),
             TextButton(
               onPressed: email.isEmpty ? null : () => onRevoke(email),
-              style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
               child: const LocalizedText('Revoke'),
             ),
           ],
@@ -197,7 +198,7 @@ class _SectionUnavailable extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: ListTile(
-      leading: const Icon(Icons.info_outline, color: Colors.orange),
+      leading: const Icon(Icons.info_outline, color: AppColors.warning),
       title: LocalizedText(title),
       subtitle: LocalizedText(error),
       trailing: IconButton(

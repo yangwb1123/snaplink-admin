@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -271,14 +272,14 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   _error!,
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.danger),
                 ),
               ),
             if (_estimateIsCurrent)
               Card(
                 color: _estimatedCount == 0
-                    ? Colors.green.withValues(alpha: 0.08)
-                    : Colors.orange.withValues(alpha: 0.10),
+                    ? AppColors.success.withValues(alpha: 0.08)
+                    : AppColors.warning.withValues(alpha: 0.10),
                 child: ListTile(
                   leading: Icon(
                     _estimatedCount == 0
@@ -317,7 +318,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
         onPressed: _estimateIsCurrent && (_estimatedCount ?? 0) > 0
             ? _confirm
             : null,
-        style: FilledButton.styleFrom(backgroundColor: Colors.red),
+        style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
         icon: const Icon(Icons.phonelink_erase),
         label: const LocalizedText('Continue'),
       ),

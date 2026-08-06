@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// A single member row with role dropdown and remove button.
@@ -43,7 +44,7 @@ class MemberRowTile extends StatelessWidget {
       ),
       trailing: TextButton(
         onPressed: busy ? null : () => onRemove(member),
-        style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
         child: Text(context.tr('Remove')),
       ),
     );

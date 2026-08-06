@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Shared confirmation dialog used across admin tabs.
@@ -70,7 +71,7 @@ class ConfirmDialog extends StatelessWidget {
         FilledButton(
           onPressed: isLoading ? null : () => Navigator.pop(context, true),
           style: destructive
-              ? FilledButton.styleFrom(backgroundColor: Colors.red)
+              ? FilledButton.styleFrom(backgroundColor: AppColors.danger)
               : null,
           child: isLoading
               ? const SizedBox(
@@ -156,7 +157,7 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
           onPressed: (!_match || widget.isLoading)
               ? null
               : () => Navigator.pop(context, true),
-          style: FilledButton.styleFrom(backgroundColor: Colors.red),
+          style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
           child: widget.isLoading
               ? const SizedBox(
                   height: 18,
@@ -211,8 +212,8 @@ class DangerActionTile extends StatelessWidget {
       icon: Icon(icon),
       label: Text(context.tr(label)),
       style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.redAccent,
-        side: const BorderSide(color: Colors.redAccent),
+        foregroundColor: AppColors.danger,
+        side: const BorderSide(color: AppColors.danger),
       ),
     );
   }

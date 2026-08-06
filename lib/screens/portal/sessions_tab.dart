@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
@@ -106,7 +107,7 @@ class _SessionsTabState extends State<SessionsTab> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(context.tr(isCurrentSession ? 'Sign out' : 'Revoke')),
           ),
         ],
@@ -140,7 +141,7 @@ class _SessionsTabState extends State<SessionsTab> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             child: Text(
               context.tr(
                 preservesCurrentSession
@@ -183,14 +184,14 @@ class _SessionsTabState extends State<SessionsTab> {
                             width: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.logout, color: Colors.redAccent),
+                        : const Icon(Icons.logout, color: AppColors.danger),
                     label: Text(
                       context.tr(
                         widget.api.currentSessionId == null
                             ? 'Sign out everywhere'
                             : 'Sign out of other devices',
                       ),
-                      style: const TextStyle(color: Colors.redAccent),
+                      style: const TextStyle(color: AppColors.danger),
                     ),
                   ),
                   IconButton(
@@ -297,7 +298,7 @@ class _SessionsTabState extends State<SessionsTab> {
                           trailing: TextButton(
                             onPressed: () => _revoke(id),
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.redAccent,
+                              foregroundColor: AppColors.danger,
                             ),
                             child: Text(context.tr('Revoke')),
                           ),

@@ -175,13 +175,13 @@ class PortalActionNotice extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: succeeded
-        ? Colors.green.withValues(alpha: 0.12)
+        ? AppColors.success.withValues(alpha: 0.12)
         : Theme.of(context).colorScheme.errorContainer,
     child: ListTile(
       leading: Icon(
         succeeded ? Icons.check_circle : Icons.error,
         color: succeeded
-            ? Colors.green
+            ? AppColors.success
             : Theme.of(context).colorScheme.onErrorContainer,
       ),
       title: Text(context.tr(message)),
@@ -301,7 +301,7 @@ class PortalTokenGate extends StatelessWidget {
                       Text(
                         error!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.redAccent),
+                        style: const TextStyle(color: AppColors.danger),
                       ),
                     ],
                     if (notice != null) ...[
@@ -309,7 +309,7 @@ class PortalTokenGate extends StatelessWidget {
                       Text(
                         notice!,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.greenAccent),
+                        style: const TextStyle(color: AppColors.success),
                       ),
                     ],
                   ],

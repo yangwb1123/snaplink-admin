@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 
@@ -47,7 +48,7 @@ class ScimBulkResultSummary extends StatelessWidget {
           succeeded == operations.length
               ? Icons.check_circle_outline
               : Icons.warning_amber_outlined,
-          color: succeeded == operations.length ? Colors.green : Colors.orange,
+          color: succeeded == operations.length ? AppColors.success : AppColors.warning,
         ),
         title: LocalizedText(
           '$succeeded of ${operations.length} operations succeeded',
@@ -266,7 +267,7 @@ class ScimResourceTile extends StatelessWidget {
                       : Icons.check_circle_outline,
                   color: resource['active'] == false
                       ? Theme.of(context).colorScheme.error
-                      : Colors.green,
+                      : AppColors.success,
                 ),
               ),
             const SizedBox(width: 8),

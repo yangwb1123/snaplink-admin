@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
@@ -164,7 +165,7 @@ class _SecurityEventTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Icon(
         risky ? Icons.shield_outlined : Icons.history,
-        color: risky ? Colors.orangeAccent : null,
+        color: risky ? AppColors.warning : null,
       ),
       title: Text(context.tr(_eventTitle(type))),
       subtitle: Text(
@@ -196,7 +197,7 @@ class _LoginHistoryTile extends StatelessWidget {
       contentPadding: EdgeInsets.zero,
       leading: Icon(
         success ? Icons.login : Icons.gpp_bad_outlined,
-        color: success ? null : Colors.redAccent,
+        color: success ? null : AppColors.danger,
       ),
       title: Text(context.tr(success ? 'Successful login' : 'Failed login')),
       subtitle: Text(

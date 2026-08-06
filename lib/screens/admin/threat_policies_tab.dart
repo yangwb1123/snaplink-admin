@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -206,7 +207,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                 Expanded(
                   child: LocalizedText(
                     _error!,
-                    style: const TextStyle(color: Colors.redAccent),
+                    style: const TextStyle(color: AppColors.danger),
                   ),
                 ),
                 TextButton.icon(
@@ -238,7 +239,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
               child: ListTile(
                 leading: Icon(
                   Icons.shield,
-                  color: p['enabled'] == true ? Colors.green : Colors.grey,
+                  color: p['enabled'] == true ? AppColors.success : Colors.grey,
                 ),
                 title: Text(p['name']?.toString() ?? ''),
                 subtitle: LocalizedText(
@@ -253,7 +254,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                 trailing: TextButton(
                   onPressed: () => _delete(p['name']?.toString() ?? ''),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
+                    foregroundColor: AppColors.danger,
                   ),
                   child: const LocalizedText('Delete'),
                 ),
@@ -308,7 +309,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           padding: const EdgeInsets.only(top: 8),
           child: LocalizedText(
             _error!,
-            style: const TextStyle(color: Colors.redAccent),
+            style: const TextStyle(color: AppColors.danger),
           ),
         ),
     ],

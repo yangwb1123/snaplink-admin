@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Inline success/error banner, the Flutter equivalent of app.js's
@@ -17,7 +18,7 @@ class MessageBanner extends StatelessWidget {
       padding: const EdgeInsets.only(top: 12),
       child: Text(
         context.tr(t),
-        style: TextStyle(color: ok ? Colors.greenAccent : Colors.redAccent),
+        style: TextStyle(color: ok ? AppColors.success : AppColors.danger),
       ),
     );
   }

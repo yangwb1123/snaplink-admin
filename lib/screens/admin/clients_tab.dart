@@ -1,6 +1,7 @@
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -603,7 +604,7 @@ class _ClientsTabState extends State<ClientsTab>
                                     : Icon(
                                         Icons.apps,
                                         color: active
-                                            ? Colors.greenAccent
+                                            ? AppColors.success
                                             : Colors.grey,
                                       ),
                                 title: Text(c['id']?.toString() ?? '?'),

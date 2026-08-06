@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 
@@ -210,8 +211,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
                   ? Icons.check_circle_outline
                   : Icons.extension_off_outlined,
               color: _schemas.any((schema) => schema['name'] == 'Group')
-                  ? Colors.green
-                  : Colors.orange,
+                  ? AppColors.success
+                  : AppColors.warning,
             ),
             title: const LocalizedText('Group provisioning'),
             subtitle: LocalizedText(
@@ -297,7 +298,7 @@ class _FeatureCard extends StatelessWidget {
     child: ListTile(
       leading: Icon(
         supported ? Icons.check_circle_outline : Icons.cancel_outlined,
-        color: supported ? Colors.green : Colors.grey,
+        color: supported ? AppColors.success : Colors.grey,
       ),
       title: LocalizedText(title),
       subtitle: LocalizedText(supported ? detail : 'Not supported'),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class OrganizationInvitationsCard extends StatelessWidget {
@@ -67,7 +68,7 @@ class OrganizationInvitationsCard extends StatelessWidget {
                 onPressed: mutating
                     ? null
                     : () => onRevoke(invitation['email']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Revoke'),
               ),
             ),
