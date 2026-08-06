@@ -525,6 +525,13 @@ class _ClientsTabState extends State<ClientsTab> {
                                           'clients',
                                           resourceId: cid,
                                         ),
+                                // Long-press enters selection mode (the
+                                // first selection has no checkbox yet).
+                                onLongPress: () => setState(() {
+                                  if (!_selected.remove(cid)) {
+                                    _selected.add(cid);
+                                  }
+                                }),
                                 leading: _selected.isNotEmpty
                                     ? Checkbox(
                                         value: _selected.contains(cid),
