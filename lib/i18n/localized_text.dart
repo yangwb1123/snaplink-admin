@@ -10,6 +10,10 @@ import 'app_strings.dart';
 /// need to repeat locale lookup boilerplate.
 class LocalizedText extends StatelessWidget {
   final String data;
+
+  /// `{name}` 占位符替换值（见 [AppStrings.translate]）。
+  final Map<String, Object?>? args;
+
   final TextStyle? style;
   final StrutStyle? strutStyle;
   final TextAlign? textAlign;
@@ -27,6 +31,7 @@ class LocalizedText extends StatelessWidget {
   const LocalizedText(
     this.data, {
     super.key,
+    this.args,
     this.style,
     this.strutStyle,
     this.textAlign,
@@ -44,7 +49,7 @@ class LocalizedText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-    context.tr(data),
+    context.tr(data, args ?? const <String, Object?>{}),
     style: style,
     strutStyle: strutStyle,
     textAlign: textAlign,

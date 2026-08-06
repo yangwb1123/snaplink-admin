@@ -194,7 +194,7 @@ class _ClientsTabState extends State<ClientsTab>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client $id approved.')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} approved.', args: {'id': id})));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -304,7 +304,7 @@ class _ClientsTabState extends State<ClientsTab>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client $id rejected.')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} rejected.', args: {'id': id})));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;

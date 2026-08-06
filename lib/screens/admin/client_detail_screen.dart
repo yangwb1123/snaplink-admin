@@ -362,7 +362,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client ${action}ed')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Client {action}ed', args: {'action': action})));
       _load();
     } catch (e) {
       if (!mounted) return;
