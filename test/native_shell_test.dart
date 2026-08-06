@@ -212,6 +212,11 @@ void main() {
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byType(TextFormField),
       'https://new-sso.example.test',
