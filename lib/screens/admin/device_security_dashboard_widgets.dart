@@ -34,20 +34,80 @@ class DeviceStatsCards extends StatelessWidget {
       AppColors.danger,
       AppColors.accentBlue,
     ];
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    final total = stats['total'] ?? fleetTotal;
+    final suspiciousCount = stats['suspicious'] ?? 0;
+    final riskyFraction = total is num && total > 0
+        ? (suspiciousCount is num ? suspiciousCount : 0) / total.toDouble()
+        : 0.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var index = 0; index < values.length; index++)
-          SizedBox(
-            width: 190,
-            child: StatCard(
-              icon: values[index].$3,
-              label: values[index].$1,
-              value: values[index].$2,
-              color: palette[index % palette.length],
+        // 信任分布条（数据表达：可疑占比一眼可见，色编码）。
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(
+            children: [
+              LocalizedText(
+                'Fleet trust distribution',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${(riskyFraction * 100).round()}% suspicious',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: riskyFraction > 0.2
+                      ? AppColors.danger
+                      : riskyFraction > 0.05
+                      ? AppColors.warning
+                      : AppColors.success,
+                ),
+              ),
+            ],
+          ),
+        ),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 6,
+            margin: const EdgeInsets.only(bottom: 12),
+            color: AppColors.success.withValues(alpha: 0.15),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: riskyFraction.clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.warning,
+                      AppColors.danger,
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
+        ),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            for (var index = 0; index < values.length; index++)
+              SizedBox(
+                width: 190,
+                child: StatCard(
+                  icon: values[index].$3,
+                  label: values[index].$1,
+                  value: values[index].$2,
+                  color: palette[index % palette.length],
+                ),
+              ),
+          ],
+        ),
       ],
     );
   }

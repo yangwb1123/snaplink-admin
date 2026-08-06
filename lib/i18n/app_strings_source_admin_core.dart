@@ -47,6 +47,7 @@ const appAdminCoreSourceZh = <String, String>{
   'All subsystems healthy': '全部子系统健康',
   'down': '异常',
   'Peak': '峰值',
+  'Fleet trust distribution': '设备信任分布',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
