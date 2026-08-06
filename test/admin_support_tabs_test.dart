@@ -98,6 +98,9 @@ void main() {
 
       await tester.tap(find.byIcon(Icons.delete_sweep));
       await tester.pumpAndSettle();
+      // 确认对话框（影响数量）→ 确认清空。
+      await tester.tap(find.text('Clear log').last);
+      await tester.pumpAndSettle();
       expect(find.text('0 entries'), findsOneWidget);
     });
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
@@ -113,10 +114,21 @@ class _AuditLogTabState extends State<AuditLogTab> {
           IconButton(
             icon: const Icon(Icons.delete_sweep),
             tooltip: 'Clear log'.localized,
-            onPressed: () {
-              _logService.clear();
-              _refresh();
-            },
+            onPressed: _logService.count == 0
+                ? null
+                : () async {
+                    final confirmed = await ConfirmDialog.show(
+                      context,
+                      title: 'Clear audit log?',
+                      message: 'This will permanently delete all '
+                          '${_logService.count} local audit entries.',
+                      confirmLabel: 'Clear log',
+                      destructive: true,
+                    );
+                    if (!confirmed) return;
+                    _logService.clear();
+                    _refresh();
+                  },
           ),
         ],
       ),

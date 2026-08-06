@@ -12,7 +12,9 @@ const appAdminCoreSourceZh = <String, String>{
   'Reject {n} clients?': '拒绝 {n} 个客户端？',
   'This will approve {n} selected clients in one operation.': '此操作将一次性批准 {n} 个选中的客户端。',
   'This will reject {n} selected clients in one operation.': '此操作将一次性拒绝 {n} 个选中的客户端。',
-  'Clear selection': '清除选择',
+    'Clear audit log?': '清空审计日志？',
+  'This will permanently delete all {n} local audit entries.': '这将永久删除全部 {n} 条本地审计记录。',
+'Clear selection': '清除选择',
   'Exported {n} entries as CSV to clipboard': '已将 {n} 条记录以 CSV 导出到剪贴板',
 
   'Account lockout cleared.': '账户锁定已清除。',
