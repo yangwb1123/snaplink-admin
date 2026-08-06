@@ -33,17 +33,31 @@ class PaginationControls extends StatelessWidget {
           icon: const Icon(Icons.chevron_left),
           label: Text(context.tr('Previous')),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        const SizedBox(width: 8),
+        // 当前页胶囊（品牌色高亮）+ 总数徽章。
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(999),
+          ),
           child: Text(
-            total == null
-                ? context.tr('Page {page}', {'page': page})
-                : context.tr('Page {page} · {total} total', {
-                    'page': page,
-                    'total': total,
-                  }),
+            context.tr('Page {page}', {'page': page}),
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.primary,
+            ),
           ),
         ),
+        if (total != null) ...[
+          const SizedBox(width: 8),
+          Text(
+            context.tr('{total} total', {'total': total}),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
         OutlinedButton.icon(
           onPressed: canGoNext ? onNext : null,
           icon: const Icon(Icons.chevron_right),

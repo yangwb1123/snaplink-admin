@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'admin_route.dart';
@@ -367,10 +368,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
                 'webhooks',
                 resourceId: s['id']?.toString() ?? '',
               ),
-              leading: Icon(
-                s['active'] == true ? Icons.link : Icons.link_off,
-                color: s['active'] == true ? Colors.green : Colors.grey,
-              ),
+              leading: s['active'] == true
+                  ? StatusChip.active()
+                  : StatusChip.inactive(),
               title: Text(s['url']?.toString() ?? ''),
               subtitle: LocalizedText(
                 '${s['id'] ?? ''} · events: ${(s['event_types'] as List?)?.join(', ') ?? 'all'}',

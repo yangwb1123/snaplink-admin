@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 
@@ -141,7 +143,20 @@ class ConnectionDetailsCard extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       child: ListTile(
         leading: Icon(Icons.monitor_heart_outlined, color: color),
-        title: LocalizedText('Upstream health: $status'),
+        title: Row(
+          children: [
+            Flexible(child: LocalizedText('Upstream health')),
+            const SizedBox(width: 8),
+            switch (status) {
+              'healthy' => StatusChip.healthy(),
+              'degraded' => StatusChip(
+                  label: 'Degraded', color: AppColors.warning,
+                  icon: Icons.warning_amber),
+              'unreachable' => StatusChip.unhealthy(),
+              _ => StatusChip.inactive(),
+            },
+          ],
+        ),
         subtitle: Text(detail),
       ),
     );

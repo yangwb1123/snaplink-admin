@@ -65,7 +65,8 @@ void main() {
       expect(find.text('portal-client'), findsOneWidget);
       expect(find.text('Portal client · Never expires'), findsOneWidget);
       expect(find.text('pending-app'), findsOneWidget);
-      expect(find.text('Page 1 · 42 total'), findsOneWidget);
+      expect(find.text('Page 1'), findsOneWidget);
+      expect(find.text('42 total'), findsOneWidget);
 
       // First request must carry default pagination parameters.
       expect(requestedQuery, contains('page_size=100'));
@@ -74,11 +75,13 @@ void main() {
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
       expect(requestedQuery, contains('page_token=page-2'));
-      expect(find.text('Page 2 · 42 total'), findsOneWidget);
+      expect(find.text('Page 2'), findsOneWidget);
+      expect(find.text('42 total'), findsOneWidget);
 
       await tester.tap(find.text('Previous'));
       await tester.pumpAndSettle();
-      expect(find.text('Page 1 · 42 total'), findsOneWidget);
+      expect(find.text('Page 1'), findsOneWidget);
+      expect(find.text('42 total'), findsOneWidget);
     });
 
     testWidgets('applies a filter query on submit', (tester) async {

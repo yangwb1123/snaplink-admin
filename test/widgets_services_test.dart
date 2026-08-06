@@ -282,7 +282,8 @@ void main() {
         ),
       );
 
-      expect(find.text('Page 2 · 57 total'), findsOneWidget);
+      expect(find.text('Page 2'), findsOneWidget);
+    expect(find.text('57 total'), findsOneWidget);
       await tester.tap(find.text('Previous'));
       await tester.tap(find.text('Next'));
       expect(previous, 1);
