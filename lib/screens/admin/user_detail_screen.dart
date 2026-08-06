@@ -125,15 +125,21 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     try {
       final user = await widget.client.getUser(widget.userId);
       final uid = Uri.encodeComponent(widget.userId);
-      final sections = <String, Map<String, dynamic>>{};
+      // 各 tab 数据端点并行加载（Future.wait，_optionalGet 内部容错）。
+      final tabFutures = <String, Future<Map<String, dynamic>>>{};
       for (final tab in _tabs) {
         if (tab.$1 == 'device-security') continue; // self-loading panel
         final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        sections[tab.$1] = await _optionalGet(
+        tabFutures[tab.$1] = _optionalGet(
           tab.$1,
           spec.$5.replaceAll(':id', uid),
         );
       }
+      final tabResults = await Future.wait(tabFutures.values);
+      final sections = <String, Map<String, dynamic>>{
+        for (var i = 0; i < tabFutures.keys.length; i++)
+          tabFutures.keys.elementAt(i): tabResults[i],
+      };
       if (!mounted) return;
       setState(() {
         _user = user;

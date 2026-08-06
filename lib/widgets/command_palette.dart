@@ -115,8 +115,8 @@ class _CommandPaletteState extends State<CommandPalette> {
                 itemCount: _results.length,
                 itemBuilder: (_, i) {
                   final cmd = _results[i];
-                  // 组标题（仅浏览态显示；搜索态标题也跟随过滤，简单跳过）。
-                  if (cmd.isGroupHeader) {
+                  // 组标题（仅浏览态显示；搜索态隐藏避免干扰结果）。
+                  if (cmd.isGroupHeader && _searchCtrl.text.isNotEmpty) {
                     return Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                       child: Text(

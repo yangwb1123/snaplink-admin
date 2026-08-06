@@ -12,6 +12,19 @@ extension _PortalScreenShell on _PortalScreenState {
     ],
   ];
 
+  IconData _portalTabIcon(int tab) => switch (tab) {
+    0 => Icons.dashboard_outlined,
+    1 => Icons.shield_outlined,
+    2 => Icons.devices_other_outlined,
+    3 => Icons.devices_outlined,
+    4 => Icons.history,
+    5 => Icons.link_outlined,
+    6 => Icons.apps_outlined,
+    7 => Icons.business_outlined,
+    8 => Icons.notifications_outlined,
+    _ => Icons.privacy_tip_outlined,
+  };
+
   String _portalTabLabel(int tab, AppStrings strings) => switch (tab) {
     0 => strings.overview,
     1 => strings.security,
@@ -98,11 +111,7 @@ extension _PortalScreenShell on _PortalScreenState {
               child: SectionSelector(
                 sections: [
                   for (final tab in groupTabs)
-                    SectionDef(
-                      '$tab',
-                      _portalTabLabel(tab, strings),
-                      Icons.circle_outlined,
-                    ),
+                    SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
                 ],
                 current: '$_navIndex',
                 onSelected: (id) {
