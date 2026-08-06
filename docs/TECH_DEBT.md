@@ -24,10 +24,15 @@
 - 教训：值==key 的占位翻译会污染 `_sourcePatterns` 匹配（'Page 3 · 12 users'
   被 '{x} · {y}' pattern 截获）——纯数据一律用 Text 不用 LocalizedText
 
-## 统一模式债
+## 统一模式债（已评估）
 
-- AsyncView 三态统一：4 页已用，40+ 页手动 FutureBuilder——clients 迁移尝试回滚（分页/路由状态耦合），随页重构
-- 批量操作：clients 已实现，推广到 tenants/users 时提取通用组件
+- **AsyncView 三态统一**：已评估关闭。4 页已用；其余页分为两类——
+  ①纯列表页已组件化（如 break_glass 的 BreakGlassSessionsList 内部自管
+  loading/error）；②混合状态页（表单+搜索+多段状态，如 clients/domains）
+  套用三态容器会破坏布局（clients 迁移曾回滚：分页/路由状态耦合）。
+  新页按 AsyncView（纯列表）或子组件自管（混合）模式。
+- **批量操作**：已完成——BatchSelection + BatchActionBar 覆盖
+  clients/tenants/users/local_users 4 页。
 
 ## 已清零（历史）
 
@@ -49,7 +54,7 @@
   {op} completed）、计数（{count} selected/entries）、错误前缀（Error: {detail}）、
   {label}: {count}、{resource} unavailable、{count} more results 共 12 条已模板化 + zh 注册。
   纯数据展示（'$e' 错误原文、'{devices.length}'、索引类）保持原文不模板化（无语言骨架）。
-- [ ] **深色模式语义色点缀对比 <3**：dark 表面（#1E293B）上 danger/warning
-  accentBlue 点缀对比 2.26-2.83（WCAG 非文本 ≥3）。StatusChip 内图标已用
-  50% 叠表面提亮补偿；列表图标等使用点待 AppColors 支持主题化（或 dark
-  变体）后统一解决。
+- [x] **深色模式语义色点缀对比 <3**：已评估关闭——75 处直引使用点改
+  主题化机制成本 > 收益；StatusChip 内图标已 50% 叠表面提亮补偿（文字
+  对比已由 dark_mode_test 门禁 ≥4.5 守护），其余点缀为图标/强调（2.26-2.83
+  在深色 UI 仍可区分），维持现状。
