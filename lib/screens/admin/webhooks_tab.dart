@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -33,6 +34,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
   List<Map<String, dynamic>> _deadLetters = const [];
   String? _error;
   bool _loading = false;
+  var _statusFilter = 'all';
   bool _mutating = false;
   late final void Function() _cancelPopState;
 
@@ -241,6 +243,19 @@ class _WebhooksTabState extends State<WebhooksTab> {
         const LocalizedText(
           'Manage event notification webhook subscriptions and dead letters.',
         ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: StatusFilterDropdown(
+            value: _statusFilter,
+            options: const {
+              'all': 'All statuses',
+              'active': 'Active only',
+              'inactive': 'Inactive only',
+            },
+            onChanged: (value) => setState(() => _statusFilter = value),
+          ),
+        ),
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -311,6 +326,15 @@ class _WebhooksTabState extends State<WebhooksTab> {
     ),
   );
 
+  /// 按状态筛选后的订阅列表（本地过滤；分页不存在，语义正确）。
+  List<Map<String, dynamic>> get _visibleSubscriptions {
+    if (_statusFilter == 'all') return _subscriptions;
+    final active = _statusFilter == 'active';
+    return _subscriptions
+        .where((s) => (s['active'] == true) == active)
+        .toList();
+  }
+
   Widget _subscriptionsCard(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -329,13 +353,13 @@ class _WebhooksTabState extends State<WebhooksTab> {
         ],
       ),
       if (_loading) const SkeletonListTile(itemCount: 3),
-      if (!_loading && _subscriptions.isEmpty)
+      if (!_loading && _visibleSubscriptions.isEmpty)
         const Padding(
           padding: EdgeInsets.only(top: 12),
           child: LocalizedText('No subscriptions.'),
         ),
       if (!_loading)
-        for (final s in _subscriptions)
+        for (final s in _visibleSubscriptions)
           Card(
             margin: const EdgeInsets.only(top: 8),
             child: ListTile(
