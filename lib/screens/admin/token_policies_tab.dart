@@ -93,9 +93,20 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: Colors.redAccent),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.redAccent),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_loading) const SkeletonListTile(itemCount: 3),
