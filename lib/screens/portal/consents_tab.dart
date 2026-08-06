@@ -110,10 +110,20 @@ class _ConsentsTabState extends State<ConsentsTab> {
               }
               if (snap.hasError) {
                 return Center(
-                  child: Text(
-                    context.tr('Error: {error}', {
-                      'error': context.tr('${snap.error}'),
-                    }),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.tr('Error: {error}', {
+                          'error': context.tr('${snap.error}'),
+                        }),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.tonal(
+                        onPressed: _reload,
+                        child: const Text('Retry'),
+                      ),
+                    ],
                   ),
                 );
               }
