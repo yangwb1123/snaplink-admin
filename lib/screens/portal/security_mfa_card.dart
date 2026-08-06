@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -55,13 +56,26 @@ class SecurityMfaCard extends StatelessWidget {
         )
       else if (factors.isEmpty)
         EmptyHint(mfaEmptyHint ?? 'No second factors registered.')
-      else
+      else ...[
+        // 因子计数徽章（安全状态可视化）。
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: StatusChip(
+              label: '${factors.length} factors registered',
+              color: AppColors.success,
+              icon: Icons.verified_user_outlined,
+            ),
+          ),
+        ),
         for (final raw in factors)
           SecurityFactorTile(
             factor: raw as Map,
             busy: mfaBusy,
             onRemove: (id) => onRemoveFactor(id),
           ),
+      ],
       MessageBanner(mfaMessage, ok: mfaMessage == 'Second factor removed.'),
       const SizedBox(height: 8),
       OutlinedButton(
