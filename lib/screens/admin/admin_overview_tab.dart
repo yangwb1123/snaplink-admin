@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/hover_card.dart';
+import 'package:sso_admin/widgets/progress_ring.dart';
 import 'package:sso_admin/widgets/count_up.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -74,18 +75,46 @@ class AdminOverviewTab extends StatelessWidget {
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 16),
+              // 健康中心（信息优先级：健康度大数字第一眼可见）。
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _HeroStat(
-                    label: 'Endpoints',
-                    value: endpoints.length,
-                    icon: Icons.hub_outlined,
+                  _HealthRing(
+                    healthy: endpoints.length,
+                    total: endpoints.length + documentedOnly,
                   ),
-                  const SizedBox(width: 24),
-                  _HeroStat(
-                    label: 'Feature groups',
-                    value: capabilities.featureCounts.length,
-                    icon: Icons.widgets_outlined,
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            _HeroStat(
+                              label: 'Endpoints',
+                              value: endpoints.length,
+                              icon: Icons.hub_outlined,
+                            ),
+                            const SizedBox(width: 20),
+                            _HeroStat(
+                              label: 'Feature groups',
+                              value: capabilities.featureCounts.length,
+                              icon: Icons.widgets_outlined,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        // 运行覆盖率：文档契约 vs 运行端点（数据表达对比条）。
+                        _CoverageBar(
+                          fraction: endpoints.isEmpty
+                              ? 0
+                              : endpoints.length /
+                                    (endpoints.length + documentedOnly),
+                          running: endpoints.length,
+                          documentedOnly: documentedOnly,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -111,16 +140,19 @@ class AdminOverviewTab extends StatelessWidget {
             color: AppColors.accentBlue,
           )
         else ...[
+          // 异常优先（信息优先级 05）：就绪/风险一句话 + 色编码，
+          // 用户 3 秒内知道"有没有问题"。
           _StatusCard(
             icon: documentedOnly == 0
                 ? Icons.verified_user_outlined
-                : Icons.info_outline,
-            title:
-                '${endpoints.length} runtime endpoints advertised'
-                '${documentedOnly == 0 ? '' : ' · $documentedOnly documented routes not advertised'}',
-            body:
-                'Runtime inventory proves deployment availability. OpenAPI-only '
-                'modules stay visible for compatibility and report 404/501 as not enabled.',
+                : Icons.warning_amber_outlined,
+            title: documentedOnly == 0
+                ? 'All contract routes are live'
+                : '$documentedOnly documented routes not advertised',
+            body: documentedOnly == 0
+                ? 'Every OpenAPI contract route is advertised by this replica — no fallback access needed.'
+                : 'OpenAPI-only modules stay visible for compatibility and report 404/501 as not enabled. '
+                      'Probe the module to confirm it is intentional.',
             color: documentedOnly == 0 ? AppColors.success : AppColors.warning,
           ),
           const SizedBox(height: 16),
@@ -279,6 +311,114 @@ class _EndpointGroup {
 }
 
 /// Hero 统计项：图标 + CountUp 数字 + 标签。
+/// 健康度环：运行端点占比（ProgressRing 数据表达——健康度图形化）。
+class _HealthRing extends StatelessWidget {
+  final int healthy;
+  final int total;
+
+  const _HealthRing({required this.healthy, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final percent = total == 0 ? 0.0 : healthy * 100.0 / total;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ProgressRing(
+          value: percent,
+          size: 76,
+          strokeWidth: 7,
+          label: '${percent.round()}%',
+        ),
+        const SizedBox(height: 4),
+        LocalizedText(
+          'Runtime health',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 运行覆盖率条：运行端点 vs 文档契约（对比可视化）。
+class _CoverageBar extends StatelessWidget {
+  final double fraction;
+  final int running;
+  final int documentedOnly;
+
+  const _CoverageBar({
+    required this.fraction,
+    required this.running,
+    required this.documentedOnly,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            LocalizedText(
+              'Contract coverage',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              '${(fraction * 100).round()}%',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: fraction >= 0.9
+                    ? AppColors.success
+                    : fraction >= 0.6
+                    ? AppColors.warning
+                    : AppColors.danger,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            height: 6,
+            color: scheme.primary.withValues(alpha: 0.12),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: fraction.clamp(0.0, 1.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  gradient: LinearGradient(
+                    colors: [
+                      scheme.primary,
+                      scheme.primary.withValues(alpha: 0.65),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        LocalizedText(
+          '$running running · $documentedOnly documented-only',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _HeroStat extends StatelessWidget {
   final String label;
   final int value;

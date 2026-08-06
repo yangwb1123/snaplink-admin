@@ -38,6 +38,11 @@ const appAdminCoreSourceZh = <String, String>{
   'Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.': '本副本公布的每个模块的运行时清单，含 OpenAPI 仅目录回退。',
   'Endpoints': '端点',
   'Feature groups': '功能组',
+  'Runtime health': '运行时健康',
+  'Contract coverage': '契约覆盖率',
+  'All contract routes are live': '全部契约路由已在线',
+  '{count} documented routes not advertised': '{count} 条文档路由未公布',
+  'Every OpenAPI contract route is advertised by this replica — no fallback access needed.': '本副本公布了全部 OpenAPI 契约路由——无需回退访问。',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
