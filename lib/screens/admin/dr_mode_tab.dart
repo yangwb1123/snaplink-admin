@@ -111,7 +111,7 @@ class _DRModeTabState extends State<DRModeTab> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: LocalizedText('Service mode changed to $_selectedMode.'),
+          content: LocalizedText('Service mode changed to {_selectedMode}.', args: {'_selectedMode': _selectedMode}),
         ),
       );
       _reasonCtrl.clear();

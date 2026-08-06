@@ -168,7 +168,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('User: ${widget.userId}'),
+        title: LocalizedText('User: {widget_userId}', args: {'widget_userId': widget.userId}),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
@@ -334,7 +334,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Error: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -364,7 +364,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Error: $error')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Error: {error}', args: {'error': error})));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

@@ -108,7 +108,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Webhook: ${widget.subId}'),
+      title: LocalizedText('Webhook: {widget_subId}', args: {'widget_subId': widget.subId}),
       leading: IconButton(
         tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),
@@ -229,7 +229,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('$e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -340,7 +340,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('$e')));
+      ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

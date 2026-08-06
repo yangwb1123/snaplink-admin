@@ -42,7 +42,7 @@ class TenantMembersTab extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(child: Text(initial)),
         title: Text(id),
-        subtitle: LocalizedText('Role: ${member['role'] ?? 'member'}'),
+        subtitle: LocalizedText('Role: {role}', args: {'role': member['role'] ?? 'member'}),
         trailing: member['role'] == 'owner'
             ? null
             : TextButton(

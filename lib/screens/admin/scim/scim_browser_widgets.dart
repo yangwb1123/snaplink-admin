@@ -145,7 +145,7 @@ class ScimQueryBar extends StatelessWidget {
                   .map(
                     (value) => DropdownMenuItem(
                       value: value,
-                      child: LocalizedText('$value'),
+                      child: LocalizedText('{value}', args: {'value': value}),
                     ),
                   )
                   .toList(),

@@ -24,7 +24,7 @@ class UserDetailHeader extends StatelessWidget {
                   user?['id']?.toString() ?? '',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                LocalizedText('Provider: ${user?['provider'] ?? ''}'),
+                LocalizedText('Provider: {provider}', args: {'provider': user?['provider'] ?? ''}),
                 LocalizedText(
                   'External ID: '
                   '${user?['externalId'] ?? user?['external_id'] ?? ''}',

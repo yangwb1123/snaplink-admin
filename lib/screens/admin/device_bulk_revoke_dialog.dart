@@ -286,7 +286,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                         ? Icons.verified_outlined
                         : Icons.warning_amber,
                   ),
-                  title: LocalizedText('Estimated matches: $_estimatedCount'),
+                  title: LocalizedText('Estimated matches: {_estimatedCount}', args: {'_estimatedCount': _estimatedCount}),
                   subtitle: LocalizedText(
                     _estimatedCount == 0
                         ? 'No devices currently match; revocation is disabled.'

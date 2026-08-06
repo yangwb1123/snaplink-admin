@@ -114,7 +114,7 @@ class AdminOpsHelpers {
               ),
               if (expiry != null) ...[
                 const SizedBox(height: 8),
-                LocalizedText('Expiry: $expiry'),
+                LocalizedText('Expiry: {expiry}', args: {'expiry': expiry}),
               ],
               const SizedBox(height: 12),
               SelectableText(

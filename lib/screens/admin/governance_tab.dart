@@ -358,7 +358,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
                 (spec) => OutlinedButton.icon(
                   onPressed: _loading ? null : () => _read(spec),
                   icon: const Icon(Icons.refresh, size: 18),
-                  label: LocalizedText('Refresh ${spec.title}'),
+                  label: LocalizedText('Refresh {spec_title}', args: {'spec_title': spec.title}),
                 ),
               )
               .toList(growable: false),
@@ -495,7 +495,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : const Icon(Icons.warning_amber),
-        label: LocalizedText('Run ${selected.label}'),
+        label: LocalizedText('Run {selected_label}', args: {'selected_label': selected.label}),
       ),
     ]);
   }

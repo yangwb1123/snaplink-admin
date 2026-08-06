@@ -42,7 +42,7 @@ class WebhookInfoCard extends StatelessWidget {
                       'Webhook #$subscriptionId',
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('URL: ${_displayUrl(subscription?['url'])}'),
+                    LocalizedText('URL: {url}', args: {'url': _displayUrl(subscription?['url'])}),
                   ],
                 ),
               ),

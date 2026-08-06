@@ -90,7 +90,7 @@ class AdminOverviewTab extends StatelessWidget {
             children: capabilities.featureCounts.entries
                 .map(
                   (entry) => Chip(
-                    label: LocalizedText('${entry.key} · ${entry.value}'),
+                    label: Text('${entry.key} · ${entry.value}'),
                   ),
                 )
                 .toList(growable: false),

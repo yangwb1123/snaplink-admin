@@ -335,7 +335,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _sessionsCard(BuildContext context) {
     final sessions = _list('sessions', 'sessions');
     return _card(context, 'Active sessions', [
-      LocalizedText('Total: ${_data['sessions']?['total'] ?? sessions.length}'),
+      LocalizedText('Total: {total}', args: {'total': _data['sessions']?['total'] ?? sessions.length}),
       for (final session in sessions.take(100))
         ListTile(
           contentPadding: EdgeInsets.zero,

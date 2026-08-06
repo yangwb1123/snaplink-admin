@@ -85,7 +85,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Connection: ${widget.connectionId}'),
+      title: LocalizedText('Connection: {widget_connectionId}', args: {'widget_connectionId': widget.connectionId}),
       leading: IconButton(
         tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),

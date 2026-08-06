@@ -67,13 +67,13 @@ class CommerceWalletPanel extends StatelessWidget {
           ),
           const Divider(),
           if (wallet == null)
-            LocalizedText('No $currency wallet exists for this tenant.')
+            LocalizedText('No {currency} wallet exists for this tenant.', args: {'currency': currency})
           else
             _walletSummary(context),
           const SizedBox(height: 8),
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            title: LocalizedText('Ledger entries (${entries.length})'),
+            title: LocalizedText('Ledger entries ({entries_length})', args: {'entries_length': entries.length}),
             children: entries.isEmpty
                 ? [const ListTile(title: LocalizedText('No ledger entries.'))]
                 : entries.map(_ledgerTile).toList(growable: false),
@@ -100,7 +100,7 @@ class CommerceWalletPanel extends StatelessWidget {
         style: Theme.of(context).textTheme.titleMedium,
       ),
       Chip(label: Text(wallet!['status']?.toString() ?? '—')),
-      LocalizedText('Wallet version ${wallet!['version'] ?? 0}'),
+      LocalizedText('Wallet version {version}', args: {'version': wallet!['version'] ?? 0}),
     ],
   );
 
@@ -118,7 +118,7 @@ class CommerceWalletPanel extends StatelessWidget {
     subtitle: LocalizedText(
       'Balance ${entry['balance_after'] ?? '—'} · ${entry['reference'] ?? '—'} · ${entry['occurred_at'] ?? '—'}',
     ),
-    trailing: LocalizedText('v${entry['wallet_version'] ?? '—'}'),
+    trailing: Text('v${entry['wallet_version'] ?? '—'}'),
   );
 
   Widget _paymentsCard(BuildContext context) => Card(
@@ -191,7 +191,7 @@ class CommerceWalletPanel extends StatelessWidget {
                   ),
                 ),
                 Chip(
-                  label: LocalizedText('Revision ${order['revision'] ?? '—'}'),
+                  label: LocalizedText('Revision {revision}', args: {'revision': order['revision'] ?? '—'}),
                 ),
               ],
             ),

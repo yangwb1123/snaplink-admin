@@ -170,7 +170,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       await showDialog<void>(
         context: context,
         builder: (context) => AlertDialog(
-          title: LocalizedText('Audit event $id'),
+          title: LocalizedText('Audit event {id}', args: {'id': id}),
           content: SingleChildScrollView(
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(detail),

@@ -45,7 +45,7 @@ class DeviceListPanel extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
-              Chip(label: LocalizedText('${devices.length}')),
+              Chip(label: LocalizedText('{devices_length}', args: {'devices_length': devices.length})),
             ],
           ),
         ),
@@ -321,7 +321,7 @@ class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
         width: 720,
         height: 520,
         child: _error != null
-            ? Center(child: LocalizedText('Unable to load activity: $_error'))
+            ? Center(child: LocalizedText('Unable to load activity: {_error}', args: {'_error': _error}))
             : _result == null
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(child: LoginHistoryPanel(records: records)),

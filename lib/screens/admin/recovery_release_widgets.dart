@@ -230,7 +230,7 @@ class RecoveryReleasesCard extends StatelessWidget {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.push_pin, color: AppColors.success),
-              title: LocalizedText('Current: ${current!['id'] ?? ''}'),
+              title: LocalizedText('Current: {id}', args: {'id': current!['id'] ?? ''}),
               subtitle: Text(releaseSummary(current!)),
             ),
           if (releases.isEmpty)

@@ -58,7 +58,7 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: LocalizedText('Restore snapshot ${widget.snapshotId}'),
+    title: LocalizedText('Restore snapshot {widget_snapshotId}', args: {'widget_snapshotId': widget.snapshotId}),
     content: SizedBox(
       width: 520,
       child: Column(

@@ -334,7 +334,7 @@ class _UsersTabState extends State<UsersTab>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: LocalizedText('Error: ${snap.error}'));
+                return Center(child: LocalizedText('Error: {snap_error}', args: {'snap_error': snap.error}));
               }
               final page = snap.data!;
               final items = page.items;

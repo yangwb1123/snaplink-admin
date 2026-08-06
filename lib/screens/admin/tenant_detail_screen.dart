@@ -154,7 +154,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('Tenant: ${widget.tenantId}'),
+        title: LocalizedText('Tenant: {widget_tenantId}', args: {'widget_tenantId': widget.tenantId}),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
@@ -301,13 +301,13 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Removed $userId')));
+      ).showSnackBar(SnackBar(content: LocalizedText('Removed {userId}', args: {'userId': userId})));
       _load();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('$e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
       }
     }
   }
@@ -337,7 +337,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Resend failed: $error')),
+          SnackBar(content: LocalizedText('Resend failed: {error}', args: {'error': error})),
         );
       }
     }
@@ -365,7 +365,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Revoke failed: $error')),
+          SnackBar(content: LocalizedText('Revoke failed: {error}', args: {'error': error})),
         );
       }
     }

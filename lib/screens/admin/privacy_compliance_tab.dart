@@ -326,9 +326,9 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
             ),
             for (final entry in report.entries)
               if (entry.key != 'errors')
-                LocalizedText('${entry.key}: ${entry.value}'),
+                Text('${entry.key}: ${entry.value}'),
             if (errors.isNotEmpty)
-              LocalizedText('errors: ${errors.join(' · ')}'),
+              LocalizedText('errors: {list}', args: {'list': errors.join(' · ')}),
           ],
         ),
       ),

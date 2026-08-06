@@ -221,7 +221,7 @@ class _TenantsTabState extends State<TenantsTab>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -255,7 +255,7 @@ class _TenantsTabState extends State<TenantsTab>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -398,7 +398,7 @@ class _TenantsTabState extends State<TenantsTab>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: LocalizedText('Error: ${snap.error}'));
+                return Center(child: LocalizedText('Error: {snap_error}', args: {'snap_error': snap.error}));
               }
               final page = snap.data!;
               final items = page.items;

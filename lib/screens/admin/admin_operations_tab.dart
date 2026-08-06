@@ -462,7 +462,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.play_arrow),
-            label: LocalizedText('Run ${endpoint.method}'),
+            label: LocalizedText('Run {endpoint_method}', args: {'endpoint_method': endpoint.method}),
           ),
         ],
         if (_mutationOutcomeUnknown) ...[

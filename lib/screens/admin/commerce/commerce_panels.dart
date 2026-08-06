@@ -194,7 +194,7 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
-                Chip(label: LocalizedText('Revision $revision')),
+                Chip(label: LocalizedText('Revision {revision}', args: {'revision': revision})),
               ],
             ),
             SelectableText(subscription['id']?.toString() ?? '—'),
@@ -283,7 +283,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
           'revision ${entitlement!['revision'] ?? '—'}',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        LocalizedText('Expires: ${entitlement!['expires_at'] ?? '—'}'),
+        LocalizedText('Expires: {time}', args: {'time': entitlement!['expires_at'] ?? '—'}),
       ],
     );
   }

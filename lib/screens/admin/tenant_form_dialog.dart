@@ -84,7 +84,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Failed: $e')));
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

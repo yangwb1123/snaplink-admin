@@ -155,7 +155,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: LocalizedText('Patch ${widget.kind.singular} ${widget.resourceId}'),
+    title: LocalizedText('Patch {widget_kind_singular} {widget_resourceId}', args: {'widget_kind_singular': widget.kind.singular, 'widget_resourceId': widget.resourceId}),
     content: SizedBox(
       width: 700,
       height: MediaQuery.sizeOf(context).height * .62,

@@ -99,7 +99,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Permissions: ${widget.clientId}'),
+      title: LocalizedText('Permissions: {widget_clientId}', args: {'widget_clientId': widget.clientId}),
       leading: IconButton(
         tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),
