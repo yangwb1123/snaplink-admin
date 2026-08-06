@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/widgets/count_up.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -331,7 +332,8 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    return HoverCard(
+      child: Card(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
@@ -370,6 +372,7 @@ class _StatusCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
