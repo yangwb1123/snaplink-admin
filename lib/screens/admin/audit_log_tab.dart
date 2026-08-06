@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -125,6 +126,28 @@ class _AuditLogTabState extends State<AuditLogTab> {
     return '"$cell"';
   }
 
+  double _errorRate(BuildContext context) {
+    final total = _logService.count;
+    if (total == 0) return 0;
+    final errors = _logService.entries
+        .where((e) => e.statusCode >= 400)
+        .length;
+    return errors * 100.0 / total;
+  }
+
+  Widget _errorRateBadge(BuildContext context) {
+    final rate = _errorRate(context);
+    return StatusChip(
+      label: '${rate.round()}% errors',
+      color: rate >= 20
+          ? AppColors.danger
+          : rate >= 5
+          ? AppColors.warning
+          : AppColors.success,
+      icon: rate >= 20 ? Icons.error_outline : Icons.check_circle_outline,
+    );
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
@@ -136,6 +159,10 @@ class _AuditLogTabState extends State<AuditLogTab> {
         onRefresh: _refresh,
         actions: [
           LocalizedText('{count} entries', args: {'count': _logService.count}),
+          if (_errorRate(context) > 0) ...[
+            const SizedBox(width: 8),
+            _errorRateBadge(context),
+          ],
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
