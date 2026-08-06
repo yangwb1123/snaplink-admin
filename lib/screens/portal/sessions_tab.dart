@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -171,8 +172,16 @@ class _SessionsTabState extends State<SessionsTab> {
             children: [
               Text(
                 context.tr('Active sessions'),
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
               ),
+              ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Browser and device sessions currently signed in with your account.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+        ),
               OverflowBar(
                 spacing: 4,
                 children: [

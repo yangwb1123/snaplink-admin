@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -118,16 +119,23 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
         children: [
           Text(
             context.strings.linkedIdentities,
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const Spacer(),
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
+          ),          const Spacer(),
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      const SizedBox(height: 12),
+
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Third-party identities linked to your account for sign-in.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+        ),      const SizedBox(height: 12),
       if (_loading)
         const LinearProgressIndicator()
       else if (!_available)

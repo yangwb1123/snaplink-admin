@@ -839,6 +839,8 @@ void main() {
         find.widgetWithText(TextField, 'Type your subject to confirm'),
         'wrong-subject',
       );
+      await tester.ensureVisible(find.text('Permanently delete my account'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Permanently delete my account'));
       await tester.pumpAndSettle();
       expect(erased, isFalse);

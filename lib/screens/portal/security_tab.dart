@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -242,7 +243,15 @@ class _SecurityTabState extends State<SecurityTab> {
       children: [
         Text(
           context.strings.security,
-          style: Theme.of(context).textTheme.headlineSmall,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
+        ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Multi-factor authentication and the security factors on your account.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
         ),
         const SizedBox(height: 12),
         SecurityMfaCard(

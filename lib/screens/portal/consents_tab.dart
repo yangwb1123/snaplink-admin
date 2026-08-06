@@ -96,12 +96,20 @@ class _ConsentsTabState extends State<ConsentsTab> {
             children: [
               Text(
                 context.tr('Connected applications'),
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
               ),
               const Spacer(),
               IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
             ],
           ),
+        ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Applications you have authorized to access your account data.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
         ),
         Expanded(
           child: FutureBuilder<List<dynamic>>(

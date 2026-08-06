@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -193,12 +194,20 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
             children: [
               Text(
                 context.strings.organizations,
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
               ),
               const Spacer(),
               IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
             ],
           ),
+        ),
+        const SizedBox(height: 4),
+        const LocalizedText(
+          'Teams and organizations you belong to.',
+          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
         ),
         Expanded(
           child: _loading
