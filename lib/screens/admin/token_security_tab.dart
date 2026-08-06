@@ -587,7 +587,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         CountUp(
           value: value,
           style: theme.textTheme.titleMedium?.copyWith(
@@ -595,7 +595,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             color: color,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         LocalizedText(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
