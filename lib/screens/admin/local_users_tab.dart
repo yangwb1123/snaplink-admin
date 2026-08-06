@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -320,18 +321,13 @@ class _LocalUsersTabState extends State<LocalUsersTab>
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              LocalizedText('Page $_page · $_total users'),
-              IconButton(
-                onPressed: _page > 1 && !_loading
-                    ? () => _load(page: _page - 1)
-                    : null,
-                icon: const Icon(Icons.chevron_left),
-              ),
-              IconButton(
-                onPressed: _page * _pageSize < _total && !_loading
-                    ? () => _load(page: _page + 1)
-                    : null,
-                icon: const Icon(Icons.chevron_right),
+              PaginationControls(
+                page: _page,
+                total: _total,
+                canGoBack: _page > 1 && !_loading,
+                canGoNext: _page * _pageSize < _total && !_loading,
+                onPrevious: () => _load(page: _page - 1),
+                onNext: () => _load(page: _page + 1),
               ),
             ],
           ),
