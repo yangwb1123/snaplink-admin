@@ -131,6 +131,14 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.all(Radius.circular(8)),
         ),
       ),
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentTextStyle: const TextStyle(fontWeight: FontWeight.w500),
+      ),
     );
   }
 }

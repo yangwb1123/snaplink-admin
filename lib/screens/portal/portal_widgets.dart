@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -84,8 +85,9 @@ class PortalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return HoverCard(
       margin: const EdgeInsets.only(bottom: 20),
+      child: Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -108,6 +110,7 @@ class PortalCard extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }
