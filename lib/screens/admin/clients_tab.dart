@@ -28,6 +28,7 @@ class _ClientsTabState extends State<ClientsTab> {
   var _pageSize = 100;
   var _orderBy = 'id';
   var _expiringOnly = false;
+  var _statusFilter = 'all';
   late final void Function() _cancelPopState;
   final _selected = <String>{};
 
@@ -82,7 +83,11 @@ class _ClientsTabState extends State<ClientsTab> {
       pageToken: _pageTokens[_pageIndex],
       pageSize: _pageSize,
       orderBy: _orderBy,
-      filter: _filterCtrl.text,
+      filter: _statusFilter == 'all'
+          ? _filterCtrl.text
+          : _filterCtrl.text.trim().isEmpty
+              ? 'active:${_statusFilter == 'active'}'
+              : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
     );
   }
 
@@ -428,6 +433,29 @@ class _ClientsTabState extends State<ClientsTab> {
                 onChanged: (value) {
                   if (value == null) return;
                   setState(() => _orderBy = value);
+                  _reload();
+                },
+              ),
+              const SizedBox(width: 12),
+              DropdownButton<String>(
+                value: _statusFilter,
+                items: const [
+                  DropdownMenuItem(
+                    value: 'all',
+                    child: LocalizedText('All statuses'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'active',
+                    child: LocalizedText('Active only'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'inactive',
+                    child: LocalizedText('Inactive only'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _statusFilter = value);
                   _reload();
                 },
               ),

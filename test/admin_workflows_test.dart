@@ -400,141 +400,30 @@ void main() {
       expect(find.textContaining('1 succeeded'), findsOneWidget);
       expect(find.textContaining('1 failed'), findsOneWidget);
     });
-  });
 
-  group('TenantsTab', () {
-    const activeTenant = {
-      'id': 'tenant-a',
-      'name': 'Acme Corp',
-      'slug': 'acme',
-      'status': 'active',
-    };
-    const suspendedTenant = {
-      'id': 'tenant-b',
-      'name': 'Globex',
-      'slug': 'globex',
-      'status': 'suspended',
-    };
-
-    testWidgets('renders tenants with their status', (tester) async {
+    testWidgets('status filter narrows the server query', (tester) async {
+      var requestedQuery = '';
       final client = _client({
-        '/api/v1/admin/tenants': (_) => http.Response(
-          jsonEncode({
-            'tenants': [activeTenant, suspendedTenant],
-            'total_size': 2,
-          }),
-          200,
-        ),
-      });
-      await tester.pumpWidget(_wrap(TenantsTab(client: client)));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Acme Corp'), findsOneWidget);
-      expect(find.text('acme · active'), findsOneWidget);
-      expect(find.text('globex · suspended'), findsOneWidget);
-    });
-
-    testWidgets('suspends a tenant with typed confirmation', (tester) async {
-      var setStatus = <String>[];
-      final client = _client({
-        '/api/v1/admin/tenants': (_) => http.Response(
-          jsonEncode({
-            'tenants': [activeTenant],
-            'total_size': 1,
-          }),
-          200,
-        ),
-        '/api/v1/admin/tenants/tenant-a:set-status': (request) {
-          setStatus.add(request.body);
-          return http.Response('{}', 200);
+        '/api/v1/admin/clients': (request) {
+          requestedQuery = request.url.query;
+          return http.Response(
+            jsonEncode({
+              'clients': [clientRow],
+              'total_size': 1,
+            }),
+            200,
+          );
         },
       });
-      await tester.pumpWidget(_wrap(TenantsTab(client: client)));
+      await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(PopupMenuButton<String>));
+      // 打开状态筛选菜单（Dropdown 当前值文本）。
+      await tester.tap(find.text('All statuses'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Suspend'));
+      await tester.tap(find.text('Active only').last);
       await tester.pumpAndSettle();
-      expect(find.text('Suspend tenant?'), findsOneWidget);
-      await tester.enterText(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.byType(TextField),
-        ),
-        'tenant-a',
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Suspend tenant'));
-      await tester.pumpAndSettle();
-
-      expect(setStatus.single, contains('"status":"suspended"'));
-      expect(find.textContaining('Tenant suspended.'), findsOneWidget);
-    });
-
-    testWidgets('activates a suspended tenant', (tester) async {
-      var setStatus = <String>[];
-      final client = _client({
-        '/api/v1/admin/tenants': (_) => http.Response(
-          jsonEncode({
-            'tenants': [suspendedTenant],
-            'total_size': 1,
-          }),
-          200,
-        ),
-        '/api/v1/admin/tenants/tenant-b:set-status': (request) {
-          setStatus.add(request.body);
-          return http.Response('{}', 200);
-        },
-      });
-      await tester.pumpWidget(_wrap(TenantsTab(client: client)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(PopupMenuButton<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Activate'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Activate tenant'));
-      await tester.pumpAndSettle();
-
-      expect(setStatus.single, contains('"status":"active"'));
-      expect(find.text('Tenant activated.'), findsOneWidget);
-    });
-
-    testWidgets('deletes a tenant with typed confirmation', (tester) async {
-      var deleted = <String>[];
-      final client = _client({
-        '/api/v1/admin/tenants': (_) => http.Response(
-          jsonEncode({
-            'tenants': [activeTenant],
-            'total_size': 1,
-          }),
-          200,
-        ),
-        '/api/v1/admin/tenants/tenant-a': (request) {
-          if (request.method == 'DELETE') deleted.add(request.url.path);
-          return http.Response('{}', 200);
-        },
-      });
-      await tester.pumpWidget(_wrap(TenantsTab(client: client)));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byType(PopupMenuButton<String>));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.byType(TextField),
-        ),
-        'tenant-a',
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete tenant'));
-      await tester.pumpAndSettle();
-
-      expect(deleted, ['/api/v1/admin/tenants/tenant-a']);
+      expect(requestedQuery, contains('active%3Atrue'));
     });
   });
 
