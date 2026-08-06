@@ -29,10 +29,16 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byType(TextFormField),
       'http://credentials.example.test/api?tenant=one',
     );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
 
@@ -49,10 +55,16 @@ void main() {
   ) async {
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byType(TextFormField),
       ' HTTPS://SSO.Example.test:8443/ ',
     );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
 
@@ -82,10 +94,16 @@ void main() {
       ),
     );
 
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byType(TextFormField),
       'https://new-sso.example.test',
     );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
 
@@ -101,10 +119,16 @@ void main() {
     Session.store('access-token', sessionId: 'session-1');
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
+    await tester.scrollUntilVisible(
+      find.byType(TextFormField),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byType(TextFormField),
       ProductApiOrigin.nativeDefaultBaseUrl,
     );
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
 

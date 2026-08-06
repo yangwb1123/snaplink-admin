@@ -62,65 +62,114 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListenableBuilder(
         listenable: AppSettings.instance,
         builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
+          children: [
+            _SettingsCard(
+              title: strings.language,
+              description: strings.translate('App language and regional display preferences.'),
+              children: [_LanguagePicker()],
+            ),
+            const SizedBox(height: 16),
+            _SettingsCard(
+              title: strings.theme,
+              description: strings.translate('Appearance follows the system or your explicit choice.'),
+              children: [_ThemePicker(strings: strings)],
+            ),
+            const SizedBox(height: 16),
+            _SettingsCard(
+              title: strings.ssoBaseUrl,
+              description: strings.translate('Server endpoint used for OIDC and API calls.'),
+              children: [
+                Form(
+                  key: _baseUrlFormKey,
+                  child: TextFormField(
+                    controller: _baseUrlController,
+                    enabled: !kIsWeb,
+                    keyboardType: TextInputType.url,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
+                    validator: (value) {
+                      if (kIsWeb) return null;
+                      try {
+                        AppSettings.normalizeSsoBaseUrl(value);
+                        return null;
+                      } on FormatException {
+                        return strings.translate(
+                          'Enter an absolute HTTPS server URL without credentials, '
+                          'path, query, or fragment. HTTP is allowed only for '
+                          'localhost or loopback addresses.',
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton(
+                    onPressed: kIsWeb ? null : _saveBaseUrl,
+                    child: Text(strings.save),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _SettingsCard(
+              title: strings.timezone,
+              description: strings.translate('Current local timezone of this device.'),
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.schedule, size: 18),
+                    const SizedBox(width: 8),
+                    Text(DateTime.now().timeZoneName),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 设置分组卡片（Stripe/Notion 风格）：标题 + 说明 + 控件。
+class _SettingsCard extends StatelessWidget {
+  final String title;
+  final String description;
+  final List<Widget> children;
+
+  const _SettingsCard({
+    required this.title,
+    required this.description,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              strings.language,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _LanguagePicker(),
-            const SizedBox(height: 32),
-            Text(strings.theme, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            _ThemePicker(strings: strings),
-            const SizedBox(height: 32),
-            Text(
-              strings.ssoBaseUrl,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Form(
-              key: _baseUrlFormKey,
-              child: TextFormField(
-                controller: _baseUrlController,
-                enabled: !kIsWeb,
-                keyboardType: TextInputType.url,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
-                validator: (value) {
-                  if (kIsWeb) return null;
-                  try {
-                    AppSettings.normalizeSsoBaseUrl(value);
-                    return null;
-                  } on FormatException {
-                    return strings.translate(
-                      'Enter an absolute HTTPS server URL without credentials, '
-                      'path, query, or fragment. HTTP is allowed only for '
-                      'localhost or loopback addresses.',
-                    );
-                  }
-                },
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                onPressed: kIsWeb ? null : _saveBaseUrl,
-                child: Text(strings.save),
+            const SizedBox(height: 4),
+            Text(
+              description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 32),
-            Text(
-              strings.timezone,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              DateTime.now().timeZoneName,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
+            const SizedBox(height: 16),
+            ...children,
           ],
         ),
       ),
