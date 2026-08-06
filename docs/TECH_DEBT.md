@@ -39,3 +39,7 @@
 
 - 静态文案缺失：431 → **0**（5 轮推进 + 扫描方式修正：spread catalog 需逐文件查）
 - 剩余：50 条动态消息（Dart `$` 插值，如 'Client $id approved.'）——需改造为 {n} 模板风格才能走 pattern 翻译；记录待处理
+- [ ] **深色模式语义色点缀对比 <3**：dark 表面（#1E293B）上 danger/warning
+  accentBlue 点缀对比 2.26-2.83（WCAG 非文本 ≥3）。StatusChip 内图标已用
+  50% 叠表面提亮补偿；列表图标等使用点待 AppColors 支持主题化（或 dark
+  变体）后统一解决。

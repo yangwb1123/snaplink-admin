@@ -30,8 +30,8 @@ abstract final class AppColors {
   /// 警告（amber）
   static const Color warning = Color(0xFFD97706);
 
-  /// 中性灰（inactive 等）
-  static const Color muted = Color(0xFF94A3B8);
+  /// 中性灰（inactive 等）——slate-500：对白底点缀对比 ≥3（WCAG 非文本）
+  static const Color muted = Color(0xFF64748B);
   /// 辅助（indigo 淡色）
   static const Color primaryTint = Color(0xFFC7D2FE);
 }

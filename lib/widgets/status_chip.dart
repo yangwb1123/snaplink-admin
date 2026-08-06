@@ -34,18 +34,32 @@ class StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final onColor = color.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
+    final isDark = scheme.brightness == Brightness.dark;
+    // 徽章底 = 语义色 alpha 叠表面；文字色按徽章底实际亮度选择（黑/白）。
+    // 浅色下语义色 alpha 底接近白色 → 深色文字；深色下底变暗 → 白色文字。
+    final alpha = isDark ? 0.22 : 0.14;
+    final background = Color.alphaBlend(
+      color.withValues(alpha: alpha),
+      scheme.surface,
+    );
+    final onColor = background.computeLuminance() > 0.5
+        ? Colors.black87
+        : Colors.white;
+    // 图标点缀色：深色下用语义色 50% 叠表面提亮，保证非文本对比度。
+    final accent = isDark
+        ? Color.alphaBlend(color.withValues(alpha: 0.5), scheme.surface)
+        : color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
+        color: background,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12, color: color),
+            Icon(icon, size: 12, color: accent),
             const SizedBox(width: 4),
           ],
           Text(
@@ -53,7 +67,7 @@ class StatusChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: scheme.brightness == Brightness.dark ? color : onColor,
+              color: onColor,
             ),
           ),
         ],
