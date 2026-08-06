@@ -1,3 +1,4 @@
+import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 
@@ -20,7 +21,8 @@ class UsersTab extends StatefulWidget {
   State<UsersTab> createState() => _UsersTabState();
 }
 
-class _UsersTabState extends State<UsersTab> {
+class _UsersTabState extends State<UsersTab>
+    with BatchSelection<UsersTab> {
   final _filterCtrl = TextEditingController();
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -127,6 +129,75 @@ class _UsersTabState extends State<UsersTab> {
     }
   }
 
+  /// 批量删除用户（确认影响数量 → 并行执行 → 明细报告）。
+  Future<void> _batchDelete() async {
+    final ids = selected.toList();
+    if (ids.isEmpty) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Delete ${ids.length} users?',
+      message: 'This will delete ${ids.length} selected users.',
+      confirmLabel: 'Delete users',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    final failures = <String>[];
+    var ok = 0;
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await widget.client.deleteUser(id);
+        return null;
+      } catch (e) {
+        return '$id: $e';
+      }
+    }));
+    for (final failure in results) {
+      if (failure == null) {
+        ok++;
+      } else {
+        failures.add(failure);
+      }
+    }
+    if (!mounted) return;
+    clearSelection();
+    final message = failures.isEmpty
+        ? 'Deleted $ok of ${ids.length} users.'
+        : 'Delete: $ok succeeded, ${failures.length} failed. '
+              '${failures.take(3).join('; ')}';
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+    _reload();
+  }
+
+  /// 批量操作栏。
+  Widget _batchBar(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            LocalizedText('${selected.length} selected'),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: _busyId == null ? _batchDelete : null,
+              icon: const Icon(Icons.delete_outline, size: 18),
+              label: const LocalizedText('Delete'),
+            ),
+            IconButton(
+              tooltip: 'Clear selection'.localized,
+              icon: const Icon(Icons.close, size: 18),
+              onPressed: clearSelection,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
     if (id.isEmpty || _busyId != null) return;
@@ -167,6 +238,10 @@ class _UsersTabState extends State<UsersTab> {
           onCreate: () => AdminRoute.go('users', action: 'new'),
           onRefresh: _reload,
         ),
+        if (selecting) ...[
+          _batchBar(context),
+          const SizedBox(height: 8),
+        ],
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -280,17 +355,28 @@ class _UsersTabState extends State<UsersTab> {
                                 const Divider(height: 1),
                             itemBuilder: (context, i) {
                               final u = items[i];
+                              final uid = u['id']?.toString() ?? '';
                               return ListTile(
-                                leading: const Icon(Icons.person),
+                                onTap: selecting
+                                    ? () => toggleSelect(uid)
+                                    : () => AdminRoute.go(
+                                          'users',
+                                          resourceId: uid,
+                                        ),
+                                onLongPress: () => toggleSelect(uid),
+                                leading: selecting
+                                    ? Checkbox(
+                                        value: selected.contains(uid),
+                                        onChanged: (_) => toggleSelect(uid),
+                                      )
+                                    : const Icon(Icons.person),
                                 title: Text(u['id']?.toString() ?? '?'),
-                                onTap: () => AdminRoute.go(
-                                  'users',
-                                  resourceId: u['id']?.toString() ?? '',
-                                ),
                                 subtitle: LocalizedText(
                                   'provider: ${u['provider'] ?? '?'}',
                                 ),
-                                trailing: Row(
+                                trailing: selecting
+                                    ? null
+                                    : Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
