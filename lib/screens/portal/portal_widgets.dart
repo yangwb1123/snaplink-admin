@@ -58,9 +58,14 @@ class KvRow extends StatelessWidget {
         children: [
           Text(
             context.tr(label),
-            style: TextStyle(color: Colors.grey.shade400),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-          Text(value),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
         ],
       ),
     );
@@ -87,7 +92,15 @@ class PortalCard extends StatelessWidget {
           children: [
             Text(
               context.tr(title),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: Theme.of(context).colorScheme.outlineVariant
+                  .withValues(alpha: 0.5),
             ),
             const SizedBox(height: 16),
             ...children,

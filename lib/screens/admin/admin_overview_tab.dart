@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'snaplink_admin_api.dart';
@@ -103,7 +104,17 @@ class AdminOverviewTab extends StatelessWidget {
           for (final entry in groups.entries)
             Card(
               child: ExpansionTile(
-                leading: Icon(entry.value.icon),
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(entry.value.icon, size: 20),
+                ),
                 title: LocalizedText(entry.key),
                 subtitle: LocalizedText(
                   '${entry.value.endpoints.length} live endpoints',
@@ -119,7 +130,7 @@ class AdminOverviewTab extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
-                      trailing: Text(endpoint.method),
+                      trailing: _MethodChip(endpoint.method),
                     ),
                 ],
               ),
@@ -181,6 +192,38 @@ class AdminOverviewTab extends StatelessWidget {
     }
     return ('Other exposed APIs', Icons.extension_outlined);
   }
+}
+
+/// HTTP 方法色编码徽章（GET 绿 / POST 蓝 / PUT 琥珀 / DELETE 红）。
+class _MethodChip extends StatelessWidget {
+  final String method;
+
+  const _MethodChip(this.method);
+
+  Color get _color {
+    if (method == 'GET') return AppColors.success;
+    if (method == 'POST') return AppColors.accentBlue;
+    if (method == 'PUT' || method == 'PATCH') return AppColors.warning;
+    if (method == 'DELETE') return AppColors.danger;
+    return AppColors.muted;
+  }
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: _color.withValues(alpha: 0.14),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(
+      method,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: _color,
+      ),
+    ),
+  );
 }
 
 class _EndpointGroup {
