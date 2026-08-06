@@ -327,14 +327,18 @@ class _OverviewTabState extends State<OverviewTab> {
                   color: mfaEnabled ? AppColors.success : AppColors.warning,
                 ),
                 const SizedBox(width: 8),
-                LocalizedText(
-                  mfaEnabled ? 'Account protected' : 'Enable MFA to protect your account',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: mfaEnabled ? AppColors.success : AppColors.warning,
+                Expanded(
+                  child: LocalizedText(
+                    mfaEnabled ? 'Account protected' : 'Enable MFA to protect your account',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: mfaEnabled ? AppColors.success : AppColors.warning,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 StatusChip(
                   label: mfaEnabled ? 'MFA on' : 'MFA off',
                   color: mfaEnabled ? AppColors.success : AppColors.warning,
@@ -362,14 +366,14 @@ class _OverviewTabState extends State<OverviewTab> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Text(
           '$value',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         LocalizedText(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
