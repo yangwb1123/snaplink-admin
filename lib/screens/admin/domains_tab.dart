@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -253,8 +254,9 @@ class _DomainsTabState extends State<DomainsTab> {
           ),
         if (!_loading)
           for (final d in _filteredDomains)
-            Card(
+            HoverCard(
               margin: const EdgeInsets.only(top: 8),
+              child: Card(
               child: ListTile(
                 leading: Icon(Icons.language, color: AppColors.accentBlue),
                 title: Text(d['hostname']?.toString() ?? ''),
@@ -272,6 +274,7 @@ class _DomainsTabState extends State<DomainsTab> {
                 ),
               ),
             ),
+          ),
         if (!_showForm)
           Padding(
             padding: const EdgeInsets.only(top: 8),

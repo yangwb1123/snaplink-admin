@@ -65,18 +65,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _SettingsCard(
+              icon: Icons.language_outlined,
               title: strings.language,
               description: strings.translate('App language and regional display preferences.'),
               children: [_LanguagePicker()],
             ),
             const SizedBox(height: 16),
             _SettingsCard(
+              icon: Icons.palette_outlined,
               title: strings.theme,
               description: strings.translate('Appearance follows the system or your explicit choice.'),
               children: [_ThemePicker(strings: strings)],
             ),
             const SizedBox(height: 16),
             _SettingsCard(
+              icon: Icons.dns_outlined,
               title: strings.ssoBaseUrl,
               description: strings.translate('Server endpoint used for OIDC and API calls.'),
               children: [
@@ -115,6 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             _SettingsCard(
+              icon: Icons.schedule_outlined,
               title: strings.timezone,
               description: strings.translate('Current local timezone of this device.'),
               children: [
@@ -139,11 +143,13 @@ class _SettingsCard extends StatelessWidget {
   final String title;
   final String description;
   final List<Widget> children;
+  final IconData icon;
 
   const _SettingsCard({
     required this.title,
     required this.description,
     required this.children,
+    required this.icon,
   });
 
   @override
@@ -155,13 +161,44 @@ class _SettingsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: theme.colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 16),
             Text(
               description,
               style: theme.textTheme.bodySmall?.copyWith(

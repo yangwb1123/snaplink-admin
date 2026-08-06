@@ -49,7 +49,15 @@ class StatusChip extends StatelessWidget {
     final accent = isDark
         ? Color.alphaBlend(color.withValues(alpha: 0.5), scheme.surface)
         : color;
-    return Container(
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) => Transform.scale(
+        scale: 0.85 + 0.15 * value,
+        child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+      ),
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: background,
@@ -72,6 +80,7 @@ class StatusChip extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
