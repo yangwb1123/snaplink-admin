@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 
 /// 圆形进度环（信任分数/健康度）：数值滚动 + 弧线动画（600ms）。
 ///
@@ -20,7 +21,7 @@ class ProgressRing extends StatelessWidget {
   Color _colorFor(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     if (value >= 60) return scheme.primary;
-    if (value >= 30) return Colors.amber.shade700;
+    if (value >= 30) return AppColors.warning;
     return scheme.error;
   }
 
