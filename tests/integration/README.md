@@ -2,14 +2,36 @@
 
 ## 测试环境要求
 
-- snaplink 后端运行在 `http://localhost:8080`
-- sso-console 代理运行在 `http://localhost:4444`
-- 管理员凭据：admin / admin
+- 专用 Snaplink 测试后端；默认地址为 `http://localhost:8080`
+- 已构建的控制台与同源代理；默认地址为 `http://localhost:4444`
+- 具有 `admin:read`、`admin:write` 的专用测试账户
+
+脚本统一从环境变量读取配置，不包含默认登录凭据：
+
+| 变量 | 必需 | 默认值 | 用途 |
+|---|---|---|---|
+| `SNAPLINK_API_URL` | 否 | `http://localhost:8080` | 后端绝对地址 |
+| `SNAPLINK_PROXY_URL` | 否 | `http://localhost:4444` | 控制台/代理绝对地址 |
+| `SNAPLINK_TEST_USERNAME` | 认证测试必需 | 无 | 测试账户 |
+| `SNAPLINK_TEST_PASSWORD` | 认证测试必需 | 无 | 测试账户密码 |
+| `SNAPLINK_TEST_CLIENT_ID` | 否 | `sso-admin-console` | 登录使用的客户端 |
+| `SNAPLINK_TEST_USER_ID` | 否 | 与用户名相同 | 测试账户的后端资源 ID |
+| `SNAPLINK_MANAGE_PROXY` | 否 | 本地地址为 `true` | 是否由脚本启动/停止本地代理 |
 
 ## 运行测试
 
 ```bash
+export SNAPLINK_TEST_USERNAME='test-admin'
+export SNAPLINK_TEST_PASSWORD='从测试环境的密钥存储读取'
+
+# 本地后端和代理
 python3 tests/integration/run_all.py
+
+# 已部署的专用测试环境；脚本不会管理远端代理进程
+SNAPLINK_API_URL='https://api.test.example' \
+SNAPLINK_PROXY_URL='https://console.test.example' \
+SNAPLINK_MANAGE_PROXY=false \
+python3 tests/integration/full_integration_test.py
 ```
 
 ## 测试场景
@@ -29,5 +51,7 @@ python3 tests/integration/run_all.py
 | `full_stack_verify.py` | 后端、代理、静态产物的全栈冒烟 |
 | `perf_benchmark.py` | 性能基准 |
 
-这些脚本会创建或修改测试数据，只应对专用测试部署运行。后端 feature gate
-和可选存储不同会改变可执行场景，失败报告应区分“未启用”与契约回归。
+这些脚本会创建或修改测试数据，只应对专用测试部署运行。不要把生产凭据写入
+shell history、仓库或 CI YAML；CI 中的明文 `admin/admin` 仅属于随作业销毁的
+fixture 服务。后端 feature gate 和可选存储不同会改变可执行场景，失败报告
+应区分“未启用”与契约回归。

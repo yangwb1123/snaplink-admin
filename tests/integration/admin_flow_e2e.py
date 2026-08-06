@@ -6,6 +6,7 @@ Tests full admin workflows: login, navigation, detail pages, CRUD operations.
 Usage: python3 tests/integration/admin_flow_e2e.py
 """
 import sys, os, time, json, subprocess, urllib.request, urllib.error
+from test_config import CONFIG, IntegrationConfigurationError
 
 PASS = 0; FAIL = 0
 
@@ -14,8 +15,15 @@ def check(label, ok, detail=''):
     if ok: PASS+=1; print(f"  ✅ {label}")
     else: FAIL+=1; print(f"  ❌ {label}" + (f": {detail}" if detail else ""))
 
-API = 'http://localhost:8080'
-PROXY = 'http://localhost:4444'
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Skip cleanly when credentials are not configured.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+API = CONFIG.api_url
+PROXY = CONFIG.proxy_url
 
 def api(method, path, data=None, token=None):
     url = f"{API}{path}"
@@ -43,11 +51,7 @@ print()
 
 # 1. Login
 print("【1. Authentication】")
-status, resp = api('POST', '/auth/login', {
-    'provider': 'password', 'client_id': 'sso-admin-console',
-    'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
-    'credential': {'username': 'admin', 'password': 'admin'}
-})
+status, resp = api('POST', '/auth/login', CONFIG.login_payload())
 TOKEN = resp.get('access_token', '')
 check("Login successful", status == 200 and len(TOKEN) > 20, f"status={status}")
 

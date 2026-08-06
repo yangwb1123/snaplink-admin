@@ -6,6 +6,7 @@ sso-console 全栈完整验证
 Usage: python3 tests/integration/full_stack_verify.py [--quick]
 """
 import subprocess, sys, os, time, json, argparse
+from test_config import CONFIG
 
 os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -62,7 +63,7 @@ def main():
         
         # Step 2: Build
         print("\n【步骤 2/6: Flutter 构建】")
-        step('Flutter Build', ['flutter', 'build', 'web', '--release'], 180)
+        step('Flutter Build', ['python3', 'cli.py', 'build'], 180)
         
         # Step 3: Flutter Tests
         print("\n【步骤 3/6: Flutter 测试】")
@@ -71,18 +72,24 @@ def main():
     
     # Step 4: Start proxy
     print("\n【步骤 4/6: 启动代理】")
-    subprocess.run(['fuser', '-k', '4444/tcp'], capture_output=True)
-    time.sleep(2)
-    proxy = subprocess.Popen(
-        ['python3', '/tmp/robust_proxy.py'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-    )
-    time.sleep(3)
+    proxy = None
+    if CONFIG.manages_local_proxy:
+        subprocess.run(
+            ['fuser', '-k', f'{CONFIG.proxy_port}/tcp'], capture_output=True
+        )
+        time.sleep(2)
+        proxy = subprocess.Popen(
+            ['python3', 'tools/robust_proxy.py'],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=CONFIG.proxy_environment(),
+        )
+        time.sleep(3)
     
     # Verify proxy
     curl_check = subprocess.run(
         ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', '5',
-         'http://localhost:4444/'],
+         f'{CONFIG.proxy_url}/'],
         capture_output=True, text=True, timeout=10
     )
     if curl_check.stdout.strip() == '200':
@@ -106,9 +113,9 @@ def main():
     
     # Curl adversarial test
     step('Curl E2E',
-         ['bash', '-c', '''
+         ['env', f'SNAPLINK_E2E_PROXY={CONFIG.proxy_url}', 'bash', '-c', '''
             OK=0; for i in $(seq 1 30); do
-                CODE=$(curl -s --max-time 3 -o /dev/null -w '%{http_code}' "http://localhost:4444/admin/clients" 2>/dev/null)
+                CODE=$(curl -s --max-time 3 -o /dev/null -w '%{http_code}' "$SNAPLINK_E2E_PROXY/admin/clients" 2>/dev/null)
                 [ "$CODE" = "200" ] && OK=$((OK+1))
             done
             echo "30次连续请求: $OK/30"
@@ -118,11 +125,11 @@ def main():
     
     # URL coverage test
     step('URL Coverage',
-         ['bash', '-c', '''
+         ['env', f'SNAPLINK_E2E_PROXY={CONFIG.proxy_url}', 'bash', '-c', '''
             URLS="/admin /admin/clients /admin/clients/client-abc /admin/clients/client-abc/edit /admin/users /admin/users/admin /admin/users/admin/sessions /admin/users/admin/consents /admin/users/admin/mfa /admin/users/admin/lifecycle /admin/tenants /admin/tenants/tenant-1 /admin/tenants/tenant-1/members /admin/tenants/tenant-1/invitations /admin/tenants/tenant-1/usage /admin/connections /admin/connections/oidc /admin/permissions /admin/permissions/client-abc /admin/permissions/client-abc/roles /admin/permissions/client-abc/assignments /admin/user-support /admin/live-activity /admin/token-security /admin/token-security/portfolio /admin/token-security/suspicious /admin/token-security/temp /admin/token-security/revoke /admin/organizations /admin/operations /admin/crypto-keys /admin/crypto-keys/rotate /admin/credentials /admin/credentials/report /admin/token-policies /admin/token-exchange /admin/authz-checks /admin/domains /admin/domains/new /admin/access-policies /admin/dr-mode /admin/threat-policies /admin/threat-policies/new /admin/webhooks /admin/webhooks/sub-1 /admin/emergency-access /admin/emergency-access/test-session /admin/governance /admin/governance/audit /admin/governance/compliance /admin/governance/write /admin/governance/configuration /admin/governance/lifecycle"
             FAIL=0
             for url in $URLS; do
-                CODE=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "http://localhost:4444$url" 2>/dev/null)
+                CODE=$(curl -s --max-time 5 -o /dev/null -w '%{http_code}' "$SNAPLINK_E2E_PROXY$url" 2>/dev/null)
                 [ "$CODE" != "200" ] && echo "FAIL: $url → $CODE" && FAIL=$((FAIL+1))
             done
             echo "URL测试: 失败=$FAIL"
@@ -139,8 +146,9 @@ def main():
         print("  ⏭️ Playwright 未安装，跳过浏览器测试")
     
     # Cleanup
-    proxy.terminate()
-    proxy.wait(timeout=5)
+    if proxy is not None:
+        proxy.terminate()
+        proxy.wait(timeout=5)
     
     # Summary
     elapsed = time.time() - start_time

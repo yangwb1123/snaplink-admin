@@ -7,6 +7,8 @@ Verifies page loads, navigation, and basic app functionality.
 Usage: python3 tests/integration/browser_test.py
 """
 import sys, os, time, json, subprocess, signal, atexit
+from test_config import CONFIG
+PROXY = CONFIG.proxy_url
 
 PASS = 0
 FAIL = 0
@@ -25,11 +27,17 @@ def check(label, condition, detail=''):
 
 def start_proxy():
     """Start the robust proxy."""
-    subprocess.run(['fuser', '-k', '4444/tcp'], capture_output=True)
+    if not CONFIG.manages_local_proxy:
+        return None
+    subprocess.run(
+        ['fuser', '-k', f'{CONFIG.proxy_port}/tcp'], capture_output=True
+    )
     time.sleep(2)
     proc = subprocess.Popen(
-        ['python3', '/tmp/robust_proxy.py'],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        ['python3', 'tools/robust_proxy.py'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=CONFIG.proxy_environment(),
     )
     time.sleep(2)
     return proc
@@ -37,8 +45,8 @@ def start_proxy():
 try:
     from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 except ImportError:
-    print("❌ Playwright not installed. Run: pip install playwright && python3 -m playwright install chromium")
-    sys.exit(1)
+    print("SKIP: Playwright not installed. Run: pip install playwright && python3 -m playwright install chromium")
+    sys.exit(0)
 
 print("=" * 70)
 print("  sso-console 浏览器 E2E 测试 (Playwright)")
@@ -61,7 +69,7 @@ try:
         # ──────────────────────────────────────────
         print("【1. 页面加载】")
         try:
-            page.goto('http://localhost:4444/admin', timeout=10000)
+            page.goto(f'{PROXY}/admin', timeout=10000)
             check("管理后台页面加载", True)
         except PwTimeout:
             check("管理后台页面加载", False, "timeout")
@@ -87,22 +95,22 @@ try:
         print("\n【2. 导航测试】")
         
         # Navigate to clients page
-        page.goto('http://localhost:4444/admin/clients', timeout=10000)
+        page.goto(f'{PROXY}/admin/clients', timeout=10000)
         time.sleep(3)
         check("导航到 /admin/clients", 'clients' in page.url.lower() or page.url.endswith('/admin/clients'))
         
         # Navigate to users page
-        page.goto('http://localhost:4444/admin/users', timeout=10000)
+        page.goto(f'{PROXY}/admin/users', timeout=10000)
         time.sleep(3)
         check("导航到 /admin/users", 'users' in page.url.lower() or page.url.endswith('/admin/users'))
         
         # Navigate to deep URL
-        page.goto('http://localhost:4444/admin/users/admin', timeout=10000)
+        page.goto(f'{PROXY}/admin/users/admin', timeout=10000)
         time.sleep(3)
         check("导航到用户详情 URL", 'admin' in page.url)
         
         # Navigate to governance
-        page.goto('http://localhost:4444/admin/governance', timeout=10000)
+        page.goto(f'{PROXY}/admin/governance', timeout=10000)
         time.sleep(3)
         check("导航到 /admin/governance", 'governance' in page.url)
         
@@ -121,9 +129,9 @@ try:
         ]
         for url in deep_urls:
             try:
-                page.goto(f'http://localhost:4444{url}', timeout=10000)
+                page.goto(f'{PROXY}{url}', timeout=10000)
                 time.sleep(2)
-                ok = page.url.endswith(url) or page.url == f'http://localhost:4444{url}'
+                ok = page.url.endswith(url) or page.url == f'{PROXY}{url}'
                 check(f"加载 {url}", ok, f"current: {page.url}")
             except PwTimeout:
                 check(f"加载 {url}", False, "timeout")
@@ -145,9 +153,9 @@ try:
         all_nav_ok = True
         for url in nav_path:
             try:
-                page.goto(f'http://localhost:4444{url}', timeout=10000)
+                page.goto(f'{PROXY}{url}', timeout=10000)
                 time.sleep(2)
-                if not (page.url.endswith(url) or page.url == f'http://localhost:4444{url}'):
+                if not (page.url.endswith(url) or page.url == f'{PROXY}{url}'):
                     all_nav_ok = False
             except:
                 all_nav_ok = False
@@ -160,7 +168,7 @@ try:
         
         # Non-existent module should still load (SPA fallback)
         try:
-            page.goto('http://localhost:4444/admin/nonexistent-module', timeout=10000)
+            page.goto(f'{PROXY}/admin/nonexistent-module', timeout=10000)
             time.sleep(3)
             check("不存在模块 - 页面加载", True)
         except PwTimeout:
@@ -168,7 +176,7 @@ try:
         
         # Non-existent client ID
         try:
-            page.goto('http://localhost:4444/admin/clients/this-id-does-not-exist', timeout=10000)
+            page.goto(f'{PROXY}/admin/clients/this-id-does-not-exist', timeout=10000)
             time.sleep(3)
             check("不存在 ID - 页面加载", True)
         except PwTimeout:
@@ -182,8 +190,9 @@ except Exception as e:
     traceback.print_exc()
 
 finally:
-    proxy_proc.terminate()
-    proxy_proc.wait(timeout=5)
+    if proxy_proc is not None:
+        proxy_proc.terminate()
+        proxy_proc.wait(timeout=5)
 
 print(f"\n{'=' * 70}")
 print(f"  测试完成: {PASS + FAIL} 个")

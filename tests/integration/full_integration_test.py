@@ -1,6 +1,15 @@
 import sys, json, urllib.request, urllib.error, base64
+from urllib.parse import quote
+from test_config import CONFIG, IntegrationConfigurationError, IntegrationConfigurationError
 
-BASE = "http://localhost:8080"
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Gate/CI runs without one should skip cleanly instead of failing.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+BASE = CONFIG.api_url
 
 def api(method, path, body=None, token=None):
     url = f"{BASE}{path}"
@@ -34,11 +43,7 @@ def test(name, fn):
 
 print("✦ 01 - 认证流程测试")
 print("="*50)
-status, login_resp = api("POST", "/auth/login", {
-    "provider": "password", "client_id": "sso-admin-console",
-    "scope": ["openid", "profile", "admin:read", "admin:write"],
-    "credential": {"username": "admin", "password": "admin"}
-})
+status, login_resp = api("POST", "/auth/login", CONFIG.login_payload())
 TOKEN = login_resp.get("access_token", "")
 test("登录获取 Token", lambda: "access_token" in login_resp and len(TOKEN) > 20)
 if not TOKEN:
@@ -49,16 +54,12 @@ test("Token 含 admin:write", lambda: "admin:write" in login_resp.get("scope", "
 test("expires_in > 0", lambda: login_resp.get("expires_in", 0) > 0)
 test("token_type = Bearer", lambda: login_resp.get("token_type") == "Bearer")
 status, me_resp = api("GET", "/me", token=TOKEN)
-test("/me 返回 admin", lambda: me_resp.get("sub") == "admin")
-status, err_resp = api("POST", "/auth/login", {
-    "provider": "password", "client_id": "sso-admin-console",
-    "scope": ["openid", "profile", "admin:read", "admin:write"],
-    "credential": {"username": "admin", "password": "wrong"}
-})
+test("/me 返回测试用户", lambda: me_resp.get("sub") == CONFIG.username)
+status, err_resp = api("POST", "/auth/login", CONFIG.login_payload(password="definitely-wrong"))
 test("错误密码返回错误", lambda: "error" in err_resp)
 payload = decode_jwt(TOKEN)
-test("JWT sub = admin", lambda: payload.get("sub") == "admin")
-test("JWT client_id = sso-admin-console", lambda: payload.get("client_id") == "sso-admin-console")
+test("JWT sub = 测试用户", lambda: payload.get("sub") == CONFIG.username)
+test("JWT client_id = 测试客户端", lambda: payload.get("client_id") == CONFIG.client_id)
 status, roles_resp = api("GET", "/roles/me", token=TOKEN)
 test("roles/me 含 sso-admin", lambda: any(r.get("code") == "sso-admin" for r in roles_resp.get("roles", [])))
 status, perms_resp = api("GET", "/permissions/me", token=TOKEN)
@@ -68,7 +69,13 @@ print("\n✦ 02 - 核心 CRUD")
 print("="*50)
 status, data = api("GET", "/api/v1/admin/clients", token=TOKEN)
 test("列出客户端", lambda: len(data.get("clients", [])) >= 1)
-test("含 sso-admin-console", lambda: any(c["id"] == "sso-admin-console" for c in data.get("clients", [])))
+test(
+    "含测试客户端",
+    lambda: any(
+        (c.get("id") or c.get("client_id")) == CONFIG.client_id
+        for c in data.get("clients", [])
+    ),
+)
 c_id = "e2e-client-test-001"
 status, _ = api("POST", "/api/v1/admin/clients", {"id": c_id, "name": "E2E Test", "active": True}, token=TOKEN)
 test("创建客户端", lambda: status in (200, 201, 409))
@@ -76,7 +83,7 @@ status, _ = api("DELETE", f"/api/v1/admin/clients/{c_id}", token=TOKEN)
 test("删除客户端", lambda: status in (200, 204, 404))
 status, data = api("GET", "/api/v1/admin/users", token=TOKEN)
 test("列出用户", lambda: len(data.get("users", [])) >= 1)
-test("含 admin 用户", lambda: any(u["id"] == "admin" for u in data.get("users", [])))
+test("含测试用户", lambda: any(u["id"] == CONFIG.user_id for u in data.get("users", [])))
 status, data = api("GET", "/api/v1/admin/tenants", token=TOKEN)
 test("列出租户", lambda: isinstance(data.get("tenants", []), list))
 
@@ -118,20 +125,21 @@ for path in ["/api/v1/admin/tokens/portfolio","/api/v1/admin/tokens/sessions",
     "/api/v1/admin/tokens/expiring","/api/v1/admin/tokens/suspicious","/api/v1/admin/tokens/usage"]:
     s, _ = api("GET", path, token=TOKEN)
     test(f"GET {path.split('/')[-1]}", lambda s=s: s < 500)
-s, _ = api("POST", "/api/v1/admin/tokens/temp", {"subject":"admin","scopes":["openid"]}, token=TOKEN)
+s, _ = api("POST", "/api/v1/admin/tokens/temp", {"subject":CONFIG.user_id,"scopes":["openid"]}, token=TOKEN)
 test("Create temp token", lambda: s in (200,201,403,501))
 
 print("\n✦ 06 - 用户支持")
 print("="*50)
-for path in ["/api/v1/admin/users/admin/sessions","/api/v1/admin/users/admin/consents",
-    "/api/v1/admin/users/admin/mfa","/api/v1/admin/users/admin/lifecycle",
-    "/api/v1/admin/users/admin/password-reset-tokens","/api/v1/admin/users/admin/email-change-tokens"]:
+user_path = f"/api/v1/admin/users/{quote(CONFIG.user_id, safe='')}"
+for path in [f"{user_path}/sessions",f"{user_path}/consents",
+    f"{user_path}/mfa",f"{user_path}/lifecycle",
+    f"{user_path}/password-reset-tokens",f"{user_path}/email-change-tokens"]:
     s, _ = api("GET", path, token=TOKEN)
     test(f"GET {path.split('/')[-1]}", lambda s=s: s < 500)
-for path, name in [("/api/v1/admin/users/admin/device-secrets","撤销设备密钥"),
-    ("/api/v1/admin/users/admin/refresh-tokens","撤销刷新令牌"),
-    ("/api/v1/admin/users/admin/password-reset-tokens","撤销密码重置链接"),
-    ("/api/v1/admin/users/admin/email-change-tokens","撤销邮箱变更链接")]:
+for path, name in [(f"{user_path}/device-secrets","撤销设备密钥"),
+    (f"{user_path}/refresh-tokens","撤销刷新令牌"),
+    (f"{user_path}/password-reset-tokens","撤销密码重置链接"),
+    (f"{user_path}/email-change-tokens","撤销邮箱变更链接")]:
     s, d = api("DELETE", path, token=TOKEN)
     test(name, lambda s=s: s in (200,204,403,501) or s < 500)
 
@@ -153,7 +161,7 @@ test("E2E: 健康检查", lambda: d.get("status") == "ok")
 test("E2E: 登录", lambda: "access_token" in login_resp)
 s, _ = api("GET", "/api/v1/admin/endpoints", token=TOKEN)
 test("E2E: 获取端点", lambda: s == 200)
-s, _ = api("POST", "/api/v1/admin/break-glass", {"target_user_id":"admin","reason":"E2E","scope":"readonly"}, token=TOKEN)
+s, _ = api("POST", "/api/v1/admin/break-glass", {"target_user_id":CONFIG.user_id,"reason":"E2E","scope":"readonly"}, token=TOKEN)
 test("E2E: Break Glass", lambda: s in (200,201,403,501))
 s, _ = api("GET", "/api/v1/admin/tokens/portfolio", token=TOKEN)
 test("E2E: Token 组合", lambda: s < 500)

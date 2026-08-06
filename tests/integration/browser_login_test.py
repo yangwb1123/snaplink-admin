@@ -10,6 +10,8 @@ Simulates the full OIDC authorization code flow through the browser:
 Usage: python3 tests/integration/browser_login_test.py
 """
 import sys, time, subprocess, os, urllib.request
+from test_config import CONFIG
+PROXY = CONFIG.proxy_url
 
 PASS = 0; FAIL = 0
 def check(label, ok, detail=''):
@@ -17,22 +19,28 @@ def check(label, ok, detail=''):
     if ok: PASS+=1; print(f"  ✅ {label}")
     else: FAIL+=1; print(f"  ❌ {label}" + (f": {detail}" if detail else ""))
 
-# Ensure proxy is running
-subprocess.run(['fuser', '-k', '4444/tcp'], capture_output=True, timeout=5)
-time.sleep(2)
-# Start proxy from project root
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-proxy = subprocess.Popen(
-    ['python3', 'tools/robust_proxy.py'],
-    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    cwd=project_root
-)
-time.sleep(4)
+proxy = None
+if CONFIG.manages_local_proxy:
+    subprocess.run(
+        ['fuser', '-k', f'{CONFIG.proxy_port}/tcp'],
+        capture_output=True,
+        timeout=5,
+    )
+    time.sleep(2)
+    proxy = subprocess.Popen(
+        ['python3', 'tools/robust_proxy.py'],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        cwd=project_root,
+        env=CONFIG.proxy_environment(),
+    )
+    time.sleep(4)
 
 # Verify proxy is up
 import urllib.request
 try:
-    urllib.request.urlopen('http://localhost:4444/', timeout=5)
+    urllib.request.urlopen(f'{PROXY}/', timeout=5)
     print("  ✅ Proxy is running")
 except Exception as e:
     print(f"  ⚠️ Proxy check: {e}")
@@ -43,7 +51,8 @@ try:
     from playwright.sync_api import sync_playwright, TimeoutError as PwTimeout
 except ImportError:
     print("❌ Playwright not installed. Run: pip install playwright && python3 -m playwright install chromium")
-    proxy.terminate()
+    if proxy is not None:
+        proxy.terminate()
     sys.exit(1)
 
 print("=" * 70)
@@ -62,7 +71,7 @@ try:
         # ─────────────────────────────────────
         print("【1. Login Page Load】")
         try:
-            page.goto('http://localhost:4444/login', timeout=15000)
+            page.goto(f'{PROXY}/login', timeout=15000)
             time.sleep(5)  # Wait for Flutter to render
             check("Login page loads", True)
         except PwTimeout:
@@ -90,7 +99,7 @@ try:
         
         # The login page is at /login. If we go to /admin directly,
         # the app should redirect us to /login if not authenticated.
-        page.goto('http://localhost:4444/admin', timeout=15000)
+        page.goto(f'{PROXY}/admin', timeout=15000)
         time.sleep(5)
         
         current_url = page.url
@@ -106,7 +115,7 @@ try:
         sections = ['clients', 'users', 'tenants', 'token-security', 'governance']
         for section in sections:
             try:
-                page.goto(f'http://localhost:4444/admin/{section}', timeout=10000)
+                page.goto(f'{PROXY}/admin/{section}', timeout=10000)
                 time.sleep(3)
                 # The page should load (Flutter will handle auth state)
                 check(f"/admin/{section} loads", True)
@@ -138,7 +147,7 @@ try:
         
         for url in nav_path:
             try:
-                page.goto(f'http://localhost:4444{url}', timeout=10000)
+                page.goto(f'{PROXY}{url}', timeout=10000)
                 time.sleep(2)
             except PwTimeout:
                 pass  # Some pages might not load quickly, that's OK
@@ -152,7 +161,7 @@ try:
         
         # Navigate to non-existent page
         try:
-            page.goto('http://localhost:4444/admin/this-should-not-exist', timeout=10000)
+            page.goto(f'{PROXY}/admin/this-should-not-exist', timeout=10000)
             time.sleep(3)
             check("Non-existent page loads (SPA fallback)", True)
         except PwTimeout:
@@ -160,7 +169,7 @@ try:
         
         # Navigate back to a valid page
         try:
-            page.goto('http://localhost:4444/admin/clients', timeout=10000)
+            page.goto(f'{PROXY}/admin/clients', timeout=10000)
             time.sleep(3)
             check("Recovery navigation", True)
         except PwTimeout:
@@ -178,7 +187,8 @@ except Exception as e:
     traceback.print_exc()
 
 finally:
-    proxy.terminate()
-    proxy.wait(timeout=3)
+    if proxy is not None:
+        proxy.terminate()
+        proxy.wait(timeout=3)
 
 sys.exit(0 if FAIL == 0 else 1)

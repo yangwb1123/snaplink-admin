@@ -4,6 +4,7 @@ sso-console E2E 测试运行器
 启动稳健代理 + 后端，执行全量测试套件
 """
 import subprocess, sys, os, time, json, signal, atexit
+from test_config import CONFIG
 
 PASS = 0
 FAIL = 0
@@ -59,21 +60,27 @@ def curl_body(url, method='GET', data=None, headers=None, timeout=10):
         return ''
 
 class TestRunner:
-    def __init__(self, proxy_url='http://localhost:4444', api_url='http://localhost:8080'):
+    def __init__(self, proxy_url=CONFIG.proxy_url, api_url=CONFIG.api_url):
         self.proxy = proxy_url
         self.api = api_url
         self.proxy_proc = None
     
     def start_proxy(self):
         """Start the robust proxy, killing any existing instance."""
+        if not CONFIG.manages_local_proxy:
+            return curl(f'{self.proxy}/') == '200'
         self.stop_proxy()
-        # Kill existing process on port 4444
-        subprocess.run(['fuser', '-k', '4444/tcp'], capture_output=True, timeout=5)
+        subprocess.run(
+            ['fuser', '-k', f'{CONFIG.proxy_port}/tcp'],
+            capture_output=True,
+            timeout=5,
+        )
         time.sleep(2)
         self.proxy_proc = subprocess.Popen(
-            ['python3', '/tmp/robust_proxy.py'],
+            ['python3', 'tools/robust_proxy.py'],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            env=CONFIG.proxy_environment(),
         )
         time.sleep(2)
         # Verify proxy is up
@@ -130,7 +137,11 @@ class TestRunner:
     
     def test_proxy_health(self):
         print("【1. 代理健康检查】")
-        is_running = self.proxy_proc is not None and self.proxy_proc.poll() is None and curl(f'{self.proxy}/') == '200'
+        process_ready = (
+            not CONFIG.manages_local_proxy
+            or (self.proxy_proc is not None and self.proxy_proc.poll() is None)
+        )
+        is_running = process_ready and curl(f'{self.proxy}/') == '200'
         check("代理运行中", is_running)
         check("首页返回 200", curl(f'{self.proxy}/') == '200')
         check("管理后台 200", curl(f'{self.proxy}/admin') == '200')

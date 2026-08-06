@@ -7,6 +7,7 @@ Usage: python3 tests/integration/perf_benchmark.py [--threshold-ms 500]
 """
 import subprocess, sys, time, argparse
 from pathlib import Path
+from test_config import CONFIG
 
 URLS = [
     '/', '/admin',
@@ -37,7 +38,7 @@ URLS = [
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--threshold-ms', type=int, default=500, help='Response time threshold in ms')
-    parser.add_argument('--proxy', default='http://localhost:4444')
+    parser.add_argument('--proxy', default=CONFIG.proxy_url)
     parser.add_argument('--csv', help='Output CSV file path')
     args = parser.parse_args()
     

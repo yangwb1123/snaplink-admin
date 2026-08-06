@@ -7,6 +7,7 @@ by measuring response times and detecting cached vs. fresh responses.
 Usage: python3 tests/integration/cache_validation_test.py
 """
 import sys, time, json, urllib.request, urllib.error
+from test_config import CONFIG, IntegrationConfigurationError
 
 PASS = 0; FAIL = 0
 def check(label, ok, detail=''):
@@ -14,7 +15,14 @@ def check(label, ok, detail=''):
     if ok: PASS+=1; print(f"  ✅ {label}")
     else: FAIL+=1; print(f"  ❌ {label}" + (f": {detail}" if detail else ""))
 
-API = 'http://localhost:8080'
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Skip cleanly when credentials are not configured.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+API = CONFIG.api_url
 TOKEN = None
 
 def api_call(method, path, data=None):
@@ -36,9 +44,7 @@ def api_call(method, path, data=None):
 
 # Login first
 status, resp, _ = api_call('POST', '/auth/login', {
-    'provider': 'password', 'client_id': 'sso-admin-console',
-    'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
-    'credential': {'username': 'admin', 'password': 'admin'}
+    **CONFIG.login_payload()
 })
 TOKEN = resp.get('access_token', '')
 

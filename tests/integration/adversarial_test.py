@@ -7,16 +7,29 @@ and cross-module navigation scenarios.
 Usage: python3 tests/integration/adversarial_test.py [--proxy-url http://localhost:4444] [--api-url http://localhost:8080]
 """
 import sys, os, json, time, http.client, urllib.request, urllib.error, argparse
+from urllib.parse import urlsplit
+from test_config import CONFIG, IntegrationConfigurationError
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--proxy-url', default='http://localhost:4444')
-parser.add_argument('--api-url', default='http://localhost:8080')
+parser.add_argument('--proxy-url', default=CONFIG.proxy_url)
+parser.add_argument('--api-url', default=CONFIG.api_url)
 args = parser.parse_args()
 
-PROXY_HOST = 'localhost'
-PROXY_PORT = 4444
-API_HOST = 'localhost'
-API_PORT = 8080
+try:
+    CONFIG.require_credentials()
+except IntegrationConfigurationError as error:
+    # Live authenticated tests need a dedicated Snaplink test deployment.
+    # Skip cleanly when credentials are not configured.
+    print(f"SKIP: {error}")
+    sys.exit(0)
+_proxy = urlsplit(args.proxy_url)
+_api = urlsplit(args.api_url)
+PROXY_HOST = _proxy.hostname
+PROXY_PORT = _proxy.port or (443 if _proxy.scheme == 'https' else 80)
+API_HOST = _api.hostname
+API_PORT = _api.port or (443 if _api.scheme == 'https' else 80)
+PROXY_TLS = _proxy.scheme == 'https'
+API_TLS = _api.scheme == 'https'
 
 PASS = 0
 FAIL = 0
@@ -33,9 +46,16 @@ def check(label, condition, detail=''):
         print(msg)
         ERRORS.append(msg)
 
-def http_get(host, port, path, expect_status=200, timeout=5):
+def http_get(host, port, path, expect_status=200, timeout=5, tls=None):
     try:
-        conn = http.client.HTTPConnection(host, port, timeout=timeout)
+        if tls is None:
+            tls = (
+                PROXY_TLS
+                if (host, port) == (PROXY_HOST, PROXY_PORT)
+                else API_TLS
+            )
+        connection = http.client.HTTPSConnection if tls else http.client.HTTPConnection
+        conn = connection(host, port, timeout=timeout)
         conn.request('GET', path)
         resp = conn.getresponse()
         status = resp.status
@@ -45,9 +65,16 @@ def http_get(host, port, path, expect_status=200, timeout=5):
     except Exception as e:
         return 0, str(e)
 
-def http_post(host, port, path, data=None, timeout=5):
+def http_post(host, port, path, data=None, timeout=5, tls=None):
     try:
-        conn = http.client.HTTPConnection(host, port, timeout=timeout)
+        if tls is None:
+            tls = (
+                PROXY_TLS
+                if (host, port) == (PROXY_HOST, PROXY_PORT)
+                else API_TLS
+            )
+        connection = http.client.HTTPSConnection if tls else http.client.HTTPConnection
+        conn = connection(host, port, timeout=timeout)
         body = json.dumps(data).encode() if data else b''
         headers = {'Content-Type': 'application/json'} if data else {}
         conn.request('POST', path, body=body, headers=headers)
@@ -170,7 +197,13 @@ check("带查询参数的 URL", s == 200, f"got {s}")
 # ──────────────────────────────────────────────
 print("\n【5. API 代理功能】")
 
-s, b = http_post(PROXY_HOST, PROXY_PORT, '/auth/login', {'username': 'admin', 'password': 'admin'})
+s, b = http_post(
+    PROXY_HOST,
+    PROXY_PORT,
+    '/auth/login',
+    CONFIG.login_payload(),
+    tls=PROXY_TLS,
+)
 token = None
 if s == 200:
     try: token = json.loads(b).get('access_token')
@@ -178,7 +211,10 @@ if s == 200:
 check("通过代理登录成功 (POST /auth/login)", s == 200 and token is not None, f"status={s}")
 
 if token:
-    conn = http.client.HTTPConnection(PROXY_HOST, PROXY_PORT, timeout=5)
+    connection = (
+        http.client.HTTPSConnection if PROXY_TLS else http.client.HTTPConnection
+    )
+    conn = connection(PROXY_HOST, PROXY_PORT, timeout=5)
     conn.request('GET', '/api/v1/admin/clients', headers={'Authorization': f'Bearer {token}'})
     resp = conn.getresponse()
     s2 = resp.status
@@ -193,13 +229,21 @@ else:
 # ──────────────────────────────────────────────
 print("\n【6. 后端直接测试】")
 
-s, b = http_get(API_HOST, API_PORT, '/health')
+s, b = http_get(API_HOST, API_PORT, '/health', tls=API_TLS)
 check("后端健康检查", s == 200, f"got {s}")
 
-s, b = http_post(API_HOST, API_PORT, '/auth/login', {'username': 'admin', 'password': 'admin'})
+s, b = http_post(
+    API_HOST, API_PORT, '/auth/login', CONFIG.login_payload(), tls=API_TLS
+)
 check("后端直接登录", s == 200, f"got {s}")
 
-s, b = http_post(API_HOST, API_PORT, '/auth/login', {'username': 'admin', 'password': 'wrong'})
+s, b = http_post(
+    API_HOST,
+    API_PORT,
+    '/auth/login',
+    CONFIG.login_payload(password='definitely-wrong'),
+    tls=API_TLS,
+)
 check("错误密码返回 401", s in (401, 403), f"got {s}")
 
 # ──────────────────────────────────────────────
