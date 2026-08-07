@@ -685,8 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       appBar: AppBar(
         // 左上角：品牌 logo 图片（渐变盾牌）；点击开抽屉（窄视口）。
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+        leading: Center(
           child: BrandLogo(
             onTap: () {
               final scaffold = Scaffold.of(context);

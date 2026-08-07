@@ -112,8 +112,7 @@ extension _PortalScreenShell on _PortalScreenState {
       ),
       appBar: AppBar(
         // 左上角：品牌 logo（点击开抽屉）。
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+        leading: Center(
           child: BrandLogo(
             onTap: () {
               final scaffold = Scaffold.of(context);
