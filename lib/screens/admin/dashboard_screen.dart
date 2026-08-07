@@ -697,8 +697,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // 子菜单与设置/登出同一行，靠左（AppBar title 区）。
         titleSpacing: 8,
         title: groupModules.length > 1
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
+            ? ConstrainedBox(
+                // 首次布局即给 bounded 宽度（NavigationToolbar 首帧以无界
+                // 测量 title，SCSV 会取内容全宽导致子菜单文字超出屏幕；
+                // 二次布局才修正——这里提前固定上限消除闪动）。
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width - 190,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: SectionSelector(
@@ -711,7 +716,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
-              )
+            )
             : null,
         actions: [
           IconButton(

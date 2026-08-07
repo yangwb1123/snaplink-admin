@@ -124,11 +124,17 @@ extension _PortalScreenShell on _PortalScreenState {
         titleSpacing: 8,
         // 子菜单与通知/登出同一行（AppBar 行），靠左占满 title 区。
         title: groupTabs.length > 1
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SectionSelector(
+            ? ConstrainedBox(
+                // 首次布局即给 bounded 宽度（NavigationToolbar 首帧无界
+                // 测量导致 SCSV 全宽——子菜单文字超出屏幕，二次才修正）。
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width - 180,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: SectionSelector(
                     sections: [
                       for (final tab in groupTabs)
                         SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
@@ -140,9 +146,10 @@ extension _PortalScreenShell on _PortalScreenState {
                         _update(() => _navIndex = target);
                       }
                     },
+                    ),
                   ),
                 ),
-              )
+            )
             : Padding(
                 padding: const EdgeInsets.only(left: 4),
                 child: Text(strings.accountTitle),
