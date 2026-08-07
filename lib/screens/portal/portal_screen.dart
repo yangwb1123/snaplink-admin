@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/brand_logo.dart';
 import 'package:sso_admin/widgets/page_transition.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';

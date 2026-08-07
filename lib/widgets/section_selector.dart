@@ -17,9 +17,12 @@ class SectionSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     height: 40,
-    child: ListView(
+    // SingleChildScrollView（非懒构建）：所有 chips 始终在树中，
+    // 视口外可横向滚动到达（AppBar title 等窄容器中不被懒构建裁剪）。
+    child: SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      children: [
+      child: Row(
+        children: [
         for (final s in sections)
           Padding(
             padding: const EdgeInsets.only(right: 8),
@@ -45,7 +48,8 @@ class SectionSelector extends StatelessWidget {
               onSelected: (_) => onSelected(s.id),
             ),
           ),
-      ],
+        ],
+      ),
     ),
   );
 }

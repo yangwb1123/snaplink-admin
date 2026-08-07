@@ -111,12 +111,23 @@ extension _PortalScreenShell on _PortalScreenState {
         ],
       ),
       appBar: AppBar(
-        // 子菜单最上面一行（AppBar bottom，Material TabBar 模式）。
-        bottom: groupTabs.length > 1
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(48),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        // 左上角：品牌 logo（点击开抽屉）。
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: BrandLogo(
+            onTap: () {
+              final scaffold = Scaffold.of(context);
+              if (scaffold.hasDrawer) scaffold.openDrawer();
+            },
+          ),
+        ),
+        titleSpacing: 8,
+        // 子菜单与通知/登出同一行（AppBar 行），靠左占满 title 区。
+        title: groupTabs.length > 1
+            ? Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: SectionSelector(
                     sections: [
                       for (final tab in groupTabs)
@@ -132,21 +143,10 @@ extension _PortalScreenShell on _PortalScreenState {
                   ),
                 ),
               )
-            : null,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(strings.accountTitle),
-            if (mySub.isNotEmpty)
-              Text(
-                mySub,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall,
+            : Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(strings.accountTitle),
               ),
-          ],
-        ),
         actions: [
           NotificationBell(
             unreadCount: _notificationUnread,

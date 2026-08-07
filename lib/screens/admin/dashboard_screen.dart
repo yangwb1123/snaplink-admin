@@ -5,6 +5,7 @@ import 'admin_route.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
+import 'package:sso_admin/widgets/brand_logo.dart';
 import 'package:sso_admin/widgets/page_transition.dart';
 import 'admin_module_groups.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
@@ -683,22 +684,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: page,
       ),
       appBar: AppBar(
-        // 左上角：纯品牌 icon 代替文字（语义标签保证可访问性）。
-        title: Tooltip(
-          message: strings.ssoAdmin,
-          child: Icon(
-            Icons.admin_panel_settings,
-            size: 28,
-            color: Theme.of(context).colorScheme.primary,
-            semanticLabel: strings.ssoAdmin,
+        // 左上角：品牌 logo 图片（渐变盾牌）；点击开抽屉（窄视口）。
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 8),
+          child: BrandLogo(
+            onTap: () {
+              final scaffold = Scaffold.of(context);
+              if (scaffold.hasDrawer) scaffold.openDrawer();
+            },
           ),
         ),
-        // 子菜单放最上面一行（AppBar bottom，随页面固定）——Material TabBar 模式。
-        bottom: groupModules.length > 1
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(48),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        // 子菜单与设置/登出同一行，靠左（AppBar title 区）。
+        titleSpacing: 8,
+        title: groupModules.length > 1
+            ? Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
                   child: SectionSelector(
                     sections: sectionDefs,
                     current: _selectedModule,
