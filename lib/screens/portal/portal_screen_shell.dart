@@ -112,6 +112,9 @@ extension _PortalScreenShell on _PortalScreenState {
       ),
       appBar: AppBar(
         // 左上角：品牌 logo（点击开抽屉）。
+        // leadingWidth = NavigationRail 宽度（80）：logo 中心与侧边栏
+        // 图标中心同一条垂直对齐线；左缘与 rail 左缘同线。
+        leadingWidth: 80,
         leading: Center(
           child: BrandLogo(
             onTap: () {
