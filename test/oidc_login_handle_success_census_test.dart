@@ -120,8 +120,8 @@ void main() {
     };
 
     test(
-      'literal census derives from constant existence + standing 30-test '
-      'count gate (design §4.2/§4.4/§5/§6.4; REQ-4 item 6)',
+      'literal census derives from constant existence + standing 43-test '
+      'count gate (design §4.2/§4.4/§5/§6.4; REQ-2/REQ-4 item 6)',
       () {
         final constantExists =
             File(ssoClientPath).readAsStringSync().contains(constantDecl);
@@ -135,6 +135,51 @@ void main() {
             }
           }
         }
+        // ---- lib/ single-source clause (REQ-2, design §2.2a) ----
+        // Recursive lib/ scan with the same split-literal convention: in
+        // constant mode exactly the declaration site may carry the value;
+        // in absent mode the two historical production sites are pinned.
+        // The matcher is deliberately broader than the test/ side: the
+        // contiguous quoted literal OR the bare value prefix — the bare
+        // form covers split halves, adjacent concatenation, and
+        // interpolation, all zero-hit in lib/ today besides the
+        // declaration site, so it has no false positives. The 'console'
+        // half-token is deliberately NOT scanned: it is a legitimate
+        // token in lib/ debug strings (probed: reddens on legit code).
+        // lib/-only: even the bare prefix appears in test/ only inside
+        // this file's own source (self-hit — see §8).
+        bool libCarriesValue(String line) =>
+            line.contains(literal) || line.contains('sso-admin-');
+        final libOffenders = <String, List<int>>{};
+        for (final entity in Directory('lib').listSync(recursive: true)) {
+          if (entity is! File || !entity.path.endsWith('.dart')) continue;
+          final lines = File(entity.path).readAsStringSync().split('\n');
+          for (var i = 0; i < lines.length; i++) {
+            if (libCarriesValue(lines[i])) {
+              libOffenders.putIfAbsent(entity.path, () => []).add(i + 1);
+            }
+          }
+        }
+        // Self-presence pin: the walk and its collector must physically
+        // live in THIS file (deleting the walk reddens; relocating it to a
+        // helper or hiding it in a comment does too — anchored statement
+        // forms, not bare contains).
+        final censusLines = File(
+                'test/oidc_login_handle_success_census_test.dart')
+            .readAsStringSync()
+            .split('\n');
+        expect(
+            censusLines.indexWhere((l) =>
+                RegExp(r"^\s*for \(final entity in Directory\('lib'\)")
+                    .hasMatch(l)),
+            isNot(-1),
+            reason: 'lib clause walk must be a statement of this file');
+        expect(
+            censusLines.indexWhere((l) => RegExp(
+                    r'^\s*final libOffenders = <String, List<int>>\{\};')
+                .hasMatch(l)),
+            isNot(-1),
+            reason: 'libOffenders collector must be declared in this file');
         if (constantExists) {
           // Single-source rule active: once SSOAdminClient.firstPartyClientId
           // exists, no test may carry the value as a fresh literal — every
@@ -145,19 +190,47 @@ void main() {
               reason: 'firstPartyClientId exists in $ssoClientPath — the '
                   'sso-admin-console literal must not appear in test/; '
                   'every reference goes through the constant');
+          // Constant mode lib/ clause: exactly the declaration site, and
+          // that site's line carries the declaration itself (site +
+          // declaration-line-content invariant, not an absolute line pin).
+          expect(libOffenders.length, 1,
+              reason: 'exactly one lib/ site may carry the literal in '
+                  'constant mode — found $libOffenders');
+          expect(libOffenders.keys.single, ssoClientPath,
+              reason: 'the single lib/ site must be the declaration file '
+                  '$ssoClientPath — found $libOffenders');
+          final declLine = libOffenders[ssoClientPath]!.single;
+          expect(
+            File(ssoClientPath)
+                .readAsStringSync()
+                .split('\n')[declLine - 1]
+                .contains(constantDecl),
+            isTrue,
+            reason: 'the single lib/ hit must be the declaration line '
+                '($ssoClientPath:$declLine) — found $libOffenders',
+          );
         } else {
           // Pre-sibling: the literal census equals exactly the pinned sites.
           expect(actual, pinnedSites,
               reason: 'constant absent — literal census is pinned; the '
                   'sibling M2 commit constantizes these sites in the same '
                   'commit (anchor design §4.2)');
+          // Absent mode lib/ clause: the two pre-constantization
+          // production sites (anchor spec §1.4 census coordinates),
+          // preserved for two-state traceability. Compile-broken at HEAD.
+          expect(libOffenders, {
+            'lib/api/sso_client.dart': [86],
+            'lib/app_router.dart': [35],
+          },
+              reason: 'constant absent — lib/ literal census is pinned');
         }
 
-        // ---- 30-test self-count regression gate (design §4.4) ----
-        // The acceptance command's 30 tests are 10 (this file: 6 census +
-        // literal-census + 4 topology) + 3 (client_id) + 17 (sso). A guard
-        // test deleted by a later refactor silently regresses the command
-        // to 26 (the runner still exits 0); this pin makes it red inside
+        // ---- 43-test self-count regression gate (design §4.4) ----
+        // The acceptance command's 43 tests are 10 (this file: 6 census +
+        // literal-census + 4 topology) + 3 (client_id) + 17 (sso) + 3
+        // (sso_client_login_exactly_once) + 10 (entry_ux). A guard test
+        // deleted by a later refactor silently regresses the command (the
+        // runner still exits 0); this pin makes it red inside
         // the command itself. It lives in THIS test (not the topology
         // group) so a regression that deletes the whole topology group
         // still fails on the count.
@@ -173,6 +246,10 @@ void main() {
         final ssoCount = declRe
             .allMatches(File('test/sso_client_test.dart').readAsStringSync())
             .length;
+        final ssoLoginCount = declRe
+            .allMatches(File('test/sso_client_login_exactly_once_test.dart')
+                .readAsStringSync())
+            .length;
         expect(censusCount, 10,
             reason: 'census file must hold 10 tests (6 census/literal-census '
                 '+ 4 topology) — found $censusCount');
@@ -181,8 +258,40 @@ void main() {
                 '$clientIdCount');
         expect(ssoCount, 17,
             reason: 'sso_client_test must hold 17 tests — found $ssoCount');
-        expect(censusCount + clientIdCount + ssoCount, 30,
-            reason: 'standing 30-test acceptance count');
+        expect(ssoLoginCount, 3,
+            reason: 'exactly-once harness file must hold 3 tests — found '
+                '$ssoLoginCount');
+        final entryUxCount = declRe
+            .allMatches(File('test/entry_ux_test.dart').readAsStringSync())
+            .length;
+        expect(entryUxCount, 10,
+            reason: 'entry_ux_test must hold 10 tests (redirect-leg group '
+                'included) — found $entryUxCount');
+        expect(
+            censusCount + clientIdCount + ssoCount + ssoLoginCount +
+                entryUxCount,
+            43,
+            reason: 'joint 43-test acceptance count (10+3+17+3+10)');
+
+        // ---- silencing ban (mutation-audit §2 A/B) ----
+        // The gate's counts are text-based, so an exclusion token on any
+        // non-guard joint-gate file would silently shrink the 43-run
+        // (@TestOn('browser') → "No tests ran", exit 0; skip: → skipped
+        // without red). Tokens are written split so the ban cannot
+        // self-hit its own guard file; @TestOn('vm') is allowed (matches
+        // the default VM runner — the census file's own line-1 annotation
+        // is the precedent).
+        final silenceRe = RegExp(
+            "skip\\s*:|skipTag|@Skip|@Tags|tags\\s*:|@TestOn\\s*\\((?!\\s*['\"]vm['\"])");
+        for (final f in [
+          'test/sso_client_login_exactly_once_test.dart',
+          'test/oidc_login_screen_client_id_test.dart',
+          'test/sso_client_test.dart',
+          'test/entry_ux_test.dart',
+        ]) {
+          expect(silenceRe.hasMatch(File(f).readAsStringSync()), isFalse,
+              reason: 'silencing tokens banned in $f (joint-gate file)');
+        }
       },
     );
   });
