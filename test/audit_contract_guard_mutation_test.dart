@@ -30,9 +30,9 @@ String _libSource(String relativePath) => File(
   '${packageLibDir()}/${relativePath.replaceAll('/', Platform.pathSeparator)}',
 ).readAsStringSync();
 
-/// Runs scans 1/2/4/5/6 + the ownership pin over a mutated tree assembled
-/// from [overrides] (relative path → mutated source) layered over the live
-/// `lib/` tree.
+/// Runs scans 1/2/4/5/6/6b/7 + the ownership pin over a mutated tree
+/// assembled from [overrides] (relative path → mutated source) layered
+/// over the live `lib/` tree.
 List<AuditGuardViolation> _scanWith(
   Map<String, String> overrides, {
   Set<String> scans = const {
@@ -40,6 +40,8 @@ List<AuditGuardViolation> _scanWith(
     'bff-literals',
     'raw-stringification',
     'portal-audit-boundary',
+    'developer-audit-boundary',
+    'ring-storage-seam',
   },
 }) {
   final violations = <AuditGuardViolation>[];
@@ -65,6 +67,12 @@ List<AuditGuardViolation> _scanWith(
     if (scans.contains('portal-audit-boundary')) {
       violations.addAll(scanPortalAuditBoundary(source, relative));
     }
+    if (scans.contains('developer-audit-boundary')) {
+      violations.addAll(scanDeveloperAuditBoundary(source, relative));
+    }
+    if (scans.contains('ring-storage-seam')) {
+      violations.addAll(scanRingStorageSeam(source, relative));
+    }
   }
   if (scans.contains('trio-literal-owner')) {
     violations.addAll(scanTrioLiteralOwnership(sources));
@@ -74,11 +82,17 @@ List<AuditGuardViolation> _scanWith(
 
 void main() {
   group('guard baseline — green against the current tree', () {
-    test('all scans pass on the live lib/ tree (incl. scan 5 + ownership pin)', () {
-      final violations = scanLibDirectory(packageLibDir());
-      expect(violations, isEmpty, reason: violations.join('\n'));
-      expect(scanCatalogTrio(SnaplinkAdminOperationCatalog.endpoints), isEmpty);
-    });
+    test(
+      'all scans pass on the live lib/ tree (incl. scan 5 + ownership pin)',
+      () {
+        final violations = scanLibDirectory(packageLibDir());
+        expect(violations, isEmpty, reason: violations.join('\n'));
+        expect(
+          scanCatalogTrio(SnaplinkAdminOperationCatalog.endpoints),
+          isEmpty,
+        );
+      },
+    );
   });
 
   group('planted regressions trip the corrected scans', () {
@@ -163,23 +177,20 @@ void main() {
       );
     });
 
-    test(
-      '{id} member — path segment added after the trio member',
-      () {
-        final source = _libSource('api/audit_read_client.dart');
-        final mutated = source.replaceFirst(
-          "static const eventDetailPath = '/api/v1/audit/events/{id}';",
-          "static const eventDetailPath = "
-              "'/api/v1/audit/events/{id}/details';",
-        );
-        final violations = _scanWith({'api/audit_read_client.dart': mutated});
-        expect(
-          violations.where((v) => v.scan == 'audit-path-literals'),
-          isNotEmpty,
-          reason: violations.join('\n'),
-        );
-      },
-    );
+    test('{id} member — path segment added after the trio member', () {
+      final source = _libSource('api/audit_read_client.dart');
+      final mutated = source.replaceFirst(
+        "static const eventDetailPath = '/api/v1/audit/events/{id}';",
+        "static const eventDetailPath = "
+            "'/api/v1/audit/events/{id}/details';",
+      );
+      final violations = _scanWith({'api/audit_read_client.dart': mutated});
+      expect(
+        violations.where((v) => v.scan == 'audit-path-literals'),
+        isNotEmpty,
+        reason: violations.join('\n'),
+      );
+    });
 
     test('catalog-trio drift — fourth audit path in the routes listing', () {
       final source = _libSource('api/snaplink_admin_types.dart');
@@ -305,9 +316,10 @@ class AuditLogTab {
         "static const _auditPath = '/api/v1/audit/events';",
       );
       expect(mutated, isNot(source));
-      final violations = _scanWith({
-        'screens/admin/governance_tab.dart': mutated,
-      }, scans: const {'trio-literal-owner'});
+      final violations = _scanWith(
+        {'screens/admin/governance_tab.dart': mutated},
+        scans: const {'trio-literal-owner'},
+      );
       expect(
         violations.where((v) => v.scan == 'trio-literal-owner'),
         isNotEmpty,
@@ -323,9 +335,10 @@ class AuditLogTab {
         'static const eventsPath = "placeholder";',
       );
       expect(mutated, isNot(source));
-      final violations = _scanWith({
-        'api/audit_read_client.dart': mutated,
-      }, scans: const {'trio-literal-owner'});
+      final violations = _scanWith(
+        {'api/audit_read_client.dart': mutated},
+        scans: const {'trio-literal-owner'},
+      );
       expect(
         violations.where((v) => v.scan == 'trio-literal-owner'),
         isNotEmpty,
@@ -358,22 +371,27 @@ class AuditLogTab {
         );
       });
 
-      test('skin B — securityActivity argument replaced by an audit literal', () {
-        final source = _libSource('screens/portal/security_activity_tab.dart');
-        final mutated = source.replaceFirst(
-          'PortalSecurityPaths.securityActivity',
-          "'/api/v1/audit/events'",
-        );
-        expect(mutated, isNot(source));
-        final violations = _scanWith({
-          'screens/portal/security_activity_tab.dart': mutated,
-        });
-        expect(
-          violations.where((v) => v.scan == 'portal-audit-boundary'),
-          isNotEmpty,
-          reason: violations.join('\n'),
-        );
-      });
+      test(
+        'skin B — securityActivity argument replaced by an audit literal',
+        () {
+          final source = _libSource(
+            'screens/portal/security_activity_tab.dart',
+          );
+          final mutated = source.replaceFirst(
+            'PortalSecurityPaths.securityActivity',
+            "'/api/v1/audit/events'",
+          );
+          expect(mutated, isNot(source));
+          final violations = _scanWith({
+            'screens/portal/security_activity_tab.dart': mutated,
+          });
+          expect(
+            violations.where((v) => v.scan == 'portal-audit-boundary'),
+            isNotEmpty,
+            reason: violations.join('\n'),
+          );
+        },
+      );
 
       test('skin C — doc comment containing audit appended', () {
         final source = _libSource('screens/portal/security_activity_tab.dart');
@@ -388,6 +406,200 @@ class AuditLogTab {
           reason: violations.join('\n'),
         );
       });
+    });
+
+    group('B6-1 scan 6 — developer negative boundary fails closed', () {
+      // The three skins against `screens/developer/developer_api.dart`
+      // (in-memory overrides via `_libSource` + `_scanWith`; no file is
+      // touched). Each probe asserts `mutated != source` (so the anchor is
+      // still live) and that the `developer-audit-boundary` scan trips
+      // through the `_scanWith` dispatch.
+      test('skin A — AuditReadClient import + usage in developer_api', () {
+        final source = _libSource('screens/developer/developer_api.dart');
+        final mutated = source.replaceFirst(
+          "import 'package:http/http.dart' as http;",
+          "import 'package:http/http.dart' as http;\n"
+              "import 'package:sso_admin/api/audit_read_client.dart';\n"
+              'final _probe = AuditReadClient(null).list();',
+        );
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/developer/developer_api.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'developer-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
+
+      test('skin B — DCR register POST repointed at the audit bare prefix', () {
+        final source = _libSource('screens/developer/developer_api.dart');
+        final mutated = source.replaceFirst("'/register'", "'/api/v1/audit'");
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/developer/developer_api.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'developer-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
+
+      test('skin C — doc comment containing audit appended', () {
+        final source = _libSource('screens/developer/developer_api.dart');
+        final mutated = '$source\n/// audit probe comment\n';
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/developer/developer_api.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'developer-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
+    });
+  });
+
+  group('B6-1b scan 7 — ring-storage-seam fails closed (rows a–i)', () {
+    // Anchors are the §1.1-verbatim spellings, trailing guard comments
+    // included (F3): if the implementation drops a trailing comment, the
+    // anchor-rot guard (`expect(mutated, isNot(source))`) fails the row
+    // loudly and both are updated together.
+    String serviceSource() => _libSource('services/audit_log_service.dart');
+    Iterable<AuditGuardViolation> seamViolations(
+      Map<String, String> overrides,
+    ) => _scanWith(
+      overrides,
+      scans: const {'ring-storage-seam'},
+    ).where((v) => v.scan == 'ring-storage-seam');
+
+    test('row (a) — _save guard pair deleted trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        'if (!kDebugMode) return; // first statements, before the try\n'
+            '    if (!_storageEnabled) return;',
+        '',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (b) — assert(kDebugMode) substitution trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        'if (!kDebugMode) return; // first statements, before the try\n'
+            '    if (!_storageEnabled) return;',
+        'assert(kDebugMode);\n    if (!_storageEnabled) return;',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (c) — setItem hoisted into record() trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        '    _save();\n  }',
+        '    LocalStorage.setItem(_storageKey, '
+            'jsonEncode(_entries.map((e) => e.toJson()).toList()));\n  }',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (d) — bool.fromEnvironment second axis trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        'static bool _storageEnabled = kDebugMode;',
+        "static bool _storageEnabled = kDebugMode || "
+            "bool.fromEnvironment('ringStorage');",
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (e) — storage setter guard deleted trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        '  static set debugStorageEnabled(bool value) {\n'
+            '    if (!kDebugMode) return;',
+        '  static set debugStorageEnabled(bool value) {',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (f) — non-foldable initializer trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        'static bool _storageEnabled = kDebugMode;',
+        'static bool _storageEnabled = true;',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test(
+      'row (g) — key literal injected into lib/api trips (non-writer pin)',
+      () {
+        final source = _libSource('api/snaplink_admin_api.dart');
+        final mutated = source.replaceFirst(
+          'AuditLogService().record(',
+          'AuditLogService().record( /* sso_audit_log */ ',
+        );
+        expect(mutated, isNot(source));
+        final violations = seamViolations({
+          'api/snaplink_admin_api.dart': mutated,
+        });
+        expect(violations, isNotEmpty, reason: violations.join('\n'));
+      },
+    );
+
+    test('row (h) — String.fromCharCodes key reconstruction trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        "static const String _storageKey = 'sso_audit_log';",
+        'static const String _storageKey = '
+            'String.fromCharCodes([115,115,111,95,97,117,100,105,116,95,108,111,103]);',
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+    });
+
+    test('row (i) — F16 payload echo reintroduced trips', () {
+      final source = serviceSource();
+      final mutated = source.replaceFirst(
+        r"debugPrint('audit_log storage error: ${e.runtimeType}');",
+        r"debugPrint('audit_log storage error: $e');",
+      );
+      expect(mutated, isNot(source));
+      final violations = seamViolations({
+        'services/audit_log_service.dart': mutated,
+      });
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
     });
   });
 
@@ -447,30 +659,27 @@ class AuditLogTab {
   });
 
   group('documented residual escape routes (accepted, with backstops)', () {
-    test(
-      '{id} encodeComponent drop evades scan 1 via constant indirection; '
-      'detail-read harness backstop',
-      () {
-        // Post-ownership-pin the detail path is assembled from the read
-        // client's constant, so dropping Uri.encodeComponent leaves no
-        // inline audit token for the literal scans to see. Accepted as
-        // active circumvention; backstop: audit_read_client_test pins the
-        // encoded wire (`eventsPath/a%2Fb`) and
-        // admin_live_events_detail_read_test pins `ev%201%2F2`.
-        final source = _libSource('api/audit_read_client.dart');
-        final mutated = source.replaceFirst(
-          r"'$eventsPath/${Uri.encodeComponent(id)}'",
-          r"'$eventsPath/$id'",
-        );
-        expect(mutated, isNot(source));
-        final violations = _scanWith({'api/audit_read_client.dart': mutated});
-        expect(
-          violations.where((v) => v.scan == 'audit-path-literals'),
-          isEmpty,
-          reason: violations.join('\n'),
-        );
-      },
-    );
+    test('{id} encodeComponent drop evades scan 1 via constant indirection; '
+        'detail-read harness backstop', () {
+      // Post-ownership-pin the detail path is assembled from the read
+      // client's constant, so dropping Uri.encodeComponent leaves no
+      // inline audit token for the literal scans to see. Accepted as
+      // active circumvention; backstop: audit_read_client_test pins the
+      // encoded wire (`eventsPath/a%2Fb`) and
+      // admin_live_events_detail_read_test pins `ev%201%2F2`.
+      final source = _libSource('api/audit_read_client.dart');
+      final mutated = source.replaceFirst(
+        r"'$eventsPath/${Uri.encodeComponent(id)}'",
+        r"'$eventsPath/$id'",
+      );
+      expect(mutated, isNot(source));
+      final violations = _scanWith({'api/audit_read_client.dart': mutated});
+      expect(
+        violations.where((v) => v.scan == 'audit-path-literals'),
+        isEmpty,
+        reason: violations.join('\n'),
+      );
+    });
 
     test(
       'bare /api/v1/audit call evades scan 1; harness no-other-path backstop',
@@ -503,9 +712,7 @@ class AuditLogTab {
               r"'/events/{id}';",
         );
         expect(mutated, isNot(source));
-        final violations = _scanWith({
-          'api/audit_read_client.dart': mutated,
-        });
+        final violations = _scanWith({'api/audit_read_client.dart': mutated});
         expect(
           violations.where((v) => v.scan == 'audit-path-literals'),
           isEmpty,
@@ -567,6 +774,75 @@ class AuditLogTab {
       );
       // Residual: the concatenated spelling defeats both the guard and the
       // step-7 grep; accepted as active circumvention.
+    });
+
+    test('B6-1b residual — adjacent-literal key split at the call site '
+        'evades scan 7; artifact gate is the backstop', () {
+      // The genuine evasion: the pinned `_storageKey` const stays intact
+      // (keyHits stays 1, unused decoy — DCE'd), while the real I/O uses
+      // `'sso_' 'audit_log'` (no single literal carries the pin). Scan 7
+      // stays green at source level; the concatenated constant still
+      // lands the full string in the release bundle, so
+      // `make release-artifact-check` (the key literal + its
+      // base64/base64Url masks == 0 in build/web/) is the backstop.
+      // Deliberate reintroduction is a manual-review matter, not a gate
+      // one (seam design §1.4 residual).
+      final source = _libSource('services/audit_log_service.dart');
+      final mutated = source.replaceFirst(
+        'LocalStorage.setItem(_storageKey, jsonStr);',
+        r"LocalStorage.setItem('sso_' 'audit_log', jsonStr);",
+      );
+      expect(mutated, isNot(source));
+      final violations = _scanWith(
+        {'services/audit_log_service.dart': mutated},
+        scans: const {'ring-storage-seam'},
+      );
+      expect(
+        violations.where((v) => v.scan == 'ring-storage-seam'),
+        isEmpty,
+        reason: violations.join('\n'),
+      );
+      // Backstop note: artifact needle `sso_audit_log` + masks == 0 in
+      // build/web/ (Makefile release-artifact-check).
+    });
+
+    test('B6-1b boundary — IO swap between the gated functions trips the '
+        'ordering pin (corrected F1 pins close the seam-design F6 class)', () {
+      // Seam design §1.4 records F6 as a documented boundary: "swapping
+      // the IO calls between the two gated functions is scan-6-green and
+      // release-safe". That note predates the F1 correction — the
+      // per-function ordering pin (4 guards before setItem, 6 before
+      // getItem) trips the genuine swap: `_save` reads (getItem after 4
+      // guards) and `_load` writes (setItem after 6 guards), so both
+      // orderings are violated. The class is therefore scan-7-caught,
+      // stronger than the design records; the flag-on write-path
+      // behavior tests (R4.1-R4.4) remain the semantic backstop.
+      final source = _libSource('services/audit_log_service.dart');
+      final mutated = source
+          .replaceFirst(
+            'final jsonStr = jsonEncode(_entries.map((e) => e.toJson()).toList());\n'
+                '      LocalStorage.setItem(_storageKey, jsonStr);',
+            'final jsonStr = LocalStorage.getItem(_storageKey);',
+          )
+          .replaceFirst(
+            'final jsonStr = LocalStorage.getItem(_storageKey);\n'
+                '      if (jsonStr != null && jsonStr.isNotEmpty) {',
+            'final jsonStr = jsonEncode(_entries.map((e) => e.toJson()).toList());\n'
+                '      LocalStorage.setItem(_storageKey, jsonStr);\n'
+                '      if (jsonStr != null && jsonStr.isNotEmpty) {',
+          );
+      expect(mutated, isNot(source));
+      expect(mutated.contains('LocalStorage.setItem'), isTrue);
+      expect(mutated.contains('LocalStorage.getItem'), isTrue);
+      final violations = _scanWith(
+        {'services/audit_log_service.dart': mutated},
+        scans: const {'ring-storage-seam'},
+      );
+      expect(
+        violations.where((v) => v.scan == 'ring-storage-seam'),
+        isNotEmpty,
+        reason: violations.join('\n'),
+      );
     });
   });
 }

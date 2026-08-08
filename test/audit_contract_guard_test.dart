@@ -1,5 +1,6 @@
-/// Repo-wide audit contract guard (AC-3) — the corrected four scans plus
-/// the B6-1 portal boundary scan (scan 6).
+/// Repo-wide audit contract guard (AC-3) — the corrected four scans,
+/// the B6-1 portal/developer boundary scans (6/6b), and the B6-1b
+/// ring-storage-seam scan (7).
 ///
 /// Revised per `docs/proposals/b6-1c-audit-contract-guard-review.md` §4:
 ///  * scan 1: per-line path-token extraction inside triple-quoted literals
@@ -15,7 +16,12 @@
 ///  * scan 6: portal negative boundary (`portal-audit-boundary`) — zero
 ///    case-insensitive `audit` occurrences in `lib/screens/portal/` (B6-1),
 ///    plus a temp-dir positive pin so the `scanLibDirectory` wiring cannot
-///    regress vacuously (F2).
+///    regress vacuously (F2);
+///  * scan 6b: developer negative boundary (`developer-audit-boundary`)
+///    — parity with scan 6 for `lib/screens/developer/` (B6-1);
+///  * scan 7: ring-storage-seam source guard (`ring-storage-seam`) —
+///    key-scoped pins on `services/audit_log_service.dart` plus the
+///    lib-wide non-service literal branch (B6-1b).
 ///
 /// The trip matrix for the planted regressions lives in
 /// `test/audit_contract_guard_mutation_test.dart`; the behavioral wire
@@ -193,36 +199,33 @@ class AuditLogTab {
       expect(scanSecondConsumer(consumer, 'audit_log_tab.dart'), isNotEmpty);
     });
 
-    test(
-      'AuditQuery wire + read-client reference is scan-green; {id} detail '
-      'readers are not flagged',
-      () {
-        // The sanctioned consumer shape: parameters via
-        // AuditQuery.toQueryParameters() AND the endpoint via the read
-        // client's constants (both halves of the hardened green
-        // condition).
-        expect(
-          scanSecondConsumer(
-            "import 'package:sso_admin/api/audit_read_client.dart';\n"
-                "import 'package:sso_admin/api/audit_query.dart';\n"
-                'final parameters = AuditQuery(limit: 100).toQueryParameters();\n'
-                "await api.get(AuditReadClient.eventsPath, query: parameters);",
-            'audit_log_tab.dart',
-          ),
-          isEmpty,
-        );
-        // Split {id}-detail literal: no `query:` argument, so no flag even
-        // though the fragment normalizes to the collection token.
-        expect(
-          scanSecondConsumer(
-            r"final detail = await api.get('/api/v1/audit/events' "
-                r"+ '/' + Uri.encodeComponent(id));",
-            'admin_live_events_tab.dart',
-          ),
-          isEmpty,
-        );
-      },
-    );
+    test('AuditQuery wire + read-client reference is scan-green; {id} detail '
+        'readers are not flagged', () {
+      // The sanctioned consumer shape: parameters via
+      // AuditQuery.toQueryParameters() AND the endpoint via the read
+      // client's constants (both halves of the hardened green
+      // condition).
+      expect(
+        scanSecondConsumer(
+          "import 'package:sso_admin/api/audit_read_client.dart';\n"
+              "import 'package:sso_admin/api/audit_query.dart';\n"
+              'final parameters = AuditQuery(limit: 100).toQueryParameters();\n'
+              "await api.get(AuditReadClient.eventsPath, query: parameters);",
+          'audit_log_tab.dart',
+        ),
+        isEmpty,
+      );
+      // Split {id}-detail literal: no `query:` argument, so no flag even
+      // though the fragment normalizes to the collection token.
+      expect(
+        scanSecondConsumer(
+          r"final detail = await api.get('/api/v1/audit/events' "
+              r"+ '/' + Uri.encodeComponent(id));",
+          'admin_live_events_tab.dart',
+        ),
+        isEmpty,
+      );
+    });
 
     test('a raw trio literal outside the read client trips the ownership '
         'pin (E3)', () {
@@ -273,18 +276,23 @@ class AuditLogTab {
         '${Platform.pathSeparator}audit_read_client.dart',
       ).readAsStringSync();
       final evasions = <String, String>{
-        'E1': "await api.get(AuditReadClient.eventsPath, "
+        'E1':
+            "await api.get(AuditReadClient.eventsPath, "
             "query: {'limit': '100'});",
-        'E2': "import 'package:sso_admin/api/audit_query.dart' "
+        'E2':
+            "import 'package:sso_admin/api/audit_query.dart' "
             "show AuditQuery;\n"
             "await api.get(AuditReadClient.eventsPath, "
             "query: {'limit': '100'});",
         'E3': "await api.get('/api/v1/audit/events');",
-        'E4': "await api.get('/api/v1/audit' '/events', "
+        'E4':
+            "await api.get('/api/v1/audit' '/events', "
             "query: {'limit': '100'});",
-        'E5': "await api.get(AuditReadClient.facetsPath, "
+        'E5':
+            "await api.get(AuditReadClient.facetsPath, "
             "query: {'limit': '100'});",
-        'E6': "await api.get(AuditReadClient.eventsPath, "
+        'E6':
+            "await api.get(AuditReadClient.eventsPath, "
             "query: {...AuditQuery(limit: 100).toQueryParameters(), "
             "'evil': 'x'});",
       };
@@ -331,9 +339,7 @@ class AuditLogTab {
       // skins pin only the dispatch — scans 1/2/4/5 share this residual
       // with scan 6 and are covered here too.) Temp-dir only; no repo file
       // is touched; the tree is removed via addTearDown.
-      final tempDir = Directory.systemTemp.createTempSync(
-        'b6_1_guard_pin_',
-      );
+      final tempDir = Directory.systemTemp.createTempSync('b6_1_guard_pin_');
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
       });
@@ -349,6 +355,10 @@ class AuditLogTab {
       writeProbe(
         'screens/portal/_probe.dart',
         "final _probe = 'audit'; // synthetic negative-boundary probe\n",
+      );
+      writeProbe(
+        'screens/developer/_probe.dart',
+        "final _probe = 'AUDIT'; // synthetic negative-boundary probe\n",
       );
       writeProbe(
         'screens/portal/_probe_scan1.dart',
@@ -374,6 +384,7 @@ class AuditLogTab {
       );
       const allPerFileScans = [
         'portal-audit-boundary',
+        'developer-audit-boundary',
         'audit-path-literals',
         'bff-literals',
         'raw-stringification',
@@ -385,15 +396,17 @@ class AuditLogTab {
         expect(
           dirty.where((v) => v.scan == scan),
           isNotEmpty,
-          reason: 'dirty probe tree produced no $scan violations — the '
+          reason:
+              'dirty probe tree produced no $scan violations — the '
               'scanLibDirectory wiring for this scan is missing or broken: '
               '${dirty.join('\n')}',
         );
       }
       // Control: neutralize every probe; all ids must stay green, so the
       // pin cannot be satisfied by paths/layout alone (over-flagging).
+      writeProbe('screens/portal/_probe.dart', "final _probe = 'activity';\n");
       writeProbe(
-        'screens/portal/_probe.dart',
+        'screens/developer/_probe.dart',
         "final _probe = 'activity';\n",
       );
       writeProbe(
@@ -415,10 +428,178 @@ class AuditLogTab {
         expect(
           clean.where((v) => v.scan == scan),
           isEmpty,
-          reason: 'clean probe tree still trips $scan — over-flagging: '
+          reason:
+              'clean probe tree still trips $scan — over-flagging: '
               '${clean.join('\n')}',
         );
       }
+    });
+  });
+
+  group('scan 6b — developer-audit-boundary (B6-1 negative boundary)', () {
+    test('zero "audit" occurrences across the live developer module', () {
+      final violations = scanLibDirectory(
+        packageLibDir(),
+      ).where((violation) => violation.scan == 'developer-audit-boundary');
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+
+    test('probe 1 — AuditLogService import trips the developer boundary', () {
+      final violations = scanDeveloperAuditBoundary(
+        "import 'package:sso_admin/services/audit_log_service.dart';\n",
+        'screens/developer/developer_api.dart',
+      );
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+      expect(
+        violations.every((v) => v.scan == 'developer-audit-boundary'),
+        isTrue,
+        reason: violations.join('\n'),
+      );
+    });
+
+    test('probe 2 — trio literal trips regardless of the scan-1 allowlist', () {
+      final violations = scanDeveloperAuditBoundary(
+        "final p = '/api/v1/audit/events';\n",
+        'screens/developer/developer_api.dart',
+      );
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+      expect(
+        violations.every((v) => v.scan == 'developer-audit-boundary'),
+        isTrue,
+        reason: violations.join('\n'),
+      );
+    });
+
+    test(
+      'probe 3 — bff token trips scan 2 (module inside the guarded tree)',
+      () {
+        final violations = scanBffLiterals(
+          '// bff\n',
+          'screens/developer/developer_api.dart',
+        );
+        expect(violations, isNotEmpty, reason: violations.join('\n'));
+        expect(
+          violations.every((v) => v.scan == 'bff-literals'),
+          isTrue,
+          reason: violations.join('\n'),
+        );
+      },
+    );
+
+    test('portal detail string stays byte-identical through the shared '
+        'helper (V1 pin)', () {
+      const probe =
+          '// portal negative-boundary probe\n'
+          "final _probe = 'audit';\n";
+      final violations = scanPortalAuditBoundary(
+        probe,
+        'screens/portal/security_activity_tab.dart',
+      );
+      expect(violations, hasLength(1));
+      expect(
+        violations.single.detail,
+        'case-insensitive "audit" at line 2; the portal module is the B6-1 '
+        'negative boundary \u2014 audit reads belong to '
+        'SnaplinkAdminApi via AuditReadClient',
+      );
+    });
+  });
+
+  group('AC-3.6 ring-storage-seam scan (B6-1b)', () {
+    test('green against the current tree', () {
+      final violations = scanLibDirectory(
+        packageLibDir(),
+      ).where((violation) => violation.scan == 'ring-storage-seam');
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+
+    test('a guard dropped from the service source trips', () {
+      final source = File(
+        '${packageLibDir()}${Platform.pathSeparator}services'
+        '${Platform.pathSeparator}audit_log_service.dart',
+      ).readAsStringSync();
+      final degraded = source.replaceFirst(
+        '    if (!kDebugMode) return; // first statements, before the try\n',
+        '',
+      );
+      expect(degraded, isNot(source));
+      final violations = scanRingStorageSeam(
+        degraded,
+        'services/audit_log_service.dart',
+      );
+      expect(
+        violations.where((v) => v.scan == 'ring-storage-seam'),
+        isNotEmpty,
+        reason: violations.join('\n'),
+      );
+    });
+
+    test('key literal outside the service file trips; bare LocalStorage. '
+        'usage stays green (key-scoped)', () {
+      final violations = scanRingStorageSeam(
+        "LocalStorage.setItem('sso_audit_log', json);",
+        'screens/admin/audit_log_tab.dart',
+      );
+      expect(
+        violations.where((v) => v.scan == 'ring-storage-seam'),
+        isNotEmpty,
+        reason: violations.join('\n'),
+      );
+      // Key-scoped: the four legitimate LocalStorage consumers never name
+      // the key, so the scan must not flag them (C5).
+      expect(
+        scanRingStorageSeam(
+          'LocalStorage.setItem(settingsKey, json);',
+          'app_settings.dart',
+        ),
+        isEmpty,
+      );
+    });
+
+    test('F4 anti-vacuity probe — dropped scanLibDirectory registration '
+        'cannot go undetected', () {
+      // scanLibDirectory must run scan 7 over every file: a degraded
+      // temp `services/audit_log_service.dart` (one guard removed) must
+      // produce a ring-storage-seam violation through the real loop.
+      // The live-tree green test and the drill rows (which exercise
+      // `_scanWith`, a separate registration) cannot catch a dropped
+      // registration — this probe can.
+      final tempDir = Directory.systemTemp.createTempSync('b6_1b_seam_pin_');
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
+      final source = File(
+        '${packageLibDir()}${Platform.pathSeparator}services'
+        '${Platform.pathSeparator}audit_log_service.dart',
+      ).readAsStringSync();
+      final degraded = source.replaceFirst(
+        '    if (!kDebugMode) return; // first statements, before the try\n',
+        '',
+      );
+      expect(degraded, isNot(source));
+      final file = File(
+        '${tempDir.path}${Platform.pathSeparator}services'
+        '${Platform.pathSeparator}audit_log_service.dart',
+      );
+      file.parent.createSync(recursive: true);
+      file.writeAsStringSync(degraded);
+      final violations = scanLibDirectory(tempDir.path);
+      expect(
+        violations.where((v) => v.scan == 'ring-storage-seam'),
+        isNotEmpty,
+        reason:
+            'degraded temp service file produced no ring-storage-seam '
+            'violations — the scanLibDirectory registration is missing or '
+            'broken: ${violations.join('\n')}',
+      );
+      // Control: the unmutated live source in the same layout stays green.
+      file.writeAsStringSync(source);
+      final clean = scanLibDirectory(tempDir.path);
+      expect(
+        clean.where((v) => v.scan == 'ring-storage-seam'),
+        isEmpty,
+        reason: clean.join('\n'),
+      );
     });
   });
 
