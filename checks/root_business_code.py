@@ -24,12 +24,9 @@ def _allowed_by_prefix(name: str) -> bool:
     return name.endswith(".dart") and name.startswith(ALLOWED_PREFIXES)
 
 
-def run() -> int:
-    root = Path.cwd() / "lib"
-    if not root.exists():
-        print("PASS: no lib/ directory (not a Dart project?)")
-        return 0
-
+def _collect_violations(root: Path) -> list:
+    """Collect root-policy violations: glob patterns, banned filenames
+    and the lib/ file-count budget."""
     violations = []
 
     # Check banned file patterns (glob patterns)
@@ -50,30 +47,41 @@ def run() -> int:
     # Check total files in lib/ root
     root_files = [f for f in root.iterdir() if f.is_file() and f.suffix == ".dart"]
     max_files = _rp.max_files
-    actual_dart = [f for f in root_files if not _allowed_by_prefix(f.name) and f.name not in EXEMPT]
     if len(root_files) > max_files:
         violations.append(
             f"  lib/ has {len(root_files)} .dart files (max {max_files})"
         )
+    return violations
 
+
+def _print_failure(violations: list) -> int:
+    """Print the policy failure block; always exits 1."""
+    print(f"FAIL: {len(violations)} policy violation(s) in lib/")
+    print("\n".join(sorted(set(violations))))
+    print("\n" + "=" * 70)
+    print("lib/ Root Directory Policy Violation")
+    print("=" * 70)
+    print("\nlib/ root should only contain app composition files:")
+    print("  - main.dart")
+    print("  - app_router.dart")
+    print("  - app_settings.dart")
+    print("\nBusiness logic MUST be in sub-packages:")
+    print("  - lib/screens/       → UI screens and their logic")
+    print("  - lib/api/           → API clients")
+    print("  - lib/widgets/       → Shared widgets")
+    print("  - lib/i18n/         → Internationalization")
+    print("  - lib/models/       → Data models")
+    return 1
+
+
+def run() -> int:
+    root = Path.cwd() / "lib"
+    if not root.exists():
+        print("PASS: no lib/ directory (not a Dart project?)")
+        return 0
+    violations = _collect_violations(root)
     if violations:
-        print(f"FAIL: {len(violations)} policy violation(s) in lib/")
-        print("\n".join(sorted(set(violations))))
-        print("\n" + "=" * 70)
-        print("lib/ Root Directory Policy Violation")
-        print("=" * 70)
-        print("\nlib/ root should only contain app composition files:")
-        print("  - main.dart")
-        print("  - app_router.dart")
-        print("  - app_settings.dart")
-        print("\nBusiness logic MUST be in sub-packages:")
-        print("  - lib/screens/       → UI screens and their logic")
-        print("  - lib/api/           → API clients")
-        print("  - lib/widgets/       → Shared widgets")
-        print("  - lib/i18n/         → Internationalization")
-        print("  - lib/models/       → Data models")
-        return 1
-
+        return _print_failure(violations)
     print("PASS: no business code in lib/ root")
     return 0
 

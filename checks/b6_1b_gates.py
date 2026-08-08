@@ -98,29 +98,23 @@ def _files_with(pattern: str, path: Path) -> list:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
-def run() -> int:
-    cfg = get_config().b6_1b_gates
-    results = []
+def _check_old_keys(cfg, results: list) -> int:
+    """Old ring-scoped en/zh needles: zero hits in lib/ after landing."""
     failures = 0
+    for label, needles in (("en", cfg.old_en_needles), ("zh", cfg.old_zh_needles)):
+        pattern = "|".join(needles)
+        n = _grep(pattern, ROOT / "lib")
+        ok = n == 0
+        results.append((ok, f"Old {label} ring keys zero hits in lib/ (found {n})"))
+        if not ok:
+            failures += 1
+    return failures
 
-    # 1. Old en keys: zero hits anywhere in lib/ after landing.
-    en_pattern = "|".join(cfg.old_en_needles)
-    n = _grep(en_pattern, ROOT / "lib")
-    ok = n == 0
-    results.append((ok, f"Old en ring keys zero hits in lib/ (found {n})"))
-    if not ok:
-        failures += 1
 
-    # 2. Old zh values: zero hits anywhere in lib/ after landing.
-    zh_pattern = "|".join(cfg.old_zh_needles)
-    n = _grep(zh_pattern, ROOT / "lib")
-    ok = n == 0
-    results.append((ok, f"Old zh ring values zero hits in lib/ (found {n})"))
-    if not ok:
-        failures += 1
-
-    # 3. New-key uniqueness: exactly one lib/i18n file contains each key,
-    #    and it is the admin-core catalog.
+def _check_new_key_uniqueness(cfg, results: list) -> int:
+    """New-key uniqueness: exactly one lib/i18n file contains each key,
+    and it is the admin-core catalog (spread-override precedence)."""
+    failures = 0
     catalog = (ROOT / cfg.catalog_file).resolve()
     for key in cfg.new_keys:
         files = _files_with(key, ROOT / cfg.catalog_dir)
@@ -132,56 +126,32 @@ def run() -> int:
         )
         if not ok:
             failures += 1
+    return failures
 
-    # 4. Seam shape pins (post-seam values, design §1.7). The gate is
-    #    red until the storage seam lands — the intended safe direction
-    #    (W-1/W-2). All literal pins use fixed-string matching (F5).
+
+def _check_seam_shape(cfg, results: list) -> int:
+    """Seam shape pins (post-seam values, design §1.7). Red until the
+    storage seam lands — the intended safe direction (W-1/W-2)."""
+    failures = 0
     service = ROOT / cfg.service_file
-
-    n = _grep(cfg.guard_line, service, fixed=True)
-    ok = n == cfg.guard_line_count
-    results.append(
-        (
-            ok,
-            f"Direct guards {cfg.guard_line!r} in {cfg.service_file} = "
-            f"{cfg.guard_line_count} (found {n})",
+    for pin, count, label in (
+        (cfg.guard_line, cfg.guard_line_count, "Direct guards"),
+        (cfg.storage_initializer_pin, 1, "Storage initializer pin"),
+        (cfg.initializer_pin, 1, "Initializer pin"),
+    ):
+        n = _grep(pin, service, fixed=True)
+        ok = n == count
+        results.append(
+            (ok, f"{label} {pin!r} in {cfg.service_file} = {count} (found {n})")
         )
-    )
-    if not ok:
-        failures += 1
-
-    n = _grep(cfg.storage_initializer_pin, service, fixed=True)
-    ok = n == 1
-    results.append(
-        (
-            ok,
-            f"Storage initializer pin {cfg.storage_initializer_pin!r} in "
-            f"{cfg.service_file} = exactly 1 (found {n})",
-        )
-    )
-    if not ok:
-        failures += 1
+        if not ok:
+            failures += 1
 
     n = _grep("kDebugMode", service)
     ok = n == cfg.service_kdebug_count
     results.append(
-        (
-            ok,
-            f"kDebugMode in {cfg.service_file} = {cfg.service_kdebug_count} "
-            f"(found {n})",
-        )
-    )
-    if not ok:
-        failures += 1
-
-    n = _grep(cfg.initializer_pin, service, fixed=True)
-    ok = n == 1
-    results.append(
-        (
-            ok,
-            f"Initializer pin {cfg.initializer_pin!r} in "
-            f"{cfg.service_file} = exactly 1 (found {n})",
-        )
+        (ok, f"kDebugMode in {cfg.service_file} = {cfg.service_kdebug_count} "
+             f"(found {n})")
     )
     if not ok:
         failures += 1
@@ -189,17 +159,18 @@ def run() -> int:
     n = _grep("kDebugMode", ROOT / cfg.tab_file)
     ok = n == cfg.tab_kdebug_count
     results.append(
-        (
-            ok,
-            f"kDebugMode in {cfg.tab_file} = {cfg.tab_kdebug_count} "
-            f"(found {n})",
-        )
+        (ok, f"kDebugMode in {cfg.tab_file} = {cfg.tab_kdebug_count} "
+             f"(found {n})")
     )
     if not ok:
         failures += 1
+    return failures
 
-    # 5. Key-literal residence (mirror of scan-6 R2.1): exactly one
-    #    lib/ file contains the storage key, and it is the service.
+
+def _check_key_literal(cfg, results: list) -> int:
+    """Key-literal residence (mirror of scan-6 R2.1): exactly one lib/
+    file contains the storage key, and it is the service."""
+    service = ROOT / cfg.service_file
     files = _files_with("sso_audit_log", ROOT / "lib")
     matched = [Path(f).resolve() for f in files]
     ok = len(matched) == 1 and matched[0] == service.resolve()
@@ -207,82 +178,86 @@ def run() -> int:
     results.append(
         (ok, f"sso_audit_log lives in exactly one lib/ file -> {detail}")
     )
-    if not ok:
-        failures += 1
+    return 0 if ok else 1
 
-    # 6. Mask ban (open finding 1): key-reconstruction constructs banned
-    #    in the service file — mirror of scan-6 R2.6, extended with the
-    #    base64 family. Scoped to the service file: base64 is a
-    #    legitimate idiom elsewhere in lib/.
+
+def _check_mask_ban(cfg, results: list) -> int:
+    """Mask ban (open finding 1): key-reconstruction constructs banned in
+    the service file — mirror of scan-6 R2.6, extended with the base64
+    family. Scoped to the service file: base64 is a legitimate idiom
+    elsewhere in lib/."""
+    failures = 0
+    service = ROOT / cfg.service_file
     for token in cfg.banned_service_tokens:
         n = _grep(token, service, fixed=True)
         ok = n == 0
         results.append(
-            (
-                ok,
-                f"Banned key-reconstruction token {token!r} absent from "
-                f"{cfg.service_file} (found {n})",
-            )
+            (ok, f"Banned key-reconstruction token {token!r} absent from "
+                 f"{cfg.service_file} (found {n})"),
         )
         if not ok:
             failures += 1
+    return failures
 
-    # 7. Release-web artifact gate (requires `make build-prod` first;
-    #    wired into ci.yml after the Build step). Recursive over
-    #    artifact_dir, occurrence counts, fail-closed: a missing build
-    #    is a FAILURE, never a silent skip. Old-key needles and the
-    #    key/mask needles are stable pins; zh escapes are advisory
-    #    (toolchain-dependent).
+
+def _check_artifact(cfg, results: list) -> int:
+    """Release-web artifact gate (requires `make build-prod` first;
+    wired into ci.yml after the Build step). Recursive over artifact_dir,
+    occurrence counts, fail-closed: a missing build is a FAILURE, never
+    a silent skip."""
+    failures = 0
     artifact_dir = ROOT / cfg.artifact_dir
     if not artifact_dir.is_dir():
         failures += 1
         results.append(
-            (
-                False,
-                f"Artifact dir {cfg.artifact_dir} missing — run "
-                "`make build-prod` first (fail-closed, no silent skip)",
-            )
+            (False, f"Artifact dir {cfg.artifact_dir} missing — run "
+                    "`make build-prod` first (fail-closed, no silent skip)")
         )
-    else:
-        for needle in cfg.artifact_en_needles:
+        return failures
+    for label, needles in (
+        ("", cfg.artifact_en_needles),
+        (" (key mask)", cfg.artifact_key_masks),
+        (" (advisory)", cfg.artifact_zh_escaped),
+    ):
+        for needle in needles:
             n = _grep(needle, artifact_dir, fixed=True)
             ok = n == 0
             results.append(
-                (ok, f"Artifact: {needle!r} absent from {cfg.artifact_dir}/ "
-                     f"(found {n})")
-            )
-            if not ok:
-                failures += 1
-        for needle in cfg.artifact_key_masks:
-            n = _grep(needle, artifact_dir, fixed=True)
-            ok = n == 0
-            results.append(
-                (ok, f"Artifact (key mask): {needle} absent from "
+                (ok, f"Artifact{label}: {needle!r} absent from "
                      f"{cfg.artifact_dir}/ (found {n})")
             )
             if not ok:
                 failures += 1
-        for needle in cfg.artifact_zh_escaped:
-            n = _grep(needle, artifact_dir, fixed=True)
-            ok = n == 0
-            results.append(
-                (ok, f"Artifact (advisory): {needle} absent from "
-                     f"{cfg.artifact_dir}/ (found {n})")
-            )
-            if not ok:
-                failures += 1
+    return failures
 
-    print("=== B6-1b Debug Ring Copy Surface Gates (AC-1) ===")
+
+def _report(results: list) -> int:
+    """Print the gate result table; return the process exit code."""
+    failures = 0
     passed = 0
+    print("=== B6-1b Debug Ring Copy Surface Gates (AC-1) ===")
     for ok, msg in results:
         prefix = "[+]" if ok else "[-]"
         print(f"  {prefix} {msg}")
         passed += 1 if ok else 0
+        failures += 0 if ok else 1
     print(
         f"\nResult: {passed} passed, {failures} failures "
         f"(exit {1 if failures else 0})"
     )
     return 1 if failures else 0
+
+
+def run() -> int:
+    cfg = get_config().b6_1b_gates
+    results = []
+    failures = _check_old_keys(cfg, results)
+    failures += _check_new_key_uniqueness(cfg, results)
+    failures += _check_seam_shape(cfg, results)
+    failures += _check_key_literal(cfg, results)
+    failures += _check_mask_ban(cfg, results)
+    failures += _check_artifact(cfg, results)
+    return _report(results)
 
 
 if __name__ == "__main__":
