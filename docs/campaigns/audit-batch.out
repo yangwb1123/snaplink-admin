@@ -1,0 +1,23 @@
+00:16:43 [INFO] 
+00:16:43 [INFO] ============================================================
+00:16:43 [INFO] ROUND 1 of 1
+00:16:43 [INFO] ============================================================
+00:16:43 [WARNING] referenced file not found: docs/campaigns/docs/campaigns/implementation-gate.md
+00:16:43 [INFO] -- [1/1] --
+00:16:43 [INFO] >>  pi -p 已批准的审计契约 v2 包（GATE PASSED）进入实施阶段。阅读批次清单： @docs/campaigns/implementation-gate.md ...  [model=default]  [timeout=900s]  [dir=/home/u1/workspace/demo/snaplink-console]
+00:22:05 [INFO] OK  done  [322.5s]  [output=docs/proposals/audit-contract-batch-snaplink-console.md]
+00:22:05 [INFO] VALIDATE: python3 /home/u1/ai-batch-runner/scripts/check-no-refusal.py /home/u1/workspace/demo/snaplink-console/docs/proposals/audit-contract-batch-snaplink-console.md.75056nup.tmp
+00:22:05 [INFO] WROTE /home/u1/workspace/demo/snaplink-console/docs/proposals/audit-contract-batch-snaplink-console.md (validated)
+00:22:05 [INFO] All tasks passed in round 1
+
+========================================================
+  pi-batch execution report
+========================================================
+  total:     1
+  succeeded: 1
+  failed:    0
+  CPU time:  322.5s
+  wall time: 322.5s
+
+  PASS  [ 322.5s] 已批准的审计契约 v2 包（GATE PASSED）进入实施阶段。阅读批次清单： @docs/campaigns/imp...
+========================================================
