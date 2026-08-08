@@ -12,6 +12,67 @@ import 'package:sso_admin/screens/portal/portal_entry.dart';
 import 'package:sso_admin/screens/portal/portal_screen.dart';
 import 'package:sso_admin/session.dart';
 
+/// One recorded request for the REQ-3 request-bound portal tests.
+class _PortalRecordedRequest {
+  const _PortalRecordedRequest({required this.method, required this.path});
+
+  final String method;
+  final String path;
+}
+
+/// Recording MockClient for the REQ-3 bounds (design §3.3, D4):
+/// `fail()`s on any POST and on any path not under `/me`, records everything
+/// else. The assertions are structural — a future `POST /auth/login` (or any
+/// POST) cannot be missed by a post-hoc filter.
+MockClient _portalRecordingClient(
+  List<_PortalRecordedRequest> recorded, {
+  required String expectedBearer,
+}) {
+  return MockClient((request) async {
+    if (request.method == 'POST') {
+      fail(
+        'portal paste/resume must issue zero POSTs — got POST '
+        '${request.url.path} (F2)',
+      );
+    }
+    if (!request.url.path.startsWith('/me')) {
+      fail(
+        'portal traffic must stay under /me — got ${request.url.path} (F2)',
+      );
+    }
+    recorded.add(
+      _PortalRecordedRequest(method: request.method, path: request.url.path),
+    );
+    if (request.url.path == '/me') {
+      expect(request.headers['Authorization'], 'Bearer $expectedBearer');
+      return http.Response('{"sub":"user-1"}', 200);
+    }
+    if (request.url.path == '/me/notifications') {
+      return http.Response('{"notifications":[],"unread_count":0}', 200);
+    }
+    if (request.url.path == '/me/notifications/stream') {
+      return http.Response('data: {"id":"n1","type":"ping"}\n\n', 200);
+    }
+    return http.Response('{}', 404);
+  });
+}
+
+/// The single credential-validation bound: [PortalApi.login]'s probe is
+/// always the FIRST request of the paste/resume flow; the overview tab's
+/// later profile read ([PortalApi.fetchMe], overview_tab.dart:63) is a
+/// /me-rooted BFF GET in the same class as /me/notifications (spec S6), not
+/// a second validation. A duplicated validation probe would appear as a
+/// second leading /me and fails here.
+void _expectSingleValidationGetMe(List<_PortalRecordedRequest> recorded) {
+  final leadingMe = recorded.takeWhile((r) => r.path == '/me').toList();
+  expect(leadingMe.length, 1,
+      reason: 'exactly one credential-validating GET /me — the paste/resume '
+          'path must probe once and only once (${recorded.length} requests '
+          'recorded)');
+  expect(leadingMe.single.method, 'GET',
+      reason: 'the credential validation must be a GET, never a POST');
+}
+
 void main() {
   tearDown(Session.clear);
 
@@ -236,4 +297,68 @@ void main() {
     );
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  testWidgets(
+    'paste login issues zero POSTs and exactly one GET /me validation '
+    '(REQ-3/AC-2)',
+    (tester) async {
+      final recorded = <_PortalRecordedRequest>[];
+      final api = PortalApi(
+        httpClient: _portalRecordingClient(
+          recorded,
+          expectedBearer: 'pasted-token',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PortalScreen(
+            api: api,
+            redirectMissingSessionToLogin: false,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'pasted-token');
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      _expectSingleValidationGetMe(recorded);
+      expect(recorded.where((r) => r.method == 'POST'), isEmpty,
+          reason: 'zero POSTs — in particular zero /auth/login');
+      expect(recorded.every((r) => r.path.startsWith('/me')), isTrue,
+          reason: 'all other traffic (if any) is a /me-rooted GET BFF read');
+    },
+  );
+
+  testWidgets(
+    'stored-session resume issues zero POSTs and exactly one GET /me '
+    'validation (REQ-3/AC-2)',
+    (tester) async {
+      Session.store('still-valid-token', clientId: 'portal-client');
+      final recorded = <_PortalRecordedRequest>[];
+      final api = PortalApi(
+        httpClient: _portalRecordingClient(
+          recorded,
+          expectedBearer: 'still-valid-token',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: PortalScreen(
+            api: api,
+            redirectMissingSessionToLogin: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      _expectSingleValidationGetMe(recorded);
+      expect(recorded.where((r) => r.method == 'POST'), isEmpty,
+          reason: 'zero POSTs — in particular zero /auth/login');
+      expect(recorded.every((r) => r.path.startsWith('/me')), isTrue,
+          reason: 'all other traffic (if any) is a /me-rooted GET BFF read');
+    },
+  );
 }
