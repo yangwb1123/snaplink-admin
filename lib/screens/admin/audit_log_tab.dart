@@ -7,13 +7,16 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/screens/admin/platform_audit_view.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
 /// Audit log viewer tab.
 /// Shows recent admin operations with search and filter.
 /// URL: /admin/audit-log
 class AuditLogTab extends StatefulWidget {
-  const AuditLogTab({super.key});
+  final SnaplinkAdminApi? api;
+  const AuditLogTab({super.key, this.api});
   @override
   State<AuditLogTab> createState() => _AuditLogTabState();
 }
@@ -149,7 +152,38 @@ class _AuditLogTabState extends State<AuditLogTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => DefaultTabController(
+    length: widget.api == null ? 1 : 2,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (widget.api != null)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 4, 16, 0),
+            child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              tabs: [
+                const Tab(text: '本机操作'),
+                const Tab(text: '平台审计时间线'),
+              ],
+            ),
+          ),
+        Expanded(
+          child: widget.api == null
+              ? _buildLocalLog(context)
+              : TabBarView(
+                  children: [
+                    _buildLocalLog(context),
+                    PlatformAuditView(api: widget.api!),
+                  ],
+                ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildLocalLog(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),

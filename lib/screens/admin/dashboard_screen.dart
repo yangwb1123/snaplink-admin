@@ -563,7 +563,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           selectedIcon: const Icon(Icons.receipt_long),
           label: Text(strings.auditLog),
         ),
-        page: const AuditLogTab(),
+        page: AuditLogTab(api: _api),
       ),
       AdminNavigationEntry(
         module: AdminModuleId.health,
