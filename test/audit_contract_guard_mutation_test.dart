@@ -308,6 +308,34 @@ class AuditLogTab {
       );
     });
 
+    test('second consumer via the _scanWith dispatch trips scan 5 '
+        '(dispatch-branch pin)', () {
+      // The E1–E6 rows above call scanSecondConsumer directly; the
+      // `_scanWith` `second-consumer` branch (dispatch :64-66) was the only
+      // dispatch branch no row exercised — a dropped or mis-ids branch
+      // would stay green. This row plants the raw-map regression into a
+      // live file override (the same builder-line anchor the F6 skins
+      // use — proven live) and asserts the branch dispatches the
+      // violation: with `.toQueryParameters()` gone, governance_tab's
+      // `query:` call on the read-client constant has no sanctioned
+      // parameter construction left.
+      final source = _libSource('screens/admin/governance_tab.dart');
+      final mutated = source.replaceFirst(
+        'final parameters = auditQuery.toQueryParameters();',
+        "final parameters = {'limit': '100'};",
+      );
+      expect(mutated, isNot(source));
+      final violations = _scanWith(
+        {'screens/admin/governance_tab.dart': mutated},
+        scans: const {'second-consumer'},
+      );
+      expect(
+        violations.where((v) => v.scan == 'second-consumer'),
+        isNotEmpty,
+        reason: violations.join('\n'),
+      );
+    });
+
     test('trio literal re-planted outside the read client trips the '
         'ownership pin', () {
       final source = _libSource('screens/admin/governance_tab.dart');
@@ -843,6 +871,60 @@ class AuditLogTab {
         isNotEmpty,
         reason: violations.join('\n'),
       );
+    });
+
+    test('scan 6/6b residual — escaped, split, and confusable spellings '
+        'evade the negative-boundary scans (documented, no backstop)', () {
+      // Mirror of the scan-1 residual rows (R1–R8, drill doc §4): the
+      // negative-boundary scans match the RAW SOURCE for the contiguous
+      // case-insensitive `audit` substring, so a spelling that renders
+      // "audit" without the contiguous ASCII token slips by construction.
+      // The evasion family, each a permanent probe row so the list cannot
+      // silently change:
+      //   * escapes — `\u0061uditLog`, `\x61uditLog` (Dart string escapes
+      //     decode to a leading 'a' at runtime, never in the raw source);
+      //   * adjacent-literal / concat splits — `'au' 'ditLog'`,
+      //     `'au' + 'ditLog'` (and the line-split form `'au'\n'ditLog'`);
+      //   * interpolation fragmentation — `'${id}uditLog'`;
+      //   * confusable glyphs — Cyrillic `а` (U+0430), fullwidth `ａ`
+      //     (U+FF41), ZWJ `a\u200DuditLog` (U+200D).
+      // All are deliberate circumvention (the same family is R2/R5-residual
+      // for scans 1/2/7, and R9 in the drill doc); none has a scan-level
+      // backstop — if one of these spellings lands in
+      // `lib/screens/{portal,developer}/` the boundary intent is already
+      // breached, and code review is the gate. Kept as a live assertion so
+      // the documented set cannot silently grow.
+      const moduleFiles = [
+        'screens/portal/security_activity_tab.dart',
+        'screens/developer/developer_api.dart',
+      ];
+      const spellings = <String>[
+        r"final _probe = '\u0061uditLog';",
+        r"final _probe = '\x61uditLog';",
+        r"final _probe = 'au' 'ditLog';",
+        r"final _probe = 'au' + 'ditLog';",
+        "final _probe = '\${id}uditLog';",
+        "final _probe = 'au'\n    'ditLog';",
+        r"final _probe = 'аuditLog';", // Cyrillic а U+0430
+        r"final _probe = 'ａuditLog';", // fullwidth ａ U+FF41
+        r"final _probe = 'a\u200DuditLog';", // ZWJ U+200D
+      ];
+      for (final spelling in spellings) {
+        for (final file in moduleFiles) {
+          final violations = _scanWith({file: spelling});
+          expect(
+            violations.where(
+              (v) =>
+                  v.scan == 'portal-audit-boundary' ||
+                  v.scan == 'developer-audit-boundary',
+            ),
+            isEmpty,
+            reason:
+                'unexpected boundary trip on $file: $spelling\n'
+                '${violations.join('\n')}',
+          );
+        }
+      }
     });
   });
 }

@@ -486,6 +486,46 @@ class AuditLogTab {
       },
     );
 
+    test('probe 4 — camelCase letter-adjacent identifier trips; a narrowed '
+        'letter-boundary pattern cannot (mutation canary)', () {
+      // The negative-boundary net is the whole-substring, case-insensitive
+      // `audit` over raw source: a camelCase identifier with the token
+      // mid-word (`myAuditLogService`) is inside the contract. A plausible
+      // "smart fix" narrowing of `_auditAnyPattern` to a letter boundary —
+      // `(?<![A-Za-z])audit` or `audit(?![A-Za-z])` — silently drops exactly
+      // this class, and no committed probe carried a letter-adjacent
+      // occurrence. This probe is that class: it trips the real scan, and
+      // the two narrowed variants are empirically proven below to match
+      // nothing here — so if `_scanNegativeBoundary` is ever narrowed to
+      // either, THIS assertion goes red and the mutation cannot land green.
+      const probe = "final myAuditLogService = _service();\n";
+      final violations = scanDeveloperAuditBoundary(
+        probe,
+        'screens/developer/developer_api.dart',
+      );
+      expect(violations, isNotEmpty, reason: violations.join('\n'));
+      expect(
+        violations.every((v) => v.scan == 'developer-audit-boundary'),
+        isTrue,
+        reason: violations.join('\n'),
+      );
+      // Empirical proof the narrowing fails: the scan's detection is exactly
+      // `_auditAnyPattern.allMatches(source)`, so the regex-level result IS
+      // the scan-level result. Both candidate narrowed patterns produce zero
+      // matches on the same probe text — under either mutation the probe
+      // reds (the assertion above fails), proving the gap is now closed.
+      for (final narrowed in <String>[
+        r'(?<![A-Za-z])audit',
+        r'audit(?![A-Za-z])',
+      ]) {
+        expect(
+          RegExp(narrowed, caseSensitive: false).allMatches(probe),
+          isEmpty,
+          reason: 'narrowed pattern $narrowed must miss the probe',
+        );
+      }
+    });
+
     test('portal detail string stays byte-identical through the shared '
         'helper (V1 pin)', () {
       const probe =
