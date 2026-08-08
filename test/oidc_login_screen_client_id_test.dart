@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/oidc_login_api.dart';
+import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 
 /// REQ-2 + REQ-3 widget-level MockClient harness (design §4.2, D9/D11).
@@ -73,7 +74,7 @@ class _LoginHarness {
       MaterialApp(
         home: OidcLoginScreen(
           api: api,
-          defaultClientId: 'sso-admin-console',
+          defaultClientId: SSOAdminClient.firstPartyClientId,
           // Constantized to SSOAdminClient.firstPartyClientId in the sibling
           // M2 commit (co-change list §3.4; design §4.2 constant rule).
           // D11: no prompt=none, no fragment, no magic-link token, no flow
@@ -130,10 +131,10 @@ void main() {
         await harness.submit(tester);
 
         // Request-side facts only: no navigation/session assertions (D6).
-        // expect: constantized to SSOAdminClient.firstPartyClientId (design
-        // §4.2/§5) once the sibling constant exists.
+        // Constantized: lastClientId is SSOAdminClient.firstPartyClientId
+        // (design §4.2/§5) since the sibling M2 commit.
         expect(harness.loginPosts, 1);
-        expect(harness.lastClientId, 'sso-admin-console');
+        expect(harness.lastClientId, SSOAdminClient.firstPartyClientId);
         expect(harness.lastUsername, 'ada@example.com');
       },
     );
@@ -153,9 +154,9 @@ void main() {
 
         await harness.submit(tester);
         expect(harness.loginPosts, 2);
-        // expect: constantized to SSOAdminClient.firstPartyClientId (design
-        // §4.2/§5) once the sibling constant exists.
-        expect(harness.lastClientId, 'sso-admin-console');
+        // Constantized: lastClientId is SSOAdminClient.firstPartyClientId
+        // (design §4.2/§5) since the sibling M2 commit.
+        expect(harness.lastClientId, SSOAdminClient.firstPartyClientId);
       },
     );
   });

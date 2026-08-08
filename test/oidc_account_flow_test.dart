@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/oidc_login_api.dart';
+import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 
 /// Account-flow tests that drive the hosted login screen through its
@@ -32,7 +33,7 @@ await tester.pumpWidget(
         MaterialApp(
           home: OidcLoginScreen(
             api: api,
-            defaultClientId: 'sso-admin-console',
+            defaultClientId: SSOAdminClient.firstPartyClientId,
             routeUri: Uri.parse(
               'https://sso.example/login/?flow=forgot_password',
             ),
@@ -72,7 +73,7 @@ await tester.pumpWidget(
         MaterialApp(
           home: OidcLoginScreen(
             api: api,
-            defaultClientId: 'sso-admin-console',
+            defaultClientId: SSOAdminClient.firstPartyClientId,
             routeUri: Uri.parse(
               'https://sso.example/login/?flow=forgot_password',
             ),
@@ -112,7 +113,7 @@ await tester.pumpWidget(
         MaterialApp(
           home: OidcLoginScreen(
             api: api,
-            defaultClientId: 'sso-admin-console',
+            defaultClientId: SSOAdminClient.firstPartyClientId,
             routeUri: Uri.parse('https://sso.example/login/?flow=signup'),
           ),
         ),
@@ -157,7 +158,7 @@ await tester.pumpWidget(
         MaterialApp(
           home: OidcLoginScreen(
             api: api,
-            defaultClientId: 'sso-admin-console',
+            defaultClientId: SSOAdminClient.firstPartyClientId,
             routeUri: Uri.parse(
               'https://sso.example/login/?flow=verify_email&token=verify-token',
             ),
