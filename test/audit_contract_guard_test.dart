@@ -317,40 +317,108 @@ class AuditLogTab {
       expect(violations, isEmpty, reason: violations.join('\n'));
     });
 
-    test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
-      // The positive pin: a synthetic `screens/portal/_probe.dart` containing
-      // `audit` inside a throwaway temp tree must trip scan 6 through the
-      // `scanLibDirectory` per-file wiring. If the one-line call in the
-      // scans.dart loop is forgotten (or the prefix check breaks), the
-      // green-against-tree group above would pass vacuously — this test
-      // cannot. Temp-dir only; no repo file is touched, and the tree is
-      // removed via addTearDown.
+    test('F2 wiring pin — synthetic probe tree trips every per-file scan '
+        'via scanLibDirectory', () {
+      // The positive pin (F2 amendment, extended at re-review): a synthetic
+      // probe tree inside a throwaway temp dir must trip EVERY per-file
+      // scan through the `scanLibDirectory` loop wiring. Scan 6's probe is
+      // a `screens/portal/_probe.dart` containing `audit`; scans 1/2/4/5
+      // and the trio-owner pin get one probe each. If any per-file call in
+      // the scans.dart loop is forgotten (or a prefix/id check breaks),
+      // that scan's green-against-tree group would pass vacuously — this
+      // test cannot: the missing scan's id simply produces no violations.
+      // (The `_scanWith` dispatch re-implements the loop, so the mutation
+      // skins pin only the dispatch — scans 1/2/4/5 share this residual
+      // with scan 6 and are covered here too.) Temp-dir only; no repo file
+      // is touched; the tree is removed via addTearDown.
       final tempDir = Directory.systemTemp.createTempSync(
-        'b6_1_portal_probe_',
+        'b6_1_guard_pin_',
       );
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
       });
-      final probePath =
-          '${tempDir.path}${Platform.pathSeparator}screens'
-          '${Platform.pathSeparator}portal'
-          '${Platform.pathSeparator}_probe.dart';
-      final probe = File(probePath);
-      probe.createSync(recursive: true);
-      probe.writeAsStringSync(
+      final writeProbe = (String relativePath, String body) {
+        final file = File(
+          '${tempDir.path}${Platform.pathSeparator}'
+          '${relativePath.replaceAll('/', Platform.pathSeparator)}',
+        );
+        file.parent.createSync(recursive: true);
+        file.writeAsStringSync(body);
+      };
+      // Dirty state — one probe per scan id:
+      writeProbe(
+        'screens/portal/_probe.dart',
         "final _probe = 'audit'; // synthetic negative-boundary probe\n",
       );
-      final dirty = scanLibDirectory(tempDir.path)
-          .where((v) => v.scan == 'portal-audit-boundary')
-          .toList();
-      expect(dirty, isNotEmpty, reason: dirty.join('\n'));
-      // Control: the same layout without the token must stay scan-6 green,
-      // so the pin cannot be satisfied by the path alone (over-flagging).
-      probe.writeAsStringSync("final _probe = 'activity';\n");
-      final clean = scanLibDirectory(tempDir.path)
-          .where((v) => v.scan == 'portal-audit-boundary')
-          .toList();
-      expect(clean, isEmpty, reason: clean.join('\n'));
+      writeProbe(
+        'screens/portal/_probe_scan1.dart',
+        "final p = '/api/v1/audit/events/export';\n",
+      );
+      writeProbe('screens/portal/_probe_scan2.dart', '// bff\n');
+      writeProbe(
+        'screens/portal/_probe_scan4.dart',
+        "final m = MapEntry(key, '\$value');\n",
+      );
+      writeProbe(
+        'screens/portal/_probe_scan5.dart',
+        "await api.get('/api/v1/audit/events', "
+            "query: {'limit': '100'});\n",
+      );
+      // A complete trio owner in the throwaway tree, so the ownership pin
+      // trips on the offender probe above, not on missing-owner noise.
+      writeProbe(
+        'api/audit_read_client.dart',
+        "const a = '/api/v1/audit/events';\n"
+            "const b = '/api/v1/audit/facets';\n"
+            "const c = '/api/v1/audit/events/{id}';\n",
+      );
+      const allPerFileScans = [
+        'portal-audit-boundary',
+        'audit-path-literals',
+        'bff-literals',
+        'raw-stringification',
+        'second-consumer',
+        'trio-literal-owner',
+      ];
+      final dirty = scanLibDirectory(tempDir.path);
+      for (final scan in allPerFileScans) {
+        expect(
+          dirty.where((v) => v.scan == scan),
+          isNotEmpty,
+          reason: 'dirty probe tree produced no $scan violations — the '
+              'scanLibDirectory wiring for this scan is missing or broken: '
+              '${dirty.join('\n')}',
+        );
+      }
+      // Control: neutralize every probe; all ids must stay green, so the
+      // pin cannot be satisfied by paths/layout alone (over-flagging).
+      writeProbe(
+        'screens/portal/_probe.dart',
+        "final _probe = 'activity';\n",
+      );
+      writeProbe(
+        'screens/portal/_probe_scan1.dart',
+        "final p = '/me/security/activity';\n",
+      );
+      writeProbe('screens/portal/_probe_scan2.dart', '// activity\n');
+      writeProbe(
+        'screens/portal/_probe_scan4.dart',
+        'final m = MapEntry(key, value);\n',
+      );
+      writeProbe(
+        'screens/portal/_probe_scan5.dart',
+        "await api.get('/me/security/activity', "
+            "query: {'limit': '100'});\n",
+      );
+      final clean = scanLibDirectory(tempDir.path);
+      for (final scan in allPerFileScans) {
+        expect(
+          clean.where((v) => v.scan == scan),
+          isEmpty,
+          reason: 'clean probe tree still trips $scan — over-flagging: '
+              '${clean.join('\n')}',
+        );
+      }
     });
   });
 

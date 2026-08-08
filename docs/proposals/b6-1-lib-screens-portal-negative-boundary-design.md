@@ -34,6 +34,8 @@ All 14 evidence items and all executable claims were re-run independently. Resul
 > **Resolution (verify stage, 2026-08-08):** the spec header now cites `26782c5` with the delta recorded; the spec, this design, the `[RESOLVED]` line (now `audit-contract-batch-snaplink-console.md:10` in the committed tree — the acceptance-mapping T-12 linkage depends on it), and the `audit_log_tab.dart` comment-only rewording (whose +1 line shift the E6 citations :50/:51/:67/:85/:298 are based on) are **all committed** in one change set. The 46/46 suite and the two executable acceptance checks were re-run on a **fresh checkout of the committed revision** (not the working tree) — all green. The guard suite remains structural: every file its gates touch (portal sources, the four test files, `AuditReadClient`, `AuditQuery`) is committed; no gate reads `docs/` content; the doc record is advisory provenance only.
 
 > **F2 amendment (implement + final release, 2026-08-08):** per the adversarial review, the F2 canary gap is closed and the F2 row's mechanism description is corrected (it overclaimed: the probes pin the `_scanWith` dispatch, not the `scanLibDirectory` wiring). The amendment lands scan 6 exactly as §1.2 A–E specify **plus** §1.2.F — a temp-dir positive pin (`audit_contract_guard_test.dart:320`) writing a synthetic `screens/portal/_probe.dart` into `Directory.systemTemp` and asserting `scanLibDirectory` trips through the per-file wiring (`scans.dart:110`), with a clean-probe control so the pin cannot be satisfied by path alone. The three mutation skins fail closed through the `_scanWith` dispatch (:65-67). All six test-suite changes are committed in **one change set** together with this design and the spec; every citation in this document and the spec holds at the committed revision (re-verified on a fresh detached worktree — see the run's final-verify record).
+>
+> **Re-review (2026-08-08, at `f2be582`):** the pin is **extended** to the shared vacuous-pass residual — scans 1/2/4/5 and the trio-owner call share the `_scanWith`-re-implements-the-loop gap with scan 6, so the extension pins every per-file call in one test (one probe per scan id + a per-id clean control; probe bodies drill-verified: each trips its own id and nothing else in the control). Scan-5 group citations corrected to :170-:310; `mutated != source` framed as uniform new-code discipline (the older partial practice is accepted: a no-op mutation still fails the `isNotEmpty` violation assertion). Red-condition drills re-run at the committed revision: loop wiring removed → pin red while the green group passes vacuously; dispatch removed → all three skins red. Suite green: **75/75** (49 four-file + 26 mutation) with the extended pin.
 
 ## 1. API changes
 
@@ -89,7 +91,7 @@ Wiring: inside the `scanLibDirectory` per-file loop (`test/audit_contract_guard_
 - Add dispatch beside the existing per-scan `if (scans.contains(...))` blocks (:53-67):
   `if (scans.contains('portal-audit-boundary')) { violations.addAll(scanPortalAuditBoundary(source, relative)); }`
 
-**C. Green-against-tree group** in `test/audit_contract_guard_test.dart`, following the scan-5 group pattern (:170-:205):
+**C. Green-against-tree group** in `test/audit_contract_guard_test.dart`, following the scan-5 group pattern (:170-:310):
 
 ```dart
 group('scan 6 — portal-audit-boundary (B6-1 negative boundary)', () {
@@ -107,7 +109,7 @@ group('scan 6 — portal-audit-boundary (B6-1 negative boundary)', () {
 2. Literal skin: replace the `PortalSecurityPaths.securityActivity` argument with a `'/api/v1/audit/events'` literal.
 3. Comment skin: append a doc comment containing `audit`.
 
-Each probe asserts `mutated != source` and `violations.where((v) => v.scan == 'portal-audit-boundary')` is non-empty.
+Each probe asserts `mutated != source` and `violations.where((v) => v.scan == 'portal-audit-boundary')` is non-empty. The `mutated != source` assertion is **uniform new-code discipline on all three skins** — deliberately stricter than the mutation file's pre-existing partial practice (it asserts it on ~10 of ~15 older skins). The older omissions are accepted: a no-op `replaceFirst` still fails the `isNotEmpty` violation assertion (the `isNot` assert only upgrades the failure message), and the residual-route group's `isEmpty` postconditions are documentation-grade, with behavioral backstops named in their comments.
 
 **E. Request-bound widget test** in `test/portal_security_widgets_test.dart` (new `testWidgets` at :34, existing imports suffice — `MockClient` from `package:http/testing.dart` already imported):
 
@@ -140,34 +142,72 @@ testWidgets('Activity tab issues only /me BFF paths — never the audit trio',
 
 The `fail()` inside the handler is a fast-fail extra; it throws inside the async handler, which the tab's catch-all converts into its error state — **the authoritative gate is the final `unorderedEquals`** (fails on any audit path, any third request, any missing `/me` path). Fixtures `{'events': []}` / `{'login_history': []}` match the verified decode (`portalObjectList(..., 'events')` / `'login_history'`).
 
-**F. F2 temp-dir positive pin** in `test/audit_contract_guard_test.dart` (scan-6 group at :312; pin test at :320) — the F2 amendment. The mutation probes (D) pin only the `_scanWith` dispatch (:65-67); without this pin, dropping the one-line `scanPortalAuditBoundary` call in the `scanLibDirectory` loop (scans.dart:110) would make the C group's filtered list empty and `expect(violations, isEmpty)` pass **vacuously**. The pin closes exactly that hole — a synthetic `screens/portal/_probe.dart` containing `audit` written into a throwaway `Directory.systemTemp` tree must trip `scanLibDirectory`; the same layout with a clean probe must stay green (control, so the scan cannot trip on path alone). Temp-dir only, `addTearDown`-removed, zero repo files touched:
+**F. F2 temp-dir positive pin** in `test/audit_contract_guard_test.dart` (scan-6 group at :312; pin test at :320) — the F2 amendment, **extended at re-review** to the shared vacuous-pass residual. The mutation probes (D) pin only the `_scanWith` dispatch (:65-67) — and that dispatch *re-implements* the `scanLibDirectory` loop, so without a pin, dropping any per-file call in the loop (scans.dart:106-110) would make that scan's green group's filtered list empty and `expect(violations, isEmpty)` pass **vacuously**. Scans 1/2/4/5 and the trio-owner post-loop call (:112) share exactly this residual with scan 6 (the b6-1c landing accepted it by convention; the F2 review's lesson is that the convention is a hazard). The pin closes it uniformly: a synthetic probe tree — one probe per scan id (`screens/portal/_probe.dart` containing `audit` for scan 6; a non-allowlisted audit path for scan 1; a `bff` comment for scan 2; a raw `MapEntry(key, '$value')` for scan 4; a hand-built `query:` map on `/api/v1/audit/events` for scan 5; the scan-5 probe doubling as the offender for the ownership pin, with a complete trio owner in the tree) — is written into a throwaway `Directory.systemTemp` tree; `scanLibDirectory` must trip **every** scan id on the dirty tree, and the same layout with all probes neutralized must stay green for every id (control, so the pin cannot trip on paths/layout alone). Temp-dir only, `addTearDown`-removed, zero repo files touched:
 
 ```dart
-test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
-  final tempDir = Directory.systemTemp.createTempSync('b6_1_portal_probe_');
+test('F2 wiring pin — synthetic probe tree trips every per-file scan '
+    'via scanLibDirectory', () {
+  final tempDir = Directory.systemTemp.createTempSync('b6_1_guard_pin_');
   addTearDown(() {
     if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
   });
-  final probePath =
-      '${tempDir.path}${Platform.pathSeparator}screens'
-      '${Platform.pathSeparator}portal'
-      '${Platform.pathSeparator}_probe.dart';
-  final probe = File(probePath);
-  probe.createSync(recursive: true);
-  probe.writeAsStringSync(
-    "final _probe = 'audit'; // synthetic negative-boundary probe\n",
-  );
-  final dirty = scanLibDirectory(tempDir.path)
-      .where((v) => v.scan == 'portal-audit-boundary')
-      .toList();
-  expect(dirty, isNotEmpty, reason: dirty.join('\n'));
-  // Control: the same layout without the token must stay scan-6 green,
-  // so the pin cannot be satisfied by the path alone (over-flagging).
-  probe.writeAsStringSync("final _probe = 'activity';\n");
-  final clean = scanLibDirectory(tempDir.path)
-      .where((v) => v.scan == 'portal-audit-boundary')
-      .toList();
-  expect(clean, isEmpty, reason: clean.join('\n'));
+  final writeProbe = (String relativePath, String body) {
+    final file = File(
+      '${tempDir.path}${Platform.pathSeparator}'
+      '${relativePath.replaceAll('/', Platform.pathSeparator)}',
+    );
+    file.parent.createSync(recursive: true);
+    file.writeAsStringSync(body);
+  };
+  // Dirty state — one probe per scan id:
+  writeProbe('screens/portal/_probe.dart',
+      "final _probe = 'audit'; // synthetic negative-boundary probe\n");
+  writeProbe('screens/portal/_probe_scan1.dart',
+      "final p = '/api/v1/audit/events/export';\n");
+  writeProbe('screens/portal/_probe_scan2.dart', '// bff\n');
+  writeProbe('screens/portal/_probe_scan4.dart',
+      "final m = MapEntry(key, '\$value');\n");
+  writeProbe('screens/portal/_probe_scan5.dart',
+      "await api.get('/api/v1/audit/events', "
+          "query: {'limit': '100'});\n");
+  // A complete trio owner in the throwaway tree, so the ownership pin
+  // trips on the offender probe above, not on missing-owner noise.
+  writeProbe('api/audit_read_client.dart',
+      "const a = '/api/v1/audit/events';\n"
+          "const b = '/api/v1/audit/facets';\n"
+          "const c = '/api/v1/audit/events/{id}';\n");
+  const allPerFileScans = [
+    'portal-audit-boundary',
+    'audit-path-literals',
+    'bff-literals',
+    'raw-stringification',
+    'second-consumer',
+    'trio-literal-owner',
+  ];
+  final dirty = scanLibDirectory(tempDir.path);
+  for (final scan in allPerFileScans) {
+    expect(dirty.where((v) => v.scan == scan), isNotEmpty,
+        reason: 'dirty probe tree produced no $scan violations — the '
+            'scanLibDirectory wiring for this scan is missing or broken: '
+            '${dirty.join('\n')}');
+  }
+  // Control: neutralize every probe; all ids must stay green, so the pin
+  // cannot be satisfied by paths/layout alone (over-flagging).
+  writeProbe('screens/portal/_probe.dart', "final _probe = 'activity';\n");
+  writeProbe('screens/portal/_probe_scan1.dart',
+      "final p = '/me/security/activity';\n");
+  writeProbe('screens/portal/_probe_scan2.dart', '// activity\n');
+  writeProbe('screens/portal/_probe_scan4.dart',
+      'final m = MapEntry(key, value);\n');
+  writeProbe('screens/portal/_probe_scan5.dart',
+      "await api.get('/me/security/activity', "
+          "query: {'limit': '100'});\n");
+  final clean = scanLibDirectory(tempDir.path);
+  for (final scan in allPerFileScans) {
+    expect(clean.where((v) => v.scan == scan), isEmpty,
+        reason: 'clean probe tree still trips $scan — over-flagging: '
+            '${clean.join('\n')}');
+  }
 });
 ```
 
@@ -179,14 +219,14 @@ test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
 4. **The guards must not depend on the doc record.** The `[RESOLVED]` line at `audit-contract-batch-snaplink-console.md:10` is currently **uncommitted** (working tree). The scan, probes, and widget test are pure source-tree checks and stay green regardless of commit state; the doc record is advisory provenance, and this design deliberately does not add a docs-dependent assertion.
 5. **Widget-test environment.** `pumpAndSettle` is proven in the existing test on this widget; `SecurityActivityTab` schedules only the two plain futures in `initState` (verified `_loadActivity`/`_loadHistory`), no timers/animations, so no settle hang. Empty-array fixtures are valid per the decode path.
 6. **Mutation probes follow the existing convention** of path-keyed `_libSource` overrides (same brittleness profile as the `governance_tab.dart` probes: a rename breaks both the probe and the REQ-1 greppable claim, so the failure is loud, not silent).
-7. **The F2 pin is temp-dir-contained.** It writes its synthetic `screens/portal/_probe.dart` under `Directory.systemTemp` only — never the repo tree — removes it via `addTearDown`, and carries a clean-probe control so scan 6 cannot trip on path alone. Both assertions are filtered to scan id `portal-audit-boundary` (the throwaway tree has no trio owner, so the ownership pin legitimately fires there and must not pollute the pin's assertion).
+7. **The F2 pin is temp-dir-contained and per-scan.** It writes its synthetic probe tree under `Directory.systemTemp` only — never the repo tree — removes it via `addTearDown`, and carries a clean-probe control so no scan can trip on paths/layout alone. Every assertion is filtered per scan id; the throwaway tree carries a complete trio owner so the ownership pin trips on the offender probe rather than on missing-owner noise, and the tree's only `.dart` files are the probes and the owner, so no other scan state leaks into the assertions. The pin covers the per-file loop calls of scans 1/2/4/5/6 and the trio-owner post-loop call — the shared vacuous-pass residual (the `_scanWith` dispatch re-implements the loop, so the mutation skins cannot pin it; scan 3 needs no pin: it is runtime-derived and invoked directly in tests).
 
 ## 3. Failure modes
 
 | # | Failure mode | Detection | Mitigation |
 |---|---|---|---|
 | F1 | Future implementer adds an audit surface to the portal module (import, literal, identifier, comment) | Scan 6 trips on any `audit` occurrence → CI red; mutation skins A/B/C prove fail-closed | The intended friction: forces a documented boundary amendment (record + spec + scan) instead of a silent drift; T-12 acceptance stays on the proven carrier |
-| F2 | Scan wiring regresses (wrong prefix, misplaced call, typo'd scan id) | Two independent canaries cover both wiring points: the mutation skins fail closed through the `_scanWith` dispatch (`audit_contract_guard_mutation_test.dart:65-67`), and the temp-dir positive pin (`audit_contract_guard_test.dart:320`) makes `scanLibDirectory` trip on a synthetic `screens/portal/_probe.dart` through the scans.dart per-file call (:110) | Probes pin the scan's dispatch wiring; the pin pins the scan's `scanLibDirectory` wiring — the green-against-tree group cannot pass vacuously if either is dropped |
+| F2 | Scan wiring regresses (wrong prefix, misplaced call, typo'd scan id) | Two independent canaries cover both wiring points: the mutation skins fail closed through the `_scanWith` dispatch (`audit_contract_guard_mutation_test.dart:65-67`), and the temp-dir positive pin (`audit_contract_guard_test.dart:320`) makes `scanLibDirectory` trip on a synthetic probe tree — every per-file scan id (1/2/4/5/6 + trio owner) asserted non-empty on the dirty tree, all empty on the clean control — through the scans.dart per-file calls (:106-110, trio owner :112) | Probes pin the dispatch wiring; the pin pins the loop wiring of every per-file scan — no green-against-tree group can pass vacuously if any loop call or the dispatch is dropped |
 | F3 | `fail()` inside MockClient handler silently swallowed by the tab's error catch-all | Final `unorderedEquals(paths, ...)` still fails on the recorded audit path | Design keeps both layers; the assertion is authoritative, the fast-fail is diagnostic |
 | F4 | Widget gains a third request or drops one of the two `/me` requests | Set equality fails (over-request *and* under-request) | `unorderedEquals` on the recorded path set |
 | F5 | Future legit portal content contains "audit" (e.g., self-service audit feature) | CI red on the guard, even if the feature is otherwise sound | By design: the B6-1 boundary routes audit reads through `SnaplinkAdminApi`/admin screens; approving such a feature requires an explicit boundary amendment touching record + spec + scan — never silent |
@@ -198,7 +238,7 @@ test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
 
 1. **`test/audit_contract_guard_scans.dart`** — add `_auditAnyPattern` + `scanPortalAuditBoundary` (after the scan-5 section); wire one line into the `scanLibDirectory` loop after `scanSecondConsumer`.
 2. **`test/audit_contract_guard_mutation_test.dart`** — add `'portal-audit-boundary'` to the default `scans` set; add the dispatch block; add the three-skin probes group.
-3. **`test/audit_contract_guard_test.dart`** — add the scan-6 green-against-tree group **and the F2 temp-dir positive pin** (1.2.F) after the scan-5 group (:170-:205).
+3. **`test/audit_contract_guard_test.dart`** — add the scan-6 green-against-tree group **and the F2 temp-dir positive pin** (1.2.F) after the scan-5 group (:170-:310).
 4. **`test/portal_security_widgets_test.dart`** — add the request-bound `testWidgets` (section 1.2.E, :34); the existing error-independence test stays untouched.
 5. **Verify, in order:**
    - `grep -rn "audit" lib/screens/portal/` → **exit 1**
@@ -212,7 +252,7 @@ test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
 
 | Direction acceptance | Requirement | Concrete gate (testable) | Red when |
 |---|---|---|---|
-| **AC-1(a)** grep guard + byte-identical portal files | REQ-1, REQ-2 | (i) `grep -rn "audit" lib/screens/portal/` → exit 1; (ii) `git diff --exit-code -- lib/screens/portal/portal_api.dart lib/api/portal_api.dart` → exit 0; (iii) scan-6 green-against-tree group; (iv) mutation skins A/B/C non-empty; (v) F2 temp-dir positive pin trips on the synthetic probe and stays green on the clean control | any `audit` occurrence in portal module; either portal_api file changed; scan wiring broken (`scanLibDirectory` call dropped → (v) red; `_scanWith` dispatch dropped → (iv) red) |
+| **AC-1(a)** grep guard + byte-identical portal files | REQ-1, REQ-2 | (i) `grep -rn "audit" lib/screens/portal/` → exit 1; (ii) `git diff --exit-code -- lib/screens/portal/portal_api.dart lib/api/portal_api.dart` → exit 0; (iii) scan-6 green-against-tree group; (iv) mutation skins A/B/C non-empty; (v) F2 temp-dir positive pin trips on **every per-file scan id** (1/2/4/5/6 + trio owner) over the synthetic probe tree and stays green on the clean control | any `audit` occurrence in portal module; either portal_api file changed; scan wiring broken (any `scanLibDirectory` per-file call dropped → (v) red; `_scanWith` dispatch dropped → (iv) red) |
 | **AC-2(b)** Activity tab request bound | REQ-3 | New `testWidgets` in `portal_security_widgets_test.dart` (1.2.E): recorded path set must equal `{/me/security/activity, /me/login-history}`; `fail()` on `/api/v1/audit*` | audit-trio request issued; third request; missing `/me` path; non-200 shape assumptions |
 | **AC-3(c)** default-wire pin + portal client acquires no audit surface | REQ-4, REQ-5 | (i) `test/audit_query_test.dart` AC-1.1 (`AuditQuery(limit:100)` → `{'limit':'100'}`); (ii) `test/audit_read_client_test.dart` default `list()` wire = one request, `eventsPath`, `{'limit':'100'}`; (iii) `grep -in "audit" lib/api/portal_api.dart` → exit 1; (iv) scan-5 trio-literal ownership pin stays green | wire drifts from limit-only; `PortalApi` gains audit identifiers; trio literals escape `AuditReadClient` |
 | Gate linkage (T-12 console leg, `implementation-gate.md:56`) | REQ-5 | `[RESOLVED]` record present at `audit-contract-batch-snaplink-console.md:10` naming `SnaplinkAdminApi.get` + `AuditQuery`; joint acceptance carried by the proven carrier + sink B1-5 self-audit, never the portal client | carrier reassigned to `PortalApi` (would trip AC-1/AC-2 before any record could matter) |
