@@ -84,6 +84,23 @@ class AuditLogService {
     _ringCopyEnabled = value;
   }
 
+  /// Debug-only storage seam (b6-1a §1.2a): storage I/O is demoted to
+  /// debug-only recording. Const-folded to `false` in release/profile —
+  /// no release-reachable code can enable it (the setter is const-gated),
+  /// so `_save`/`_load` are structural no-ops and the storage-key
+  /// constant is dead-code-eliminated from release bundles. (No pinned
+  /// token in any service-file comment — the scan pins are whole-source
+  /// regexes; F1/C12.)
+  static bool _storageEnabled = kDebugMode;
+
+  /// Debug-only test axis: false simulates release (no storage I/O),
+  /// true exercises the ring path. Assignment unreachable in release.
+  @visibleForTesting
+  static set debugStorageEnabled(bool value) {
+    if (!kDebugMode) return; // const-folds to `return;` in release.
+    _storageEnabled = value;
+  }
+
   List<AuditEntry> get entries => List.unmodifiable(_entries);
 
   void record(AuditEntry entry) {
@@ -125,15 +142,19 @@ class AuditLogService {
   int get count => _entries.length;
 
   void _save() {
+    if (!kDebugMode) return; // first statements, before the try
+    if (!_storageEnabled) return;
     try {
       final jsonStr = jsonEncode(_entries.map((e) => e.toJson()).toList());
       LocalStorage.setItem(_storageKey, jsonStr);
     } catch (e) {
-      debugPrint('audit_log persist/load error: $e');
+      debugPrint('audit_log storage error: ${e.runtimeType}');
     }
   }
 
   void _load() {
+    if (!kDebugMode) return; // same shape
+    if (!_storageEnabled) return;
     try {
       final jsonStr = LocalStorage.getItem(_storageKey);
       if (jsonStr != null && jsonStr.isNotEmpty) {
@@ -143,7 +164,7 @@ class AuditLogService {
         );
       }
     } catch (e) {
-      debugPrint('audit_log persist/load error: $e');
+      debugPrint('audit_log storage error: ${e.runtimeType}');
     }
   }
 }

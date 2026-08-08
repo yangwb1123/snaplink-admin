@@ -13,6 +13,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/screens/admin/audit_log_tab.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/services/local_storage.dart';
 
 const _eventsBody =
     '{"events":['
@@ -21,6 +22,21 @@ const _eventsBody =
     '"client_id":"console","tenant_id":"acme"},'
     '{"id":"e-2","type":"admin_user_deleted","outcome":"failure",'
     '"timestamp":"2026-08-05T13:00:00Z","actor_id":"admin-2",'
+    '"client_id":"console","tenant_id":"acme"}],'
+    '"count":999}';
+
+/// Seeds three server rows at the given timestamps — one per relative
+/// bucket (just-now / m-ago / h-ago) for the TIME column wiring tests.
+String _eventsBodyRelative(DateTime a, DateTime b, DateTime c) =>
+    '{"events":['
+    '{"id":"e-1","type":"admin_client_created","outcome":"success",'
+    '"timestamp":"${a.toUtc().toIso8601String()}","actor_id":"admin-1",'
+    '"client_id":"console","tenant_id":"acme"},'
+    '{"id":"e-2","type":"admin_user_deleted","outcome":"failure",'
+    '"timestamp":"${b.toUtc().toIso8601String()}","actor_id":"admin-2",'
+    '"client_id":"console","tenant_id":"acme"},'
+    '{"id":"e-3","type":"admin_role_created","outcome":"success",'
+    '"timestamp":"${c.toUtc().toIso8601String()}","actor_id":"admin-1",'
     '"client_id":"console","tenant_id":"acme"}],'
     '"count":999}';
 
@@ -98,6 +114,33 @@ void _seedForgedRing() {
       label: 'forged entry',
     ),
   );
+}
+
+/// T-12 raw-devtools seeding variant (REQ-3 R3.2): plants the forged row
+/// via a direct `LocalStorage.setItem` BEFORE the page pump — a
+/// devtools-forged payload, not `AuditLogService().record` (that is
+/// `_seedForgedRing`'s job for AC-1.5). The tab must never render it,
+/// and (off polarity) must leave it byte-identical: display truth comes
+/// exclusively from AuditReadClient `/api/v1/audit/events` (F7).
+/// Unconditional teardown removes the seeded key and restores the flag
+/// (FD-S3 — later tests in this isolate must not observe either).
+/// R5.3 dependency: this joint is conditioned on the landed server-fed
+/// timeline (direction 1); if that read path is reverted, this check is
+/// blocked, never silently green.
+void _seedForgedRingRaw() {
+  LocalStorage.setItem(
+    'sso_audit_log',
+    jsonEncode([
+      {
+        'timestamp': DateTime.now().toIso8601String(),
+        'method': 'POST',
+        'path': '/api/v1/admin/forged',
+        'statusCode': 200,
+        'label': 'forged entry',
+      },
+    ]),
+  );
+  addTearDown(() => LocalStorage.removeItem('sso_audit_log'));
 }
 
 void main() {
@@ -267,11 +310,7 @@ void main() {
 
         // The EVENT column renders the scrubbed URI: secrets gone, audit
         // context (limit/tenant_id) and the param keys retained.
-        for (final secret in const [
-          'C0DESECRET',
-          'ST8SECRET',
-          'J0TSECRET',
-        ]) {
+        for (final secret in const ['C0DESECRET', 'ST8SECRET', 'J0TSECRET']) {
           expect(find.textContaining(secret), findsNothing);
         }
         expect(find.textContaining('%3Credacted%3E'), findsOneWidget);
@@ -466,104 +505,95 @@ void main() {
   });
 
   group('FM-2 / FM-3 / FM-7 error-state variants', () {
-    testWidgets(
-      'FM-2: transport timeout after retries → same error state, '
-      'no ring fallback',
-      (tester) async {
-        _seedForgedRing();
-        final held = Completer<http.Response>();
-        final api = SnaplinkAdminApi(
-          baseUrl: 'https://sso.example.test',
-          accessToken: 'admin-token',
-          httpClient: MockClient((request) => held.future),
-        );
-        tester.view.physicalSize = const Size(1200, 2200);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.reset);
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: AuditLogTab(
-                api: api,
-                capabilities: _caps(['/api/v1/audit/events']),
-              ),
+    testWidgets('FM-2: transport timeout after retries → same error state, '
+        'no ring fallback', (tester) async {
+      _seedForgedRing();
+      final held = Completer<http.Response>();
+      final api = SnaplinkAdminApi(
+        baseUrl: 'https://sso.example.test',
+        accessToken: 'admin-token',
+        httpClient: MockClient((request) => held.future),
+      );
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AuditLogTab(
+              api: api,
+              capabilities: _caps(['/api/v1/audit/events']),
             ),
           ),
-        );
-        // Explicit pump only — never pumpAndSettle while a request is
-        // held (FM-9 idiom).
-        await tester.pump();
-        held.completeError(TimeoutException('Timed out'));
-        // Load-bearing: the transport retries the GET 3× (1000ms, then
-        // 2000ms backoff — pow(2, attempt) * 500, snaplink_admin_api.dart)
-        // before the raw TimeoutException reaches the tab's
-        // `on TimeoutException` branch. pumpAndSettle alone cannot advance
-        // a Future.delayed timer that has not scheduled a frame — advance
-        // the fake clock explicitly past both delays.
-        await tester.pump(const Duration(milliseconds: 1100));
-        await tester.pump(const Duration(milliseconds: 2100));
-        await tester.pumpAndSettle();
-        // Same error state as AC-3b — and never a ring fallback.
-        expect(find.text('Retry'), findsOneWidget);
-        expect(find.textContaining('Timed out'), findsOneWidget);
-        expect(find.textContaining('admin_client_created'), findsNothing);
-        expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
-        expect(find.textContaining('forged entry'), findsNothing);
-      },
-    );
+        ),
+      );
+      // Explicit pump only — never pumpAndSettle while a request is
+      // held (FM-9 idiom).
+      await tester.pump();
+      held.completeError(TimeoutException('Timed out'));
+      // Load-bearing: the transport retries the GET 3× (1000ms, then
+      // 2000ms backoff — pow(2, attempt) * 500, snaplink_admin_api.dart)
+      // before the raw TimeoutException reaches the tab's
+      // `on TimeoutException` branch. pumpAndSettle alone cannot advance
+      // a Future.delayed timer that has not scheduled a frame — advance
+      // the fake clock explicitly past both delays.
+      await tester.pump(const Duration(milliseconds: 1100));
+      await tester.pump(const Duration(milliseconds: 2100));
+      await tester.pumpAndSettle();
+      // Same error state as AC-3b — and never a ring fallback.
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.textContaining('Timed out'), findsOneWidget);
+      expect(find.textContaining('admin_client_created'), findsNothing);
+      expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+      expect(find.textContaining('forged entry'), findsNothing);
+    });
 
-    testWidgets(
-      'FM-3: server 401 → description in the same error state; the '
-      'session hook still fires',
-      (tester) async {
-        _seedForgedRing();
-        var unauthorizedFired = false;
-        final requests = <Uri>[];
-        final api = SnaplinkAdminApi(
-          baseUrl: 'https://sso.example.test',
-          accessToken: 'admin-token',
-          onUnauthorized: () => unauthorizedFired = true,
-          httpClient: MockClient((request) async {
-            requests.add(request.url);
-            return http.Response(
-              jsonEncode({
-                'error': 'unauthorized',
-                'message': 'Session expired. Please sign in again.',
-              }),
-              401,
-            );
-          }),
-        );
-        await _pump(
-          tester,
-          AuditLogTab(
-            api: api,
-            capabilities: _caps(['/api/v1/audit/events']),
-          ),
-        );
+    testWidgets('FM-3: server 401 → description in the same error state; the '
+        'session hook still fires', (tester) async {
+      _seedForgedRing();
+      var unauthorizedFired = false;
+      final requests = <Uri>[];
+      final api = SnaplinkAdminApi(
+        baseUrl: 'https://sso.example.test',
+        accessToken: 'admin-token',
+        onUnauthorized: () => unauthorizedFired = true,
+        httpClient: MockClient((request) async {
+          requests.add(request.url);
+          return http.Response(
+            jsonEncode({
+              'error': 'unauthorized',
+              'message': 'Session expired. Please sign in again.',
+            }),
+            401,
+          );
+        }),
+      );
+      await _pump(
+        tester,
+        AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+      );
 
-        // The transport hook fires through the tab's read path — never
-        // swallowed or reimplemented by the tab.
-        expect(unauthorizedFired, isTrue);
-        // The 401 description renders via the shared error state;
-        // error.code ('unauthorized') is never the rendered text
-        // (SnaplinkAdminApiError.toString() = description ?? code ?? …).
-        expect(
-          find.text('Session expired. Please sign in again.'),
-          findsOneWidget,
-        );
-        expect(find.textContaining('unauthorized'), findsNothing);
-        expect(find.text('Retry'), findsOneWidget);
-        expect(find.textContaining('admin_client_created'), findsNothing);
-        expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
-        expect(find.textContaining('forged entry'), findsNothing);
-        // Retry re-enters the gate and issues a fresh request after a 401.
-        final before = requests.length;
-        await tester.tap(find.text('Retry'));
-        await tester.pumpAndSettle();
-        expect(requests.length, greaterThan(before));
-      },
-    );
+      // The transport hook fires through the tab's read path — never
+      // swallowed or reimplemented by the tab.
+      expect(unauthorizedFired, isTrue);
+      // The 401 description renders via the shared error state;
+      // error.code ('unauthorized') is never the rendered text
+      // (SnaplinkAdminApiError.toString() = description ?? code ?? …).
+      expect(
+        find.text('Session expired. Please sign in again.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('unauthorized'), findsNothing);
+      expect(find.text('Retry'), findsOneWidget);
+      expect(find.textContaining('admin_client_created'), findsNothing);
+      expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+      expect(find.textContaining('forged entry'), findsNothing);
+      // Retry re-enters the gate and issues a fresh request after a 401.
+      final before = requests.length;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(requests.length, greaterThan(before));
+    });
 
     testWidgets(
       'FM-7: malformed envelope → server-truth empty state, no crash, '
@@ -578,10 +608,7 @@ void main() {
         });
         await _pump(
           tester,
-          AuditLogTab(
-            api: api,
-            capabilities: _caps(['/api/v1/audit/events']),
-          ),
+          AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
         );
 
         // Wrong-typed `events` maps to zero rows (mapper never throws) —
@@ -828,6 +855,117 @@ void main() {
       expect(find.text('Debug records: 1 entries'), findsOneWidget);
       expect(find.text('0 entries'), findsOneWidget);
       expect(find.textContaining('999'), findsNothing);
+    });
+
+    testWidgets('AC-1: zh TIME column renders the three relative forms', (
+      tester,
+    ) async {
+      // Seeds at now−30s / now−5min / now−2h — one row per relative bucket,
+      // so every _formatTime branch is behaviorally pinned (FM-7 margins:
+      // just-now holds for <30s of seed→build latency, inMinutes==5 for
+      // <60s, inHours==2 for <60min). tester.pump(duration) advances the
+      // fake clock, not DateTime.now(), so only real wall-clock matters.
+      final now = DateTime.now();
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(
+          _eventsBodyRelative(
+            now.subtract(const Duration(seconds: 30)),
+            now.subtract(const Duration(minutes: 5)),
+            now.subtract(const Duration(hours: 2)),
+          ),
+          200,
+        ),
+      });
+      await _pumpZh(
+        tester,
+        AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+      );
+
+      // Exact-key + args zh path: 'just now' direct-key, '{count}m ago' and
+      // '{count}h ago' with {'count': int} — never English relative labels.
+      expect(find.text('刚刚'), findsOneWidget);
+      expect(find.text('5 分钟前'), findsOneWidget);
+      expect(find.text('2 小时前'), findsOneWidget);
+      expect(find.textContaining('m ago'), findsNothing);
+      expect(find.textContaining('h ago'), findsNothing);
+      expect(find.textContaining('just now'), findsNothing);
+    });
+
+    testWidgets('AC-1b: en TIME column passthrough stays byte-identical', (
+      tester,
+    ) async {
+      // en short-circuit (translate returns source verbatim) — first en
+      // time pins in this file; closes the h-ago branch statically.
+      final now = DateTime.now();
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(
+          _eventsBodyRelative(
+            now.subtract(const Duration(seconds: 30)),
+            now.subtract(const Duration(minutes: 5)),
+            now.subtract(const Duration(hours: 2)),
+          ),
+          200,
+        ),
+      });
+      await _pump(
+        tester,
+        AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+      );
+
+      expect(find.text('just now'), findsOneWidget);
+      expect(find.text('5m ago'), findsOneWidget);
+      expect(find.text('2h ago'), findsOneWidget);
+    });
+
+    testWidgets('T-12 raw-devtools seeding — on polarity: forged rows '
+        'never render; server truth does', (tester) async {
+      // R3.2 on polarity: storage axis at its default (on in test
+      // builds) — nothing to set. The forged payload is planted raw,
+      // bypassing the service entirely.
+      _seedForgedRingRaw();
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(_eventsBody, 200),
+      });
+      await _pump(
+        tester,
+        AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+      );
+
+      // Negative: the devtools-forged row is not evidence.
+      expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+      expect(find.textContaining('forged entry'), findsNothing);
+      // Positive control (FD-S2): server rows render, so the test is
+      // live — the negatives are not vacuous.
+      expect(find.textContaining('admin_client_created'), findsOneWidget);
+      expect(find.textContaining('admin_user_deleted'), findsOneWidget);
+    });
+
+    testWidgets('T-12 raw-devtools seeding — off polarity: forged rows '
+        'never render AND the payload stays byte-identical', (tester) async {
+      // R3.2 off polarity: storage off simulates release — the tab must
+      // neither read nor write the ring, and the app must never remove
+      // the key (rule (e)).
+      AuditLogService.debugStorageEnabled = false;
+      addTearDown(() => AuditLogService.debugStorageEnabled = true);
+      _seedForgedRingRaw();
+      final seeded = LocalStorage.getItem('sso_audit_log');
+      expect(seeded, isNotNull);
+
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(_eventsBody, 200),
+      });
+      await _pump(
+        tester,
+        AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+      );
+
+      expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+      expect(find.textContaining('forged entry'), findsNothing);
+      // Positive control (FD-S2).
+      expect(find.textContaining('admin_client_created'), findsOneWidget);
+      // FD-S4: the raw payload is byte-identical after the pump — the
+      // tab never wrote the ring, and no lib/ code removed the key.
+      expect(LocalStorage.getItem('sso_audit_log'), seeded);
     });
   });
 }

@@ -484,13 +484,19 @@ class _AuditLogTabState extends State<AuditLogTab> {
     );
   }
 
+  // Relative labels only — date fallback and '--' stay verbatim (explicit
+  // non-localizable boundary; zh pattern engine only matches ': '-shaped copy).
   String _formatTime(DateTime? dt) {
     if (dt == null) return '--';
     final now = DateTime.now();
     final diff = now.difference(dt);
-    if (diff.inSeconds < 60) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inSeconds < 60) return context.tr('just now');
+    if (diff.inMinutes < 60) {
+      return context.tr('{count}m ago', {'count': diff.inMinutes});
+    }
+    if (diff.inHours < 24) {
+      return context.tr('{count}h ago', {'count': diff.inHours});
+    }
     return '${dt.month}/${dt.day} '
         '${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
