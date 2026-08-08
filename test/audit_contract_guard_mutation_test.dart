@@ -30,7 +30,7 @@ String _libSource(String relativePath) => File(
   '${packageLibDir()}/${relativePath.replaceAll('/', Platform.pathSeparator)}',
 ).readAsStringSync();
 
-/// Runs scans 1/2/4/5 + the ownership pin over a mutated tree assembled
+/// Runs scans 1/2/4/5/6 + the ownership pin over a mutated tree assembled
 /// from [overrides] (relative path → mutated source) layered over the live
 /// `lib/` tree.
 List<AuditGuardViolation> _scanWith(
@@ -39,6 +39,7 @@ List<AuditGuardViolation> _scanWith(
     'audit-path-literals',
     'bff-literals',
     'raw-stringification',
+    'portal-audit-boundary',
   },
 }) {
   final violations = <AuditGuardViolation>[];
@@ -60,6 +61,9 @@ List<AuditGuardViolation> _scanWith(
     }
     if (scans.contains('second-consumer')) {
       violations.addAll(scanSecondConsumer(source, relative));
+    }
+    if (scans.contains('portal-audit-boundary')) {
+      violations.addAll(scanPortalAuditBoundary(source, relative));
     }
   }
   if (scans.contains('trio-literal-owner')) {
@@ -327,6 +331,63 @@ class AuditLogTab {
         isNotEmpty,
         reason: violations.join('\n'),
       );
+    });
+
+    group('B6-1 scan 6 — portal negative boundary fails closed', () {
+      // The three skins against `screens/portal/security_activity_tab.dart`
+      // (in-memory overrides via `_libSource` + `_scanWith`; no file is
+      // touched). Each probe asserts `mutated != source` (so the anchor is
+      // still live) and that the `portal-audit-boundary` scan trips through
+      // the `_scanWith` dispatch.
+      test('skin A — AuditReadClient import + usage in the portal tab', () {
+        final source = _libSource('screens/portal/security_activity_tab.dart');
+        final mutated = source.replaceFirst(
+          "import 'package:sso_admin/i18n/app_strings.dart';",
+          "import 'package:sso_admin/i18n/app_strings.dart';\n"
+              "import 'package:sso_admin/api/audit_read_client.dart';\n"
+              'final _probe = AuditReadClient(null).list();',
+        );
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/portal/security_activity_tab.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'portal-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
+
+      test('skin B — securityActivity argument replaced by an audit literal', () {
+        final source = _libSource('screens/portal/security_activity_tab.dart');
+        final mutated = source.replaceFirst(
+          'PortalSecurityPaths.securityActivity',
+          "'/api/v1/audit/events'",
+        );
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/portal/security_activity_tab.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'portal-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
+
+      test('skin C — doc comment containing audit appended', () {
+        final source = _libSource('screens/portal/security_activity_tab.dart');
+        final mutated = '$source\n/// audit probe comment\n';
+        expect(mutated, isNot(source));
+        final violations = _scanWith({
+          'screens/portal/security_activity_tab.dart': mutated,
+        });
+        expect(
+          violations.where((v) => v.scan == 'portal-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
     });
   });
 

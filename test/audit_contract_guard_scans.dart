@@ -4,8 +4,9 @@
 /// sources, and the guard itself must not introduce literals that the scans
 /// would flag (e.g. a `bff` token, or an audit path literal).
 ///
-/// The four scans implement the revised design (review §4 of
-/// `docs/proposals/b6-1c-audit-contract-guard-review.md`):
+/// The scans implement the corrected audit contract guard (review §4 of
+/// `docs/proposals/b6-1c-audit-contract-guard-review.md`, plus the B6-1
+/// portal boundary):
 ///   1. audit-path literal scan — per-line path-token extraction inside
 ///      triple-quoted literals (the `routes` blob at
 ///      `snaplink_admin_types.dart`), `${Uri.encodeComponent(<ident>)}` →
@@ -20,7 +21,14 @@
 ///      `governance_tab.dart`), the default `'{"limit": 100}'` field text,
 ///      the parse-error surface in `audit_query.dart`, and a ban on
 ///      `'null'` string literals inside `audit_query.dart` (the F6
-///      literal-`tenant_id=null` regression).
+///      literal-`tenant_id=null` regression);
+///   5. second-consumer land-check (B6-1a) — files querying the audit trio
+///      must construct parameters via `AuditQuery.toQueryParameters()` and
+///      reference `AuditReadClient` (no hand-built maps, no spread skins);
+///   6. portal negative-boundary scan (B6-1) — zero case-insensitive
+///      `audit` occurrences (identifiers, comments, literals) anywhere in
+///      `lib/screens/portal/`; the audit timeline read belongs to
+///      `SnaplinkAdminApi` via `AuditReadClient`, never the portal client.
 library;
 
 import 'dart:io';
@@ -30,7 +38,8 @@ import 'package:sso_admin/api/snaplink_admin_types.dart';
 /// One guard violation: which scan found it, in which file, and why.
 class AuditGuardViolation {
   /// Scan id: `audit-path-literals`, `bff-literals`, `catalog-trio`,
-  /// or `raw-stringification`.
+  /// `raw-stringification`, `second-consumer`, `trio-literal-owner`,
+  /// or `portal-audit-boundary`.
   final String scan;
 
   /// File label (relative to the scanned `lib/` root) or catalog name.
@@ -78,10 +87,10 @@ String normalizeAuditPathToken(String token) {
   return token.replaceAll(':id', '{id}');
 }
 
-/// Runs scans 1, 2, 4, and 5 plus the trio-literal ownership pin over
-/// every `.dart` file under [libDirPath]. Scan 3 is runtime-derived and
-/// must be invoked with the catalog endpoints separately (see
-/// [scanCatalogTrio]).
+/// Runs scans 1, 2, 4, 5, and 6 (portal boundary) plus the trio-literal
+/// ownership pin over every `.dart` file under [libDirPath]. Scan 3 is
+/// runtime-derived and must be invoked with the catalog endpoints
+/// separately (see [scanCatalogTrio]).
 List<AuditGuardViolation> scanLibDirectory(String libDirPath) {
   final root = Directory(libDirPath);
   if (!root.existsSync()) {
@@ -98,6 +107,7 @@ List<AuditGuardViolation> scanLibDirectory(String libDirPath) {
     violations.addAll(scanBffLiterals(source, relative));
     violations.addAll(scanRawStringification(source, relative));
     violations.addAll(scanSecondConsumer(source, relative));
+    violations.addAll(scanPortalAuditBoundary(source, relative));
   }
   violations.addAll(scanTrioLiteralOwnership(sources));
   return violations;
@@ -392,6 +402,42 @@ Set<String> _trioLiteralsInSource(String source) {
     if (auditTrio.contains(normalized)) hits.add(normalized);
   }
   return hits;
+}
+
+/// Scan 6 — B6-1 portal negative boundary.
+///
+/// The portal module (`lib/screens/portal/`) keeps zero case-insensitive
+/// `audit` occurrences (identifiers, comments, literals, doc comments).
+/// The audit timeline read belongs to SnaplinkAdminApi via
+/// AuditReadClient; the portal self-service client never acquires an
+/// audit surface (record: audit-contract-batch-snaplink-console.md:10).
+///
+/// The early return keeps every non-portal file byte-for-byte unaffected
+/// (the existing scans 1/2/4/5 run exactly as before), and it is the
+/// reason the temp-dir positive pin (F2) writes its synthetic probe under
+/// `screens/portal/` inside a throwaway tree: only that label is scanned.
+final _auditAnyPattern = RegExp(r'audit', caseSensitive: false);
+
+List<AuditGuardViolation> scanPortalAuditBoundary(
+  String source,
+  String fileLabel,
+) {
+  if (!fileLabel.startsWith('screens/portal/')) return const [];
+  final violations = <AuditGuardViolation>[];
+  for (final match in _auditAnyPattern.allMatches(source)) {
+    final line =
+        1 + '\n'.allMatches(source.substring(0, match.start)).length;
+    violations.add(
+      AuditGuardViolation(
+        scan: 'portal-audit-boundary',
+        file: fileLabel,
+        detail: 'case-insensitive "audit" at line $line; the portal module '
+            'is the B6-1 negative boundary — audit reads belong to '
+            'SnaplinkAdminApi via AuditReadClient',
+      ),
+    );
+  }
+  return violations;
 }
 
 /// Scan 4 — raw-stringification source guard (absence + positive pins).

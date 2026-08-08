@@ -1,4 +1,5 @@
-/// Repo-wide audit contract guard (AC-3) — the corrected four scans.
+/// Repo-wide audit contract guard (AC-3) — the corrected four scans plus
+/// the B6-1 portal boundary scan (scan 6).
 ///
 /// Revised per `docs/proposals/b6-1c-audit-contract-guard-review.md` §4:
 ///  * scan 1: per-line path-token extraction inside triple-quoted literals
@@ -10,7 +11,11 @@
 ///  * scan 3: runtime catalog trio, sharing the scan-1 normalizer;
 ///  * scan 4: lib-wide whitespace-tolerant `MapEntry(key, '$value')`
 ///    absence + positive pins (builder wiring, default field text,
-///    parse-error surface, `'null'` literal ban in the builder).
+///    parse-error surface, `'null'` literal ban in the builder);
+///  * scan 6: portal negative boundary (`portal-audit-boundary`) — zero
+///    case-insensitive `audit` occurrences in `lib/screens/portal/` (B6-1),
+///    plus a temp-dir positive pin so the `scanLibDirectory` wiring cannot
+///    regress vacuously (F2).
 ///
 /// The trip matrix for the planted regressions lives in
 /// `test/audit_contract_guard_mutation_test.dart`; the behavioral wire
@@ -301,6 +306,51 @@ class AuditLogTab {
           );
         });
       }
+    });
+  });
+
+  group('scan 6 — portal-audit-boundary (B6-1 negative boundary)', () {
+    test('zero "audit" occurrences across the live portal module', () {
+      final violations = scanLibDirectory(
+        packageLibDir(),
+      ).where((violation) => violation.scan == 'portal-audit-boundary');
+      expect(violations, isEmpty, reason: violations.join('\n'));
+    });
+
+    test('F2 wiring pin — synthetic portal probe trips scanLibDirectory', () {
+      // The positive pin: a synthetic `screens/portal/_probe.dart` containing
+      // `audit` inside a throwaway temp tree must trip scan 6 through the
+      // `scanLibDirectory` per-file wiring. If the one-line call in the
+      // scans.dart loop is forgotten (or the prefix check breaks), the
+      // green-against-tree group above would pass vacuously — this test
+      // cannot. Temp-dir only; no repo file is touched, and the tree is
+      // removed via addTearDown.
+      final tempDir = Directory.systemTemp.createTempSync(
+        'b6_1_portal_probe_',
+      );
+      addTearDown(() {
+        if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
+      });
+      final probePath =
+          '${tempDir.path}${Platform.pathSeparator}screens'
+          '${Platform.pathSeparator}portal'
+          '${Platform.pathSeparator}_probe.dart';
+      final probe = File(probePath);
+      probe.createSync(recursive: true);
+      probe.writeAsStringSync(
+        "final _probe = 'audit'; // synthetic negative-boundary probe\n",
+      );
+      final dirty = scanLibDirectory(tempDir.path)
+          .where((v) => v.scan == 'portal-audit-boundary')
+          .toList();
+      expect(dirty, isNotEmpty, reason: dirty.join('\n'));
+      // Control: the same layout without the token must stay scan-6 green,
+      // so the pin cannot be satisfied by the path alone (over-flagging).
+      probe.writeAsStringSync("final _probe = 'activity';\n");
+      final clean = scanLibDirectory(tempDir.path)
+          .where((v) => v.scan == 'portal-audit-boundary')
+          .toList();
+      expect(clean, isEmpty, reason: clean.join('\n'));
     });
   });
 
