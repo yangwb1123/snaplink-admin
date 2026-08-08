@@ -28,8 +28,9 @@ class AuditLogTab extends StatefulWidget {
 
   /// Optional tenant/trace context, forwarded verbatim into
   /// [AuditReadClient]. Never derived, never hardcoded, never defaulted —
-  /// B4-1 claim parsing / BFF trace_id injection are [PROPOSED] and out of
-  /// scope; when absent the wire stays exactly `{'limit':'100'}` (AC-1).
+  /// B4-1 claim parsing / proxy-side trace_id injection are [PROPOSED] and
+  /// out of scope; when absent the wire stays exactly `{'limit':'100'}`
+  /// (AC-1).
   final String? tenantId;
   final String? traceId;
 
