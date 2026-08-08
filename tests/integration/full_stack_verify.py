@@ -108,6 +108,10 @@ def main():
     step('Detail API (28 tests)',
          ['python3', 'tests/integration/detail_api_test.py'], 60)
     
+    # B6-2 client_id contract drill (device redirect-leg facts)
+    step('B6-2 Login Drill (client_id contract)',
+         ['python3', 'tests/integration/audit_login_drill.py'], 300)
+    
     # Step 6: E2E tests  
     print("\n【步骤 6/6: 端到端测试】")
     

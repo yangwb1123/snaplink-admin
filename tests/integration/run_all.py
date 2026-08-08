@@ -164,6 +164,11 @@ def main():
             run_e2e_test('Python E2E Runner', 
                         ['python3', 'tests/integration/e2e_runner.py'], timeout=180)
             
+            # B6-2 client_id contract drill (device redirect-leg facts)
+            run_e2e_test('B6-2 Login Drill (client_id contract)',
+                         ['python3', 'tests/integration/audit_login_drill.py'],
+                         timeout=300)
+            
             # Try Playwright browser tests
             try:
                 import playwright
