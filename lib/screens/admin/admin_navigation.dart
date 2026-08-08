@@ -1,3 +1,4 @@
+import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 
 /// Stable route identifiers for the admin navigation.
@@ -143,6 +144,8 @@ class AdminNavigationCapabilities {
 
   bool get supportsConnections =>
       _hasAnyPathPrefix('/api/v1/admin/connections');
+
+  bool get supportsAuditLog => _has('GET', AuditReadClient.eventsPath);
 
   bool _has(String method, String path) => capabilities.has(method, path);
 

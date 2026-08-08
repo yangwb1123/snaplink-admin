@@ -556,15 +556,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         page: GovernanceTab(api: _api, capabilities: capabilities),
       ),
-      AdminNavigationEntry(
-        module: AdminModuleId.auditLog,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.receipt_long_outlined),
-          selectedIcon: const Icon(Icons.receipt_long),
-          label: Text(strings.auditLog),
+      if (navigation.supportsAuditLog)
+        AdminNavigationEntry(
+          module: AdminModuleId.auditLog,
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: Text(strings.auditLog),
+          ),
+          page: AuditLogTab(api: _api, capabilities: capabilities),
         ),
-        page: const AuditLogTab(),
-      ),
       AdminNavigationEntry(
         module: AdminModuleId.health,
         destination: NavigationRailDestination(

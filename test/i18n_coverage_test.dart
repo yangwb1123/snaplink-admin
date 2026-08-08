@@ -76,7 +76,7 @@ void main() {
       '_field\\(\\s*$_literalSequence\\s*,\\s*($_literalSequence)',
     );
     final localizedNamedCopy = RegExp(
-      '(?:title|detail|body|emptyText):\\s*($_literalSequence)\\s*[,)]',
+      '\\b(?:title|subtitle|detail|body|emptyText):\\s*($_literalSequence)\\s*[,)]',
     );
     for (final file in uiFiles) {
       final source = file.readAsStringSync();

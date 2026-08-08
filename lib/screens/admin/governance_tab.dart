@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/audit_query.dart';
+import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
@@ -28,8 +29,11 @@ class GovernanceTab extends StatefulWidget {
 }
 
 class _GovernanceTabState extends State<GovernanceTab> {
-  static const _auditPath = '/api/v1/audit/events';
-  static const _facetPath = '/api/v1/audit/facets';
+  // Trio literals live only in AuditReadClient (guard scan: trio-literal
+  // ownership pin); the governance demo routes through the read client's
+  // constants with AuditQuery-built parameters (guard scan 5).
+  static const _auditPath = AuditReadClient.eventsPath;
+  static const _facetPath = AuditReadClient.facetsPath;
   final _auditQuery = TextEditingController(text: '{"limit": 100}');
   final _resourceId = TextEditingController();
   final _writeBody = TextEditingController(text: '{}');

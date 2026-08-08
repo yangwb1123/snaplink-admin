@@ -60,51 +60,92 @@ void main() {
   });
 
   group('AuditLogTab', () {
-    testWidgets('lists, filters and clears local audit entries', (
+    testWidgets('lists and filters server audit events; ring clear is inert', (
       tester,
     ) async {
+      // Seed the local ring so the Clear action is enabled — the timeline
+      // must never render these rows (T-12: ring is not evidence).
       final service = AuditLogService();
       addTearDown(service.clear);
       service.record(
         AuditEntry(
           timestamp: DateTime.now(),
           method: 'POST',
-          path: '/api/v1/admin/clients',
+          path: '/api/v1/admin/forged',
           statusCode: 200,
-          label: 'clients POST',
+          label: 'forged entry',
         ),
       );
-      service.record(
-        AuditEntry(
-          timestamp: DateTime.now(),
-          method: 'DELETE',
-          path: '/api/v1/admin/users',
-          statusCode: 200,
-          label: 'users DELETE',
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(
+          jsonEncode({
+            'events': [
+              {
+                'id': 'e-1',
+                'type': 'admin_client_created',
+                'outcome': 'success',
+                'timestamp': '2026-08-05T12:00:00Z',
+                'actor_id': 'admin-1',
+                'client_id': 'console',
+                'tenant_id': 'acme',
+              },
+              {
+                'id': 'e-2',
+                'type': 'admin_user_deleted',
+                'outcome': 'failure',
+                'timestamp': '2026-08-05T13:00:00Z',
+                'actor_id': 'admin-2',
+                'client_id': 'console',
+                'tenant_id': 'acme',
+              },
+            ],
+            'count': 2,
+          }),
+          200,
         ),
-      );
+      });
 
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: AuditLogTab())),
+        MaterialApp(
+          home: Scaffold(
+            body: AuditLogTab(
+              api: api,
+              capabilities: _caps(['/api/v1/audit/events']),
+            ),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('2 entries'), findsOneWidget);
-      expect(find.textContaining('/api/v1/admin/clients'), findsOneWidget);
+      expect(find.textContaining('admin_client_created'), findsOneWidget);
+      expect(find.textContaining('admin_user_deleted'), findsOneWidget);
+      expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+      expect(find.textContaining('forged entry'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), 'clients');
+      // Search filters the fetched page client-side.
+      await tester.enterText(find.byType(TextField), 'admin_client');
       await tester.pumpAndSettle();
-      expect(find.textContaining('/api/v1/admin/users'), findsNothing);
+      expect(find.textContaining('admin_client_created'), findsOneWidget);
+      expect(find.textContaining('admin_user_deleted'), findsNothing);
 
+      // Clear clears the ring only — server rows keep rendering.
       await tester.tap(find.byIcon(Icons.delete_sweep));
       await tester.pumpAndSettle();
-      // 确认对话框（影响数量）→ 确认清空。
-      await tester.tap(find.text('Clear log').last);
+      await tester.tap(find.text('Clear local debug records').last);
       await tester.pumpAndSettle();
-      expect(find.text('0 entries'), findsOneWidget);
+      expect(service.count, 0);
+      // Server truth is untouched by the ring clear — the header count is
+      // the served page size, and the ring rows stay absent.
+      expect(find.text('2 entries'), findsOneWidget);
+      expect(find.textContaining('admin_client_created'), findsOneWidget);
+      expect(find.textContaining('forged entry'), findsNothing);
     });
 
-    testWidgets('exports filtered entries as CSV with injection guard', (
+    testWidgets('exports server rows as CSV with injection guard', (
       tester,
     ) async {
       // Mock the platform clipboard so setData/getData resolve in tests.
@@ -124,29 +165,50 @@ void main() {
       );
       addTearDown(() => tester.binding.defaultBinaryMessenger
           .setMockMethodCallHandler(SystemChannels.platform, null));
-      final service = AuditLogService();
-      addTearDown(service.clear);
-      service.record(
-        AuditEntry(
-          timestamp: DateTime.utc(2026, 8, 5, 12),
-          method: 'POST',
-          path: '/api/v1/admin/clients',
-          statusCode: 200,
-          label: '=SUM(A1:A2)',  // formula-injection bait
-        ),
-      );
-      service.record(
-        AuditEntry(
-          timestamp: DateTime.utc(2026, 8, 5, 13),
-          method: 'GET',
-          path: '/api/v1/admin/users',
-          statusCode: 200,
-          label: 'plain label',
-        ),
-      );
 
+      // Bait rows are served by the MockClient (server response), never
+      // seeded through the ring.
+      final api = _api({
+        '/api/v1/audit/events': (_) => http.Response(
+          jsonEncode({
+            'events': [
+              {
+                'id': 'r-1',
+                'type': '=SUM(A1:A2)', // formula-injection bait
+                'outcome': 'success',
+                'timestamp': '2026-08-05T12:00:00Z',
+                'actor_id': 'admin-1',
+                'client_id': 'console',
+                'tenant_id': 'acme',
+              },
+              {
+                'id': 'r-2',
+                'type': 'plain label',
+                'outcome': 'failure',
+                // null timestamp: exports as -- without throwing
+                'actor_id': '',
+                'client_id': '',
+                'tenant_id': '',
+              },
+            ],
+            'count': 2,
+          }),
+          200,
+        ),
+      });
+
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: AuditLogTab())),
+        MaterialApp(
+          home: Scaffold(
+            body: AuditLogTab(
+              api: api,
+              capabilities: _caps(['/api/v1/audit/events']),
+            ),
+          ),
+        ),
       );
       await tester.pumpAndSettle();
 
@@ -156,21 +218,31 @@ void main() {
       // SnackBar reports the exported count (feedback loop).
       expect(find.textContaining('2 entries as CSV'), findsOneWidget);
 
-      // Clipboard holds the CSV with the = cell neutralized to '=SUM...
+      // Clipboard holds the CSV: constant header, neutralized = cell,
+      // null timestamp as --, empty identities as empty cells.
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       expect(data, isNotNull);
       final csv = data!.text!;
-      expect(csv, contains('"POST","/api/v1/admin/clients"'));
-      expect(csv, contains('\'=SUM(A1:A2)'));
-      expect(csv, contains('"GET","/api/v1/admin/users"'));
-      // Filtering narrows the export: search only clients.
-      await tester.enterText(find.byType(TextField), 'clients');
+      final lines = csv.split('\n').where((line) => line.isNotEmpty).toList();
+      expect(
+        lines.first,
+        'timestamp,type,outcome,id,actor_id,client_id,tenant_id',
+      );
+      expect(csv, contains('"\'=SUM(A1:A2)"'));
+      expect(csv, contains('"plain label"'));
+      // Null timestamp exports as -- without throwing; as a `-`-leading
+      // cell it also receives the hardened formula-prefix neutralization.
+      expect(csv, contains('"\'--"'));
+      expect(csv, isNot(contains('\r')));
+
+      // Filtering narrows the export: search only the plain row.
+      await tester.enterText(find.byType(TextField), 'plain');
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.file_download_outlined));
       await tester.pumpAndSettle();
       final filtered = (await Clipboard.getData(Clipboard.kTextPlain))!.text!;
-      expect(filtered, contains('/api/v1/admin/clients'));
-      expect(filtered, isNot(contains('/api/v1/admin/users')));
+      expect(filtered, contains('"plain label"'));
+      expect(filtered, isNot(contains('=SUM(A1:A2)')));
     });
   });
 

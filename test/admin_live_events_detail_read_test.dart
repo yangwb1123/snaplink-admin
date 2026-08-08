@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/screens/admin/admin_live_events_tab.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 
@@ -95,9 +94,7 @@ void main() {
       await tester.tap(find.text('Connect'));
       await tester.pump();
       client.streamController.add(
-        utf8.encode(
-          'id: ev 1/2\ndata: {"type":"admin_client_created"}\n\n',
-        ),
+        utf8.encode('id: ev 1/2\ndata: {"type":"admin_client_created"}\n\n'),
       );
       await tester.pumpAndSettle();
 

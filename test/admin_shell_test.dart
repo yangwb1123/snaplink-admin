@@ -85,6 +85,51 @@ void main() {
       // Dashboard teardown disposes the shared shortcut service.
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets(
+      'AC-5.1: audit log entry is wired to the dashboard api and gates ',
+      (tester) async {
+        // DashboardScreen builds _api without an injectable client, so the
+        // shell cannot serve the trio: flutter_test's HttpOverrides
+        // 400-stubs every _api request and listEndpoints() fails, so the
+        // catalog merge always presents the trio (gate passed). The 400
+        // error text is the behavioral proof the page received the
+        // dashboard's live _api and merged capabilities.
+        final client = _ssoClient({
+          '/api/v1/admin/endpoints': (_) => http.Response(
+            jsonEncode({
+              'endpoints': [
+                {'method': 'GET', 'path': '/api/v1/admin/clients', 'feature': 'core'},
+              ],
+            }),
+            200,
+          ),
+          '/api/v1/admin/commerce/plans': (_) => http.Response('{}', 404),
+        });
+        tester.view.physicalSize = const Size(1200, 2200);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        await tester.pumpWidget(
+          MaterialApp(home: DashboardScreen(client: client)),
+        );
+        await tester.pumpAndSettle();
+
+        // System group → Audit Log module.
+        await tester.tap(find.byIcon(Icons.settings_outlined));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Audit Log'));
+        await tester.pumpAndSettle();
+
+        // Gate passed: the not-enabled copy is absent; the tab rendered a
+        // real fetch that hit the flutter_test 400 stub.
+        expect(
+          find.text('This feature is not enabled on the connected replica.'),
+          findsNothing,
+        );
+        expect(find.text('Admin request failed (400).'), findsOneWidget);
+      },
+    );
   });
 
   group('ConnectionsTab', () {

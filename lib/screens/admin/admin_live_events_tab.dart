@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'snaplink_admin_api.dart';
@@ -164,7 +165,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     if (id == null || id.isEmpty) return;
     try {
       final detail = await widget.api.get(
-        '/api/v1/audit/events/${Uri.encodeComponent(id)}',
+        '${AuditReadClient.eventsPath}/${Uri.encodeComponent(id)}',
       );
       if (!mounted) return;
       await showDialog<void>(

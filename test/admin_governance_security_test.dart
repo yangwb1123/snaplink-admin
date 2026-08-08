@@ -190,10 +190,7 @@ void main() {
       (tester) async {
         final requests = <Uri>[];
         final api = recordingApi(requests);
-        await _pump(
-          tester,
-          GovernanceTab(api: api, capabilities: _caps([])),
-        );
+        await _pump(tester, GovernanceTab(api: api, capabilities: _caps([])));
 
         // The capability gate is NOT what renders the audit query UI: the
         // catalog fallback in `_has` makes it unconditionally available.
@@ -259,44 +256,43 @@ void main() {
             .where((url) => url.path == '/api/v1/audit/events')
             .toList();
         expect(events, hasLength(1));
-        expect(events.single.queryParameters, {'limit': '100', 'tenant_id': 'acme'});
+        expect(events.single.queryParameters, {
+          'limit': '100',
+          'tenant_id': 'acme',
+        });
         final facets = auditRequests
             .where((url) => url.path == '/api/v1/audit/facets')
             .toList();
         expect(facets, hasLength(1));
-        expect(facets.single.queryParameters, {'limit': '100', 'tenant_id': 'acme'});
+        expect(facets.single.queryParameters, {
+          'limit': '100',
+          'tenant_id': 'acme',
+        });
       },
     );
 
-    testWidgets(
-      'parse error shows the banner and issues zero requests',
-      (tester) async {
-        final requests = <Uri>[];
-        final api = recordingApi(requests);
-        await _pump(
-          tester,
-          GovernanceTab(api: api, capabilities: _caps([])),
-        );
+    testWidgets('parse error shows the banner and issues zero requests', (
+      tester,
+    ) async {
+      final requests = <Uri>[];
+      final api = recordingApi(requests);
+      await _pump(tester, GovernanceTab(api: api, capabilities: _caps([])));
 
-        final before = requests.length;
-        await tester.enterText(
-          find.widgetWithText(TextField, 'Audit filter JSON'),
-          '{"tenat_id":1}',
-        );
-        await tester.ensureVisible(find.text('Query audit events'));
-        await tester.tap(find.text('Query audit events'));
-        await tester.pumpAndSettle();
+      final before = requests.length;
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Audit filter JSON'),
+        '{"tenat_id":1}',
+      );
+      await tester.ensureVisible(find.text('Query audit events'));
+      await tester.tap(find.text('Query audit events'));
+      await tester.pumpAndSettle();
 
-        expect(
-          requests.length,
-          before,
-          reason: 'a rejected query must never reach the wire',
-        );
-        expect(
-          find.textContaining('unsupported key "tenat_id"'),
-          findsOneWidget,
-        );
-      },
-    );
+      expect(
+        requests.length,
+        before,
+        reason: 'a rejected query must never reach the wire',
+      );
+      expect(find.textContaining('unsupported key "tenat_id"'), findsOneWidget);
+    });
   });
 }
