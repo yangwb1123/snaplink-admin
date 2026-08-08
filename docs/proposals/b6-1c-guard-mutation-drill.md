@@ -103,6 +103,7 @@ Each is a permanent probe row in `test/audit_contract_guard_mutation_test.dart` 
 | R6 | Split `{id}`-detail literal `'/api/v1/audit/events' + '/' + id` (runtime assembly) | accepted for scan 1 (each literal normalizes into the trio) | behavioral `admin_live_events_detail_read_test.dart` wire-shape pin (`%2F`); scan 5's `query:` discriminator deliberately does not flag it |
 | R7 | Weakened `fromJson` that keeps the rejection messages but doesn't throw | scan 4 pin is message-presence-based | AC-2 zero-request harness pin |
 | R8 | Triple-quoted literal introducing a new audit path *with* per-line tokens that are trio members in different lines | theoretical; per-line token extraction treats each line independently | scan 3 (runtime catalog) is the authoritative layer |
+| R9 | Scan 6/6b negative-boundary spellings — `\u0061`/`\x61` escapes, adjacent-literal/concat splits (`'au' 'ditLog'`), interpolation fragmentation (`'${id}uditLog'`), line-split words, confusable glyphs (Cyrillic `а` U+0430 / fullwidth `ａ` U+FF41 / ZWJ U+200D) | accepted (deliberate circumvention — the contiguous ASCII `audit` substring is absent from raw source by construction; mirror of R2/R5 for scans 1/2/7) | none scan-level; code review is the gate (permanent probe row in the mutation drill) |
 
 Closed holes (verified, not residual): second consumer (scan 5), default-text drift (scan 4 pin), `'null'`-coercion inside the builder (scan 4 ban), whitespace/line-broken `MapEntry` skins (scan 4 tolerance), double-quoted literals (both quote styles scanned), case-variant `bff` (scan 2 unified).
 
@@ -110,7 +111,7 @@ Closed holes (verified, not residual): second consumer (scan 5), default-text dr
 
 - `test/audit_contract_guard_scans.dart` — shared scan implementation (scans 1–5), normalizer, tokenizer, violation model; lives under `test/` so the guard itself cannot introduce scannable literals into `lib/`.
 - `test/audit_contract_guard_test.dart` — CI-native guard test (green against the tree; unit probes for each scan).
-- `test/audit_contract_guard_mutation_test.dart` — permanent trip matrix: baseline-green assertion + 17 planted-regression rows + 8 documented-escape rows (all in-memory, no tree mutation).
+- `test/audit_contract_guard_mutation_test.dart` — permanent trip matrix: baseline-green assertion + 21 planted-regression rows + 9 documented-escape rows (all in-memory, no tree mutation).
 - Committed baseline carried forward: `lib/api/audit_query.dart`, `governance_tab.dart` migration, `test/audit_query_test.dart`, AC-2 harness group, `test/admin_live_events_detail_read_test.dart` (lint fix: unnecessary import removed).
 
 ## 6. Caveats

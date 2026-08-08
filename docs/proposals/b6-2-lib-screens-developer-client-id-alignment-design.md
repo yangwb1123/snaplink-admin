@@ -1,253 +1,255 @@
-# B6-2 Design — `lib/screens/developer` lens: DCR-backed drill (RFC 7591) + register→manage pivot regression pin + no-forgery joint check
+# B6-2 Design — `developer` lens: land the missing DCR leg of `tests/integration/audit_login_drill.py` (【1b】 + register→login→sink keying, Branch B)
 
-Module: `lib/screens/developer` (analysis bucket `docs/auto/analyses/lib-screens-developer-3899da21.json`) · Direction: B6-2 · Value: 9 · Risk reduction: 7 · Effort: 2 · Confidence: 9 · Status: design
-Design for the requirements spec `docs/proposals/b6-2-lib-screens-developer-client-id-alignment-spec.md` (REQ-0 … REQ-5, AC-1 … AC-4).
-Sibling instances: `docs/proposals/b6-2-lib-api-client-id-alignment-design.md` (mechanism: `SSOAdminClient.firstPartyClientId` constant) and `docs/proposals/b6-2-lib-screens-client-id-alignment-design.md` (live login-wire pin + drill login leg). This design owns the **developer-module surface**: the DCR evidence channel (the only in-repo surface that creates OAuth clients), the drill's DCR leg, the register→manage pivot regression pin, and the no-localStorage-forgery joint check with B6-1 — and names the **same constant, drill file, and `[RESOLVED]` record** so all lenses land one change set.
-
-Branch-parametric (REQ-0): Branch A (rename to `console`) vs Branch B (contract exception already recorded: `sso-admin-console`). The branch value enters this module **only at drill time** via the real DCR response; the module's production files and test fixtures are branch-neutral and byte-identical under both branches (REQ-3 nuance, REQ-5).
+Module: `lib/screens/developer` (analysis bucket `docs/auto/analyses/lib-screens-developer-3899da21.json`) · Direction: B6-2 developer lens (DCR surface) · Value: 9 · Risk reduction: 7 · Effort: 2 · Confidence: 9
+Status: **design** — implements the requirements spec `docs/proposals/b6-2-lib-screens-developer-client-id-alignment-spec.md` (REQ-0/REQ-1/REQ-2/REQ-3). Branch B locked by the `[RESOLVED]` record (`audit-contract-batch-snaplink-console.md:13`); not decision-gated. Sibling instances: `b6-2-lib-screens-oidc-login-client-id-alignment-{spec,design}.md`, `b6-2-lib-screens-device-client-id-alignment-{spec,design}.md`, `b6-2-lib-screens-client-id-alignment-{spec,design}.md`, `b6-2-lib-api-client-id-alignment-{spec,design}.md` — where lenses overlap (drill artifact, `AGREED_CLIENT_ID`, the `[RESOLVED]` record, `implementation-gate.md:57` row) they name the same artifacts so the change set stays single.
 
 ---
 
 ## 1. Verification verdict (evidence re-checked at HEAD, not trusted)
 
-Every citation in the requirements evidence was re-checked line-exact against the repository. **All substantive claims hold.** The two corrections already recorded in the spec are confirmed; three new cross-instance line drifts and one new module fact are adopted below:
+The requirements evidence (spec summary + spec file, 136 lines) was re-checked at HEAD `de9b446` against the working tree. Every substantive claim holds; three minor citation drifts are carried as corrections (no acceptance impact — all ACs are grep/symbol-pinned, not line-pinned).
 
-| Evidence claim | Verification result |
+| Evidence claim | Verification result at HEAD |
 |---|---|
-| `lib/app_router.dart:35` — `OidcLoginScreen(defaultClientId: 'sso-admin-console', …)`, `ProductEntry.login` arm `:34-37` | ✅ exact |
-| `lib/api/sso_client.dart:86` (`String clientId = 'sso-admin-console',` default) and `:92` (`'client_id': clientId,` in POST `/auth/login` body, keys `:90-96`) | ✅ exact |
-| `test/sso_client_test.dart:18` — whole-body map assertion (`:16-22`: provider/client_id/scope/resource/credential) | ✅ exact |
-| `lib/screens/oidc_login/oidc_login_screen.dart:159-161` — `_effectiveClientId` fallback to `widget.defaultClientId` | ✅ exact |
-| `lib/screens/developer/register_panel.dart:107,112` — `clientId = result['client_id']?.toString() ?? ''` at `:107`; `widget.onManage(clientId, rat, safeSnapshot)` at `:112`; response is the **only** source of `client_id` in the module | ✅ exact |
-| `lib/screens/developer/developer_screen.dart:80` — **confirmed drift**: method `_openManageWithApp` declared at `:81`; `:78-80` is the doc comment; `:85-90` `_manageKey.currentState?.loadWithRegistration(clientId, token, registrationSnapshot)` (target `manage_panel.dart:46`) | ✅ correction adopted |
-| `test/developer_api_test.dart:29,46` — mock `/register` 201 `{"client_id":"client-1"}` at `:29`; `expect(result['client_id'], 'client-1')` at `:46`; request-body assertion `:20-28` contains **no** `client_id` key | ✅ exact lines; overstated claim confirmed — the register→manage **pivot** is pinned by `test/dcr_widgets_test.dart:24-30` (`'client_id': 'client-1'` response map `:24-28` → `onManage: () => managed = true` at `:30`); `:111-129` (delete-dialog client_id entry, `'client-123'`) and `:168-212` (manage-panel `client-1`/`rat-1` entry) also use **server-assigned mock ids** |
-| `docs/proposals/audit-contract-batch-snaplink-console.md:12` — `[MISMATCH]` record with stale inner citation `app_router.dart:55` (actual `:35`) | ✅ exact (stale citation fixed when the record closes, REQ-0) |
-| `[PROPOSED]` — IdP/sink registry state external; `grep -rn "auth.login.success" lib/ test/ tests/` → 0 hits; no client registry in this repo | ✅ confirmed (0 hits); `lib/services/audit_log_service.dart:66` (`_storageKey = 'sso_audit_log'`) and `event_bus.dart` are UI-local, not sink emitters |
-| `dcr_models.dart:50-63` — `typedKeys` has **no** `client_id`; `:66-72` `protectedResponseKeys` lists `client_id`/`client_secret`/`client_id_issued_at`/`client_secret_expires_at`/`registration_access_token`/`registration_client_uri` (`client_id` at `:67`) | ✅ exact — RFC 7591 server-assigned, never sent |
-| `dcr_models.dart:151-167` — `toRegistrationWire()` body keys: `client_name`, `redirect_uris`, `scope`, `token_endpoint_auth_method`, `token_strategy`, `grant_types`, `response_types`, `contacts`, `post_logout_redirect_uris`, `allowed_authenticators`, `allowed_resources`, conditional `tenant_id`, `require_pkce` | ✅ exact (new finding: this is the drill's register-body shape, §3.1) |
-| `developer_api.dart:44-49` — `DeveloperApi` defaults `_baseUri = ProductApiOrigin.baseUri`; `:104` `_baseUri.resolve('/register')` in `_registerBody`; `registerMetadata` `:62-68`; `register` `:75-95`; RFC 7592 GET/PUT/DELETE `:118,137,156` | ✅ exact (new finding: the drill's `{PROXY}/register` mirrors the module origin) |
-| `snaplink_admin_api.dart:82` — `AuditLogService().record(` (sole ring writer); `grep -rn "AuditLogService\|audit_log_service\|sso_audit_log" lib/screens/developer/` → exit 1 (zero hits) | ✅ exact |
-| `snaplink_admin_types.dart:310-312` — `GET /api/v1/audit/events`, `GET /api/v1/audit/facets`, `GET /api/v1/audit/events/{id}` | ✅ exact |
-| `tests/integration/test_config.py:43-44` — `SNAPLINK_TEST_CLIENT_ID` default `'sso-admin-console'`; `IntegrationConfigurationError` at `:8`; `require_credentials()` at `:71` | ✅ exact |
-| `api_login_e2e.py:59-77` — real `POST {PROXY}/auth/login` + JWT decode; SKIP idiom at `:27-36` (`try: CONFIG.require_credentials() … print SKIP; sys.exit(0)`) | ✅ exact |
-| `full_integration_test.py:31-33` — `decode_jwt` helper | ✅ exact |
-| `docs/campaigns/implementation-gate.md:57` — row 2: `边缘生成验证：login → auth.login.success（client_id=sso-admin-console） | sink 出现 sso-admin-console login 事件；无重复 | B4-5` | ✅ exact (contract authority; quote corrected — the gate records `sso-admin-console`) |
-| `engineering.yaml:11` — `max_lines: 400` | ✅ exact |
-| Harness wiring: `run_all.py` Gate 5 guard `if not args.skip_e2e and not args.ci` at `:125`; proxy start `:128-150`; e2e list with `e2e_runner.py` at `:164-166`; `full_stack_verify.py` step 5 = Full Integration `:104-105` + Detail API `:107-109`; step 6 at `:111-112`; proxy started at step 4 | ✅ exact |
+| Spec file at `docs/proposals/b6-2-lib-screens-developer-client-id-alignment-spec.md`, 136 lines, REQ-0…REQ-3, §4 seven ACs | ✅ `wc -l` → 136; all four requirements + 7-AC table + §5 deps + §6 risks present; §3 REQ-3.4 budget-deviation paragraph present |
+| Drill: 439 lines, `0` `register` hits, docstring "device redirect-leg facts" | ✅ exact: `wc -l` → 439 (working tree, incl. uncommitted setup leg); `grep -c register` → 0; docstring `:2` |
+| Drill steps 【1】-【7】 | ✅ with a form note: steps 【1】【2】【3】【3b】【4】【5】【6】 are bracketed prints (`:129,138,150,186,318,340,370`); step 7 is the comment-form report block (`# Step 7 — report.` `:430`) with `sys.exit(1 if FAIL else 0)` at `:439` |
+| Drill tracked, commit `3b64c58`; working tree carries uncommitted setup-leg edits | ✅ exact: `git log` → `3b64c58` "verify(b6-1/b6-2): ring-isolation guards + client_id alignment drills"; `git diff --stat` → +147 lines (【3b】 setup leg) uncommitted |
+| Wiring: `run_all.py:196`, `full_stack_verify.py:113`, timeout 300, skip_markers `SKIP/[proposed]` | ✅ substance exact; **Δ (off-by-one)**: `run_all.py` call is at **`:195`** (comment `:193-194`); `full_stack_verify.py:113` exact. Both carry `timeout=300, skip_markers=('SKIP:', 'SKIP', '[proposed]')` |
+| `[RESOLVED]` at `audit-contract-batch-snaplink-console.md:13-14` — device + setup legs only, no DCR channel; `[MISMATCH]` already closed | ✅ exact: `:13` Branch B device leg, `:14` setup leg, `:15` `[PROPOSED]`; zero `register` tokens in the B6-2 block |
+| `developer_api.dart:104` `_baseUri.resolve('/register')`; `registerMetadata` `:66`, `register` `:84`, `_registerBody` `:94-113` | ✅ exact (`:104` inside `_registerBody`; open registration when `initialAccessToken` null — no bearer sent) |
+| `dcr_models.dart:50-69` — `typedKeys` no `client_id`, `protectedResponseKeys` yes | ✅ exact: `typedKeys` `:50-64` (13 keys), `protectedResponseKeys` `:66-71` with `'client_id'` at `:67` |
+| `sso_client.dart:82` `firstPartyClientId='sso-admin-console'`; `:92` login wire | ✅ exact: `lib/api/sso_client.dart:82`; `login` default `clientId = firstPartyClientId` at `:92`, body `client_id` at `:94` |
+| `test/developer_api_test.dart:29,46`; `test/dcr_widgets_test.dart:24-30`; `test_config.py:43-44` | ✅ exact: mock 201 `'client-1'` `:29`, expect `:46`, request-body assertion `:22-28` (no `client_id` key); `dcr_widgets_test.dart:24-30` onManage pivot; `test_config.py:43-44` `SNAPLINK_TEST_CLIENT_ID` default `'sso-admin-console'` |
+| `snaplink_admin_api.dart:81` `_recordAudit` (sole ring writer) | ✅ exact; zero `AuditLogService`/`sso_audit_log` hits under `lib/screens/developer/` |
+| `implementation-gate.md:57` row 2 — `client_id=sso-admin-console`, verify-only | ✅ exact |
+| `checks/filesize.py:4` Dart-scoped cap; `engineering.yaml:11` 400 | ✅ exact: "Adapted from snaplink's checks/filesize.py **for .dart files**"; `max_lines: 400` — does not gate the `.py` drill |
+| Register→manage pivot: `register_panel.dart:87/:107/:112` → `developer_screen.dart:81` → `manage_panel.dart:46` | ✅ exact (`:87` snapshot merge, `:107` `result['client_id']`, `:112` `widget.onManage(clientId, rat, safeSnapshot)`; `_openManageWithApp` `:81`; `loadWithRegistration` `:46`) |
+| Credentials gate at drill `:113-118` (`SKIP` + `sys.exit(0)`) | ✅ exact; `PROXY`/`API` bound at `:122-123`; `AGREED_CLIENT_ID = 'sso-admin-console'` at `:31` |
 
-**Cross-instance drifts corrected in this design:**
+**Corrections carried into this design (no acceptance impact):**
 
-- **C1 — Canvas note line.** The api-sibling spec cites `browser_login_test.py:66-67` for the Flutter-canvas limitation; the actual comment `# Flutter renders to canvas, so we can't easily find text fields` is at `browser_login_test.py:89`. The drill header (§3.1) cites `:89`.
-- **C2 — `full_stack_verify.py` wiring point.** The Detail API step spans `:107-109`; the live drill entry sits at `:113` (immediately after it — matching the sibling plans' `:106-108`/`:107-109` insertion points). It is an **uncommitted diff**: verify, do not re-insert; commit at M4.
-- **C3 — `test/client_id_contract_test.dart` does not exist today.** The developer spec (REQ-0, AC-1) references it as the sibling-owned Branch B pin; the screens design resolves D1 (both-branches pin). This lens only **grep-references** it (§7) — no change here.
-- **C4 — `register_panel.dart` wire path.** The panel calls `widget.api.registerMetadata(metadata: …, initialAccessToken: …)` (`register_panel.dart:75-86`), which posts `metadata.toRegistrationWire()` — the drill mirrors `toRegistrationWire()` keys (§3.1), not the legacy `register()` explicit-args path (`developer_api.dart:75-95`), so the drill shape tracks what the UI actually sends.
+1. **`run_all.py:196` → `:195`** (call site; comment `:193-194`). All AC-7 greps match the symbol `audit_login_drill`, never the line.
+2. **`toRegistrationWire()` is at `dcr_models.dart:151-165`**, not `:128-139` (that range is the `fromWire` factory — `_wireStringList` decoding). The mandatory keys (client_name, redirect_uris, scope, token_endpoint_auth_method, token_strategy) + optional grant_types/require_pkce are unaffected; the spec's `:128-139` citation is stale.
+3. **Step 7 is comment-form** (`# Step 7 — report.` at `:430`), not a bracketed `【7】` print; the exit path `sys.exit(1 if FAIL else 0)` is at `:439`. The "steps 【1】-【7】" claim holds at the block level (7 step blocks, 6 bracketed).
 
-**Module-scope facts confirmed and folded in:**
+**Executed, not just read** (drill runtime faces): `python3 tests/integration/audit_login_drill.py` with no `SNAPLINK_TEST_USERNAME/PASSWORD` → exit 0, `SKIP: live authenticated tests require …` (credentials gate `:113-118`). The DCR leg must sit **after** this gate so no-stack runs keep SKIP semantics.
 
-1. The module is the **only in-repo OAuth-client creation surface**; the drill asserts the *response* `client_id` (RFC 7591), never sends one.
-2. The register→manage handoff (`register_panel.dart:107` → `:112` → `developer_screen.dart:81` → `manage_panel.dart:46`) is pinned by `developer_api_test.dart:29,46` + `dcr_widgets_test.dart:24-30` — unchanged under both branches.
-3. The module cannot forge sink rows (zero `AuditLogService` refs); the drill's evidence channel is the sink read API only.
-4. **Module test fixtures use server-assigned mock ids** (`'client-1'`, `'client-123'`) — never the console's own id; under Branch A they must **not** be renamed (REQ-3 nuance vs. the `lib/api` lens, where literals *are* the console's own id sites).
+**Pin stability at the post-migration commit (measured, not assumed):** §3.4 was applied to a temp copy and validated — **491 lines** (439 + 52: docstring +7, `【1b】` block +41, step-3 mutation +4), `py_compile` clean, no-credentials run → exit 0 `SKIP:` with **zero network contact** (gate precedes `PROXY`/`API` binding), credentials-without-network run → exit 1 with the DCR leg FAILing loudly (`DCR response is parseable JSON` / `DCR register 2xx JSON` checks) — never `[proposed]`, never a skip. All §7 grep forms pass identically at the post-migration state (AC-1: 12 `register` hits, `【1b】` `:145` < `【3】` `:198`; AC-2 `:177/:180`; AC-3 `:200 < :203 < :207`; AC-4 `:376-387/:407/:409-414`; AC-7 `:196/:113` unchanged). **Line numbers in this document are pre-migration reference values unless marked post-migration; acceptance pins are symbols and textual order, never line numbers** (§7 rule).
 
 ---
 
 ## 2. Design summary
 
-**Files touched: 0 production + 0 module test files + 1 new drill + 2 harness wiring lines + 1 doc record (+1 shared doc under Branch B). No new endpoints; no signature change anywhere in the module.**
+**Files touched: 2 — one drill edit + one record edit. Zero production delta, zero new files, zero test-file edits, zero wiring edits.**
 
-1. **Adopt** the existing untracked `tests/integration/audit_login_drill.py` (same file the sibling lenses name — already wired at `run_all.py:169` / `full_stack_verify.py:113` by an uncommitted diff), **extending** it with the **DCR leg** (REQ-1) executed before the login leg; login uses the DCR-obtained `client_id` (REQ-2); sink assertions read only `GET /api/v1/audit/events` (REQ-4); ≤ 280 lines (REQ-5 — 214 today, extension budget ~66). Do not recreate or overwrite; commit the adopted file + wiring diff at M4.
-2. `tests/integration/run_all.py` — **verify** the existing `run_e2e_test(...)` drill entry at `:169` (end of Gate 5, after `e2e_runner.py` — the `:164-166` insertion point; uncommitted diff; commit, do not re-insert).
-3. `tests/integration/full_stack_verify.py` — **verify** the existing `step(...)` drill entry at `:113` (end of step 5, after the Detail API step `:107-109`; uncommitted diff; commit, do not re-insert).
-4. `docs/proposals/audit-contract-batch-snaplink-console.md:12` — `[MISMATCH]` → `[RESOLVED]` naming the branch + drill evidence; stale `app_router.dart:55` → `:35` (REQ-0).
-5. Branch B: no gate amendment (no-op — gate:57 already records `client_id=sso-admin-console`, shared with the screens lens §3.7); under Branch A the row flips to `client_id=console`.
-6. The value change itself (`sso_client.dart:86`, `app_router.dart:35`, `sso_client_test.dart:18`, `test_config.py:44`, `DEPLOY.md:29`, `test/client_id_contract_test.dart`) is owned by the sibling change sets — this lens only **asserts** it (drill step 1) and **greps** it (REQ-5).
+| # | File | Change | Requirement |
+|---|---|---|---|
+| 1 | `tests/integration/audit_login_drill.py` | docstring names the DCR leg (+7: 6-line paragraph + blank separator, literal in §3.3); new `【1b】` step block + `register_client()` helper between step 1 and step 2 (+41 lines); step-3 login payload keyed to the DCR-obtained id (+4 lines). Net **+52 → 491 lines (measured** on an applied temp copy; 344 tracked at the landing commit vs 292 at `3b64c58`) | REQ-1, REQ-2 |
+| 2 | `docs/proposals/audit-contract-batch-snaplink-console.md` | third `[RESOLVED]` B6-2 bullet (after `:14`, before the block-level `[PROPOSED]` at `:15`) naming Branch B, attaching the drill output, recording the deviation | REQ-0 |
+
+**Zero-edit (derived):** `lib/**` (incl. `lib/screens/developer/**`) — no diff; `test/developer_api_test.dart` + `test/dcr_widgets_test.dart` — green unchanged; `tests/integration/test_config.py` — `login_payload()` untouched (no override param added); `run_all.py` / `full_stack_verify.py` — wiring intact; `implementation-gate.md:57` — verify-only.
 
 **Key decisions:**
 
-- **D1 — Zero production diff is the design, not a constraint.** The module is a pure consumer: the aligned value enters only at drill time via the real DCR response. REQ-5 is enforced by `git diff` guards, so no module file appears in the change set at all. This is what makes the lens's rollback a no-op (F2, §6).
-- **D2 — The drill's DCR leg asserts the RFC 7591 *response* id.** The register body mirrors `DcrClientMetadata.toRegistrationWire()` (`dcr_models.dart:151-167`) exactly and **must not** contain `client_id` (`typedKeys` has none; `protectedResponseKeys` at `:66-72` guards the round-trip). The assertion is `response.client_id == AGREED_CLIENT_ID`; any other issued id → FAIL with the response printed (REQ-0 evidence channel, no false PASS).
-- **D3 — The drill login leg uses the DCR-obtained id**, mirroring the module's own handoff `register_panel.dart:107,112` → `developer_screen.dart:81` → `manage_panel.dart:46`, so the id the sink must attribute is exactly the id the module would pivot into manage.
-- **D4 — Module mock ids are protected fixtures.** `'client-1'`/`'client-123'` in `developer_api_test.dart`/`dcr_widgets_test.dart` are server-assigned DCR response shapes. Under Branch A the sibling rename must **not** reach them — registration cannot choose `client_id` (REQ-3). Enforced by a byte-identical `git diff` guard on the two test files.
-- **D5 — Drill placement is Gate 5 / step 5** (proxy dependency): `run_all.py` starts the proxy only inside Gate 5 (`:128-150`, guard `:125`); `full_stack_verify.py` starts it at step 4. The drill sits after `e2e_runner.py` (`:164-166`) and after Detail API (`:107-109`). `--ci` skips Gate 5 — same as `e2e_runner.py`/browser tests; documented, not a defect.
-- **D6 — Drill SKIP semantics**: missing credentials → `SKIP:` + exit 0 (mirrors `api_login_e2e.py:27-36`); FAIL (exit 1) only for genuine contract violations. Prevents false harness failures in dev without a live stack.
-- **D7 — `[proposed]` fallback (sibling-consistent)**: the sink-side legs (exactly-one-row, no-duplicates) depend on BFF/sink emission this repo cannot generate (0 grep hits, §1). Unverifiable → log the query + result, mark `[proposed]`, record the deviation in the `[RESOLVED]` note, exit without a false PASS. The DCR leg and the login round-trip are always asserted when a stack is present.
-- **D8 — The no-forgery guarantee is grep-provable**: zero `AuditLogService`/`sso_audit_log` references in `lib/screens/developer/`; the drill queries only the server route; a ring row absent from the server response is not evidence.
+- **D1 — Drill-only delta.** The DCR leg is an additive step block following the `【3b】` precedent: local `dcr_*` names only, never writes step 3's `login_data`/`token`/`tenant_id`, no renumbering of existing steps. Insertion anchor (pre-edit, current working tree): after step 1's `check("CONFIG.client_id == AGREED_CLIENT_ID", …)` block (ends `:132`) and the blank line `:133`, before `# Step 2 —` `:134`. Apply in order docstring → block → mutation (M2); post-edit the anchor sits at `:139`/`:140`/`:141` — the acceptance greps never depend on it.
+- **D2 — Provenance, not value.** The DCR response id equals `AGREED_CLIENT_ID` by the REQ-1.4 assertion; step 3 then re-sources `login_data['client_id']` from the DCR response via a **local mutation** (no `test_config.py` change — `login_payload()` has no override param and gains none). Wire bytes are identical; the change is the *source* of the value, mirroring the module pivot `register_panel.dart:107 → 112 → developer_screen.dart:81 → manage_panel.dart:46`.
+- **D3 — Sink steps 4-5 need zero textual change.** Step 4 already filters `r.get('client_id') == AGREED_CLIENT_ID`; step 5's exactly-two/no-repeated-id/re-settle-stable checks (`len(rows_after) == 2` / `len(event_ids) == len(set(event_ids))` / count-stable, post-migration `:407`/`:409-410`/`:412-414`) operate on the same rows. The equality chain *DCR response id → login payload → sink rows* is closed by REQ-1's assertion alone; the design documents the chain, it does not duplicate it.
+- **D4 — DCR failure is loud, evidence-producing, never `[proposed]`.** A failed register (non-JSON, error body, mismatched id) FAILs via `check()` with the raw response printed, accumulates into `FAIL`, and the drill exits 1 through the existing report path (single `sys.exit(1 if FAIL else 0)`, pre-migration `:439` / post-migration `:491`). `dcr_client_id` stays `None`; step 3 falls back to `CONFIG.client_id` (still == AGREED) so downstream sink legs still produce evidence for the REQ-0 record. No path yields a silent pass.
+- **D5 — Fresh registration per run: deterministic, bounded, never rate-limit-flaky.** `register_client()` POSTs without a bearer (matches `developer_api.register()` with `initialAccessToken: null` — the module's open-registration path) and makes **exactly one POST `/register` per run — no retry loop, no re-registration** (steps 3-6 consume `dcr_client_id`; nothing re-calls the helper). `client_name` carries a per-run Unix timestamp so consecutive runs cannot collide; body keys are exactly the five mandatory `toRegistrationWire()` keys + `grant_types`/`require_pkce` — the same key set the request-body assertion pins at `test/developer_api_test.dart:22-28`. **IdP load is bounded: 1 registration per stacked run; zero under `run_all.py --ci`/`--skip-e2e`** (Gate 5 returns before the proxy starts, `run_all.py:163-166`); zero on no-credentials runs (gate exits before any network). Every DCR failure path (non-JSON, error body, rate-limit/429, mismatched id) FAILs loudly with the response printed and exits 1 — the run outcome is a **deterministic function of stack state** (no credentials → SKIP; reachable IdP → PASS/FAIL per REQ-1.4; unreachable → FAIL), never a timing race, never a SKIP on a runnable leg. Run-to-run outcome differences (e.g., a first registration issued the agreed id, a later one a unique id) are deterministic contract findings the REQ-0 record attaches — the IdP's issuance policy is exactly what REQ-1.4 probes (F2).
+- **D6 — Budget deviation pre-recorded and measured.** Drill is 439 lines in the working tree at HEAD (292 tracked at `3b64c58`) vs. the 280-line sibling budget (`b6-2-lib-screens-client-id-alignment-design.md:199` — reference `api_login_e2e.py` = 166; the 400-line `engineering.yaml:11` cap is Dart-scoped per `checks/filesize.py:4` and does not gate the `.py` drill). The §3.4 block lands **+52 → 491 working-tree / 344 committed** (measured on an applied temp copy, `py_compile` clean) — both figures exceed 280. The spec's earlier estimate (≈55-65 → ≈495-500, REQ-3.4) is **superseded by the measured figure** and both docs record the same deviation. Mitigation: reuse `check`/`curl`/`settle_seconds`/`sink_rows`, one new `register_client()` helper, zero new imports.
+- **D7 — Commit construction from a contaminated tree.** The working tree mixes the committed `3b64c58` drill, the uncommitted setup leg (+147), and unrelated B6-1 edits. The landing commit stages **exactly** the DCR-leg drill hunks + the record bullet; `git diff` boundaries are checked before commit (§6).
 
 ---
 
 ## 3. API changes (concrete)
 
-No production API in `lib/screens/developer/` changes. The lens's "API surface" is the drill file's wire contract + the harness wiring + the doc records.
+### 3.1 Wire-level contract exercised (the only "API" this change touches)
 
-### 3.1 `tests/integration/audit_login_drill.py` (existing untracked — adopt + extend with DCR leg; REQ-1 + REQ-2 + REQ-4, both branches)
+**`POST {PROXY}/register`** — RFC 7591 Dynamic Client Registration, as the module emits it (`developer_api.dart:94-113`):
 
-Checked-in, runnable file (not a runbook pointer); the shared artifact named by all three sibling specs. Budget ≤ 280 lines (`engineering.yaml:11` = 400; reference `api_login_e2e.py` = 166). Header docstring cites the canvas limitation at `browser_login_test.py:89` (C1) as the reason the login leg is API-driven through the proxy — the same wire the screens drive (`sso_client.dart:92`).
+Request:
+```json
+{
+  "client_name": "drill-dcr-<unix-ts>",
+  "redirect_uris": ["https://app.example.test/callback"],
+  "scope": "openid profile",
+  "token_endpoint_auth_method": "client_secret_basic",
+  "token_strategy": "jwt",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "require_pkce": true
+}
+```
+- `Content-Type: application/json`; **no `Authorization` header** (open registration, mirroring `register()` with `initialAccessToken: null`).
+- **`client_id` is never in the body** (RFC 7591 server-assigned; `dcr_models.dart:67` `protectedResponseKeys`). Enforced by a runtime guard: `check("DCR body has no client_id (RFC 7591 server-assigned)", 'client_id' not in body)`.
+
+Response (2xx): parsed JSON; **`response['client_id']` must equal `AGREED_CLIENT_ID`**. The parsed id is bound to `dcr_client_id` and consumed by step 3's login payload.
+
+**`POST {PROXY}/auth/login`** (step 3, unchanged wire — `sso_client.dart:92-94`): payload from `CONFIG.login_payload()` with `login_data['client_id'] = dcr_client_id` (guarded: only when the DCR assertion passed). Value unchanged (`sso-admin-console`); provenance now the DCR response.
+
+### 3.2 In-repo API surface: zero changes
+
+| Symbol | Status |
+|---|---|
+| `DeveloperApi.register/registerMetadata/_registerBody` (`developer_api.dart:66,84,94-113`) | untouched |
+| `DcrClientMetadata.toRegistrationWire/typedKeys/protectedResponseKeys` (`dcr_models.dart:50-71,151-165`) | untouched |
+| `SSOAdminClient.firstPartyClientId` (`lib/api/sso_client.dart:82`) + `login` (`:92-94`) | untouched |
+| `test_config.py:login_payload()` (`:86`) | untouched — **no `client_id` override parameter added**; the drill mutates the returned dict locally (D2) |
+| `run_all.py` / `full_stack_verify.py` wiring | untouched — skip_markers `('SKIP:', 'SKIP', '[proposed]')` preserved verbatim |
+
+### 3.3 Drill-internal API (the only new symbols)
 
 ```python
-#!/usr/bin/env python3
-"""B6-2 client_id contract drill — DCR leg (lib/screens/developer lens).
+def register_client():
+    """POST {PROXY}/register with the register_panel wire shape
+    (developer_api.dart:104 → toRegistrationWire() keys); return
+    (parsed_response_or_None, raw_body)."""
+```
+- New module-level binding `dcr_client_id` (parsed response id, or `None` on DCR failure) — consumed by step 3 only.
+- One new step block `【1b. DCR: POST /register issues the agreed client_id (REQ-1)】` between `【1】` and `【2】`.
+- Docstring (`:2-21` pre-migration) gains one DCR-leg paragraph (**+7 lines incl. blank separator**; literal pinned below) so the file's stated lens matches its content (REQ-1.6). The paragraph lands after the `【3b】` paragraph, before `Branch value (REQ-0):`:
 
-Proves: (a) the aligned first-party client_id is registerable via POST
-/register (RFC 7591, server-assigned — never sent in the body), (b) a
-login with the DCR-obtained id yields exactly one auth.login.success
-row in the sink, no duplicates (implementation-gate.md:57 '无重复').
-Branch value (REQ-0): AGREED_CLIENT_ID = 'console' (A) or
-'sso-admin-console' (B), one line. The login leg is API-driven through
-the proxy because Flutter renders to a canvas (browser_login_test.py:89).
-"""
-AGREED_CLIENT_ID = 'sso-admin-console'   # mirrors the REQ-0 decision
-
-# helpers: check()/curl() per api_login_e2e.py:12-26; decode_jwt() per
-# full_integration_test.py:29-33 (read-only JWT payload decode)
-
-# SKIP (no live stack/creds): CONFIG.require_credentials() raises
-# IntegrationConfigurationError → print "SKIP: …", exit 0
-# (api_login_e2e.py:27-36 idiom)
-
-# Step 1 (REQ-0 evidence):  assert CONFIG.client_id == AGREED_CLIENT_ID
-#                           else FAIL (config misalignment, not a drill bug)
-# Step 2 (REQ-1 DCR leg):   POST {CONFIG.proxy_url}/register
-#   body keys mirror DcrClientMetadata.toRegistrationWire()
-#   (dcr_models.dart:151-167): client_name, redirect_uris, scope,
-#   token_endpoint_auth_method, token_strategy, grant_types,
-#   response_types, contacts, post_logout_redirect_uris,
-#   allowed_authenticators, allowed_resources, tenant_id?, require_pkce.
-#   NO 'client_id' key (RFC 7591 server-assigned; dcr_models.dart:50-63
-#   typedKeys has none, :66-72 protects it). Optional Bearer
-#   initial_access_token mirrors register_panel.dart:75-86.
-#   Assert 2xx; assert response['client_id'] == AGREED_CLIENT_ID.
-#   Any other issued id → FAIL, print the full response: contract
-#   evidence for REQ-0 (D2) — never a silent pass.
-# Step 3 (REQ-2 login):     POST {CONFIG.proxy_url}/auth/login with
-#   client_id = the DCR-obtained value (Step 2) + CONFIG.login_payload()
-#   (the wire sso_client.dart:92 drives); assert access_token;
-#   decode JWT; extract tenant_id claim → <t>; missing claim → FAIL
-#   with the B4-1 dependency recorded (drill does NOT implement parsing)
-# Step 4 (REQ-2 sink):      GET {CONFIG.api_url}/api/v1/audit/events
-#   ?event_types=auth.login.success&tenant_id=<t> with Bearer
-#   (documented route snaplink_admin_types.dart:310-312); assert
-#   exactly one row whose client_id claim == AGREED_CLIENT_ID.
-#   The ring is never consulted (REQ-4: server route only).
-# Step 5 (no duplicates):   second login; re-query → exactly 2 rows,
-#   no repeated event id/trace_id; settle ≥ max(10,
-#   SNAPLINK_DRILL_SETTLE_SECONDS)s; re-query → count unchanged.
-# Step 6 (report):          PASS/FAIL summary; exit 0 on PASS/SKIP,
-#   1 on FAIL.
-#
-# [proposed] fallback (D7): if sink-side emission cannot be verified
-# from this repo (no deployed stack / no emission observed), steps 4-5
-# log the query + result, mark [proposed], record the deviation in the
-# [RESOLVED] note, and exit 0 — no false PASS. Steps 1-3 are always
-# asserted when a stack is present.
+```
+Step 【1b】 adds the DCR leg (REQ-1): POST {PROXY}/register with
+the register_panel wire shape (developer_api.dart:104 →
+DcrClientMetadata.toRegistrationWire(), dcr_models.dart:151-165); the
+RFC 7591 server-assigned response client_id must equal AGREED_CLIENT_ID
+(REQ-1.4) — a failed/mismatched register exits 1 with the response
+printed, never a skip, never [proposed].
 ```
 
-Exit-code contract: `0` = PASS or SKIP, `1` = FAIL. This keeps `run_all.py`/`full_stack_verify.py` honest without false failures in dev (D6).
+### 3.4 Concrete `【1b】` block (lands as-is)
 
-### 3.2 Harness wiring (REQ-1/REQ-2, both branches)
+```python
+# Step 1b — REQ-1 DCR leg: POST /register with the module's wire shape
+# (developer_api.dart:104 → DcrClientMetadata.toRegistrationWire(),
+# dcr_models.dart:151-165). RFC 7591: client_id is server-assigned —
+# never sent in the body; the response id must equal AGREED_CLIENT_ID.
+print("\n【1b. DCR: POST /register issues the agreed client_id (REQ-1)】")
 
-- `tests/integration/run_all.py` — **already wired at `:169`** (inside Gate 5, after the Python E2E Runner entry — the `:164-166` insertion point is where the live entry sits); uncommitted diff; verify, do not re-insert:
-  ```python
-  run_e2e_test('B6-2 Login Drill (client_id contract)',
-               ['python3', 'tests/integration/audit_login_drill.py'], timeout=300)
-  ```
-- `tests/integration/full_stack_verify.py` — **already wired at `:113`** (end of step 5, after the Detail API step — the `:107-109` insertion point is where the live entry sits); uncommitted diff; verify, do not re-insert:
-  ```python
-  step('B6-2 Login Drill (client_id contract)',
-       ['python3', 'tests/integration/audit_login_drill.py'], 300)
-  ```
 
-### 3.3 Doc records (REQ-0, both branches)
+def register_client():
+    """POST {PROXY}/register with the register_panel wire shape; return
+    (parsed response dict or None, raw body)."""
+    body = {
+        'client_name': f'drill-dcr-{int(time.time())}',
+        'redirect_uris': ['https://app.example.test/callback'],
+        'scope': 'openid profile',
+        'token_endpoint_auth_method': 'client_secret_basic',
+        'token_strategy': 'jwt',
+        'grant_types': ['authorization_code', 'refresh_token'],
+        'require_pkce': True,
+    }
+    check("DCR body has no client_id (RFC 7591 server-assigned)",
+          'client_id' not in body)
+    raw = curl('POST', f'{PROXY}/register', data=body,
+               headers={'Content-Type': 'application/json'})
+    try:
+        return json.loads(raw), raw
+    except Exception:
+        check("DCR response is parseable JSON", False, raw[:200])
+        return None, raw
 
-`docs/proposals/audit-contract-batch-snaplink-console.md:12` — replace the `[MISMATCH]` record (exact text shared with the sibling designs):
 
-```markdown
-- `[RESOLVED]`（B6-2, <date>）：Branch <A|B> chosen per drill evidence
-  (<drill output attached>); code aligned on
-  `SSOAdminClient.firstPartyClientId` (`app_router.dart:35`,
-  `sso_client.dart:86`, `sso_client_test.dart:18` — citation corrected
-  from the stale `:55`). DCR evidence: POST /register returned
-  client_id=<agreed value> (or <issued value> → FAIL attached).
+dcr_resp, dcr_raw = register_client()
+if dcr_resp is None:
+    check("DCR register 2xx JSON", False, f"POST {PROXY}/register")
+    dcr_client_id = None
+else:
+    dcr_client_id = dcr_resp.get('client_id')
+    check("DCR response client_id == AGREED_CLIENT_ID",
+          dcr_client_id == AGREED_CLIENT_ID,
+          f"issued {dcr_client_id!r}, agreed {AGREED_CLIENT_ID!r}")
+    print(f"    register response: {dcr_raw[:300]}")
 ```
 
-Branch B additionally **verifies** `docs/campaigns/implementation-gate.md:57` row 2 (shared with the screens lens §3.7) — **no amendment required**: the gate already records `client_id=sso-admin-console` with acceptance "sink 出现 sso-admin-console login 事件；无重复" (the earlier "amend the gate" narrative was based on a misquote; the described amendment is a no-op against the real text). Gate edit count under Branch B: zero.
+Step-3 delta (after the existing `check("login payload carries the agreed client_id", …)` block, before the `auth_resp = curl('POST', f'{PROXY}/auth/login', …)` call — textual order: payload check `:200-202` < mutation `:203-206` < POST `:207` post-migration):
 
-### 3.4 Negative constraints (REQ-3/REQ-5, both branches — enforced, not aspirational)
+```python
+if dcr_client_id is not None:
+    login_data['client_id'] = dcr_client_id
+    check("login client_id sourced from DCR response (register→manage pivot)",
+          login_data['client_id'] == AGREED_CLIENT_ID)
+```
 
-The following must remain **byte-identical** at HEAD of the change set (guards in §7):
-
-- Production: `register_panel.dart`, `developer_screen.dart`, `manage_panel.dart`, `developer_api.dart`, `dcr_models.dart`, `dcr_form_controller.dart`, `dcr_metadata_form.dart`, `dcr_validation.dart`, `dcr_credentials.dart`, `dcr_delete_dialog.dart`, `dcr_round_trip_notice.dart`, `dcr_update_projection.dart`, `discovery_region_notice.dart`.
-- Tests: `test/developer_api_test.dart`, `test/dcr_widgets_test.dart`, `test/dcr_models_test.dart`, `test/developer_serving_region_test.dart`, `test/list_state_manager_test.dart` (all stay green and unchanged in shape; `'client-1'`/`'client-123'` fixtures untouched under Branch A — D4).
+Note on the "2xx" inference (D5): `curl()` (`:39-52`) does not capture HTTP status; a non-2xx JSON error body (`{"error": …}`) parses but lacks `client_id` → equality FAIL with the body printed; an HTML/empty body fails JSON parsing → FAIL with a prefix printed; a 2xx with a mismatched id → FAIL. Every failure path prints the response (REQ-1.4) and exits 1 via the single existing exit (pre-migration `:439` / post-migration `:491`). No silent pass exists.
 
 ---
 
 ## 4. Compatibility constraints
 
-1. **Zero module diff**: no `lib/screens/developer/**` file appears in the change set (REQ-5). The branch decision and constant land in the sibling change sets; this lens consumes them at drill time only.
-2. **RFC 7591 wire semantics**: `client_id` is server-assigned — never sent in a registration body; `typedKeys` (`dcr_models.dart:50-63`) and `protectedResponseKeys` (`:66-72`) already enforce this on the Dart side; the drill body mirrors `toRegistrationWire()` keys (`:151-167`) and the drill's only registration assertion is on the **response** id.
-3. **Test-shape stability (REQ-3)**: `developer_api_test.dart:29,46` and `dcr_widgets_test.dart:24-30,111-129,168-212` pin the module's round-trip with server-assigned mock ids; renaming them to the aligned value is prohibited (registration cannot choose `client_id`). The aligned value enters the module only via the real DCR response at drill time.
-4. **No-forgery invariant (REQ-4)**: zero `AuditLogService`/`audit_log_service`/`sso_audit_log` references in `lib/screens/developer/` (grep-guarded); the drill reads only `GET /api/v1/audit/events` and never the localStorage ring (`audit_log_service.dart:66`); a ring-only row is not evidence.
-5. **Shared-artifact naming**: `SSOAdminClient.firstPartyClientId`, `tests/integration/audit_login_drill.py`, and the `[RESOLVED]` record are the same artifacts the sibling specs name — one change set across all lenses.
-6. **Harness semantics**: drill SKIP (exit 0) without live stack/credentials (D6); `run_all.py --ci` skips Gate 5 and therefore the drill — same as `e2e_runner.py` (documented, accepted); `api_login_e2e.py` stays unregistered (conventions reference only).
-7. **Filesize gate**: `engineering.yaml:11` `max_lines: 400` applies to `.py`; drill budget ≤ 280 lines (reference `api_login_e2e.py` = 166).
-8. **External constraint**: the IdP client registry is outside this repo; the DCR leg (step 2) is the only in-repo-adjacent evidence channel and feeds REQ-0. `test_config.py:43-44`'s `SNAPLINK_TEST_CLIENT_ID` default changes only under Branch A (sibling change set, `test_config.py:44`).
-9. **Read-only JWT handling**: the drill decodes the login JWT with the `full_integration_test.py:29-33` idiom to extract `tenant_id` (B4-1 dependency declared, not implemented); no claim parsing, no token storage beyond the drill's process-local variable.
+1. **RFC 7591** — `client_id` is server-assigned; the registration body never carries it (`protectedResponseKeys`, `dcr_models.dart:67`); the drill asserts the *response* id, never sends one.
+2. **Additive drill convention** — the `【3b】` precedent: `【1b】` slots between `【1】` and `【2】`; existing steps are not renumbered or rewritten; local `dcr_*` names only; step 3's `login_data`/`token`/`tenant_id` are never written by the new block.
+3. **Zero production delta** — `lib/**` untouched; `test/developer_api_test.dart` + `test/dcr_widgets_test.dart` green unchanged (module fixtures stay server-shaped mock ids `'client-1'` — registration cannot choose `client_id`, so the aligned constant never belongs in module fixtures).
+4. **Branch B locked** — `AGREED_CLIENT_ID = 'sso-admin-console'` (drill pre-migration `:31`; `sso_client.dart:82`) is not re-litigated; `implementation-gate.md:57` row 2 stays verify-only.
+5. **No-credentials gate position** — the `CONFIG.require_credentials()` gate stays at file top (pre-migration `:113-118`; post-migration `:120-125`), *before* `【1b】` and before `PROXY`/`API` are even bound (`:127-128` post-migration) — **zero network contact precedes the gate**; a no-stack run exits 0 with `SKIP: …`, never FAIL (validated: exit 0, no curls issued). The DCR leg is only reachable on a configured stack.
+6. **Wiring/skip semantics** — both harness runners demote an exit-0 run whose output contains `SKIP:`/`SKIP`/`[proposed]` to **SKIP, never PASS** (`run_all.py:35-37` — stdout+stderr scan; `full_stack_verify.py:32-34` — stdout scan); exit ≠ 0 and harness timeout are always **FAIL** (`run_all.py:43-49`, `full_stack_verify.py:37-45`) — **no path demotes a FAIL to SKIP**. The drill prints `SKIP: …` only on the no-credentials gate (exit 0) and `[proposed]` only on unverifiable sink/read legs; the DCR leg is never `[proposed]`. Without network but with credentials the drill exits 1 deterministically (all curls bounded: `--max-time 15` + subprocess timeout 20; worst case ≈ 12 curls ≈ 200 s < the 300 s harness timeout — no harness-timeout flake either).
+7. **Dependencies** — B4-5 (IdP-side sink emission): sink legs stay `[proposed]`-capable until landed; B4-1 (tenant claim): the drill's existing `decode_jwt` is reused; a missing `tenant_id` claim FAILs loudly, no new parsing code.
+8. **Budget** — the 400-line `engineering.yaml:11` cap is Dart-scoped (`checks/filesize.py:4`) and does not gate the `.py` drill; the 280-line sibling budget (`b6-2-lib-screens-client-id-alignment-design.md:199`) is already exceeded at HEAD (439 working-tree / 292 tracked) and remains exceeded after landing (**491 working-tree / 344 committed**, measured) — deviation pre-recorded in spec §3 REQ-3.4 and carried in the REQ-0 record bullet.
+9. **IdP registration load is bounded and skip-safe** — exactly one POST `/register` per stacked drill run (D5); `--ci`/`--skip-e2e` never execute Gate 5 (`run_all.py:163-166`), so CI issues zero registrations; a rate-limited/429 response parses as a JSON error body without `client_id` → equality FAIL with the body printed (F11) — never a retry, never a silent pass.
 
 ---
 
 ## 5. Failure modes
 
-| # | Mode | Detection | Mitigation / rollback |
+| # | Failure | Detection / drill behavior | Recovery / rollback |
 |---|---|---|---|
-| F1 | DCR response `client_id` ≠ agreed value (deployed IdP assigns its own id) | Drill step 2 FAIL with response printed | Contract evidence for REQ-0: attach output to `[RESOLVED]`, re-examine the branch choice; **no code change** — rollback = current state. Never papered over. |
-| F2 | IdP registers neither id | Drill step 2 FAIL / step 1 config mismatch | REQ-0 cannot conclude → do not land the sibling value commit; this lens's drill stays inert (SKIP) — zero module diff means zero rollback surface. |
-| F3 | Sibling Branch A rename reaches module test fixtures (`'client-1'` → `'console'`) | `git diff test/developer_api_test.dart test/dcr_widgets_test.dart` non-empty; tests still green but contract-wrong | REQ-3 guard (byte-identical diff) is an acceptance check; the rename is enumerated in the sibling change set, never pattern-based (screens design F4 analog). |
-| F4 | Drill sends `client_id` in the register body | Drill step 2 4xx/ignored; RFC 7591 violation; grep `"client_id"` in the drill's register-body construction | Body mirrors `toRegistrationWire()` keys only (C4); code review + a `client_id`-absent assertion in the drill itself. |
-| F5 | Drill FAIL at sink legs (no row / duplicates / wrong claim) | Drill exit 1 with query output | Attach FAIL output to `[RESOLVED]`; do **not** close the record; defer to B4-5 (gate row owner). No code revert needed. |
-| F6 | Sink row lacks a `client_id` claim (external schema) | Step 4 FAIL on missing field | Recorded as a documented contract deviation; D7 `[proposed]` fallback applies — log instead of asserting when the emission/field cannot be verified from this repo. |
-| F7 | `tenant_id` claim missing from the login JWT | Step 3 FAIL | Record the B4-1 dependency; the drill does not implement claim parsing — by design. |
-| F8 | Sink read API rejects `event_types`/`tenant_id` query params | Step 4 4xx | FAIL is contract evidence for B4-5; no existing test uses these params (verified) — first consumer; the drill does not adapt. |
-| F9 | Event-ingestion lag produces a transient "no row yet" | Step 4/5 count assertions fail transiently | Settle interval `max(10, SNAPLINK_DRILL_SETTLE_SECONDS)`s + count-unchanged re-query (step 5); env knob documented in the drill header. |
-| F10 | Repeated drill runs accumulate registrations (registry pollution) | IdP registry grows per run | Documented: one registration per run is expected drill behavior; FAIL only on id mismatch (F1); the `[RESOLVED]` note records the run count. |
-| F11 | Harness false-fail without a live stack | Drill exit 1 in a dev-only environment | D6 SKIP semantics: missing credentials → exit 0 with `SKIP:` line. |
-| F12 | Drill grows past 400 lines | `python3 cli.py check-filesize` red | Budget ≤ 280 lines; extract shared helpers into a sibling `tests/integration/` module only if needed. |
-| F13 | Stale `app_router.dart:55` citation resurrected in other docs | `grep -rn "app_router.dart:55" docs/` hits | Fixed once at §3.3; verified no other doc carries it today (proposals corpus grepped). |
-| F14 | Harness wiring placed before the proxy is up | Drill connection-refused FAIL in `run_all.py`/`full_stack_verify.py` | Placement pinned after `e2e_runner.py` (`run_all.py:164-166`) / after Detail API (`full_stack_verify.py:107-109`); SKIP covers missing stack, not a live stack with a dead proxy — wiring order is the guard. |
-| F15 | `SNAPLINK_DRILL_SETTLE_SECONDS` unset/negative | `max(10, …)` floor keeps the settle ≥ 10 s | Env knob parsed with a floor; documented in the drill header. |
-| F16 | B6-1 joint rendering lands without the server-side row | T-12 joint test red in the B6-1 change set | This lens's guarantee is only: row exists server-side (REQ-2) + module cannot forge it (REQ-4); the rendering test lives in B6-1's change set, gated on this drill's evidence. |
+| F1 | Deployed IdP has no `/register`, or registration requires an initial access token (open registration refused) | Non-2xx error body → no `client_id` → FAIL with response printed; exit 1. Never `[proposed]` | Contract evidence for REQ-0; no code change (rollback = current state). IdP-side config, not console |
+| F2 | IdP issues `client_id != sso-admin-console` (e.g., per-tenant prefix, random suffix) | `check("DCR response client_id == AGREED_CLIENT_ID")` FAIL with `issued …` detail; exit 1; response printed | The REQ-0 evidence channel — Branch B is re-examined, never papered over; single-line `AGREED_CLIENT_ID` change if the contract demands it |
+| F3 | DCR-obtained id rejected on `POST /auth/login` | Step-3 login check FAIL (no access_token / parse error); exit 1 | Evidence of IdP login/registration surface mismatch; record in REQ-0 bullet |
+| F4 | Sink emission absent (B4-5 not landed) | Sink legs `[proposed]` with query + result logged (existing convention — step-4 unverifiable print, post-migration `:376-380`); DCR register+login legs still asserted; deviation named in the REQ-0 bullet; `run_all.py` maps exit-0 `[proposed]` → SKIP — no false PASS | B4-5 landing makes the legs runnable; no console change |
+| F5 | Zero sink matches on a runnable leg | `len(matching) == 1` FAIL → exit 1 (never skip, never `[proposed]` for a runnable query) — existing rule | Investigate id attribution; record evidence |
+| F6 | Re-registration conflicts / rate-limit (duplicate `client_name`, 429) | Per-run timestamped `client_name` prevents collisions; a 429/error body parses without `client_id` → equality FAIL with response printed — never a retry, never a skip | Adjust `client_name`/URI set in the drill body only; registration load is 1/run by design (D5), zero under `--ci` |
+| F7 | Drill growth past budget | 491 lines (working tree; 344 committed) vs. 280-line sibling budget — pre-recorded deviation (spec §3 REQ-3.4, REQ-0 bullet), **measured** (temp-copy application) not estimated, with helper-reuse mitigation; if the landed leg keeps the drill ≤ 280, the entry is marked moot | No action; budget entry documents the trade |
+| F8 | Credentials gate regressed (DCR leg placed before the `CONFIG.require_credentials()` gate, `:120-125` post-migration) | No-stack run would FAIL instead of SKIP | AC-1 greps pin `【1b】` between `【1】` and `【2】` (after the gate); no-stack run in migration step M4 |
+| F11 | IdP rate-limits open registration (429 / throttle) | Error body parses without `client_id` → equality FAIL with the response printed; exit 1 — never a retry, never a skip, never `[proposed]` | Evidence for REQ-0; registration load is 1/run by design, zero under `--ci` (Gate 5 skip, `run_all.py:163-166`); space out stacked runs if the IdP enforces a window |
+| F9 | Wiring skip_markers lost | AC-7 grep pair (`run_all.py` / `full_stack_verify.py`) + Gate 5 review | Restore markers; a lost marker turns `[proposed]` legs into false PASSes — highest-impact regression, hence pinned |
+| F10 | JWT `tenant_id` claim missing | Existing step-3 FAIL ("B4-1 dependency…") — loud, exit 1 | B4-1 landing; no new claim-parsing code in the drill |
 
 ---
 
-## 6. Migration steps (each leaves the tree green; no data migration)
+## 6. Migration steps
 
-Ordering is branch-neutral until M3; the branch decision lands in the **sibling** change set as one atomic commit (value flip + mirrors must not straddle commits — the sibling grep guards would be red in CI). This lens contributes M4 (the drill) and the REQ-0 closure evidence.
+All steps execute against the working tree (contaminated: committed `3b64c58` drill + uncommitted setup leg + unrelated B6-1 edits). The DCR hunks are staged alone.
 
-1. **M1 — REQ-0 evidence (no code)**: operator runs the drill precondition (step 1) against the deployed IdP registry (`console` vs `sso-admin-console` vs neither); records the branch choice in the run's `DECISIONS.md`. Tree untouched.
-2. **M2 — sibling mechanism lands (branch-neutral)**: `SSOAdminClient.firstPartyClientId` + wiring + constantized tests land in the sibling change sets; this lens verifies its REQ-5 diff guard stays green (module untouched).
-3. **M3 — branch decision commit (sibling, atomic; REQ-0)**: value flip/mirrors + `test/client_id_contract_test.dart` (screens lens, both branches) + `[RESOLVED]` record closure (`audit-contract-batch-snaplink-console.md:12`, stale `:55` → `:35` fixed); Branch B verifies `implementation-gate.md:57` row 2 (no amendment needed — already records `sso-admin-console`). This lens: zero diff; module suites green.
-4. **M4 — drill (branch-neutral; `AGREED_CLIENT_ID` mirrors M3's value)**: **adopt** the existing untracked `tests/integration/audit_login_drill.py` (§3.1 — extend with the DCR leg, do not recreate) and **commit** its already-present wiring (`run_all.py:169`, `full_stack_verify.py:113` — uncommitted diffs, §3.2). `git add` file + wiring diffs **first** (the artifact is `git clean`-fragile — untracked file, uncommitted wiring). May fold into M3 for a single review or stay separate; grep-verifiable either way.
-5. **M5 — gates (REQ-3/REQ-4/REQ-5)**: `flutter test test/developer_api_test.dart test/dcr_widgets_test.dart test/dcr_models_test.dart test/developer_serving_region_test.dart test/list_state_manager_test.dart test/sso_client_test.dart`; `python3 cli.py check-filesize`; the §7 grep guards; `git diff --stat lib/screens/developer/` empty; `git diff test/developer_api_test.dart test/dcr_widgets_test.dart` empty.
-6. **M6 — deploy + drill execution (REQ-1/REQ-2)**: deploy the aligned constant to the T-12/G7 environment, run `python3 tests/integration/audit_login_drill.py`; append PASS/FAIL output + sink query result to the `[RESOLVED]` record (§3.3).
+- **M1 — Baseline.** `git diff --stat -- lib/` → empty; `flutter test test/developer_api_test.dart test/dcr_widgets_test.dart` → green; `python3 tests/integration/audit_login_drill.py` (no credentials) → exit 0 `SKIP: …`.
+- **M2 — Drill edit.** Apply in order: the §3.3 docstring paragraph (+7 incl. blank separator), the §3.4 `【1b】` block + `register_client()` + `dcr_client_id` binding (+41), the step-3 mutation (+4) — total **+52 → 491 lines**. Syntax check `python3 -m py_compile tests/integration/audit_login_drill.py`.
+- **M3 — Static ACs (executable now, no stack).** Run the grep forms of AC-1/AC-2/AC-3/AC-4/AC-7 (§7) and the `git diff` forms of AC-6. Confirm `grep -c register` on the drill is **12** (≥ 4 required; measured on the applied block) and `【1b】` appears textually before `【3. Login…】`.
+- **M4 — Runtime faces.** No-stack run → exit 0 SKIP (gate intact, F8). Stacked run (when a stack is available) → DCR leg PASS/FAIL per §5 F1-F5; record the output — it is the REQ-0 attachment.
+- **M5 — REQ-0 record.** Append the third `[RESOLVED]` bullet to `docs/proposals/audit-contract-batch-snaplink-console.md` after `:14` (draft below); it names Branch B, attaches the drill output (or the deviation if not yet run on a stack), and records the budget deviation. `implementation-gate.md:57` row 2 is *not* amended (verify-only).
+- **M6 — Commit.** Stage exactly the DCR-leg drill hunks + the record bullet (`git add -p`); verify `git diff --cached` shows only those two files' DCR/record hunks (setup-leg +147 and B6-1 edits stay unstaged/untracked per D7). Single commit, sibling-consistent message: `verify(b6-2): DCR leg 【1b】 lands the /register evidence channel (REQ-0/1/2)`.
+- **M7 — Post-commit.** Re-run AC-6 diff forms (empty `lib/` diff, two test files green, unchanged) and AC-7 greps; `git status --porcelain lib/screens/developer/` empty. Re-run the **full AC-1…AC-7 grep battery against the landing commit's tree** (fresh `git worktree`/`git stash` checkout or `git show <commit>:tests/integration/audit_login_drill.py` piped to the greps) — all pins are symbols/textual order (M7 results identical to M3); line numbers shift by construction (+7/+41/+4) and are never acceptance pins.
 
-**Rollback**: revert M4 (delete the drill + 2 harness wiring lines) — total and immediate. M1-M3/M5-M6 involve zero module code, so this lens has no other rollback surface; a wrong branch choice is reverted in the sibling change set (one-line constant flip + mirrors), after which the `[RESOLVED]` record is re-opened.
+REQ-0 record bullet draft (appended after `:14`):
+
+```
+- `[RESOLVED]`（B6-2, 2026-08-08）：**DCR 腿落地**（`b6-2-lib-screens-developer-client-id-alignment-spec.md` REQ-1/REQ-2，status → implemented）——drill 新增 `【1b】` 块（step 1 与 step 2 之间，additive）：`POST {PROXY}/register`（module wire：`developer_api.dart:104` → `toRegistrationWire()` 键 `dcr_models.dart:151-165`；body 无 client_id，RFC 7591 server-assigned）→ 响应 `client_id == AGREED_CLIENT_ID`（Branch B，`sso-admin-console`）否则 exit 1 且响应打印；step 3 登录 payload 的 client_id 取自 DCR 响应（register→manage pivot 镜像：`register_panel.dart:107→112`→`developer_screen.dart:81`→`manage_panel.dart:46`）；sink 断言（恰一行 / 二次登录恰两行无重复 / re-settle 稳定 / 零匹配 exit 1）以该 id 为准。drill 输出（DCR register 响应 + sink 查询）附后。**deviation**：sink 发射 IdP 侧（B4-5）——未落地时 sink 腿 `[proposed]`（无 false PASS）；drill 439→**491** 行（工作树；commit 292→344；实测值）超 280 行预算（deviation 已记录于 spec §3 REQ-3.4，helper 复用缓解：复用 check/curl/settle_seconds/sink_rows + 单一 register_client() 助手，零新依赖；每次 stacked 运行仅 1 次 POST /register，`--ci` 零注册）。
+```
 
 ---
 
 ## 7. Testable acceptance mapping
 
-| Supplied check (spec §4) | Testable form | Command / artifact |
-|---|---|---|
-| AC-1 — decision recorded (Branch A code change **or** Branch B already-recorded exception + regression pin); DCR evidence channel feeds the decision | REQ-0: `grep -n "\[RESOLVED\]" docs/proposals/audit-contract-batch-snaplink-console.md` names Branch A or B with drill evidence attached; `grep -n "app_router.dart:35" docs/proposals/audit-contract-batch-snaplink-console.md` hits (stale `:55` gone). Branch A: `flutter test test/sso_client_test.dart` green with `:18` asserting `SSOAdminClient.firstPartyClientId`; Branch B: `grep -n "client_id=sso-admin-console" docs/campaigns/implementation-gate.md` hits (already records the exception — verify-only `:57`) and the sibling `test/client_id_contract_test.dart` pins the `_effectiveClientId` chain end-to-end (C3) | grep commands; `flutter test test/sso_client_test.dart` (sibling suite) |
-| AC-2 — DCR drill asserts the aligned `client_id` obtainable via POST `/register` (register_panel.dart path) and one login → exactly one `auth.login.success` row (`implementation-gate.md:57` "无重复") | REQ-1 + REQ-2: `python3 tests/integration/audit_login_drill.py` against the deployed stack — step 1 `CONFIG.client_id == AGREED_CLIENT_ID`; step 2 `POST {PROXY}/register` with `toRegistrationWire()`-mirrored body **without** `client_id` returns `client_id == AGREED_CLIENT_ID`; step 3 login with the DCR-obtained id returns `access_token` + JWT `tenant_id`; steps 4-5 `GET {CONFIG.api_url}/api/v1/audit/events?event_types=auth.login.success&tenant_id=<t>` → exactly one row with the agreed `client_id` claim; second login → 2 rows, no duplicate event id/trace_id, settle ≥ 10 s, count stable; sink legs `[proposed]`-marked when unverifiable (no false PASS, D7); exit 0 only on PASS/SKIP; `grep -n "audit_login_drill" tests/integration/run_all.py tests/integration/full_stack_verify.py` hits | `python3 tests/integration/audit_login_drill.py`; grep commands |
-| AC-3 — server-side audit timeline (B6-1) renders the row without localStorage forgery | REQ-4: `grep -rn "AuditLogService\|sso_audit_log" lib/screens/developer/` → exit 1; `grep -n "audit/events" tests/integration/audit_login_drill.py` hits and `grep -n "sso_audit_log" tests/integration/audit_login_drill.py` → exit 1 (server route only); the T-12 joint rendering test is B6-1's change set, gated on the row existing server-side (dependency recorded in §8) | grep guards |
-| AC-4 — existing `test/developer_api_test.dart` and `test/sso_client_test.dart` suites stay green | REQ-5 + REQ-3: `flutter test test/developer_api_test.dart test/dcr_widgets_test.dart test/dcr_models_test.dart test/developer_serving_region_test.dart test/list_state_manager_test.dart test/sso_client_test.dart` green; `git diff --stat lib/screens/developer/` empty; `git diff test/developer_api_test.dart test/dcr_widgets_test.dart` empty (mock ids `'client-1'`/`'client-123'` untouched under both branches — D4) | `flutter test …`; `git diff` guards |
-| REQ-1 (both) — drill register body is server-assigned | the drill's register-body construction contains no `client_id` key (code review + `grep -n "client_id" tests/integration/audit_login_drill.py` shows the key only in *response* assertions); response-id equality asserted | grep + drill run |
-| REQ-3 (both) — pivot regression pin | `flutter test test/developer_api_test.dart test/dcr_widgets_test.dart` green **and** `git diff` on both files empty | `flutter test …`; `git diff` |
-| REQ-5 (both) — zero-delta floor | `git diff --stat lib/screens/developer/` empty; no `lib/i18n` delta; no new endpoints; `grep -rn "auth.login.success" lib/ test/ tests/` → 0 hits (no emission code added) | `git diff`; grep |
+Each supplied AC from spec §4 maps to an executable form. Grep forms run at HEAD-with-edits (M3) and again at the landing commit (M7); runtime forms need a deployed stack (M4).
 
-Gate relationship preserved from the spec: AC-1 gates AC-2 (the drill asserts the branch's agreed value); AC-3 is a joint acceptance with B6-1 (this lens proves the server-side row + module non-forgery; B6-1 proves the rendering); AC-4 is the unconditional no-regression floor. All four are executable as written.
+**Pin-stability rule (post-migration commit):** every executable form below is a **symbol/text pin** — grep literals, textual-ordering relations (`【1b】` before `【3】`; payload check before mutation before POST), or `git diff` forms. Parenthetical line numbers are **post-migration measured values** (validated by applying §3.4 to a temp copy: gate `:120-125`, `【1b】` `:145`, `【3】` `:198`, exit `:491`); they are reference values, **never acceptance pins** — the migration shifts every drill line by construction (+7 docstring, +41 block, +4 mutation), and M3 and M7 produce identical grep results. AC-7's `:196`/`:113` are additionally stable because the wiring files are untouched by this change set.
+
+| # | Acceptance (spec §4, preserved 1:1) | Executable form | Expected | Requirement |
+|---|---|---|---|---|
+| AC-1 | DCR leg before the login leg; POSTs `{PROXY}/register` with `toRegistrationWire()` keys, no `client_id` in the body | `grep -n 'register' tests/integration/audit_login_drill.py` → ≥ 4 hits; the `【1b. DCR: …】` block line number < the `【3. Login …】` block line number (textual order); `grep -n "check(\"DCR body has no client_id"` hits; the body literal carries the five mandatory keys (`client_name`, `redirect_uris`, `scope`, `token_endpoint_auth_method`, `token_strategy`) + `grant_types`/`require_pkce` | all greps hit; ordering holds | REQ-1 |
+| AC-2 | 2xx response `client_id == AGREED_CLIENT_ID`; mismatch → exit 1 with response printed | `grep -n 'DCR response client_id == AGREED_CLIENT_ID' tests/integration/audit_login_drill.py` hits; `grep -n 'register response:'` hits (response printed); `grep -n 'sys.exit(1 if FAIL else 0)'` — the **single existing** exit path (post-migration `:491`), no new exit; stacked run: mismatched id → exit 1 | greps hit; stacked behavior per §5 F2 | REQ-1.4 |
+| AC-3 | Step-1 precondition stays; login uses the DCR-obtained id on the `sso_client.dart:92` wire | `grep -n 'CONFIG.client_id == AGREED_CLIENT_ID'` hits in the `【1】` block (unchanged); `grep -n "login_data\['client_id'\] = dcr_client_id"` hits in the `【3】` block; `grep -n 'CONFIG.login_payload()'` hits in the `【3】` block | all hit; textual order holds: payload check line < mutation line < login POST line (post-migration `:200-202` < `:203-206` < `:207`) | REQ-2.1-2 |
+| AC-4 | Sink via `GET {API}/api/v1/audit/events` only: exactly-one / two-after-relogin / no repeated event id / re-settle stable / zero matches → exit 1 / `[proposed]` fallback without false PASS | `grep -n 'audit/events'` hits (server route only — no ring key); existing check literals unchanged — `len(matching) == 1` (post-migration `:383-387`), `len(rows_after) == 2` (`:407`), `len(event_ids) == len(set(event_ids))` (`:409-410`), count-stable (`:412-414`); zero matches → FAIL → exit 1; unverifiable → `[proposed]` print (post-migration `:376-380`) + deviation logged | greps hit; zero textual change to steps 4-5 (D3) | REQ-2.3 |
+| AC-5 | `[RESOLVED]` record gains the DCR evidence channel (branch named, drill output attached) | `grep -n '\[RESOLVED\]' docs/proposals/audit-contract-batch-snaplink-console.md` → three B6-2 bullets; the third contains `DCR`, `Branch B`/`AGREED_CLIENT_ID`, and the drill output (PASS/FAIL + `/register` response); `grep -n 'register' docs/proposals/audit-contract-batch-snaplink-console.md` hits in that bullet | 3 bullets; DCR terms present; `register` hits | REQ-0 |
+| AC-6 | Zero changes under `lib/screens/developer/` and `lib/`; the two test files green unchanged; budget deviation recorded | `git diff --stat -- lib/` → empty; `git status --porcelain lib/screens/developer/` → empty; `git diff test/developer_api_test.dart test/dcr_widgets_test.dart` → empty; `flutter test test/developer_api_test.dart test/dcr_widgets_test.dart` → green; `grep -n 'REQ-3.4' docs/proposals/b6-2-lib-screens-developer-client-id-alignment-spec.md` hits (deviation paragraph exists) | all hold | REQ-3 |
+| AC-7 | Drill wiring preserved | `grep -n 'audit_login_drill' tests/integration/run_all.py tests/integration/full_stack_verify.py` hits (call sites `:195`/`:113` — reference values; wiring files are untouched by this change set, so they are also post-commit stable); `grep -n 'skip_markers'` shows `('SKIP:', 'SKIP', '[proposed]')` at both sites | both hit, markers intact | REQ-3.3 |
+
+**Gate relationship** (unchanged from spec §4): AC-2 gates AC-3 (the mutation consumes the id only after the DCR assertion passed — enforced by the `if dcr_client_id is not None` guard); AC-5 depends on AC-2/AC-4 outcomes (the record attaches the drill output); AC-6/AC-7 are the unconditional no-regression floor.
 
 ---
 
-## 8. Out of scope (unchanged)
+## 8. Rollback
 
-Sink/IdP client registry state (external; REQ-0 evidence channel only); the login-wire value change and its pins (`sso_client.dart:86`, `app_router.dart:35`, `sso_client_test.dart:18`, `test_config.py:44`, `DEPLOY.md:29`, `test/client_id_contract_test.dart` — sibling `lib/api`/`lib/screens` change sets); `auth.login.success` emission (no such code exists — 0 grep hits); B6-1/B6-1a server-read timeline rendering (dependency, its own change set); B4-1 (tenant claim parsing — drill dependency only, declared not implemented); B4-5 (drill gate row owner); BFF trace injection; any `lib/screens/developer/**` production or test file (zero diff, REQ-5); `lib/i18n` catalog (zero delta).
+- **Revert:** `git revert` the landing commit (drill hunks + record bullet) — restores the 439-line drill with the setup leg and the two-leg `[RESOLVED]` block; zero production code is ever touched, so no runtime rollback exists.
+- **Stack-facing failures** (F1-F5) require no code rollback: they are contract evidence captured in the REQ-0 bullet; the drill's exit 1 is the loud, non-silent outcome by design.
+- **Wiring regressions** (F9) are prevented by AC-7's grep pair and are outside this change set (the wiring files are untouched).
