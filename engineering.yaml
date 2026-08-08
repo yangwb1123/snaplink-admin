@@ -38,6 +38,7 @@ filesize:
     - "lib/screens/device/device_verify_api.dart"
     - "lib/screens/setup/setup_api.dart"
     - "lib/screens/admin/clients_tab.dart"
+    - "lib/screens/admin/audit_log_tab.dart"
     # Dashboard and complex tabs with detail route resolution
     - "lib/screens/admin/dashboard_screen.dart"
     - "lib/screens/admin/token_security_tab.dart"
@@ -156,6 +157,68 @@ coverage:
     "lib": 20
     "lib/screens/oidc_login": 25
     "lib/screens/portal": 25
+
+# B6-1b — debug-only ring copy surface gates (AC-1).
+# Source gates executed on every landing via `python cli.py harness`
+# (ci.yml "Engineering gates" step); the release-web artifact gate runs
+# via `make release-artifact-check` right after `make build-prod`.
+# Pin values are the post-seam set (design b6-1b storage-seam §1.7): the
+# gate is red until the storage seam lands — the intended safe direction
+# (W-1/W-2).
+b6_1b_gates:
+  service_file: lib/services/audit_log_service.dart
+  tab_file: lib/screens/admin/audit_log_tab.dart
+  catalog_dir: lib/i18n
+  old_en_needles:
+    - "Clear audit log?"
+    - "local audit entries"
+    - "'Clear log'"
+  old_zh_needles:
+    - "清空审计日志"
+    - "本地审计记录"
+    - "清除日志"
+  new_keys:
+    - "Clear local debug records?"
+    - "This will permanently delete all {n} local debug records."
+    - "Clear local debug records"
+    - "Debug records: {n} entries"
+    - "Debug records"
+  # Post-seam pin values (design b6-1b storage-seam §1.7). The gate is
+  # RED until the seam lands — the intended safe direction: it must not
+  # be green independent of the seam (W-1/W-2).
+  service_kdebug_count: 6
+  tab_kdebug_count: 1
+  initializer_pin: "_ringCopyEnabled = kDebugMode"
+  storage_initializer_pin: "_storageEnabled = kDebugMode"
+  guard_line: "if (!kDebugMode) return;"
+  guard_line_count: 4
+  # Mask ban (open finding 1): key-reconstruction constructs banned in
+  # the service file — mirror of scan-6 R2.6, extended with the base64
+  # family (an established idiom elsewhere in lib/, so scoped to the
+  # file that owns the key literal).
+  banned_service_tokens:
+    - "String.fromCharCodes"
+    - "base64Decode"
+    - "base64Url"
+  catalog_file: lib/i18n/app_strings_source_admin_core.dart
+  # Recursive over build/web/ — a chunked build cannot silently widen
+  # the artifact surface (open finding 2).
+  artifact_dir: build/web
+  artifact_en_needles:
+    - "Clear audit log?"
+    - "local audit entries"
+    - "Clear log"
+    - "sso_audit_log"
+  # base64 / base64Url encodings of 'sso_audit_log': a masked write
+  # (base64Decode('c3Nv...')) ships this text in the bundle even though
+  # the source pins see no literal (open finding 1).
+  artifact_key_masks:
+    - "c3NvX2F1ZGl0X2xvZw=="
+    - "c3NvX2F1ZGl0X2xvZw"
+  artifact_zh_escaped:
+    - "\\u6e05\\u7a7a\\u5ba1\\u8ba1"
+    - "\\u672c\\u5730\\u5ba1\\u8ba1"
+    - "\\u6e05\\u9664\\u65e5\\u5fd7"
 
 build:
   output_dir: build/web

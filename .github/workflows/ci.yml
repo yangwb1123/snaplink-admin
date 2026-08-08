@@ -37,6 +37,9 @@ jobs:
       - name: Build
         run: make build-prod
 
+      - name: Release artifact check (B6-1b key-surface absence)
+        run: make release-artifact-check
+
       - name: Engineering gates
         run: python3 cli.py harness
 

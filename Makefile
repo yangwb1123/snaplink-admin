@@ -16,6 +16,37 @@ build:
 build-prod:
 	flutter build web --release --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
 
+# B6-1b artifact gate: the old ring-scoped copy, the audit-ring storage
+# key, and its base64/base64Url masks must be absent from the release web
+# bundle (run after build-prod in CI). Fail-closed: the explicit `test -d`
+# guard is the mechanism — a grep failure inside $() is swallowed by the
+# command substitution either way, so a missing artifact must be caught
+# before any needle runs; the bundle is searched recursively (grep -r) so
+# a chunked build cannot silently widen the surface.
+#
+# Count semantics: `grep -oF | wc -l` counts OCCURRENCES, not lines
+# (W-3/W-4) — dart2js may emit several occurrences on one line. The
+# sso_audit_log pre-seam baseline is exactly 2 occurrences (one const
+# per use site: setItem/getItem); the gate requires 0, so it is red
+# until the storage seam lands (W-1/W-2 — the gate must not be green
+# independent of the seam).
+#
+# En needles and the key-mask encodings are the stable pins; escaped-zh
+# variants are advisory (dart2js escaping may change with the toolchain).
+release-artifact-check:
+	@set -eu; \
+	test -d build/web || { echo 'FAIL: build/web missing — run `make build-prod` first'; exit 1; }; \
+	test "$$(grep -rI -oF 'Clear audit log?' build/web/ | wc -l)" = "0" || { echo 'FAIL: "Clear audit log?" still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF 'local audit entries' build/web/ | wc -l)" = "0" || { echo 'FAIL: "local audit entries" still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF 'Clear log' build/web/ | wc -l)" = "0" || { echo 'FAIL: "Clear log" still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF 'sso_audit_log' build/web/ | wc -l)" = "0" || { echo 'FAIL: "sso_audit_log" still in release bundle (storage seam not landed?)'; exit 1; }; \
+	test "$$(grep -rI -oF 'c3NvX2F1ZGl0X2xvZw==' build/web/ | wc -l)" = "0" || { echo 'FAIL: base64(sso_audit_log) mask still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF 'c3NvX2F1ZGl0X2xvZw' build/web/ | wc -l)" = "0" || { echo 'FAIL: base64Url(sso_audit_log) mask still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF '\u6e05\u7a7a\u5ba1\u8ba1' build/web/ | wc -l)" = "0" || { echo 'FAIL: escaped-zh 清空审计 still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF '\u672c\u5730\u5ba1\u8ba1' build/web/ | wc -l)" = "0" || { echo 'FAIL: escaped-zh 本地审计 still in release bundle'; exit 1; }; \
+	test "$$(grep -rI -oF '\u6e05\u9664\u65e5\u5fd7' build/web/ | wc -l)" = "0" || { echo 'FAIL: escaped-zh 清除日志 still in release bundle'; exit 1; }; \
+	echo "release artifact check: OK (ring-scoped copy, storage key and masks absent from the release bundle)"
+
 # 运行所有单元测试
 test:
 	flutter test
