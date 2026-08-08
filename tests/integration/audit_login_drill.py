@@ -10,6 +10,13 @@ that leg carries the aligned client_id on POST /auth/login
 auth.login.success row with that client_id, no duplicates
 (implementation-gate.md:57 '无重复').
 
+Step 【3b】 adds the setup-originated leg (REQ-3): wizard POST →
+immediate login → sink query → exactly one auth.login.success row with
+the agreed client_id, zero duplicates; zero matches → exit 1, never
+skipped. Sink emission is IdP-side (B4-5) — the leg is [proposed] and
+FAILs loudly until that lands; a runnable leg is never marked
+[proposed] for a zero/unverifiable query result.
+
 Branch value (REQ-0): AGREED_CLIENT_ID = 'console' (A) or
 'sso-admin-console' (B), one line. The login leg is API-driven through
 the proxy because Flutter renders to a canvas (browser_login_test.py:89).
@@ -165,6 +172,146 @@ try:
               "B4-1 dependency: drill does not implement claim parsing")
 except Exception as error:
     check("Parse auth response", False, str(error))
+
+# Step 3b — REQ-3 setup-originated leg: wizard POST → immediate login →
+# settle → sink query → exactly one row with the agreed client_id, zero
+# duplicates; zero matches → exit 1, never skipped. Additive: uses local
+# variables only (setup_*), so step 3's token/tenant_id (device leg,
+# steps 4-6) are never written. Sink emission is IdP-side (B4-5,
+# implementation-gate.md:57 dependency column); zero auth.login.success
+# emission strings exist in this repo (census
+# test/oidc_login_handle_success_census_test.dart:97-105) — the leg is
+# [proposed] until B4-5 lands and FAILs loudly, never a skip, never a
+# false PASS.
+print("\n【3b. Setup-originated login leg (REQ-3)】")
+print("  [proposed] sink emission is IdP-side (B4-5, "
+      "implementation-gate.md:57); zero auth.login.success emission")
+print("  strings exist in this repo (census "
+      "test/oidc_login_handle_success_census_test.dart:97-105).")
+
+# 3b-1 — Stack freshness, hard precondition check. The wizard is a
+# one-time bootstrap: POST /api/v1/setup 409s on an initialized stack
+# (SetupResult.alreadyDone, lib/api/setup_api.dart:98/:208-209). On an
+# initialized stack this FAILs loudly (never a skip) and the deviation
+# is recorded per the [RESOLVED] note convention.
+setup_status_resp = curl('GET', f'{PROXY}/api/v1/setup/status')
+try:
+    setup_status = json.loads(setup_status_resp)
+except Exception:
+    setup_status = {}
+check("setup leg: stack uninitialized (setup_required)",
+      setup_status.get('setup_required') is True,
+      f"got {setup_status.get('setup_required')!r}")
+
+# 3b-2 — Wizard completion wire (lib/api/setup_api.dart:161-162:
+# {'admin': admin.toJson(), if (application != null) 'application': …}).
+# A fresh username keeps the leg repeatable; the password satisfies the
+# ≥8-char wizard validation (setup_screen_test.dart:17 pins it).
+setup_epoch = int(time.time())
+setup_admin = f'drill-setup-{setup_epoch}'
+setup_password = f'drill-pass-{setup_epoch}'
+setup_resp = curl('POST', f'{PROXY}/api/v1/setup',
+                  data={'admin': {'username': setup_admin,
+                                  'password': setup_password}},
+                  headers={'Content-Type': 'application/json'})
+try:
+    setup_data = json.loads(setup_resp)
+    created_admin = (setup_data.get('created') or {}).get('admin')
+    setup_ok = setup_data.get('ok') is True and bool(created_admin)
+    setup_detail = ''
+    if not setup_ok:
+        error = (setup_data.get('error')
+                 or setup_data.get('message') or '')
+        if error:
+            setup_detail = f'error={error!r}'
+            if 'already' in str(error).lower():
+                setup_detail += (' (409 already-initialized: run on a '
+                                 'fresh stack)')
+        else:
+            setup_detail = f'body={setup_resp[:120]!r}'
+except Exception:
+    setup_ok = False
+    setup_detail = f'non-JSON response: {setup_resp[:120]!r}'
+check("setup leg: wizard POST ok + created admin", setup_ok,
+      setup_detail)
+
+# 3b-3 — Immediate login with the created admin (D3: login_payload()
+# hardcodes CONFIG.username — merge the created admin locally;
+# test_config.py stays untouched; 'client_id' carried from :90).
+setup_login_data = CONFIG.login_payload(password=setup_password)
+setup_login_data['credential']['username'] = setup_admin
+setup_auth_resp = curl('POST', f'{PROXY}/auth/login',
+                       data=setup_login_data,
+                       headers={'Content-Type': 'application/json'})
+setup_token = ''
+setup_tenant_id = None
+try:
+    setup_auth_data = json.loads(setup_auth_resp)
+    setup_token = setup_auth_data.get('access_token', '')
+    check("setup leg: login returns access_token",
+          len(setup_token) > 20,
+          f"token length={len(setup_token)}")
+    setup_parts = setup_token.split('.')
+    check("setup leg: token is JWT (3 parts)",
+          len(setup_parts) == 3, f"got {len(setup_parts)} parts")
+    setup_claims = (decode_jwt(setup_token)
+                    if len(setup_parts) == 3 else {})
+    setup_tenant_id = setup_claims.get('tenant_id')
+    check("setup leg: JWT tenant_id claim present",
+          bool(setup_tenant_id),
+          "B4-1 dependency: drill does not implement claim parsing")
+except Exception as error:
+    check("setup leg: parse auth response", False, str(error))
+
+# D2 premise-evidence line (design §1 D2 / FM-17): the "fresh setup
+# creates a fresh tenant; its initial admin is that tenant's root"
+# premise is an external-repo assumption with zero in-repo evidence —
+# this line is the empirical channel for the §7(c) acceptance gate
+# (compare setup_tenant_id with the device leg's tenant_id across runs;
+# record the comparison in the [RESOLVED] note).
+print(f"  premise-evidence: setup_tenant_id={setup_tenant_id!r} "
+      f"vs device tenant_id={tenant_id!r}")
+
+if setup_token and setup_tenant_id:
+    # 3b-4 — Settle ingestion before the first query (F11): the setup
+    # login is immediate (API-driven, no browser round-trip), so the
+    # first sink query must not race the sink.
+    setup_settle = settle_seconds()
+    print(f"  ⏳ settling {setup_settle}s for event-ingestion lag (F11) "
+          "before the first sink query")
+    time.sleep(setup_settle)
+
+    # 3b-5 — Sink query, tenant-isolated (D2: separate setup_token /
+    # setup_tenant_id keep the leg additive; steps 4-6 count the device
+    # tenant only). Valid only under the §1 D2 assumption.
+    setup_rows = sink_rows(setup_token, setup_tenant_id)
+    if setup_rows is None:
+        check("setup leg: sink query verifiable", False,
+              "unverifiable sink — never [proposed] on a runnable leg")
+    else:
+        # 3b-6 — Hard checks (mirror of Step 4's semantics): zero matches
+        # is a FAIL → exit 1, never a skip, never a PASS; duplicates FAIL.
+        setup_matching = [r for r in setup_rows
+                          if r.get('client_id') == AGREED_CLIENT_ID]
+        check("setup leg: exactly one auth.login.success row with "
+              f"client_id={AGREED_CLIENT_ID}",
+              len(setup_matching) == 1,
+              f"got {len(setup_matching)} row(s) of "
+              f"{len(setup_rows)} total")
+        setup_settle = settle_seconds()
+        print(f"  ⏳ settling {setup_settle}s for event-ingestion lag "
+              "(F11)")
+        time.sleep(setup_settle)
+        setup_rows_after = sink_rows(setup_token, setup_tenant_id) or []
+        check("setup leg: count stable after re-settle",
+              len(setup_rows_after) == len(setup_rows),
+              f"was {len(setup_rows)}, now {len(setup_rows_after)}")
+else:
+    # No setup token/tenant_id: the login/parse checks above already
+    # FAILed loudly — a runnable leg never converts this into [proposed]
+    # (REQ-3 never-skip rule).
+    print("  ⚠️ no setup token/tenant_id — the checks above FAILed; "
+          "never [proposed] (REQ-3 never-skip rule)")
 
 # Step 4 — REQ-3 sink: exactly one auth.login.success row with the
 # agreed client_id. Reads only the server route (REQ-4: no ring).
