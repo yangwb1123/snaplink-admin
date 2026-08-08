@@ -1,4 +1,4 @@
-.PHONY: build build-prod test test-browser analyze k8s-render serve clean watch verify benchmark full-stack integration
+.PHONY: build build-prod test test-browser guard-count-pin analyze k8s-render serve clean watch verify benchmark full-stack integration
 
 SNAPLINK_API_URL ?= http://localhost:8080
 SNAPLINK_PROXY_PORT ?= 4444
@@ -51,6 +51,33 @@ release-artifact-check:
 test:
 	flutter test
 	python3 -m unittest discover -s tests/unit -p 'test_*.py'
+
+# ── G7 (B6-1) executable count pin — closes the F8 silent-regression class ──
+# The four-file guard suite must report EXACTLY +$(GUARD_PIN_COUNT) on the
+# VM platform, per implementation-gate.md G7 row (`flutter test … -r
+# expanded`; breakdown guard 38 + mutation 42 + developer guard 1 + oidc
+# guard 1 = 82, 2026-08-08 re-measured — the mutation-gap work landed its
+# 3 rows: guard probe 4 (mid-identifier canary), the _scanWith
+# second-consumer dispatch-branch pin, and the scan 6/6b residual row).
+# Fail-closed: numeric equality on the expanded reporter's summary line
+# reds on (a) a deleted guard test, (b) a @TestOn platform-mismatch
+# silently dropping a file (green exit code — exit code alone cannot
+# catch it, gate doc M5), and (c) any added test that forgets to re-pin
+# the G7 row together with this target.
+# Platform caveat: the command MUST run on the default VM platform (no
+# --platform chrome) — the developer/oidc guards and the scans helper are
+# @TestOn('vm')/dart:io and silently skip or fail to compile off-VM.
+# Any future change to the four files must re-measure with `-r expanded`
+# and bump GUARD_PIN_COUNT and the implementation-gate.md G7 row TOGETHER.
+GUARD_PIN_FILES = test/audit_contract_guard_test.dart test/audit_contract_guard_mutation_test.dart test/developer_audit_visibility_guard_test.dart test/oidc_login_audit_visibility_guard_test.dart
+GUARD_PIN_COUNT ?= 82
+guard-count-pin:
+	@set -eu; \
+	out="$$(flutter test $(GUARD_PIN_FILES) -r expanded 2>&1)"; \
+	count="$$(printf '%s\n' "$$out" | sed -nE 's/^.*\+([0-9]+): All tests passed!$$/\1/p' | tail -1)"; \
+	if [ -z "$$count" ]; then printf '%s\n' "$$out" >&2; echo 'FAIL: guard suite did not report "All tests passed!" (compile error or test failure)' >&2; exit 1; fi; \
+	if [ "$$count" -ne "$(GUARD_PIN_COUNT)" ]; then printf '%s\n' "$$out" >&2; echo "FAIL: guard suite count +$$count != +$(GUARD_PIN_COUNT) (G7 pin — implementation-gate.md G7 row; re-measure with -r expanded and re-pin the G7 row and this target together)" >&2; exit 1; fi; \
+	echo "guard count pin: OK (+$$count: All tests passed!)"
 
 # 在真实浏览器运行全部 @TestOn('browser') 契约（适配层、联邦登录、
 # 账户 action、门户安全与 Admin → hosted-login resource 传递）

@@ -49,6 +49,9 @@ jobs:
       - name: Unit tests
         run: make test
 
+      - name: Guard count pin (G7 B6-1 — 4-file suite must report exactly +82)
+        run: make guard-count-pin
+
       - name: Browser tests
         run: make test-browser
 
