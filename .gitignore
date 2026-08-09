@@ -62,6 +62,7 @@ docs/requirements/runs/
 logs/
 docs/archive/
 docs/auto/
+docs/ui/
 docs/requirements/runs/
 
 # ai-batch-runner runtime artifacts
