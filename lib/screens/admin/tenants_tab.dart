@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -318,17 +319,11 @@ class _TenantsTabState extends State<TenantsTab>
             children: [
               SizedBox(
                 width: 280,
-                child: TextField(
+                child: SearchFilterBar(
+                  labelText: 'Filter'.localized,
                   controller: _filterCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'Filter'.localized,
-                    hintText: 'e.g. status:active or name:acme'.localized,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter'.localized,
-                      onPressed: _reload,
-                    ),
-                  ),
+                  debounce: false,
+                  onSearchChanged: (_) {},
                   onSubmitted: (_) => _reload(),
                 ),
               ),

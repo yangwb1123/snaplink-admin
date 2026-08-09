@@ -2,6 +2,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
@@ -262,18 +263,12 @@ class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
             children: [
               SizedBox(
                 width: 280,
-                child: TextField(
+                child: SearchFilterBar(
+                  labelText: 'Filter'.localized,
                   controller: _filterCtrl,
+                  debounce: false,
+                  onSearchChanged: (_) {},
                   onSubmitted: (_) => _reload(),
-                  decoration: InputDecoration(
-                    labelText: 'Filter'.localized,
-                    hintText: 'e.g. email:example.test'.localized,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter'.localized,
-                      onPressed: _reload,
-                    ),
-                  ),
                 ),
               ),
               DropdownButton<String>(

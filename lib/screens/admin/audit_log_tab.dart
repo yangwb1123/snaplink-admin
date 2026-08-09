@@ -19,6 +19,7 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'list_metrics.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 /// Audit log viewer tab — server read.
 ///
@@ -372,19 +373,12 @@ class _AuditLogTabState extends State<AuditLogTab> {
             children: [
               SizedBox(
                 width: 300,
-                child: TextField(
+                // 必须同步刷新（AC-1.6/F5）：无 debounce。
+                child: SearchFilterBar(
+                  debounce: false,
+                  hintText: 'Search...'.localized,
                   controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    hintText: 'Search...'.localized,
-                    prefixIcon: Icon(Icons.search, size: 20),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  onChanged: (_) => _refresh(),
+                  onSearchChanged: (_) => _refresh(),
                 ),
               ),
               const SizedBox(width: 12),

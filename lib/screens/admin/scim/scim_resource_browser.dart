@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
 
 import 'scim_browser_widgets.dart';
 import 'scim_group_dialog.dart';
@@ -335,9 +336,24 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
                             },
                           ),
                   ),
-                  ScimPager(
-                    page: page,
-                    busy: _loading || _mutating,
+                  // 光标语义：page 传 null（无“Page null”胶囊），
+                  // 汇总文案与现运行格式完全同形（U+2013 en-dash）。
+                  PaginationControls(
+                    page: null,
+                    total: null,
+                    summaryLabel: page.totalResults == 0
+                        ? '0 results'
+                        : '{start}–{end} of {total}',
+                    summaryArgs: page.totalResults == 0
+                        ? null
+                        : {
+                            'start': '${page.startIndex}',
+                            'end':
+                                '${page.itemsPerPage == 0 ? page.startIndex : page.startIndex + page.itemsPerPage - 1}',
+                            'total': '${page.totalResults}',
+                          },
+                    canGoBack: page.hasPrevious && !(_loading || _mutating),
+                    canGoNext: page.hasNext && !(_loading || _mutating),
                     onPrevious: () =>
                         _load(startIndex: max(1, page.startIndex - _count)),
                     onNext: () =>

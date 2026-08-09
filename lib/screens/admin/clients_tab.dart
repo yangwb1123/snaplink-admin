@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -35,11 +36,9 @@ class ClientsTab extends StatefulWidget {
 }
 
 class _ClientsTabState extends State<ClientsTab>
-    with BatchSelection<ClientsTab> {
+    with BatchSelection<ClientsTab>, PaginatedListMixin<ClientsTab> {
   final _filterCtrl = TextEditingController();
-  final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
-  var _pageIndex = 0;
   var _pageSize = 100;
   String _sortColumn = 'id';
   bool _sortAscending = true;
@@ -88,6 +87,9 @@ class _ClientsTabState extends State<ClientsTab>
 
   SSOAdminListPage? _lastPage;
 
+  @override
+  bool? get canGoNext => _lastPage?.nextPageToken != null;
+
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
       final items = await widget.client.listExpiringClients();
@@ -100,7 +102,7 @@ class _ClientsTabState extends State<ClientsTab>
       return page;
     }
     final page = await widget.client.listClients(
-      pageToken: _pageTokens[_pageIndex],
+      pageToken: currentPageToken,
       pageSize: _pageSize,
       orderBy: _orderBy,
       filter: _statusFilter == 'all'
@@ -179,29 +181,23 @@ class _ClientsTabState extends State<ClientsTab>
 
   void _reload() {
     setState(() {
-      _pageTokens
-        ..clear()
-        ..add(null);
-      _pageIndex = 0;
+      resetPagination();
       _future = _loadPage();
     });
   }
 
   void _goPrevious() {
-    if (_pageIndex == 0) return;
+    if (!canGoBack) return;
     setState(() {
-      _pageIndex--;
+      goPrevious();
       _future = _loadPage();
     });
   }
 
   void _goNext(SSOAdminListPage page) {
-    final next = page.nextPageToken;
-    if (next == null) return;
+    if (page.nextPageToken == null) return;
     setState(() {
-      _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
-      _pageTokens.add(next);
-      _pageIndex++;
+      goNext(page.nextPageToken);
       _future = _loadPage();
     });
   }
@@ -492,18 +488,12 @@ class _ClientsTabState extends State<ClientsTab>
             children: [
               SizedBox(
                 width: 280,
-                child: TextField(
+                child: SearchFilterBar(
+                  labelText: 'Filter'.localized,
                   controller: _filterCtrl,
+                  debounce: false,
+                  onSearchChanged: (_) {},
                   onSubmitted: (_) => _reload(),
-                  decoration: InputDecoration(
-                    labelText: 'Filter'.localized,
-                    hintText: 'e.g. name:portal or active:true'.localized,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter'.localized,
-                      onPressed: _reload,
-                    ),
-                  ),
                 ),
               ),
               DropdownButton<String>(
@@ -790,9 +780,9 @@ class _ClientsTabState extends State<ClientsTab>
                           metrics,
                           SizedBox(height: 280, child: list),
                           PaginationControls(
-                            page: _pageIndex + 1,
+                            page: currentPage,
                             total: page.totalSize,
-                            canGoBack: _pageIndex > 0,
+                            canGoBack: canGoBack,
                             canGoNext: page.nextPageToken != null,
                             onPrevious: _goPrevious,
                             onNext: () => _goNext(page),
@@ -810,9 +800,9 @@ class _ClientsTabState extends State<ClientsTab>
                       metrics,
                       Expanded(child: list),
                       PaginationControls(
-                        page: _pageIndex + 1,
+                        page: currentPage,
                         total: page.totalSize,
-                        canGoBack: _pageIndex > 0,
+                        canGoBack: canGoBack,
                         canGoNext: page.nextPageToken != null,
                         onPrevious: _goPrevious,
                         onNext: () => _goNext(page),
