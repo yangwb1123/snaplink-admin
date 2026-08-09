@@ -281,43 +281,45 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
               ),
             ]
           : [
-              for (var index = 0; index < tenants.length; index++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          radius: 14,
-                          child: LocalizedText('${index + 1}'),
-                        ),
-                        title: LocalizedText(
-                          (tenants[index] as Map)['tenant_name']
-                                  ?.toString() ??
-                              (tenants[index] as Map)['tenant_id']
-                                  ?.toString() ??
-                              'Tenant',
-                        ),
-                        subtitle: Text(
-                          formatUsageMetricSummary(tenants[index] as Map),
-                        ),
-                      ),
-                      if (maxLogins > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(left: 48, right: 16),
-                          child: _UsageBar(
-                            fraction: ((tenants[index] as Map)['logins'] as num? ??
-                                    0) /
-                                maxLogins,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
+              ...tenants.indexed.map(
+                (entry) =>
+                    _tenantUsageTile(entry.$1, entry.$2 as Map, maxLogins),
+              ),
             ],
+    );
+  }
+
+  Widget _tenantUsageTile(int index, Map tenant, num maxLogins) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: CircleAvatar(
+              radius: 14,
+              child: LocalizedText('${index + 1}'),
+            ),
+            title: LocalizedText(
+              tenant['tenant_name']?.toString() ??
+                  tenant['tenant_id']?.toString() ??
+                  'Tenant',
+            ),
+            subtitle: Text(
+              formatUsageMetricSummary(tenant),
+            ),
+          ),
+          if (maxLogins > 0)
+            Padding(
+              padding: const EdgeInsets.only(left: 48, right: 16),
+              child: _UsageBar(
+                fraction: (tenant['logins'] as num? ?? 0) / maxLogins,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -338,56 +340,16 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Sparkline(
                     data: [
-                      for (final raw in buckets.take(30))
-                        ((raw as Map)['count'] as num?) ?? 0,
+                      ...buckets.take(30).map(
+                        (raw) => ((raw as Map)['count'] as num?) ?? 0,
+                      ),
                     ],
                     height: 36,
                   ),
                 ),
-              for (var index = 0; index < buckets.length && index < 50; index++)
-                Builder(
-                  builder: (_) {
-                    final bucket = buckets[index] as Map;
-                    final count = (bucket['count'] as num?) ?? 0;
-                    // 异常优先：最高流量前 3 名高亮（峰值即关注点）。
-                    final peak = index < 3 && count > 0;
-                    final hot = index < 6 && count > 0;
-                    return ListTile(
-                      dense: true,
-                      leading: Icon(
-                        Icons.token_outlined,
-                        color: peak
-                            ? AppColors.danger
-                            : hot
-                            ? AppColors.warning
-                            : null,
-                      ),
-                      title: LocalizedText(
-                        '${bucket['client_id'] ?? 'unknown client'} · ${bucket['kind'] ?? 'token'}',
-                        style: TextStyle(
-                          fontWeight: peak ? FontWeight.w700 : null,
-                          color: peak ? AppColors.danger : null,
-                        ),
-                      ),
-                      subtitle: LocalizedText(
-                        '${bucket['endpoint'] ?? ''} · ${bucket['minute'] ?? ''}',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (peak)
-                            StatusChip(
-                              label: 'Peak',
-                              color: AppColors.danger,
-                              icon: Icons.local_fire_department,
-                            ),
-                          const SizedBox(width: 8),
-                          LocalizedText('$count'),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+              ...buckets.take(50).indexed.map(
+                (entry) => _tokenBucketTile(entry.$1, entry.$2 as Map),
+              ),
               if (buckets.length > 50)
                 LocalizedText(
                   '${buckets.length - 50} additional buckets omitted.',
@@ -395,6 +357,45 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
             ],
     );
   }
+
+  Widget _tokenBucketTile(int index, Map<dynamic, dynamic> bucket) {
+    final count = (bucket['count'] as num?) ?? 0;
+    // 异常优先：最高流量前 3 名高亮（峰值即关注点）。
+    final peak = index < 3 && count > 0;
+    final hot = index < 6 && count > 0;
+    return ListTile(
+      dense: true,
+      leading: Icon(
+        Icons.token_outlined,
+        color: peak ? AppColors.danger : hot ? AppColors.warning : null,
+      ),
+      title: LocalizedText(
+        '${bucket['client_id'] ?? 'unknown client'} · ${bucket['kind'] ?? 'token'}',
+        style: TextStyle(
+          fontWeight: peak ? FontWeight.w700 : null,
+          color: peak ? AppColors.danger : null,
+        ),
+      ),
+      subtitle: LocalizedText(
+        '${bucket['endpoint'] ?? ''} · ${bucket['minute'] ?? ''}',
+      ),
+      trailing: _peakTrailing(count, peak),
+    );
+  }
+
+  Row _peakTrailing(num count, bool peak) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (peak)
+        StatusChip(
+          label: 'Peak',
+          color: AppColors.danger,
+          icon: Icons.local_fire_department,
+        ),
+      const SizedBox(width: 8),
+      LocalizedText('$count'),
+    ],
+  );
 
   Widget _subjectInspector(
     BuildContext context,

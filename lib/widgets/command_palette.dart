@@ -82,6 +82,58 @@ class _CommandPaletteState extends State<CommandPalette> {
   List<CommandPaletteItem> _commandsForAvailableModules() =>
       commandPaletteItemsForModules(widget.allModules);
 
+  Widget _resultTile(int i) {
+    final cmd = _results[i];
+    // 组标题（仅浏览态显示；搜索态隐藏避免干扰结果）。
+    if (cmd.isGroupHeader && _searchCtrl.text.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Text(
+          cmd.title,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+    return ListTile(
+      leading: Icon(cmd.icon, size: 20),
+      title: LocalizedText(
+        cmd.title,
+        style: const TextStyle(fontSize: 14),
+      ),
+      subtitle: Text(
+        cmd.path,
+        style: const TextStyle(fontSize: 11, color: Colors.grey),
+      ),
+      dense: true,
+      onTap: () => _activate(cmd),
+    );
+  }
+
+  void _activate(CommandPaletteItem cmd) {
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    if (cmd.path == '/settings') {
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => const SettingsScreen(),
+        ),
+      );
+      return;
+    }
+    AdminRoute.go(
+      cmd.routeModule,
+      resourceId: cmd.routeId,
+      action: cmd.routeAction,
+      subresource: cmd.routeSubresource,
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -113,54 +165,7 @@ class _CommandPaletteState extends State<CommandPalette> {
             Expanded(
               child: ListView.builder(
                 itemCount: _results.length,
-                itemBuilder: (_, i) {
-                  final cmd = _results[i];
-                  // 组标题（仅浏览态显示；搜索态隐藏避免干扰结果）。
-                  if (cmd.isGroupHeader && _searchCtrl.text.isNotEmpty) {
-                    return Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Text(
-                        cmd.title,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.8,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    );
-                  }
-                  return ListTile(
-                    leading: Icon(cmd.icon, size: 20),
-                    title: LocalizedText(
-                      cmd.title,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                    subtitle: Text(
-                      cmd.path,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                    dense: true,
-                    onTap: () {
-                      final navigator = Navigator.of(context);
-                      navigator.pop();
-                      if (cmd.path == '/settings') {
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) => const SettingsScreen(),
-                          ),
-                        );
-                        return;
-                      }
-                      AdminRoute.go(
-                        cmd.routeModule,
-                        resourceId: cmd.routeId,
-                        action: cmd.routeAction,
-                        subresource: cmd.routeSubresource,
-                      );
-                    },
-                  );
-                },
+                itemBuilder: (_, i) => _resultTile(i),
               ),
             ),
             Container(

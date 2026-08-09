@@ -33,6 +33,28 @@ class DcrMetadataForm extends StatelessWidget {
     required this.onChanged,
   });
 
+  void _onGrantSelected(String grant, bool selected) {
+    if (selected) {
+      controller.grantTypes.add(grant);
+      if (grant == 'authorization_code') {
+        controller.responseTypes.add('code');
+      }
+    } else {
+      controller.grantTypes.remove(grant);
+      if (grant == 'authorization_code') {
+        controller.responseTypes.clear();
+      }
+    }
+    onChanged();
+  }
+
+  void _onAuthMethodChanged(String? value) {
+    if (value == null) return;
+    controller.tokenEndpointAuthMethod = value;
+    if (value == 'none') controller.requirePkce = true;
+    onChanged();
+  }
+
   @override
   Widget build(BuildContext context) {
     final grantOptions = _mergeOptions(
@@ -102,20 +124,7 @@ class DcrMetadataForm extends StatelessWidget {
                 onSelected:
                     managementMode && roundTripSafety?.grantTypesKnown == false
                     ? null
-                    : (selected) {
-                        if (selected) {
-                          controller.grantTypes.add(grant);
-                          if (grant == 'authorization_code') {
-                            controller.responseTypes.add('code');
-                          }
-                        } else {
-                          controller.grantTypes.remove(grant);
-                          if (grant == 'authorization_code') {
-                            controller.responseTypes.clear();
-                          }
-                        }
-                        onChanged();
-                      },
+                    : (selected) => _onGrantSelected(grant, selected),
               ),
           ],
         ),
@@ -156,12 +165,7 @@ class DcrMetadataForm extends StatelessWidget {
           ],
           onChanged: managementMode
               ? null
-              : (value) {
-                  if (value == null) return;
-                  controller.tokenEndpointAuthMethod = value;
-                  if (value == 'none') controller.requirePkce = true;
-                  onChanged();
-                },
+              : (value) => _onAuthMethodChanged(value),
         ),
         if (managementMode)
           Padding(

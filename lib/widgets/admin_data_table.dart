@@ -65,7 +65,6 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   Widget _table(ThemeData theme, double tableWidth) {
-    final columns = widget.columns;
     return SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: ConstrainedBox(
@@ -74,70 +73,77 @@ class _AdminDataTableState extends State<AdminDataTable> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // 表头。
-              Container(
-                color: theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.5),
-                child: SizedBox(
-                  width: tableWidth,
-                  child: Row(
-                    children: [
-                      for (final column in columns)
-                        _HeaderCell(
-                          column: column,
-                          sorted: widget.sortColumn == column.id,
-                          ascending: widget.sortAscending,
-                          sortable: column.sortable && widget.onSort != null,
-                          onTap: column.sortable && widget.onSort != null
-                              ? () => widget.onSort!(column.id)
-                              : null,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
+              _headerRow(theme, tableWidth),
               // 数据行（斑马纹 + hover + 行点击）。
               for (var i = 0; i < widget.itemCount; i++)
-                MouseRegion(
-                  onEnter: (_) => setState(() => _hoveredRow = i),
-                  onExit: (_) => setState(() => _hoveredRow = null),
-                  child: SizedBox(
-                    width: tableWidth,
-                    child: InkWell(
-                      onTap: widget.onRowTap == null
-                          ? null
-                          : () => widget.onRowTap!(i),
-                      onLongPress: widget.onRowLongPress == null
-                          ? null
-                          : () => widget.onRowLongPress!(i),
-                      child: Container(
-                        color: _hoveredRow == i
-                            ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                            : i.isEven
-                            ? null
-                            : theme.colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.3),
-                        child: Row(
-                          children: [
-                            for (final column in columns)
-                              SizedBox(
-                                width: column.width ?? 160,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 10,
-                                  ),
-                                  child: column.builder(context, i),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                _dataRow(theme, tableWidth, i),
             ],
           ),
         ),
+    );
+  }
+
+  Widget _headerRow(ThemeData theme, double tableWidth) {
+    return Container(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      child: SizedBox(
+        width: tableWidth,
+        child: Row(
+          children: [
+            for (final column in widget.columns)
+              _HeaderCell(
+                column: column,
+                sorted: widget.sortColumn == column.id,
+                ascending: widget.sortAscending,
+                sortable: column.sortable && widget.onSort != null,
+                onTap: column.sortable && widget.onSort != null
+                    ? () => widget.onSort!(column.id)
+                    : null,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dataRow(ThemeData theme, double tableWidth, int i) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hoveredRow = i),
+      onExit: (_) => setState(() => _hoveredRow = null),
+      child: SizedBox(
+        width: tableWidth,
+        child: InkWell(
+          onTap: widget.onRowTap == null
+              ? null
+              : () => widget.onRowTap!(i),
+          onLongPress: widget.onRowLongPress == null
+              ? null
+              : () => widget.onRowLongPress!(i),
+          child: Container(
+            color: _hoveredRow == i
+                ? theme.colorScheme.primary.withValues(alpha: 0.05)
+                : i.isEven
+                ? null
+                : theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+            child: Row(
+              children: [
+                for (final column in widget.columns)
+                  SizedBox(
+                    width: column.width ?? 160,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      child: column.builder(context, i),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

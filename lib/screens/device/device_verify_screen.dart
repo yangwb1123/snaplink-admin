@@ -275,6 +275,41 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     }
   }
 
+  List<Widget> _approvalPreviewSections() => [
+        if (_hasSafeApprovalPreview) ...[
+          const SizedBox(height: 16),
+          DeviceRequestPreview(preview: _preview!),
+        ],
+      ];
+
+  List<Widget> _messageSections(BuildContext context, AppStrings strings) => [
+        if (_message != null) ...[
+          const SizedBox(height: 16),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _message!,
+              style: TextStyle(
+                color: _ok
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.error,
+              ),
+            ),
+          ),
+        ],
+      ];
+
+  List<Widget> _signInSections(AppStrings strings) => [
+        if (_requiresSignIn)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _redirectToLogin,
+              child: Text(strings.signInAgain),
+            ),
+          ),
+      ];
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -329,10 +364,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                       _busy && _checking ? strings.checking : strings.checkCode,
                     ),
                   ),
-                  if (_hasSafeApprovalPreview) ...[
-                    const SizedBox(height: 16),
-                    DeviceRequestPreview(preview: _preview!),
-                  ],
+                  ..._approvalPreviewSections(),
                   const SizedBox(height: 20),
                   DeviceDecisionButtons(
                     busy: _busy,
@@ -348,28 +380,8 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                         ? null
                         : () => _verify(true),
                   ),
-                  if (_message != null) ...[
-                    const SizedBox(height: 16),
-                    Semantics(
-                      liveRegion: true,
-                      child: Text(
-                        _message!,
-                        style: TextStyle(
-                          color: _ok
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.error,
-                        ),
-                      ),
-                    ),
-                  ],
-                  if (_requiresSignIn)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        onPressed: _redirectToLogin,
-                        child: Text(strings.signInAgain),
-                      ),
-                    ),
+                  ..._messageSections(context, strings),
+                  ..._signInSections(strings),
                 ],
               ),
       ),

@@ -262,6 +262,19 @@ class _AuditLogTabState extends State<AuditLogTab> {
     _refresh();
   }
 
+  Widget _outcomeCell(AuditEventRow row) {
+    if (row.outcome.isEmpty) {
+      return const TableCellText('-', muted: true);
+    }
+    // Server vocabulary rendered verbatim (machine data, like EVENT) — the
+    // OUTCOME column never fabricates localized copy.
+    return StatusChip(
+      label: row.outcome,
+      color: row.outcome == 'success' ? AppColors.success : AppColors.danger,
+      icon: row.outcome == 'success' ? Icons.check_circle_outline : Icons.error_outline,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ringCount = _logService.count;
@@ -438,24 +451,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
                   // font (7-char labels render ~116px).
                   width: 160,
                   sortable: true,
-                  builder: (context, i) {
-                    final row = _displayed[i];
-                    if (row.outcome.isEmpty) {
-                      return const TableCellText('-', muted: true);
-                    }
-                    // Server vocabulary rendered verbatim (machine data,
-                    // like EVENT) — the OUTCOME column never fabricates
-                    // localized copy.
-                    return StatusChip(
-                      label: row.outcome,
-                      color: row.outcome == 'success'
-                          ? AppColors.success
-                          : AppColors.danger,
-                      icon: row.outcome == 'success'
-                          ? Icons.check_circle_outline
-                          : Icons.error_outline,
-                    );
-                  },
+                  builder: (context, i) => _outcomeCell(_displayed[i]),
                 ),
                 AdminDataColumn(
                   id: 'actor',

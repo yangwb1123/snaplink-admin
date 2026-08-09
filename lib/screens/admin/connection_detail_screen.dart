@@ -139,8 +139,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                     children: [
                       _infoCard(context),
                       const SizedBox(height: 16),
-                      if (_health != null && _health!.isNotEmpty)
-                        _healthCard(context),
+                      ..._healthCardSections(context),
                       const SizedBox(height: 16),
                       _configCard(context),
                     ],
@@ -150,6 +149,10 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             ],
           ),
   );
+
+  List<Widget> _healthCardSections(BuildContext context) => [
+        if (_health != null && _health!.isNotEmpty) _healthCard(context),
+      ];
 
   Widget _infoCard(BuildContext context) => Card(
     child: Padding(

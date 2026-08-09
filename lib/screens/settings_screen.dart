@@ -35,6 +35,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  String? _validateBaseUrl(String? value) {
+    if (kIsWeb) return null;
+    try {
+      AppSettings.normalizeSsoBaseUrl(value);
+      return null;
+    } on FormatException {
+      return AppStrings.of(context).translate(
+        'Enter an absolute HTTPS server URL without credentials, '
+        'path, query, or fragment. HTTP is allowed only for '
+        'localhost or loopback addresses.',
+      );
+    }
+  }
+
   void _saveBaseUrl() {
     if (!(_baseUrlFormKey.currentState?.validate() ?? false)) return;
     final previousOrigin = ProductApiOrigin.baseUri;
@@ -91,19 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     keyboardType: TextInputType.url,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
                     decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
-                    validator: (value) {
-                      if (kIsWeb) return null;
-                      try {
-                        AppSettings.normalizeSsoBaseUrl(value);
-                        return null;
-                      } on FormatException {
-                        return strings.translate(
-                          'Enter an absolute HTTPS server URL without credentials, '
-                          'path, query, or fragment. HTTP is allowed only for '
-                          'localhost or loopback addresses.',
-                        );
-                      }
-                    },
+                    validator: _validateBaseUrl,
                   ),
                 ),
                 const SizedBox(height: 12),

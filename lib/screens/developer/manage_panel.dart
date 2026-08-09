@@ -278,6 +278,10 @@ class ManagePanelState extends State<ManagePanel> {
     ).showSnackBar(SnackBar(content: Text(context.tr(message))));
   }
 
+  void _loadIfIdle() {
+    if (!_loading && _currentApp == null) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
@@ -306,9 +310,7 @@ class ManagePanelState extends State<ManagePanel> {
                   label: 'Registration Access Token',
                   enabled: !_loading && !_saving && !_deleting,
                   readOnly: _currentApp != null,
-                  onSubmitted: (_) {
-                    if (!_loading && _currentApp == null) _load();
-                  },
+                  onSubmitted: (_) => _loadIfIdle(),
                 ),
                 if (_loadError != null) ...[
                   const SizedBox(height: 12),

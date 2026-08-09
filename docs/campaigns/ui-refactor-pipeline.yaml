@@ -1,0 +1,93 @@
+# snaplink-console UI 质量重构管线（ai-batch-runner ui-specs 驱动）
+#
+# 场景：lib/ 前端结构质量门禁（check-frontend-quality.py --strict）基线
+#   84 违规：嵌套深度 >8（31）、决策点 >30（20）、god-file >400 行（18）、
+#   api 调用密度 >5（15）。spacing/color/style/geometry/design-intelligence
+#   扫描均 0 违规（项目已符合 ui-specs 设计语言）。
+#
+# 机制（复用 runner 验证门禁闭环，与 ui-refactor-pipeline 同构）：
+#   1) refactor：agent 扫描 lib/ → 按范围规则修复 → 门禁复验（违规 stderr
+#      自动喂回重试 prompt）；
+#   2) review：meta 对抗审查（ui_reviewer/visual_reviewer/code_architecture
+#      reviewer 由编排者挑选）；
+#   3) gate：VERDICT: PASS 才确认。
+#
+# 范围规则（工程约束，agent 必须遵守）：
+#   - 嵌套深度/决策点：全部修复（提取 builder 方法/局部 widget，保持行为）；
+#   - god-file：只修 engineering.yaml filesize.exemptions 之外的（豁免文件
+#     是项目有意的行数预算，见 engineering.yaml:22-47）；
+#   - api 调用密度：机械提取可安全下沉的调用，不做服务层大重构；
+#   - 纯行为保持重构：不改业务逻辑、不重排布局、不改文案/i18n 键。
+#
+# 运行（项目根执行；{cwd}=项目根，{tool_root}=ai-batch-runner 根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/ui-refactor-pipeline.yaml \
+#     --retries 3 --max-rounds 2 --mode serial \
+#     --log-file logs/ui-refactor.log
+git_commit: false
+decision_log: docs/ui/refactor/DECISIONS.md
+archive_dir: docs/ui/refactor/archive
+
+stages:
+  - name: refactor
+    from_prompt: |
+      You are the UI structure refactorer for snaplink-console (Flutter).
+      The project's lib/ frontend sources violate the frontend-quality
+      spec. Workflow:
+      1. Get the violation report:
+         python {tool_root}/scripts/check-frontend-quality.py --dir {cwd}/lib --strict --json
+         (or read docs/ui/refactor/quality.json written by the gate).
+      2. Fix ONLY the nesting-depth > 8 and decision-points > 30 classes.
+         For each violating file (smallest first):
+         - extract the deeply nested builder expression into a private
+           method (same file) or a local widget variable;
+         - extract repeated decision-heavy blocks into private helpers;
+         - a `part 'file_parts.dart'` split is allowed ONLY for the
+           nesting fix, never for new code.
+      3. STRICT PROHIBITIONS (violating any of these fails the gate):
+         - NO new features, NO new tabs, NO new screens, NO layout
+           changes, NO copy/i18n changes, NO reordering of user-visible
+           flow;
+         - NO changes to lib/api/* (no new methods, no new clients);
+         - NO new files except part-file splits; NO new tests;
+         - NEVER run git commands (no add/commit/merge/stash/checkout);
+         - god-file (>400 lines) and api-call-density violations are
+           OUT OF SCOPE (project engineering.yaml exemptions decide
+           those; the strict gate may still list them — ignore them).
+      4. After each file: run `dart analyze <file>` and fix any error you
+         introduced. Behavior must be byte-equivalent to the original
+         widget tree.
+      5. Rerun the scan; iterate until only god-file/api-call violations
+         remain. The gate re-verifies and feeds remaining violations back.
+      Report changes (files, nesting depth before/after, helpers created)
+      as a markdown document.
+    output: docs/ui/refactor/changes.md
+    validate: "python {tool_root}/scripts/check-frontend-quality.py --dir {cwd}/lib --strict --json -o {cwd}/docs/ui/refactor/quality.json"
+    timeout: 1800
+
+  - name: review
+    from_outputs: refactor
+    meta: true
+    role_dir: prompts
+    output_dir: docs/ui/refactor/reviews
+    max_iterations: 2
+    meta_timeout: 1500
+    mode: serial
+
+  - name: gate
+    from_outputs: review
+    aggregate: true
+    gate: true
+    mode: serial
+    tasks:
+      - prompt: |
+          You are the UI gatekeeper. Read {input_content} (the refactor
+          report and the review deliverables). Verify: all nesting-depth
+          and decision-point violations from the scan are resolved (god-file
+          and api-call classes are project-exempted — do not fail on them);
+          no new features/API surface/tests were added; `dart analyze` is
+          clean on touched files; and behavior was preserved. Output on the
+          last line:
+          VERDICT: PASS - <why the project now conforms>
+          or
+          VERDICT: FAIL - <remaining violations or behavior changes>
+        output: docs/ui/refactor/gate.md

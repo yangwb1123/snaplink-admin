@@ -178,44 +178,45 @@ class AdminOverviewTab extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          for (final entry in groups.entries)
-            Card(
-              child: ExpansionTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(entry.value.icon, size: 20),
-                ),
-                title: LocalizedText(entry.key),
-                subtitle: LocalizedText(
-                  '${entry.value.endpoints.length} live endpoints',
-                ),
-                children: [
-                  for (final endpoint in entry.value.endpoints)
-                    ListTile(
-                      dense: true,
-                      title: Text(
-                        endpoint.path,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                      trailing: _MethodChip(endpoint.method),
-                    ),
-                ],
-              ),
-            ),
+          for (final entry in groups.entries) _endGroupCard(context, entry),
         ],
       ],
     );
   }
+
+  Widget _endGroupCard(BuildContext context, MapEntry<String, _EndpointGroup> entry) => Card(
+    child: ExpansionTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Theme.of(
+            context,
+          ).colorScheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(entry.value.icon, size: 20),
+      ),
+      title: LocalizedText(entry.key),
+      subtitle: LocalizedText('${entry.value.endpoints.length} live endpoints'),
+      children: [..._endpointTiles(entry.value.endpoints)],
+    ),
+  );
+
+  List<Widget> _endpointTiles(List<SnaplinkAdminEndpoint> endpoints) => [
+        for (final endpoint in endpoints)
+          ListTile(
+            dense: true,
+            title: Text(
+              endpoint.path,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+              ),
+            ),
+            trailing: _MethodChip(endpoint.method),
+          ),
+      ];
 
   Map<String, _EndpointGroup> _groupEndpoints(
     List<SnaplinkAdminEndpoint> endpoints,

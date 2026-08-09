@@ -232,6 +232,32 @@ class PortalTokenGate extends StatelessWidget {
     this.onRetry,
   });
 
+  List<Widget> _gateExtras(AppStrings strings) => [
+    if (onRetry != null) ...[
+      const SizedBox(height: 12),
+      OutlinedButton(
+        onPressed: loggingIn ? null : onRetry,
+        child: Text(strings.retry),
+      ),
+    ],
+    if (error != null) ...[
+      const SizedBox(height: 16),
+      Text(
+        error!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: AppColors.danger),
+      ),
+    ],
+    if (notice != null) ...[
+      const SizedBox(height: 16),
+      Text(
+        notice!,
+        textAlign: TextAlign.center,
+        style: const TextStyle(color: AppColors.success),
+      ),
+    ],
+  ];
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -289,29 +315,7 @@ class PortalTokenGate extends StatelessWidget {
                             )
                           : Text(strings.continueLabel),
                     ),
-                    if (onRetry != null) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: loggingIn ? null : onRetry,
-                        child: Text(strings.retry),
-                      ),
-                    ],
-                    if (error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        error!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.danger),
-                      ),
-                    ],
-                    if (notice != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        notice!,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.success),
-                      ),
-                    ],
+                    ..._gateExtras(strings),
                   ],
                 ),
               ),
