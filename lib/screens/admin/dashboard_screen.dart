@@ -579,8 +579,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
     _visibleModules = adminNavigationModules(entries);
     // Admin navigation mode (settings): normal shows only the core trio;
-    // professional shows the curated hot set. Capability gating above runs
-    // FIRST — a capability-gated-off module is absent from entries and
+    // professional shows EVERY capability-enabled module and submenu.
+    // Capability gating above runs FIRST — a capability-gated-off module is absent from entries and
     // therefore invisible in both modes. entries itself is never mutated,
     // so deep links and page resolution stay intact.
     _visibleModules = AdminHotModules.visibleForMode(

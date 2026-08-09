@@ -70,8 +70,8 @@ void main() {
     AppSettings.debugPreferencesOverride = null;
   });
 
-  group('T5 hot-module set pins', () {
-    test('core ⊂ modules, exact members', () {
+  group('T5 core allowlist + visibleForMode semantics', () {
+    test('core is exactly the trio; professional is the identity', () {
       expect(
         AdminHotModules.core,
         unorderedEquals(<String>[
@@ -80,19 +80,28 @@ void main() {
           AdminModuleId.users,
         ]),
       );
+      const all = <String>[
+        AdminModuleId.overview,
+        AdminModuleId.clients,
+        AdminModuleId.users,
+        AdminModuleId.tenants,
+        AdminModuleId.tokenSecurity,
+        AdminModuleId.webhooks,
+        AdminModuleId.auditLog,
+      ];
+      // Professional = identity: every capability-enabled module shows.
       expect(
-        AdminHotModules.modules,
-        unorderedEquals(<String>{
-          ...AdminHotModules.core,
-          AdminModuleId.tenants,
-          AdminModuleId.tokenSecurity,
-          AdminModuleId.auditLog,
-        }),
+        AdminHotModules.visibleForMode(all, AdminNavMode.professional),
+        orderedEquals(all),
       );
+      // Normal = core intersection, order preserved.
       expect(
-        AdminHotModules.core.difference(AdminHotModules.modules),
-        isEmpty,
-        reason: 'core must be a subset of modules (progressive disclosure)',
+        AdminHotModules.visibleForMode(all, AdminNavMode.normal),
+        orderedEquals(<String>[
+          AdminModuleId.overview,
+          AdminModuleId.clients,
+          AdminModuleId.users,
+        ]),
       );
     });
   });
@@ -197,8 +206,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // Normal mode: only the Overview and Identity groups survive.
-      expect(find.text('Overview'), findsOneWidget);
-      expect(find.text('Identity'), findsOneWidget);
+      // (rail labels may render twice: destination label + ellipsis variant)
+      expect(find.text('Overview'), findsWidgets);
+      expect(find.text('Identity'), findsWidgets);
       expect(find.text('Security'), findsNothing);
       expect(find.text('Tenants'), findsNothing);
       expect(find.text('System'), findsNothing);
@@ -226,27 +236,24 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Professional: Overview/Identity/Security(token)/Tenants/System(audit).
-      // audit-log is hot and its gate stays OPEN in the harness — the
-      // documented catalog merge (see admin_shell_test.dart AC-5.1)
-      // presents every documented route, so System survives the capability
-      // pass and the mode filter. Developers is never hot, so its group is
-      // hidden in professional mode.
-      expect(find.text('Overview'), findsOneWidget);
-      expect(find.text('Identity'), findsOneWidget);
-      expect(find.text('Security'), findsOneWidget);
-      expect(find.text('Tenants'), findsOneWidget);
-      expect(find.text('System'), findsOneWidget);
-      expect(find.text('Developers'), findsNothing);
+      // Professional = EVERY capability-enabled module: all six groups
+      // survive the catalog-merge capability pass (documented routes keep
+      // every gate open — see admin_shell_test.dart AC-5.1), and the mode
+      // filter is the identity.
+      expect(find.text('Overview'), findsWidgets);
+      expect(find.text('Identity'), findsWidgets);
+      expect(find.text('Security'), findsWidgets);
+      expect(find.text('Tenants'), findsWidgets);
+      expect(find.text('System'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
     });
 
-    test('T8 capability precedence: hot-but-gated hidden in both modes', () {
+    test('T8 capability precedence: gated modules stay hidden in both modes', () {
       // Capability gating runs BEFORE the mode filter in the dashboard
       // (dashboard_screen._buildBody): the filter only ever receives the
-      // capability-surviving module list. So a hot module that capability
-      // gating removed must stay hidden in BOTH modes, and the filter must
-      // never reintroduce a non-hot module.
+      // capability-surviving module list. Professional is the identity
+      // over that list — a module capability gating removed stays hidden;
+      // normal narrows to the core trio.
       //
       // The widget harness cannot produce a gated-off module: the documented
       // catalog merge (admin_navigation.dart AdminNavigationCapabilities,
@@ -259,7 +266,7 @@ void main() {
         AdminModuleId.tenants,
         AdminModuleId.tokenSecurity,
         // auditLog deliberately absent: capability gating removed it.
-        AdminModuleId.webhooks, // capability-present but never hot.
+        AdminModuleId.webhooks, // capability-present.
       ];
 
       final professional = AdminHotModules.visibleForMode(
@@ -269,7 +276,12 @@ void main() {
       expect(
         professional,
         isNot(contains(AdminModuleId.auditLog)),
-        reason: 'hot-but-capability-gated must stay hidden in professional',
+        reason: 'capability-gated module must stay hidden in professional',
+      );
+      expect(
+        professional,
+        orderedEquals(capabilityVisible),
+        reason: 'professional is the identity over capability-visible modules',
       );
       final normal = AdminHotModules.visibleForMode(
         capabilityVisible,
@@ -278,21 +290,14 @@ void main() {
       expect(
         normal,
         isNot(contains(AdminModuleId.auditLog)),
-        reason: 'hot-but-capability-gated must stay hidden in normal',
+        reason: 'capability-gated module must stay hidden in normal',
       );
       expect(
-        professional,
-        containsAll(<String>[
-          AdminModuleId.tenants,
-          AdminModuleId.tokenSecurity,
-        ]),
-        reason: 'capability-present hot modules are shown in professional',
+        normal,
+        isNot(contains(AdminModuleId.tenants)),
+        reason: 'normal is the core trio only — tenants is not core',
       );
-      expect(
-        professional,
-        isNot(contains(AdminModuleId.webhooks)),
-        reason: 'capability-present non-hot modules stay hidden',
-      );
+      expect(normal, isNot(contains(AdminModuleId.webhooks)));
       expect(
         normal,
         orderedEquals(<String>[
@@ -334,7 +339,7 @@ void main() {
       // The page itself renders despite webhooks being outside both surfaces.
       expect(find.text('Webhooks'), findsWidgets);
       // The rail stays on the first visible group (Overview) — no crash.
-      expect(find.text('Overview'), findsOneWidget);
+      expect(find.text('Overview'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
     });
   });
@@ -356,8 +361,8 @@ void main() {
 
     test('T12 zh description is translated (gate blind spot guard)', () {
       const description =
-          'Standard shows Overview, Clients, and Users. Professional adds '
-          'Tenants, Token Security, and Audit Log.';
+          'Standard shows Overview, Clients, and Users. Professional '
+          'shows every module enabled by your server.';
       final zh = AppStrings.forLocale(const Locale('zh'));
       expect(
         zh.translate(description),

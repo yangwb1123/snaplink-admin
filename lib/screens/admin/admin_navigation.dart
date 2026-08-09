@@ -44,11 +44,10 @@ abstract final class AdminModuleId {
   static const health = 'health';
 }
 
-/// Navigation-surface allowlists, pinned by product decisions D1/D2.
+/// Navigation-surface allowlist for the admin rail.
 ///
 /// `core` is the normal-mode surface (the pre-capabilities default);
-/// `modules` is the professional-mode surface (the curated hot set).
-/// Invariant: `core ⊂ modules` (one-dimensional progressive disclosure).
+/// professional mode shows EVERY capability-enabled module (no allowlist).
 /// Keep in sync with the pre-capabilities `_visibleModules` default in
 /// dashboard_screen.dart.
 abstract final class AdminHotModules {
@@ -58,25 +57,22 @@ abstract final class AdminHotModules {
     AdminModuleId.users,
   };
 
-  static const Set<String> modules = <String>{
-    ...core,
-    AdminModuleId.tenants,
-    AdminModuleId.tokenSecurity,
-    AdminModuleId.auditLog,
-  };
-
   /// Applies the navigation-mode surface to a capability-surviving module
   /// list. Capability gating runs first in the dashboard, so this filter
-  /// can only ever REMOVE modules: a capability-hidden module is never
-  /// reintroduced, and a non-hot module never appears in either mode.
-  /// Pure and order-preserving; pinned by T8 in
+  /// can only ever REMOVE modules (normal mode); professional mode is the
+  /// identity — every capability-enabled module and its submenus are
+  /// shown. Pure and order-preserving; pinned by T8 in
   /// test/admin_nav_mode_test.dart.
   static List<String> visibleForMode(
     List<String> capabilityVisible,
     AdminNavMode mode,
   ) {
-    final surface = mode == AdminNavMode.professional ? modules : core;
-    return capabilityVisible.where(surface.contains).toList(growable: false);
+    if (mode == AdminNavMode.professional) {
+      return capabilityVisible;
+    }
+    return capabilityVisible
+        .where(core.contains)
+        .toList(growable: false);
   }
 }
 
