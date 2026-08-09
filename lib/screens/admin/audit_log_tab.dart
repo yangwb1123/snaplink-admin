@@ -15,7 +15,6 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
-import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 /// Audit log viewer tab — server read.
 ///
@@ -272,9 +271,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
     return StatusChip(
       label: row.outcome,
       color: row.outcome == 'success' ? AppColors.success : AppColors.danger,
-      icon: row.outcome == 'success'
-          ? Icons.check_circle_outline
-          : Icons.error_outline,
+      icon: row.outcome == 'success' ? Icons.check_circle_outline : Icons.error_outline,
     );
   }
 
@@ -368,19 +365,29 @@ class _AuditLogTabState extends State<AuditLogTab> {
             children: [
               SizedBox(
                 width: 300,
-                // 必须同步刷新（AC-1.6/F5）：无 debounce。
-                child: SearchFilterBar(
-                  debounce: false,
-                  hintText: 'Search...'.localized,
+                child: TextField(
                   controller: _searchCtrl,
-                  onSearchChanged: (_) => _refresh(),
+                  decoration: InputDecoration(
+                    hintText: 'Search...'.localized,
+                    prefixIcon: Icon(Icons.search, size: 20),
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onChanged: (_) => _refresh(),
                 ),
               ),
               const SizedBox(width: 12),
               DropdownButton<String>(
                 value: _outcomeFilter,
                 items: const [
-                  DropdownMenuItem(value: 'ALL', child: LocalizedText('All')),
+                  DropdownMenuItem(
+                    value: 'ALL',
+                    child: LocalizedText('All'),
+                  ),
                   DropdownMenuItem(
                     value: 'success',
                     child: LocalizedText('success'),

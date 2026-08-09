@@ -4,7 +4,6 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
-import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -83,8 +82,8 @@ class _TenantsTabState extends State<TenantsTab>
     filter: _statusFilter == 'all'
         ? _filterCtrl.text
         : _filterCtrl.text.trim().isEmpty
-        ? 'status:$_statusFilter'
-        : '${_filterCtrl.text.trim()} and status:$_statusFilter',
+            ? 'status:$_statusFilter'
+            : '${_filterCtrl.text.trim()} and status:$_statusFilter',
   );
 
   void _reload() {
@@ -125,27 +124,22 @@ class _TenantsTabState extends State<TenantsTab>
       title: next == 'suspended'
           ? 'Suspend ${ids.length} tenants?'
           : 'Activate ${ids.length} tenants?',
-      message:
-          'This will ${next == 'suspended' ? 'suspend' : 'activate'} '
+      message: 'This will ${next == 'suspended' ? 'suspend' : 'activate'} '
           '${ids.length} selected tenants in one operation.',
-      confirmLabel: next == 'suspended'
-          ? 'Suspend tenants'
-          : 'Activate tenants',
+      confirmLabel: next == 'suspended' ? 'Suspend tenants' : 'Activate tenants',
       destructive: next == 'suspended',
     );
     if (!confirmed) return;
     final failures = <String>[];
     var ok = 0;
-    final results = await Future.wait(
-      ids.map((id) async {
-        try {
-          await widget.client.setTenantStatus(id, next);
-          return null;
-        } catch (e) {
-          return '$id: $e';
-        }
-      }),
-    );
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await widget.client.setTenantStatus(id, next);
+        return null;
+      } catch (e) {
+        return '$id: $e';
+      }
+    }));
     for (final failure in results) {
       if (failure == null) {
         ok++;
@@ -225,9 +219,9 @@ class _TenantsTabState extends State<TenantsTab>
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -259,9 +253,9 @@ class _TenantsTabState extends State<TenantsTab>
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -309,11 +303,17 @@ class _TenantsTabState extends State<TenantsTab>
             children: [
               SizedBox(
                 width: 280,
-                child: SearchFilterBar(
-                  labelText: 'Filter'.localized,
+                child: TextField(
                   controller: _filterCtrl,
-                  debounce: false,
-                  onSearchChanged: (_) {},
+                  decoration: InputDecoration(
+                    labelText: 'Filter'.localized,
+                    hintText: 'e.g. status:active or name:acme'.localized,
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Apply filter'.localized,
+                      onPressed: _reload,
+                    ),
+                  ),
                   onSubmitted: (_) => _reload(),
                 ),
               ),
@@ -398,12 +398,7 @@ class _TenantsTabState extends State<TenantsTab>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(
-                  child: LocalizedText(
-                    'Error: {snap_error}',
-                    args: {'snap_error': snap.error},
-                  ),
-                );
+                return Center(child: LocalizedText('Error: {snap_error}', args: {'snap_error': snap.error}));
               }
               final page = snap.data!;
               final items = page.items;
@@ -428,8 +423,7 @@ class _TenantsTabState extends State<TenantsTab>
                                   )
                                 : (i) => AdminRoute.go(
                                     'tenants',
-                                    resourceId:
-                                        items[i]['id']?.toString() ?? '',
+                                    resourceId: items[i]['id']?.toString() ?? '',
                                   ),
                             onRowLongPress: selecting
                                 ? null
@@ -483,8 +477,7 @@ class _TenantsTabState extends State<TenantsTab>
                                 sortable: true,
                                 builder: (context, i) {
                                   final status =
-                                      items[i]['status']?.toString() ??
-                                      'active';
+                                      items[i]['status']?.toString() ?? 'active';
                                   return status == 'suspended'
                                       ? StatusChip.suspended()
                                       : StatusChip.active();

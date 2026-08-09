@@ -6,37 +6,20 @@ import 'package:sso_admin/i18n/app_strings.dart';
 /// Supports text search, filter chips, and sort selection.
 class SearchFilterBar extends StatefulWidget {
   final String hintText;
-
-  /// 有值时优先渲染为 `TextField(labelText:)`（labelText 优先于 hintText）。
-  final String? labelText;
-
-  /// 外部控制器注入（内部仍拥有文本）；未提供时内部自建。
-  final TextEditingController? controller;
-
-  /// false 时 `onSearchChanged` 同步触发（无 Timer）。
-  final bool debounce;
-
   final List<String> filterOptions;
   final String? selectedFilter;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?>? onFilterChanged;
   final VoidCallback? onRefresh;
 
-  /// 键盘 done 提交：同步触发本回调，随后照常走 [onSearchChanged]。
-  final ValueChanged<String>? onSubmitted;
-
   const SearchFilterBar({
     super.key,
     this.hintText = 'Search...',
-    this.labelText,
-    this.controller,
-    this.debounce = true,
     this.filterOptions = const [],
     this.selectedFilter,
     required this.onSearchChanged,
     this.onFilterChanged,
     this.onRefresh,
-    this.onSubmitted,
   });
 
   @override
@@ -44,24 +27,18 @@ class SearchFilterBar extends StatefulWidget {
 }
 
 class _SearchFilterBarState extends State<SearchFilterBar> {
-  late final TextEditingController _searchCtrl =
-      widget.controller ?? TextEditingController();
-  late final bool _ownsController = widget.controller == null;
+  final _searchCtrl = TextEditingController();
   bool _showFilters = false;
   Timer? _debounceTimer;
 
   @override
   void dispose() {
     _debounceTimer?.cancel();
-    if (_ownsController) _searchCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
-    if (!widget.debounce) {
-      widget.onSearchChanged(value);
-      return;
-    }
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       widget.onSearchChanged(value);
@@ -81,14 +58,8 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
               Expanded(
                 child: TextField(
                   controller: _searchCtrl,
-                  textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
-                    labelText: widget.labelText == null
-                        ? null
-                        : context.tr(widget.labelText!),
-                    hintText: widget.labelText == null
-                        ? context.tr(widget.hintText)
-                        : null,
+                    hintText: context.tr(widget.hintText),
                     prefixIcon: const Icon(Icons.search, size: 20),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -100,10 +71,6 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                     isDense: true,
                   ),
                   onChanged: _onSearchChanged,
-                  onSubmitted: (value) {
-                    widget.onSubmitted?.call(value);
-                    widget.onSearchChanged(value);
-                  },
                 ),
               ),
               if (widget.filterOptions.isNotEmpty) ...[

@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../i18n/app_strings.dart';
-import '../../app_settings.dart';
 import '../../services/browser_auth_response.dart';
 import '../../services/browser_navigation.dart';
 import '../../services/product_api_origin.dart';
@@ -20,7 +19,7 @@ import 'federated_login.dart';
 import 'hosted_login_location.dart';
 import 'hosted_login_models.dart';
 import 'jarm_completion.dart';
-import 'login_backdrop.dart';
+import 'language_toggle.dart';
 import 'login_view_widget.dart';
 import 'mfa_view.dart';
 import 'oauth_params.dart';

@@ -56,6 +56,8 @@ class LoginViewWidget extends StatefulWidget {
   });
 
   @override
+
+  @override
   State<LoginViewWidget> createState() => _LoginViewWidgetState();
 }
 
@@ -66,9 +68,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
-    final builtinProviders = widget.providers
-        .where((item) => item.builtin)
-        .toList();
+    final builtinProviders = widget.providers.where((item) => item.builtin).toList();
     final federatedProviders = widget.providers
         .where(
           (item) =>
@@ -77,9 +77,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         )
         .toList();
     final selected = _descriptorFor(widget.provider);
-    final selectedBuiltin = builtinProviders.any(
-      (item) => item.id == widget.provider,
-    );
+    final selectedBuiltin = builtinProviders.any((item) => item.id == widget.provider);
 
     return AutofillGroup(
       child: Column(
@@ -152,21 +150,21 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
           const SizedBox(height: 20),
           PressableScale(
             child: FilledButton(
-              onPressed: widget.loading ? null : widget.onSubmit,
-              child: widget.loading
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(
-                      widget.usesFederatedProvider
-                          ? selected.effectiveButtonLabel
-                          : widget.provider == 'webauthn'
-                          ? context.tr('Sign in with passkey')
-                          : strings.signIn,
-                    ),
-            ),
+            onPressed: widget.loading ? null : widget.onSubmit,
+            child: widget.loading
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    widget.usesFederatedProvider
+                        ? selected.effectiveButtonLabel
+                        : widget.provider == 'webauthn'
+                        ? context.tr('Sign in with passkey')
+                        : strings.signIn,
+                  ),
+          ),
           ),
           if (widget.provider == 'password') ...[
             const SizedBox(height: 16),
@@ -302,9 +300,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       ),
       const SizedBox(height: 12),
       OutlinedButton(
-        onPressed: widget.loading || widget.magicLinkToken != null
-            ? null
-            : widget.onSendCode,
+        onPressed: widget.loading || widget.magicLinkToken != null ? null : widget.onSendCode,
         child: Text(
           context.tr(
             widget.provider == 'magiclink'
@@ -315,10 +311,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       ),
       if (widget.codeMessage != null) ...[
         const SizedBox(height: 12),
-        Semantics(
-          liveRegion: true,
-          child: Text(context.tr(widget.codeMessage!)),
-        ),
+        Semantics(liveRegion: true, child: Text(context.tr(widget.codeMessage!))),
       ],
       if (widget.provider != 'magiclink' || widget.magicLinkToken == null) ...[
         const SizedBox(height: 16),

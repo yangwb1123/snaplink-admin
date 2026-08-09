@@ -20,10 +20,7 @@ class ScimMetric extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Chip(
     avatar: const Icon(Icons.analytics_outlined, size: 16),
-    label: LocalizedText(
-      '{label}: {value}',
-      args: {'label': label, 'value': value},
-    ),
+    label: LocalizedText('{label}: {value}', args: {'label': label, 'value': value}),
   );
 }
 
@@ -51,9 +48,7 @@ class ScimBulkResultSummary extends StatelessWidget {
           succeeded == operations.length
               ? Icons.check_circle_outline
               : Icons.warning_amber_outlined,
-          color: succeeded == operations.length
-              ? AppColors.success
-              : AppColors.warning,
+          color: succeeded == operations.length ? AppColors.success : AppColors.warning,
         ),
         title: LocalizedText(
           '$succeeded of ${operations.length} operations succeeded',
@@ -291,6 +286,48 @@ class ScimResourceTile extends StatelessWidget {
         .where((email) => email['primary'] == true)
         .firstOrNull;
     return (primary ?? emails.first)['value']?.toString() ?? '';
+  }
+}
+
+class ScimPager extends StatelessWidget {
+  final ScimListPage page;
+  final bool busy;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  const ScimPager({
+    super.key,
+    required this.page,
+    required this.busy,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final last = page.itemsPerPage == 0
+        ? page.startIndex
+        : page.startIndex + page.itemsPerPage - 1;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        LocalizedText(
+          page.totalResults == 0
+              ? '0 results'
+              : '${page.startIndex}–$last of ${page.totalResults}',
+        ),
+        IconButton(
+          onPressed: page.hasPrevious && !busy ? onPrevious : null,
+          icon: const Icon(Icons.chevron_left),
+          tooltip: 'Previous page'.localized,
+        ),
+        IconButton(
+          onPressed: page.hasNext && !busy ? onNext : null,
+          icon: const Icon(Icons.chevron_right),
+          tooltip: 'Next page'.localized,
+        ),
+      ],
+    );
   }
 }
 

@@ -4,7 +4,6 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   Widget _buildShell(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final strings = AppStrings.of(context);
     return Scaffold(
       // 品牌化背景：柔和的品牌色渐变（产品感），深色/浅色各自适配。
       body: DecoratedBox(
@@ -46,153 +45,69 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     : AppColors.accentBlue.withValues(alpha: 0.18),
               ),
             ),
-            // 装饰性背景场景（orbit/shield/nodes）——纯装饰，不拦截、无语义。
-            Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
             ResponsiveEntryCard(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: _HeaderDropdown<ThemeMode>(
-                          icon: Icons.palette_outlined,
-                          value: AppSettings.instance.themeMode,
-                          items: [
-                            for (final (mode, icon, label) in [
-                              (
-                                ThemeMode.system,
-                                Icons.brightness_auto,
-                                strings.themeSystem,
-                              ),
-                              (
-                                ThemeMode.light,
-                                Icons.light_mode,
-                                strings.themeLight,
-                              ),
-                              (
-                                ThemeMode.dark,
-                                Icons.dark_mode,
-                                strings.themeDark,
-                              ),
-                            ])
-                              DropdownMenuItem(
-                                value: mode,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(icon, size: 16),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        label,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          onChanged: (mode) {
-                            if (mode != null) {
-                              AppSettings.instance.themeMode = mode;
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: _HeaderDropdown<Locale>(
-                          icon: Icons.translate,
-                          value: AppSettings.instance.locale,
-                          items: [
-                            for (final locale in const [
-                              Locale('en'),
-                              Locale('zh'),
-                            ])
-                              DropdownMenuItem(
-                                value: locale,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.language, size: 16),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        locale.languageCode == 'en'
-                                            ? 'English'
-                                            : '中文',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          onChanged: (locale) {
-                            if (locale != null) {
-                              AppSettings.instance.locale = locale;
-                            }
-                          },
-                        ),
-                      ),
-                      const Spacer(),
-                      if (!kIsWeb)
-                        IconButton(
-                          onPressed: _loading ? null : _openNativeSettings,
-                          tooltip: AppStrings.of(context).settings,
-                          icon: const Icon(Icons.settings_outlined),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // 品牌区：租户配置优先，缺省时展示产品默认品牌。
-                  if (_brandName != null || _brandLogoUrl != null) ...[
-                    BrandingHeader(
-                      brandLogoUrl: _brandLogoUrl,
-                      brandName: _brandName,
-                      brandColor: _brandColor,
+                  const Expanded(child: LanguageToggle()),
+                  if (!kIsWeb)
+                    IconButton(
+                      onPressed: _loading ? null : _openNativeSettings,
+                      tooltip: AppStrings.of(context).settings,
+                      icon: const Icon(Icons.settings_outlined),
                     ),
-                  ] else
-                    _defaultBranding(context),
-                  const SizedBox(height: 16),
-                  // 副标语 + 安全徽章：价值主张与信任信号。
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.tr(
-                            'Enterprise-grade identity & access management',
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              // 品牌区：租户配置优先，缺省时展示产品默认品牌。
+              if (_brandName != null || _brandLogoUrl != null) ...[
+                BrandingHeader(
+                  brandLogoUrl: _brandLogoUrl,
+                  brandName: _brandName,
+                  brandColor: _brandColor,
+                ),
+              ] else
+                _defaultBranding(context),
+              const SizedBox(height: 16),
+              // 副标语 + 安全徽章：价值主张与信任信号。
+              Row(
+                children: [
+                  Icon(
+                    Icons.shield_outlined,
+                    size: 16,
+                    color: theme.colorScheme.primary,
                   ),
-                  const SizedBox(height: 20),
-                  _buildView(),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.tr('© {year} snaplink · secure identity platform', {
-                      'year': '2026',
-                    }),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr(
+                          'Enterprise-grade identity & access management'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 20),
+              _buildView(),
+              const SizedBox(height: 12),
+              Text(
+                context.tr('© {year} snaplink · secure identity platform', {
+                  'year': '2026',
+                }),
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
           ],
         ),
       ),
@@ -413,84 +328,10 @@ class _GlowOrb extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+        gradient: RadialGradient(
+          colors: [color, color.withValues(alpha: 0)],
+        ),
       ),
     ),
   );
-}
-
-/// 登录头下拉：图标 + 紧凑 DropdownButton（underline none、isDense、
-/// 文本 ellipsis），hover 一次性 ≤150ms 底色过渡（无连续动画）。
-class _HeaderDropdown<T> extends StatelessWidget {
-  final IconData icon;
-  final T value;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  const _HeaderDropdown({
-    required this.icon,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return _HoverTint(
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<T>(
-                value: value,
-                isDense: true,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                items: items,
-                onChanged: onChanged,
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 悬停底色：一次性 ≤150ms 颜色过渡，禁止连续动画。
-class _HoverTint extends StatefulWidget {
-  final Widget child;
-
-  const _HoverTint({required this.child});
-
-  @override
-  State<_HoverTint> createState() => _HoverTintState();
-}
-
-class _HoverTintState extends State<_HoverTint> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: _hovered
-              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: widget.child,
-      ),
-    );
-  }
 }

@@ -81,18 +81,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsCard(
               icon: Icons.language_outlined,
               title: strings.language,
-              description: strings.translate(
-                'App language and regional display preferences.',
-              ),
+              description: strings.translate('App language and regional display preferences.'),
               children: [_LanguagePicker()],
             ),
             const SizedBox(height: 16),
             _SettingsCard(
               icon: Icons.palette_outlined,
               title: strings.theme,
-              description: strings.translate(
-                'Appearance follows the system or your explicit choice.',
-              ),
+              description: strings.translate('Appearance follows the system or your explicit choice.'),
               children: [_ThemePicker(strings: strings)],
             ),
             const SizedBox(height: 16),
@@ -109,9 +105,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsCard(
               icon: Icons.dns_outlined,
               title: strings.ssoBaseUrl,
-              description: strings.translate(
-                'Server endpoint used for OIDC and API calls.',
-              ),
+              description: strings.translate('Server endpoint used for OIDC and API calls.'),
               children: [
                 Form(
                   key: _baseUrlFormKey,
@@ -120,9 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     enabled: !kIsWeb,
                     keyboardType: TextInputType.url,
                     autovalidateMode: AutovalidateMode.onUserInteraction,
-                    decoration: InputDecoration(
-                      helperText: strings.ssoBaseUrlHint,
-                    ),
+                    decoration: InputDecoration(helperText: strings.ssoBaseUrlHint),
                     validator: _validateBaseUrl,
                   ),
                 ),
@@ -140,9 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _SettingsCard(
               icon: Icons.schedule_outlined,
               title: strings.timezone,
-              description: strings.translate(
-                'Current local timezone of this device.',
-              ),
+              description: strings.translate('Current local timezone of this device.'),
               children: [
                 Row(
                   children: [
@@ -221,6 +211,13 @@ class _SettingsCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
+            Text(
+              description,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 16),
             ...children,
           ],
         ),
@@ -233,33 +230,18 @@ class _LanguagePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = AppSettings.instance.locale;
-    return InputDecorator(
-      decoration: InputDecoration(
-        isDense: true,
-        prefixIcon: const Icon(Icons.translate),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Locale>(
-          value: current,
-          isExpanded: true,
-          isDense: true,
-          items: const [
-            DropdownMenuItem(value: Locale('en'), child: Text('English')),
-            DropdownMenuItem(value: Locale('zh'), child: Text('中文')),
-          ],
-          onChanged: (selection) {
-            if (selection != null) AppSettings.instance.locale = selection;
-          },
-        ),
-      ),
+    return SegmentedButton<Locale>(
+      segments: const [
+        ButtonSegment(value: Locale('en'), label: Text('English')),
+        ButtonSegment(value: Locale('zh'), label: Text('中文')),
+      ],
+      selected: {current},
+      onSelectionChanged: (selection) =>
+          AppSettings.instance.locale = selection.first,
     );
   }
 }
 
-/// 主题选择：图标瓦片行（system/light/dark），选中态 primaryContainer
-/// 填充 + primary 边框 + 对勾徽标，键盘焦点由 InkWell.onFocusChange 驱动。
 class _ThemePicker extends StatelessWidget {
   final AppStrings strings;
   const _ThemePicker({required this.strings});
@@ -267,125 +249,18 @@ class _ThemePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = AppSettings.instance.themeMode;
-    final modes = [
-      (ThemeMode.system, Icons.brightness_auto, strings.themeSystem),
-      (ThemeMode.light, Icons.light_mode, strings.themeLight),
-      (ThemeMode.dark, Icons.dark_mode, strings.themeDark),
-    ];
-    return Row(
-      children: [
-        for (final (index, mode) in modes.indexed) ...[
-          Expanded(
-            child: _ThemeOptionTile(
-              mode: mode.$1,
-              icon: mode.$2,
-              caption: mode.$3,
-              selected: current == mode.$1,
-              onTap: () => AppSettings.instance.themeMode = mode.$1,
-            ),
-          ),
-          if (index < modes.length - 1) const SizedBox(width: 8),
-        ],
-      ],
-    );
-  }
-}
-
-class _ThemeOptionTile extends StatefulWidget {
-  final ThemeMode mode;
-  final IconData icon;
-  final String caption;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ThemeOptionTile({
-    required this.mode,
-    required this.icon,
-    required this.caption,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  State<_ThemeOptionTile> createState() => _ThemeOptionTileState();
-}
-
-class _ThemeOptionTileState extends State<_ThemeOptionTile> {
-  bool _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Tooltip(
-      message: widget.caption,
-      // 本 SDK（Flutter 3.47 master）无 hover/never 模式（设计 §1.1 引用
-      // 的枚举值在 SDK 中不存在）：manual = 触屏永不触发，鼠标 hover 仍显示
-      // （raw_tooltip.dart 文档：triggerMode 不影响鼠标设备）——即 web 悬停
-      // 专属、触屏禁用的设计意图。
-      triggerMode: TooltipTriggerMode.manual,
-      child: Semantics(
-        selected: widget.selected,
-        child: InkWell(
-          onTap: widget.onTap,
-          onFocusChange: (focused) => setState(() => _focused = focused),
-          borderRadius: BorderRadius.circular(12),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
-            decoration: BoxDecoration(
-              color: widget.selected
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: widget.selected || _focused
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant.withValues(alpha: 0.5),
-                width: 2,
-              ),
-            ),
-            child: Stack(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      widget.icon,
-                      size: 22,
-                      color: widget.selected
-                          ? colorScheme.primary
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      widget.caption,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-                if (widget.selected)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Icon(
-                      Icons.check_circle,
-                      size: 16,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
+    return SegmentedButton<ThemeMode>(
+      segments: [
+        ButtonSegment(
+          value: ThemeMode.system,
+          label: Text(strings.themeSystem),
         ),
-      ),
+        ButtonSegment(value: ThemeMode.light, label: Text(strings.themeLight)),
+        ButtonSegment(value: ThemeMode.dark, label: Text(strings.themeDark)),
+      ],
+      selected: {current},
+      onSelectionChanged: (selection) =>
+          AppSettings.instance.themeMode = selection.first,
     );
   }
 }
