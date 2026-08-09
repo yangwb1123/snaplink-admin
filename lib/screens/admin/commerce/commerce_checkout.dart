@@ -5,6 +5,13 @@ class CommerceCheckoutNavigationUnavailable implements Exception {
   const CommerceCheckoutNavigationUnavailable();
 }
 
+/// Thrown when the checkout probe says the session endpoint is not served
+/// by the connected replica (P0-1) — the order stays pending and the
+/// failure copy explains why, instead of a raw 404 error.
+class CommerceCheckoutUnavailable implements Exception {
+  const CommerceCheckoutUnavailable();
+}
+
 class CommerceCheckoutUrls {
   final Uri success;
   final Uri cancel;

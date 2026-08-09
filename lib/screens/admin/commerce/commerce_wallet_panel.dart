@@ -10,6 +10,9 @@ class CommerceWalletPanel extends StatelessWidget {
   final String? eventOrderID;
   final List<Map<String, dynamic>> events;
   final Map<String, dynamic>? reconciliation;
+  /// P0-1 probe result: false hides the checkout affordance on replicas
+  /// that do not serve the session endpoint (no dead-end 404 button).
+  final bool checkoutEnabled;
   final VoidCallback? onAdjust;
   final VoidCallback? onTopUp;
   final VoidCallback? onReconcile;
@@ -25,6 +28,7 @@ class CommerceWalletPanel extends StatelessWidget {
     required this.eventOrderID,
     required this.events,
     required this.reconciliation,
+    this.checkoutEnabled = false,
     required this.onAdjust,
     required this.onTopUp,
     required this.onReconcile,
@@ -173,6 +177,7 @@ class CommerceWalletPanel extends StatelessWidget {
     final id = order['id']?.toString() ?? '';
     final showingEvents = id.isNotEmpty && id == eventOrderID;
     final checkoutReady =
+        checkoutEnabled &&
         order['status'] == 'pending' &&
         order['provider'] == 'stripe' &&
         (order['provider_order_id']?.toString() ?? '').isEmpty;

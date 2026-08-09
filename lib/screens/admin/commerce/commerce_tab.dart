@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -22,6 +23,9 @@ class CommerceTab extends StatefulWidget {
   final Object? availabilityError;
   final CommerceCheckoutOrigin? checkoutOrigin;
   final CommerceCheckoutNavigator? checkoutNavigator;
+  /// P0-1 test seam: probe uses its own client (onUnauthorized: null) so a
+  /// 401 probe never logs the operator out; tests inject a MockClient here.
+  final SnaplinkAdminApi Function()? probeClientBuilder;
 
   const CommerceTab({
     super.key,
@@ -29,6 +33,7 @@ class CommerceTab extends StatefulWidget {
     this.availabilityError,
     this.checkoutOrigin,
     this.checkoutNavigator,
+    this.probeClientBuilder,
   });
 
   @override
@@ -51,6 +56,7 @@ class _CommerceTabState extends State<CommerceTab> {
   String? _eventOrderID;
   String? _catalogError;
   String? _tenantError;
+  CheckoutProbeState _checkoutProbe = CheckoutProbeState.degraded;
   bool _catalogLoading = false;
   bool _tenantLoading = false;
   bool _mutating = false;
@@ -62,6 +68,7 @@ class _CommerceTabState extends State<CommerceTab> {
   void initState() {
     super.initState();
     _loadPlans();
+    _probeCheckout();
   }
 
   @override
@@ -84,6 +91,28 @@ class _CommerceTabState extends State<CommerceTab> {
       if (mounted) setState(() => _catalogError = error.toString());
     } finally {
       if (mounted) setState(() => _catalogLoading = false);
+    }
+  }
+
+  Future<void> _probeCheckout() async {
+    // P0-1 (api-gap analysis): the checkout session endpoint lives on the
+    // stripe-adapter process. Probe once per tab lifecycle with an
+    // unauthenticated-outcome client (a 401 must never trigger the
+    // dashboard's session-expiry logout); memoize the result.
+    final probeClient =
+        widget.probeClientBuilder?.call() ??
+        SnaplinkAdminApi(
+          baseUrl: widget.api.baseUrl,
+          accessToken: Session.read() ?? '',
+          onUnauthorized: null,
+        );
+    try {
+      await CommerceAdminApi(probeClient).probeCheckout();
+      if (!mounted) return;
+      setState(() => _checkoutProbe = CheckoutProbeState.available);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _checkoutProbe = checkoutProbeState(error));
     }
   }
 
@@ -360,6 +389,7 @@ class _CommerceTabState extends State<CommerceTab> {
           eventOrderID: _eventOrderID,
           events: _events,
           reconciliation: _reconciliation,
+          checkoutEnabled: _checkoutProbe == CheckoutProbeState.available,
           onAdjust: _mutating ? null : _adjustWallet,
           onTopUp: _mutating ? null : _createTopUp,
           onReconcile: _mutating ? null : _reconcile,

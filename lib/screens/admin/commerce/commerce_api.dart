@@ -11,6 +11,31 @@ CommerceProbeState commerceProbeState(Object? error) {
   return CommerceProbeState.degraded;
 }
 
+/// Checkout-adapter availability classifier (P0-1, api-gap analysis).
+///
+/// The checkout session endpoint lives on the stripe-adapter / billing
+/// process, not the sso-server. A gated sso-server answers 405 for a
+/// known-but-not-mounted route; 404 means the route is not served at all;
+/// 401/403 and transport errors are degraded (probe auth issues or a
+/// proxy in between — never claim availability).
+enum CheckoutProbeState { available, unavailable, degraded }
+
+CheckoutProbeState checkoutProbeState(Object? error) {
+  if (error == null) return CheckoutProbeState.available;
+  if (error is SnaplinkAdminApiError) {
+    switch (error.status) {
+      case 405:
+        // Known route, adapter-mounted elsewhere: checkout is enabled.
+        return CheckoutProbeState.available;
+      case 404:
+        return CheckoutProbeState.unavailable;
+      default:
+        return CheckoutProbeState.degraded;
+    }
+  }
+  return CheckoutProbeState.degraded;
+}
+
 class CommerceAdminApi {
   final SnaplinkAdminApi _api;
 
@@ -98,6 +123,13 @@ class CommerceAdminApi {
     'success_url': successURL.toString(),
     'cancel_url': cancelURL.toString(),
   });
+
+  /// Authenticated checkout-adapter probe (P0-1): a 405 response proves the
+  /// route is known and adapter-mounted (enabled); 404 proves it is not
+  /// served (disabled). Callers memoize the result — the probe is
+  /// connection-state, not per-order state.
+  Future<Map<String, dynamic>> probeCheckout() =>
+      _api.get('/api/v1/checkout/sessions', forceRefresh: true);
 
   Future<Map<String, dynamic>> listPaymentEvents(
     String tenantID,
