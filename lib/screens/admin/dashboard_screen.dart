@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_settings.dart';
 import '../../i18n/app_strings.dart';
 import '../../i18n/localized_text.dart';
 import 'admin_route.dart';
@@ -577,6 +578,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
     _visibleModules = adminNavigationModules(entries);
+    // Admin navigation mode (settings): normal shows only the core trio;
+    // professional shows the curated hot set. Capability gating above runs
+    // FIRST — a capability-gated-off module is absent from entries and
+    // therefore invisible in both modes. entries itself is never mutated,
+    // so deep links and page resolution stay intact.
+    _visibleModules = AdminHotModules.visibleForMode(
+      _visibleModules,
+      AppSettings.instance.adminNavMode,
+    );
     Widget page;
     final route = _currentRoute;
     final rid = route.resourceId;

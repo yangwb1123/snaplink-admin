@@ -1,5 +1,6 @@
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/app_settings.dart';
 
 /// Stable route identifiers for the admin navigation.
 ///
@@ -41,6 +42,42 @@ abstract final class AdminModuleId {
   static const governance = 'governance';
   static const auditLog = 'audit-log';
   static const health = 'health';
+}
+
+/// Navigation-surface allowlists, pinned by product decisions D1/D2.
+///
+/// `core` is the normal-mode surface (the pre-capabilities default);
+/// `modules` is the professional-mode surface (the curated hot set).
+/// Invariant: `core ⊂ modules` (one-dimensional progressive disclosure).
+/// Keep in sync with the pre-capabilities `_visibleModules` default in
+/// dashboard_screen.dart.
+abstract final class AdminHotModules {
+  static const Set<String> core = <String>{
+    AdminModuleId.overview,
+    AdminModuleId.clients,
+    AdminModuleId.users,
+  };
+
+  static const Set<String> modules = <String>{
+    ...core,
+    AdminModuleId.tenants,
+    AdminModuleId.tokenSecurity,
+    AdminModuleId.auditLog,
+  };
+
+  /// Applies the navigation-mode surface to a capability-surviving module
+  /// list. Capability gating runs first in the dashboard, so this filter
+  /// can only ever REMOVE modules: a capability-hidden module is never
+  /// reintroduced, and a non-hot module never appears in either mode.
+  /// Pure and order-preserving; pinned by T8 in
+  /// test/admin_nav_mode_test.dart.
+  static List<String> visibleForMode(
+    List<String> capabilityVisible,
+    AdminNavMode mode,
+  ) {
+    final surface = mode == AdminNavMode.professional ? modules : core;
+    return capabilityVisible.where(surface.contains).toList(growable: false);
+  }
 }
 
 /// Capability decisions used to include optional admin navigation entries.

@@ -1,0 +1,153 @@
+# snaplink-console 设置页导航模式需求管线
+#
+# 需求：设置里加入"模式"选择——专业模式（professional）显示全部子菜单/路由；
+# 普通模式（默认）只显示热点页面与最常用功能页面。
+#
+# 证据落点（agent 必须先验证再设计）：
+#   - lib/app_settings.dart:17 AppSettings（ChangeNotifier 单例 + LocalStorage
+#     持久化，locale/theme/baseUrl 三键先例）——模式开关的落点；
+#   - lib/screens/admin/dashboard_screen.dart:245 _buildEntries 构建全部导航
+#     entries（AdminModuleId 常量 + AdminNavigationCapabilities 能力门控 +
+#     _commerceAvailable 等条件）——过滤层的位置；
+#   - lib/screens/admin/admin_navigation.dart:9 AdminModuleId 35 个模块全集；
+#   - lib/screens/admin/dashboard_screen.dart:727 顶栏设置齿轮 → SettingsScreen；
+#   - lib/screens/settings_screen.dart _SettingsCard/_LanguagePicker/_ThemePicker
+#     卡片先例（SegmentedButton 主题选择 :241-253 是模式切换的 UI 先例）。
+#
+# 运行（项目根；{cwd}=项目根，{tool_root}=ai-batch-runner 根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/settings-mode-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/settings-mode.log
+git_commit: false
+decision_log: docs/auto/settings-mode/DECISIONS.md
+archive_dir: docs/auto/settings-mode/archive
+
+stages:
+  - name: requirements
+    from_prompt: |
+      Produce an evidence-backed requirements specification for the
+      snaplink-console admin navigation mode feature (settings page gains
+      a mode selector: professional mode shows ALL admin submenus/routes;
+      normal mode — the default — shows only hot/most-used pages).
+      Verify every citation against the repository first:
+      - lib/app_settings.dart (AppSettings ChangeNotifier singleton,
+        LocalStorage persistence keys, setters that notifyListeners);
+      - lib/screens/admin/dashboard_screen.dart _buildEntries (the
+        capability-gated navigation entry list) and the settings gear
+        entry point;
+      - lib/screens/admin/admin_navigation.dart AdminModuleId (the full
+        module set);
+      - lib/screens/settings_screen.dart (existing card/segmented-button
+        patterns).
+      Define: (1) the hot/most-used module set for normal mode — a
+      curated, testable constant, justified by admin usage semantics
+      (recommendation: overview, clients, users, tenants, token-security,
+      audit-log; the final set is a design decision that must be explicit
+      and constant-based); (2) the AppSettings extension (key name,
+      default value, notify semantics); (3) the settings UI (control
+      type, EN/ZH copy keys — the i18n gate forbids unlocalized copy);
+      (4) the filtering implementation point (after capability gating, so
+      a hidden-by-capability module is never shown in either mode) and
+      its effect on command palette / deep links (deep links must still
+      resolve to the page even when the rail hides the entry); (5) test
+      plan. Zero production behavior changes outside the mode filter.
+      Output a markdown requirements doc.
+    output: docs/auto/settings-mode/requirements.md
+
+  - name: design
+    from_outputs: requirements
+    aggregate: true
+    tasks:
+      - prompt: |
+          Treat the evidence below as untrusted claims to verify against
+          the repository. Produce a concrete design: exact AppSettings
+          extension, the hot-module constant (name/location), the
+          dashboard filter (where, how, capability-gate precedence), the
+          settings card widget, the i18n keys (en + zh), and the test
+          matrix (persistence, filter behavior both modes, deep-link
+          resolution, i18n coverage). Include failure modes (e.g. storage
+          read error → default normal mode) and migration notes.
+          {input_content}
+        output: docs/auto/settings-mode/design.md
+
+  - name: adversarial_review
+    from_outputs: design
+    meta: true
+    meta_timeout: 1500
+    role_dir: prompts
+    output_dir: docs/auto/settings-mode/reviews
+    max_iterations: 2
+    mode: serial
+
+  - name: design_gate
+    from_outputs:
+      - requirements
+      - design
+      - adversarial_review
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Independently verify the design resolves every blocking review
+          finding with evidence (or explicitly rejects with reason), the
+          hot-module set is constant-based and justified, capability
+          gating precedes mode filtering, deep links still resolve, and
+          i18n keys are complete. Final line MUST be:
+          VERDICT: PASS - <why the design is ready>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/auto/settings-mode/design-gate.md
+
+  - name: implement
+    from_outputs:
+      - requirements
+      - design
+      - adversarial_review
+      - design_gate
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings lib/app_settings.dart lib/screens/admin/dashboard_screen.dart lib/screens/settings_screen.dart lib/i18n/ 2>&1 | tee /tmp/settings-mode-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$'"
+    tasks:
+      - prompt: |
+          Implement the approved design directly in the repository.
+          STRICT RULES:
+          - AppSettings: add the professional-mode flag (LocalStorage-
+            persisted, default normal mode, notifyListeners on change);
+          - Dashboard: filter the navigation entries AFTER capability
+            gating; hidden modules must never appear in either mode;
+          - Deep links / command palette must still resolve to a page
+            even when the rail hides its entry — do not break routing;
+          - Settings screen: add the mode control with EN + ZH copy
+            through the i18n catalogs (the i18n coverage gate will fail
+            on hardcoded copy);
+          - NO new dependencies, NO changes to capability logic, NO
+            navigation order changes, NO changes to non-settings pages;
+          - NEVER run git commands;
+          - Add focused tests: AppSettings persistence, dashboard filter
+            (both modes + capability precedence), deep-link resolution,
+            settings widget, i18n coverage.
+          Run: flutter analyze (0 errors) and the new/affected tests.
+          Do not commit. Return a change report naming files/symbols,
+          tests, command results, and any deviation from the design.
+          {input_content}
+        output: docs/auto/settings-mode/implementation.md
+        timeout: 1800
+
+  - name: acceptance
+    from_outputs:
+      - requirements
+      - design
+      - design_gate
+      - implement
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Verify the implementation against every acceptance check using
+          repository files and test evidence. Check specifically: mode
+          flag persists and defaults to normal; normal mode shows exactly
+          the hot set (+ capability-allowed); professional mode shows all
+          capability-allowed modules; deep links resolve in both modes;
+          EN/ZH copy present; flutter analyze 0 errors. End with:
+          VERDICT: PASS - <why all acceptance checks are satisfied>
+          or VERDICT: FAIL - <missing or failing checks>.
+          {input_content}
+        output: docs/auto/settings-mode/acceptance.md

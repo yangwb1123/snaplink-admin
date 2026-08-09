@@ -93,6 +93,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             _SettingsCard(
+              icon: Icons.view_sidebar_outlined,
+              title: strings.adminNavMode,
+              description: strings.translate(
+                'Standard shows Overview, Clients, and Users. Professional adds '
+                'Tenants, Token Security, and Audit Log.',
+              ),
+              children: [_AdminNavModePicker(strings: strings)],
+            ),
+            const SizedBox(height: 16),
+            _SettingsCard(
               icon: Icons.dns_outlined,
               title: strings.ssoBaseUrl,
               description: strings.translate('Server endpoint used for OIDC and API calls.'),
@@ -251,6 +261,31 @@ class _ThemePicker extends StatelessWidget {
       selected: {current},
       onSelectionChanged: (selection) =>
           AppSettings.instance.themeMode = selection.first,
+    );
+  }
+}
+
+class _AdminNavModePicker extends StatelessWidget {
+  final AppStrings strings;
+  const _AdminNavModePicker({required this.strings});
+
+  @override
+  Widget build(BuildContext context) {
+    final current = AppSettings.instance.adminNavMode;
+    return SegmentedButton<AdminNavMode>(
+      segments: [
+        ButtonSegment(
+          value: AdminNavMode.normal,
+          label: Text(strings.adminNavModeNormal),
+        ),
+        ButtonSegment(
+          value: AdminNavMode.professional,
+          label: Text(strings.adminNavModeProfessional),
+        ),
+      ],
+      selected: {current},
+      onSelectionChanged: (selection) =>
+          AppSettings.instance.adminNavMode = selection.first,
     );
   }
 }

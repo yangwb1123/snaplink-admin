@@ -6,6 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/services/local_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// Admin navigation surface density.
+///
+/// `normal` (the default) shows the core trio ([AdminHotModules.core]);
+/// `professional` shows the curated hot set ([AdminHotModules.modules]).
+/// Serialized by `.name`.
+enum AdminNavMode { normal, professional }
+
 /// App-wide language/theme/SSO-base-URL preferences. A single ChangeNotifier
 /// instance (not per-screen state) so a change anywhere — the login screen's
 /// language toggle, the post-login settings screen — is visible everywhere
@@ -19,6 +26,7 @@ class AppSettings extends ChangeNotifier {
     _locale = _loadLocale();
     _themeMode = _loadThemeMode();
     _ssoBaseUrlOverride = _load(_baseUrlKey);
+    _adminNavMode = _loadAdminNavMode();
   }
 
   static final AppSettings instance = AppSettings._();
@@ -27,6 +35,7 @@ class AppSettings extends ChangeNotifier {
   static const _localeKey = 'sso_settings_locale';
   static const _themeKey = 'sso_settings_theme';
   static const _baseUrlKey = 'sso_settings_base_url';
+  static const _adminNavModeKey = 'sso_settings_admin_nav_mode';
 
   static const supportedLocales = [Locale('en'), Locale('zh')];
 
@@ -69,6 +78,15 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  late AdminNavMode _adminNavMode;
+  AdminNavMode get adminNavMode => _adminNavMode;
+  set adminNavMode(AdminNavMode value) {
+    if (_adminNavMode == value) return; // no-op guard: no notify, no write
+    _adminNavMode = value;
+    _save(_adminNavModeKey, value.name);
+    notifyListeners();
+  }
+
   /// Loads native preferences before the first widget builds. Storage failure
   /// is deliberately non-fatal: safe defaults still leave the app usable.
   Future<void> initialize() async {
@@ -79,6 +97,7 @@ class AppSettings extends ChangeNotifier {
 
     _locale = _localeFromSaved(savedLocale);
     _themeMode = _themeModeFromSaved(savedTheme);
+    _adminNavMode = _adminNavModeFromSaved(await _nativeLoad(_adminNavModeKey));
     try {
       _ssoBaseUrlOverride = normalizeSsoBaseUrl(savedBaseUrl);
     } on FormatException {
@@ -151,6 +170,20 @@ class AppSettings extends ChangeNotifier {
     return _themeModeFromSaved(_load(_themeKey));
   }
 
+  AdminNavMode _loadAdminNavMode() {
+    return _adminNavModeFromSaved(_load(_adminNavModeKey));
+  }
+
+  AdminNavMode _adminNavModeFromSaved(String? saved) {
+    switch (saved) {
+      case 'professional':
+        return AdminNavMode.professional;
+      default:
+        // Absent key, corrupt value, or unknown future value → safe default.
+        return AdminNavMode.normal;
+    }
+  }
+
   ThemeMode _themeModeFromSaved(String? saved) {
     switch (saved) {
       case 'light':
@@ -210,6 +243,15 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
-  static SharedPreferencesAsync _preferences() =>
-      _nativePreferences ??= SharedPreferencesAsync();
+  /// Test-only injection point for native preference failures (T13/T14):
+  /// InMemorySharedPreferencesAsync never throws and the platform is cached
+  /// at first use, so a throwing subclass must be injected here.
+  @visibleForTesting
+  static SharedPreferencesAsync? debugPreferencesOverride;
+
+  static SharedPreferencesAsync _preferences() {
+    final override = debugPreferencesOverride;
+    if (override != null) return override;
+    return _nativePreferences ??= SharedPreferencesAsync();
+  }
 }

@@ -3,6 +3,7 @@ const appCommonSourceZh = <String, String>{
 
   'App language and regional display preferences.': '应用语言与区域显示偏好。',
   'Appearance follows the system or your explicit choice.': '外观跟随系统或您的显式选择。',
+  'Standard shows Overview, Clients, and Users. Professional adds Tenants, Token Security, and Audit Log.': '标准模式显示概览、客户端与用户；专业模式增加租户、令牌安全与审计日志。',
   'Server endpoint used for OIDC and API calls.': '用于 OIDC 与 API 调用的服务器端点。',
   'Current local timezone of this device.': '当前设备的本地时区。',
 
