@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -25,11 +26,9 @@ class ClientsTab extends StatefulWidget {
 }
 
 class _ClientsTabState extends State<ClientsTab>
-    with BatchSelection<ClientsTab> {
+    with BatchSelection<ClientsTab>, PaginatedListMixin<ClientsTab> {
   final _filterCtrl = TextEditingController();
-  final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
-  var _pageIndex = 0;
   var _pageSize = 100;
   String _sortColumn = 'id';
   bool _sortAscending = true;
@@ -78,6 +77,9 @@ class _ClientsTabState extends State<ClientsTab>
 
   SSOAdminListPage? _lastPage;
 
+  @override
+  bool? get canGoNext => _lastPage?.nextPageToken != null;
+
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
       final items = await widget.client.listExpiringClients();
@@ -90,15 +92,15 @@ class _ClientsTabState extends State<ClientsTab>
       return page;
     }
     final page = await widget.client.listClients(
-      pageToken: _pageTokens[_pageIndex],
+      pageToken: currentPageToken,
       pageSize: _pageSize,
       orderBy: _orderBy,
       filter: _statusFilter == 'all'
           ? _filterCtrl.text
           : _filterCtrl.text.trim().isEmpty
-              ? 'active:${_statusFilter == 'active'}'
-              : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
-  );
+          ? 'active:${_statusFilter == 'active'}'
+          : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
+    );
     _lastPage = page;
     return page;
   }
@@ -110,14 +112,15 @@ class _ClientsTabState extends State<ClientsTab>
       int cmp;
       switch (column) {
         case 'name':
-          cmp = (a['name']?.toString() ?? '')
-              .toLowerCase()
-              .compareTo((b['name']?.toString() ?? '').toLowerCase());
+          cmp = (a['name']?.toString() ?? '').toLowerCase().compareTo(
+            (b['name']?.toString() ?? '').toLowerCase(),
+          );
         case 'status':
           cmp = (a['active'] == true ? 0 : 1) - (b['active'] == true ? 0 : 1);
         default:
-          cmp = (a['id']?.toString() ?? '')
-              .compareTo(b['id']?.toString() ?? '');
+          cmp = (a['id']?.toString() ?? '').compareTo(
+            b['id']?.toString() ?? '',
+          );
       }
       return _sortAscending ? cmp : -cmp;
     });
@@ -150,7 +153,8 @@ class _ClientsTabState extends State<ClientsTab>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: LocalizedText(
-              'Exported ${items.length} clients as CSV to clipboard'),
+            'Exported ${items.length} clients as CSV to clipboard',
+          ),
         ),
       );
     }
@@ -167,29 +171,23 @@ class _ClientsTabState extends State<ClientsTab>
 
   void _reload() {
     setState(() {
-      _pageTokens
-        ..clear()
-        ..add(null);
-      _pageIndex = 0;
+      resetPagination();
       _future = _loadPage();
     });
   }
 
   void _goPrevious() {
-    if (_pageIndex == 0) return;
+    if (!canGoBack) return;
     setState(() {
-      _pageIndex--;
+      goPrevious();
       _future = _loadPage();
     });
   }
 
   void _goNext(SSOAdminListPage page) {
-    final next = page.nextPageToken;
-    if (next == null) return;
+    if (page.nextPageToken == null) return;
     setState(() {
-      _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
-      _pageTokens.add(next);
-      _pageIndex++;
+      goNext(page.nextPageToken);
       _future = _loadPage();
     });
   }
@@ -224,9 +222,11 @@ class _ClientsTabState extends State<ClientsTab>
     try {
       await widget.client.approveClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} approved.', args: {'id': id})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Client {id} approved.', args: {'id': id}),
+        ),
+      );
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -246,7 +246,10 @@ class _ClientsTabState extends State<ClientsTab>
   }
 
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
-  Future<void> _runBatch(String action, Future<void> Function(String) run) async {
+  Future<void> _runBatch(
+    String action,
+    Future<void> Function(String) run,
+  ) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
@@ -259,14 +262,16 @@ class _ClientsTabState extends State<ClientsTab>
     if (!confirmed) return;
     final failures = <String>[];
     var ok = 0;
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await run(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await run(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     for (final failure in results) {
       if (failure == null) {
         ok++;
@@ -334,9 +339,11 @@ class _ClientsTabState extends State<ClientsTab>
     try {
       await widget.client.rejectClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} rejected.', args: {'id': id})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Client {id} rejected.', args: {'id': id}),
+        ),
+      );
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -471,18 +478,12 @@ class _ClientsTabState extends State<ClientsTab>
             children: [
               SizedBox(
                 width: 280,
-                child: TextField(
+                child: SearchFilterBar(
+                  labelText: 'Filter'.localized,
                   controller: _filterCtrl,
+                  debounce: false,
+                  onSearchChanged: (_) {},
                   onSubmitted: (_) => _reload(),
-                  decoration: InputDecoration(
-                    labelText: 'Filter'.localized,
-                    hintText: 'e.g. name:portal or active:true'.localized,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter'.localized,
-                      onPressed: _reload,
-                    ),
-                  ),
                 ),
               ),
               DropdownButton<String>(
@@ -577,7 +578,10 @@ class _ClientsTabState extends State<ClientsTab>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      LocalizedText('Error: {detail}', args: {'detail': snap.error}),
+                      LocalizedText(
+                        'Error: {detail}',
+                        args: {'detail': snap.error},
+                      ),
                       const SizedBox(height: 12),
                       FilledButton.tonal(
                         onPressed: _reload,
@@ -614,10 +618,13 @@ class _ClientsTabState extends State<ClientsTab>
                             sortAscending: _sortAscending,
                             onSort: _onSort,
                             onRowTap: selecting
-                                ? (i) => toggleSelect(items[i]['id']?.toString() ?? '')
+                                ? (i) => toggleSelect(
+                                    items[i]['id']?.toString() ?? '',
+                                  )
                                 : (i) => AdminRoute.go(
                                     'clients',
-                                    resourceId: items[i]['id']?.toString() ?? '',
+                                    resourceId:
+                                        items[i]['id']?.toString() ?? '',
                                   ),
                             onRowLongPress: selecting
                                 ? null
@@ -631,7 +638,8 @@ class _ClientsTabState extends State<ClientsTab>
                                   label: '',
                                   width: 44,
                                   builder: (context, i) {
-                                    final cid = items[i]['id']?.toString() ?? '';
+                                    final cid =
+                                        items[i]['id']?.toString() ?? '';
                                     return Checkbox(
                                       value: selected.contains(cid),
                                       onChanged: (_) => setState(() {
@@ -750,10 +758,10 @@ class _ClientsTabState extends State<ClientsTab>
                           ),
                   ),
                   PaginationControls(
-                    page: _pageIndex + 1,
+                    page: currentPage,
                     total: page.totalSize,
-                    canGoBack: _pageIndex > 0,
-                    canGoNext: page.nextPageToken != null,
+                    canGoBack: canGoBack,
+                    canGoNext: canGoNext ?? false,
                     onPrevious: _goPrevious,
                     onNext: () => _goNext(page),
                   ),

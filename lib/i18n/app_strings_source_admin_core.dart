@@ -105,7 +105,9 @@ const appAdminCoreSourceZh = <String, String>{
   'Debug records: {n} entries': '调试记录：共 {n} 条',
   'Debug records': '本地调试记录',
   'Clear selection': '清除选择',
+  'Click to copy': '点击复制',
   'Exported {n} entries as CSV to clipboard': '已将 {n} 条记录以 CSV 导出到剪贴板',
+  '{start}–{end} of {total}': '第 {start}–{end} 条，共 {total} 条',
 
   'Account lockout cleared.': '账户锁定已清除。',
   'Active': '启用',

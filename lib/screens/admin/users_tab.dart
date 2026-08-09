@@ -2,6 +2,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
@@ -23,8 +24,7 @@ class UsersTab extends StatefulWidget {
   State<UsersTab> createState() => _UsersTabState();
 }
 
-class _UsersTabState extends State<UsersTab>
-    with BatchSelection<UsersTab> {
+class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
   final _filterCtrl = TextEditingController();
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -145,14 +145,16 @@ class _UsersTabState extends State<UsersTab>
     if (!confirmed) return;
     final failures = <String>[];
     var ok = 0;
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await widget.client.deleteUser(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await widget.client.deleteUser(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     for (final failure in results) {
       if (failure == null) {
         ok++;
@@ -241,10 +243,7 @@ class _UsersTabState extends State<UsersTab>
           onCreate: () => AdminRoute.go('users', action: 'new'),
           onRefresh: _reload,
         ),
-        if (selecting) ...[
-          _batchBar(context),
-          const SizedBox(height: 8),
-        ],
+        if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -254,18 +253,12 @@ class _UsersTabState extends State<UsersTab>
             children: [
               SizedBox(
                 width: 280,
-                child: TextField(
+                child: SearchFilterBar(
+                  labelText: 'Filter'.localized,
                   controller: _filterCtrl,
+                  debounce: false,
+                  onSearchChanged: (_) {},
                   onSubmitted: (_) => _reload(),
-                  decoration: InputDecoration(
-                    labelText: 'Filter'.localized,
-                    hintText: 'e.g. email:example.test'.localized,
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      tooltip: 'Apply filter'.localized,
-                      onPressed: _reload,
-                    ),
-                  ),
                 ),
               ),
               DropdownButton<String>(
@@ -336,7 +329,12 @@ class _UsersTabState extends State<UsersTab>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: LocalizedText('Error: {snap_error}', args: {'snap_error': snap.error}));
+                return Center(
+                  child: LocalizedText(
+                    'Error: {snap_error}',
+                    args: {'snap_error': snap.error},
+                  ),
+                );
               }
               final page = snap.data!;
               final items = page.items;
@@ -361,7 +359,8 @@ class _UsersTabState extends State<UsersTab>
                                   )
                                 : (i) => AdminRoute.go(
                                     'users',
-                                    resourceId: items[i]['id']?.toString() ?? '',
+                                    resourceId:
+                                        items[i]['id']?.toString() ?? '',
                                   ),
                             onRowLongPress: selecting
                                 ? null
@@ -375,7 +374,8 @@ class _UsersTabState extends State<UsersTab>
                                   label: '',
                                   width: 44,
                                   builder: (context, i) {
-                                    final uid = items[i]['id']?.toString() ?? '';
+                                    final uid =
+                                        items[i]['id']?.toString() ?? '';
                                     return Checkbox(
                                       value: selected.contains(uid),
                                       onChanged: (_) => toggleSelect(uid),
@@ -439,8 +439,7 @@ class _UsersTabState extends State<UsersTab>
                                         AdminRoute.go(
                                           'users',
                                           action: 'edit',
-                                          resourceId:
-                                              u['id']?.toString() ?? '',
+                                          resourceId: u['id']?.toString() ?? '',
                                         );
                                       }
                                       if (value == 'delete') {
