@@ -130,14 +130,11 @@ void main() {
       await Future<void>.delayed(Duration.zero); // unawaited _nativeSave race
       expect(prefs.values['sso_settings_admin_nav_mode'], 'professional');
 
-      // Re-load from the same store: still professional. initialize() must
-      // overwrite the dirty in-memory value from the store. The setter
-      // below also rewrites the store (the memory double persists
-      // synchronously), so restore the stored value through the double
-      // before re-initializing: in-memory says normal, the store still
-      // says 'professional' — exactly the reload scenario to prove.
-      AppSettings.instance.adminNavMode = AdminNavMode.normal; // dirty current
-      prefs.values['sso_settings_admin_nav_mode'] = 'professional';
+      // Re-load from a second store carrying the persisted value: the
+      // initialize() load path must read the store, not the in-memory
+      // field (dirtying via the setter would rewrite the store).
+      AppSettings.debugPreferencesOverride = _MemoryPrefs()
+        ..values['sso_settings_admin_nav_mode'] = 'professional';
       await AppSettings.instance.initialize();
       expect(AppSettings.instance.adminNavMode, AdminNavMode.professional);
     });
