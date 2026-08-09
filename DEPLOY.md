@@ -136,11 +136,13 @@ Billing at port 8090, and the Stripe adapter at port 8091; the
 console is reachable on `http://localhost:8081/`. In a Docker network, set
 `SNAPLINK_UPSTREAM` to the backend service origin instead. For HTTPS, also set
 that target's matching server-name and CA variables described above.
-`docker compose up` uses `http://snaplink:8080` automatically. Its minimal
-default sends the optional Billing and checkout paths to the same existing
-Snaplink service, where unavailable modules return 404; nginx therefore never
-depends on a nonexistent Stripe DNS name. Set the independent Billing/Stripe
-origins only when those services are deployed. Place the dedicated
+`docker compose up` uses `http://snaplink:8080` automatically. The Billing and
+Stripe-adapter upstreams have **no implicit fallback** (P0-2): Compose fails
+fast when `SNAPLINK_BILLING_UPSTREAM`/`SNAPLINK_STRIPE_ADAPTER_UPSTREAM` are
+unset, so a deployment missing those services can never silently route
+Billing/checkout traffic to the sso-server and surface confusing 404s.
+Set the independent Billing/Stripe origins when those services are deployed.
+Place the dedicated
 test/backend configuration at `config.local.yaml` first. That local file is
 gitignored and must not contain production secrets.
 
