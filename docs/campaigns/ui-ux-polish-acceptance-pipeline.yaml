@@ -1,0 +1,50 @@
+# UI/UX 质感提升 — 验收门禁（收尾）
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/ui-ux-polish-acceptance-pipeline.yaml \
+#   --mode serial --timeout 1800 --log-file logs/ui-ux-polish-acceptance.log
+git_commit: false
+decision_log: docs/ui/ux-polish/DECISIONS.md
+
+stages:
+  - name: acceptance
+    from_prompt: |
+      Verify the UI/UX polish implementation against the design
+      (docs/ui/ux-polish/design.md rev-3) and requirements
+      (docs/ui/ux-polish/requirements.md) using repository files and
+      test evidence. Check specifically and report per item:
+      1. WS1: settings theme picker is icon-only (brightness_auto/
+         light_mode/dark_mode) with selected highlight (primaryContainer
+         fill + primary border + check badge), InkWell.onFocusChange
+         focus border (no wrapper Focus), TooltipTriggerMode.manual
+         (SDK adaptation of hover-only), caption maxLines 2, no
+         Semantics(label:); language picker is a dropdown with icon;
+         nav-mode picker unchanged (T11 taps 'Professional');
+      2. WS2: login backdrop CustomPaint story scene exists
+         (lib/screens/oidc_login/login_backdrop.dart) with
+         RepaintBoundary/IgnorePointer/ExcludeSemantics, brightness-only
+         shouldRepaint, no blur/assets/tickers; login header has theme
+         dropdown (left) + language dropdown (right) with icons inside
+         Flexible; LanguageToggle removed;
+      3. WS3: AdminDataTable renders cards below 640px with fields
+         derived from AdminDataColumn metadata (cardPrimary/cardDetail),
+         onSort==null and unbounded-width guards, behavior parity;
+      4. WS4: SearchFilterBar has debounce/labelText/controller/
+         onSubmitted; audit_log_tab uses debounce:false; call sites use
+         .localized/context.tr; PaginationControls has page-null guard +
+         summaryLabel + Wrap<560; ScimPager consolidated onto
+         PaginationControls; AdminListHeader wraps <560; PaginatedListMixin
+         adopted in clients_tab;
+      5. i18n: exactly 2 new keys ('Click to copy'/'点击复制',
+         '{start}–{end} of {total}'/'第 {start}–{end} 条，共 {total} 条')
+         in app_strings_source_admin_core.dart, wired via context.tr;
+      6. WS5: duplicate _SettingsCard description removed, duplicate
+         @override removed, 'Click to copy' localized;
+      7. constraints: no new pub dependencies, no new assets, no
+         auth/session/routing/capability/nav-mode changes;
+      8. flutter analyze --no-fatal-infos --no-fatal-warnings reports
+         0 errors; run the full flutter test suite and confirm all tests
+         pass (expect 942+).
+      End with:
+      VERDICT: PASS - <why all acceptance checks are satisfied>
+      or VERDICT: FAIL - <missing or failing checks>.
+    output: docs/ui/ux-polish/acceptance.md
+    gate: true

@@ -13,13 +13,23 @@ import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
 import 'client_secret_lifecycle.dart';
+import 'list_metrics.dart';
 
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
-  const ClientsTab({super.key, required this.client});
+
+  /// Persona emphasis (default = no emphasis).
+  final OperatorPersona persona;
+
+  const ClientsTab({
+    super.key,
+    required this.client,
+    this.persona = OperatorPersona.general,
+  });
   @override
   State<ClientsTab> createState() => _ClientsTabState();
 }
@@ -96,9 +106,9 @@ class _ClientsTabState extends State<ClientsTab>
       filter: _statusFilter == 'all'
           ? _filterCtrl.text
           : _filterCtrl.text.trim().isEmpty
-              ? 'active:${_statusFilter == 'active'}'
-              : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
-  );
+          ? 'active:${_statusFilter == 'active'}'
+          : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
+    );
     _lastPage = page;
     return page;
   }
@@ -110,14 +120,15 @@ class _ClientsTabState extends State<ClientsTab>
       int cmp;
       switch (column) {
         case 'name':
-          cmp = (a['name']?.toString() ?? '')
-              .toLowerCase()
-              .compareTo((b['name']?.toString() ?? '').toLowerCase());
+          cmp = (a['name']?.toString() ?? '').toLowerCase().compareTo(
+            (b['name']?.toString() ?? '').toLowerCase(),
+          );
         case 'status':
           cmp = (a['active'] == true ? 0 : 1) - (b['active'] == true ? 0 : 1);
         default:
-          cmp = (a['id']?.toString() ?? '')
-              .compareTo(b['id']?.toString() ?? '');
+          cmp = (a['id']?.toString() ?? '').compareTo(
+            b['id']?.toString() ?? '',
+          );
       }
       return _sortAscending ? cmp : -cmp;
     });
@@ -150,7 +161,8 @@ class _ClientsTabState extends State<ClientsTab>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: LocalizedText(
-              'Exported ${items.length} clients as CSV to clipboard'),
+            'Exported ${items.length} clients as CSV to clipboard',
+          ),
         ),
       );
     }
@@ -224,9 +236,11 @@ class _ClientsTabState extends State<ClientsTab>
     try {
       await widget.client.approveClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} approved.', args: {'id': id})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Client {id} approved.', args: {'id': id}),
+        ),
+      );
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -246,7 +260,10 @@ class _ClientsTabState extends State<ClientsTab>
   }
 
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
-  Future<void> _runBatch(String action, Future<void> Function(String) run) async {
+  Future<void> _runBatch(
+    String action,
+    Future<void> Function(String) run,
+  ) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
@@ -259,14 +276,16 @@ class _ClientsTabState extends State<ClientsTab>
     if (!confirmed) return;
     final failures = <String>[];
     var ok = 0;
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await run(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await run(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     for (final failure in results) {
       if (failure == null) {
         ok++;
@@ -334,9 +353,11 @@ class _ClientsTabState extends State<ClientsTab>
     try {
       await widget.client.rejectClient(id);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client {id} rejected.', args: {'id': id})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Client {id} rejected.', args: {'id': id}),
+        ),
+      );
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -577,7 +598,10 @@ class _ClientsTabState extends State<ClientsTab>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      LocalizedText('Error: {detail}', args: {'detail': snap.error}),
+                      LocalizedText(
+                        'Error: {detail}',
+                        args: {'detail': snap.error},
+                      ),
                       const SizedBox(height: 12),
                       FilledButton.tonal(
                         onPressed: _reload,
@@ -590,15 +614,19 @@ class _ClientsTabState extends State<ClientsTab>
               final page = snap.data!;
               final items = [...page.items];
               _sortItems(items);
-              return Column(
-                children: [
-                  if (selecting) ...[
-                    _batchBar(context),
-                    const SizedBox(height: 8),
-                  ],
-                  Expanded(
-                    child: items.isEmpty
+              final metrics = ClientMetrics(
+                items: items,
+                totalSize: page.totalSize,
+                persona: widget.persona,
+              );
+              final list = items.isEmpty
+                  ? (_filterCtrl.text.isNotEmpty || _statusFilter != 'all')
                         ? EmptyState(
+                            variant: EmptyStateVariant.noMatch,
+                            title: 'No clients',
+                            subtitle: 'No clients match the current filter.',
+                          )
+                        : EmptyState(
                             icon: Icons.apps,
                             title: 'No clients',
                             subtitle:
@@ -607,157 +635,191 @@ class _ClientsTabState extends State<ClientsTab>
                             onAction: () =>
                                 AdminRoute.go('clients', action: 'new'),
                           )
-                        : AdminDataTable(
-                            scrollable: true,
-                            minWidth: 980,
-                            sortColumn: _sortColumn,
-                            sortAscending: _sortAscending,
-                            onSort: _onSort,
-                            onRowTap: selecting
-                                ? (i) => toggleSelect(items[i]['id']?.toString() ?? '')
-                                : (i) => AdminRoute.go(
-                                    'clients',
-                                    resourceId: items[i]['id']?.toString() ?? '',
-                                  ),
-                            onRowLongPress: selecting
-                                ? null
-                                : (i) => toggleSelect(
-                                    items[i]['id']?.toString() ?? '',
-                                  ),
-                            columns: [
-                              if (selecting)
-                                AdminDataColumn(
-                                  id: 'select',
-                                  label: '',
-                                  width: 44,
-                                  builder: (context, i) {
-                                    final cid = items[i]['id']?.toString() ?? '';
-                                    return Checkbox(
-                                      value: selected.contains(cid),
-                                      onChanged: (_) => setState(() {
-                                        if (!selected.remove(cid)) {
-                                          toggleSelect(cid);
-                                        }
-                                      }),
-                                    );
-                                  },
-                                ),
-                              AdminDataColumn(
-                                id: 'id',
-                                label: 'CLIENT ID',
-                                width: 190,
-                                builder: (context, i) => CopyableCell(
-                                  text: items[i]['id']?.toString() ?? '?',
-                                  contextProvider: () => context,
-                                  enabled: !selecting,
-                                ),
-                              ),
-                              AdminDataColumn(
-                                id: 'name',
-                                label: 'NAME',
-                                width: 180,
-                                builder: (context, i) => TableCellText(
-                                  items[i]['name']?.toString() ?? '',
-                                  bold: true,
-                                  maxLines: 2,
-                                ),
-                              ),
-                              AdminDataColumn(
-                                id: 'status',
-                                label: 'STATUS',
-                                width: 160,
-                                builder: (context, i) {
-                                  final active = items[i]['active'] == true;
-                                  return active
-                                      ? StatusChip.active()
-                                      : StatusChip.inactive();
-                                },
-                              ),
-                              AdminDataColumn(
-                                id: 'strategy',
-                                label: 'TOKEN',
-                                width: 110,
-                                builder: (context, i) => TableCellText(
-                                  items[i]['tokenStrategy']?.toString() ??
-                                      items[i]['token_strategy']?.toString() ??
-                                      '',
-                                  muted: true,
-                                ),
-                              ),
-                              AdminDataColumn(
-                                id: 'expiry',
-                                label: 'SECRET',
-                                width: 170,
-                                builder: (context, i) => TableCellText(
-                                  clientSecretExpiryLabel(items[i]),
-                                  muted: true,
-                                ),
-                              ),
-                              AdminDataColumn(
-                                id: 'actions',
-                                label: '',
-                                width: 60,
-                                builder: (context, i) {
-                                  final c = items[i];
-                                  return PopupMenuButton<String>(
-                                    onSelected: (value) {
-                                      switch (value) {
-                                        case 'edit':
-                                          AdminRoute.go(
-                                            'clients',
-                                            action: 'edit',
-                                            resourceId:
-                                                c['id']?.toString() ?? '',
-                                          );
-                                        case 'rotate':
-                                          _rotateSecret(c);
-                                        case 'approve':
-                                          _approveClient(c);
-                                        case 'reject':
-                                          _rejectClient(c);
-                                        case 'delete':
-                                          _confirmDelete(c);
-                                      }
-                                    },
-                                    itemBuilder: (context) => const [
-                                      PopupMenuItem(
-                                        value: 'edit',
-                                        child: LocalizedText('Edit'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'rotate',
-                                        child: LocalizedText('Rotate secret'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'approve',
-                                        child: LocalizedText('Approve'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'reject',
-                                        child: LocalizedText('Reject'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: LocalizedText('Delete'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                            itemCount: items.length,
-                            rowBuilder: (context, i) => const SizedBox.shrink(),
+                  : AdminDataTable(
+                      scrollable: true,
+                      minWidth: 980,
+                      sortColumn: _sortColumn,
+                      sortAscending: _sortAscending,
+                      onSort: _onSort,
+                      onRowTap: selecting
+                          ? (i) =>
+                                toggleSelect(items[i]['id']?.toString() ?? '')
+                          : (i) => AdminRoute.go(
+                              'clients',
+                              resourceId: items[i]['id']?.toString() ?? '',
+                            ),
+                      onRowLongPress: selecting
+                          ? null
+                          : (i) =>
+                                toggleSelect(items[i]['id']?.toString() ?? ''),
+                      columns: [
+                        if (selecting)
+                          AdminDataColumn(
+                            id: 'select',
+                            label: '',
+                            width: 44,
+                            builder: (context, i) {
+                              final cid = items[i]['id']?.toString() ?? '';
+                              return Checkbox(
+                                value: selected.contains(cid),
+                                onChanged: (_) => setState(() {
+                                  if (!selected.remove(cid)) {
+                                    toggleSelect(cid);
+                                  }
+                                }),
+                              );
+                            },
                           ),
-                  ),
-                  PaginationControls(
-                    page: _pageIndex + 1,
-                    total: page.totalSize,
-                    canGoBack: _pageIndex > 0,
-                    canGoNext: page.nextPageToken != null,
-                    onPrevious: _goPrevious,
-                    onNext: () => _goNext(page),
-                  ),
-                ],
+                        AdminDataColumn(
+                          id: 'id',
+                          label: 'CLIENT ID',
+                          width: 190,
+                          builder: (context, i) => CopyableCell(
+                            text: items[i]['id']?.toString() ?? '?',
+                            contextProvider: () => context,
+                            enabled: !selecting,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'name',
+                          label: 'NAME',
+                          width: 180,
+                          builder: (context, i) => TableCellText(
+                            items[i]['name']?.toString() ?? '',
+                            bold: true,
+                            maxLines: 2,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'status',
+                          label: 'STATUS',
+                          width: 160,
+                          builder: (context, i) {
+                            final active = items[i]['active'] == true;
+                            return active
+                                ? StatusChip.active()
+                                : StatusChip.inactive();
+                          },
+                        ),
+                        AdminDataColumn(
+                          id: 'strategy',
+                          label: 'TOKEN',
+                          width: 110,
+                          builder: (context, i) => TableCellText(
+                            items[i]['tokenStrategy']?.toString() ??
+                                items[i]['token_strategy']?.toString() ??
+                                '',
+                            muted: true,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'expiry',
+                          label: 'SECRET',
+                          width: 170,
+                          builder: (context, i) => TableCellText(
+                            clientSecretExpiryLabel(items[i]),
+                            muted: true,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'actions',
+                          label: '',
+                          width: 60,
+                          builder: (context, i) {
+                            final c = items[i];
+                            return PopupMenuButton<String>(
+                              onSelected: (value) {
+                                switch (value) {
+                                  case 'edit':
+                                    AdminRoute.go(
+                                      'clients',
+                                      action: 'edit',
+                                      resourceId: c['id']?.toString() ?? '',
+                                    );
+                                  case 'rotate':
+                                    _rotateSecret(c);
+                                  case 'approve':
+                                    _approveClient(c);
+                                  case 'reject':
+                                    _rejectClient(c);
+                                  case 'delete':
+                                    _confirmDelete(c);
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: LocalizedText('Edit'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'rotate',
+                                  child: LocalizedText('Rotate secret'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'approve',
+                                  child: LocalizedText('Approve'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'reject',
+                                  child: LocalizedText('Reject'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: LocalizedText('Delete'),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                      itemCount: items.length,
+                      rowBuilder: (context, i) => const SizedBox.shrink(),
+                    );
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxHeight < 380) {
+                    // Short viewport: the page scrolls; the table keeps its
+                    // own internal scroll area (no overflow).
+                    return SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          if (selecting) ...[
+                            _batchBar(context),
+                            const SizedBox(height: 8),
+                          ],
+                          metrics,
+                          SizedBox(height: 280, child: list),
+                          PaginationControls(
+                            page: _pageIndex + 1,
+                            total: page.totalSize,
+                            canGoBack: _pageIndex > 0,
+                            canGoNext: page.nextPageToken != null,
+                            onPrevious: _goPrevious,
+                            onNext: () => _goNext(page),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      if (selecting) ...[
+                        _batchBar(context),
+                        const SizedBox(height: 8),
+                      ],
+                      metrics,
+                      Expanded(child: list),
+                      PaginationControls(
+                        page: _pageIndex + 1,
+                        total: page.totalSize,
+                        canGoBack: _pageIndex > 0,
+                        canGoNext: page.nextPageToken != null,
+                        onPrevious: _goPrevious,
+                        onNext: () => _goNext(page),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),

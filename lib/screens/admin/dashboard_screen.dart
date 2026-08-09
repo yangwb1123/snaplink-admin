@@ -14,6 +14,7 @@ import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/command_palette.dart';
 import 'package:sso_admin/widgets/responsive_navigation_scaffold.dart';
 import 'package:sso_admin/widgets/shortcuts_dialog.dart';
@@ -219,7 +220,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, String> _moduleLabels(
     List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
   ) => {
-    for (final entry in entries) entry.module: _labelOf(entry.destination.label),
+    for (final entry in entries)
+      entry.module: _labelOf(entry.destination.label),
   };
 
   String _labelOf(Widget label) {
@@ -587,6 +589,56 @@ class _DashboardScreenState extends State<DashboardScreen> {
       _visibleModules,
       AppSettings.instance.adminNavMode,
     );
+    // Operator persona: derived purely from the POST-GATING module set and
+    // the commerce probe (design §3.3). Never reads the token; only
+    // emphasizes, never gates.
+    final persona = deriveOperatorPersona(
+      enabledModules: _visibleModules.toSet(),
+      commerceAvailable: _commerceProbeError == null,
+    );
+    // The wave-1 entries were constructed above with their default
+    // (general) persona; rebind them in place now that the persona exists
+    // (module/destination preserved — rail order and nav pins untouched).
+    void rebindPersona(
+      String module,
+      Widget Function(OperatorPersona) buildPage,
+    ) {
+      final i = entries.indexWhere((e) => e.module == module);
+      if (i < 0) return;
+      entries[i] = AdminNavigationEntry(
+        module: entries[i].module,
+        destination: entries[i].destination,
+        page: buildPage(persona),
+      );
+    }
+
+    rebindPersona(
+      AdminModuleId.overview,
+      (p) => AdminOverviewTab(
+        endpoints: _endpoints,
+        loadError: _capabilitiesError,
+        onRefresh: _refreshCapabilities,
+        persona: p,
+        commerceAvailable: _commerceAvailable,
+        commerceProbeError: _commerceProbeError,
+      ),
+    );
+    rebindPersona(
+      AdminModuleId.clients,
+      (p) => ClientsTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.users,
+      (p) => UsersTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.tenants,
+      (p) => TenantsTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.auditLog,
+      (p) => AuditLogTab(api: _api, capabilities: capabilities, persona: p),
+    );
     Widget page;
     final route = _currentRoute;
     final rid = route.resourceId;
@@ -598,13 +650,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userId: rid,
           capabilities: capabilities,
         ),
-        AdminModuleId.clients: (_) =>
-            ClientDetailScreen(api: _api, client: widget.client, clientId: rid),
+        AdminModuleId.clients: (_) => ClientDetailScreen(
+          api: _api,
+          client: widget.client,
+          clientId: rid,
+          persona: persona,
+        ),
         AdminModuleId.tenants: (_) => TenantDetailScreen(
           api: _api,
           client: widget.client,
           tenantId: rid,
           capabilities: capabilities,
+          persona: persona,
         ),
         AdminModuleId.connections: (_) => ConnectionDetailScreen(
           api: _api,
@@ -629,8 +686,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       } else {
         page = ErrorBoundary(
-          child: entries[adminNavigationIndexForModule(entries, _selectedModule)]
-              .page,
+          child:
+              entries[adminNavigationIndexForModule(entries, _selectedModule)]
+                  .page,
         );
       }
     } else {
@@ -690,10 +748,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       destinations: groupDestinations,
       drawerHeader: strings.ssoAdmin,
-      body: PageTransition(
-        pageKey: ValueKey(_selectedModule),
-        child: page,
-      ),
+      body: PageTransition(pageKey: ValueKey(_selectedModule), child: page),
       appBar: AppBar(
         // 左上角：品牌 logo 图片（渐变盾牌）；点击开抽屉（窄视口）。
         // leadingWidth = NavigationRail 宽度（80）：logo 中心与侧边栏
@@ -729,7 +784,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     },
                   ),
                 ),
-            )
+              )
             : null,
         actions: [
           IconButton(

@@ -16,20 +16,56 @@ class StatusChip extends StatelessWidget {
   });
 
   /// 常用状态工厂。
-  factory StatusChip.active({String label = 'Active'}) =>
-      StatusChip(label: label, color: AppColors.success, icon: Icons.check_circle);
+  factory StatusChip.active({String label = 'Active'}) => StatusChip(
+    label: label,
+    color: AppColors.success,
+    icon: Icons.check_circle,
+  );
 
-  factory StatusChip.inactive({String label = 'Inactive'}) =>
-      StatusChip(label: label, color: AppColors.muted, icon: Icons.circle_outlined);
+  factory StatusChip.inactive({String label = 'Inactive'}) => StatusChip(
+    label: label,
+    color: AppColors.muted,
+    icon: Icons.circle_outlined,
+  );
 
-  factory StatusChip.suspended({String label = 'Suspended'}) =>
-      StatusChip(label: label, color: AppColors.warning, icon: Icons.pause_circle);
+  factory StatusChip.suspended({String label = 'Suspended'}) => StatusChip(
+    label: label,
+    color: AppColors.warning,
+    icon: Icons.pause_circle,
+  );
 
   factory StatusChip.healthy({String label = 'Healthy'}) =>
       StatusChip(label: label, color: AppColors.success, icon: Icons.favorite);
 
   factory StatusChip.unhealthy({String label = 'Unhealthy'}) =>
       StatusChip(label: label, color: AppColors.danger, icon: Icons.error);
+
+  factory StatusChip.pending({String label = 'Pending'}) => StatusChip(
+    label: label,
+    color: AppColors.warning,
+    icon: Icons.hourglass_top,
+  );
+
+  factory StatusChip.failed({String label = 'Failed'}) =>
+      StatusChip(label: label, color: AppColors.danger, icon: Icons.error);
+
+  factory StatusChip.degraded({String label = 'Degraded'}) => StatusChip(
+    label: label,
+    color: AppColors.warning,
+    icon: Icons.warning_amber,
+  );
+
+  factory StatusChip.info({String label = 'Info'}) => StatusChip(
+    label: label,
+    color: AppColors.accentBlue,
+    icon: Icons.info_outline,
+  );
+
+  factory StatusChip.unknown({String label = 'Unknown'}) => StatusChip(
+    label: label,
+    color: AppColors.muted,
+    icon: Icons.help_outline,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -58,29 +94,29 @@ class StatusChip extends StatelessWidget {
         child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
       ),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 12, color: accent),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: onColor,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 12, color: accent),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: onColor,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
     );
   }
 }

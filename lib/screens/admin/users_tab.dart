@@ -13,18 +13,27 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
 import 'user_form_dialog.dart';
+import 'list_metrics.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 class UsersTab extends StatefulWidget {
   final SSOAdminClient client;
-  const UsersTab({super.key, required this.client});
+
+  /// Persona emphasis (default = no emphasis).
+  final OperatorPersona persona;
+
+  const UsersTab({
+    super.key,
+    required this.client,
+    this.persona = OperatorPersona.general,
+  });
 
   @override
   State<UsersTab> createState() => _UsersTabState();
 }
 
-class _UsersTabState extends State<UsersTab>
-    with BatchSelection<UsersTab> {
+class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
   final _filterCtrl = TextEditingController();
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
@@ -145,14 +154,16 @@ class _UsersTabState extends State<UsersTab>
     if (!confirmed) return;
     final failures = <String>[];
     var ok = 0;
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await widget.client.deleteUser(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await widget.client.deleteUser(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     for (final failure in results) {
       if (failure == null) {
         ok++;
@@ -241,10 +252,7 @@ class _UsersTabState extends State<UsersTab>
           onCreate: () => AdminRoute.go('users', action: 'new'),
           onRefresh: _reload,
         ),
-        if (selecting) ...[
-          _batchBar(context),
-          const SizedBox(height: 8),
-        ],
+        if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -336,144 +344,184 @@ class _UsersTabState extends State<UsersTab>
                 return const Center(child: CircularProgressIndicator());
               }
               if (snap.hasError) {
-                return Center(child: LocalizedText('Error: {snap_error}', args: {'snap_error': snap.error}));
+                return Center(
+                  child: LocalizedText(
+                    'Error: {snap_error}',
+                    args: {'snap_error': snap.error},
+                  ),
+                );
               }
               final page = snap.data!;
               final items = page.items;
-              return Column(
-                children: [
-                  Expanded(
-                    child: items.isEmpty
+              final metrics = UserMetrics(
+                items: items,
+                totalSize: page.totalSize,
+                persona: widget.persona,
+              );
+              final list = items.isEmpty
+                  ? (_filterCtrl.text.isNotEmpty
                         ? EmptyState(
-                            icon: Icons.person,
+                            variant: EmptyStateVariant.noMatch,
                             title: 'No users',
                             subtitle: 'No users match the current filter.',
                             actionLabel: 'Create user',
                             onAction: () =>
                                 AdminRoute.go('users', action: 'new'),
                           )
-                        : AdminDataTable(
-                            scrollable: true,
-                            minWidth: 720,
-                            onRowTap: selecting
-                                ? (i) => toggleSelect(
-                                    items[i]['id']?.toString() ?? '',
-                                  )
-                                : (i) => AdminRoute.go(
-                                    'users',
-                                    resourceId: items[i]['id']?.toString() ?? '',
-                                  ),
-                            onRowLongPress: selecting
-                                ? null
-                                : (i) => toggleSelect(
-                                    items[i]['id']?.toString() ?? '',
-                                  ),
-                            columns: [
-                              if (selecting)
-                                AdminDataColumn(
-                                  id: 'select',
-                                  label: '',
-                                  width: 44,
-                                  builder: (context, i) {
-                                    final uid = items[i]['id']?.toString() ?? '';
-                                    return Checkbox(
-                                      value: selected.contains(uid),
-                                      onChanged: (_) => toggleSelect(uid),
-                                    );
-                                  },
-                                ),
-                              AdminDataColumn(
-                                id: 'user',
-                                label: 'USER',
-                                width: 260,
-                                sortable: true,
-                                builder: (context, i) => Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    UserAvatar(
-                                      name: items[i]['id']?.toString() ?? '?',
-                                      radius: 14,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: TableCellText(
-                                        items[i]['id']?.toString() ?? '?',
-                                        bold: true,
-                                        maxLines: 1,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                        : EmptyState(
+                            icon: Icons.person,
+                            title: 'No users',
+                            subtitle: 'No users match the current filter.',
+                            actionLabel: 'Create user',
+                            onAction: () =>
+                                AdminRoute.go('users', action: 'new'),
+                          ))
+                  : AdminDataTable(
+                      scrollable: true,
+                      minWidth: 720,
+                      onRowTap: selecting
+                          ? (i) =>
+                                toggleSelect(items[i]['id']?.toString() ?? '')
+                          : (i) => AdminRoute.go(
+                              'users',
+                              resourceId: items[i]['id']?.toString() ?? '',
+                            ),
+                      onRowLongPress: selecting
+                          ? null
+                          : (i) =>
+                                toggleSelect(items[i]['id']?.toString() ?? ''),
+                      columns: [
+                        if (selecting)
+                          AdminDataColumn(
+                            id: 'select',
+                            label: '',
+                            width: 44,
+                            builder: (context, i) {
+                              final uid = items[i]['id']?.toString() ?? '';
+                              return Checkbox(
+                                value: selected.contains(uid),
+                                onChanged: (_) => toggleSelect(uid),
+                              );
+                            },
+                          ),
+                        AdminDataColumn(
+                          id: 'user',
+                          label: 'USER',
+                          width: 260,
+                          sortable: true,
+                          builder: (context, i) => Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              UserAvatar(
+                                name: items[i]['id']?.toString() ?? '?',
+                                radius: 14,
                               ),
-                              AdminDataColumn(
-                                id: 'provider',
-                                label: 'PROVIDER',
-                                width: 140,
-                                sortable: true,
-                                builder: (context, i) => TableCellText(
-                                  items[i]['provider']?.toString() ?? '?',
-                                  muted: true,
-                                ),
-                              ),
-                              AdminDataColumn(
-                                id: 'external',
-                                label: 'EXTERNAL ID',
-                                builder: (context, i) => TableCellText(
-                                  items[i]['externalId']?.toString() ??
-                                      items[i]['external_id']?.toString() ??
-                                      '',
-                                  muted: true,
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: TableCellText(
+                                  items[i]['id']?.toString() ?? '?',
+                                  bold: true,
                                   maxLines: 1,
                                 ),
                               ),
-                              AdminDataColumn(
-                                id: 'actions',
-                                label: '',
-                                width: 60,
-                                builder: (context, i) {
-                                  final u = items[i];
-                                  return PopupMenuButton<String>(
-                                    enabled: _busyId == null,
-                                    onSelected: (value) {
-                                      if (value == 'edit') {
-                                        AdminRoute.go(
-                                          'users',
-                                          action: 'edit',
-                                          resourceId:
-                                              u['id']?.toString() ?? '',
-                                        );
-                                      }
-                                      if (value == 'delete') {
-                                        _confirmDelete(u);
-                                      }
-                                    },
-                                    itemBuilder: (context) => const [
-                                      PopupMenuItem(
-                                        value: 'edit',
-                                        child: LocalizedText('Edit'),
-                                      ),
-                                      PopupMenuItem(
-                                        value: 'delete',
-                                        child: LocalizedText('Delete'),
-                                      ),
-                                    ],
-                                  );
-                                },
-                              ),
                             ],
-                            itemCount: items.length,
-                            rowBuilder: (context, i) => const SizedBox.shrink(),
                           ),
-                  ),
-                  PaginationControls(
-                    page: _pageIndex + 1,
-                    total: page.totalSize,
-                    canGoBack: _pageIndex > 0,
-                    canGoNext: page.nextPageToken != null,
-                    onPrevious: _goPrevious,
-                    onNext: () => _goNext(page),
-                  ),
-                ],
+                        ),
+                        AdminDataColumn(
+                          id: 'provider',
+                          label: 'PROVIDER',
+                          width: 140,
+                          sortable: true,
+                          builder: (context, i) => TableCellText(
+                            items[i]['provider']?.toString() ?? '?',
+                            muted: true,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'external',
+                          label: 'EXTERNAL ID',
+                          builder: (context, i) => TableCellText(
+                            items[i]['externalId']?.toString() ??
+                                items[i]['external_id']?.toString() ??
+                                '',
+                            muted: true,
+                            maxLines: 1,
+                          ),
+                        ),
+                        AdminDataColumn(
+                          id: 'actions',
+                          label: '',
+                          width: 60,
+                          builder: (context, i) {
+                            final u = items[i];
+                            return PopupMenuButton<String>(
+                              enabled: _busyId == null,
+                              onSelected: (value) {
+                                if (value == 'edit') {
+                                  AdminRoute.go(
+                                    'users',
+                                    action: 'edit',
+                                    resourceId: u['id']?.toString() ?? '',
+                                  );
+                                }
+                                if (value == 'delete') {
+                                  _confirmDelete(u);
+                                }
+                              },
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: 'edit',
+                                  child: LocalizedText('Edit'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'delete',
+                                  child: LocalizedText('Delete'),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                      itemCount: items.length,
+                      rowBuilder: (context, i) => const SizedBox.shrink(),
+                    );
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxHeight < 380) {
+                    // Short viewport: the page scrolls; the table keeps its
+                    // own internal scroll area (no overflow).
+                    return SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          metrics,
+                          SizedBox(height: 280, child: list),
+                          PaginationControls(
+                            page: _pageIndex + 1,
+                            total: page.totalSize,
+                            canGoBack: _pageIndex > 0,
+                            canGoNext: page.nextPageToken != null,
+                            onPrevious: _goPrevious,
+                            onNext: () => _goNext(page),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      metrics,
+                      Expanded(child: list),
+                      PaginationControls(
+                        page: _pageIndex + 1,
+                        total: page.totalSize,
+                        canGoBack: _pageIndex > 0,
+                        canGoNext: page.nextPageToken != null,
+                        onPrevious: _goPrevious,
+                        onNext: () => _goNext(page),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),

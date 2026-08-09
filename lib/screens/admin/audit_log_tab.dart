@@ -9,12 +9,16 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/audit_log_service.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'list_metrics.dart';
 
 /// Audit log viewer tab — server read.
 ///
@@ -34,12 +38,16 @@ class AuditLogTab extends StatefulWidget {
   final String? tenantId;
   final String? traceId;
 
+  /// Persona emphasis (derived by the dashboard; default = no emphasis).
+  final OperatorPersona persona;
+
   const AuditLogTab({
     super.key,
     required this.api,
     required this.capabilities,
     this.tenantId,
     this.traceId,
+    this.persona = OperatorPersona.general,
   });
 
   @override
@@ -271,7 +279,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
     return StatusChip(
       label: row.outcome,
       color: row.outcome == 'success' ? AppColors.success : AppColors.danger,
-      icon: row.outcome == 'success' ? Icons.check_circle_outline : Icons.error_outline,
+      icon: row.outcome == 'success'
+          ? Icons.check_circle_outline
+          : Icons.error_outline,
     );
   }
 
@@ -334,11 +344,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
         if (_notEnabled)
           const Padding(
             padding: EdgeInsets.only(top: 40),
-            child: Center(
-              child: LocalizedText(
-                'This feature is not enabled on the connected replica.',
-              ),
-            ),
+            child: EmptyState(variant: EmptyStateVariant.notEnabled),
           )
         else if (_error != null)
           Padding(
@@ -360,6 +366,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
             ),
           )
         else ...[
+          AuditMetrics(rows: _rows, persona: widget.persona),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -384,10 +391,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
               DropdownButton<String>(
                 value: _outcomeFilter,
                 items: const [
-                  DropdownMenuItem(
-                    value: 'ALL',
-                    child: LocalizedText('All'),
-                  ),
+                  DropdownMenuItem(value: 'ALL', child: LocalizedText('All')),
                   DropdownMenuItem(
                     value: 'success',
                     child: LocalizedText('success'),
@@ -405,22 +409,21 @@ class _AuditLogTabState extends State<AuditLogTab> {
             ],
           ),
           const SizedBox(height: 16),
+          SectionHeader('Recent events', count: _rows.length),
+          const SizedBox(height: 8),
           if (_loading)
             const Padding(
               padding: EdgeInsets.only(top: 40),
               child: Center(child: CircularProgressIndicator()),
             )
           else if (showEmpty)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.only(top: 40),
-                child: LocalizedText(
-                  'No audit events returned by the server yet.',
-                ),
-              ),
+            EmptyState(
+              variant: EmptyStateVariant.empty,
+              title: 'No audit events returned by the server yet.',
             )
           else
             AdminDataTable(
+              density: TableDensity.compact,
               sortColumn: _sortColumn,
               sortAscending: _sortAscending,
               onSort: _onSort,

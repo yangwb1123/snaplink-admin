@@ -5,7 +5,9 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_branding_tab.dart';
@@ -21,12 +23,16 @@ class TenantDetailScreen extends StatefulWidget {
   final String tenantId;
   final SnaplinkAdminCapabilities capabilities;
 
+  /// Persona emphasis (derived by the dashboard; default = no emphasis).
+  final OperatorPersona persona;
+
   const TenantDetailScreen({
     super.key,
     required this.api,
     required this.client,
     required this.tenantId,
     required this.capabilities,
+    this.persona = OperatorPersona.general,
   });
 
   @override
@@ -45,10 +51,34 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   late final void Function() _cancelPopState;
 
   static const _tabSpecs = [
-    ('members', 'Members', Icons.people, 'GET', '/api/v1/admin/tenants/:id/members'),
-    ('invitations', 'Invitations', Icons.mail_outline, 'GET', '/api/v1/admin/tenants/:id/invitations'),
-    ('usage', 'Usage', Icons.bar_chart, 'GET', '/api/v1/admin/tenants/:id/usage'),
-    ('branding', 'Branding', Icons.palette_outlined, 'GET', '/api/v1/admin/branding'),
+    (
+      'members',
+      'Members',
+      Icons.people,
+      'GET',
+      '/api/v1/admin/tenants/:id/members',
+    ),
+    (
+      'invitations',
+      'Invitations',
+      Icons.mail_outline,
+      'GET',
+      '/api/v1/admin/tenants/:id/invitations',
+    ),
+    (
+      'usage',
+      'Usage',
+      Icons.bar_chart,
+      'GET',
+      '/api/v1/admin/tenants/:id/usage',
+    ),
+    (
+      'branding',
+      'Branding',
+      Icons.palette_outlined,
+      'GET',
+      '/api/v1/admin/branding',
+    ),
   ];
 
   /// Tabs backed by a runtime-inventory endpoint; while the inventory is
@@ -160,7 +190,10 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('Tenant: {widget_tenantId}', args: {'widget_tenantId': widget.tenantId}),
+        title: LocalizedText(
+          'Tenant: {widget_tenantId}',
+          args: {'widget_tenantId': widget.tenantId},
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
@@ -223,10 +256,48 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   Widget _buildContent(BuildContext context) => Column(
     children: [
       _tenantHeader(context),
+      if (_tenant != null) ...[const SizedBox(height: 4), _miniStrip(context)],
       _tabBar(context),
       Expanded(child: _tabContent(context)),
     ],
   );
+
+  /// Real-value mini strip (members / invitations / residency region)
+  /// ordered per `tenantDetailMetricOrder(persona)` (design §4.9 T-07).
+  /// The Members card renders only when the members tab is capability-gated
+  /// in; remaining cards keep their relative order. No arrows.
+  Widget _miniStrip(BuildContext context) {
+    final showMembers = _tabs.any((tab) => tab.$1 == 'members');
+    final homeRegion = _tenant?['home_region']?.toString().trim() ?? '';
+    final cardByMetric = <TenantDetailMetric, KeyMetricCard>{
+      if (showMembers)
+        TenantDetailMetric.members: KeyMetricCard(
+          label: 'Members',
+          value: _members.length,
+          icon: Icons.people_outline,
+          color: AppColors.primary,
+        ),
+      TenantDetailMetric.invitations: KeyMetricCard(
+        label: 'Invitations',
+        value: _invitations.length,
+        icon: Icons.mail_outline,
+        color: AppColors.accentBlue,
+      ),
+      TenantDetailMetric.residencyRegion: KeyMetricCard(
+        label: 'Home region',
+        value: homeRegion.isEmpty ? 0 : 1,
+        caption: homeRegion.isEmpty ? '—' : homeRegion,
+        icon: Icons.public,
+        color: AppColors.success,
+      ),
+    };
+    return MetricStrip(
+      cards: [
+        for (final metric in tenantDetailMetricOrder(widget.persona))
+          if (cardByMetric.containsKey(metric)) cardByMetric[metric]!,
+      ],
+    );
+  }
 
   Widget _tenantHeader(BuildContext context) =>
       TenantResidencySummary(tenant: _tenant, fallbackId: widget.tenantId);
@@ -305,9 +376,11 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Removed {userId}', args: {'userId': userId})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Removed {userId}', args: {'userId': userId}),
+        ),
+      );
       _load();
     } catch (e) {
       if (mounted) {
@@ -343,7 +416,12 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Resend failed: {error}', args: {'error': error})),
+          SnackBar(
+            content: LocalizedText(
+              'Resend failed: {error}',
+              args: {'error': error},
+            ),
+          ),
         );
       }
     }
@@ -371,7 +449,12 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Revoke failed: {error}', args: {'error': error})),
+          SnackBar(
+            content: LocalizedText(
+              'Revoke failed: {error}',
+              args: {'error': error},
+            ),
+          ),
         );
       }
     }

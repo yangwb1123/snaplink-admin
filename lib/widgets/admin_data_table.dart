@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:flutter/services.dart';
+
+/// Row/header spacing density. Page-level opt-in knob only; affects spacing,
+/// never fonts (11/13 fixed). Default `comfortable` = today's pixels exactly.
+enum TableDensity { comfortable, compact }
 
 /// 管理后台数据表格（Stripe/Supabase 风格）：
 /// 列对齐、点击表头排序、斑马纹、行 hover、窄视口横向滚动。
@@ -20,6 +25,9 @@ class AdminDataTable extends StatefulWidget {
   /// 表格自身是否垂直滚动（页面滚动容器内为 false；Expanded 内为 true）。
   final bool scrollable;
 
+  /// Page-level density knob (default = today's rendering, pixel-identical).
+  final TableDensity density;
+
   const AdminDataTable({
     super.key,
     required this.columns,
@@ -32,6 +40,7 @@ class AdminDataTable extends StatefulWidget {
     this.onRowTap,
     this.onRowLongPress,
     this.scrollable = false,
+    this.density = TableDensity.comfortable,
   });
 
   @override
@@ -44,7 +53,8 @@ class _AdminDataTableState extends State<AdminDataTable> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tableWidth = widget.minWidth ??
+    final tableWidth =
+        widget.minWidth ??
         widget.columns.fold<double>(0, (sum, c) => sum + (c.width ?? 160)) + 64;
 
     return Container(
@@ -66,20 +76,20 @@ class _AdminDataTableState extends State<AdminDataTable> {
 
   Widget _table(ThemeData theme, double tableWidth) {
     return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: tableWidth),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 表头。
-              _headerRow(theme, tableWidth),
-              // 数据行（斑马纹 + hover + 行点击）。
-              for (var i = 0; i < widget.itemCount; i++)
-                _dataRow(theme, tableWidth, i),
-            ],
-          ),
+      scrollDirection: Axis.horizontal,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minWidth: tableWidth),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 表头。
+            _headerRow(theme, tableWidth),
+            // 数据行（斑马纹 + hover + 行点击）。
+            for (var i = 0; i < widget.itemCount; i++)
+              _dataRow(theme, tableWidth, i),
+          ],
         ),
+      ),
     );
   }
 
@@ -96,6 +106,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
                 sorted: widget.sortColumn == column.id,
                 ascending: widget.sortAscending,
                 sortable: column.sortable && widget.onSort != null,
+                density: widget.density,
                 onTap: column.sortable && widget.onSort != null
                     ? () => widget.onSort!(column.id)
                     : null,
@@ -107,15 +118,14 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   Widget _dataRow(ThemeData theme, double tableWidth, int i) {
+    final rowPadding = widget.density == TableDensity.compact ? 5.0 : 10.0;
     return MouseRegion(
       onEnter: (_) => setState(() => _hoveredRow = i),
       onExit: (_) => setState(() => _hoveredRow = null),
       child: SizedBox(
         width: tableWidth,
         child: InkWell(
-          onTap: widget.onRowTap == null
-              ? null
-              : () => widget.onRowTap!(i),
+          onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(i),
           onLongPress: widget.onRowLongPress == null
               ? null
               : () => widget.onRowLongPress!(i),
@@ -124,17 +134,18 @@ class _AdminDataTableState extends State<AdminDataTable> {
                 ? theme.colorScheme.primary.withValues(alpha: 0.05)
                 : i.isEven
                 ? null
-                : theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.3),
+                : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.3,
+                  ),
             child: Row(
               children: [
                 for (final column in widget.columns)
                   SizedBox(
                     width: column.width ?? 160,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 10,
+                        vertical: rowPadding,
                       ),
                       child: column.builder(context, i),
                     ),
@@ -171,12 +182,14 @@ class _HeaderCell extends StatelessWidget {
   final bool ascending;
   final bool sortable;
   final VoidCallback? onTap;
+  final TableDensity density;
 
   const _HeaderCell({
     required this.column,
     required this.sorted,
     required this.ascending,
     required this.sortable,
+    required this.density,
     this.onTap,
   });
 
@@ -192,10 +205,11 @@ class _HeaderCell extends StatelessWidget {
         color: theme.colorScheme.onSurfaceVariant,
       ),
     );
+    final headerPadding = density == TableDensity.compact ? 6.0 : 10.0;
     return SizedBox(
       width: column.width ?? 160,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: headerPadding),
         child: sortable
             ? InkWell(
                 onTap: onTap,
@@ -219,13 +233,16 @@ class _HeaderCell extends StatelessWidget {
                     const SizedBox(width: 4),
                     Icon(
                       sorted
-                          ? (ascending ? Icons.arrow_upward : Icons.arrow_downward)
+                          ? (ascending
+                                ? Icons.arrow_upward
+                                : Icons.arrow_downward)
                           : Icons.unfold_more,
                       size: 12,
                       color: sorted
                           ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.5),
+                          : theme.colorScheme.onSurfaceVariant.withValues(
+                              alpha: 0.5,
+                            ),
                     ),
                   ],
                 ),
@@ -244,6 +261,11 @@ class TableCellText extends StatelessWidget {
   final Color? color;
   final int maxLines;
 
+  /// When non-null, overrides [bold]/[muted] at the cell's fixed 13px:
+  /// primary → w700 onSurface; secondary → w600 onSurface;
+  /// tertiary → w400 onSurfaceVariant. Null = today's behavior.
+  final DataEmphasisLevel? level;
+
   const TableCellText(
     this.text, {
     super.key,
@@ -251,23 +273,38 @@ class TableCellText extends StatelessWidget {
     this.muted = false,
     this.color,
     this.maxLines = 1,
+    this.level,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Text(
-      text,
-      maxLines: maxLines,
-      overflow: maxLines > 1 ? TextOverflow.ellipsis : null,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
-        color: color ??
+    final (fontWeight, textColor) = switch (level) {
+      DataEmphasisLevel.primary => (
+        FontWeight.w700,
+        theme.colorScheme.onSurface,
+      ),
+      DataEmphasisLevel.secondary => (
+        FontWeight.w600,
+        theme.colorScheme.onSurface,
+      ),
+      DataEmphasisLevel.tertiary => (
+        FontWeight.w400,
+        theme.colorScheme.onSurfaceVariant,
+      ),
+      null => (
+        bold ? FontWeight.w600 : FontWeight.w400,
+        color ??
             (muted
                 ? theme.colorScheme.onSurfaceVariant
                 : theme.colorScheme.onSurface),
       ),
+    };
+    return Text(
+      text,
+      maxLines: maxLines,
+      overflow: maxLines > 1 ? TextOverflow.ellipsis : null,
+      style: TextStyle(fontSize: 13, fontWeight: fontWeight, color: textColor),
     );
   }
 }
@@ -303,9 +340,9 @@ class CopyableCell extends StatelessWidget {
             messenger.showSnackBar(
               SnackBar(
                 content: Text(
-                  AppStrings.of(contextProvider()).translate(
-                    'Copied to clipboard',
-                  ),
+                  AppStrings.of(
+                    contextProvider(),
+                  ).translate('Copied to clipboard'),
                 ),
                 duration: const Duration(seconds: 1),
                 behavior: SnackBarBehavior.floating,
@@ -317,9 +354,7 @@ class CopyableCell extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Flexible(
-              child: TableCellText(text, bold: true, maxLines: 1),
-            ),
+            Flexible(child: TableCellText(text, bold: true, maxLines: 1)),
             const SizedBox(width: 4),
             Icon(
               Icons.copy_rounded,

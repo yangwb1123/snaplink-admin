@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 class TenantResidencySummary extends StatelessWidget {
   final Map<String, dynamic>? tenant;
@@ -52,12 +52,9 @@ class TenantResidencySummary extends StatelessWidget {
               ),
             ),
             if (tenant?['status'] != null)
-              Chip(
-                label: LocalizedText(tenant!['status'].toString()),
-                backgroundColor: tenant!['status'] == 'active'
-                    ? AppColors.success.withValues(alpha: 0.10)
-                    : AppColors.warning.withValues(alpha: 0.10),
-              ),
+              tenant!['status'] == 'active'
+                  ? StatusChip.active(label: context.tr('active'))
+                  : StatusChip.suspended(label: context.tr('suspended')),
           ],
         ),
       ),

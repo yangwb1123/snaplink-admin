@@ -1,0 +1,44 @@
+# data-role-ux 验收门禁（收尾）
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/data-role-ux-acceptance-pipeline.yaml \
+#   --mode serial --timeout 1800 --log-file logs/data-role-ux-acceptance.log
+git_commit: false
+decision_log: docs/ui/data-role-ux/DECISIONS.md
+
+stages:
+  - name: acceptance
+    from_prompt: |
+      Verify the data-role-ux implementation against the design
+      (docs/ui/data-role-ux/design.md) and requirements
+      (docs/ui/data-role-ux/requirements.md) using repository files and
+      test evidence. BEGIN your final message with the verdict line and
+      end with it too:
+      VERDICT: PASS - <why all acceptance checks are satisfied>
+      or VERDICT: FAIL - <missing or failing checks>.
+      Then the per-item evidence:
+      1. operator_persona.dart: pure derivation, 6 personas with
+         precedence, zero Flutter imports, module ids link-tested
+         against AdminModuleId; honest limitation documented;
+      2. Shared primitives exist and are contract-complete:
+         key_metric_card (KeyMetricCard + MetricStrip, real delta/
+         sparkline, NO fake trending icons), data_emphasis,
+         section_header, distribution_bar, metric_delta,
+         admin_data_table density (default = today's pixels),
+         status_chip new factories (pending/failed/degraded/info/
+         unknown, WCAG-loop colors), empty_state variants (defaults
+         unchanged);
+      3. Wave-1 pages wired: overview (metrics file + persona order +
+         group-card reorder), clients/users/tenants (metric strips +
+         distribution + persona params), audit (error-rate card +
+         density:compact + SectionHeader counts), client/user/tenant
+         detail (mini strips, StatusChip labels via context.tr,
+         user-detail tab counts suffix ONLY when count > 0);
+      4. i18n: app_strings_source_admin_ux.dart wired into
+         appSourceStrings, EN+ZH, no duplicate EN keys;
+      5. Zero changes to auth/session/routing/capability logic;
+         admin-nav-mode + professional-mode semantics untouched;
+         no new dependencies;
+      6. flutter analyze --no-fatal-infos --no-fatal-warnings: 0
+         errors; full flutter test suite green (1003 tests).
+      End (again) with the VERDICT line.
+    output: docs/ui/data-role-ux/acceptance.md
+    gate: true

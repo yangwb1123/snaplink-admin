@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/stat_card.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -49,9 +49,9 @@ class DeviceStatsCards extends StatelessWidget {
             children: [
               LocalizedText(
                 'Fleet trust distribution',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               Text(
@@ -82,10 +82,7 @@ class DeviceStatsCards extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   gradient: LinearGradient(
-                    colors: [
-                      AppColors.warning,
-                      AppColors.danger,
-                    ],
+                    colors: [AppColors.warning, AppColors.danger],
                   ),
                 ),
               ),
@@ -99,7 +96,7 @@ class DeviceStatsCards extends StatelessWidget {
             for (var index = 0; index < values.length; index++)
               SizedBox(
                 width: 190,
-                child: StatCard(
+                child: KeyMetricCard(
                   icon: values[index].$3,
                   label: values[index].$1,
                   value: values[index].$2,

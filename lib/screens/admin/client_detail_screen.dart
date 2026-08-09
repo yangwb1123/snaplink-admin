@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
@@ -17,11 +22,15 @@ class ClientDetailScreen extends StatefulWidget {
   final SSOAdminClient client;
   final String clientId;
 
+  /// Persona emphasis (derived by the dashboard; default = no emphasis).
+  final OperatorPersona persona;
+
   const ClientDetailScreen({
     super.key,
     required this.api,
     required this.client,
     required this.clientId,
+    this.persona = OperatorPersona.general,
   });
 
   @override
@@ -141,11 +150,67 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _infoCard(context),
+        if (_client != null) ...[
+          const SizedBox(height: 16),
+          _miniStrip(context),
+        ],
         const SizedBox(height: 16),
         _actionsCard(context),
       ],
     ),
   );
+
+  /// Real-value mini strip (grant types / scopes / secret expiry) ordered
+  /// per `clientDetailMetricOrder(persona)` (design §4.9 T-06). No arrows.
+  Widget _miniStrip(BuildContext context) {
+    final grantTypes = ((_client?['grant_types'] as List?) ?? const []).length;
+    final scopes =
+        ((_client?['allowed_scopes'] ?? _client?['scopes']) as List? ??
+                const [])
+            .length;
+    final secretExpiry = clientSecretExpiryUnix(_client);
+    final remaining = secretExpiry <= 0
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(
+            secretExpiry * 1000,
+            isUtc: true,
+          ).toLocal().difference(DateTime.now());
+    final cards = <KeyMetricCard>[
+      KeyMetricCard(
+        label: 'Grant types',
+        value: grantTypes,
+        icon: Icons.tune,
+        color: AppColors.accentBlue,
+      ),
+      KeyMetricCard(
+        label: 'Scopes',
+        value: scopes,
+        icon: Icons.lock_open_outlined,
+        color: AppColors.primary,
+      ),
+      if (remaining == null)
+        KeyMetricCard(
+          label: 'Secret expiry',
+          value: 0,
+          caption: 'Never expires',
+          icon: Icons.schedule_outlined,
+          color: AppColors.muted,
+        )
+      else
+        KeyMetricCard(
+          label: 'Secret expiry',
+          value: remaining.isNegative ? 0 : remaining.inDays,
+          icon: Icons.schedule_outlined,
+          color: AppColors.warning,
+        ),
+    ];
+    return MetricStrip(
+      cards: [
+        for (final metric in clientDetailMetricOrder(widget.persona))
+          cards[metric.index],
+      ],
+    );
+  }
 
   Widget _infoCard(BuildContext context) => Card(
     child: Padding(
@@ -165,7 +230,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       _client?['name']?.toString() ?? widget.clientId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('ID: {id}', args: {'id': _client?['id'] ?? widget.clientId}),
+                    LocalizedText(
+                      'ID: {id}',
+                      args: {'id': _client?['id'] ?? widget.clientId},
+                    ),
                   ],
                 ),
               ),
@@ -178,6 +246,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             _client?['id']?.toString() ??
                 _client?['client_id']?.toString() ??
                 widget.clientId,
+            level: DataEmphasisLevel.secondary,
           ),
           _infoRow(
             'Redirect URIs',
@@ -208,6 +277,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           _infoRow(
             'Token strategy',
             _client?['token_strategy']?.toString() ?? '—',
+            level: DataEmphasisLevel.secondary,
           ),
           _infoRow('Client secret', clientSecretExpiryLabel(_client)),
         ],
@@ -219,17 +289,21 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final status =
         _client?['status']?.toString() ??
         (_client?['active'] == true ? 'active' : 'inactive');
-    return Chip(
-      label: LocalizedText(status),
-      backgroundColor: status == 'active'
-          ? AppColors.success.withValues(alpha: 0.10)
-          : status == 'pending'
-          ? AppColors.warning.withValues(alpha: 0.10)
-          : Colors.grey.shade200,
-    );
+    // Labels pass through context.tr(status): lowercase keys preserve the
+    // EN pins (test/admin_detail_screens_test.dart:85) and the existing ZH
+    // renderings (活跃/待处理); 'inactive' is a new admin-UX catalog key.
+    return switch (status) {
+      'active' => StatusChip.active(label: context.tr('active')),
+      'pending' => StatusChip.pending(label: context.tr('pending')),
+      _ => StatusChip.inactive(label: context.tr('inactive')),
+    };
   }
 
-  Widget _infoRow(String label, String value) => Padding(
+  Widget _infoRow(
+    String label,
+    String value, {
+    DataEmphasisLevel level = DataEmphasisLevel.tertiary,
+  }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,7 +315,12 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ),
-        Expanded(child: Text(value.isEmpty ? '—' : value)),
+        Expanded(
+          child: Text(
+            value.isEmpty ? '—' : value,
+            style: dataEmphasisStyle(level, Theme.of(context)),
+          ),
+        ),
       ],
     ),
   );
@@ -266,6 +345,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   icon: Icons.check_circle_outline,
                   label: 'Approve',
                   color: AppColors.success,
+                  primary: true,
                   onPressed: () => _doAction('approve'),
                 ),
               if (_client?['status'] == 'pending')
@@ -279,6 +359,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 icon: Icons.key,
                 label: 'Rotate Secret',
                 color: AppColors.warning,
+                primary: true,
                 onPressed: () => _rotateSecret(context),
               ),
             ],
@@ -293,12 +374,29 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     required String label,
     required Color color,
     required VoidCallback onPressed,
-  }) => OutlinedButton.icon(
-    onPressed: _mutating ? null : onPressed,
-    icon: Icon(icon),
-    label: LocalizedText(label),
-    style: OutlinedButton.styleFrom(foregroundColor: color),
-  );
+    bool primary = false,
+  }) {
+    if (primary) {
+      final onColor = color.computeLuminance() > 0.5
+          ? Colors.black87
+          : Colors.white;
+      return FilledButton.icon(
+        onPressed: _mutating ? null : onPressed,
+        icon: Icon(icon),
+        label: LocalizedText(label),
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: onColor,
+        ),
+      );
+    }
+    return OutlinedButton.icon(
+      onPressed: _mutating ? null : onPressed,
+      icon: Icon(icon),
+      label: LocalizedText(label),
+      style: OutlinedButton.styleFrom(foregroundColor: color),
+    );
+  }
 
   Future<void> _rotateSecret(BuildContext context) async {
     final confirmed = await ConfirmDialog.show(
@@ -336,9 +434,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       }
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Error: {detail}', args: {'detail': e}),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -360,15 +460,19 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         {},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Client {action}ed', args: {'action': action})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Client {action}ed', args: {'action': action}),
+        ),
+      );
       _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: LocalizedText('Error: {detail}', args: {'detail': e}),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
