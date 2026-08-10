@@ -21,12 +21,29 @@ MenuStyle appHeaderMenuStyle(ThemeData theme) => MenuStyle(
   ),
 );
 
+/// 菜单项自身的 ButtonStyle：圆角 8 的 hover/focus 背景（覆盖 MenuItemButton
+/// 默认近矩形的圆角 4 overlay），hover 色与登录头 [_HoverTint] 一致。
+/// DropdownMenuEntry 不暴露 item style 时 hover 背景无法圆角化。
+ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  ),
+  overlayColor: WidgetStatePropertyAll(
+    theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+  ),
+  // 与 MenuItemButton 默认水平 padding 一致（entry.style 会整体替换默认
+  // styleFrom，需要自带 padding）。
+  padding: const WidgetStatePropertyAll(
+    EdgeInsetsDirectional.only(start: 12, end: 12),
+  ),
+);
+
 /// 圆角选中态条目：当前值高亮（primaryContainer 圆角背景 + 主色边框 +
 /// 勾选徽标），其余项透明。`content` 由调用方提供（国旗/彩色图标 + 文本）。
 ///
-/// 水平方向不加 padding：DropdownMenu 已把 labelWidget 起点与输入框内容
-/// 起点对齐（menu padding + MenuItemButton 12 + startGap 4 = 输入框
-/// contentPadding 16），再叠加水平 padding 会把菜单项文字推出对齐线。
+/// 高亮背景占满整个菜单项宽度（active 框 100%）；水平方向内容不加 padding：
+/// DropdownMenu 已把 labelWidget 起点与输入框内容起点对齐，再叠加水平
+/// padding 会把菜单项文字推出对齐线。
 Widget appDropdownEntryContent({
   required bool selected,
   required Widget content,
@@ -34,6 +51,7 @@ Widget appDropdownEntryContent({
 }) {
   return AnimatedContainer(
     duration: const Duration(milliseconds: 120),
+    width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 8),
     decoration: BoxDecoration(
       color: selected
@@ -45,7 +63,7 @@ Widget appDropdownEntryContent({
           : null,
     ),
     child: Row(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       children: [
         content,
         if (selected) ...[
@@ -56,6 +74,15 @@ Widget appDropdownEntryContent({
     ),
   );
 }
+
+/// 菜单项内国旗的垂直居中容器：emoji 字形在文本行内按 baseline 绘制，
+/// 视觉中心偏上；固定行高 + Center 后字形与相邻语言名居中对齐。
+Widget menuFlagEmoji(String flag) => SizedBox(
+  height: 16,
+  child: Center(
+    child: Text(flag, style: const TextStyle(fontSize: 16, height: 1.0)),
+  ),
+);
 
 /// 与控件尺寸匹配的下拉箭头：DropdownMenu 默认箭头是 24px 的
 /// [Icons.arrow_drop_down]，在紧凑模式 18px 的 suffixIcon 约束下会被压成

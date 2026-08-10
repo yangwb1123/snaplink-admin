@@ -346,4 +346,46 @@ void main() {
         .toSet();
     expect(flagLefts.length, 1, reason: 'all flags start at the same x');
   });
+
+  // active 框占满菜单项内容区宽度；每个菜单项携带圆角 shape 的 style
+  // （hover/focus 背景圆角由 MenuItemButton 的 style.shape 决定）。
+  testWidgets('active highlight fills the item and entries carry rounded styles', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: LanguageDropdown(compact: true))),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownMenu<Locale>));
+    await tester.pumpAndSettle();
+
+    final item = tester.renderObject<RenderBox>(
+      find.byType(MenuItemButton).hitTestable().first,
+    );
+    final highlight = tester.renderObject<RenderBox>(
+      find
+          .byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration as BoxDecoration).border != null,
+          )
+          .hitTestable()
+          .first,
+    );
+    // 高亮撑满 labelWidget 可用区（菜单项宽度 - 左右 padding 12x2 - startGap 4）。
+    expect(highlight.size.width, closeTo(item.size.width - 28, 1.5),
+        reason: 'active highlight must span the full item content width');
+
+    final menu = tester
+        .widget<DropdownMenu<Locale>>(find.byType(DropdownMenu<Locale>));
+    for (final entry in menu.dropdownMenuEntries) {
+      final shape = entry.style?.shape?.resolve(<WidgetState>{});
+      expect(shape, isA<RoundedRectangleBorder>(),
+          reason: 'every entry must carry a rounded shape for hover/focus');
+      final radius = (shape as RoundedRectangleBorder).borderRadius;
+      expect(radius, const BorderRadius.all(Radius.circular(8)),
+          reason: 'hover/focus background must be rounded like the active box');
+    }
+  });
 }

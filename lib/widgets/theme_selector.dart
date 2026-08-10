@@ -97,6 +97,8 @@ class ThemeDropdown extends StatelessWidget {
               ThemeMode.light => strings.themeLight,
               ThemeMode.dark => strings.themeDark,
             },
+            // 圆角 hover/focus 背景（MenuItemButton 默认近矩形）。
+            style: appDropdownEntryStyle(theme),
             labelWidget: appDropdownEntryContent(
               selected: mode == current,
               theme: theme,

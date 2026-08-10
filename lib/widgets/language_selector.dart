@@ -97,6 +97,8 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
           DropdownMenuEntry<Locale>(
             value: locale,
             label: languageOptionLabel(locale),
+            // 圆角 hover/focus 背景（MenuItemButton 默认近矩形）。
+            style: appDropdownEntryStyle(theme),
             labelWidget: appDropdownEntryContent(
               selected: locale.languageCode == current.languageCode,
               theme: theme,
@@ -108,10 +110,7 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      flagEmojiForLocale(locale),
-                      style: const TextStyle(fontSize: 16),
-                    ),
+                    menuFlagEmoji(flagEmojiForLocale(locale)),
                     const SizedBox(width: 8),
                     Text(languageOptionLabel(locale)),
                   ],
