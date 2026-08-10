@@ -75,6 +75,12 @@ class SSOAdminClient {
 
   static const nativeDefaultBaseUrl = ProductApiOrigin.nativeDefaultBaseUrl;
 
+  /// OAuth2 client identifier used by this first-party console for direct
+  /// login and admin access. Single source of truth: the hosted-login
+  /// wiring and every test reference this constant instead of a fresh
+  /// literal (single-source rule).
+  static const String firstPartyClientId = 'sso-admin-console';
+
   static String _stripTrailingSlash(String s) =>
       s.replaceAll(RegExp(r'/+$'), '');
 
@@ -83,7 +89,7 @@ class SSOAdminClient {
   Future<Map<String, dynamic>> login(
     String username,
     String password, {
-    String clientId = 'sso-admin-console',
+    String clientId = firstPartyClientId,
     List<String>? resources,
   }) async {
     final requestedResources = resources ?? AdminOAuthResources.values;

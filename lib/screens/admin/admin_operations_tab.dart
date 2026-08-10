@@ -86,21 +86,21 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     );
   }
 
+  void _disposeController(TextEditingController controller) {
+    controller.dispose();
+  }
+
   @override
   void dispose() {
     _bodyCtrl.dispose();
     _queryCtrl.dispose();
     _confirmCtrl.dispose();
-    for (final controller in _pathCtrls.values) {
-      controller.dispose();
-    }
+    _pathCtrls.values.forEach(_disposeController);
     super.dispose();
   }
 
   void _select(SnaplinkAdminEndpoint? endpoint) {
-    for (final controller in _pathCtrls.values) {
-      controller.dispose();
-    }
+    _pathCtrls.values.forEach(_disposeController);
     _pathCtrls
       ..clear()
       ..addEntries(
@@ -134,9 +134,13 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     final endpoint = _selected;
     if (endpoint == null) return 'CONFIRM';
     try {
-      final path = endpoint.resolvePath({
-        for (final entry in _pathCtrls.entries) entry.key: entry.value.text,
-      });
+      final path = endpoint.resolvePath(
+        Map.fromEntries(
+          _pathCtrls.entries.map(
+            (entry) => MapEntry(entry.key, entry.value.text),
+          ),
+        ),
+      );
       return AdminOpsHelpers.writeConfirmation(endpoint.method, path);
     } catch (_) {
       return 'CONFIRM ${endpoint.method} <resolved path>';
@@ -146,19 +150,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   Future<void> _run() async {
     final endpoint = _selected;
     if (endpoint == null) return;
-    if (endpoint.method != 'GET' && _mutationOutcomeUnknown) {
-      setState(
-        () => _error =
-            'Reconcile the previous write against authoritative server state '
-            'before authorizing another mutation.',
-      );
-      return;
-    }
-    if (endpoint.path == '/api/v1/admin/events/stream') {
-      setState(
-        () => _error =
-            'Use Live audit activity for the authenticated, cancellable event stream.',
-      );
+    final blocked =
+        endpoint.method != 'GET' && _mutationOutcomeUnknown
+        ? 'Reconcile the previous write against authoritative server state '
+              'before authorizing another mutation.'
+        : endpoint.path == '/api/v1/admin/events/stream'
+        ? 'Use Live audit activity for the authenticated, cancellable event '
+          'stream.'
+        : null;
+    if (blocked != null) {
+      setState(() => _error = blocked);
       return;
     }
     late final String path;
@@ -166,16 +167,21 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     Object? body;
     var clearSensitiveBody = false;
     try {
-      path = endpoint.resolvePath({
-        for (final entry in _pathCtrls.entries) entry.key: entry.value.text,
-      });
+      path = endpoint.resolvePath(
+        Map.fromEntries(
+          _pathCtrls.entries.map(
+            (entry) => MapEntry(entry.key, entry.value.text),
+          ),
+        ),
+      );
       query = _stringMap(_queryCtrl.text, 'Query parameters');
-      if (endpoint.method != 'GET') {
-        body = _jsonObject(_bodyCtrl.text, 'Request body');
-        clearSensitiveBody =
-            AdminOpsHelpers.pathMayReceiveSensitiveInput(endpoint.path) ||
-            _containsSensitiveField(body);
-      }
+      body = endpoint.method == 'GET'
+          ? null
+          : _jsonObject(_bodyCtrl.text, 'Request body');
+      clearSensitiveBody =
+          endpoint.method != 'GET' &&
+          (AdminOpsHelpers.pathMayReceiveSensitiveInput(endpoint.path) ||
+              _containsSensitiveField(body));
     } on FormatException catch (error) {
       setState(() => _error = error.message);
       return;
@@ -262,7 +268,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             endpoint.method != 'GET' &&
             AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
         setState(() {
-          if (unknown) _mutationOutcomeUnknown = true;
+          _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
           _error = unknown
               ? 'Write outcome is unknown (HTTP ${error.status}). The '
                     'operation may have partially applied. Use a safe read or '
@@ -275,7 +281,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       if (mounted) {
         final unknown = endpoint.method != 'GET' && !responseReceived;
         setState(() {
-          if (unknown) _mutationOutcomeUnknown = true;
+          _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
           _error = unknown
               ? 'Write outcome is unknown because no response was received. '
                     'The operation may have partially applied. Use a safe read '
@@ -324,12 +330,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       AdminOpsHelpers.containsSensitiveField(value);
 
   Map<String, dynamic> _jsonObject(String value, String label) {
+    Object? decoded;
     try {
-      final decoded = jsonDecode(value.trim().isEmpty ? '{}' : value);
-      if (decoded is Map<String, dynamic>) return decoded;
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
+      decoded = jsonDecode(value.trim().isEmpty ? '{}' : value);
     } on FormatException {
       // Normalized below so the operator sees which input needs correction.
+    }
+    if (decoded is Map) {
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : Map<String, dynamic>.from(decoded);
     }
     throw FormatException('$label must be a JSON object.');
   }
@@ -352,14 +362,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_adminEndpoints.isEmpty) {
-      return const Center(
-        child: LocalizedText(
-          'No optional administration routes are registered on this replica.',
-        ),
-      );
-    }
+  Widget build(BuildContext context) =>
+      _adminEndpoints.isEmpty
+      ? const Center(
+          child: LocalizedText(
+            'No optional administration routes are registered on this replica.',
+          ),
+        )
+      : _endpointList(context);
+
+  Widget _endpointList(BuildContext context) {
     final endpoint = _selected;
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -501,24 +513,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
               ),
               const Spacer(),
               TextButton.icon(
-                onPressed: () async {
-                  await Clipboard.setData(
-                    ClipboardData(
-                      text: _response == null
-                          ? _rawResponse!
-                          : const JsonEncoder.withIndent(
-                              '  ',
-                            ).convert(_response),
-                    ),
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: LocalizedText('Response copied to clipboard.'),
-                      ),
-                    );
-                  }
-                },
+                onPressed: _copyResponse,
                 icon: const Icon(Icons.copy, size: 16),
                 label: const LocalizedText('Copy'),
               ),
@@ -543,5 +538,22 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ],
       ],
     );
+  }
+
+  Future<void> _copyResponse() async {
+    await Clipboard.setData(
+      ClipboardData(
+        text: _response == null
+            ? _rawResponse!
+            : const JsonEncoder.withIndent('  ').convert(_response),
+      ),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: LocalizedText('Response copied to clipboard.'),
+        ),
+      );
+    }
   }
 }

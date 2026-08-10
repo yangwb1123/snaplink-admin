@@ -26,6 +26,28 @@ void main() {
       );
       expect(commands.where((item) => item.path == '/settings'), hasLength(1));
     });
+
+    test('includes Audit Log when the module is available', () {
+      final commands = commandPaletteItemsForModules(const ['audit-log']);
+
+      expect(
+        commands,
+        contains(
+          isA<CommandPaletteItem>()
+              .having((item) => item.title, 'title', 'Go to Console Activity')
+              .having((item) => item.path, 'path', '/admin/audit-log'),
+        ),
+      );
+    });
+
+    test('excludes Audit Log when the module is unavailable', () {
+      final commands = commandPaletteItemsForModules(const ['clients']);
+
+      expect(
+        commands.where((item) => item.path == '/admin/audit-log'),
+        isEmpty,
+      );
+    });
   });
 
   group('command palette route parsing', () {

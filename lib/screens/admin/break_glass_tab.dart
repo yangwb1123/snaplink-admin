@@ -94,20 +94,14 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
             .toList();
         _loading = false;
       });
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'Could not load break-glass sessions.';
-          _loading = false;
-        });
-      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e is SnaplinkAdminApiError
+            ? e.toString()
+            : 'Could not load break-glass sessions.';
+        _loading = false;
+      });
     }
   }
 

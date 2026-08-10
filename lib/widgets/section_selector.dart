@@ -26,26 +26,29 @@ class SectionSelector extends StatelessWidget {
         for (final s in sections)
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(s.icon, size: 16),
-                  const SizedBox(width: 4),
-                  // 长 label（如 'Subscriptions & Billing'）限制宽度 + 省略号，
-                  // 避免文字超出 chip/容器（横向子菜单溢出修复）。
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 220),
-                    child: Text(
-                      context.tr(s.label),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+            // 约束 chip 外层宽度：chip 自身的 Material padding 也会占宽，
+            // 只约束 label 里的 Text 不够——chip 整体不得超过 maxWidth，
+            // 文字在 chip 内用 Flexible + ellipsis 截断（不超出 chip）。
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 200),
+              child: ChoiceChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(s.icon, size: 16),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        context.tr(s.label),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                selected: current == s.id,
+                onSelected: (_) => onSelected(s.id),
               ),
-              selected: current == s.id,
-              onSelected: (_) => onSelected(s.id),
             ),
           ),
         ],

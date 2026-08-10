@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 class TenantResidencySummary extends StatelessWidget {
   final Map<String, dynamic>? tenant;
@@ -35,68 +35,91 @@ class TenantResidencySummary extends StatelessWidget {
                     tenant?['name']?.toString() ?? fallbackId,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
-                  LocalizedText('ID: {id}', args: {'id': tenant?['id'] ?? fallbackId}),
+                  LocalizedText(
+                    'ID: {id}',
+                    args: {'id': tenant?['id'] ?? fallbackId},
+                  ),
                   LocalizedText(
                     'Domain: ${tenant?['domain'] ?? tenant?['primary_domain'] ?? ''}',
                   ),
-                  if (homeRegion.isNotEmpty ||
-                      allowedRegions.isNotEmpty ||
-                      enforceWrites) ...[
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        if (homeRegion.isNotEmpty)
-                          Chip(
-                            avatar: const Icon(Icons.home_outlined, size: 18),
-                            label: Text(
-                              context.tr('Home region: {region}', {
-                                'region': homeRegion,
-                              }),
-                            ),
-                          ),
-                        if (allowedRegions.isNotEmpty)
-                          Chip(
-                            avatar: const Icon(Icons.public, size: 18),
-                            label: Text(
-                              context.tr('Allowed serving regions: {regions}', {
-                                'regions': allowedRegions.join(', '),
-                              }),
-                            ),
-                          ),
-                        if (enforceWrites && homeRegion.isNotEmpty)
-                          const Chip(
-                            avatar: Icon(Icons.lock_outline, size: 18),
-                            label: LocalizedText('Write enforcement enabled'),
-                          ),
-                        if (enforceWrites && homeRegion.isEmpty)
-                          Chip(
-                            avatar: Icon(
-                              Icons.warning_amber,
-                              size: 18,
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                            label: const LocalizedText(
-                              'Write enforcement is inactive because no home region is configured.',
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
+                  ..._residencySection(
+                    context,
+                    homeRegion,
+                    allowedRegions,
+                    enforceWrites,
+                  ),
                 ],
               ),
             ),
             if (tenant?['status'] != null)
-              Chip(
-                label: LocalizedText(tenant!['status'].toString()),
-                backgroundColor: tenant!['status'] == 'active'
-                    ? AppColors.success.withValues(alpha: 0.10)
-                    : AppColors.warning.withValues(alpha: 0.10),
-              ),
+              tenant!['status'] == 'active'
+                  ? StatusChip.active(label: context.tr('active'))
+                  : StatusChip.suspended(label: context.tr('suspended')),
           ],
         ),
       ),
+    );
+  }
+
+  List<Widget> _residencySection(
+    BuildContext context,
+    String homeRegion,
+    List<String> allowedRegions,
+    bool enforceWrites,
+  ) {
+    return [
+      if (homeRegion.isNotEmpty ||
+          allowedRegions.isNotEmpty ||
+          enforceWrites) ...[
+        const SizedBox(height: 12),
+        _regionBadges(context, homeRegion, allowedRegions, enforceWrites),
+      ],
+    ];
+  }
+
+  Widget _regionBadges(
+    BuildContext context,
+    String homeRegion,
+    List<String> allowedRegions,
+    bool enforceWrites,
+  ) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: [
+        if (homeRegion.isNotEmpty)
+          Chip(
+            avatar: const Icon(Icons.home_outlined, size: 18),
+            label: Text(
+              context.tr('Home region: {region}', {'region': homeRegion}),
+            ),
+          ),
+        if (allowedRegions.isNotEmpty)
+          Chip(
+            avatar: const Icon(Icons.public, size: 18),
+            label: Text(
+              context.tr('Allowed serving regions: {regions}', {
+                'regions': allowedRegions.join(', '),
+              }),
+            ),
+          ),
+        if (enforceWrites && homeRegion.isNotEmpty)
+          const Chip(
+            avatar: Icon(Icons.lock_outline, size: 18),
+            label: LocalizedText('Write enforcement enabled'),
+          ),
+        if (enforceWrites && homeRegion.isEmpty)
+          Chip(
+            avatar: Icon(
+              Icons.warning_amber,
+              size: 18,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            label: const LocalizedText(
+              'Write enforcement is inactive because no home region is configured.',
+            ),
+          ),
+      ],
     );
   }
 

@@ -70,4 +70,18 @@ void main() {
     expect(chinese.translate('pending · proposed by alice'), '待处理 · 提议者：alice');
     expect(chinese.translate('opaque backend value'), 'opaque backend value');
   });
+
+  test('admin UX polish keys translate in zh', () {
+    final chinese = AppStrings.forLocale(const Locale('zh'));
+
+    expect(chinese.translate('Click to copy'), '点击复制');
+    expect(
+      chinese.translate('{start}–{end} of {total}', {
+        'start': 1,
+        'end': 25,
+        'total': 100,
+      }),
+      '第 1–25 条，共 100 条',
+    );
+  });
 }

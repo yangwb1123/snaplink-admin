@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -105,5 +106,264 @@ void main() {
       throwsA(isA<TimeoutException>()),
     );
     expect(attempts, 1);
+  });
+
+  // ─── B6-2 portal session-expiry rollback pin (test-only) ───
+  // Spec: docs/proposals/b6-2-lib-screens-portal-session-expiry-rollback-pin-spec.md
+
+  group('AC-1 session-expiry hook firing matrix (REQ-1)', () {
+    // 7 request paths × {401, 403, 500}: a 401 fires onSessionExpired
+    // exactly once, 403 (trusted-device enrollment until MFA —
+    // portal_api.dart:104-107) and 500 never do. The login probe is
+    // gated on a request counter, not on url.path, so the matrix is
+    // path-agnostic (the SSE path /me/notifications/stream is never
+    // confused with the /me probe).
+    const statuses = [401, 403, 500];
+    const paths = [
+      'get',
+      'post',
+      'patch',
+      'put',
+      'delete',
+      'deleteWithQuery',
+      'notificationEvents',
+    ];
+
+    for (final path in paths) {
+      for (final status in statuses) {
+        test('$path with HTTP $status', () async {
+          var requests = 0;
+          var fired = 0;
+          final api = PortalApi(
+            httpClient: MockClient((request) async {
+              requests++;
+              // First request = the login probe (/me), always accepted.
+              return requests == 1
+                  ? http.Response('{}', 200)
+                  : http.Response('', status);
+            }),
+          );
+          api.onSessionExpired = () => fired++;
+          await api.login('t');
+
+          Future<void> exercise() async {
+            switch (path) {
+              case 'get':
+                await api.get('/sessions/me');
+                break;
+              case 'post':
+                await api.post('/me/roles');
+                break;
+              case 'patch':
+                await api.patch('/me/roles', <String, Object>{});
+                break;
+              case 'put':
+                await api.put('/me/roles', <String, Object>{});
+                break;
+              case 'delete':
+                await api.delete('/sessions/me');
+                break;
+              case 'deleteWithQuery':
+                await api.deleteWithQuery('/sessions/me', query: {'a': 'b'});
+                break;
+              case 'notificationEvents':
+                // Drain the stream: the SSE path fires the hook inline
+                // (portal_api.dart:132-133) BEFORE throwing, so the
+                // hook count must be settled once the stream errors.
+                await expectLater(
+                  api.notificationEvents(),
+                  emitsError(
+                    isA<PortalApiError>().having(
+                      (e) => e.status,
+                      'status',
+                      status,
+                    ),
+                  ),
+                );
+            }
+          }
+
+          await exercise();
+          final reason = status == 401
+              ? '401 must invalidate the bearer exactly once'
+              : '403/500 must not fire the hook (403 = feature-gated '
+                    'state, e.g. trusted-device enrollment until MFA — '
+                    'portal_api.dart:104-107)';
+          expect(fired, status == 401 ? 1 : 0, reason: reason);
+        });
+      }
+    }
+  });
+
+  group('AC-2 login() rollback and re-install (REQ-2)', () {
+    test('rejected and failed attempts restore the previous state', () async {
+      // /me answers 200 → 500 → transport error → 200 in request order.
+      final answers = <Future<http.Response> Function()>[
+        () async => http.Response('{}', 200),
+        () async => http.Response('', 500),
+        () async => throw http.ClientException('down'),
+        () async => http.Response('{}', 200),
+      ];
+      var i = 0;
+      final api = PortalApi(
+        httpClient: MockClient((_) async => answers[i++]()),
+      );
+
+      // 1. First token accepted; explicit session/client ids installed.
+      await api.login('first-token', sessionId: 's-1', clientId: 'c-1');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, 's-1');
+      expect(api.currentClientId, 'c-1');
+
+      // 2. Non-200 probe rejection → previous state restored.
+      await expectLater(
+        api.login('second-token'),
+        throwsA(
+          isA<PortalApiError>().having((e) => e.status, 'status', 500),
+        ),
+      );
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, 's-1');
+      expect(api.currentClientId, 'c-1');
+
+      // 3. Transport error → PortalApiError(0) and state restored again.
+      await expectLater(
+        api.login('third-token'),
+        throwsA(
+          isA<PortalApiError>().having((e) => e.status, 'status', 0),
+        ),
+      );
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, 's-1');
+      expect(api.currentClientId, 'c-1');
+
+      // 4. Accepted token installs; opaque token → JWT decode fallback
+      //    returns null for both getters (portal_api.dart:65/:70).
+      await api.login('good-token');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
+    });
+  });
+
+  group('AC-3 fetchMe / fetchListOrEmpty error semantics (REQ-3)', () {
+    PortalApi apiReturning(int status) {
+      // First /me request = the login probe (200); subsequent requests
+      // (fetchMe/fetchListOrEmpty) answer with [status].
+      var requests = 0;
+      return PortalApi(
+        httpClient: MockClient((request) async {
+          requests++;
+          return requests == 1
+              ? http.Response('{}', 200)
+              : http.Response('', status);
+        }),
+      );
+    }
+
+    test('fetchMe throws PortalApiError on non-200, decodes on 200',
+        () async {
+      for (final status in [404, 500]) {
+        final api = apiReturning(status);
+        await api.login('t');
+        await expectLater(
+          api.fetchMe(),
+          throwsA(
+            isA<PortalApiError>().having((e) => e.status, 'status', status),
+          ),
+        );
+      }
+      final api = PortalApi(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/me' && request.method == 'GET') {
+            return http.Response('{"name":"x"}', 200);
+          }
+          return http.Response('', 200);
+        }),
+      );
+      await api.login('t');
+      final body = await api.fetchMe();
+      expect(body, {'name': 'x'});
+    });
+
+    test('fetchListOrEmpty swallows every error as const []', () async {
+      for (final status in [404, 500]) {
+        final api = apiReturning(status);
+        await api.login('t');
+        expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
+      }
+      // Transport error (throwing handler) → const [] without throwing.
+      final api = PortalApi(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/me' && request.method == 'GET') {
+            return http.Response('{}', 200);
+          }
+          throw http.ClientException('down');
+        }),
+      );
+      await api.login('t');
+      expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
+      // Positive control: 200 returns the keyed list.
+      final ok = PortalApi(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/me' && request.method == 'GET') {
+            return http.Response('{}', 200);
+          }
+          return http.Response('{"roles":["a"]}', 200);
+        }),
+      );
+      await ok.login('t');
+      expect(await ok.fetchListOrEmpty('/me/roles', 'roles'), ['a']);
+    });
+  });
+
+  group('AC-4 JWT claim decode through the public getters (REQ-4)', () {
+    String b64url(String s) =>
+        base64Url.encode(utf8.encode(s));
+
+    PortalApi apiFor(String token) => PortalApi(
+      httpClient: MockClient((request) async => http.Response('{}', 200)),
+    )..login(token);
+
+    test('string sid/aud claims decode', () async {
+      final api = apiFor(
+        'h.${b64url('{"sid":"s-9","aud":"console-client"}')}.s',
+      );
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, 's-9');
+      expect(api.currentClientId, 'console-client');
+    });
+
+    test('list-valued claims yield their first element', () async {
+      final api = apiFor(
+        'h.${b64url('{"sid":["s-list","s-2"],"aud":["c-1","c-2"]}')}.s',
+      );
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, 's-list');
+      expect(api.currentClientId, 'c-1');
+    });
+
+    test('non-JWT token shapes decode to null', () async {
+      for (final token in ['no-dots', 'two.parts', 'a.b.c.d']) {
+        final api = apiFor(token);
+        expect(api.hasToken, isTrue);
+        expect(api.currentSessionId, isNull, reason: 'token: $token');
+        expect(api.currentClientId, isNull, reason: 'token: $token');
+      }
+    });
+
+    test('malformed payloads decode to null', () async {
+      final malformed = [
+        'a.!!!.c', // invalid base64
+        'a.${b64url('not json')}.c', // base64 of non-JSON
+        'a.${b64url('[1,2]')}.c', // base64 of a JSON non-map
+      ];
+      for (final token in malformed) {
+        final api = apiFor(token);
+        expect(api.hasToken, isTrue);
+        expect(api.currentSessionId, isNull, reason: 'token: $token');
+        expect(api.currentClientId, isNull, reason: 'token: $token');
+      }
+    });
   });
 }

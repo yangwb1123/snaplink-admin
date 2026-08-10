@@ -188,62 +188,65 @@ def resolve_static_file(path):
         return None
     return STATIC / 'index.html'
 
+def _build_backend_url(path: str) -> tuple[str, str]:
+    """Split the raw request path into (backend_url, query_string)."""
+    backend = backend_for(path)
+    qs = ''
+    if '?' in path:
+        path, qs = path.split('?', 1)
+    url = f"{backend}{path}"
+    if qs:
+        url += f'?{qs}'
+    return url, qs
+
+
+def _forward_headers(headers: dict, backend: str) -> dict:
+    """Copy request headers, rewriting Host and adding X-Forwarded-*."""
+    req_headers = {}
+    for k, v in headers.items():
+        if k.lower() not in ('host', 'content-length', 'transfer-encoding', 'connection'):
+            req_headers[k] = v
+    incoming_host = headers.get('host')
+    req_headers['Host'] = (
+        incoming_host or urllib.parse.urlsplit(backend).netloc
+    )
+    if incoming_host:
+        req_headers['X-Forwarded-Host'] = incoming_host
+    req_headers['X-Forwarded-Proto'] = 'http'
+    return req_headers
+
+
+def _forward_response(conn, status: int, headers_items, body: bytes,
+                     reason: str = "") -> None:
+    """Write the proxy response: CORS + content-length + connection close.
+    Shared by the success and HTTPError paths."""
+    status_line = f'HTTP/1.1 {status}' + (f' {reason}' if reason else '')
+    resp_headers = f'{status_line}\r\nAccess-Control-Allow-Origin: *\r\n'
+    for k, v in headers_items:
+        if k.lower() not in ('transfer-encoding', 'content-encoding',
+                             'content-length', 'connection',
+                             'access-control-allow-origin'):
+            resp_headers += f'{k}: {v}\r\n'
+    resp_headers += f'Content-Length: {len(body)}\r\n'
+    resp_headers += 'Connection: close\r\n\r\n'
+    conn.sendall(resp_headers.encode() + body)
+
+
 def proxy_request(conn, method, path, headers, body):
     """Proxy request to backend server."""
     try:
         # Build backend URL
-        backend = backend_for(path)
-        qs = ''
-        if '?' in path:
-            path, qs = path.split('?', 1)
-        url = f"{backend}{path}"
-        if qs:
-            url += f'?{qs}'
-        
-        # Build request
-        req_headers = {}
-        for k, v in headers.items():
-            if k.lower() not in ('host', 'content-length', 'transfer-encoding', 'connection'):
-                req_headers[k] = v
-        incoming_host = headers.get('host')
-        req_headers['Host'] = (
-            incoming_host or urllib.parse.urlsplit(backend).netloc
-        )
-        if incoming_host:
-            req_headers['X-Forwarded-Host'] = incoming_host
-        req_headers['X-Forwarded-Proto'] = 'http'
-        
+        url, _ = _build_backend_url(path)
+        req_headers = _forward_headers(headers, backend_for(path))
         req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
         
         with urllib.request.urlopen(req, timeout=15) as resp:
             resp_body = resp.read()
-            status = resp.status
-            # Forward response headers
-            resp_headers = (
-                f'HTTP/1.1 {status}\r\n'
-                f'Access-Control-Allow-Origin: *\r\n'
-            )
-            for k, v in resp.headers.items():
-                if k.lower() not in ('transfer-encoding', 'content-encoding', 'content-length', 'connection'):
-                    resp_headers += f'{k}: {v}\r\n'
-            resp_headers += f'Content-Length: {len(resp_body)}\r\n'
-            resp_headers += 'Connection: close\r\n\r\n'
-            conn.sendall(resp_headers.encode() + resp_body)
+            _forward_response(conn, resp.status, resp.headers.items(), resp_body)
     except urllib.error.HTTPError as e:
         error_body = e.read()
-        resp_headers = (
-            f'HTTP/1.1 {e.code} {e.reason}\r\n'
-            f'Access-Control-Allow-Origin: *\r\n'
-        )
-        for k, v in e.headers.items():
-            if k.lower() not in (
-                'transfer-encoding', 'content-encoding', 'content-length',
-                'connection', 'access-control-allow-origin',
-            ):
-                resp_headers += f'{k}: {v}\r\n'
-        resp_headers += f'Content-Length: {len(error_body)}\r\n'
-        resp_headers += 'Connection: close\r\n\r\n'
-        conn.sendall(resp_headers.encode() + error_body)
+        _forward_response(conn, e.code, e.headers.items(), error_body,
+                          reason=e.reason)
     except Exception as e:
         send_error(conn, 502, f'Proxy error: {e}')
 

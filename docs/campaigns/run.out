@@ -1,0 +1,22 @@
+18:36:22 [INFO] 
+18:36:22 [INFO] ============================================================
+18:36:22 [INFO] ROUND 1 of 1
+18:36:22 [INFO] ============================================================
+18:36:22 [INFO] -- [1/1] --
+18:36:22 [INFO] >>  pi -p 已批准的组合变更 COMPOSE-2026-017。本仓库（snaplink-console）职责： 文件管理删除入口（能力清单驱动，不猜接口）+ 删除原因填写...  [model=default]  [timeout=900s]  [dir=/home/u1/workspace/demo/snaplink-console]
+18:39:13 [INFO] OK  done  [170.3s]  [output=docs/proposals/compose-2026-017-console.md]
+18:39:13 [INFO] VALIDATE: python3 /home/u1/ai-batch-runner/examples/snaplink-platform/scripts/check-no-refusal.py /home/u1/workspace/demo/snaplink-console/docs/proposals/compose-2026-017-console.md.w1v8kc4s.tmp
+18:39:13 [INFO] WROTE /home/u1/workspace/demo/snaplink-console/docs/proposals/compose-2026-017-console.md (validated)
+18:39:13 [INFO] All tasks passed in round 1
+
+========================================================
+  pi-batch execution report
+========================================================
+  total:     1
+  succeeded: 1
+  failed:    0
+  CPU time:  170.3s
+  wall time: 170.3s
+
+  PASS  [ 170.3s] 已批准的组合变更 COMPOSE-2026-017。本仓库（snaplink-console）职责： 文件管理删除入口（...
+========================================================

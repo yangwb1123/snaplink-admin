@@ -45,21 +45,15 @@ def run_flutter_test() -> int:
     return result.returncode
 
 
-def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
-    """Parse lcov.info and return per-directory line coverage percentages."""
-    if not lcov_file.exists():
-        return {}
-    
-    content = lcov_file.read_text(encoding="utf-8")
-    
-    # Parse lcov format
-    # SF:<file_path>
-    # DA:<line>,<hit_count>
-    # end_of_record
-    
-    file_lines: dict[str, tuple[int, int]] = {}
+def _parse_lcov_records(content: str) -> dict:
+    """Parse lcov SF/DA records into {file_path: [hit, total]} counts.
+
+    Paths are normalized to repository-relative form; a record that
+    cannot be made relative is kept under its raw path (best effort).
+    """
+    file_lines: dict = {}
     current_file = None
-    
+
     for line in content.split("\n"):
         line = line.strip()
         if line.startswith("SF:"):
@@ -79,13 +73,17 @@ def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
                     hit_count = int(parts[1])
                     file_lines[current_file][0] += 1 if hit_count > 0 else 0
                     file_lines[current_file][1] += 1
-    
-    # Aggregate per-file data into the keys used by engineering.yaml.
-    #
-    # Target keys follow repository-relative paths: "." covers every file in
-    # the report, "lib" covers the whole lib tree, and "lib/screens/..."
-    # covers a single subtree. Files outside lib/ only contribute to ".".
-    dir_stats: dict[str, tuple[int, int]] = {}
+    return file_lines
+
+
+def _aggregate_dir_stats(file_lines: dict) -> dict:
+    """Aggregate per-file counts into engineering.yaml directory keys.
+
+    "." covers every file in the report, "lib" the whole lib tree,
+    and "lib/screens/..." each subtree. Files outside lib/ only
+    contribute to ".".
+    """
+    dir_stats: dict = {}
     for file_path, (hit, total) in file_lines.items():
         if total == 0:
             continue
@@ -116,6 +114,14 @@ def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
         for dir_key, (hit, total) in dir_stats.items()
         if total > 0
     }
+
+
+def parse_lcov_line_coverage(lcov_file: Path) -> dict[str, float]:
+    """Parse lcov.info and return per-directory line coverage percentages."""
+    if not lcov_file.exists():
+        return {}
+    content = lcov_file.read_text(encoding="utf-8")
+    return _aggregate_dir_stats(_parse_lcov_records(content))
 
 
 def check_coverage_targets(

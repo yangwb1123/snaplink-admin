@@ -15,7 +15,7 @@ void main() {
         expect(request.url.path, '/auth/login');
         expect(jsonDecode(request.body), {
           'provider': 'password',
-          'client_id': 'sso-admin-console',
+          'client_id': SSOAdminClient.firstPartyClientId,
           'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
           'resource': ['billing-api', 'stripe-adapter-api'],
           'credential': {'username': 'admin', 'password': 'password'},

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/widgets/progress_ring.dart';
-import 'package:sso_admin/widgets/count_up.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 
+import 'admin_overview_metrics.dart';
 import 'snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -19,11 +23,19 @@ class AdminOverviewTab extends StatelessWidget {
   final Object? loadError;
   final VoidCallback onRefresh;
 
+  /// Persona emphasis (derived by the dashboard; default = no emphasis).
+  final OperatorPersona persona;
+  final bool commerceAvailable;
+  final Object? commerceProbeError;
+
   const AdminOverviewTab({
     super.key,
     required this.endpoints,
     required this.loadError,
     required this.onRefresh,
+    this.persona = OperatorPersona.general,
+    this.commerceAvailable = false,
+    this.commerceProbeError,
   });
 
   @override
@@ -33,6 +45,17 @@ class AdminOverviewTab extends StatelessWidget {
     final documentedOnly = SnaplinkAdminOperationCatalog.endpoints
         .where((endpoint) => !capabilities.has(endpoint.method, endpoint.path))
         .length;
+    final running = endpoints.length;
+    final orderedGroupKeys = personaGroupOrder(
+      groups.keys.toList(growable: false),
+      persona,
+      pathsByGroup: {
+        for (final entry in groups.entries)
+          entry.key: [
+            for (final endpoint in entry.value.endpoints) endpoint.path,
+          ],
+      },
+    );
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -75,43 +98,54 @@ class AdminOverviewTab extends StatelessWidget {
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 16),
-              // 健康中心（信息优先级：健康度大数字第一眼可见）。
+              // 健康中心（信息优先级：健康度大数字第一眼可见）+ 指标条。
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   _HealthRing(
-                    healthy: endpoints.length,
-                    total: endpoints.length + documentedOnly,
+                    healthy: running,
+                    total: running + documentedOnly,
                   ),
                   const SizedBox(width: 20),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            _HeroStat(
-                              label: 'Endpoints',
-                              value: endpoints.length,
-                              icon: Icons.hub_outlined,
-                            ),
-                            const SizedBox(width: 20),
-                            _HeroStat(
-                              label: 'Feature groups',
-                              value: capabilities.featureCounts.length,
-                              icon: Icons.widgets_outlined,
-                            ),
-                          ],
+                        OverviewMetrics(
+                          endpoints: endpoints,
+                          featureGroups: capabilities.featureCounts.length,
+                          documentedOnly: documentedOnly,
+                          commerceAvailable: commerceAvailable,
+                          commerceProbeError: commerceProbeError,
+                          persona: persona,
                         ),
                         const SizedBox(height: 12),
                         // 运行覆盖率：文档契约 vs 运行端点（数据表达对比条）。
-                        _CoverageBar(
-                          fraction: endpoints.isEmpty
-                              ? 0
-                              : endpoints.length /
-                                    (endpoints.length + documentedOnly),
-                          running: endpoints.length,
-                          documentedOnly: documentedOnly,
+                        DistributionBar(
+                          segments: [
+                            DistributionSegment(
+                              label: 'Running',
+                              value: running,
+                              color: AppColors.primary,
+                            ),
+                            DistributionSegment(
+                              label: 'Documented-only',
+                              value: documentedOnly,
+                              color: AppColors.warning,
+                            ),
+                          ],
+                          total: running + documentedOnly,
+                        ),
+                        const SizedBox(height: 4),
+                        LocalizedText(
+                          '$running running · $documentedOnly documented-only',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurfaceVariant
+                                    .withValues(alpha: 0.7),
+                              ),
                         ),
                       ],
                     ),
@@ -139,9 +173,8 @@ class AdminOverviewTab extends StatelessWidget {
                 'Contract-backed modules remain discoverable while this replica is queried.',
             color: AppColors.accentBlue,
           )
-        else ...[
-          // 异常优先（信息优先级 05）：就绪/风险一句话 + 色编码，
-          // 用户 3 秒内知道"有没有问题"。
+        else
+          // 异常优先（信息优先级 05）：就绪/风险一句话 + 色编码。
           _StatusCard(
             icon: documentedOnly == 0
                 ? Icons.verified_user_outlined
@@ -155,67 +188,82 @@ class AdminOverviewTab extends StatelessWidget {
                       'Probe the module to confirm it is intentional.',
             color: documentedOnly == 0 ? AppColors.success : AppColors.warning,
           ),
+        // 诚实性披露：persona 来自能力清单而非身份（design §3.3）。
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            StatusChip.info(
+              label: context.tr('Persona: {persona}', {
+                'persona': context.tr(personaLabelKey(persona)),
+              }),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: context.tr(
+                'Persona is derived from the server capability inventory, not from your identity.',
+              ),
+              child: Icon(
+                Icons.info_outline,
+                size: 16,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        if (loadError == null && endpoints.isNotEmpty) ...[
           const SizedBox(height: 16),
-          LocalizedText(
-            'Enabled feature surfaces',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          SectionHeader('Enabled feature surfaces'),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: capabilities.featureCounts.entries
                 .map(
-                  (entry) => Chip(
-                    label: Text('${entry.key} · ${entry.value}'),
-                  ),
+                  (entry) => Chip(label: Text('${entry.key} · ${entry.value}')),
                 )
                 .toList(growable: false),
           ),
           const SizedBox(height: 20),
-          LocalizedText(
-            'Available management domains',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          SectionHeader('Available management domains'),
           const SizedBox(height: 8),
-          for (final entry in groups.entries)
-            Card(
-              child: ExpansionTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(entry.value.icon, size: 20),
-                ),
-                title: LocalizedText(entry.key),
-                subtitle: LocalizedText(
-                  '${entry.value.endpoints.length} live endpoints',
-                ),
-                children: [
-                  for (final endpoint in entry.value.endpoints)
-                    ListTile(
-                      dense: true,
-                      title: Text(
-                        endpoint.path,
-                        style: const TextStyle(
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                      ),
-                      trailing: _MethodChip(endpoint.method),
-                    ),
-                ],
-              ),
-            ),
+          for (final key in orderedGroupKeys)
+            _endGroupCard(context, MapEntry(key, groups[key]!)),
         ],
       ],
     );
   }
+
+  Widget _endGroupCard(
+    BuildContext context,
+    MapEntry<String, _EndpointGroup> entry,
+  ) => Card(
+    child: ExpansionTile(
+      leading: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(entry.value.icon, size: 20),
+      ),
+      title: LocalizedText(entry.key),
+      subtitle: LocalizedText('${entry.value.endpoints.length} live endpoints'),
+      children: [..._endpointTiles(entry.value.endpoints)],
+    ),
+  );
+
+  List<Widget> _endpointTiles(List<SnaplinkAdminEndpoint> endpoints) => [
+    for (final endpoint in endpoints)
+      ListTile(
+        dense: true,
+        title: Text(
+          endpoint.path,
+          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+        ),
+        trailing: _MethodChip(endpoint.method),
+      ),
+  ];
 
   Map<String, _EndpointGroup> _groupEndpoints(
     List<SnaplinkAdminEndpoint> endpoints,
@@ -310,8 +358,7 @@ class _EndpointGroup {
   _EndpointGroup(this.icon);
 }
 
-/// Hero 统计项：图标 + CountUp 数字 + 标签。
-/// 健康度环：运行端点占比（ProgressRing 数据表达——健康度图形化）。
+/// Hero 统计项：健康度环（ProgressRing 数据表达——健康度图形化）。
 class _HealthRing extends StatelessWidget {
   final int healthy;
   final int total;
@@ -343,119 +390,6 @@ class _HealthRing extends StatelessWidget {
   }
 }
 
-/// 运行覆盖率条：运行端点 vs 文档契约（对比可视化）。
-class _CoverageBar extends StatelessWidget {
-  final double fraction;
-  final int running;
-  final int documentedOnly;
-
-  const _CoverageBar({
-    required this.fraction,
-    required this.running,
-    required this.documentedOnly,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            LocalizedText(
-              'Contract coverage',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '${(fraction * 100).round()}%',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: fraction >= 0.9
-                    ? AppColors.success
-                    : fraction >= 0.6
-                    ? AppColors.warning
-                    : AppColors.danger,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: 6,
-            color: scheme.primary.withValues(alpha: 0.12),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: fraction.clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    colors: [
-                      scheme.primary,
-                      scheme.primary.withValues(alpha: 0.65),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        LocalizedText(
-          '$running running · $documentedOnly documented-only',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  final String label;
-  final int value;
-  final IconData icon;
-
-  const _HeroStat({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 18, color: theme.colorScheme.primary),
-        const SizedBox(width: 8),
-        CountUp(
-          value: value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(width: 8),
-        LocalizedText(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _StatusCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -474,45 +408,45 @@ class _StatusCard extends StatelessWidget {
     final theme = Theme.of(context);
     return HoverCard(
       child: Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.14),
-                borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
               ),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LocalizedText(
-                    title,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LocalizedText(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  LocalizedText(
-                    body,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    const SizedBox(height: 4),
+                    LocalizedText(
+                      body,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 }

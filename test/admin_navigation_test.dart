@@ -231,5 +231,60 @@ void main() {
         isTrue,
       );
     });
+
+    test('AC-4.3: supportsAuditLog follows the merged audit-trio contract', () {
+      // (i) default documented-catalog merge → true.
+      final navigation = AdminNavigationCapabilities(const []);
+      expect(navigation.supportsAuditLog, isTrue);
+      expect(
+        navigation.supportsAuditLog,
+        navigation.capabilities.has('GET', '/api/v1/audit/events'),
+      );
+
+      // (ii) documentedEndpoints: const [] without the trio → false — an
+      // inventory without the audit trio hides the tab.
+      final culled = AdminNavigationCapabilities(
+        const [],
+        documentedEndpoints: const [],
+      );
+      expect(culled.supportsAuditLog, isFalse);
+      expect(
+        culled.supportsAuditLog,
+        culled.capabilities.has('GET', '/api/v1/audit/events'),
+      );
+
+      // (iii) runtime set explicitly containing the trio → true.
+      final runtime = AdminNavigationCapabilities(
+        const [
+          SnaplinkAdminEndpoint(
+            method: 'GET',
+            path: '/api/v1/audit/events',
+            feature: 'runtime-audit',
+          ),
+        ],
+        documentedEndpoints: const [],
+      );
+      expect(runtime.supportsAuditLog, isTrue);
+      expect(
+        runtime.supportsAuditLog,
+        runtime.capabilities.has('GET', '/api/v1/audit/events'),
+      );
+
+      // Module-list culling: the auditLog module is offered iff the entry
+      // exists, and the getter is the predicate the dashboard cull uses.
+      final withAudit = [
+        _entry(AdminModuleId.overview),
+        _entry(AdminModuleId.auditLog),
+        _entry(AdminModuleId.health),
+      ];
+      expect(adminNavigationModules(withAudit), contains(AdminModuleId.auditLog));
+      expect(
+        adminNavigationModules([
+          _entry(AdminModuleId.overview),
+          _entry(AdminModuleId.health),
+        ]),
+        isNot(contains(AdminModuleId.auditLog)),
+      );
+    });
   });
 }

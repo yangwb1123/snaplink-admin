@@ -208,6 +208,16 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
     ],
   );
 
+  void _onOperationChanged(_PatchRow row, String? value) {
+    setState(() {
+      row.op = value!;
+      final nextPaths = _pathsFor(row.op);
+      if (!nextPaths.contains(row.path)) {
+        row.path = nextPaths.first;
+      }
+    });
+  }
+
   Widget _operationCard(int index) {
     final row = _rows[index];
     final paths = _pathsFor(row.op);
@@ -254,13 +264,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(() {
-                      row.op = value!;
-                      final nextPaths = _pathsFor(row.op);
-                      if (!nextPaths.contains(row.path)) {
-                        row.path = nextPaths.first;
-                      }
-                    }),
+                    onChanged: (value) => _onOperationChanged(row, value),
                   ),
                 ),
                 const SizedBox(width: 12),

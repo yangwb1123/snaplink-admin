@@ -58,9 +58,11 @@ docs/requirements/runs/
 
 # ai-batch-runner runtime artifacts
 .pi-batch/
+.pi-batch.lock
 logs/
 docs/archive/
 docs/auto/
+docs/ui/
 docs/requirements/runs/
 
 # ai-batch-runner runtime artifacts

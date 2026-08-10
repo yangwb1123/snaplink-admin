@@ -51,6 +51,12 @@ extension _CommerceCheckoutFlow on _CommerceTabState {
   }
 
   Future<void> _openCheckout(String orderID) async {
+    if (_checkoutProbe != CheckoutProbeState.available) {
+      // P0-1: never fire the checkout POST into a replica that does not
+      // serve the session endpoint — the order stays pending and the copy
+      // below tells the operator why (dead-end-free).
+      throw const CommerceCheckoutUnavailable();
+    }
     final origin = widget.checkoutOrigin?.call() ?? ProductApiOrigin.baseUri;
     final urls = CommerceCheckoutUrls.fromOrigin(origin);
     final response = await _commerce.createCheckout(
@@ -91,6 +97,8 @@ extension _CommerceCheckoutFlow on _CommerceTabState {
     if (refresh && orderID != null && _tenantLoaded) await _loadTenant();
     if (!mounted) return;
     final message = switch (error) {
+      CommerceCheckoutUnavailable() =>
+        'Secure checkout is not enabled on the connected replica. The pending order is saved; use it when the billing service is available.',
       CommerceCheckoutNavigationUnavailable() =>
         'The pending order is saved. Secure checkout navigation is available only in a browser; open this console in a browser and continue the order.',
       _ when orderID != null =>

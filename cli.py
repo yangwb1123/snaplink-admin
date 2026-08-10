@@ -141,6 +141,7 @@ def cmd_harness():
     ec += cmd_directory_fanout()
     ec += cmd_root_policy()
     ec += cmd_invariants()
+    ec += _run_check("b6_1b_gates")
     return 1 if ec > 0 else 0
 
 

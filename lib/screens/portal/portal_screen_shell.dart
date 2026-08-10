@@ -58,6 +58,57 @@ extension _PortalScreenShell on _PortalScreenState {
     'Data': [8, 9],
   };
 
+  void _selectDestination(int index) {
+    if (index < 0 || index >= _portalGroups.length) return;
+    final group = _portalGroups[index].$3;
+    final tabs = _portalGroupTabs[group] ?? const <int>[0];
+    final target = tabs.contains(_navIndex) ? _navIndex : tabs.first;
+    if (target != _navIndex) _update(() => _navIndex = target);
+  }
+
+  void _selectTab(String id) {
+    final target = int.tryParse(id);
+    if (target != null && target != _navIndex) {
+      _update(() => _navIndex = target);
+    }
+  }
+
+  List<SectionDef> _groupSections(List<int> groupTabs, AppStrings strings) => [
+    for (final tab in groupTabs)
+      SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
+  ];
+
+  Widget _groupSelector(
+    BuildContext context,
+    List<int> groupTabs,
+    AppStrings strings,
+  ) {
+    if (groupTabs.length > 1) {
+      return ConstrainedBox(
+        // 首次布局即给 bounded 宽度（NavigationToolbar 首帧无界
+        // 测量导致 SCSV 全宽——子菜单文字超出屏幕，二次才修正）。
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width - 180,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: SectionSelector(
+              sections: _groupSections(groupTabs, strings),
+              current: '$_navIndex',
+              onSelected: _selectTab,
+            ),
+          ),
+        ),
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(strings.accountTitle),
+    );
+  }
+
   Widget _buildApp(BuildContext context) {
     final strings = AppStrings.of(context);
     final mySub = _me?['sub']?.toString() ?? '';
@@ -89,13 +140,7 @@ extension _PortalScreenShell on _PortalScreenState {
     final groupTabs = _portalGroupTabs[currentGroup] ?? const <int>[0];
     return ResponsiveNavigationScaffold(
       selectedIndex: _portalGroups.indexWhere((g) => g.$3 == currentGroup),
-      onDestinationSelected: (index) {
-        if (index < 0 || index >= _portalGroups.length) return;
-        final group = _portalGroups[index].$3;
-        final tabs = _portalGroupTabs[group] ?? const <int>[0];
-        final target = tabs.contains(_navIndex) ? _navIndex : tabs.first;
-        if (target != _navIndex) _update(() => _navIndex = target);
-      },
+      onDestinationSelected: _selectDestination,
       destinations: _destinations(strings),
       drawerHeader: strings.accountTitle,
       body: Column(
@@ -112,8 +157,10 @@ extension _PortalScreenShell on _PortalScreenState {
       ),
       appBar: AppBar(
         // 左上角：品牌 logo（点击开抽屉）。
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+        // leadingWidth = NavigationRail 宽度（80）：logo 中心与侧边栏
+        // 图标中心同一条垂直对齐线；左缘与 rail 左缘同线。
+        leadingWidth: 80,
+        leading: Center(
           child: BrandLogo(
             onTap: () {
               final scaffold = Scaffold.of(context);
@@ -123,30 +170,7 @@ extension _PortalScreenShell on _PortalScreenState {
         ),
         titleSpacing: 8,
         // 子菜单与通知/登出同一行（AppBar 行），靠左占满 title 区。
-        title: groupTabs.length > 1
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: SectionSelector(
-                    sections: [
-                      for (final tab in groupTabs)
-                        SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
-                    ],
-                    current: '$_navIndex',
-                    onSelected: (id) {
-                      final target = int.tryParse(id);
-                      if (target != null && target != _navIndex) {
-                        _update(() => _navIndex = target);
-                      }
-                    },
-                  ),
-                ),
-              )
-            : Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Text(strings.accountTitle),
-              ),
+        title: _groupSelector(context, groupTabs, strings),
         actions: [
           NotificationBell(
             unreadCount: _notificationUnread,

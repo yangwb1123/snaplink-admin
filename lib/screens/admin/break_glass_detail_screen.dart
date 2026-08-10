@@ -143,7 +143,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                     children: [
                       _infoCard(context),
                       const SizedBox(height: 16),
-                      if (_isPending) _actionsCard(context),
+                      ..._pendingActionCards(),
                       const SizedBox(height: 16),
                       _auditCard(context),
                     ],
@@ -155,6 +155,10 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   );
 
   bool get _isPending => _session?['status']?.toString() == 'pending';
+
+  List<Widget> _pendingActionCards() => [
+        if (_isPending) _actionsCard(context),
+      ];
 
   Widget _infoCard(BuildContext context) => Card(
     child: Padding(

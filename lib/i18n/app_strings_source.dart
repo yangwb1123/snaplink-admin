@@ -6,6 +6,7 @@ import 'app_strings_source_admin_features.dart';
 import 'app_strings_source_admin_indirect.dart';
 import 'app_strings_source_admin_navigation.dart';
 import 'app_strings_source_admin_residency.dart';
+import 'app_strings_source_admin_ux.dart';
 import 'app_strings_source_commerce.dart';
 import 'app_strings_source_developer.dart';
 import 'app_strings_source_oidc.dart';
@@ -29,6 +30,7 @@ const appSourceStrings = <String, Map<String, String>>{
     ...appAdminDynamicSourceZh,
     ...appAdminNavigationSourceZh,
     ...appAdminResidencySourceZh,
+    ...appAdminUxSourceZh,
     ...appCommerceSourceZh,
   },
 };

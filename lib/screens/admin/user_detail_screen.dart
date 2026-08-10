@@ -174,7 +174,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('User: {widget_userId}', args: {'widget_userId': widget.userId}),
+        title: LocalizedText(
+          'User: {widget_userId}',
+          args: {'widget_userId': widget.userId},
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
@@ -231,13 +234,37 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     children: [
       UserDetailHeader(user: _user),
       UserDetailTabBar(
-        labels: _tabs.map((tab) => tab.$2).toList(growable: false),
+        labels: [for (var i = 0; i < _tabs.length; i++) _tabLabel(i)],
         selectedIndex: _tabIndex,
         onSelected: (index) => _selectTab(index, _tabs[index].$1),
       ),
       Expanded(child: _tabContent(context)),
     ],
   );
+
+  /// Tab label with count suffix ONLY when the count is > 0 — count ≤ 0
+  /// renders the bare label (exact-match pins at
+  /// user_detail_optional_resources_test.dart:71-72 stay green; '—' is
+  /// never used as a suffix).
+  String _tabLabel(int index) {
+    final count = _countForTab(index);
+    return count > 0 ? '${_tabs[index].$2}  ($count)' : _tabs[index].$2;
+  }
+
+  int _countForTab(int index) {
+    switch (_tabs[index].$1) {
+      case 'sessions':
+        return (_sessions?['sessions'] as List?)?.length ?? 0;
+      case 'consents':
+        return (_consents?['consents'] as List?)?.length ?? 0;
+      case 'mfa':
+        return (_mfa?['factors'] as List?)?.length ?? 0;
+      case 'lifecycle':
+        return (_lifecycle?.isNotEmpty ?? false) ? 1 : 0;
+      default:
+        return 0;
+    }
+  }
 
   Widget _tabContent(BuildContext context) {
     switch (_tabs[_tabIndex].$1) {
@@ -276,10 +303,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           ),
         );
       case 'device-security':
-        return UserDeviceSecurityPanel(
-          api: widget.api,
-          userId: widget.userId,
-        );
+        return UserDeviceSecurityPanel(api: widget.api, userId: widget.userId);
       default:
         return const Center(child: LocalizedText('Select a tab'));
     }
@@ -338,9 +362,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Error: {e}', args: {'e': e})));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: LocalizedText('Error: {e}', args: {'e': e})),
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -368,9 +392,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Error: {error}', args: {'error': error})));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: LocalizedText('Error: {error}', args: {'error': error}),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

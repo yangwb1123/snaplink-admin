@@ -113,6 +113,15 @@ class _RegisterPanelState extends State<RegisterPanel> {
     _eraseOneTimeResult(clientId);
   }
 
+  void _onSubmitted() {
+    if (!_submitting &&
+        _result == null &&
+        (widget.discovery == null ||
+            widget.discovery!.registrationEnabled)) {
+      _submit();
+    }
+  }
+
   void _eraseOneTimeResult([String? clientId]) {
     final id = clientId ?? _result?['client_id']?.toString();
     setState(() {
@@ -175,14 +184,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
                       _result == null &&
                       (widget.discovery == null ||
                           widget.discovery!.registrationEnabled),
-                  onSubmitted: (_) {
-                    if (!_submitting &&
-                        _result == null &&
-                        (widget.discovery == null ||
-                            widget.discovery!.registrationEnabled)) {
-                      _submit();
-                    }
-                  },
+                  onSubmitted: (_) => _onSubmitted(),
                 ),
                 const SizedBox(height: 8),
                 Text(

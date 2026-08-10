@@ -163,6 +163,31 @@ class _PanelState extends State<DistributedClusterPanel> {
     });
   }
 
+  Widget _verifyOnlyWrap(List<dynamic> verifyOnly) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final k in verifyOnly) _kidChip('', k, false),
+    ],
+  );
+
+  Widget _readyzWrap(Map<dynamic, dynamic> checks) => Wrap(
+    spacing: 6,
+    runSpacing: 6,
+    children: [
+      for (final name in _distributedReadyzChecks)
+        _statusChip(name, checks[name]?.toString()),
+    ],
+  );
+
+  Widget _modulesWrap(Map<dynamic, dynamic> modules) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final e in modules.entries) _statusChip(e.key, e.value?.toString()),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final keys = _signingKeys;
@@ -217,13 +242,7 @@ class _PanelState extends State<DistributedClusterPanel> {
                       ),
                     ),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final k in verifyOnly) _kidChip('', k, false),
-                    ],
-                  ),
+                  _verifyOnlyWrap(verifyOnly),
                 ],
                 if (_jwksKids.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -238,26 +257,12 @@ class _PanelState extends State<DistributedClusterPanel> {
                   _t('Distributed control plane (etcd bus / key registry)'),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final name in _distributedReadyzChecks)
-                      _statusChip(name, checks[name]?.toString()),
-                  ],
-                ),
+                _readyzWrap(checks),
                 if (modules.isNotEmpty) ...[
                   const Divider(),
                   _row(_t('Backend Modules'), '${modules.length} module(s)'),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final e in modules.entries)
-                        _statusChip(e.key, e.value?.toString()),
-                    ],
-                  ),
+                  _modulesWrap(modules),
                 ],
               ],
             ),

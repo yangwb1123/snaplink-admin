@@ -73,12 +73,16 @@ void main() {
       expect(requestedQuery, contains('page_size=100'));
       expect(requestedQuery, contains('order_by=id'));
 
+      await tester.ensureVisible(find.text('Next'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
       expect(requestedQuery, contains('page_token=page-2'));
       expect(find.text('Page 2'), findsOneWidget);
       expect(find.text('42 total'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Previous'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Previous'));
       await tester.pumpAndSettle();
       expect(find.text('Page 1'), findsOneWidget);
@@ -359,7 +363,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // Selection mode: long-press enters it, then taps toggle.
+      await tester.ensureVisible(find.text('portal-client'));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text('portal-client'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('pending-app'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('pending-app'));
       await tester.pumpAndSettle();
@@ -367,6 +375,8 @@ void main() {
       expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
 
       // Confirm dialog shows the affected count; confirming runs both.
+      await tester.ensureVisible(find.byIcon(Icons.check_circle_outline));
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.check_circle_outline));
       await tester.pumpAndSettle();
       expect(find.textContaining('2'), findsWidgets);
@@ -398,9 +408,15 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('portal-client'));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text('portal-client'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('pending-app'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('pending-app'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byIcon(Icons.cancel_outlined));
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.cancel_outlined));
       await tester.pumpAndSettle();
@@ -456,11 +472,15 @@ void main() {
       await tester.pumpWidget(_wrap(ClientsTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('portal-client'));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text('portal-client'));
       await tester.pumpAndSettle();
       expect(find.text('1 selected'), findsOneWidget);
 
       // 打开确认框后取消——不执行任何调用。
+      await tester.ensureVisible(find.byIcon(Icons.check_circle_outline));
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.check_circle_outline));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Cancel'));
@@ -528,13 +548,21 @@ void main() {
       await tester.pumpAndSettle();
 
       // 长按进入选择 → 勾选两行 → 批量挂起。
+      await tester.ensureVisible(find.text('Acme Corp'));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text('Acme Corp'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Globex'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Globex'));
       await tester.pumpAndSettle();
       expect(find.text('2 selected'), findsOneWidget);
 
+      await tester.ensureVisible(find.byIcon(Icons.pause_circle_outline));
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.pause_circle_outline));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Suspend tenants').last);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Suspend tenants').last);
       await tester.pumpAndSettle();
@@ -677,12 +705,18 @@ void main() {
       await tester.pumpWidget(_wrap(UsersTab(client: client)));
       await tester.pumpAndSettle();
 
+      await tester.ensureVisible(find.text('user-1'));
+      await tester.pumpAndSettle();
       await tester.longPress(find.text('user-1'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('user-2'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('user-2'));
       await tester.pumpAndSettle();
       expect(find.text('2 selected'), findsOneWidget);
 
+      await tester.ensureVisible(find.byIcon(Icons.delete_outline));
+      await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.delete_outline));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete users').last);

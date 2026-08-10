@@ -1,0 +1,264 @@
+#!/usr/bin/env python3
+"""B6-1b — debug-only ring copy surface gates (AC-1).
+
+Source gates, executed on every landing via `python cli.py harness`
+(ci.yml "Engineering gates" step — zero new CI wiring):
+
+- old ring-scoped keys (en + zh) have zero hits in lib/ after the
+  migration ('Clear audit log?' / 'local audit entries' / 'Clear log'
+  and 清空审计日志 / 本地审计记录 / 清除日志);
+- each of the five B6-1b keys lives in exactly one lib/i18n file
+  (spread-override precedence: a duplicate in a later map would win
+  silently);
+- seam shape pins on lib/services/audit_log_service.dart (post-seam
+  values, design b6-1b storage-seam §1.7): `kDebugMode` = 6 (two
+  foldable initializers + four direct guards), the
+  `_storageEnabled = kDebugMode` initializer pin, and
+  `if (!kDebugMode) return;` = 4 — matched FIXED-STRING (as an `rg`
+  regex the `(`/`)`/`!` are metacharacters and match 0 lines, F5);
+  the `_ringCopyEnabled = kDebugMode` pin and the tab-file count (1)
+  are unchanged;
+- key-literal residence: `sso_audit_log` appears in exactly one lib/
+  file and that file is the service (mirror of scan-6 R2.1);
+- mask ban (open finding 1 — mirror of scan-6 R2.6, extended with the
+  base64 family): no key-reconstruction construct in the service file:
+  `String.fromCharCodes` / `base64Decode` / `base64Url` (the base64
+  idioms in portal_api / token_refresh_service / federated_login are
+  legitimately outside this file — the ban is scoped to the file that
+  owns the key literal). Documented residual: the decoy-literal evasion
+  — keeping the pinned literal in the service file (unused, DCE'd)
+  while doing real I/O with a reconstructed key passes every source
+  pin; the artifact gate then carries the burden (the reconstructed
+  key's bytes land in the bundle unless hidden further — and the
+  base64/base64Url encodings of the key are artifact needles too), and
+  deliberate reintroduction becomes a manual-review matter, not a gate
+  one.
+
+Count semantics (W-3/W-4, FD-5): every count here is an OCCURRENCE
+count (`rg -o`), identical to scan-6's `allMatches`. Each pinned line
+holds exactly one occurrence, so occurrence counts and line counts
+agree on today's layouts — but dart2js may emit several occurrences on
+one line in a future bundle, and the artifact `== 2` pre-seam baseline
+(sso_audit_log, one const per use site: setItem/getItem) holds only as
+an occurrence count (W-3). The `== 2` line-count reading was 2 only by
+coincidence of dart2js layout.
+
+The release-web artifact gate (`make release-artifact-check`) greps
+build/web/ recursively (open finding 2 — a chunked build cannot
+silently widen the surface) for the old-key needles, the `sso_audit_log`
+key needle, and its base64/base64Url encodings, and is wired into ci.yml
+right after `make build-prod`. It is fail-closed: a missing build/web is
+a FAILURE here, never a silent skip (the Makefile target likewise fails
+red on a missing artifact). W-1/W-2: the `sso_audit_log` needle is live,
+so a fresh pre-seam bundle (exactly 2 occurrences) is red — the gate is
+no longer green independent of the seam; post-seam the const is DCE'd
+to 0.
+"""
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path.cwd()
+sys.path.insert(0, str(ROOT))
+
+from checks.config import get_config  # noqa: E402
+
+
+def _grep(pattern: str, path: Path, fixed: bool = False) -> int:
+    """Count occurrences of pattern under path (recursive).
+
+    `rg -o` emits one line per match, so the output line count IS the
+    occurrence count — the same semantics as scan-6's `allMatches`
+    (W-3/W-4, FD-5). For fixed-string matches (every literal pin) `-F`
+    is mandatory: regex metacharacters would match 0 lines (F5).
+    """
+    cmd = ["rg", "--no-heading", "-o"]
+    if fixed:
+        cmd.append("-F")
+    cmd += [pattern, str(path)]
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, check=False, cwd=str(ROOT)
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"rg failed for {pattern!r}: {result.stderr.strip()}")
+    return len([line for line in result.stdout.splitlines() if line.strip()])
+
+
+def _files_with(pattern: str, path: Path) -> list:
+    """Files under path containing the fixed string (rg -l -F)."""
+    result = subprocess.run(
+        ["rg", "-l", "-F", pattern, str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=str(ROOT),
+    )
+    if result.returncode not in (0, 1):
+        raise RuntimeError(f"rg failed for {pattern!r}: {result.stderr.strip()}")
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _check_old_keys(cfg, results: list) -> int:
+    """Old ring-scoped en/zh needles: zero hits in lib/ after landing."""
+    failures = 0
+    for label, needles in (("en", cfg.old_en_needles), ("zh", cfg.old_zh_needles)):
+        pattern = "|".join(needles)
+        n = _grep(pattern, ROOT / "lib")
+        ok = n == 0
+        results.append((ok, f"Old {label} ring keys zero hits in lib/ (found {n})"))
+        if not ok:
+            failures += 1
+    return failures
+
+
+def _check_new_key_uniqueness(cfg, results: list) -> int:
+    """New-key uniqueness: exactly one lib/i18n file contains each key,
+    and it is the admin-core catalog (spread-override precedence)."""
+    failures = 0
+    catalog = (ROOT / cfg.catalog_file).resolve()
+    for key in cfg.new_keys:
+        files = _files_with(key, ROOT / cfg.catalog_dir)
+        matched = [Path(f).resolve() for f in files]
+        ok = len(matched) == 1 and matched[0] == catalog
+        detail = ", ".join(files) if files else "none"
+        results.append(
+            (ok, f"Key {key!r} unique in {cfg.catalog_dir} -> {detail}")
+        )
+        if not ok:
+            failures += 1
+    return failures
+
+
+def _check_seam_shape(cfg, results: list) -> int:
+    """Seam shape pins (post-seam values, design §1.7). Red until the
+    storage seam lands — the intended safe direction (W-1/W-2)."""
+    failures = 0
+    service = ROOT / cfg.service_file
+    for pin, count, label in (
+        (cfg.guard_line, cfg.guard_line_count, "Direct guards"),
+        (cfg.storage_initializer_pin, 1, "Storage initializer pin"),
+        (cfg.initializer_pin, 1, "Initializer pin"),
+    ):
+        n = _grep(pin, service, fixed=True)
+        ok = n == count
+        results.append(
+            (ok, f"{label} {pin!r} in {cfg.service_file} = {count} (found {n})")
+        )
+        if not ok:
+            failures += 1
+
+    n = _grep("kDebugMode", service)
+    ok = n == cfg.service_kdebug_count
+    results.append(
+        (ok, f"kDebugMode in {cfg.service_file} = {cfg.service_kdebug_count} "
+             f"(found {n})")
+    )
+    if not ok:
+        failures += 1
+
+    n = _grep("kDebugMode", ROOT / cfg.tab_file)
+    ok = n == cfg.tab_kdebug_count
+    results.append(
+        (ok, f"kDebugMode in {cfg.tab_file} = {cfg.tab_kdebug_count} "
+             f"(found {n})")
+    )
+    if not ok:
+        failures += 1
+    return failures
+
+
+def _check_key_literal(cfg, results: list) -> int:
+    """Key-literal residence (mirror of scan-6 R2.1): exactly one lib/
+    file contains the storage key, and it is the service."""
+    service = ROOT / cfg.service_file
+    files = _files_with("sso_audit_log", ROOT / "lib")
+    matched = [Path(f).resolve() for f in files]
+    ok = len(matched) == 1 and matched[0] == service.resolve()
+    detail = ", ".join(files) if files else "none"
+    results.append(
+        (ok, f"sso_audit_log lives in exactly one lib/ file -> {detail}")
+    )
+    return 0 if ok else 1
+
+
+def _check_mask_ban(cfg, results: list) -> int:
+    """Mask ban (open finding 1): key-reconstruction constructs banned in
+    the service file — mirror of scan-6 R2.6, extended with the base64
+    family. Scoped to the service file: base64 is a legitimate idiom
+    elsewhere in lib/."""
+    failures = 0
+    service = ROOT / cfg.service_file
+    for token in cfg.banned_service_tokens:
+        n = _grep(token, service, fixed=True)
+        ok = n == 0
+        results.append(
+            (ok, f"Banned key-reconstruction token {token!r} absent from "
+                 f"{cfg.service_file} (found {n})"),
+        )
+        if not ok:
+            failures += 1
+    return failures
+
+
+def _check_artifact(cfg, results: list) -> int:
+    """Release-web artifact gate (requires `make build-prod` first;
+    wired into ci.yml after the Build step). Recursive over artifact_dir,
+    occurrence counts, fail-closed: a missing build is a FAILURE, never
+    a silent skip."""
+    failures = 0
+    artifact_dir = ROOT / cfg.artifact_dir
+    if not artifact_dir.is_dir():
+        failures += 1
+        results.append(
+            (False, f"Artifact dir {cfg.artifact_dir} missing — run "
+                    "`make build-prod` first (fail-closed, no silent skip)")
+        )
+        return failures
+    for label, needles in (
+        ("", cfg.artifact_en_needles),
+        (" (key mask)", cfg.artifact_key_masks),
+        (" (advisory)", cfg.artifact_zh_escaped),
+    ):
+        for needle in needles:
+            n = _grep(needle, artifact_dir, fixed=True)
+            ok = n == 0
+            results.append(
+                (ok, f"Artifact{label}: {needle!r} absent from "
+                     f"{cfg.artifact_dir}/ (found {n})")
+            )
+            if not ok:
+                failures += 1
+    return failures
+
+
+def _report(results: list) -> int:
+    """Print the gate result table; return the process exit code."""
+    failures = 0
+    passed = 0
+    print("=== B6-1b Debug Ring Copy Surface Gates (AC-1) ===")
+    for ok, msg in results:
+        prefix = "[+]" if ok else "[-]"
+        print(f"  {prefix} {msg}")
+        passed += 1 if ok else 0
+        failures += 0 if ok else 1
+    print(
+        f"\nResult: {passed} passed, {failures} failures "
+        f"(exit {1 if failures else 0})"
+    )
+    return 1 if failures else 0
+
+
+def run() -> int:
+    cfg = get_config().b6_1b_gates
+    results = []
+    failures = _check_old_keys(cfg, results)
+    failures += _check_new_key_uniqueness(cfg, results)
+    failures += _check_seam_shape(cfg, results)
+    failures += _check_key_literal(cfg, results)
+    failures += _check_mask_ban(cfg, results)
+    failures += _check_artifact(cfg, results)
+    return _report(results)
+
+
+if __name__ == "__main__":
+    sys.exit(run())

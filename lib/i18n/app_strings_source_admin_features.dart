@@ -139,7 +139,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Lockouts are scoped by OAuth client and the exact username, email, or phone identifier.':
       '锁定按 OAuth 客户端以及精确的用户名、邮箱或电话号码标识进行限定。',
   'Must match an action enabled by the server.': '必须与服务器启用的操作匹配。',
-  'No audit entries yet. Operations will appear here.': '尚无审计记录，操作会显示在此处。',
+  'No audit events returned by the server yet.': '服务器尚未返回审计事件。',
   'No resources match this query.': '没有资源匹配此查询。',
   'No suspicious or very-low-trust devices found.': '未发现可疑或信任度极低的设备。',
   'Per-operation status; overall HTTP is 200': '逐项操作状态；总体 HTTP 状态为 200',

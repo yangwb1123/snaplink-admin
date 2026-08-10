@@ -26,37 +26,31 @@ class AdminListHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.tr(title),
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    context.tr(subtitle!),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+    final titleColumn = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.tr(title),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+          ),
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            context.tr(subtitle!),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          if (actions != null) ...[
-            ...actions!,
-          ] else ...[
+        ],
+      ],
+    );
+    final actionWidgets = actions != null
+        ? actions!
+        : [
             // 主操作 = 带文字按钮（最高视觉等级）；次级 = 刷新图标。
             if (onCreate != null) ...[
               PressableScale(
@@ -73,8 +67,31 @@ class AdminListHeader extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               tooltip: context.strings.refresh,
             ),
-          ],
-        ],
+          ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // 窄视口：标题行 + 操作区换行；≥560 保持单行 Row。
+          if (constraints.maxWidth < 560) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: double.infinity, child: titleColumn),
+                ...actionWidgets,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(child: titleColumn),
+              ...actionWidgets,
+            ],
+          );
+        },
       ),
     );
   }

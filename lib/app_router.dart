@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api/oidc_login_api.dart';
+import 'api/sso_client.dart';
 import 'screens/admin/admin_gate.dart';
 import 'screens/oidc_login/oidc_login_screen.dart';
 import 'screens/setup/setup_screen.dart';
@@ -32,7 +33,7 @@ Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
     ProductEntry.deviceVerification => DeviceVerifyScreen(routeUri: location),
     ProductEntry.admin => const AdminGateScreen(),
     ProductEntry.login => OidcLoginScreen(
-      defaultClientId: 'sso-admin-console',
+      defaultClientId: SSOAdminClient.firstPartyClientId,
       api: oidcLoginApi,
       routeUri: location,
     ),

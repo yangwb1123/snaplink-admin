@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../app_settings.dart';
 import '../../i18n/app_strings.dart';
 import '../../i18n/localized_text.dart';
 import 'admin_route.dart';
@@ -13,6 +14,7 @@ import 'package:sso_admin/widgets/offline_banner.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/command_palette.dart';
 import 'package:sso_admin/widgets/responsive_navigation_scaffold.dart';
 import 'package:sso_admin/widgets/shortcuts_dialog.dart';
@@ -218,7 +220,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, String> _moduleLabels(
     List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
   ) => {
-    for (final entry in entries) entry.module: _labelOf(entry.destination.label),
+    for (final entry in entries)
+      entry.module: _labelOf(entry.destination.label),
   };
 
   String _labelOf(Widget label) {
@@ -556,15 +559,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         page: GovernanceTab(api: _api, capabilities: capabilities),
       ),
-      AdminNavigationEntry(
-        module: AdminModuleId.auditLog,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.receipt_long_outlined),
-          selectedIcon: const Icon(Icons.receipt_long),
-          label: Text(strings.auditLog),
+      if (navigation.supportsAuditLog)
+        AdminNavigationEntry(
+          module: AdminModuleId.auditLog,
+          destination: NavigationRailDestination(
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: Text(strings.auditLog),
+          ),
+          page: AuditLogTab(api: _api, capabilities: capabilities),
         ),
-        page: AuditLogTab(api: _api),
-      ),
       AdminNavigationEntry(
         module: AdminModuleId.health,
         destination: NavigationRailDestination(
@@ -576,6 +580,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ];
     _visibleModules = adminNavigationModules(entries);
+    // Admin navigation mode (settings): normal shows only the core trio;
+    // professional shows EVERY capability-enabled module and submenu.
+    // Capability gating above runs FIRST — a capability-gated-off module is absent from entries and
+    // therefore invisible in both modes. entries itself is never mutated,
+    // so deep links and page resolution stay intact.
+    _visibleModules = AdminHotModules.visibleForMode(
+      _visibleModules,
+      AppSettings.instance.adminNavMode,
+    );
+    // Operator persona: derived purely from the POST-GATING module set and
+    // the commerce probe (design §3.3). Never reads the token; only
+    // emphasizes, never gates.
+    final persona = deriveOperatorPersona(
+      enabledModules: _visibleModules.toSet(),
+      commerceAvailable: _commerceProbeError == null,
+    );
+    // The wave-1 entries were constructed above with their default
+    // (general) persona; rebind them in place now that the persona exists
+    // (module/destination preserved — rail order and nav pins untouched).
+    void rebindPersona(
+      String module,
+      Widget Function(OperatorPersona) buildPage,
+    ) {
+      final i = entries.indexWhere((e) => e.module == module);
+      if (i < 0) return;
+      entries[i] = AdminNavigationEntry(
+        module: entries[i].module,
+        destination: entries[i].destination,
+        page: buildPage(persona),
+      );
+    }
+
+    rebindPersona(
+      AdminModuleId.overview,
+      (p) => AdminOverviewTab(
+        endpoints: _endpoints,
+        loadError: _capabilitiesError,
+        onRefresh: _refreshCapabilities,
+        persona: p,
+        commerceAvailable: _commerceAvailable,
+        commerceProbeError: _commerceProbeError,
+      ),
+    );
+    rebindPersona(
+      AdminModuleId.clients,
+      (p) => ClientsTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.users,
+      (p) => UsersTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.tenants,
+      (p) => TenantsTab(client: widget.client, persona: p),
+    );
+    rebindPersona(
+      AdminModuleId.auditLog,
+      (p) => AuditLogTab(api: _api, capabilities: capabilities, persona: p),
+    );
     Widget page;
     final route = _currentRoute;
     final rid = route.resourceId;
@@ -587,13 +650,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userId: rid,
           capabilities: capabilities,
         ),
-        AdminModuleId.clients: (_) =>
-            ClientDetailScreen(api: _api, client: widget.client, clientId: rid),
+        AdminModuleId.clients: (_) => ClientDetailScreen(
+          api: _api,
+          client: widget.client,
+          clientId: rid,
+          persona: persona,
+        ),
         AdminModuleId.tenants: (_) => TenantDetailScreen(
           api: _api,
           client: widget.client,
           tenantId: rid,
           capabilities: capabilities,
+          persona: persona,
         ),
         AdminModuleId.connections: (_) => ConnectionDetailScreen(
           api: _api,
@@ -618,8 +686,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         );
       } else {
         page = ErrorBoundary(
-          child: entries[adminNavigationIndexForModule(entries, _selectedModule)]
-              .page,
+          child:
+              entries[adminNavigationIndexForModule(entries, _selectedModule)]
+                  .page,
         );
       }
     } else {
@@ -679,14 +748,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       destinations: groupDestinations,
       drawerHeader: strings.ssoAdmin,
-      body: PageTransition(
-        pageKey: ValueKey(_selectedModule),
-        child: page,
-      ),
+      body: PageTransition(pageKey: ValueKey(_selectedModule), child: page),
       appBar: AppBar(
         // 左上角：品牌 logo 图片（渐变盾牌）；点击开抽屉（窄视口）。
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8),
+        // leadingWidth = NavigationRail 宽度（80）：logo 中心与侧边栏
+        // 图标中心同一条垂直对齐线；左缘与 rail 左缘同线。
+        leadingWidth: 80,
+        leading: Center(
           child: BrandLogo(
             onTap: () {
               final scaffold = Scaffold.of(context);
@@ -697,8 +765,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // 子菜单与设置/登出同一行，靠左（AppBar title 区）。
         titleSpacing: 8,
         title: groupModules.length > 1
-            ? Padding(
-                padding: const EdgeInsets.only(right: 8),
+            ? ConstrainedBox(
+                // 首次布局即给 bounded 宽度（NavigationToolbar 首帧以无界
+                // 测量 title，SCSV 会取内容全宽导致子菜单文字超出屏幕；
+                // 二次布局才修正——这里提前固定上限消除闪动）。
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.sizeOf(context).width - 190,
+                ),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: SectionSelector(

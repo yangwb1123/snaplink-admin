@@ -166,4 +166,133 @@ void main() {
       expect(find.textContaining('Do not include passwords'), findsOneWidget);
     });
   });
+
+  group('GovernanceTab audit query', () {
+    // Recording MockClient: the shared `_api` helper routes by path and
+    // records nothing, so the audit group brings its own recording handlers.
+    SnaplinkAdminApi recordingApi(List<Uri> requests) => SnaplinkAdminApi(
+      baseUrl: 'https://sso.example.test',
+      accessToken: 'admin-token',
+      httpClient: MockClient((request) async {
+        requests.add(request.url);
+        if (request.url.path == '/api/v1/audit/events' ||
+            request.url.path == '/api/v1/audit/facets') {
+          return http.Response('{}', 200);
+        }
+        return http.Response('{"error":"not found"}', 404);
+      }),
+    );
+
+    testWidgets(
+      'default query sends exactly {limit: 100} to events and the identical '
+      'map to facets, and nothing else — catalog fallback renders the UI '
+      'even with empty capabilities',
+      (tester) async {
+        final requests = <Uri>[];
+        final api = recordingApi(requests);
+        await _pump(tester, GovernanceTab(api: api, capabilities: _caps([])));
+
+        // The capability gate is NOT what renders the audit query UI: the
+        // catalog fallback in `_has` makes it unconditionally available.
+        expect(
+          find.text('Audit querying is not enabled on the connected replica.'),
+          findsNothing,
+        );
+        expect(find.text('Query audit events'), findsOneWidget);
+
+        final beforeTap = requests.length;
+        await tester.ensureVisible(find.text('Query audit events'));
+        await tester.tap(find.text('Query audit events'));
+        await tester.pumpAndSettle();
+
+        final auditRequests = requests.sublist(beforeTap);
+        final events = auditRequests
+            .where((url) => url.path == '/api/v1/audit/events')
+            .toList();
+        expect(events, hasLength(1));
+        expect(events.single.queryParameters, {'limit': '100'});
+        final facets = auditRequests
+            .where((url) => url.path == '/api/v1/audit/facets')
+            .toList();
+        expect(facets, hasLength(1));
+        expect(facets.single.queryParameters, {'limit': '100'});
+        expect(
+          auditRequests.map((url) => url.path).toSet(),
+          {'/api/v1/audit/events', '/api/v1/audit/facets'},
+          reason: 'no request may hit any path outside the trio',
+        );
+      },
+    );
+
+    testWidgets(
+      'supplied tenant_id rides the wire identically on both endpoints',
+      (tester) async {
+        final requests = <Uri>[];
+        final api = recordingApi(requests);
+        await _pump(
+          tester,
+          GovernanceTab(
+            api: api,
+            // The design's step-3 fixture shape; the UI renders regardless,
+            // but the wire assertions are what matter.
+            capabilities: _caps([
+              '/api/v1/audit/events',
+              '/api/v1/audit/facets',
+            ]),
+          ),
+        );
+
+        final beforeTap = requests.length;
+        await tester.enterText(
+          find.widgetWithText(TextField, 'Audit filter JSON'),
+          '{"limit": 100, "tenant_id": "acme"}',
+        );
+        await tester.ensureVisible(find.text('Query audit events'));
+        await tester.tap(find.text('Query audit events'));
+        await tester.pumpAndSettle();
+
+        final auditRequests = requests.sublist(beforeTap);
+        final events = auditRequests
+            .where((url) => url.path == '/api/v1/audit/events')
+            .toList();
+        expect(events, hasLength(1));
+        expect(events.single.queryParameters, {
+          'limit': '100',
+          'tenant_id': 'acme',
+        });
+        final facets = auditRequests
+            .where((url) => url.path == '/api/v1/audit/facets')
+            .toList();
+        expect(facets, hasLength(1));
+        expect(facets.single.queryParameters, {
+          'limit': '100',
+          'tenant_id': 'acme',
+        });
+      },
+    );
+
+    testWidgets('parse error shows the banner and issues zero requests', (
+      tester,
+    ) async {
+      final requests = <Uri>[];
+      final api = recordingApi(requests);
+      await _pump(tester, GovernanceTab(api: api, capabilities: _caps([])));
+
+      final before = requests.length;
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Audit filter JSON'),
+        '{"tenat_id":1}',
+      );
+      await tester.ensureVisible(find.text('Query audit events'));
+      await tester.tap(find.text('Query audit events'));
+      await tester.pumpAndSettle();
+
+      expect(
+        requests.length,
+        before,
+        reason: 'a rejected query must never reach the wire',
+      );
+      expect(find.textContaining('unsupported key "tenat_id"'), findsOneWidget);
+    });
+  });
 }

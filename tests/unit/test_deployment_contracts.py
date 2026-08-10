@@ -48,11 +48,11 @@ class DeploymentContractsTest(unittest.TestCase):
         )
         self.assertEqual(
             console['environment']['SNAPLINK_BILLING_UPSTREAM'],
-            '${SNAPLINK_BILLING_UPSTREAM:-http://snaplink:8080}',
+            '${SNAPLINK_BILLING_UPSTREAM:?SNAPLINK_BILLING_UPSTREAM must be set — no implicit sso-server fallback (P0-2)}',
         )
         self.assertEqual(
             console['environment']['SNAPLINK_STRIPE_ADAPTER_UPSTREAM'],
-            '${SNAPLINK_STRIPE_ADAPTER_UPSTREAM:-http://snaplink:8080}',
+            '${SNAPLINK_STRIPE_ADAPTER_UPSTREAM:?SNAPLINK_STRIPE_ADAPTER_UPSTREAM must be set — no implicit sso-server fallback (P0-2)}',
         )
         self.assertIn('4444:80', console['ports'])
 
@@ -170,10 +170,10 @@ class DeploymentContractsTest(unittest.TestCase):
             dockerfile,
         )
         self.assertIn(
-            'ENV SNAPLINK_BILLING_UPSTREAM=http://snaplink:8080',
+            'ENV SNAPLINK_BILLING_UPSTREAM=',
             dockerfile,
         )
-        self.assertIn('ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=http://snaplink:8080', dockerfile)
+        self.assertIn('ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=', dockerfile)
         self.assertIn('location ^~ /app/', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_BILLING_UPSTREAM};', nginx)

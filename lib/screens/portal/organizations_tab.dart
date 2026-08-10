@@ -214,54 +214,57 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
               ? const Center(child: CircularProgressIndicator())
               : ListView(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    if (!_available)
-                      const EmptyHint(
-                        'Organizations are not available for this account.',
-                      )
-                    else if (_orgs.isEmpty)
-                      const EmptyHint(
-                        'You are not a member of any organization.',
-                      )
-                    else
-                      for (final raw in _orgs)
-                        _orgTile(raw as Map<String, dynamic>),
-                    if (_available) ...[
-                      const SizedBox(height: 20),
-                      Text(
-                        context.tr('Accept an invitation'),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _inviteCtrl,
-                        decoration: InputDecoration(
-                          labelText: context.tr('Invitation token'),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: FilledButton(
-                          onPressed: _accepting ? null : _acceptInvite,
-                          child: _accepting
-                              ? const SizedBox(
-                                  height: 16,
-                                  width: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(context.tr('Join organization')),
-                        ),
-                      ),
-                      MessageBanner(_msg, ok: _ok),
-                    ],
-                  ],
+                  children: _bodyChildren(context),
                 ),
         ),
       ],
     );
+  }
+
+  List<Widget> _bodyChildren(BuildContext context) {
+    return [
+      if (!_available)
+        const EmptyHint(
+          'Organizations are not available for this account.',
+        )
+      else if (_orgs.isEmpty)
+        const EmptyHint(
+          'You are not a member of any organization.',
+        )
+      else
+        for (final raw in _orgs) _orgTile(raw as Map<String, dynamic>),
+      if (_available) ...[
+        const SizedBox(height: 20),
+        Text(
+          context.tr('Accept an invitation'),
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _inviteCtrl,
+          decoration: InputDecoration(
+            labelText: context.tr('Invitation token'),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton(
+            onPressed: _accepting ? null : _acceptInvite,
+            child: _accepting
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                    ),
+                  )
+                : Text(context.tr('Join organization')),
+          ),
+        ),
+        MessageBanner(_msg, ok: _ok),
+      ],
+    ];
   }
 
   Widget _orgTile(Map<String, dynamic> o) {

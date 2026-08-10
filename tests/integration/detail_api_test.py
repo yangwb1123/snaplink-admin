@@ -67,19 +67,8 @@ def login():
 def auth_headers(token):
     return {'Authorization': f'Bearer {token}'}
 
-def main():
-    token = login()
-    if not token:
-        print("❌ Failed to login")
-        sys.exit(1)
-    h = auth_headers(token)
-    
-    print("=" * 70)
-    print("  详情页后端 API 集成测试")
-    print("=" * 70)
-    print()
-    
-    # 1. Clients
+def _test_clients(h):
+    """1. Clients list + per-client detail."""
     print("【1. 客户端】")
     r = curl(f'{API}/clients', headers=h)
     try:
@@ -92,8 +81,10 @@ def main():
                 check(f"GET /clients/{cid[:20]}", r2 != '')
     except Exception as e:
         check("客户端 API", False, str(e)[:60])
-    
-    # 2. Users
+
+
+def _test_users(h):
+    """2. Users list + sessions/consents/mfa/lifecycle subtrees."""
     print("\n【2. 用户】")
     r = curl(f'{API}/users', headers=h)
     try:
@@ -107,8 +98,10 @@ def main():
                     check(f"GET /users/{uid}/{sub}", r2 != '')
     except Exception as e:
         check("用户 API", False, str(e)[:60])
-    
-    # 3. Tenants
+
+
+def _test_tenants(h):
+    """3. Tenants list + members/invitations/usage subtrees."""
     print("\n【3. 租户】")
     r = curl(f'{API}/tenants', headers=h)
     try:
@@ -122,8 +115,10 @@ def main():
                     check(f"GET /tenants/{tid}/{sub}", r2 != '')
     except Exception as e:
         check("租户 API", False, str(e)[:60])
-    
-    # 4. Connections
+
+
+def _test_connections(h):
+    """4. Connections list + health/domains/probe subtrees."""
     print("\n【4. 连接】")
     r = curl(f'{API}/connections', headers=h)
     try:
@@ -137,8 +132,10 @@ def main():
                     check(f"GET /connections/{cid}/{sub}", r2 != '' or 'error' not in r2)
     except Exception as e:
         check("连接 API (可能为空)", 'error' in str(e).lower() or True)
-    
-    # 5. Permissions
+
+
+def _test_permissions(h):
+    """5. Permissions roles/assignments/menus for the first client."""
     print("\n【5. 权限】")
     r = curl(f'{API}/clients', headers=h)
     try:
@@ -153,14 +150,18 @@ def main():
             check("权限 (无客户端)", True)
     except Exception as e:
         check("权限 API", False, str(e)[:60])
-    
-    # 6. Token Security
+
+
+def _test_tokens(h):
+    """6. Token security portfolio/sessions/expiring/suspicious/usage."""
     print("\n【6. Token 安全】")
     for sub in ['portfolio', 'sessions', 'expiring', 'suspicious', 'usage']:
         r = curl(f'{API}/tokens/{sub}', headers=h)
         check(f"GET /tokens/{sub}", r != '')
-    
-    # 7. Governance
+
+
+def _test_governance(h):
+    """7. Governance/compliance read paths."""
     print("\n【7. 治理】")
     gov_paths = [
         ('/api/v1/admin/compliance/soc2-evidence', 'SOC2'),
@@ -175,8 +176,10 @@ def main():
     for path, name in gov_paths:
         r = curl(f'{CONFIG.api_url}{path}', headers=h)
         check(f"治理 {name}", r != '')
-    
-    # 8. Webhooks
+
+
+def _test_webhooks(h):
+    """8. Webhook subscriptions + deadletters."""
     print("\n【8. Webhook】")
     r = curl(f'{API}/webhooks/subscriptions', headers=h)
     try:
@@ -191,8 +194,10 @@ def main():
                 check(f"GET deadletters/{sid}", r3 != '')
     except Exception as e:
         check("Webhook API", False, str(e)[:60])
-    
-    # 9. Break Glass
+
+
+def _test_break_glass(h):
+    """9. Break-glass sessions + audit subtree."""
     print("\n【9. 紧急访问】")
     r = curl(f'{API}/break-glass', headers=h)
     try:
@@ -207,12 +212,38 @@ def main():
                 check(f"GET /break-glass/{bid}/audit", r3 != '')
     except Exception as e:
         check("紧急访问 API", False, str(e)[:60])
-    
-    # Summary
+
+
+def _summary() -> None:
+    """Print the pass/fail summary and exit."""
     print(f"\n{'=' * 70}")
     print(f"  通过: {PASS}  失败: {FAIL}")
     print(f"{'=' * 70}")
     sys.exit(0 if FAIL == 0 else 1)
+
+
+def main():
+    token = login()
+    if not token:
+        print("❌ Failed to login")
+        sys.exit(1)
+    h = auth_headers(token)
+    
+    print("=" * 70)
+    print("  详情页后端 API 集成测试")
+    print("=" * 70)
+    print()
+    
+    _test_clients(h)
+    _test_users(h)
+    _test_tenants(h)
+    _test_connections(h)
+    _test_permissions(h)
+    _test_tokens(h)
+    _test_governance(h)
+    _test_webhooks(h)
+    _test_break_glass(h)
+    _summary()
 
 if __name__ == '__main__':
     main()

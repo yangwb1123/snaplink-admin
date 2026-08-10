@@ -117,6 +117,52 @@ class _SessionsTabState extends State<SessionsTab> {
     return confirmed == true;
   }
 
+  /// Renders the FutureBuilder result tree; keeps the loading/error/empty
+  /// branches out of the build() expression to limit control-flow depth.
+  Widget _buildSessionList(
+    BuildContext context,
+    AsyncSnapshot<PortalSessionsResult> snap,
+  ) {
+    if (snap.connectionState != ConnectionState.done) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (snap.hasError) {
+      return Center(
+        child: Text(
+          context.tr('Error: {error}', {'error': context.tr('${snap.error}')}),
+        ),
+      );
+    }
+    final result = snap.data;
+    final items = result?.sessions ?? const [];
+    if (items.isEmpty) {
+      return const Center(child: EmptyHint('No active sessions.'));
+    }
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        if (result?.usedLegacyEndpoint == true)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              context.tr(
+                'Device enrichment is not enabled; showing legacy session metadata.',
+              ),
+            ),
+          ),
+        ...items.indexed.expand(
+          (entry) =>
+              _sessionSections(
+                context,
+                entry.$2,
+                entry.$1 < items.length - 1,
+                _revoke,
+              ),
+        ),
+      ],
+    );
+  }
+
   Future<bool> _confirmBulkRevoke(bool preservesCurrentSession) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -173,15 +219,15 @@ class _SessionsTabState extends State<SessionsTab> {
               Text(
                 context.tr('Active sessions'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.3,
+                ),
               ),
+              const SizedBox(height: 4),
+              const LocalizedText(
+                'Browser and device sessions currently signed in with your account.',
+                style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
               ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Browser and device sessions currently signed in with your account.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
-        ),
               OverflowBar(
                 spacing: 4,
                 children: [
@@ -216,109 +262,7 @@ class _SessionsTabState extends State<SessionsTab> {
         Expanded(
           child: FutureBuilder<PortalSessionsResult>(
             future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snap.hasError) {
-                return Center(
-                  child: Text(
-                    context.tr('Error: {error}', {
-                      'error': context.tr('${snap.error}'),
-                    }),
-                  ),
-                );
-              }
-              final result = snap.data;
-              final items = result?.sessions ?? const [];
-              if (items.isEmpty) {
-                return const Center(child: EmptyHint('No active sessions.'));
-              }
-              return ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  if (result?.usedLegacyEndpoint == true)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        context.tr(
-                          'Device enrichment is not enabled; showing legacy session metadata.',
-                        ),
-                      ),
-                    ),
-                  for (var i = 0; i < items.length; i++) ...[
-                    Builder(
-                      builder: (context) {
-                        final s = items[i];
-                        final id = s['id']?.toString() ?? '';
-                        final metaParts = <String>[];
-                        if (s['created_at'] != null) {
-                          metaParts.add(
-                            context.tr('since {date}', {
-                              'date': _shortDate(s['created_at']),
-                            }),
-                          );
-                        }
-                        if (s['expires_at'] != null) {
-                          metaParts.add(
-                            context.tr('expires {date}', {
-                              'date': _shortDate(s['expires_at']),
-                            }),
-                          );
-                        }
-                        final devParts = <String>[];
-                        if (s['ip'] != null) {
-                          devParts.add(s['ip'].toString());
-                        }
-                        if (s['user_agent'] != null) {
-                          devParts.add(
-                            _deviceHint(context, s['user_agent'].toString()),
-                          );
-                        }
-                        if (s['device_name']?.toString().isNotEmpty == true) {
-                          devParts.add(s['device_name'].toString());
-                        }
-                        final posture = <String>[
-                          if (s['device_platform']?.toString().isNotEmpty ==
-                              true)
-                            s['device_platform'].toString(),
-                          if (s['device_browser']?.toString().isNotEmpty ==
-                              true)
-                            s['device_browser'].toString(),
-                          if (s['trust_label']?.toString().isNotEmpty == true)
-                            context.tr('trust {value}', {
-                              'value': s['trust_label'],
-                            }),
-                        ];
-                        return ListTile(
-                          title: Text(id),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (metaParts.isNotEmpty)
-                                Text(metaParts.join(' · ')),
-                              if (devParts.isNotEmpty)
-                                Text(devParts.join(' · ')),
-                              if (posture.isNotEmpty) Text(posture.join(' · ')),
-                            ],
-                          ),
-                          isThreeLine:
-                              metaParts.isNotEmpty && devParts.isNotEmpty,
-                          trailing: TextButton(
-                            onPressed: () => _revoke(id),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppColors.danger,
-                            ),
-                            child: Text(context.tr('Revoke')),
-                          ),
-                        );
-                      },
-                    ),
-                    if (i < items.length - 1) const Divider(height: 1),
-                  ],
-                ],
-              );
-            },
+            builder: (context, snap) => _buildSessionList(context, snap),
           ),
         ),
       ],
@@ -331,33 +275,95 @@ String _shortDate(Object? v) {
   return s.length < 10 ? s : s.substring(0, 10);
 }
 
+/// Renders one session entry plus its divider; keeps the per-item
+/// conditionals out of the ListView builder tree.
+List<Widget> _sessionSections(
+  BuildContext context,
+  dynamic s,
+  bool isLast,
+  Future<void> Function(String) onRevoke,
+) => [
+  _sessionTile(context, s, onRevoke),
+  if (!isLast) const Divider(height: 1),
+];
+
+/// Renders a single session row with its UA-derived meta lines.
+Widget _sessionTile(
+  BuildContext context,
+  dynamic s,
+  Future<void> Function(String) onRevoke,
+) {
+  final id = s['id']?.toString() ?? '';
+  final metaParts = <String>[];
+  if (s['created_at'] != null) {
+    metaParts.add(
+      context.tr('since {date}', {'date': _shortDate(s['created_at'])}),
+    );
+  }
+  if (s['expires_at'] != null) {
+    metaParts.add(
+      context.tr('expires {date}', {'date': _shortDate(s['expires_at'])}),
+    );
+  }
+  final devParts = <String>[];
+  if (s['ip'] != null) {
+    devParts.add(s['ip'].toString());
+  }
+  if (s['user_agent'] != null) {
+    devParts.add(_deviceHint(context, s['user_agent'].toString()));
+  }
+  if (s['device_name']?.toString().isNotEmpty == true) {
+    devParts.add(s['device_name'].toString());
+  }
+  final posture = <String>[
+    if (s['device_platform']?.toString().isNotEmpty == true)
+      s['device_platform'].toString(),
+    if (s['device_browser']?.toString().isNotEmpty == true)
+      s['device_browser'].toString(),
+    if (s['trust_label']?.toString().isNotEmpty == true)
+      context.tr('trust {value}', {'value': s['trust_label']}),
+  ];
+  return ListTile(
+    title: Text(id),
+    subtitle: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final part in [metaParts, devParts, posture])
+          if (part.isNotEmpty) Text(part.join(' · ')),
+      ],
+    ),
+    isThreeLine: metaParts.isNotEmpty && devParts.isNotEmpty,
+    trailing: TextButton(
+      onPressed: () => onRevoke(id),
+      style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+      child: Text(context.tr('Revoke')),
+    ),
+  );
+}
+
 /// Reduces a raw User-Agent to a friendly "Browser on OS" label, ported
 /// verbatim (same regexes/precedence) from app.js's deviceHint().
 String _deviceHint(BuildContext context, String ua) {
-  String browser = '';
-  if (ua.contains('Edg/')) {
-    browser = 'Edge';
-  } else if (ua.contains('Chrome/')) {
-    browser = 'Chrome';
-  } else if (ua.contains('Firefox/')) {
-    browser = 'Firefox';
-  } else if (ua.contains('Safari/')) {
-    browser = 'Safari';
-  }
-  String os = '';
-  if (ua.contains('Windows')) {
-    os = 'Windows';
-  } else if (ua.contains('Mac OS X') || ua.contains('Macintosh')) {
-    os = 'macOS';
-  } else if (ua.contains('Android')) {
-    os = 'Android';
-  } else if (ua.contains('iPhone') ||
-      ua.contains('iPad') ||
-      ua.contains('iOS')) {
-    os = 'iOS';
-  } else if (ua.contains('Linux')) {
-    os = 'Linux';
-  }
+  final browser = ua.contains('Edg/')
+      ? 'Edge'
+      : ua.contains('Chrome/')
+      ? 'Chrome'
+      : ua.contains('Firefox/')
+      ? 'Firefox'
+      : ua.contains('Safari/')
+      ? 'Safari'
+      : '';
+  final os = ua.contains('Windows')
+      ? 'Windows'
+      : ua.contains('Mac OS X') || ua.contains('Macintosh')
+      ? 'macOS'
+      : ua.contains('Android')
+      ? 'Android'
+      : ua.contains('iPhone') || ua.contains('iPad') || ua.contains('iOS')
+      ? 'iOS'
+      : ua.contains('Linux')
+      ? 'Linux'
+      : '';
   if (browser.isNotEmpty && os.isNotEmpty) {
     return context.tr('{browser} on {os}', {'browser': browser, 'os': os});
   }

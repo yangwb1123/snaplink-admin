@@ -1,4 +1,6 @@
+import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/app_settings.dart';
 
 /// Stable route identifiers for the admin navigation.
 ///
@@ -40,6 +42,38 @@ abstract final class AdminModuleId {
   static const governance = 'governance';
   static const auditLog = 'audit-log';
   static const health = 'health';
+}
+
+/// Navigation-surface allowlist for the admin rail.
+///
+/// `core` is the normal-mode surface (the pre-capabilities default);
+/// professional mode shows EVERY capability-enabled module (no allowlist).
+/// Keep in sync with the pre-capabilities `_visibleModules` default in
+/// dashboard_screen.dart.
+abstract final class AdminHotModules {
+  static const Set<String> core = <String>{
+    AdminModuleId.overview,
+    AdminModuleId.clients,
+    AdminModuleId.users,
+  };
+
+  /// Applies the navigation-mode surface to a capability-surviving module
+  /// list. Capability gating runs first in the dashboard, so this filter
+  /// can only ever REMOVE modules (normal mode); professional mode is the
+  /// identity — every capability-enabled module and its submenus are
+  /// shown. Pure and order-preserving; pinned by T8 in
+  /// test/admin_nav_mode_test.dart.
+  static List<String> visibleForMode(
+    List<String> capabilityVisible,
+    AdminNavMode mode,
+  ) {
+    if (mode == AdminNavMode.professional) {
+      return capabilityVisible;
+    }
+    return capabilityVisible
+        .where(core.contains)
+        .toList(growable: false);
+  }
 }
 
 /// Capability decisions used to include optional admin navigation entries.
@@ -143,6 +177,8 @@ class AdminNavigationCapabilities {
 
   bool get supportsConnections =>
       _hasAnyPathPrefix('/api/v1/admin/connections');
+
+  bool get supportsAuditLog => _has('GET', AuditReadClient.eventsPath);
 
   bool _has(String method, String path) => capabilities.has(method, path);
 

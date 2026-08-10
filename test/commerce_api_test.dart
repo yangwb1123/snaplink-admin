@@ -244,7 +244,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(body: CommerceTab(api: api)),
+        home: Scaffold(body: _tabWithProbe(api)),
       ),
     );
     await tester.pumpAndSettle();
@@ -293,6 +293,7 @@ void main() {
         home: Scaffold(
           body: CommerceTab(
             api: api,
+            probeClientBuilder: () => _probeClient(),
             checkoutOrigin: () => Uri.parse('https://console.example.test'),
             checkoutNavigator: (target) {
               navigated = target;
@@ -371,6 +372,7 @@ void main() {
         home: Scaffold(
           body: CommerceTab(
             api: api,
+            probeClientBuilder: () => _probeClient(),
             checkoutOrigin: () => Uri.parse('https://console.example.test'),
             checkoutNavigator: (_) => true,
           ),
@@ -433,6 +435,7 @@ void main() {
         home: Scaffold(
           body: CommerceTab(
             api: api,
+            probeClientBuilder: () => _probeClient(),
             checkoutOrigin: () => Uri.parse('https://console.example.test'),
             checkoutNavigator: (_) => true,
           ),
@@ -458,6 +461,8 @@ void main() {
     );
     expect(find.textContaining('database-internal'), findsNothing);
   });
+  _checkoutGatingGroup();
+  _checkoutProbeGroup();
 }
 
 void _largeView(WidgetTester tester) {
@@ -511,3 +516,138 @@ SnaplinkAdminApi _api(Future<http.Response> Function(http.Request) handler) =>
       accessToken: 'admin-token',
       httpClient: MockClient(handler),
     );
+
+/// P0-1 probe seam: the checkout probe answers 405 on the real adapter-
+/// mounted replica; tests inject this so the checkout affordance stays
+/// visible (and the probe never hits the 400 HttpOverrides stub).
+SnaplinkAdminApi _probeClient([int status = 405]) => SnaplinkAdminApi(
+  baseUrl: 'https://sso.example.test',
+  accessToken: 'admin-token',
+  httpClient: MockClient((_) async => http.Response('', status)),
+);
+
+CommerceTab _tabWithProbe(SnaplinkAdminApi api, {int probeStatus = 405}) =>
+    CommerceTab(
+      api: api,
+      probeClientBuilder: () => _probeClient(probeStatus),
+    );
+
+
+// ── P0-1 checkout affordance gating (api-gap analysis) ──
+
+void _checkoutGatingGroup() {
+  testWidgets('probe 404 hides Continue secure checkout (no dead-end button)',
+      (tester) async {
+    _largeView(tester);
+    final api = _api((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/admin/commerce/plans') {
+        return http.Response('{"plans":[]}', 200);
+      }
+      return _tenantCommerceResponse(
+        path,
+        orders: [
+          {
+            'id': 'order-one',
+            'status': 'pending',
+            'provider': 'stripe',
+            'amount_minor': 100,
+            'currency': 'USD',
+            'revision': 1,
+          },
+        ],
+      );
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommerceTab(
+            api: api,
+            probeClientBuilder: () => _probeClient(404),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'tenant-a');
+    await tester.tap(find.text('Load tenant commerce'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue secure checkout'), findsNothing,
+        reason: 'P0-1: a 404 probe must hide the checkout affordance '
+            'instead of leading into a dead-end 404 POST');
+  });
+
+  testWidgets('probe 405 keeps the checkout affordance (adapter mounted)',
+      (tester) async {
+    _largeView(tester);
+    final api = _api((request) async {
+      final path = request.url.path;
+      if (path == '/api/v1/admin/commerce/plans') {
+        return http.Response('{"plans":[]}', 200);
+      }
+      return _tenantCommerceResponse(
+        path,
+        orders: [
+          {
+            'id': 'order-one',
+            'status': 'pending',
+            'provider': 'stripe',
+            'amount_minor': 100,
+            'currency': 'USD',
+            'revision': 1,
+          },
+        ],
+      );
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CommerceTab(
+            api: api,
+            probeClientBuilder: () => _probeClient(405),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'tenant-a');
+    await tester.tap(find.text('Load tenant commerce'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Continue secure checkout'), findsOneWidget);
+  });
+}
+
+// ── P0-1 checkout-adapter probe (api-gap analysis) ──
+
+void _checkoutProbeGroup() {
+  group('checkoutProbeState classification (P0-1)', () {
+    SnaplinkAdminApiError err(int status) => SnaplinkAdminApiError(
+      status,
+      code: 'probe',
+    );
+
+    test('405 proves the adapter is mounted -> available', () {
+      expect(checkoutProbeState(err(405)), CheckoutProbeState.available);
+    });
+
+    test('404 proves the endpoint is not served -> unavailable', () {
+      expect(checkoutProbeState(err(404)), CheckoutProbeState.unavailable);
+    });
+
+    test('401/403/500/transport are degraded, never available', () {
+      expect(checkoutProbeState(err(401)), CheckoutProbeState.degraded);
+      expect(checkoutProbeState(err(403)), CheckoutProbeState.degraded);
+      expect(checkoutProbeState(err(500)), CheckoutProbeState.degraded);
+      expect(
+        checkoutProbeState(http.ClientException('down')),
+        CheckoutProbeState.degraded,
+      );
+    });
+
+    test('null error (successful probe) -> available', () {
+      expect(checkoutProbeState(null), CheckoutProbeState.available);
+    });
+  });
+}

@@ -59,6 +59,9 @@ class AppStrings {
   String get themeSystem => _t('theme_system');
   String get themeLight => _t('theme_light');
   String get themeDark => _t('theme_dark');
+  String get adminNavMode => _t('admin_nav_mode');
+  String get adminNavModeNormal => _t('admin_nav_mode_normal');
+  String get adminNavModeProfessional => _t('admin_nav_mode_professional');
   String get ssoBaseUrl => _t('sso_base_url');
   String get ssoBaseUrlHint => _t('sso_base_url_hint');
   String get save => _t('save');
@@ -294,6 +297,9 @@ class AppStrings {
       'theme_system': 'System',
       'theme_light': 'Light',
       'theme_dark': 'Dark',
+      'admin_nav_mode': 'Admin navigation mode',
+      'admin_nav_mode_normal': 'Standard',
+      'admin_nav_mode_professional': 'Professional',
       'sso_base_url': 'SSO base URL',
       'sso_base_url_hint':
           'Only used on native builds — web always uses the page origin.',
@@ -373,6 +379,9 @@ class AppStrings {
       'theme_system': '跟随系统',
       'theme_light': '浅色',
       'theme_dark': '深色',
+      'admin_nav_mode': '管理导航模式',
+      'admin_nav_mode_normal': '标准',
+      'admin_nav_mode_professional': '专业',
       'sso_base_url': 'SSO 服务地址',
       'sso_base_url_hint': '仅原生客户端需要——网页版始终使用当前页面的源。',
       'save': '保存',

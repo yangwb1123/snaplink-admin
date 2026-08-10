@@ -88,6 +88,10 @@ class OrganizationInvitationCards extends StatelessWidget {
     required this.onRevoke,
   });
 
+  void _onRoleChanged(String? value) {
+    if (value != null) onRoleChanged(value);
+  }
+
   @override
   Widget build(BuildContext context) => Column(
     children: [
@@ -114,11 +118,7 @@ class OrganizationInvitationCards extends StatelessWidget {
                   ),
                 )
                 .toList(growable: false),
-            onChanged: busy
-                ? null
-                : (value) {
-                    if (value != null) onRoleChanged(value);
-                  },
+            onChanged: busy ? null : _onRoleChanged,
           ),
           const SizedBox(height: 12),
           Align(

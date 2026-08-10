@@ -151,23 +151,25 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: [
-                    for (var i = 0; i < _tabs.length; i++)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: LocalizedText(_tabs[i].$2),
-                          selected: _tabIndex == i,
-                          onSelected: (_) => _selectTab(i, _tabs[i].$1),
-                        ),
-                      ),
-                  ],
+                  children: _tabChips(),
                 ),
               ),
               Expanded(child: _tabContent(context)),
             ],
           ),
   );
+
+  List<Widget> _tabChips() => [
+    for (var i = 0; i < _tabs.length; i++)
+      Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          label: LocalizedText(_tabs[i].$2),
+          selected: _tabIndex == i,
+          onSelected: (_) => _selectTab(i, _tabs[i].$1),
+        ),
+      ),
+  ];
 
   Widget _tabContent(BuildContext context) {
     if (_tabIndex == 0) return _rolesList(context);
@@ -180,31 +182,31 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
           ? [const Center(child: LocalizedText('No roles defined'))]
-          : items
-                .map(
-                  (r) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.shield),
-                      title: Text(
-                        r['code']?.toString() ?? r['name']?.toString() ?? '',
-                      ),
-                      subtitle: Text(r['description']?.toString() ?? ''),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (r['permissions'] != null)
-                            Chip(
-                              label: LocalizedText(
-                                '${(r['permissions'] as List?)?.length ?? 0} perms',
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
+          : items.map((r) => _roleCard(r)).toList(),
+    );
+  }
+
+  Widget _roleCard(Map<String, dynamic> r) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: const Icon(Icons.shield),
+        title: Text(
+          r['code']?.toString() ?? r['name']?.toString() ?? '',
+        ),
+        subtitle: Text(r['description']?.toString() ?? ''),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (r['permissions'] != null)
+              Chip(
+                label: LocalizedText(
+                  '${(r['permissions'] as List?)?.length ?? 0} perms',
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
