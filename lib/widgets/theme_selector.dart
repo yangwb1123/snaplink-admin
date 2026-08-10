@@ -71,6 +71,19 @@ class ThemeDropdown extends StatelessWidget {
         size: compact ? 18 : 20,
         color: currentColor,
       ),
+      // 箭头显式指定尺寸（默认 24px 在紧凑 18px 约束下会被压到不可见）。
+      trailingIcon: Icon(
+        headerDropdownArrowIcon,
+        size: compact
+            ? headerDropdownCompactArrowSize
+            : headerDropdownFormArrowSize,
+      ),
+      selectedTrailingIcon: Icon(
+        headerDropdownArrowUpIcon,
+        size: compact
+            ? headerDropdownCompactArrowSize
+            : headerDropdownFormArrowSize,
+      ),
       textStyle: textStyle,
       inputDecorationTheme:
           compact ? compactHeaderDecoration(theme) : formHeaderDecoration(theme),

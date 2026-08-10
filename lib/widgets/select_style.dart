@@ -23,6 +23,10 @@ MenuStyle appHeaderMenuStyle(ThemeData theme) => MenuStyle(
 
 /// 圆角选中态条目：当前值高亮（primaryContainer 圆角背景 + 主色边框 +
 /// 勾选徽标），其余项透明。`content` 由调用方提供（国旗/彩色图标 + 文本）。
+///
+/// 水平方向不加 padding：DropdownMenu 已把 labelWidget 起点与输入框内容
+/// 起点对齐（menu padding + MenuItemButton 12 + startGap 4 = 输入框
+/// contentPadding 16），再叠加水平 padding 会把菜单项文字推出对齐线。
 Widget appDropdownEntryContent({
   required bool selected,
   required Widget content,
@@ -30,7 +34,7 @@ Widget appDropdownEntryContent({
 }) {
   return AnimatedContainer(
     duration: const Duration(milliseconds: 120),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    padding: const EdgeInsets.symmetric(vertical: 8),
     decoration: BoxDecoration(
       color: selected
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
@@ -52,6 +56,19 @@ Widget appDropdownEntryContent({
     ),
   );
 }
+
+/// 与控件尺寸匹配的下拉箭头：DropdownMenu 默认箭头是 24px 的
+/// [Icons.arrow_drop_down]，在紧凑模式 18px 的 suffixIcon 约束下会被压成
+/// 不可见的 2x2；显式指定 size 与约束一致，保证可见且居中。
+IconData get headerDropdownArrowIcon => Icons.arrow_drop_down;
+IconData get headerDropdownArrowUpIcon => Icons.arrow_drop_up;
+
+/// compact 模式箭头尺寸（与 [compactHeaderDecoration] 的
+/// suffixIconConstraints 一致）。
+const headerDropdownCompactArrowSize = 18.0;
+
+/// form 模式箭头尺寸（InputDecorator 默认 suffix 区域，居中于输入框）。
+const headerDropdownFormArrowSize = 20.0;
 
 /// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
 /// 18px，否则 InputDecorator 的 icon 默认 48px 高会把控件撑高。

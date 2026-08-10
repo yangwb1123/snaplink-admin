@@ -248,4 +248,102 @@ void main() {
         reason: 'non-token spacing in header sources:\n'
             '${violations.join('\n')}');
   });
+
+  // 下拉箭头：显式尺寸与 suffix 约束一致（默认 24px 在紧凑 18px 约束下
+  // 会被压到不可见），IconButton 约束保证垂直居中。
+  testWidgets('dropdown arrows match their constraints and center', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              ThemeDropdown(compact: true),
+              SizedBox(height: 24),
+              LanguageDropdown(compact: true),
+              SizedBox(height: 24),
+              LanguageDropdown(), // form 模式（设置页）
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final size in [18.0, 18.0, 20.0]) {
+      final arrows = tester
+          .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
+          .where((icon) => icon.size == size);
+      expect(arrows, isNotEmpty, reason: 'arrow size $size must be present');
+    }
+    // compact 的 suffix 区域被约束为 18x18（垂直居中由 InputDecorator 保证）。
+    final compactIconButton = tester.widget<IconButton>(
+      find
+          .descendant(
+            of: find.byType(ThemeDropdown),
+            matching: find.byType(IconButton),
+          )
+          .first,
+    );
+    expect(
+      compactIconButton.constraints,
+      const BoxConstraints.tightFor(width: 18, height: 18),
+      reason: 'compact arrow must be pinned to an 18x18 centered region',
+    );
+  });
+
+  // 菜单项内部对齐：国旗、语言名、勾选徽标的垂直中心一致；各菜单项的
+  // 国旗起点一致（文字列对齐）。
+  testWidgets('menu items align flag, label and check on one center line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: Scaffold(body: LanguageDropdown(compact: true))),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DropdownMenu<Locale>));
+    await tester.pumpAndSettle();
+
+    final flags = tester
+        .renderObjectList<RenderBox>(find.text('🇬🇧').hitTestable())
+        .toList();
+    final labels = tester
+        .renderObjectList<RenderBox>(find.text('English').hitTestable())
+        .toList();
+    final checks = tester
+        .renderObjectList<RenderBox>(find.byIcon(Icons.check).hitTestable())
+        .toList();
+    expect(flags, isNotEmpty);
+    expect(labels, isNotEmpty);
+    expect(checks, isNotEmpty);
+
+    // 排除输入框内的同名元素（菜单打开时仍 hitTestable），只比较菜单项。
+    final fieldBottom =
+        tester.getRect(find.byType(DropdownMenu<Locale>)).bottom;
+    bool inMenu(RenderBox box) =>
+        box.localToGlobal(Offset.zero).dy >= fieldBottom - 1;
+
+    double centerY(RenderBox box) =>
+        box.localToGlobal(Offset.zero).dy + box.size.height / 2;
+    final menuFlags = flags.where(inMenu).toList();
+    final menuLabels = labels.where(inMenu).toList();
+    final menuChecks = checks.where(inMenu).toList();
+    expect(menuFlags.length, menuLabels.length,
+        reason: 'one flag per menu label');
+    for (var i = 0; i < menuFlags.length; i++) {
+      expect(centerY(menuFlags[i]), closeTo(centerY(menuLabels[i]), 1.5),
+          reason: 'flag and label must share a center line');
+      if (i < menuChecks.length) {
+        expect(centerY(menuChecks[i]), closeTo(centerY(menuLabels[i]), 1.5),
+            reason: 'check badge must share the center line');
+      }
+    }
+    // 国旗起点一致 → 语言名左缘对齐。
+    final flagLefts = menuFlags
+        .map((b) => b.localToGlobal(Offset.zero).dx)
+        .toSet();
+    expect(flagLefts.length, 1, reason: 'all flags start at the same x');
+  });
 }

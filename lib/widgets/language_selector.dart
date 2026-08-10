@@ -74,6 +74,19 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
           style: const TextStyle(fontSize: 16),
         ),
       ),
+      // 箭头显式指定尺寸（默认 24px 在紧凑 18px 约束下会被压到不可见）。
+      trailingIcon: Icon(
+        headerDropdownArrowIcon,
+        size: widget.compact
+            ? headerDropdownCompactArrowSize
+            : headerDropdownFormArrowSize,
+      ),
+      selectedTrailingIcon: Icon(
+        headerDropdownArrowUpIcon,
+        size: widget.compact
+            ? headerDropdownCompactArrowSize
+            : headerDropdownFormArrowSize,
+      ),
       textStyle: textStyle,
       inputDecorationTheme: widget.compact
           ? compactHeaderDecoration(theme)
