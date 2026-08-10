@@ -17,7 +17,7 @@ MenuStyle appHeaderMenuStyle(ThemeData theme) => MenuStyle(
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
   ),
   padding: const WidgetStatePropertyAll(
-    EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+    EdgeInsets.symmetric(vertical: 8, horizontal: 8),
   ),
 );
 
@@ -53,17 +53,26 @@ Widget appDropdownEntryContent({
   );
 }
 
-/// 登录头紧凑输入装饰（无边框、isCollapsed 压缩高度）。prefix/suffix
-/// 图标约束收紧到 18px，否则 InputDecorator 的 icon 默认 48px 高会把控件
-/// 撑高。
-const compactHeaderDecoration = InputDecorationTheme(
-  isDense: true,
-  isCollapsed: true,
-  border: InputBorder.none,
-  contentPadding: EdgeInsets.zero,
-  prefixIconConstraints: BoxConstraints.tightFor(width: 18, height: 18),
-  suffixIconConstraints: BoxConstraints.tightFor(width: 18, height: 18),
-);
+/// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
+/// 18px，否则 InputDecorator 的 icon 默认 48px 高会把控件撑高。
+///
+/// 触摸目标：字段高度 = 正文 16 + 上下 contentPadding 16×2 = 48px
+/// （Material 最小交互尺寸），与旁边 48px 的设置 IconButton 对齐。
+/// 键盘焦点：enabled 态无边框，聚焦时绘制 primary 圆角描边
+/// （WCAG 2.4.7 Focus Visible）。
+InputDecorationTheme compactHeaderDecoration(ThemeData theme) =>
+    InputDecorationTheme(
+      isDense: true,
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      prefixIconConstraints: const BoxConstraints.tightFor(width: 18, height: 18),
+      suffixIconConstraints: const BoxConstraints.tightFor(width: 18, height: 18),
+    );
 
 /// 设置页表单输入装饰（圆角边框，与设置页其他控件一致）。
 InputDecorationTheme formHeaderDecoration(ThemeData theme) =>
@@ -94,8 +103,9 @@ double appHeaderDropdownWidth({
   )..layout();
   // 菜单项超出文字部分：勾选徽标 22 + MenuItemButton 水平 padding 28 +
   // 菜单容器 padding 16 = 66，另加下拉箭头 18 与输入/菜单间隙 8（合计
-  // 92）；再留 20 保险（字体回退/emoji 宽度波动，Ahem 等宽测试字体下
-  // 菜单项仍不溢出）。form 模式另有输入框水平 padding 24。
+  // 92）；再留 22 保险（字体回退/emoji 宽度波动，Ahem 等宽测试字体下
+  // 菜单项仍不溢出）：92 + 22 = 114。form 模式另有输入框水平 padding 24
+  // → 114 + 24 = 138。
   final chrome = compact ? 114.0 : 138.0;
   return painter.width + leadingWidth + chrome;
 }

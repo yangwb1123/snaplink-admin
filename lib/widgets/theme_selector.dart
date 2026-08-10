@@ -8,20 +8,45 @@ import 'select_style.dart';
 class ThemeDropdown extends StatelessWidget {
   final bool compact;
 
-  const ThemeDropdown({super.key, this.compact = false});
+  /// 是否可交互（登录请求进行中时由登录头禁用，避免与加载态不一致）。
+  final bool enabled;
 
-  static const _modeStyles = <ThemeMode, (IconData, Color)>{
-    ThemeMode.system: (Icons.brightness_auto, Color(0xFF7C6FF0)),
-    ThemeMode.light: (Icons.light_mode, Color(0xFFF59E0B)),
-    ThemeMode.dark: (Icons.dark_mode, Color(0xFF4F46E5)),
+  const ThemeDropdown({super.key, this.compact = false, this.enabled = true});
+
+  /// 主题模式图标（品牌强调色，刻意不随 colorScheme 派生）。
+  static const _modeIcons = <ThemeMode, IconData>{
+    ThemeMode.system: Icons.brightness_auto,
+    ThemeMode.light: Icons.light_mode,
+    ThemeMode.dark: Icons.dark_mode,
   };
+
+  /// 浅色界面上的图标色：system indigo 淡紫 / light amber-700（提深保证
+  /// 对浅色菜单卡片 ≥3:1）/ dark indigo-600。
+  static const _modeAccents = <ThemeMode, Color>{
+    ThemeMode.system: Color(0xFF7C6FF0),
+    ThemeMode.light: Color(0xFFB45309),
+    ThemeMode.dark: Color(0xFF4F46E5),
+  };
+
+  /// 深色界面上的提亮变体：light 保持 amber-500，dark 提亮到 indigo-400，
+  /// 保证对 M3 深色 surfaceContainerHigh ≥3:1（浅色变体仅 ~2.3:1）。
+  static const _darkBrightnessAccents = <ThemeMode, Color>{
+    ThemeMode.light: Color(0xFFF59E0B),
+    ThemeMode.dark: Color(0xFF818CF8),
+  };
+
+  /// 当前界面亮度下的主题模式图标色。
+  static Color themeModeAccentColor(ThemeMode mode, Brightness brightness) =>
+      brightness == Brightness.dark
+          ? (_darkBrightnessAccents[mode] ?? _modeAccents[mode]!)
+          : _modeAccents[mode]!;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
     final current = AppSettings.instance.themeMode;
-    final (currentIcon, currentColor) = _modeStyles[current]!;
+    final currentColor = themeModeAccentColor(current, theme.brightness);
     final labels = [strings.themeSystem, strings.themeLight, strings.themeDark];
     final textStyle = compact
         ? theme.textTheme.bodySmall
@@ -30,6 +55,7 @@ class ThemeDropdown extends StatelessWidget {
       key: ValueKey('theme-${current.name}'),
       controller: null,
       initialSelection: current,
+      enabled: enabled,
       requestFocusOnTap: false,
       enableFilter: false,
       // 宽度贴合最长菜单项文字（无界布局下 intrinsic 计算不可靠）。
@@ -37,17 +63,17 @@ class ThemeDropdown extends StatelessWidget {
         context: context,
         labels: labels,
         textStyle: textStyle!,
-        leadingWidth: 28, // 彩色图标 18 + 间距 10
+        leadingWidth: 26, // 彩色图标 18 + 间距 8
         compact: compact,
       ),
       leadingIcon: Icon(
-        currentIcon,
+        _modeIcons[current]!,
         size: compact ? 18 : 20,
         color: currentColor,
       ),
       textStyle: textStyle,
       inputDecorationTheme:
-          compact ? compactHeaderDecoration : formHeaderDecoration(theme),
+          compact ? compactHeaderDecoration(theme) : formHeaderDecoration(theme),
       menuStyle: appHeaderMenuStyle(theme),
       dropdownMenuEntries: [
         for (final mode in ThemeMode.values)
@@ -64,8 +90,12 @@ class ThemeDropdown extends StatelessWidget {
               content: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(_modeStyles[mode]!.$1, size: 18, color: _modeStyles[mode]!.$2),
-                  const SizedBox(width: 10),
+                  Icon(
+                    _modeIcons[mode]!,
+                    size: 18,
+                    color: themeModeAccentColor(mode, theme.brightness),
+                  ),
+                  const SizedBox(width: 8),
                   Text(
                     switch (mode) {
                       ThemeMode.system => strings.themeSystem,

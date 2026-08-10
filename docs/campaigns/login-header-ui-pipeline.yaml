@@ -1,0 +1,138 @@
+# snaplink-console 登录头界面优化管线
+#
+# 场景：/login 登录框头部（主题选择靠左、语言选择靠右）刚完成 DropdownMenu
+# 重构（国旗/彩色图标/圆角菜单/自适应宽度）。本管线做一次独立的 UI 审查、
+# 修复、对抗审查与裁决闭环，目标是把视觉细节打磨到与系统风格一致。
+#
+# 改动白名单（禁止触碰其他文件）：
+#   lib/screens/oidc_login/oidc_login_view_flow.dart
+#   lib/widgets/language_selector.dart
+#   lib/widgets/theme_selector.dart
+#   lib/widgets/select_style.dart
+#   lib/services/language_catalog.dart
+#   test/language_selector_test.dart
+#   test/theme_selector_test.dart
+#   test/login_header_layout_test.dart
+#   test/language_catalog_test.dart
+#   lib/i18n/app_strings_source_*.dart（仅新增 EN/ZH key 时）
+#
+# 运行（项目根；{cwd}=项目根，{tool_root}=ai-batch-runner 根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/login-header-ui-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/login-header-ui.log
+git_commit: false
+decision_log: docs/ui/login-header/DECISIONS.md
+archive_dir: docs/ui/login-header/archive
+
+stages:
+  # ── 1. 独立 UI 审查：先取证，不改代码 ──
+  - name: audit
+    from_prompt: |
+      You are the senior UI reviewer for the snaplink-console hosted login
+      header. Audit the login card header — the theme selector (left) and
+      language selector (right) — WITHOUT modifying any code.
+
+      Files in scope:
+      - lib/screens/oidc_login/oidc_login_view_flow.dart (header Wrap,
+        _HoverTint, layout around lines 50-130)
+      - lib/widgets/language_selector.dart (LanguageDropdown)
+      - lib/widgets/theme_selector.dart (ThemeDropdown)
+      - lib/widgets/select_style.dart (shared menu/entry styles,
+        appHeaderDropdownWidth)
+      - lib/services/language_catalog.dart (labels/flag mapping)
+
+      Verify every claim against the actual code before reporting:
+      1. Alignment: theme left / language right; equal optical baselines;
+         hover tint padding consistent between the two controls.
+      2. Spacing: values follow the 4/8/12/16/20/24/32/40/48/64 token set;
+         no magic numbers (SizedBox(3), padding 6, gap 10 where a token
+         exists).
+      3. Menu consistency: both DropdownMenus share select_style (rounded
+         12 card, selected highlight, check badge); menu always opens
+         downward; widths size to content.
+      4. States: hover, open, selected, disabled (loading); narrow
+         viewport wrap behavior (Wrap) keeps both selectors usable.
+      5. Accessibility: flag emoji get an accessible label (do not rely on
+         emoji alone); tooltips/semantics for icon-only controls; keyboard
+         focus visible.
+      6. Theme integration: colors come from ThemeData/colorScheme (no
+         hardcoded colors except deliberate brand accents); dark mode
+         contrast for menu card, selected highlight, flag emoji.
+      7. i18n: all visible copy goes through AppStrings/LocalizedText or
+         languageOptionLabel; the i18n coverage gate blocks raw Text
+         literals.
+      8. Behavior preservation: no changes to AppSettings semantics,
+         backend languages list consumption, or test contracts.
+
+      Output a prioritized findings report (severity, file/symbol,
+      evidence, concrete fix suggestion, test that would catch it).
+      Mark each finding as machine-verifiable or review-verifiable.
+    output: docs/ui/login-header/audit.md
+
+  # ── 2. 修复：按审查报告实施，门禁闭环 ──
+  - name: fix
+    from_outputs: audit
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/login-header-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_selector_test.dart test/login_header_layout_test.dart test/language_catalog_test.dart 2>&1 | tee /tmp/login-header-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          Fix the login-header UI findings from the audit. STRICT RULES:
+          - ONLY touch the whitelisted files (login header, the two
+            selector widgets, select_style, language_catalog, their tests,
+            i18n catalogs). Any other file is off-limits.
+          - Preserve behavior: AppSettings semantics, backend-driven
+            language options, downward-opening menus, text-sized widths,
+            narrow-viewport wrap, existing test contracts.
+          - Spacing: use the 4/8/12/16/20/24/32/40/48/64 token set only.
+          - Colors: prefer ThemeData/colorScheme; keep deliberate brand
+            accents (theme mode icons) as named constants.
+          - Accessibility: flag emoji must carry a text label (e.g.
+            semantics or adjacent label); keyboard focus visible.
+          - i18n: any new copy needs EN + ZH keys in the i18n catalogs
+            (raw Text literals fail the coverage gate).
+          - NEVER run git commands; do not commit.
+          - Add/adjust focused widget tests for every behavior change.
+          Run `flutter analyze` (0 errors) and the affected tests until
+          green. Return a change report: files/symbols changed, findings
+          fixed (map to audit item numbers), command results, and any
+          deviation.
+          {input_content}
+        output: docs/ui/login-header/changes.md
+        timeout: 1800
+
+  # ── 3. 对抗审查：ui/visual 审查角色现场复核 ──
+  - name: review
+    from_outputs: fix
+    meta: true
+    meta_timeout: 1500
+    role_dir: prompts
+    output_dir: docs/ui/login-header/reviews
+    max_iterations: 2
+    mode: serial
+
+  # ── 4. 裁决门：VERDICT 确认闭环 ──
+  - name: acceptance
+    from_outputs:
+      - audit
+      - fix
+      - review
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Independently verify the login-header UI work against the audit
+          findings and review deliverables using repository evidence:
+          - every audit finding is fixed or explicitly rejected with
+            reason (map by item number);
+          - no off-whitelist file was modified (check git status for the
+            whitelist);
+          - spacing tokens, theme colors, i18n keys, accessibility
+            requirements hold;
+          - behavior preserved (AppSettings semantics, backend language
+            list, downward menus, text-sized width, narrow wrap);
+          - flutter analyze 0 errors and the four affected test files
+            pass.
+          Final line MUST be:
+          VERDICT: PASS - <why the header now conforms>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/login-header/acceptance.md

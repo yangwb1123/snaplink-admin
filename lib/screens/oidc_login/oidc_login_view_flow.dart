@@ -65,8 +65,8 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      _HoverTint(child: ThemeDropdown(compact: true)),
-                      _HoverTint(child: LanguageDropdown(compact: true)),
+                      _HoverTint(child: ThemeDropdown(compact: true, enabled: !_loading)),
+                      _HoverTint(child: LanguageDropdown(compact: true, enabled: !_loading)),
                       if (!kIsWeb)
                         IconButton(
                           onPressed: _loading ? null : _openNativeSettings,
@@ -348,7 +348,8 @@ class _GlowOrb extends StatelessWidget {
   );
 }
 
-/// 悬停底色：一次性 ≤150ms 颜色过渡，禁止连续动画。
+/// 悬停/键盘焦点底色：一次性 ≤150ms 颜色过渡，禁止连续动画。焦点态（如
+/// Tab 到下拉箭头）与悬停态共用同一底色，保证键盘用户有可见反馈。
 class _HoverTint extends StatefulWidget {
   final Widget child;
 
@@ -360,23 +361,31 @@ class _HoverTint extends StatefulWidget {
 
 class _HoverTintState extends State<_HoverTint> {
   bool _hovered = false;
+  bool _focused = false;
+
+  bool get _active => _hovered || _focused;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: _hovered
-              ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+    return Focus(
+      // 仅观察子级焦点（下拉箭头按钮），自身不参与 Tab 遍历。
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: _active
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: widget.child,
         ),
-        child: widget.child,
       ),
     );
   }

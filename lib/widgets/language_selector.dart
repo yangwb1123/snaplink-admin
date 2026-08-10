@@ -13,7 +13,10 @@ class LanguageDropdown extends StatefulWidget {
   /// 登录头紧凑样式（无边框、小字号）；false 为设置页表单样式。
   final bool compact;
 
-  const LanguageDropdown({super.key, this.compact = false});
+  /// 是否可交互（登录请求进行中时由登录头禁用，避免与加载态不一致）。
+  final bool enabled;
+
+  const LanguageDropdown({super.key, this.compact = false, this.enabled = true});
 
   @override
   State<LanguageDropdown> createState() => _LanguageDropdownState();
@@ -52,6 +55,7 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
       key: ValueKey('language-${current.languageCode}'),
       controller: _controller,
       initialSelection: current,
+      enabled: widget.enabled,
       requestFocusOnTap: false,
       enableFilter: false,
       // 宽度贴合最长菜单项文字（无界布局下 intrinsic 计算不可靠）。
@@ -59,16 +63,21 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
         context: context,
         labels: [for (final locale in options) languageOptionLabel(locale)],
         textStyle: textStyle!,
-        leadingWidth: 26, // 国旗 16 + 间距 10
+        leadingWidth: 24, // 国旗 16 + 间距 8
         compact: widget.compact,
       ),
-      leadingIcon: Text(
-        flagEmojiForLocale(current),
-        style: const TextStyle(fontSize: 16),
+      // 收起态前导国旗仅装饰：字段值（如 "English"）已由输入框朗读，
+      // 这里把 emoji 排除出语义树，避免屏幕阅读器朗读原始表情符号。
+      leadingIcon: ExcludeSemantics(
+        child: Text(
+          flagEmojiForLocale(current),
+          style: const TextStyle(fontSize: 16),
+        ),
       ),
       textStyle: textStyle,
-      inputDecorationTheme:
-          widget.compact ? compactHeaderDecoration : formHeaderDecoration(theme),
+      inputDecorationTheme: widget.compact
+          ? compactHeaderDecoration(theme)
+          : formHeaderDecoration(theme),
       menuStyle: appHeaderMenuStyle(theme),
       dropdownMenuEntries: [
         for (final locale in options)
@@ -78,16 +87,22 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
             labelWidget: appDropdownEntryContent(
               selected: locale.languageCode == current.languageCode,
               theme: theme,
-              content: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    flagEmojiForLocale(locale),
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(languageOptionLabel(locale)),
-                ],
+              content: Semantics(
+                // 菜单项：国旗与文字合并为一个带文本标签的语义节点
+                // （languageOptionLabel），原始 emoji 不进语义树。
+                label: languageOptionLabel(locale),
+                excludeSemantics: true,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      flagEmojiForLocale(locale),
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(languageOptionLabel(locale)),
+                  ],
+                ),
               ),
             ),
           ),
