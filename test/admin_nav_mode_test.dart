@@ -350,12 +350,16 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Admin navigation mode'), findsOneWidget);
-      expect(find.text('Standard'), findsOneWidget);
+      // 模式选择器现在是 Switch：关闭 = 标准，开启 = 专业。
       expect(find.text('Professional'), findsOneWidget);
+      final toggle = find.byType(Switch);
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<Switch>(toggle).value, isFalse);
 
-      await tester.tap(find.text('Professional'));
+      await tester.tap(toggle);
       await tester.pump();
       expect(AppSettings.instance.adminNavMode, AdminNavMode.professional);
+      expect(tester.widget<Switch>(toggle).value, isTrue);
       await tester.pumpWidget(const SizedBox());
     });
 
