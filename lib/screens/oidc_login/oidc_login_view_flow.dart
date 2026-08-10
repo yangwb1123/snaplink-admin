@@ -4,7 +4,6 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   Widget _buildShell(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
-    final strings = AppStrings.of(context);
     return Scaffold(
       // 品牌化背景：柔和的品牌色渐变（产品感），深色/浅色各自适配。
       body: DecoratedBox(
@@ -49,65 +48,25 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             // 装饰性背景场景（orbit/shield/nodes）——纯装饰，不拦截、无语义。
             Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
             ResponsiveEntryCard(
+              // 登录头需要容纳主题 + 语言两个自适应下拉并排，默认 440 过窄。
+              maxWidth: 520,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
+                  // 主题选择靠左、语言选择靠右（spaceBetween 分隔）；两者都是
+                  // DropdownMenu：菜单统一向下弹出、圆角卡片、宽度贴合文字。
+                  // Wrap 而非 Row：窄屏（手机）放不下时语言选择换行右对齐，
+                  // 不会溢出。
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    runAlignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
-                      Flexible(
-                        child: _HeaderDropdown<ThemeMode>(
-                          icon: Icons.palette_outlined,
-                          value: AppSettings.instance.themeMode,
-                          items: [
-                            for (final (mode, icon, label) in [
-                              (
-                                ThemeMode.system,
-                                Icons.brightness_auto,
-                                strings.themeSystem,
-                              ),
-                              (
-                                ThemeMode.light,
-                                Icons.light_mode,
-                                strings.themeLight,
-                              ),
-                              (
-                                ThemeMode.dark,
-                                Icons.dark_mode,
-                                strings.themeDark,
-                              ),
-                            ])
-                              DropdownMenuItem(
-                                value: mode,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(icon, size: 16),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        label,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          onChanged: (mode) {
-                            if (mode != null) {
-                              AppSettings.instance.themeMode = mode;
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: _HoverTint(
-                          child: LanguageDropdown(compact: true),
-                        ),
-                      ),
-                      const Spacer(),
+                      _HoverTint(child: ThemeDropdown(compact: true)),
+                      _HoverTint(child: LanguageDropdown(compact: true)),
                       if (!kIsWeb)
                         IconButton(
                           onPressed: _loading ? null : _openNativeSettings,
@@ -387,48 +346,6 @@ class _GlowOrb extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// 登录头下拉：图标 + 紧凑 DropdownButton（underline none、isDense、
-/// 文本 ellipsis），hover 一次性 ≤150ms 底色过渡（无连续动画）。
-class _HeaderDropdown<T> extends StatelessWidget {
-  final IconData icon;
-  final T value;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  const _HeaderDropdown({
-    required this.icon,
-    required this.value,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return _HoverTint(
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          Expanded(
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<T>(
-                value: value,
-                isDense: true,
-                isExpanded: true,
-                underline: const SizedBox.shrink(),
-                items: items,
-                onChanged: onChanged,
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// 悬停底色：一次性 ≤150ms 颜色过渡，禁止连续动画。

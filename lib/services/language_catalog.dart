@@ -66,6 +66,44 @@ String languageOptionLabel(Locale locale) {
 /// 校验单个 BCP-47 标签是否可解析（品牌表单的 languages 输入校验用）。
 bool isValidLanguageTag(String tag) => _parseBcp47(tag.trim()) != null;
 
+/// 语言的国旗 emoji。优先按 region 段（ISO 3166 → regional indicator
+/// 字符对，如 pt-BR → 🇧🇷）；无 region 时用语言映射表（en → 🇬🇧、
+/// zh → 🇨🇳 等）；未知语言回退 🌐。
+String flagEmojiForLocale(Locale locale) {
+  const byLanguage = <String, String>{
+    'en': '🇬🇧',
+    'zh': '🇨🇳',
+    'ja': '🇯🇵',
+    'ko': '🇰🇷',
+    'fr': '🇫🇷',
+    'de': '🇩🇪',
+    'es': '🇪🇸',
+    'pt': '🇵🇹',
+    'it': '🇮🇹',
+    'ru': '🇷🇺',
+    'ar': '🇸🇦',
+    'hi': '🇮🇳',
+    'nl': '🇳🇱',
+    'pl': '🇵🇱',
+    'tr': '🇹🇷',
+    'vi': '🇻🇳',
+    'th': '🇹🇭',
+    'id': '🇮🇩',
+    'sv': '🇸🇪',
+    'cs': '🇨🇿',
+  };
+  final region = locale.countryCode;
+  if (region != null &&
+      region.length == 2 &&
+      RegExp(r'^[A-Za-z]{2}$').hasMatch(region)) {
+    final upper = region.toUpperCase();
+    return String.fromCharCodes([
+      for (final code in upper.codeUnits) 0x1F1E6 + (code - 0x41),
+    ]);
+  }
+  return byLanguage[locale.languageCode] ?? '🌐';
+}
+
 /// 宽松 BCP-47 解析：`en`、`zh-Hans-CN`、`pt-BR` 等；第二段为 4 位字母时
 /// 视为 script，2 位字母/3 位数字时视为 region。语言代码段必须是 2-8 位
 /// 字母。

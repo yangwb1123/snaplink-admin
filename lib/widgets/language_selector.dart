@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../services/language_catalog.dart';
+import 'select_style.dart';
 
-/// 语言下拉选择器（登录头紧凑版 / 设置页表单版共用）。
+/// 语言下拉选择器（登录头右侧 / 设置页共用）。
 ///
-/// 用 Material 3 [DropdownMenu] 取代 [DropdownButton]：DropdownButton 的
-/// 弹出菜单会把**选中项垂直对齐到按钮位置**（dropdown.dart 的
-/// `getMenuLimits`），导致顶部（登录头）的菜单向上弹出、页面中部的菜单
-/// 向下弹出；DropdownMenu 的菜单固定从控件下方展开，两个入口弹出方向
-/// 一致。菜单样式统一：圆角卡片、surface 背景、勾选高亮当前语言。
+/// 基于 Material 3 [DropdownMenu]：菜单固定从控件下方弹出（不再有
+/// DropdownButton 的"选中项对齐按钮"导致的上下不一致）。菜单为圆角
+/// surface 卡片，条目带圆角选中高亮与国旗图标，宽度随最宽菜单项自适应，
+/// 与主题下拉（[ThemeDropdown]）共用 [appHeaderMenuStyle]。
 class LanguageDropdown extends StatefulWidget {
-  /// 登录头紧凑样式（无边框、小字号、固定菜单宽度）。
+  /// 登录头紧凑样式（无边框、小字号）；false 为设置页表单样式。
   final bool compact;
 
   const LanguageDropdown({super.key, this.compact = false});
@@ -44,6 +44,9 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
       AppSettings.instance.languageOptions,
       current,
     );
+    final textStyle = widget.compact
+        ? theme.textTheme.bodySmall
+        : theme.textTheme.bodyMedium;
     return DropdownMenu<Locale>(
       // locale 变化时重建，initialSelection 与勾选态跟随当前语言。
       key: ValueKey('language-${current.languageCode}'),
@@ -51,56 +54,42 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
       initialSelection: current,
       requestFocusOnTap: false,
       enableFilter: false,
-      expandedInsets: EdgeInsets.zero,
-      width: widget.compact ? 190 : null,
-      leadingIcon: Icon(
-        Icons.translate,
-        size: widget.compact ? 18 : 20,
-        color: theme.colorScheme.onSurfaceVariant,
+      // 宽度贴合最长菜单项文字（无界布局下 intrinsic 计算不可靠）。
+      width: appHeaderDropdownWidth(
+        context: context,
+        labels: [for (final locale in options) languageOptionLabel(locale)],
+        textStyle: textStyle!,
+        leadingWidth: 26, // 国旗 16 + 间距 10
+        compact: widget.compact,
       ),
-      textStyle: widget.compact
-          ? theme.textTheme.bodySmall
-          : theme.textTheme.bodyMedium,
-      inputDecorationTheme: widget.compact
-          ? const InputDecorationTheme(
-              isDense: true,
-              // isCollapsed 去掉 TextField 的最小交互高度：登录头空间紧凑，
-              // 默认高度会把登录卡片撑高、小视口下按钮被推出屏幕。
-              isCollapsed: true,
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-            )
-          : InputDecorationTheme(
-              isDense: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            ),
-      menuStyle: MenuStyle(
-        elevation: const WidgetStatePropertyAll(3),
-        backgroundColor: WidgetStatePropertyAll(
-          theme.colorScheme.surfaceContainerHigh,
-        ),
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        padding: const WidgetStatePropertyAll(
-          EdgeInsets.symmetric(vertical: 6),
-        ),
+      leadingIcon: Text(
+        flagEmojiForLocale(current),
+        style: const TextStyle(fontSize: 16),
       ),
+      textStyle: textStyle,
+      inputDecorationTheme:
+          widget.compact ? compactHeaderDecoration : formHeaderDecoration(theme),
+      menuStyle: appHeaderMenuStyle(theme),
       dropdownMenuEntries: [
         for (final locale in options)
           DropdownMenuEntry<Locale>(
             value: locale,
             label: languageOptionLabel(locale),
-            leadingIcon: locale.languageCode == current.languageCode
-                ? Icon(
-                    Icons.check,
-                    size: 18,
-                    color: theme.colorScheme.primary,
-                  )
-                : const SizedBox(width: 18),
+            labelWidget: appDropdownEntryContent(
+              selected: locale.languageCode == current.languageCode,
+              theme: theme,
+              content: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    flagEmojiForLocale(locale),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(languageOptionLabel(locale)),
+                ],
+              ),
+            ),
           ),
       ],
       onSelected: (locale) {

@@ -87,4 +87,32 @@ void main() {
       expect(isValidLanguageTag('a'), isFalse);
     });
   });
+
+  group('flagEmojiForLocale', () {
+    test('maps regions to regional-indicator flags', () {
+      expect(flagEmojiForLocale(const Locale.fromSubtags(
+        languageCode: 'pt',
+        countryCode: 'BR',
+      )), '🇧🇷');
+      expect(flagEmojiForLocale(const Locale.fromSubtags(
+        languageCode: 'en',
+        countryCode: 'US',
+      )), '🇺🇸');
+      expect(flagEmojiForLocale(const Locale.fromSubtags(
+        languageCode: 'zh',
+        countryCode: 'TW',
+      )), '🇹🇼');
+    });
+
+    test('maps bare language codes from the table', () {
+      expect(flagEmojiForLocale(const Locale('en')), '🇬🇧');
+      expect(flagEmojiForLocale(const Locale('zh')), '🇨🇳');
+      expect(flagEmojiForLocale(const Locale('ja')), '🇯🇵');
+      expect(flagEmojiForLocale(const Locale('ko')), '🇰🇷');
+    });
+
+    test('falls back to a globe for unknown languages', () {
+      expect(flagEmojiForLocale(const Locale('xx')), '🌐');
+    });
+  });
 }

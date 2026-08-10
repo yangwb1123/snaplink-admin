@@ -23,10 +23,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// 菜单项（MenuItemButton 内的文本），输入框中的同名文本不计入。
+  /// 打开的菜单项（MenuItemButton 内的文本）。DropdownMenu 为宽度计算会
+  /// 额外渲染一份菜单项副本（不可点击），因此必须限定 hitTestable。
   Finder menuItem(String label) => find.descendant(
-    of: find.byType(MenuItemButton),
+    of: find.byType(MenuItemButton).hitTestable(),
     matching: find.text(label),
+  );
+
+  Finder menuCheckIcon() => find.descendant(
+    of: find.byType(MenuItemButton).hitTestable(),
+    matching: find.byIcon(Icons.check),
   );
 
   testWidgets(
@@ -119,19 +125,16 @@ void main() {
 
     await openMenu(tester, find.byType(DropdownMenu<Locale>));
     // 当前语言带勾选。
-    expect(
-      find.descendant(of: find.byType(MenuItemButton), matching: find.byIcon(Icons.check)),
-      findsOneWidget,
-    );
+    expect(menuCheckIcon(), findsOneWidget);
     await tester.tap(menuItem('中文'));
     await tester.pumpAndSettle();
 
     expect(AppSettings.instance.locale.languageCode, 'zh');
-    // 输入框文本跟随。
-    expect(
-      find.descendant(of: find.byType(DropdownMenu<Locale>), matching: find.text('中文')),
-      findsOneWidget,
+    // 输入框文本跟随（EditableText 只匹配输入框，避开宽度测量副本）。
+    final input = tester.widget<EditableText>(
+      find.byType(EditableText).hitTestable().first,
     );
+    expect(input.controller?.text, '中文');
   });
 
   testWidgets('default options render when no backend list was loaded', (
