@@ -51,9 +51,16 @@ AuthorizationDelivery? resolveAuthorizationDelivery({
   }
 
   final redirectUri = Uri.tryParse(redirectValue);
-  if (redirectUri == null || !isSafeAuthorizationRedirectUri(redirectUri)) {
-    return null;
-  }
+  if (redirectUri == null) return null;
+  // Server-attested targets (redirect_uri_validated: true) have already
+  // passed the server's DCR allowlist; accept plain-HTTP hosts (private
+  // deployments) in that case. Unattested targets keep the strict local
+  // policy so an attacker-controlled login URL cannot become an open
+  // redirect. Dangerous schemes are rejected in both cases.
+  final safe = validated
+      ? _isServerAttestedTarget(redirectUri)
+      : isSafeAuthorizationRedirectUri(redirectUri);
+  if (!safe) return null;
   final effectiveMode = responseMode.isEmpty
       ? (tokenResponse ? 'fragment' : 'query')
       : responseMode;
@@ -75,3 +82,29 @@ AuthorizationDelivery? resolveAuthorizationDelivery({
 }
 
 bool _isTrue(Object? value) => value == true || value?.toString() == 'true';
+
+/// Accepts a redirect target the server explicitly attested via
+/// `redirect_uri_validated: true`. The server already checked the client's
+/// registered redirect URIs, so plain-HTTP hosts (intranet deployments) are
+/// allowed. Fragments, embedded credentials, relative URLs, and executable /
+/// browser-local schemes remain rejected. Native schemes fall back to the
+/// shared safe-URI policy.
+bool _isServerAttestedTarget(Uri uri) {
+  if (!uri.isAbsolute ||
+      uri.userInfo.isNotEmpty ||
+      uri.fragment.isNotEmpty ||
+      const {
+        'about',
+        'blob',
+        'data',
+        'file',
+        'javascript',
+        'vbscript',
+      }.contains(uri.scheme.toLowerCase())) {
+    return false;
+  }
+  if (uri.scheme != 'http' && uri.scheme != 'https') {
+    return isSafeAuthorizationRedirectUri(uri);
+  }
+  return uri.host.isNotEmpty;
+}

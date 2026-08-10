@@ -134,6 +134,44 @@ void main() {
     }
   });
 
+  test('server attestation accepts plain-HTTP intranet redirect targets', () {
+    final delivery = resolveAuthorizationDelivery(
+      request: _request(
+        'client_id=rp&response_type=code&'
+        'redirect_uri=http%3A%2F%2F192.168.123.52%3A13014%2Fapi%2Fauth%2Fcallback',
+      ),
+      response: const {
+        'code': 'code',
+        'redirect_uri': 'http://192.168.123.52:13014/api/auth/callback',
+        'response_mode': 'query',
+        'redirect_uri_validated': true,
+      },
+      errorResponse: false,
+      tokenResponse: false,
+    );
+
+    expect(
+      delivery?.redirectUri.toString(),
+      'http://192.168.123.52:13014/api/auth/callback',
+    );
+    expect(delivery?.responseMode, 'query');
+  });
+
+  test('unattested plain-HTTP intranet target stays blocked', () {
+    expect(
+      resolveAuthorizationDelivery(
+        request: _request(
+          'client_id=rp&response_type=code&'
+          'redirect_uri=http%3A%2F%2F192.168.123.52%3A13014%2Fapi%2Fauth%2Fcallback',
+        ),
+        response: const {'code': 'code'},
+        errorResponse: false,
+        tokenResponse: false,
+      ),
+      isNull,
+    );
+  });
+
   test('plain form_post requires the exact registered action and fields', () {
     const valid = '''<!doctype html>
       <form method="POST" action="https://rp.example/callback?x=1">
