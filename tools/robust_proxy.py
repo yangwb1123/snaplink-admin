@@ -1,3 +1,4 @@
+import gzip
 import json
 import os
 from pathlib import Path
@@ -42,6 +43,14 @@ CONTENT_TYPES = {
     '.map': 'application/json',
     '.txt': 'text/plain; charset=utf-8',
 }
+
+# Textual formats compress well; images do not. A release main.dart.js is
+# ~4.7MB and CanvasKit wasm ~7MB — gzip roughly halves the transfer size and
+# makes localhost first loads dramatically faster.
+COMPRESSIBLE_EXTENSIONS = frozenset((
+    '.html', '.js', '.css', '.json', '.svg', '.txt', '.map', '.wasm',
+))
+GZIP_MIN_BYTES = 1024
 
 def recv_full(conn, size):
     """Receive exactly `size` bytes from connection."""
@@ -97,25 +106,35 @@ def parse_request(conn):
     
     return method, path, headers, body
 
-def serve_file(conn, filepath, include_body=True):
-    """Serve a static file."""
+def serve_file(conn, filepath, include_body=True, accept_encoding=''):
+    """Serve a static file, gzip-compressing when the client allows it."""
     try:
         with open(filepath, 'rb') as f:
             body = f.read()
         ext = os.path.splitext(filepath)[1].lower()
         ct = CONTENT_TYPES.get(ext, 'application/octet-stream')
-        resp = (
-            f'HTTP/1.1 200 OK\r\n'
-            f'Content-Type: {ct}\r\n'
-            f'Content-Length: {len(body)}\r\n'
-            f'Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n'
-            f'Pragma: no-cache\r\n'
-            f'Expires: 0\r\n'
-            f'Access-Control-Allow-Origin: *\r\n'
-            f'Connection: close\r\n'
-            f'\r\n'
+        headers = [
+            f'HTTP/1.1 200 OK',
+            f'Content-Type: {ct}',
+            f'Cache-Control: no-store, no-cache, must-revalidate, max-age=0',
+            f'Pragma: no-cache',
+            f'Expires: 0',
+            f'Access-Control-Allow-Origin: *',
+            f'Connection: close',
+        ]
+        if (
+            len(body) >= GZIP_MIN_BYTES
+            and ext in COMPRESSIBLE_EXTENSIONS
+            and 'gzip' in (accept_encoding or '').lower()
+        ):
+            body = gzip.compress(body, mtime=0)
+            headers.append('Content-Encoding: gzip')
+            headers.append('Vary: Accept-Encoding')
+        headers.append(f'Content-Length: {len(body)}')
+        conn.sendall(
+            ('\r\n'.join(headers) + '\r\n\r\n').encode()
+            + (body if include_body else b'')
         )
-        conn.sendall(resp.encode() + (body if include_body else b''))
     except FileNotFoundError:
         send_error(conn, 404, 'Not Found')
     except Exception as e:
@@ -291,7 +310,12 @@ def handle(conn):
             if filepath is None:
                 send_error(conn, 404, 'Not Found')
                 return
-            serve_file(conn, filepath, include_body=method == 'GET')
+            serve_file(
+                conn,
+                filepath,
+                include_body=method == 'GET',
+                accept_encoding=headers.get('accept-encoding', ''),
+            )
         else:
             send_error(conn, 405, 'Method Not Allowed')
     except Exception:

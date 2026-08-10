@@ -18,7 +18,7 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Snaplink SSO console — administration, hosted login, self-service portal, developer registration, setup, and device verification.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
@@ -31,8 +31,77 @@
 
   <title>sso_admin</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    First-paint loading screen. The Flutter engine downloads main.dart.js
+    (multi-MB) and the CanvasKit wasm renderer before the first frame; without
+    this the user stares at a blank page for the whole download + compile
+    window and the app feels dead/stuck. This splash is pure static HTML/CSS:
+    it renders instantly, animates to signal progress, and is removed on the
+    engine's `flutter-first-frame` event (with a hard timeout fallback so it
+    can never permanently block the UI).
+  -->
+  <style>
+    :root { color-scheme: light dark; }
+    html, body { margin: 0; height: 100%; background: #0f172a; }
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 28px;
+      background: #0f172a; color: #e2e8f0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      transition: opacity 400ms ease;
+    }
+    #splash.hidden { opacity: 0; pointer-events: none; }
+    #splash .logo {
+      width: 72px; height: 72px;
+      animation: splash-pulse 1.6s ease-in-out infinite;
+    }
+    #splash .bar {
+      width: 208px; height: 4px; border-radius: 2px;
+      background: rgba(148, 163, 184, 0.25); overflow: hidden;
+    }
+    #splash .bar::after {
+      content: ''; display: block; width: 40%; height: 100%;
+      border-radius: 2px; background: #38bdf8;
+      animation: splash-slide 1.2s ease-in-out infinite;
+    }
+    #splash .status { font-size: 13px; letter-spacing: 0.02em; color: #94a3b8; }
+    @keyframes splash-slide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(320%); }
+    }
+    @keyframes splash-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash">
+    <svg class="logo" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+      <rect width="48" height="48" rx="12" fill="#0ea5e9"/>
+      <path d="M18 30 30 18M17.2 23.8l-2.6 2.6a5.4 5.4 0 0 0 7.6 7.6l2.6-2.6M23.8 17.2l2.6-2.6a5.4 5.4 0 0 1 7.6 7.6l-2.6 2.6"
+        stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="bar"></div>
+    <div class="status" id="splash-status">Loading Snaplink Console&hellip;</div>
+  </div>
+
+  <script>
+    // Hide the splash on the engine's first rendered frame. A hard timeout
+    // guarantees the splash can never trap the page even if the event is
+    // missed (older engine, blocked script, error page).
+    (function () {
+      const splash = document.getElementById('splash');
+      const hide = function () {
+        splash.classList.add('hidden');
+        setTimeout(function () { splash.remove(); }, 500);
+      };
+      window.addEventListener('flutter-first-frame', hide, { once: true });
+      setTimeout(hide, 30000);
+    })();
+  </script>
   <script>
     // A release build may have registered Flutter's offline-first service
     // worker on this origin before the local dev proxy was started. That

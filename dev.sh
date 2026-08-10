@@ -64,7 +64,11 @@ fi
 # Build Flutter if needed
 if [ "${FORCE_BUILD:-false}" = "true" ] || [ "${WARN_SKIP_BUILD:-false}" != "true" ]; then
   info "Building Flutter web app for local development..."
-  flutter build web --debug \
+  # Release, not debug: a debug bundle is unoptimized (much larger JS, slower
+  # first frame and runtime), and dev.sh serves it statically through the
+  # proxy — there is no hot reload to justify debug artifacts here. Use
+  # `flutter run` directly for hot-reload iteration.
+  flutter build web --release \
     --pwa-strategy=none \
     --no-web-resources-cdn 2>&1 | tail -3
   info "Build complete."
