@@ -14,18 +14,45 @@ class AdminModuleGroup {
   final String labelKey;
   final List<String> modules;
 
+  /// 导航图标彩色（品牌强调色，选中/未选中共用）。
+  final Color iconColor;
+
   const AdminModuleGroup({
     required this.id,
     required this.icon,
     required this.selectedIcon,
     required this.labelKey,
     required this.modules,
+    required this.iconColor,
   });
+}
+
+/// 导航组图标色板（与登录头/设置页品牌色同一色系）。
+const adminGroupIconColors = <String, Color>{
+  'overview': Color(0xFF0EA5E9), // sky
+  'identity': Color(0xFF7C6FF0), // indigo-violet
+  'security': Color(0xFFF43F5E), // rose
+  'tenants': Color(0xFFF59E0B), // amber
+  'developers': Color(0xFF10B981), // emerald
+  'system': Color(0xFF4F46E5), // indigo
+};
+
+/// 组图标色（未知组回退 slate）。
+Color adminGroupIconColor(String groupId) =>
+    adminGroupIconColors[groupId] ?? const Color(0xFF64748B);
+
+/// 模块图标色：继承所属组的颜色，保证子菜单与一级导航同组同色。
+/// 未知模块回退中性 slate（不冒充任何组）。
+Color adminModuleIconColor(String module) {
+  final known = adminModuleGroups.any((group) => group.modules.contains(module));
+  if (!known) return const Color(0xFF64748B);
+  return adminGroupIconColor(adminGroupForModule(module));
 }
 
 const adminModuleGroups = <AdminModuleGroup>[
   AdminModuleGroup(
     id: 'overview',
+    iconColor: Color(0xFF0EA5E9),
     icon: Icons.dashboard_outlined,
     selectedIcon: Icons.dashboard,
     labelKey: 'Overview',
@@ -33,6 +60,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'identity',
+    iconColor: Color(0xFF7C6FF0),
     icon: Icons.people_outline,
     selectedIcon: Icons.people,
     labelKey: 'Identity',
@@ -47,6 +75,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'security',
+    iconColor: Color(0xFFF43F5E),
     icon: Icons.shield_outlined,
     selectedIcon: Icons.shield,
     labelKey: 'Security',
@@ -69,6 +98,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'tenants',
+    iconColor: Color(0xFFF59E0B),
     icon: Icons.business_outlined,
     selectedIcon: Icons.business,
     labelKey: 'Tenants',
@@ -82,6 +112,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'developers',
+    iconColor: Color(0xFF10B981),
     icon: Icons.code_outlined,
     selectedIcon: Icons.code,
     labelKey: 'Developers',
@@ -94,6 +125,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'system',
+    iconColor: Color(0xFF4F46E5),
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
     labelKey: 'System',

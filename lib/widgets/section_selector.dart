@@ -35,7 +35,7 @@ class SectionSelector extends StatelessWidget {
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(s.icon, size: 16),
+                    Icon(s.icon, size: 16, color: s.color),
                     const SizedBox(width: 4),
                     Flexible(
                       child: Text(
@@ -63,7 +63,10 @@ class SectionDef {
   final String label;
   final IconData icon;
 
-  const SectionDef(this.id, this.label, this.icon);
+  /// 图标彩色（品牌强调色）；null 时使用默认前景色。
+  final Color? color;
+
+  const SectionDef(this.id, this.label, this.icon, {this.color});
 
   // destructure for convenience
   String get $1 => id;

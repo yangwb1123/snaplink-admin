@@ -7,6 +7,8 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
 
@@ -63,11 +65,15 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   bool get _supportsAdminTokenRevoke => _supports('DELETE', _adminTokenPath);
 
   String _currentSection = 'all';
-  static const _allSectionDefs = [
-    SectionDef('all', 'All', Icons.dashboard),
-    SectionDef('portfolio', 'Portfolio', Icons.account_balance_wallet),
-    SectionDef('suspicious', 'Anomalies', Icons.warning),
-    SectionDef('sessions', 'Sessions', Icons.devices),
+  static final _allSectionDefs = [
+    SectionDef('all', 'All', Icons.dashboard,
+        color: adminModuleIconColor(AdminModuleId.tokenSecurity)),
+    SectionDef('portfolio', 'Portfolio', Icons.account_balance_wallet,
+        color: adminModuleIconColor(AdminModuleId.tokenSecurity)),
+    SectionDef('suspicious', 'Anomalies', Icons.warning,
+        color: adminModuleIconColor(AdminModuleId.tokenSecurity)),
+    SectionDef('sessions', 'Sessions', Icons.devices,
+        color: adminModuleIconColor(AdminModuleId.tokenSecurity)),
     SectionDef('expiring', 'Expiring', Icons.timer),
     SectionDef('temp', 'Temp Token', Icons.key),
     SectionDef('revoke', 'Revoke', Icons.remove_circle),

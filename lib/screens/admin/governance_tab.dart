@@ -7,6 +7,8 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'admin_route.dart';
 import 'admin_ops_helpers.dart';
 import 'governance_models.dart';
@@ -45,13 +47,19 @@ class _GovernanceTabState extends State<GovernanceTab> {
   bool _writing = false;
   String _currentSection = 'all';
   late final void Function() _cancelPopState;
-  static const _sections = [
-    SectionDef('all', 'All', Icons.dashboard),
-    SectionDef('audit', 'Audit', Icons.search),
-    SectionDef('compliance', 'Compliance', Icons.verified),
-    SectionDef('configuration', 'Config', Icons.settings),
-    SectionDef('lifecycle', 'Lifecycle', Icons.swap_vert),
-    SectionDef('write', 'Write', Icons.edit),
+  static final _sections = [
+    SectionDef('all', 'All', Icons.dashboard,
+        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef('audit', 'Audit', Icons.search,
+        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef('compliance', 'Compliance', Icons.verified,
+        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef('configuration', 'Config', Icons.settings,
+        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef('lifecycle', 'Lifecycle', Icons.swap_vert,
+        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef('write', 'Write', Icons.edit,
+        color: adminModuleIconColor(AdminModuleId.governance)),
   ];
   @override
   void initState() {

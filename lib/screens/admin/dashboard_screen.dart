@@ -710,8 +710,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final groupDestinations = [
       for (final group in visibleGroups)
         NavigationRailDestination(
-          icon: Icon(group.icon),
-          selectedIcon: Icon(group.selectedIcon),
+          icon: Icon(group.icon, color: group.iconColor),
+          selectedIcon: Icon(group.selectedIcon, color: group.iconColor),
           label: adminGroupLabel(group),
         ),
     ];
@@ -726,6 +726,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module,
           moduleLabels[module] ?? module,
           _iconOf(module, entries),
+          color: adminModuleIconColor(module),
         ),
     ];
     return ResponsiveNavigationScaffold(
