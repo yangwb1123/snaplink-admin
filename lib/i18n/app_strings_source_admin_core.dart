@@ -148,6 +148,8 @@ const appAdminCoreSourceZh = <String, String>{
   'Bulk revoke devices': '批量撤销设备',
   'Bulk revoke refresh tokens': '批量撤销刷新令牌',
   'Bulk revoke': '批量撤销',
+  'Comma-separated BCP-47 tags (e.g. en,zh,ja)': '逗号分隔的 BCP-47 语言标签（如 en,zh,ja）',
+  'Languages': '语言列表',
   'Business justification / ticket': '业务理由 / 工单',
   'CIDR ranges': 'CIDR 范围',
   'Cache cleared': '缓存已清除',

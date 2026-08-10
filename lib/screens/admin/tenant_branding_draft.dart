@@ -1,12 +1,22 @@
 import 'dart:convert';
 
-const tenantBrandingCoreKeys = {'brand_name', 'primary_color', 'logo_url'};
+import '../../services/language_catalog.dart';
+
+/// 核心品牌键 + 语言列表保留键。languages 由品牌表单独立编辑，但同样
+/// 不允许出现在 Advanced JSON 里（避免重复）。
+const tenantBrandingCoreKeys = {
+  'brand_name',
+  'primary_color',
+  'logo_url',
+  'languages',
+};
 
 Map<String, String> tenantBrandingDraft({
   required String advancedJson,
   required String brandName,
   required String primaryColor,
   required String logoUrl,
+  required String languages,
 }) {
   final decoded = jsonDecode(advancedJson.trim().isEmpty ? '{}' : advancedJson);
   if (decoded is! Map) {
@@ -45,5 +55,20 @@ Map<String, String> tenantBrandingDraft({
   if (name.isNotEmpty) branding['brand_name'] = name;
   if (color.isNotEmpty) branding['primary_color'] = color;
   if (logo.isNotEmpty) branding['logo_url'] = logo;
+
+  final languagesValue = languages.trim();
+  if (languagesValue.isNotEmpty) {
+    final tags = languagesValue
+        .split(',')
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .toList();
+    if (tags.isEmpty || tags.any((tag) => !isValidLanguageTag(tag))) {
+      throw const FormatException(
+        'Languages must be a comma-separated list of BCP-47 tags.',
+      );
+    }
+    branding['languages'] = languagesValue;
+  }
   return branding;
 }

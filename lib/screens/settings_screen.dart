@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../i18n/app_strings.dart';
 import '../services/browser_navigation.dart';
+import '../services/language_catalog.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
 
@@ -233,6 +234,10 @@ class _LanguagePicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final current = AppSettings.instance.locale;
+    final options = languageOptionsIncludingCurrent(
+      AppSettings.instance.languageOptions,
+      current,
+    );
     return InputDecorator(
       decoration: InputDecoration(
         isDense: true,
@@ -245,9 +250,12 @@ class _LanguagePicker extends StatelessWidget {
           value: current,
           isExpanded: true,
           isDense: true,
-          items: const [
-            DropdownMenuItem(value: Locale('en'), child: Text('English')),
-            DropdownMenuItem(value: Locale('zh'), child: Text('中文')),
+          items: [
+            for (final locale in options)
+              DropdownMenuItem(
+                value: locale,
+                child: Text(languageOptionLabel(locale)),
+              ),
           ],
           onChanged: (selection) {
             if (selection != null) AppSettings.instance.locale = selection;

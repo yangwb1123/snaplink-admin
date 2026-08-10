@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:sso_admin/services/language_catalog.dart';
 import 'package:sso_admin/services/local_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -84,6 +85,23 @@ class AppSettings extends ChangeNotifier {
     if (_adminNavMode == value) return; // no-op guard: no notify, no write
     _adminNavMode = value;
     _save(_adminNavModeKey, value.name);
+    notifyListeners();
+  }
+
+  /// 该 client（租户品牌）公布的可用语言列表，来自 branding 响应的
+  /// `languages` 保留键（见 [languageCatalogKey]）。未加载或旧部署时保持
+  /// [defaultLanguageOptions]。登录页品牌加载后写入，登录头与设置页的
+  /// 语言选择器都消费这里，保证两处 items 一致且由后端数据驱动。
+  List<Locale> _languageOptions = defaultLanguageOptions;
+  List<Locale> get languageOptions => _languageOptions;
+  set languageOptions(List<Locale> value) {
+    if (value.isEmpty) return; // 空列表没有意义，保持当前值。
+    if (value.length == _languageOptions.length &&
+        value.every((l) =>
+            _languageOptions.any((c) => c.languageCode == l.languageCode))) {
+      return;
+    }
+    _languageOptions = List.unmodifiable(value);
     notifyListeners();
   }
 

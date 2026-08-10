@@ -33,6 +33,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   final _brandName = TextEditingController();
   final _primaryColor = TextEditingController();
   final _logoUrl = TextEditingController();
+  final _languages = TextEditingController();
   final _advanced = TextEditingController(text: '{}');
   String? _error;
   bool _loading = true;
@@ -56,6 +57,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     _brandName.dispose();
     _primaryColor.dispose();
     _logoUrl.dispose();
+    _languages.dispose();
     _advanced.dispose();
     super.dispose();
   }
@@ -91,6 +93,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         _brandName.text = branding['brand_name'] ?? '';
         _primaryColor.text = branding['primary_color'] ?? '';
         _logoUrl.text = branding['logo_url'] ?? '';
+        _languages.text = branding['languages'] ?? '';
         _advanced.text = const JsonEncoder.withIndent('  ').convert(extras);
       });
       return true;
@@ -169,6 +172,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         brandName: _brandName.text,
         primaryColor: _primaryColor.text,
         logoUrl: _logoUrl.text,
+        languages: _languages.text,
       );
     } on FormatException catch (error) {
       setState(() => _error = error.message);
@@ -327,6 +331,17 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                   decoration: InputDecoration(
                     labelText: 'Logo URL'.localized,
                     hintText: 'https://cdn.example.com/logo.svg'.localized,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _languages,
+                  enabled: !_saving && !_outcomeUnknown,
+                  decoration: InputDecoration(
+                    labelText: 'Languages'.localized,
+                    hintText:
+                        'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
                   ),
                   onChanged: (_) => setState(() {}),
                 ),

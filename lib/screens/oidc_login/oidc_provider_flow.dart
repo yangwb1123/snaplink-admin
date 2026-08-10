@@ -211,15 +211,30 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
   Future<void> _loadBranding() async {
     try {
       final branding = await _api.loadBranding();
-      if (!mounted || branding.isEmpty || _clientBrandingApplied) return;
+      if (!mounted) return;
+      _applyLanguageOptions(branding);
+      if (branding.isEmpty || _clientBrandingApplied) return;
       _applyBranding(branding);
     } catch (_) {
       // The default theme is a valid fallback.
     }
   }
 
+  /// 语言列表是 branding 的独立维度：即使品牌键全部缺失（返回空 map），
+  /// `languages` 键仍应生效；客户端专属 branding 优先于公共 branding。
+  void _applyLanguageOptions(Map<String, String> branding) {
+    final raw = branding[languageCatalogKey];
+    if (raw == null || raw.trim().isEmpty) return;
+    AppSettings.instance.languageOptions = parseLanguageOptions(raw);
+  }
+
   void _applyBranding(Object? raw, {bool clientSpecific = false}) {
     if (!mounted || raw is! Map) return;
+    if (clientSpecific) {
+      _applyLanguageOptions(
+        raw.map((key, value) => MapEntry(key.toString(), value.toString())),
+      );
+    }
     final name = _nonEmptyString(raw['brand_name']);
     final rawLogo =
         _nonEmptyString(raw['logo_url']) ?? _nonEmptyString(raw['logo']);

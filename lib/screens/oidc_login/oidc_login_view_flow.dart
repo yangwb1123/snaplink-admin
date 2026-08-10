@@ -107,10 +107,11 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                           icon: Icons.translate,
                           value: AppSettings.instance.locale,
                           items: [
-                            for (final locale in const [
-                              Locale('en'),
-                              Locale('zh'),
-                            ])
+                            for (final locale
+                                in languageOptionsIncludingCurrent(
+                                  AppSettings.instance.languageOptions,
+                                  AppSettings.instance.locale,
+                                ))
                               DropdownMenuItem(
                                 value: locale,
                                 child: Row(
@@ -120,9 +121,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        locale.languageCode == 'en'
-                                            ? 'English'
-                                            : '中文',
+                                        languageOptionLabel(locale),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
