@@ -5,10 +5,15 @@ import 'api/oidc_login_api.dart';
 import 'app_router.dart';
 import 'app_settings.dart';
 import 'services/app_navigator.dart';
+import 'services/product_entry_route.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSettings.instance.initialize();
+  // 预加载当前产品入口的 deferred chunk：首屏同步渲染真实界面，其余 5 个
+  // 入口保持按需加载（代码分割收益：首屏 bundle 从 4.7MB 降到主包 + 当前
+  // 入口 chunk）。
+  await preloadProductEntry(productEntryForPath(Uri.base.path));
   runApp(const SSOConsoleApp());
 }
 

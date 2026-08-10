@@ -158,7 +158,12 @@ class DeploymentContractsTest(unittest.TestCase):
 
         self.assertIn('ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api', dockerfile)
         self.assertIn('--dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES=', dockerfile)
-        self.assertIn('flutter build web --release --base-href=/app/', dockerfile)
+        # The image must build the same code-split dart2js bundle as
+        # `make build-prod` (deferred chunks; dart2wasm does not emit chunks).
+        self.assertIn(
+            'flutter build web --release --base-href=/app/',
+            dockerfile,
+        )
         self.assertIn(
             'COPY nginx.conf /etc/nginx/templates/default.conf.template',
             dockerfile,

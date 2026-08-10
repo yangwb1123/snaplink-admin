@@ -39,8 +39,17 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 - `lib/screens/admin/admin_route.dart`：可深链的管理路由
 - `lib/api/snaplink_admin_api.dart`：认证、缓存、重试和契约传输
 - `lib/api/snaplink_admin_types.dart`：已发布及补充路由清单
-- `lib/app_router.dart`：六个产品入口的顶层分发
+- `lib/app_router.dart`：六个产品入口的顶层分发，含代码分割
+- `lib/entries/*.dart`：六个入口的 deferred chunk 边界工厂
 - `lib/i18n/app_strings*.dart`：共享 EN/ZH 文案、领域目录和动态占位符翻译
+
+代码分割：六个产品入口各编译为独立 deferred chunk，首屏只下载主包 + 当前
+入口 chunk（`/login/` 首屏约 3.5MB raw / 1MB gzip，替代原来 4.7MB 单包；
+admin 的 33 个模块约 0.8MB 只在进入 `/admin/` 时下载）。`main()` 在
+`runApp` 前预加载当前路径对应入口，因此首屏同步渲染真实界面；跨入口导航
+经 `lib/widgets/deferred_entry_screen.dart` 按需加载，失败可重试。
+dart2wasm 当前不输出 deferred 分块，因此默认构建为 dart2js
+（`make build-prod`），需要 skwasm 的部署可用 `make build-wasm-prod`。
 
 所有六个入口与管理后台均支持英文和中文。页面文案使用 canonical English
 源字符串查找，API 返回值和资源标识保持原样；`test/i18n_coverage_test.dart`

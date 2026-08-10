@@ -31,8 +31,11 @@ void main() {
     addTearDown(api.close);
 
     await tester.pumpWidget(SSOConsoleApp(oidcLoginApi: api));
-    // The screen briefly shows a spinner while it checks whether this load is
-    // a federated-login return leg (an async gap even on a plain first load).
+    // Async gaps on the boot path: (1) the code-split login chunk resolves
+    // via DeferredEntryScreen's loadLibrary, then (2) the login screen checks
+    // whether this load is a federated-login return leg (an async gap even
+    // on a plain first load).
+    await tester.pump();
     await tester.pump();
     await tester.pump();
 

@@ -13,8 +13,18 @@ build:
 	flutter build web --release --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
 
 # 构建与生产网关约定一致的 /app/ 静态资源
+#
+# 代码分割（deferred imports）：六个产品入口各自编译为独立 chunk，首屏只
+# 下载主包 + 当前入口。dart2wasm 当前不输出 deferred 分块（deferred 库被
+# 合并进主 wasm，分割失效），因此默认构建是 dart2js。需要 skwasm 快速
+# 启动且接受无分割的部署可使用 build-wasm-prod。
 build-prod:
 	flutter build web --release --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
+
+# 可选：dart2wasm + skwasm 单一产物（无代码分割；浏览器无 WasmGC 时自动
+# 回退 dart2js）。
+build-wasm-prod:
+	flutter build web --release --wasm --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
 
 # B6-1b artifact gate: the old ring-scoped copy, the audit-ring storage
 # key, and its base64/base64Url masks must be absent from the release web

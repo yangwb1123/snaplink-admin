@@ -22,6 +22,8 @@ ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
+# Code splitting: six product entries compile to separate deferred chunks;
+# dart2wasm does not emit deferred chunks yet, so the image builds dart2js.
 RUN flutter build web --release --base-href=/app/ \
     --dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES="${SNAPLINK_ADMIN_OAUTH_RESOURCES}"
 
