@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../i18n/app_strings.dart';
 import '../../app_settings.dart';
 import '../../services/language_catalog.dart';
+import '../../widgets/language_selector.dart';
 import '../../services/browser_auth_response.dart';
 import '../../services/browser_navigation.dart';
 import '../../services/product_api_origin.dart';

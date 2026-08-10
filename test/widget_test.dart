@@ -7,7 +7,9 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'package:sso_admin/api/oidc_login_api.dart';
+import 'package:sso_admin/app_router.dart';
 import 'package:sso_admin/main.dart';
+import 'package:sso_admin/services/product_entry_route.dart';
 
 void main() {
   testWidgets('App boots to the unified first-party login screen by default', (
@@ -30,12 +32,15 @@ void main() {
     );
     addTearDown(api.close);
 
+    // Preload the code-split login chunk explicitly: in browser tests the
+    // chunk fetch is real asynchronous I/O, which fixed pump counts cannot
+    // reliably wait for. After this, resolveProductScreen renders the login
+    // screen synchronously (no DeferredEntryScreen loading frame).
+    await tester.runAsync(() => preloadProductEntry(ProductEntry.login));
+
     await tester.pumpWidget(SSOConsoleApp(oidcLoginApi: api));
-    // Async gaps on the boot path: (1) the code-split login chunk resolves
-    // via DeferredEntryScreen's loadLibrary, then (2) the login screen checks
-    // whether this load is a federated-login return leg (an async gap even
-    // on a plain first load).
-    await tester.pump();
+    // The screen briefly shows a spinner while it checks whether this load is
+    // a federated-login return leg (an async gap even on a plain first load).
     await tester.pump();
     await tester.pump();
 

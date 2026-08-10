@@ -8,6 +8,20 @@ import 'package:sso_admin/api/oidc_login_api.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 
+/// 登录表单的用户名输入框。登录头现在包含一个 DropdownMenu 语言选择器
+/// （内部也是 TextField），按类型索引不再稳定；用 autofillHints 定位。
+Finder usernameField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.username) ?? false),
+);
+
+Finder passwordField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.password) ?? false),
+);
+
 void main() {
   setUp(() => BrowserNavigation.replaceState('/'));
   tearDown(() => BrowserNavigation.replaceState('/'));
@@ -165,8 +179,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'primary-secret');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'primary-secret');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -221,8 +235,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'primary-secret');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'primary-secret');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -282,8 +296,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'primary-secret');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'primary-secret');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, 'Allow'));
@@ -329,8 +343,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'primary-secret');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'primary-secret');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -339,7 +353,7 @@ void main() {
     await tester.tap(find.widgetWithText(TextButton, 'Back'));
     await tester.pumpAndSettle();
 
-    final password = tester.widget<TextField>(find.byType(TextField).at(1));
+    final password = tester.widget<TextField>(passwordField());
     expect(password.controller?.text, isEmpty);
   });
 
@@ -378,8 +392,8 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).at(0), 'person');
-      await tester.enterText(find.byType(TextField).at(1), 'password');
+      await tester.enterText(usernameField(), 'person');
+      await tester.enterText(passwordField(), 'password');
       await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
       await tester.pumpAndSettle();
 
@@ -425,8 +439,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'password');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 

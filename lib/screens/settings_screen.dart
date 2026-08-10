@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../i18n/app_strings.dart';
 import '../services/browser_navigation.dart';
-import '../services/language_catalog.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
+import '../widgets/language_selector.dart';
 
 /// Post-login settings: language, theme, SSO base URL (native-only), and a
 /// read-only timezone display. Reads/writes [AppSettings.instance] directly —
@@ -232,38 +232,7 @@ class _SettingsCard extends StatelessWidget {
 
 class _LanguagePicker extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    final current = AppSettings.instance.locale;
-    final options = languageOptionsIncludingCurrent(
-      AppSettings.instance.languageOptions,
-      current,
-    );
-    return InputDecorator(
-      decoration: InputDecoration(
-        isDense: true,
-        prefixIcon: const Icon(Icons.translate),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Locale>(
-          value: current,
-          isExpanded: true,
-          isDense: true,
-          items: [
-            for (final locale in options)
-              DropdownMenuItem(
-                value: locale,
-                child: Text(languageOptionLabel(locale)),
-              ),
-          ],
-          onChanged: (selection) {
-            if (selection != null) AppSettings.instance.locale = selection;
-          },
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const LanguageDropdown();
 }
 
 /// 主题选择：图标瓦片行（system/light/dark），选中态 primaryContainer

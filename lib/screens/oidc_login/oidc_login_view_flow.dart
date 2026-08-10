@@ -103,37 +103,8 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                       ),
                       const SizedBox(width: 8),
                       Flexible(
-                        child: _HeaderDropdown<Locale>(
-                          icon: Icons.translate,
-                          value: AppSettings.instance.locale,
-                          items: [
-                            for (final locale
-                                in languageOptionsIncludingCurrent(
-                                  AppSettings.instance.languageOptions,
-                                  AppSettings.instance.locale,
-                                ))
-                              DropdownMenuItem(
-                                value: locale,
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.language, size: 16),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        languageOptionLabel(locale),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                          onChanged: (locale) {
-                            if (locale != null) {
-                              AppSettings.instance.locale = locale;
-                            }
-                          },
+                        child: _HoverTint(
+                          child: LanguageDropdown(compact: true),
                         ),
                       ),
                       const Spacer(),

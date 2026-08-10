@@ -12,6 +12,28 @@ import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 import 'package:sso_admin/screens/oidc_login/trusted_device_token.dart';
 import 'package:web/web.dart' as web;
 
+/// 登录头包含 DropdownMenu 语言选择器（内部也是 TextField），按类型索引
+/// 不稳定；用 autofillHints 定位登录表单与重置表单的输入框。
+Finder usernameField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.username) ?? false),
+);
+
+Finder passwordField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.password) ?? false),
+);
+
+Finder newPasswordField(int index) => find
+    .byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          (widget.autofillHints?.contains(AutofillHints.newPassword) ?? false),
+    )
+    .at(index);
+
 void main() {
   testWidgets(
     'plain federated RP flow also fails closed without resume support',
@@ -142,8 +164,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'person');
-    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.enterText(usernameField(), 'person');
+    await tester.enterText(passwordField(), 'password');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -204,8 +226,8 @@ void main() {
     expect(web.window.location.hash, isEmpty);
     expect(web.window.location.href, isNot(contains('bearer-secret')));
 
-    await tester.enterText(find.byType(TextField).at(0), 'user');
-    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.enterText(usernameField(), 'user');
+    await tester.enterText(passwordField(), 'password');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -253,11 +275,11 @@ void main() {
     await tester.pump();
 
     await tester.enterText(
-      find.byType(TextField).at(0),
+      newPasswordField(0),
       'replacement-password',
     );
     await tester.enterText(
-      find.byType(TextField).at(1),
+      newPasswordField(1),
       'replacement-password',
     );
     await tester.tap(find.text('Update password'));
