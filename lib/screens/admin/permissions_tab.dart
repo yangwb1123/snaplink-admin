@@ -334,9 +334,19 @@ class _PermissionsTabState extends State<PermissionsTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _clientId == null ? null : _load,
+                  child: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_loading) const SkeletonListTile(itemCount: 3),

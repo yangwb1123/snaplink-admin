@@ -3,6 +3,9 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
@@ -65,9 +68,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText('Token policy management is not enabled.'),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -112,23 +113,48 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
           ),
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (!_loading && _policies.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: LocalizedText('No token policies configured.'),
-          ),
-        if (!_loading)
-          for (final p in _policies)
-            Card(
-              margin: const EdgeInsets.only(top: 8),
-              child: ListTile(
-                leading: Icon(Icons.policy_outlined, color: Colors.indigo),
-                title: Text(p['name']?.toString() ?? p['id']?.toString() ?? ''),
-                subtitle: LocalizedText(
-                  '${p['effect'] ?? p['action'] ?? 'allow'} · ${p['priority'] ?? ''}\n${p['description'] ?? ''}',
+          EmptyState(title: 'No token policies configured.'),
+        if (!_loading && _policies.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: AdminDataTable(
+              minWidth: 720,
+              columns: [
+                AdminDataColumn(
+                  id: 'policy',
+                  label: 'Policy',
+                  width: 220,
+                  cardPrimary: true,
+                  builder: (_, i) => TableCellText(
+                    _policies[i]['name']?.toString() ??
+                        _policies[i]['id']?.toString() ??
+                        '',
+                    level: DataEmphasisLevel.primary,
+                  ),
                 ),
-                isThreeLine: true,
-              ),
+                AdminDataColumn(
+                  id: 'effect',
+                  label: 'Effect',
+                  builder: (_, i) => TableCellText(
+                    '${_policies[i]['effect'] ?? _policies[i]['action'] ?? 'allow'} · ${_policies[i]['priority'] ?? ''}',
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'description',
+                  label: 'Description',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _policies[i]['description']?.toString() ?? '',
+                    muted: true,
+                    maxLines: 2,
+                  ),
+                ),
+              ],
+              itemCount: _policies.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
             ),
+          ),
       ],
     );
   }

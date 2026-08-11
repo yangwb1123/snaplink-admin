@@ -55,7 +55,7 @@ class ScimBulkResultSummary extends StatelessWidget {
               ? AppColors.success
               : AppColors.warning,
         ),
-        title: LocalizedText(
+        title: Text(
           '$succeeded of ${operations.length} operations succeeded',
         ),
         subtitle: LocalizedText(
@@ -253,7 +253,7 @@ class ScimResourceTile extends StatelessWidget {
         leading: CircleAvatar(
           child: Icon(isUser ? Icons.person_outline : Icons.groups_outlined),
         ),
-        title: LocalizedText(title),
+        title: Text(title),
         subtitle: Text(
           details.where((value) => value.isNotEmpty).join('\n'),
           maxLines: 3,

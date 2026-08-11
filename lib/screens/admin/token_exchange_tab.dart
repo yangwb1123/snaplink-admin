@@ -80,12 +80,12 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const AdminBreadcrumb(),
         Text(
           AppStrings.of(context).tokenExchange,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 8),
-        AdminBreadcrumb(),
         Row(
           children: [
             Expanded(
@@ -183,7 +183,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       children: [
         SizedBox(
           width: 120,
-          child: LocalizedText(
+          child: Text(
             '$label:',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),

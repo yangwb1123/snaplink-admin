@@ -7,9 +7,13 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Webhook subscriptions and dead letter management tab.
 class WebhooksTab extends StatefulWidget {
@@ -26,12 +30,10 @@ class _WebhooksTabState extends State<WebhooksTab> {
   static const _subsPath = '/api/v1/admin/webhooks/subscriptions';
   static const _deadPath = '/api/v1/admin/webhooks/deadletters';
 
-  // Create form controllers
   final _urlCtrl = TextEditingController();
   final _eventsCtrl = TextEditingController();
   final _secretCtrl = TextEditingController();
   bool _active = true;
-
   List<Map<String, dynamic>> _subscriptions = const [];
   List<Map<String, dynamic>> _deadLetters = const [];
   String? _error;
@@ -56,9 +58,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'webhooks') return;
-    if (route.isNew) {
-      _create();
-    }
+    if (route.isNew) _create();
   }
 
   @override
@@ -101,19 +101,17 @@ class _WebhooksTabState extends State<WebhooksTab> {
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'Could not load webhooks.';
-          _loading = false;
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load webhooks.';
+        _loading = false;
+      });
     }
   }
 
@@ -227,10 +225,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
   @override
   Widget build(BuildContext context) {
     if (!_hasSubscriptions && !_hasDeadLetters) {
-      return const Center(
-        child: LocalizedText(
-          'Webhook management is not enabled on this replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Webhook management is not enabled on this replica.',
       );
     }
     return ListView(
@@ -258,14 +255,25 @@ class _WebhooksTabState extends State<WebhooksTab> {
             onChanged: (value) => setState(() => _statusFilter = value),
           ),
         ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
-            ),
+        if (_error != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh),
+                label: const LocalizedText('Retry'),
+              ),
+            ],
           ),
+        ],
         if (_hasSubscriptions) ...[
           _createCard(context),
           const SizedBox(height: 16),
@@ -289,29 +297,15 @@ class _WebhooksTabState extends State<WebhooksTab> {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _urlCtrl,
-            decoration: InputDecoration(
-              labelText: 'Webhook URL'.localized,
-              hintText: 'https://hooks.example.com/events'.localized,
-            ),
+          _field(_urlCtrl, label: 'Webhook URL', hint: 'https://hooks.example.com/events'),
+          const SizedBox(height: 12),
+          _field(
+            _eventsCtrl,
+            label: 'Event types (comma-separated)',
+            hint: 'user.created, session.revoked',
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _eventsCtrl,
-            decoration: InputDecoration(
-              labelText: 'Event types (comma-separated)'.localized,
-              hintText: 'user.created, session.revoked'.localized,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _secretCtrl,
-            decoration: InputDecoration(
-              labelText: 'Signing secret (optional)'.localized,
-            ),
-            obscureText: true,
-          ),
+          _field(_secretCtrl, label: 'Signing secret (optional)', obscure: true),
           const SizedBox(height: 12),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -328,6 +322,20 @@ class _WebhooksTabState extends State<WebhooksTab> {
     ),
   );
 
+  Widget _field(
+    TextEditingController controller, {
+    required String label,
+    String? hint,
+    bool obscure = false,
+  }) => TextField(
+    controller: controller,
+    obscureText: obscure,
+    decoration: InputDecoration(
+      labelText: label.localized,
+      hintText: hint?.localized,
+    ),
+  );
+
   /// 按状态筛选后的订阅列表（本地过滤；分页不存在，语义正确）。
   List<Map<String, dynamic>> get _visibleSubscriptions {
     if (_statusFilter == 'all') return _subscriptions;
@@ -337,7 +345,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
         .toList();
   }
 
-  /// 订阅健康摘要（活跃占比一眼可见）。
+  /// 订阅健康摘要：占比条 + 计数（活跃占比一眼可见）。
   Widget _subscriptionsHealth(BuildContext context) {
     final total = _visibleSubscriptions.length;
     final active = _visibleSubscriptions
@@ -373,27 +381,12 @@ class _WebhooksTabState extends State<WebhooksTab> {
             ],
           ),
           const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 6,
-              color: AppColors.success.withValues(alpha: 0.15),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: activeFraction.clamp(0.0, 1.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.success,
-                        AppColors.success.withValues(alpha: 0.6),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          DistributionBar(
+            segments: [
+              DistributionSegment(label: 'Active', value: active, color: AppColors.success),
+              DistributionSegment(label: 'Inactive', value: total - active, color: AppColors.muted),
+            ],
+            showLegend: false,
           ),
         ],
       ),
@@ -403,88 +396,145 @@ class _WebhooksTabState extends State<WebhooksTab> {
   Widget _subscriptionsCard(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Row(
-        children: [
-          LocalizedText(
-            'Subscriptions',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh'.localized,
-          ),
-        ],
+      SectionHeader(
+        'Subscriptions',
+        action: IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+          tooltip: 'Refresh'.localized,
+        ),
       ),
       if (_loading) const SkeletonListTile(itemCount: 3),
-      if (!_loading && _visibleSubscriptions.isNotEmpty)
+      if (!_loading && _visibleSubscriptions.isNotEmpty) ...[
         _subscriptionsHealth(context),
-      if (!_loading && _visibleSubscriptions.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: LocalizedText('No subscriptions.'),
-        ),
-      if (!_loading)
-        for (final s in _visibleSubscriptions)
-          Card(
-            margin: const EdgeInsets.only(top: 8),
-            child: ListTile(
-              onTap: () => AdminRoute.go(
-                'webhooks',
-                resourceId: s['id']?.toString() ?? '',
+        const SizedBox(height: 8),
+        AdminDataTable(
+          density: TableDensity.compact,
+          minWidth: 560,
+          columns: [
+            AdminDataColumn(
+              id: 'status',
+              label: 'STATUS',
+              // Ahem 测试字体下 'Inactive' 12px×8 很宽，列宽留足。 
+              width: 170,
+              builder: (context, i) => _visibleSubscriptions[i]['active'] == true
+                  ? StatusChip.active(label: context.tr('Active'))
+                  : StatusChip.inactive(label: context.tr('Inactive')),
+            ),
+            AdminDataColumn(
+              id: 'url',
+              label: 'URL',
+              width: 240,
+              cardPrimary: true,
+              builder: (context, i) => TableCellText(
+                _visibleSubscriptions[i]['url']?.toString() ?? '',
+                bold: true,
               ),
-              leading: s['active'] == true
-                  ? StatusChip.active()
-                  : StatusChip.inactive(),
-              title: Text(s['url']?.toString() ?? ''),
-              subtitle: LocalizedText(
-                '${s['id'] ?? ''} · events: ${(s['event_types'] as List?)?.join(', ') ?? 'all'}',
+            ),
+            AdminDataColumn(
+              id: 'events',
+              label: 'ID · EVENTS',
+              width: 300,
+              builder: (context, i) => TableCellText(
+                '${_visibleSubscriptions[i]['id'] ?? ''} · events: '
+                '${(_visibleSubscriptions[i]['event_types'] as List?)?.join(', ') ?? 'all'}',
+                muted: true,
               ),
-              trailing: TextButton(
+            ),
+            AdminDataColumn(
+              id: 'actions',
+              label: '',
+              width: 90,
+              builder: (context, i) => TextButton(
                 onPressed: _mutating
                     ? null
-                    : () => _delete(s['id']?.toString() ?? ''),
+                    : () => _delete(
+                        _visibleSubscriptions[i]['id']?.toString() ?? '',
+                      ),
                 style: TextButton.styleFrom(foregroundColor: AppColors.danger),
                 child: const LocalizedText('Delete'),
               ),
             ),
+          ],
+          itemCount: _visibleSubscriptions.length,
+          rowBuilder: (context, i) => const SizedBox.shrink(),
+          onRowTap: (i) => AdminRoute.go(
+            'webhooks',
+            resourceId: _visibleSubscriptions[i]['id']?.toString() ?? '',
           ),
+        ),
+      ],
+      if (!_loading && _visibleSubscriptions.isEmpty)
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No subscriptions.',
+          compact: true,
+        ),
     ],
   );
+
   Widget _deadLettersCard(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      LocalizedText(
-        'Dead letters',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
+      SectionHeader('Dead letters', count: _deadLetters.length),
       if (_loading) const SkeletonListTile(itemCount: 3),
       if (!_loading && _deadLetters.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: LocalizedText('No dead letters.'),
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No dead letters.',
+          compact: true,
         ),
-      if (!_loading)
-        for (final d in _deadLetters)
-          Card(
-            margin: const EdgeInsets.only(top: 8),
-            child: ListTile(
-              leading: const Icon(Icons.error_outline, color: AppColors.danger),
-              title: LocalizedText(
-                d['event_type']?.toString() ??
-                    d['type']?.toString() ??
+      if (!_loading && _deadLetters.isNotEmpty)
+        AdminDataTable(
+          density: TableDensity.compact,
+          minWidth: 560,
+          columns: [
+            AdminDataColumn(
+              id: 'event',
+              label: 'EVENT',
+              width: 220,
+              cardPrimary: true,
+              builder: (context, i) => TableCellText(
+                _deadLetters[i]['event_type']?.toString() ??
+                    _deadLetters[i]['type']?.toString() ??
                     'Unknown',
+                bold: true,
               ),
-              subtitle: LocalizedText('${d['id'] ?? ''}\n${d['error'] ?? ''}'),
-              trailing: TextButton(
+            ),
+            AdminDataColumn(
+              id: 'id',
+              label: 'ID',
+              width: 140,
+              builder: (context, i) => TableCellText(
+                _deadLetters[i]['id']?.toString() ?? '',
+                muted: true,
+              ),
+            ),
+            AdminDataColumn(
+              id: 'error',
+              label: 'ERROR',
+              width: 280,
+              builder: (context, i) => TableCellText(
+                _deadLetters[i]['error']?.toString() ?? '',
+                muted: true,
+                maxLines: 2,
+              ),
+            ),
+            AdminDataColumn(
+              id: 'actions',
+              label: '',
+              width: 90,
+              builder: (context, i) => TextButton(
                 onPressed: _mutating
                     ? null
-                    : () => _replay(d['id']?.toString() ?? ''),
+                    : () => _replay(_deadLetters[i]['id']?.toString() ?? ''),
                 child: const LocalizedText('Replay'),
               ),
             ),
-          ),
+          ],
+          itemCount: _deadLetters.length,
+          rowBuilder: (context, i) => const SizedBox.shrink(),
+        ),
     ],
   );
 }

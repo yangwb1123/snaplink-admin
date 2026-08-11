@@ -3,14 +3,19 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'device_security_models.dart';
 
 typedef DeviceAction = void Function(DeviceJson device);
 
 class DeviceListPanel extends StatelessWidget {
   final String title;
+  final Map<String, Object?>? titleArgs;
   final List<DeviceJson> devices;
   final String emptyMessage;
   final DeviceAction? onActivity;
@@ -21,6 +26,7 @@ class DeviceListPanel extends StatelessWidget {
   const DeviceListPanel({
     super.key,
     required this.title,
+    this.titleArgs,
     required this.devices,
     this.emptyMessage = 'No devices match the current filters.',
     this.onActivity,
@@ -38,14 +44,32 @@ class DeviceListPanel extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
           child: Row(
             children: [
-              const Icon(Icons.devices_other),
+              Icon(
+                Icons.devices_other,
+                color: adminModuleIconColor(AdminModuleId.deviceSecurity),
+              ),
               const SizedBox(width: 8),
               LocalizedText(
                 title,
+                args: titleArgs,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const Spacer(),
-              Chip(label: LocalizedText('{devices_length}', args: {'devices_length': devices.length})),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${devices.length}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -57,127 +81,161 @@ class DeviceListPanel extends StatelessWidget {
             subtitle: emptyMessage,
           )
         else
-          for (var index = 0; index < devices.length; index++) ...[
-            DeviceListTile(
-              device: devices[index],
-              onActivity: onActivity,
-              onResetTrust: onResetTrust,
-              onRevoke: onRevoke,
-              actionsEnabled: actionsEnabled,
-            ),
-            if (index < devices.length - 1) const Divider(height: 1),
-          ],
+          AdminDataTable(
+            minWidth: 820,
+            columns: [
+              AdminDataColumn(
+                id: 'avatar',
+                label: '',
+                width: 56,
+                builder: (_, i) => _deviceAvatar(devices[i]),
+              ),
+              AdminDataColumn(
+                id: 'device',
+                label: 'Device',
+                width: 200,
+                cardPrimary: true,
+                builder: (_, i) => TableCellText(
+                  _deviceName(devices[i]),
+                  level: DataEmphasisLevel.primary,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'details',
+                label: 'Details',
+                cardDetail: true,
+                builder: (_, i) {
+                  final details = _deviceDetails(devices[i]);
+                  return TableCellText(
+                    details.isEmpty ? 'No activity metadata' : details.join(' · '),
+                    muted: true,
+                    maxLines: 2,
+                  );
+                },
+              ),
+              AdminDataColumn(
+                id: 'trust',
+                label: 'Trust',
+                builder: (_, i) {
+                  final device = devices[i];
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      _TrustChip(device: device),
+                      if (device['suspicious'] == true)
+                        StatusChip(
+                          label: 'Suspicious',
+                          color: AppColors.warning,
+                          icon: Icons.warning_amber,
+                        ),
+                    ],
+                  );
+                },
+              ),
+              AdminDataColumn(
+                id: 'actions',
+                label: '',
+                width: 64,
+                builder: (_, i) => _deviceActionsMenu(
+                  devices[i],
+                  onActivity: onActivity,
+                  onResetTrust: onResetTrust,
+                  onRevoke: onRevoke,
+                  actionsEnabled: actionsEnabled,
+                ),
+              ),
+            ],
+            itemCount: devices.length,
+            rowBuilder: (_, _) => const SizedBox.shrink(),
+          ),
       ],
     ),
   );
-}
 
-class DeviceListTile extends StatelessWidget {
-  final DeviceJson device;
-  final DeviceAction? onActivity;
-  final DeviceAction? onResetTrust;
-  final DeviceAction? onRevoke;
-  final bool actionsEnabled;
-
-  const DeviceListTile({
-    super.key,
-    required this.device,
-    this.onActivity,
-    this.onResetTrust,
-    this.onRevoke,
-    this.actionsEnabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _deviceAvatar(DeviceJson device) {
     final suspicious = device['suspicious'] == true;
-    final name = device['device_name']?.toString().trim().isNotEmpty == true
-        ? device['device_name'].toString()
-        : '${device['platform'] ?? 'Unknown'} ${device['type'] ?? 'device'}';
-    final details = [
-      if (device['user_id']?.toString().isNotEmpty == true)
-        'User ${device['user_id']}',
-      if (device['last_ip']?.toString().isNotEmpty == true)
-        'IP ${device['last_ip']}',
-      if (device['last_location']?.toString().isNotEmpty == true)
-        device['last_location'].toString(),
-      if (device['last_seen_at']?.toString().isNotEmpty == true)
-        'Last seen ${_readableTime(device['last_seen_at'])}',
-    ];
-    return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: suspicious
-            ? AppColors.danger.withValues(alpha: 0.12)
-            : AppColors.accentBlue.withValues(alpha: 0.12),
-        foregroundColor: suspicious ? AppColors.danger : AppColors.accentBlue,
-        child: Icon(_deviceIcon(device['type']?.toString())),
-      ),
-      title: Wrap(
-        spacing: 8,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(name),
-          _TrustChip(device: device),
-          if (suspicious)
-            StatusChip(
-              label: 'Suspicious',
-              color: AppColors.warning,
-              icon: Icons.warning_amber,
+    return CircleAvatar(
+      backgroundColor: suspicious
+          ? AppColors.danger.withValues(alpha: 0.12)
+          : AppColors.accentBlue.withValues(alpha: 0.12),
+      foregroundColor: suspicious ? AppColors.danger : AppColors.accentBlue,
+      child: Icon(_deviceIcon(device['type']?.toString()), size: 18),
+    );
+  }
+
+  Widget _deviceActionsMenu(
+    DeviceJson device, {
+    DeviceAction? onActivity,
+    DeviceAction? onResetTrust,
+    DeviceAction? onRevoke,
+    required bool actionsEnabled,
+  }) {
+    if (onActivity == null && onResetTrust == null && onRevoke == null) {
+      return const SizedBox.shrink();
+    }
+    return PopupMenuButton<String>(
+      enabled: actionsEnabled,
+      tooltip: 'Device actions'.localized,
+      onSelected: (action) {
+        switch (action) {
+          case 'activity':
+            onActivity?.call(device);
+          case 'trust':
+            onResetTrust?.call(device);
+          case 'revoke':
+            onRevoke?.call(device);
+        }
+      },
+      itemBuilder: (context) => [
+        if (onActivity != null)
+          const PopupMenuItem(
+            value: 'activity',
+            child: ListTile(
+              leading: Icon(Icons.history),
+              title: LocalizedText('View activity'),
+              contentPadding: EdgeInsets.zero,
             ),
-        ],
-      ),
-      subtitle: details.isEmpty
-          ? const LocalizedText('No activity metadata')
-          : Text(details.join(' · ')),
-      trailing: onActivity == null && onResetTrust == null && onRevoke == null
-          ? null
-          : PopupMenuButton<String>(
-              enabled: actionsEnabled,
-              tooltip: 'Device actions'.localized,
-              onSelected: (action) {
-                switch (action) {
-                  case 'activity':
-                    onActivity?.call(device);
-                  case 'trust':
-                    onResetTrust?.call(device);
-                  case 'revoke':
-                    onRevoke?.call(device);
-                }
-              },
-              itemBuilder: (context) => [
-                if (onActivity != null)
-                  const PopupMenuItem(
-                    value: 'activity',
-                    child: ListTile(
-                      leading: Icon(Icons.history),
-                      title: LocalizedText('View activity'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                if (onResetTrust != null)
-                  const PopupMenuItem(
-                    value: 'trust',
-                    child: ListTile(
-                      leading: Icon(Icons.restart_alt),
-                      title: LocalizedText('Reset trust'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-                if (onRevoke != null)
-                  const PopupMenuItem(
-                    value: 'revoke',
-                    child: ListTile(
-                      leading: Icon(Icons.phonelink_erase, color: AppColors.danger),
-                      title: LocalizedText('Revoke device'),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                  ),
-              ],
+          ),
+        if (onResetTrust != null)
+          const PopupMenuItem(
+            value: 'trust',
+            child: ListTile(
+              leading: Icon(Icons.restart_alt),
+              title: LocalizedText('Reset trust'),
+              contentPadding: EdgeInsets.zero,
             ),
+          ),
+        if (onRevoke != null)
+          const PopupMenuItem(
+            value: 'revoke',
+            child: ListTile(
+              leading: Icon(Icons.phonelink_erase, color: AppColors.danger),
+              title: LocalizedText('Revoke device'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+      ],
     );
   }
 }
+
+String _deviceName(DeviceJson device) =>
+    device['device_name']?.toString().trim().isNotEmpty == true
+        ? device['device_name'].toString()
+        : '${device['platform'] ?? 'Unknown'} ${device['type'] ?? 'device'}';
+
+List<String> _deviceDetails(DeviceJson device) => [
+  if (device['user_id']?.toString().isNotEmpty == true)
+    'User ${device['user_id']}',
+  if (device['last_ip']?.toString().isNotEmpty == true)
+    'IP ${device['last_ip']}',
+  if (device['last_location']?.toString().isNotEmpty == true)
+    device['last_location'].toString(),
+  if (device['last_seen_at']?.toString().isNotEmpty == true)
+    'Last seen ${_readableTime(device['last_seen_at'])}',
+];
 
 class LoginHistoryPanel extends StatelessWidget {
   final String title;
@@ -198,7 +256,10 @@ class LoginHistoryPanel extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              const Icon(Icons.manage_history),
+              Icon(
+                Icons.manage_history,
+                color: adminModuleIconColor(AdminModuleId.deviceSecurity),
+              ),
               const SizedBox(width: 8),
               LocalizedText(
                 title,
@@ -354,7 +415,7 @@ class _TrustChip extends StatelessWidget {
         : AppColors.success;
     return Chip(
       avatar: Icon(Icons.shield_outlined, size: 16, color: color),
-      label: LocalizedText(label),
+      label: Text(label),
       visualDensity: VisualDensity.compact,
     );
   }

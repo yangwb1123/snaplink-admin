@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'scim_browser_widgets.dart';
 import 'scim_group_dialog.dart';
@@ -309,7 +311,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           ),
           if (_error != null) _errorCard(context),
           if (_loading && page == null)
-            const Expanded(child: Center(child: CircularProgressIndicator()))
+            const Expanded(child: SkeletonListTile(itemCount: 6))
           else if (page != null)
             Expanded(
               child: Column(
@@ -317,10 +319,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
                   if (_loading) const LinearProgressIndicator(),
                   Expanded(
                     child: page.resources.isEmpty
-                        ? const Center(
-                            child: LocalizedText(
-                              'No resources match this query.',
-                            ),
+                        ? const EmptyState(
+                            variant: EmptyStateVariant.empty,
+                            title: 'No resources match this query.',
                           )
                         : ListView.builder(
                             itemCount: page.resources.length,

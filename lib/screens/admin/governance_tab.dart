@@ -375,7 +375,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
     );
   }
 
-  Widget _errorBanner() => GovernanceErrorBanner(error: _error!);
+  Widget _errorBanner() => GovernanceErrorBanner(error: _error!, onRetry: _refresh);
   Widget _readArea(BuildContext context, String title, String section) {
     final available = governanceReadSpecs
         .where((spec) => spec.section == section && _has('GET', spec.path))
@@ -449,10 +449,12 @@ class _GovernanceTabState extends State<GovernanceTab> {
         ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
-          title: LocalizedText(
-            event['type']?.toString() ?? event['id']?.toString() ?? 'Event',
+          title: Text(
+            event['type']?.toString() ??
+                event['id']?.toString() ??
+                context.tr('Event'),
           ),
-          subtitle: LocalizedText(
+          subtitle: Text(
             '${event['timestamp'] ?? event['created_at'] ?? ''} ${event['outcome'] ?? ''}'
                 .trim(),
           ),

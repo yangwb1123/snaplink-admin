@@ -1,0 +1,61 @@
+# snaplink-console 页面 UI 重构管线 — stage 4（对抗审查 + 裁决）
+#
+# stage 1-3 已完成并验证（identity/security/tenants/system/developers，
+# 见 docs/ui/pages/fix-*.md）。本文件跑 meta 对抗审查 + 验收裁决门。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/pages-ui-refactor-stage4.yaml \
+#     --mode serial --timeout 1800 --log-file logs/pages-ui-refactor-stage4.log
+git_commit: false
+decision_log: docs/ui/pages/DECISIONS.md
+archive_dir: docs/ui/pages/archive
+
+stages:
+  # ── 对抗审查：ui/visual 审查角色复核所有修复 ──
+  - name: review
+    from_outputs:
+      - fix_identity
+      - fix_security
+      - fix_tenants
+      - fix_system
+      - fix_developers
+    meta: true
+    meta_timeout: 1500
+    role_dir: prompts
+    output_dir: docs/ui/pages/reviews
+    max_iterations: 2
+    mode: serial
+
+  # ── 裁决门 ──
+  - name: acceptance
+    from_outputs:
+      - fix_identity
+      - fix_security
+      - fix_tenants
+      - fix_system
+      - fix_developers
+      - review
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Independently verify the pages UI refactor using repository
+          evidence:
+          - every high/medium audit finding is fixed or explicitly
+            rejected with reason (map by item number from
+            docs/ui/admin-pages/audit.md);
+          - template lists were replaced with fitting domain components,
+            not forced;
+          - page icons use the group accent colors
+            (adminModuleIconColor);
+          - behavior preserved: API contracts, capability gating,
+            routes, i18n keys, commerce/break-glass/audit/webhook
+            semantics;
+          - flutter analyze 0 errors; affected test files pass
+            (spot-check at least one per group);
+          - no off-whitelist file was modified (git status check).
+          Final line MUST be:
+          VERDICT: PASS - <why the refactor is complete>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/pages/acceptance.md

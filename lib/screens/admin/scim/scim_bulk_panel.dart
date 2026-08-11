@@ -334,7 +334,7 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
             color: Theme.of(context).colorScheme.errorContainer,
             child: ListTile(
               leading: const Icon(Icons.error_outline),
-              title: LocalizedText(_error!),
+              title: Text(_error!),
               trailing: _profile == null && !_outcomeUnknown
                   ? TextButton.icon(
                       onPressed: _loadingProfile ? null : _loadProfile,

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/count_up.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -291,15 +295,26 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: LocalizedText(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Row(
+              children: [
+                Expanded(
+                  child: LocalizedText(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_loading)
           const Padding(
-            padding: EdgeInsets.only(top: 32),
-            child: Center(child: CircularProgressIndicator()),
+            padding: EdgeInsets.only(top: 16),
+            child: SkeletonListTile(itemCount: 3),
           ),
         if (!_loading) ...[
           _securitySummary(context),
@@ -338,36 +353,81 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     final findings = _list('suspicious', 'findings');
     return _card(context, 'Detected token anomalies', [
       if (findings.isEmpty) const LocalizedText('No anomaly findings.'),
-      for (final finding in findings)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(
-            finding['severity'] == 'critical'
-                ? Icons.warning_amber
-                : Icons.info_outline,
-            color: finding['severity'] == 'critical'
-                ? AppColors.danger
-                : AppColors.warning,
-          ),
-          title: LocalizedText(
-            '${finding['type'] ?? 'finding'} · ${finding['subject_id'] ?? ''}',
-          ),
-          subtitle: Text(finding['detail']?.toString() ?? ''),
+      if (findings.isNotEmpty)
+        AdminDataTable(
+          density: TableDensity.compact,
+          columns: [
+            AdminDataColumn(
+              id: 'finding',
+              label: 'Finding',
+              cardPrimary: true,
+              builder: (_, i) {
+                final finding = findings[i];
+                return Row(
+                  children: [
+                    Icon(
+                      finding['severity'] == 'critical'
+                          ? Icons.warning_amber
+                          : Icons.info_outline,
+                      size: 16,
+                      color: finding['severity'] == 'critical'
+                          ? AppColors.danger
+                          : AppColors.warning,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${finding['type'] ?? context.tr('finding')} · ${finding['subject_id'] ?? ''}',
+                    ),
+                  ],
+                );
+              },
+            ),
+            AdminDataColumn(
+              id: 'detail',
+              label: 'Detail',
+              cardDetail: true,
+              builder: (_, i) => TableCellText(
+                findings[i]['detail']?.toString() ?? '',
+                muted: true,
+                maxLines: 2,
+              ),
+            ),
+          ],
+          itemCount: findings.length,
+          rowBuilder: (_, _) => const SizedBox.shrink(),
         ),
     ]);
   }
 
   Widget _sessionsCard(BuildContext context) {
-    final sessions = _list('sessions', 'sessions');
+    final sessions = _list('sessions', 'sessions').take(100).toList();
     return _card(context, 'Active sessions', [
       LocalizedText('Total: {total}', args: {'total': _data['sessions']?['total'] ?? sessions.length}),
-      for (final session in sessions.take(100))
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(session['id']?.toString() ?? ''),
-          subtitle: LocalizedText(
-            '${session['user_id'] ?? session['userId'] ?? ''} · ${session['ip'] ?? ''}',
-          ),
+      if (sessions.isNotEmpty)
+        AdminDataTable(
+          density: TableDensity.compact,
+          columns: [
+            AdminDataColumn(
+              id: 'session',
+              label: 'Session ID',
+              cardPrimary: true,
+              builder: (_, i) => TableCellText(
+                sessions[i]['id']?.toString() ?? '',
+                level: DataEmphasisLevel.primary,
+              ),
+            ),
+            AdminDataColumn(
+              id: 'user',
+              label: 'User · IP',
+              cardDetail: true,
+              builder: (_, i) => TableCellText(
+                '${sessions[i]['user_id'] ?? sessions[i]['userId'] ?? ''} · ${sessions[i]['ip'] ?? ''}',
+                muted: true,
+              ),
+            ),
+          ],
+          itemCount: sessions.length,
+          rowBuilder: (_, _) => const SizedBox.shrink(),
         ),
     ]);
   }
@@ -376,26 +436,52 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     final tokens = _list('tokens', 'tokens');
     return _card(context, 'Administrator bearer tokens', [
       if (tokens.isEmpty) const LocalizedText('No administrator tokens found.'),
-      for (final token in tokens)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            token['label']?.toString() ?? token['id']?.toString() ?? '',
-          ),
-          subtitle: LocalizedText(
-            '${token['admin_id'] ?? ''} · ${(token['scopes'] as List? ?? const []).join(' ')}',
-          ),
-          trailing: _supportsAdminTokenRevoke
-              ? TextButton(
-                  onPressed: _mutating
-                      ? null
-                      : () => _revokeAdminToken(token['id']?.toString() ?? ''),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
-                  ),
-                  child: const LocalizedText('Revoke'),
-                )
-              : null,
+      if (tokens.isNotEmpty)
+        AdminDataTable(
+          density: TableDensity.compact,
+          columns: [
+            AdminDataColumn(
+              id: 'token',
+              label: 'Token',
+              cardPrimary: true,
+              builder: (_, i) {
+                final token = tokens[i];
+                return Row(
+                  children: [
+                    Expanded(
+                      child: TableCellText(
+                        token['label']?.toString() ?? token['id']?.toString() ?? '',
+                        level: DataEmphasisLevel.primary,
+                      ),
+                    ),
+                    if (_supportsAdminTokenRevoke)
+                      TextButton(
+                        onPressed: _mutating
+                            ? null
+                            : () => _revokeAdminToken(
+                                token['id']?.toString() ?? '',
+                              ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
+                        child: const LocalizedText('Revoke'),
+                      ),
+                  ],
+                );
+              },
+            ),
+            AdminDataColumn(
+              id: 'meta',
+              label: 'Admin · Scopes',
+              cardDetail: true,
+              builder: (_, i) => TableCellText(
+                '${tokens[i]['admin_id'] ?? ''} · ${(tokens[i]['scopes'] as List? ?? const []).join(' ')}',
+                muted: true,
+              ),
+            ),
+          ],
+          itemCount: tokens.length,
+          rowBuilder: (_, _) => const SizedBox.shrink(),
         ),
     ]);
   }
@@ -405,13 +491,31 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     return _card(context, 'Refresh tokens expiring soon', [
       if (tokens.isEmpty)
         const LocalizedText('No refresh-token expiry records.'),
-      for (final token in tokens)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(token['subject']?.toString() ?? ''),
-          subtitle: LocalizedText(
-            '${token['client_id'] ?? ''} · ${token['expires_at'] ?? ''}',
-          ),
+      if (tokens.isNotEmpty)
+        AdminDataTable(
+          density: TableDensity.compact,
+          columns: [
+            AdminDataColumn(
+              id: 'subject',
+              label: 'Subject',
+              cardPrimary: true,
+              builder: (_, i) => TableCellText(
+                tokens[i]['subject']?.toString() ?? '',
+                level: DataEmphasisLevel.primary,
+              ),
+            ),
+            AdminDataColumn(
+              id: 'meta',
+              label: 'Client · Expires',
+              cardDetail: true,
+              builder: (_, i) => TableCellText(
+                '${tokens[i]['client_id'] ?? ''} · ${tokens[i]['expires_at'] ?? ''}',
+                muted: true,
+              ),
+            ),
+          ],
+          itemCount: tokens.length,
+          rowBuilder: (_, _) => const SizedBox.shrink(),
         ),
     ]);
   }
@@ -447,7 +551,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   ]);
   Widget _metric(String label, Object? value) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
-    child: LocalizedText('{label}: {value}', args: {'label': label, 'value': value ?? 0}),
+    child: Text('$label: ${value ?? 0}'),
   );
   Widget _card(BuildContext context, String title, List<Widget> children) =>
       Card(
@@ -457,10 +561,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              LocalizedText(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+              SectionHeader(title),
               const SizedBox(height: 12),
               ...children,
             ],
@@ -583,50 +684,31 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   Widget _securitySummary(BuildContext context) {
     final suspicious = _list('suspicious', 'findings').length;
     final expiring = _list('expiring', 'tokens').length;
-    final sessions = _data['sessions']?['total'] ?? 0;
+    final sessions = (_data['sessions']?['total'] as num?) ?? 0;
     return Padding(
       padding: const EdgeInsets.only(top: 4, bottom: 12),
-      child: Row(
-        children: [
-          _summaryStat(context, 'Anomalies', suspicious,
-              suspicious > 0 ? AppColors.danger : AppColors.muted,
-              Icons.warning_amber_outlined),
-          const SizedBox(width: 24),
-          _summaryStat(context, 'Expiring', expiring,
-              expiring > 0 ? AppColors.warning : AppColors.muted,
-              Icons.timer_outlined),
-          const SizedBox(width: 24),
-          _summaryStat(context, 'Sessions', sessions,
-              AppColors.muted, Icons.devices_outlined),
+      child: MetricStrip(
+        cards: [
+          KeyMetricCard(
+            label: 'Anomalies',
+            value: suspicious,
+            icon: Icons.warning_amber_outlined,
+            color: suspicious > 0 ? AppColors.danger : AppColors.muted,
+          ),
+          KeyMetricCard(
+            label: 'Expiring',
+            value: expiring,
+            icon: Icons.timer_outlined,
+            color: expiring > 0 ? AppColors.warning : AppColors.muted,
+          ),
+          KeyMetricCard(
+            label: 'Sessions',
+            value: sessions,
+            icon: Icons.devices_outlined,
+            color: AppColors.muted,
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _summaryStat(BuildContext context, String label, int value,
-      Color color, IconData icon) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        CountUp(
-          value: value,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-            color: color,
-          ),
-        ),
-        const SizedBox(width: 8),
-        LocalizedText(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 

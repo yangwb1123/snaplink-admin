@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/hover_card.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -13,6 +15,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'dart:async';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
 
 /// Domain ownership management tab with URL routing.
 /// URLs: /admin/domains, /admin/domains/new
@@ -181,9 +184,7 @@ class _DomainsTabState extends State<DomainsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText('Domain management is not enabled.'),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -248,31 +249,61 @@ class _DomainsTabState extends State<DomainsTab> {
           ),
         const SizedBox(height: 8),
         if (!_loading && _filteredDomains.isEmpty && !_showForm)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: LocalizedText('No domains registered.'),
-          ),
-        if (!_loading)
-          for (final d in _filteredDomains)
-            HoverCard(
-              margin: const EdgeInsets.only(top: 8),
-              child: Card(
-              child: ListTile(
-                leading: Icon(Icons.language, color: AppColors.accentBlue),
-                title: Text(d['hostname']?.toString() ?? ''),
-                subtitle: LocalizedText(
-                  'verified: ${d['verified'] == true ? 'yes' : 'no'} · ${d['id'] ?? ''}',
-                ),
-                trailing: TextButton(
-                  onPressed: _mutating
-                      ? null
-                      : () => _delete(d['hostname']?.toString() ?? ''),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
+          EmptyState(title: 'No domains registered.'),
+        if (!_loading && _filteredDomains.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: AdminDataTable(
+              minWidth: 720,
+              columns: [
+                AdminDataColumn(
+                  id: 'hostname',
+                  label: 'Hostname',
+                  width: 260,
+                  cardPrimary: true,
+                  builder: (_, i) => TableCellText(
+                    _filteredDomains[i]['hostname']?.toString() ?? '',
+                    level: DataEmphasisLevel.primary,
                   ),
-                  child: const LocalizedText('Delete'),
                 ),
-              ),
+                AdminDataColumn(
+                  id: 'id',
+                  label: 'ID',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _filteredDomains[i]['id']?.toString() ?? '',
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'verified',
+                  label: 'Status',
+                  builder: (_, i) {
+                    final verified = _filteredDomains[i]['verified'] == true;
+                    return verified
+                        ? StatusChip.active(label: 'Verified')
+                        : StatusChip.pending(label: 'Pending');
+                  },
+                ),
+                AdminDataColumn(
+                  id: 'actions',
+                  label: '',
+                  width: 110,
+                  builder: (_, i) {
+                    final hostname =
+                        _filteredDomains[i]['hostname']?.toString() ?? '';
+                    return TextButton(
+                      onPressed: _mutating ? null : () => _delete(hostname),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                      ),
+                      child: const LocalizedText('Delete'),
+                    );
+                  },
+                ),
+              ],
+              itemCount: _filteredDomains.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
             ),
           ),
         if (!_showForm)

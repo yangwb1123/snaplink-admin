@@ -5,6 +5,8 @@ import 'package:sso_admin/app_settings.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
 /// Distributed-cluster (Tier B) control-plane panel.
 ///
@@ -210,7 +212,11 @@ class _PanelState extends State<DistributedClusterPanel> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.hub, size: 24),
+                    Icon(
+                      Icons.hub,
+                      size: 24,
+                      color: adminModuleIconColor(AdminModuleId.health),
+                    ),
                     const SizedBox(width: 8),
                     LocalizedText(
                       'Distributed Cluster',
@@ -277,7 +283,11 @@ class _PanelState extends State<DistributedClusterPanel> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.science_outlined, size: 24),
+                    Icon(
+                      Icons.science_outlined,
+                      size: 24,
+                      color: adminModuleIconColor(AdminModuleId.health),
+                    ),
                     const SizedBox(width: 8),
                     LocalizedText(
                       'Cluster Self-Test',

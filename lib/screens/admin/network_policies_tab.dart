@@ -4,8 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
 import 'network_policy_dialog.dart';
 
@@ -159,9 +162,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText('Network policy management is not enabled.'),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -199,10 +200,61 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
           onRetry: _load,
           emptyTitle: 'No network policies',
           emptySubtitle: 'Unclassified requests use the deployment defaults.',
-          dataBuilder: (policies) => Column(
-            children: [
-              for (final policy in policies) _policyCard(context, policy),
+          dataBuilder: (policies) => AdminDataTable(
+            minWidth: 760,
+            columns: [
+              AdminDataColumn(
+                id: 'name',
+                label: 'Policy',
+                width: 200,
+                cardPrimary: true,
+                builder: (_, i) => TableCellText(
+                  policies[i]['name']?.toString() ?? '',
+                  level: DataEmphasisLevel.primary,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'priority',
+                label: 'Priority',
+                builder: (_, i) => TableCellText(
+                  '${policies[i]['priority'] ?? 0}',
+                  muted: true,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'cidrs',
+                label: 'CIDRs',
+                cardDetail: true,
+                builder: (_, i) => TableCellText(
+                  (policies[i]['cidrs'] as List? ?? const []).join(', '),
+                  muted: true,
+                  maxLines: 2,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'hosts',
+                label: 'Hosts',
+                cardDetail: true,
+                builder: (_, i) => TableCellText(
+                  (policies[i]['hostnames'] as List? ?? const []).join(', '),
+                  muted: true,
+                  maxLines: 2,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'actions',
+                label: '',
+                width: 90,
+                builder: (_, i) => IconButton(
+                  onPressed: _mutating ? null : () => _delete(policies[i]),
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Delete'.localized,
+                ),
+              ),
             ],
+            itemCount: policies.length,
+            rowBuilder: (_, _) => const SizedBox.shrink(),
+            onRowTap: (i) => _edit(policies[i]),
           ),
         ),
         const SizedBox(height: 16),
@@ -210,26 +262,6 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
       ],
     );
   }
-
-  Widget _policyCard(BuildContext context, Map<String, dynamic> policy) => Card(
-    margin: const EdgeInsets.only(bottom: 8),
-    child: ListTile(
-      leading: const Icon(Icons.lan_outlined),
-      title: Text(policy['name']?.toString() ?? ''),
-      subtitle: LocalizedText(
-        'Priority ${policy['priority'] ?? 0}\n'
-        'CIDRs: ${(policy['cidrs'] as List? ?? const []).join(', ')}\n'
-        'Hosts: ${(policy['hostnames'] as List? ?? const []).join(', ')}',
-      ),
-      isThreeLine: true,
-      onTap: () => _edit(policy),
-      trailing: IconButton(
-        onPressed: _mutating ? null : () => _delete(policy),
-        icon: const Icon(Icons.delete_outline),
-        tooltip: 'Delete'.localized,
-      ),
-    ),
-  );
 
   Widget _classifierCard(BuildContext context) => Card(
     child: Padding(

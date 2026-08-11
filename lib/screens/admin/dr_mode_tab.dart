@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -167,10 +168,17 @@ class _DRModeTabState extends State<DRModeTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          LocalizedText(
-                            'Current mode: ${_status!['mode'] ?? 'normal'}',
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Row(
+                            children: [
+                              Text(
+                                'Current mode: ${_status!['mode'] ?? context.tr('normal')}',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(width: 8),
+                              _modeChip(_status!['mode']?.toString() ?? ''),
+                            ],
                           ),
+                          const SizedBox(height: 4),
                           LocalizedText(
                             _modes[_status!['mode']] ??
                                 'Unknown service posture.',
@@ -223,4 +231,11 @@ class _DRModeTabState extends State<DRModeTab> {
         ),
     ],
   );
+
+  Widget _modeChip(String mode) {
+    if (mode == 'normal') {
+      return StatusChip.active(label: 'Normal');
+    }
+    return StatusChip.degraded(label: 'Degraded');
+  }
 }

@@ -8,6 +8,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Advertised logout URL': '声明的退出 URL',
   'Apply ordered operation': '应用有序操作',
   'Audit Log': '审计日志',
+  'Authorization check tools are not enabled on this replica.': '此副本未启用授权检查工具。',
   'Break-glass approved.': '紧急访问已批准。',
   'Break-glass session created.': '紧急访问会话已创建。',
   'Create audited, time-bound emergency access to user accounts.':
@@ -108,6 +109,8 @@ const appAdminFeatureSourceZh = <String, String>{
       '恢复前必须使用相同快照、模式、排除项和渠道成功完成试运行。',
   'Additional string keys preserved verbatim': '按原样保留的其他字符串键',
   'Available management domains': '可用管理领域',
+  '{running} running · {documented} documented-only':
+      '{running} 个运行中 · {documented} 个仅文档',
   'Calculate changes without persisting them.': '计算变更但不持久化。',
   'Conditions are combined with AND, matching Snaplink server semantics.':
       '各条件使用 AND 组合，与 Snaplink 服务器语义一致。',
@@ -179,6 +182,12 @@ const appAdminFeatureSourceZh = <String, String>{
   'Enter a token JTI to trace its exchange chain': '输入令牌 JTI 以跟踪其交换链',
   'One per line, for example 10.0.0.0/8.': '每行一个，例如 10.0.0.0/8。',
   'Webhook subscription created.': 'Webhook 订阅已创建。',
+  'Webhook management is not enabled on this replica.': '此副本未启用 Webhook 管理。',
+  'Manage event notification webhook subscriptions and dead letters.': '管理事件通知 Webhook 订阅与死信。',
+  'Delete subscription?': '删除订阅？',
+  'Delete webhook?': '删除 Webhook？',
+  'Delete this subscription?': '删除此订阅？',
+  'URL is required.': '必须填写 URL。',
   '25 per page': '每页 25 条',
   '100 per page': '每页 100 条',
   '250 per page': '每页 250 条',

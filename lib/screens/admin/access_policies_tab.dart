@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 const accessPoliciesPath = '/api/v1/admin/access-policies';
 const accessPolicyConvergePath = '$accessPoliciesPath/converge';
@@ -250,8 +251,14 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
               ],
             ),
             const SizedBox(height: 8),
-            Text(
-              '${'Priority'.localized}: ${policy['priority'] ?? 0} · ${accessPolicyVerdict(policy)}',
+            Row(
+              children: [
+                Text(
+                  '${'Priority'.localized}: ${policy['priority'] ?? 0}',
+                ),
+                const SizedBox(width: 8),
+                _verdictChip(accessPolicyVerdict(policy)),
+              ],
             ),
             const SizedBox(height: 8),
             if (conditions.isEmpty)
@@ -274,6 +281,12 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     );
   }
 
+  Widget _verdictChip(String verdict) {
+    if (verdict == 'Deny') return StatusChip.failed(label: 'Deny');
+    if (verdict == 'Allow') return StatusChip.active(label: 'Allow');
+    return StatusChip.info(label: verdict);
+  }
+
   Widget _convergenceCard(Map<String, dynamic> result) => _statusCard(
     'Convergence complete: ${result['scanned'] ?? 0} scanned, ${result['revoked'] ?? 0} revoked, ${result['step_up_marked'] ?? 0} marked for step-up, ${result['scopes_restricted'] ?? 0} scope ceilings reduced, ${result['failed'] ?? 0} failed.',
     isError: (result['failed'] as num?)?.toInt() != 0,
@@ -285,7 +298,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
         : Theme.of(context).colorScheme.secondaryContainer,
     child: Padding(
       padding: const EdgeInsets.all(12),
-      child: LocalizedText(message),
+      child: Text(message),
     ),
   );
 }

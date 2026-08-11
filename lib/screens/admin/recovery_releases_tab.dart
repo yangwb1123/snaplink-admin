@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'recovery_dialogs.dart';
 import 'recovery_release_widgets.dart';
@@ -348,11 +349,23 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ),
+            TextButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh),
+              label: const LocalizedText('Retry'),
+            ),
+          ],
+        ),
       ],
       if (_loading) ...[
         const SizedBox(height: 12),
-        const LinearProgressIndicator(),
+        const SkeletonListTile(itemCount: 3),
       ],
       const SizedBox(height: 12),
       if (_drStatus != null) RecoveryStatusCard(status: _drStatus!),
@@ -377,7 +390,6 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       const SizedBox(height: 12),
       RecoveryOperationsCard(operations: _operations),
       if (_lastReport?.isNotEmpty == true) ...[
-        const SizedBox(height: 12),
         Card(
           child: ListTile(
             leading: const Icon(Icons.task_alt),

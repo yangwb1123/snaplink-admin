@@ -36,6 +36,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
   String? _previewSubject;
   String? _error;
   bool _busy = false;
+  Future<void> Function()? _lastOperation;
 
   bool _has(String method, String path) =>
       widget.capabilities.has(method, path) ||
@@ -158,6 +159,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
     setState(() {
       _busy = true;
       _error = null;
+      _lastOperation = operation;
     });
     try {
       await operation();
@@ -186,7 +188,15 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 12),
-        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
+        Text(_error!, style: const TextStyle(color: AppColors.danger)),
+        if (_lastOperation != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: _busy ? null : () => _run(_lastOperation!),
+            icon: const Icon(Icons.refresh),
+            label: const LocalizedText('Retry'),
+          ),
+        ],
       ],
       if (_busy) ...[
         const SizedBox(height: 12),

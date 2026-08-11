@@ -4,9 +4,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'snaplink_admin_api.dart';
 import '../../widgets/admin_breadcrumb.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Realtime, redacted audit activity backed by Snaplink's SSE endpoint.
@@ -197,7 +202,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       padding: const EdgeInsets.all(16),
       children: [
         AdminBreadcrumb(),
-        LocalizedText(
+        Text(
           AppStrings.of(context).liveActivity,
           style: Theme.of(context).textTheme.headlineSmall,
         ),
@@ -266,26 +271,38 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
           ),
         ],
         const SizedBox(height: 16),
-        LocalizedText(
-          _connected
-              ? 'Connected · latest $_maximumEvents events are retained locally.'
-              : 'Disconnected',
-          style: Theme.of(context).textTheme.titleSmall,
+        Row(
+          children: [
+            StatusChip(
+              label: _connected ? 'Connected' : 'Disconnected',
+              color: _connected ? AppColors.success : AppColors.muted,
+              icon: _connected ? Icons.wifi : Icons.wifi_off,
+            ),
+            if (_connected) ...[
+              const SizedBox(width: 8),
+              LocalizedText(
+                'Connected · latest {count} events are retained locally.',
+                args: {'count': _maximumEvents},
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
         if (_events.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: LocalizedText('No events received yet.'),
-            ),
+          const EmptyState(
+            variant: EmptyStateVariant.empty,
+            title: 'No events received yet.',
           )
         else
           ..._events.map(
             (event) => Card(
               child: ListTile(
                 onTap: () => _showDetail(event),
-                leading: const Icon(Icons.notifications_outlined),
+                leading: Icon(
+                  Icons.notifications_outlined,
+                  color: adminModuleIconColor(AdminModuleId.liveActivity),
+                ),
                 title: Text(event.data['type']?.toString() ?? event.type),
                 subtitle: Text(_summary(event)),
                 trailing: event.id == null ? null : Text(event.id!),

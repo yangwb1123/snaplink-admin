@@ -3,6 +3,8 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_route.dart';
@@ -97,7 +99,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       ),
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const SkeletonListTile(itemCount: 3)
         : _error != null
         ? Center(
             child: Column(
@@ -205,24 +207,13 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
 
   Widget _statusChip() {
     final status = _session?['status']?.toString() ?? 'unknown';
-    Color bg;
-    switch (status) {
-      case 'active':
-        bg = AppColors.danger.withValues(alpha: 0.10);
-        break;
-      case 'approved':
-        bg = AppColors.success.withValues(alpha: 0.10);
-        break;
-      case 'pending':
-        bg = AppColors.warning.withValues(alpha: 0.10);
-        break;
-      case 'rejected':
-        bg = Colors.grey.shade200;
-        break;
-      default:
-        bg = Colors.grey.shade200;
-    }
-    return Chip(label: LocalizedText(status), backgroundColor: bg);
+    return switch (status) {
+      'active' => StatusChip.active(label: 'Active'),
+      'approved' => StatusChip.active(label: 'Approved'),
+      'pending' => StatusChip.pending(label: 'Pending'),
+      'rejected' => StatusChip.failed(label: 'Rejected'),
+      _ => StatusChip.unknown(label: status),
+    };
   }
 
   Widget _actionsCard(BuildContext context) => Card(
@@ -279,7 +270,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             ...((_session!['audit'] as List?) ?? []).map(
               (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: LocalizedText(
+                child: Text(
                   '• ${entry['action'] ?? ''} by ${entry['actor'] ?? ''} at ${entry['timestamp'] ?? ''}',
                 ),
               ),

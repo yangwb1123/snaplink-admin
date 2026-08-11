@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
+import '../admin_module_groups.dart';
 import 'scim_bulk_panel.dart';
 import 'scim_discovery_panel.dart';
 import 'scim_models.dart';
@@ -29,10 +31,12 @@ class ScimDirectoryTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!_advertised) {
-      return const Center(
-        child: LocalizedText('SCIM 2.0 is not advertised by this deployment.'),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'SCIM 2.0 is not advertised by this deployment.',
       );
     }
+    final accent = adminModuleIconColor('scim-directory');
     return DefaultTabController(
       length: 4,
       child: Column(
@@ -48,7 +52,10 @@ class ScimDirectoryTab extends StatelessWidget {
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.primaryContainer,
-                  child: const Icon(Icons.account_tree_outlined),
+                  child: Icon(
+                    Icons.account_tree_outlined,
+                    color: accent,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -74,13 +81,25 @@ class ScimDirectoryTab extends StatelessWidget {
               ],
             ),
           ),
-          const TabBar(
+          TabBar(
             isScrollable: true,
             tabs: [
-              Tab(icon: Icon(Icons.info_outline), text: 'Overview'),
-              Tab(icon: Icon(Icons.people_outline), text: 'Users'),
-              Tab(icon: Icon(Icons.groups_outlined), text: 'Groups'),
-              Tab(icon: Icon(Icons.layers_outlined), text: 'Bulk'),
+              Tab(
+                icon: Icon(Icons.info_outline, color: accent),
+                text: 'Overview',
+              ),
+              Tab(
+                icon: Icon(Icons.people_outline, color: accent),
+                text: 'Users',
+              ),
+              Tab(
+                icon: Icon(Icons.groups_outlined, color: accent),
+                text: 'Groups',
+              ),
+              Tab(
+                icon: Icon(Icons.layers_outlined, color: accent),
+                text: 'Bulk',
+              ),
             ],
           ),
           Expanded(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 
 class OrganizationInvitationsCard extends StatelessWidget {
   final List<Map<String, dynamic>> invitations;
@@ -55,26 +56,61 @@ class OrganizationInvitationsCard extends StatelessWidget {
             const Padding(
               padding: EdgeInsets.only(top: 12),
               child: LocalizedText('No pending invitations loaded.'),
-            ),
-          for (final invitation in invitations)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(invitation['email']?.toString() ?? ''),
-              subtitle: LocalizedText(
-                '${invitation['role'] ?? 'member'}'
-                '${invitation['expires_at'] == null ? '' : ' · expires ${invitation['expires_at']}'}',
-              ),
-              trailing: TextButton(
-                onPressed: mutating
-                    ? null
-                    : () => onRevoke(invitation['email']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                child: const LocalizedText('Revoke'),
-              ),
-            ),
+            )
+          else
+            _invitationsTable(context),
         ],
       ),
     ),
+  );
+
+  Widget _invitationsTable(BuildContext context) => AdminDataTable(
+    density: TableDensity.compact,
+    minWidth: 560,
+    columns: [
+      AdminDataColumn(
+        id: 'email',
+        label: 'EMAIL',
+        width: 240,
+        cardPrimary: true,
+        builder: (context, i) => TableCellText(
+          invitations[i]['email']?.toString() ?? '',
+          bold: true,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'role',
+        label: 'ROLE',
+        width: 120,
+        builder: (context, i) => TableCellText(
+          invitations[i]['role']?.toString() ?? 'member',
+          muted: true,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'expires',
+        label: 'EXPIRES',
+        width: 180,
+        builder: (context, i) => TableCellText(
+          invitations[i]['expires_at']?.toString() ?? '—',
+          muted: true,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'actions',
+        label: '',
+        width: 100,
+        builder: (context, i) => TextButton(
+          onPressed: mutating
+              ? null
+              : () => onRevoke(invitations[i]['email']?.toString() ?? ''),
+          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          child: const LocalizedText('Revoke'),
+        ),
+      ),
+    ],
+    itemCount: invitations.length,
+    rowBuilder: (context, i) => const SizedBox.shrink(),
   );
 }
 

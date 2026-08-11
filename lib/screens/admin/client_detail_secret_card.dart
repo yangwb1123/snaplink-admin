@@ -38,7 +38,13 @@ class _ClientDetailSecretDialog extends StatelessWidget {
           const SizedBox(height: 12),
           if (expiresAt > 0)
             LocalizedText(
-              'Expires ${DateTime.fromMillisecondsSinceEpoch(expiresAt * 1000, isUtc: true).toLocal()}',
+              'Expires: {time}',
+              args: {
+                'time': DateTime.fromMillisecondsSinceEpoch(
+                  expiresAt * 1000,
+                  isUtc: true,
+                ).toLocal(),
+              },
             ),
           if (expiresAt > 0) const SizedBox(height: 12),
           Container(

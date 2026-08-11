@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'commerce_models.dart';
 
@@ -55,8 +56,13 @@ class CommerceTenantSelector extends StatelessWidget {
 
 class CommerceErrorCard extends StatelessWidget {
   final String message;
+  final VoidCallback? onRetry;
 
-  const CommerceErrorCard({super.key, required this.message});
+  const CommerceErrorCard({
+    super.key,
+    required this.message,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) => Card(
@@ -65,6 +71,13 @@ class CommerceErrorCard extends StatelessWidget {
       leading: const Icon(Icons.error_outline),
       title: const LocalizedText('Commerce service error'),
       subtitle: Text(message),
+      trailing: onRetry == null
+          ? null
+          : IconButton(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Retry'.localized,
+            ),
     ),
   );
 }
@@ -112,6 +125,11 @@ class CommercePlansPanel extends StatelessWidget {
     final features = _map(plan['features']);
     final limits = _map(plan['limits']);
     final price = commerceMinorUnits(_map(plan['price']));
+    final statusLabel = plan['status']?.toString() ?? 'unknown';
+    final subtitle =
+        '${plan['billing_interval'] ?? 'none'} · $price · '
+        '${features.values.where((value) => value == true).length} enabled features · '
+        '${limits.length} quota grants';
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(
@@ -120,12 +138,18 @@ class CommercePlansPanel extends StatelessWidget {
             : Icons.archive_outlined,
       ),
       title: Text(commercePlanLabel(plan)),
-      subtitle: LocalizedText(
-        '${plan['billing_interval'] ?? 'none'} · $price · '
-        '${features.values.where((value) => value == true).length} enabled features · '
-        '${limits.length} quota grants',
+      subtitle: Text(subtitle),
+      trailing: StatusChip(
+        label: statusLabel,
+        color: plan['status'] == 'active'
+            ? AppColors.success
+            : plan['status'] == 'retired'
+            ? AppColors.muted
+            : AppColors.warning,
+        icon: plan['status'] == 'active'
+            ? Icons.check_circle
+            : Icons.circle_outlined,
       ),
-      trailing: Chip(label: Text(plan['status']?.toString() ?? '—')),
     );
   }
 }
@@ -180,6 +204,12 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
     final plan = commercePlanRef(subscription);
     final revision = subscription['revision']?.toString() ?? '—';
     final isLive = commerceSubscriptionIsLive(subscription);
+    final title =
+        '${subscription['status'] ?? 'unknown'} · ${plan['id'] ?? '—'} v${plan['version'] ?? '—'}';
+    final period =
+        'Period: ${subscription['current_period_start'] ?? '—'} → ${subscription['current_period_end'] ?? '—'}';
+    final provider =
+        'Provider reference: ${subscription['provider'] ?? '—'} / ${subscription['provider_subscription_id'] ?? '—'}';
     return Card.outlined(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -189,22 +219,15 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: LocalizedText(
-                    '${subscription['status'] ?? 'unknown'} · ${plan['id'] ?? '—'} v${plan['version'] ?? '—'}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
                 ),
                 Chip(label: LocalizedText('Revision {revision}', args: {'revision': revision})),
               ],
             ),
             SelectableText(subscription['id']?.toString() ?? '—'),
             const SizedBox(height: 4),
-            LocalizedText(
-              'Period: ${subscription['current_period_start'] ?? '—'} → ${subscription['current_period_end'] ?? '—'}',
-            ),
-            LocalizedText(
-              'Provider reference: ${subscription['provider'] ?? '—'} / ${subscription['provider_subscription_id'] ?? '—'}',
-            ),
+            Text(period),
+            Text(provider),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -268,6 +291,11 @@ class CommerceEntitlementPanel extends StatelessWidget {
 
   Widget _summary(BuildContext context) {
     final plan = _map(entitlement!['plan']);
+    final stateLabel = entitlement!['active'] == true ? 'Active' : 'Inactive';
+    final summary =
+        '$stateLabel · '
+        '${plan['id'] ?? '—'} v${plan['version'] ?? '—'} · '
+        'revision ${entitlement!['revision'] ?? '—'}';
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -277,12 +305,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
           entitlement!['active'] == true ? Icons.check_circle : Icons.block,
           color: entitlement!['active'] == true ? AppColors.success : AppColors.warning,
         ),
-        LocalizedText(
-          '${entitlement!['active'] == true ? 'Active' : 'Inactive'} · '
-          '${plan['id'] ?? '—'} v${plan['version'] ?? '—'} · '
-          'revision ${entitlement!['revision'] ?? '—'}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text(summary, style: Theme.of(context).textTheme.titleMedium),
         LocalizedText('Expires: {time}', args: {'time': entitlement!['expires_at'] ?? '—'}),
       ],
     );
@@ -338,7 +361,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(entry.key),
-              subtitle: LocalizedText(commerceGrant(entry.value)),
+              subtitle: Text(commerceGrant(entry.value)),
               trailing: _grantIcon(entry.value),
             ),
           ),

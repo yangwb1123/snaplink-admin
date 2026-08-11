@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 abstract final class BreakGlassRevocationCopy {
   static const confirmation =
@@ -169,95 +172,101 @@ class BreakGlassSessionsList extends StatelessWidget {
       ),
       if (loading) const SkeletonListTile(itemCount: 3),
       if (!loading && sessions.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: LocalizedText('No break-glass sessions.'),
+        EmptyState(title: 'No break-glass sessions.'),
+      if (!loading && sessions.isNotEmpty)
+        AdminDataTable(
+          minWidth: 920,
+          columns: [
+            AdminDataColumn(
+              id: 'session',
+              label: 'Session',
+              width: 220,
+              cardPrimary: true,
+              builder: (_, i) => LocalizedText(
+                '{targetUser} · {status}',
+                args: {
+                  'targetUser': sessions[i]['target_user_id']?.toString() ??
+                      sessions[i]['target_user']?.toString() ??
+                      '',
+                  'status': sessions[i]['status']?.toString() ?? 'unknown',
+                },
+              ),
+            ),
+            AdminDataColumn(
+              id: 'status',
+              label: 'Status',
+              builder: (_, i) => _sessionStatusChip(
+                sessions[i]['status']?.toString() ?? 'unknown',
+              ),
+            ),
+            AdminDataColumn(
+              id: 'details',
+              label: 'Details',
+              cardDetail: true,
+              builder: (_, i) {
+                final session = sessions[i];
+                final id = session['id']?.toString() ?? '';
+                final reason = session['reason']?.toString() ?? '';
+                final createdBy = session['created_by']?.toString() ?? '';
+                final scope = session['scope']?.toString() ?? 'readonly';
+                return TableCellText(
+                  [
+                    if (reason.isNotEmpty) reason,
+                    'by $createdBy · scope: $scope · $id',
+                  ].join('\n'),
+                  muted: true,
+                  maxLines: 2,
+                );
+              },
+            ),
+            AdminDataColumn(
+              id: 'actions',
+              label: '',
+              width: 360,
+              builder: (_, i) {
+                final id = sessions[i]['id']?.toString() ?? '';
+                final status =
+                    sessions[i]['status']?.toString() ?? 'unknown';
+                final pending = status == 'pending';
+                final active = status == 'active';
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pending)
+                      TextButton(
+                        onPressed: mutating ? null : () => onApprove(id),
+                        child: const LocalizedText('Approve'),
+                      ),
+                    if (active)
+                      TextButton(
+                        onPressed: mutating ? null : () => onImpersonate(id),
+                        child: const LocalizedText('Impersonate'),
+                      ),
+                    if (pending || active)
+                      TextButton(
+                        onPressed: mutating ? null : () => onRevoke(id),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
+                        child: const LocalizedText('Revoke'),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+          itemCount: sessions.length,
+          rowBuilder: (_, _) => const SizedBox.shrink(),
+          onRowTap: (i) => onOpen(sessions[i]['id']?.toString() ?? ''),
         ),
-      if (!loading)
-        for (final session in sessions)
-          _BreakGlassSessionCard(
-            session: session,
-            mutating: mutating,
-            onOpen: onOpen,
-            onApprove: onApprove,
-            onImpersonate: onImpersonate,
-            onRevoke: onRevoke,
-          ),
     ],
   );
-}
 
-class _BreakGlassSessionCard extends StatelessWidget {
-  final Map<String, dynamic> session;
-  final bool mutating;
-  final ValueChanged<String> onOpen;
-  final ValueChanged<String> onApprove;
-  final ValueChanged<String> onImpersonate;
-  final ValueChanged<String> onRevoke;
-
-  const _BreakGlassSessionCard({
-    required this.session,
-    required this.mutating,
-    required this.onOpen,
-    required this.onApprove,
-    required this.onImpersonate,
-    required this.onRevoke,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final id = session['id']?.toString() ?? '';
-    final targetUser =
-        session['target_user_id']?.toString() ??
-        session['target_user']?.toString() ??
-        '';
-    final status = session['status']?.toString() ?? 'unknown';
-    final reason = session['reason']?.toString() ?? '';
-    final createdBy = session['created_by']?.toString() ?? '';
-    final scope = session['scope']?.toString() ?? 'readonly';
-    final pending = status == 'pending';
-    final active = status == 'active';
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
-      child: ListTile(
-        onTap: () => onOpen(id),
-        leading: Icon(
-          pending
-              ? Icons.hourglass_empty
-              : active
-              ? Icons.flash_on
-              : Icons.cancel,
-          color: pending
-              ? AppColors.warning
-              : active
-              ? AppColors.success
-              : Colors.grey,
-        ),
-        title: LocalizedText('{targetUser} · {status}', args: {'targetUser': targetUser, 'status': status}),
-        subtitle: LocalizedText('{reason}\nby {createdBy} · scope: {scope} · {id}', args: {'reason': reason, 'createdBy': createdBy, 'scope': scope, 'id': id}),
-        isThreeLine: true,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (pending)
-              TextButton(
-                onPressed: mutating ? null : () => onApprove(id),
-                child: const LocalizedText('Approve'),
-              ),
-            if (active)
-              TextButton(
-                onPressed: mutating ? null : () => onImpersonate(id),
-                child: const LocalizedText('Impersonate'),
-              ),
-            if (pending || active)
-              TextButton(
-                onPressed: mutating ? null : () => onRevoke(id),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                child: const LocalizedText('Revoke'),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  StatusChip _sessionStatusChip(String status) => switch (status) {
+    'pending' => StatusChip.pending(label: 'Pending'),
+    'active' => StatusChip.active(label: 'Active'),
+    'revoked' => StatusChip.inactive(label: 'Revoked'),
+    'expired' => StatusChip.inactive(label: 'Expired'),
+    _ => StatusChip.unknown(label: status),
+  };
 }

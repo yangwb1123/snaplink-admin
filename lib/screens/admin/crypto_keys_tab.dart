@@ -5,7 +5,11 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -232,9 +236,20 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (rotating) _buildRotateConfirm(context),
@@ -250,13 +265,87 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             ),
           ),
         if (_loading) const SkeletonListTile(itemCount: 4),
-        if (!_loading && _keys.isEmpty) const LocalizedText('No keys found.'),
+        if (!_loading && _keys.isEmpty)
+          EmptyState(title: 'No keys found.'),
         if (!_loading && _keys.isNotEmpty)
-          ListView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: _keys.length,
-            itemBuilder: (_, i) => _keyCard(context, _keys[i]),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: AdminDataTable(
+              minWidth: 920,
+              columns: [
+                AdminDataColumn(
+                  id: 'id',
+                  label: 'Key ID',
+                  width: 220,
+                  cardPrimary: true,
+                  builder: (_, i) => TableCellText(
+                    _keys[i]['id']?.toString() ??
+                        _keys[i]['kid']?.toString() ??
+                        '',
+                    level: DataEmphasisLevel.primary,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'algorithm',
+                  label: 'Algorithm',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _keys[i]['algorithm']?.toString() ??
+                        _keys[i]['alg']?.toString() ??
+                        '',
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'created',
+                  label: 'Created',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _keys[i]['created_at']?.toString() ??
+                        _keys[i]['createdAt']?.toString() ??
+                        '',
+                    muted: true,
+                    maxLines: 2,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'status',
+                  label: 'Status',
+                  builder: (_, i) {
+                    final status = _keys[i]['status']?.toString() ?? 'active';
+                    return switch (status) {
+                      'compromised' => StatusChip.failed(label: 'Compromised'),
+                      'expired' => StatusChip.degraded(label: 'Expired'),
+                      'active' => StatusChip.active(label: 'Active'),
+                      _ => StatusChip.unknown(label: status),
+                    };
+                  },
+                ),
+                AdminDataColumn(
+                  id: 'actions',
+                  label: '',
+                  width: 120,
+                  builder: (_, i) {
+                    final status = _keys[i]['status']?.toString() ?? 'active';
+                    final id = _keys[i]['id']?.toString() ??
+                        _keys[i]['kid']?.toString() ??
+                        '';
+                    if (status == 'compromised' || status == 'expired') {
+                      return const SizedBox.shrink();
+                    }
+                    return TextButton(
+                      onPressed: _mutating ? null : () => _compromise(id),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                      ),
+                      child: const LocalizedText('Compromise'),
+                    );
+                  },
+                ),
+              ],
+              itemCount: _keys.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
+            ),
           ),
       ],
     );
@@ -296,44 +385,6 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       ),
     ),
   );
-
-  Widget _keyCard(BuildContext context, Map<String, dynamic> key) {
-    final id = key['id']?.toString() ?? key['kid']?.toString() ?? '';
-    final algorithm =
-        key['algorithm']?.toString() ?? key['alg']?.toString() ?? '';
-    final status = key['status']?.toString() ?? 'active';
-    final createdAt =
-        key['created_at']?.toString() ?? key['createdAt']?.toString() ?? '';
-    final compromised = status == 'compromised';
-    final expired = status == 'expired';
-    return Card(
-      margin: const EdgeInsets.only(top: 8),
-      child: ListTile(
-        leading: Icon(
-          compromised
-              ? Icons.error
-              : expired
-              ? Icons.hourglass_empty
-              : Icons.vpn_key,
-          color: compromised
-              ? AppColors.danger
-              : expired
-              ? AppColors.warning
-              : AppColors.success,
-        ),
-        title: LocalizedText('{algorithm} · {status}', args: {'algorithm': algorithm, 'status': status}),
-        subtitle: LocalizedText('{id}\ncreated: {createdAt}', args: {'id': id, 'createdAt': createdAt}),
-        isThreeLine: true,
-        trailing: compromised || expired
-            ? null
-            : TextButton(
-                onPressed: _mutating ? null : () => _compromise(id),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                child: const LocalizedText('Compromise'),
-              ),
-      ),
-    );
-  }
 
   void _onPopState() {
     if (mounted) _handleRoute();

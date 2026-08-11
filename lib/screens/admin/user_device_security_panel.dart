@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
@@ -179,7 +180,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
       ),
       if (_loading) ...[
         const SizedBox(height: 24),
-        const Center(child: CircularProgressIndicator()),
+        const SkeletonListTile(itemCount: 3),
       ] else ...[
         if (_deviceError != null) _warning('Device inventory', _deviceError!),
         DeviceListPanel(

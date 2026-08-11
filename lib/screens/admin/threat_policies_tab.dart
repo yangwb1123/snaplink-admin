@@ -5,6 +5,10 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -176,9 +180,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText('Threat policy management is not enabled.'),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     if (_creating || _editing) return _buildForm(context);
     return ListView(
@@ -231,10 +233,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           ),
         if (_loading) const SkeletonListTile(itemCount: 3),
         if (!_loading && _policies.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: LocalizedText('No threat policies configured.'),
-          ),
+          EmptyState(title: 'No threat policies configured.'),
         if (!_loading) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
@@ -244,30 +243,69 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
               label: const LocalizedText('New policy'),
             ),
           ),
-          for (final p in _policies)
-            Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: Icon(
-                  Icons.shield,
-                  color: p['enabled'] == true ? AppColors.success : Colors.grey,
-                ),
-                title: Text(p['name']?.toString() ?? ''),
-                subtitle: LocalizedText(
-                  '${p['description']?.toString() ?? ''}\n${p['id'] ?? ''}',
-                ),
-                isThreeLine: true,
-                onTap: () => AdminRoute.go(
-                  'threat-policies',
-                  resourceId: p['name']?.toString() ?? '',
-                  action: 'edit',
-                ),
-                trailing: TextButton(
-                  onPressed: () => _delete(p['name']?.toString() ?? ''),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.danger,
+          if (_policies.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: AdminDataTable(
+                minWidth: 920,
+                columns: [
+                  AdminDataColumn(
+                    id: 'policy',
+                    label: 'Policy',
+                    width: 220,
+                    cardPrimary: true,
+                    builder: (_, i) => TableCellText(
+                      _policies[i]['name']?.toString() ?? '',
+                      level: DataEmphasisLevel.primary,
+                    ),
                   ),
-                  child: const LocalizedText('Delete'),
+                  AdminDataColumn(
+                    id: 'description',
+                    label: 'Description',
+                    cardDetail: true,
+                    builder: (_, i) => TableCellText(
+                      _policies[i]['description']?.toString() ?? '',
+                      muted: true,
+                      maxLines: 2,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'id',
+                    label: 'ID',
+                    builder: (_, i) => TableCellText(
+                      _policies[i]['id']?.toString() ?? '',
+                      muted: true,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'status',
+                    label: 'Status',
+                    builder: (_, i) => _policies[i]['enabled'] == true
+                        ? StatusChip.active(label: 'Enabled')
+                        : StatusChip.inactive(label: 'Disabled'),
+                  ),
+                  AdminDataColumn(
+                    id: 'actions',
+                    label: '',
+                    width: 100,
+                    builder: (_, i) {
+                      final name = _policies[i]['name']?.toString() ?? '';
+                      return TextButton(
+                        onPressed: () => _delete(name),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
+                        child: const LocalizedText('Delete'),
+                      );
+                    },
+                  ),
+                ],
+                itemCount: _policies.length,
+                rowBuilder: (_, _) => const SizedBox.shrink(),
+                onRowTap: (i) => AdminRoute.go(
+                  'threat-policies',
+                  resourceId: _policies[i]['name']?.toString() ?? '',
+                  action: 'edit',
                 ),
               ),
             ),

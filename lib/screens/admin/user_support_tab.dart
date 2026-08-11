@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'user_support_cards.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -196,15 +197,26 @@ class _UserSupportTabState extends State<UserSupportTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _error!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 20),
-            child: Center(child: CircularProgressIndicator()),
+            child: SkeletonListTile(itemCount: 3),
           ),
         if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
         if (loaded) ...[

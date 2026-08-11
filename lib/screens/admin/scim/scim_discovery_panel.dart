@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
 import 'scim_browser_widgets.dart';
 import 'scim_models.dart';
@@ -224,7 +226,11 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           ),
         ),
         if (_schemas.isEmpty)
-          const LocalizedText('No resource schemas advertised.')
+          const EmptyState(
+            variant: EmptyStateVariant.empty,
+            compact: true,
+            title: 'No resource schemas advertised.',
+          )
         else
           for (final schema in _schemas) _schemaCard(context, schema),
       ],
@@ -242,8 +248,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
               ? Icons.groups_outlined
               : Icons.person_outline,
         ),
-        title: LocalizedText(schema['name']?.toString() ?? 'Schema'),
-        subtitle: LocalizedText(
+        title: Text(schema['name']?.toString() ?? context.tr('Schema')),
+        subtitle: Text(
           '${schema['id'] ?? ''}\n${attributes.length} top-level attributes',
         ),
         children: [

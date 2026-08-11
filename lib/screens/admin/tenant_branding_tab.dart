@@ -7,6 +7,8 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_preview.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 /// Safe editor for Snaplink's tenant branding contract.
 ///
@@ -265,12 +267,11 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const SkeletonListTile(itemCount: 4);
     if (_unavailable) {
-      return const Center(
-        child: LocalizedText(
-          'Branding is not enabled on this Snaplink deployment.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Branding is not enabled on this Snaplink deployment.',
       );
     }
     return ListView(
@@ -287,7 +288,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          LocalizedText(
+          Text(
             _error!,
             style: const TextStyle(color: AppColors.danger),
           ),

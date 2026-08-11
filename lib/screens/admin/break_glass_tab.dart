@@ -5,6 +5,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_route.dart';
 import 'admin_navigation.dart';
 import 'break_glass_widgets.dart';
@@ -284,10 +285,9 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText(
-          'Break-glass access is not enabled on this replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Break-glass access is not enabled on this replica.',
       );
     }
     return ListView(

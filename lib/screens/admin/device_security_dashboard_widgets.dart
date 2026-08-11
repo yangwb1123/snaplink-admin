@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'device_security_models.dart';
 
@@ -238,7 +239,7 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
       initiallyExpanded: events.isNotEmpty,
       leading: const Icon(Icons.policy_outlined),
       title: const LocalizedText('Security activity'),
-      subtitle: LocalizedText(
+      subtitle: Text(
         '${events.length} devices currently require attention',
       ),
       children: events.isEmpty
@@ -259,10 +260,10 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                   ),
                   title: event['device_name']?.toString().isNotEmpty == true
                       ? Text(event['device_name'].toString())
-                      : LocalizedText(
-                          event['device_id']?.toString() ?? 'Unknown device',
+                      : Text(
+                          event['device_id']?.toString() ?? context.tr('Unknown device'),
                         ),
-                  subtitle: LocalizedText(
+                  subtitle: Text(
                     'User ${event['user_id'] ?? '—'} · Trust ${event['trust_score'] ?? '—'} · ${event['time'] ?? ''}',
                   ),
                   trailing: TextButton(

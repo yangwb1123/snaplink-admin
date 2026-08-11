@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'commerce_api.dart';
 import 'commerce_checkout.dart';
@@ -352,9 +353,13 @@ class _CommerceTabState extends State<CommerceTab> {
         'Manage immutable plan versions, tenant subscriptions, projected entitlements, wallet ledger entries, and normalized payment facts.',
       ),
       if (widget.availabilityError != null)
-        CommerceErrorCard(message: widget.availabilityError.toString()),
-      if (_catalogError != null) CommerceErrorCard(message: _catalogError!),
-      if (_catalogLoading) const LinearProgressIndicator(),
+        CommerceErrorCard(
+          message: widget.availabilityError.toString(),
+          onRetry: _catalogLoading ? null : _loadPlans,
+        ),
+      if (_catalogError != null)
+        CommerceErrorCard(message: _catalogError!, onRetry: _loadPlans),
+      if (_catalogLoading) const SkeletonListTile(itemCount: 2),
       const SizedBox(height: 12),
       CommercePlansPanel(
         plans: _plans,
@@ -367,8 +372,12 @@ class _CommerceTabState extends State<CommerceTab> {
         enabled: !_tenantLoading && !_mutating,
         onLoad: _loadTenant,
       ),
-      if (_tenantError != null) CommerceErrorCard(message: _tenantError!),
-      if (_tenantLoading) const LinearProgressIndicator(),
+      if (_tenantError != null)
+        CommerceErrorCard(
+          message: _tenantError!,
+          onRetry: _tenantLoading ? null : _loadTenant,
+        ),
+      if (_tenantLoading) const SkeletonListTile(itemCount: 3),
       if (_tenantLoaded && !_tenantLoading) ...[
         const SizedBox(height: 12),
         CommerceSubscriptionsPanel(

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 export 'account_lockout_card.dart';
 
 /// Session list card displayed in user support view.
@@ -12,16 +14,40 @@ class SessionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _card(context, 'Active sessions', [
     if (sessions.isEmpty)
-      const LocalizedText('No active sessions.')
+      const EmptyState(
+        variant: EmptyStateVariant.empty,
+        title: 'No active sessions.',
+        compact: true,
+      )
     else
-      for (final session in sessions)
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(session['id']?.toString() ?? ''),
-          subtitle: LocalizedText(
-            '${session['ip'] ?? ''} ${session['user_agent'] ?? ''}'.trim(),
+      AdminDataTable(
+        density: TableDensity.compact,
+        minWidth: 460,
+        columns: [
+          AdminDataColumn(
+            id: 'session',
+            label: 'SESSION',
+            width: 220,
+            cardPrimary: true,
+            builder: (context, i) => TableCellText(
+              sessions[i]['id']?.toString() ?? '',
+              bold: true,
+            ),
           ),
-        ),
+          AdminDataColumn(
+            id: 'device',
+            label: 'DEVICE',
+            width: 320,
+            builder: (context, i) => TableCellText(
+              '${sessions[i]['ip'] ?? ''} ${sessions[i]['user_agent'] ?? ''}'
+                  .trim(),
+              muted: true,
+            ),
+          ),
+        ],
+        itemCount: sessions.length,
+        rowBuilder: (context, i) => const SizedBox.shrink(),
+      ),
   ]);
 }
 
@@ -42,19 +68,51 @@ class ConsentsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _card(context, 'Application consents', [
-    if (consents.isEmpty) const LocalizedText('No grants found.'),
-    for (final consent in consents)
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(consent['client_id']?.toString() ?? ''),
-        subtitle: Text((consent['scopes'] as List? ?? const []).join(' ')),
-        trailing: TextButton(
-          onPressed: mutating
-              ? null
-              : () => onRevoke(consent['client_id'].toString()),
-          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-          child: const LocalizedText('Revoke'),
-        ),
+    if (consents.isEmpty)
+      const EmptyState(
+        variant: EmptyStateVariant.empty,
+        title: 'No grants found.',
+        compact: true,
+      )
+    else
+      AdminDataTable(
+        density: TableDensity.compact,
+        minWidth: 520,
+        columns: [
+          AdminDataColumn(
+            id: 'client',
+            label: 'CLIENT',
+            width: 220,
+            cardPrimary: true,
+            builder: (context, i) => TableCellText(
+              consents[i]['client_id']?.toString() ?? '',
+              bold: true,
+            ),
+          ),
+          AdminDataColumn(
+            id: 'scopes',
+            label: 'SCOPES',
+            width: 240,
+            builder: (context, i) => TableCellText(
+              (consents[i]['scopes'] as List? ?? const []).join(' '),
+              muted: true,
+            ),
+          ),
+          AdminDataColumn(
+            id: 'actions',
+            label: '',
+            width: 100,
+            builder: (context, i) => TextButton(
+              onPressed: mutating
+                  ? null
+                  : () => onRevoke(consents[i]['client_id'].toString()),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: const LocalizedText('Revoke'),
+            ),
+          ),
+        ],
+        itemCount: consents.length,
+        rowBuilder: (context, i) => const SizedBox.shrink(),
       ),
   ]);
 }
@@ -78,19 +136,53 @@ class MfaFactorsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _card(context, 'Second factors', [
-    if (factors.isEmpty) const LocalizedText('No registered factors.'),
-    for (final factor in factors)
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: Text(
-          factor['label']?.toString() ?? factor['method']?.toString() ?? '',
-        ),
-        subtitle: Text(factor['method']?.toString() ?? ''),
-        trailing: TextButton(
-          onPressed: mutating ? null : () => onRemove(factor['id'].toString()),
-          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-          child: const LocalizedText('Remove'),
-        ),
+    if (factors.isEmpty)
+      const EmptyState(
+        variant: EmptyStateVariant.empty,
+        title: 'No registered factors.',
+        compact: true,
+      )
+    else
+      AdminDataTable(
+        density: TableDensity.compact,
+        minWidth: 460,
+        columns: [
+          AdminDataColumn(
+            id: 'factor',
+            label: 'FACTOR',
+            width: 220,
+            cardPrimary: true,
+            builder: (context, i) => TableCellText(
+              factors[i]['label']?.toString() ??
+                  factors[i]['method']?.toString() ??
+                  '',
+              bold: true,
+            ),
+          ),
+          AdminDataColumn(
+            id: 'method',
+            label: 'METHOD',
+            width: 140,
+            builder: (context, i) => TableCellText(
+              factors[i]['method']?.toString() ?? '',
+              muted: true,
+            ),
+          ),
+          AdminDataColumn(
+            id: 'actions',
+            label: '',
+            width: 110,
+            builder: (context, i) => TextButton(
+              onPressed: mutating
+                  ? null
+                  : () => onRemove(factors[i]['id'].toString()),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: const LocalizedText('Remove'),
+            ),
+          ),
+        ],
+        itemCount: factors.length,
+        rowBuilder: (context, i) => const SizedBox.shrink(),
       ),
     if (canResetRecoveryCodes)
       OutlinedButton(
@@ -132,7 +224,8 @@ class _LifecycleCardState extends State<LifecycleCard> {
             .toList();
     return _card(context, 'Account lifecycle', [
       LocalizedText(
-        'Current state: ${widget.lifecycleData['state'] ?? 'active'}',
+        'Current state: {state}',
+        args: {'state': widget.lifecycleData['state'] ?? 'active'},
       ),
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
@@ -142,8 +235,7 @@ class _LifecycleCardState extends State<LifecycleCard> {
         decoration: InputDecoration(labelText: 'Transition to'.localized),
         items: allowed
             .map(
-              (state) =>
-                  DropdownMenuItem(value: state, child: LocalizedText(state)),
+              (state) => DropdownMenuItem(value: state, child: Text(state)),
             )
             .toList(growable: false),
         onChanged: widget.mutating ? null : widget.onStateChanged,

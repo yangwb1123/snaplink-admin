@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -80,22 +83,42 @@ class ConnectionsListCard extends StatelessWidget {
               child: LocalizedText('No connections loaded.'),
             ),
           if (connections.isNotEmpty) _summaryBar(context),
-          for (final connection in connections)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(
-                connection['enabled'] == false
-                    ? Icons.link_off_outlined
-                    : Icons.link_outlined,
-              ),
-              title: Text(_connectionTitle(connection)),
-              subtitle: LocalizedText(
-                '${connection['id'] ?? ''} · ${connection['type'] ?? ''}${connection['enabled'] == false ? ' · disabled' : ''}',
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: !canGet
+          if (connections.isNotEmpty)
+            AdminDataTable(
+              minWidth: 640,
+              columns: [
+                AdminDataColumn(
+                  id: 'connection',
+                  label: 'Connection',
+                  width: 220,
+                  cardPrimary: true,
+                  builder: (_, i) => TableCellText(
+                    _connectionTitle(connections[i]),
+                    level: DataEmphasisLevel.primary,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'meta',
+                  label: 'ID · Type',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    '${connections[i]['id'] ?? ''} · ${connections[i]['type'] ?? ''}',
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'status',
+                  label: 'Status',
+                  builder: (_, i) => connections[i]['enabled'] == false
+                      ? StatusChip.inactive(label: 'Disabled')
+                      : StatusChip.active(label: 'Enabled'),
+                ),
+              ],
+              itemCount: connections.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
+              onRowTap: !canGet
                   ? null
-                  : () => onSelect(connection['id']?.toString() ?? ''),
+                  : (i) => onSelect(connections[i]['id']?.toString() ?? ''),
             ),
         ],
       ),

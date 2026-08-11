@@ -1,0 +1,157 @@
+# snaplink-console 页面 UI 重构管线 — stage 3（tenants/system/developers）
+#
+# stage 1-2（audit + identity + security）已完成并验证（见
+# docs/ui/pages/fix-identity.md、docs/ui/pages/fix-security.md）。本文件只跑
+# 剩余 3 个导航组 + 对抗审查 + 裁决。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/pages-ui-refactor-stage3.yaml \
+#     --mode serial --timeout 1800 --log-file logs/pages-ui-refactor-stage3.log
+git_commit: false
+decision_log: docs/ui/pages/DECISIONS.md
+archive_dir: docs/ui/pages/archive
+
+stages:
+
+  - name: fix_tenants
+    from_prompt: |
+      Read the audit first:
+      - per-page findings: docs/ui/admin-pages/audit.md
+      - summary + top-impact list: docs/ui/pages/audit.md
+      Fix the tenants-group page findings (tenants/organizations/
+      commerce/usage-analytics/privacy-compliance pages and tenant
+      detail screens, branding editor, residency fields, export
+      downloads).
+      STRICT RULES:
+      - ONLY touch files under lib/screens/admin/ belonging to the
+        tenants group (tenants_tab*, tenant_detail*, tenant_form*,
+        tenant_organ*, tenant_export*, tenant_branding*,
+        tenant_residency*, tenant_lifecycle*, tenant_organization*,
+        org_members*, commerce/, usage_analytics*,
+        privacy_compliance*) plus lib/i18n/ EN/ZH keys if strictly
+        needed.
+      - Replace template lists with appropriate domain components
+        (key_metric_card, distribution_bar, status_chip, empty_state,
+        section_header, admin_data_table, paginated_list,
+        skeleton_list, ...).
+      - Color icons with adminModuleIconColor(module).
+      - Preserve behavior: API contracts, commerce checkout flow
+        (order/session semantics), branding If-Match semantics,
+        residency validation, export download, i18n keys.
+      - No new dependencies; keep files within the 400-line budget.
+      - NEVER run git commands; do not commit.
+      Run `flutter analyze` (0 errors) and the affected tests
+      (test/*tenant*, test/*commerce*, test/*usage*,
+      test/*privacy*, test/*branding*, test/admin_dialogs*,
+      test/admin_workflows*) until green. Finish within the time
+      budget: apply fixes, run checks ONCE, write the report — do not
+      iterate indefinitely.
+      Return a change report as above.
+    output: docs/ui/pages/fix-tenants.md
+
+  - name: fix_system
+    from_prompt: |
+      Read the audit first:
+      - per-page findings: docs/ui/admin-pages/audit.md
+      - summary + top-impact list: docs/ui/pages/audit.md
+      Fix the system-group page findings (governance/audit-log/
+      user-support/overview/health pages, live-activity events,
+      distributed cluster panel).
+      STRICT RULES:
+      - ONLY touch files under lib/screens/admin/ belonging to the
+        system+overview group (governance*, audit_log*,
+        user_support*, org_members*, admin_overview*,
+        admin_live_events*, health_tab*, distributed_cluster*,
+        list_metrics*, admin_ops_helpers*) plus lib/i18n/ EN/ZH keys
+        if strictly needed.
+      - Replace template lists with appropriate domain components
+        (key_metric_card, metric_delta, sparkline, distribution_bar,
+        status_chip, timeline_list, progress_ring, empty_state,
+        section_header, admin_data_table, skeleton_list, ...).
+      - Color icons with adminModuleIconColor(module).
+      - Preserve behavior: audit query/filter semantics, SSE live
+        events (cancellable), capability gating, i18n keys.
+      - No new dependencies; keep files within the 400-line budget.
+      - NEVER run git commands; do not commit.
+      Run `flutter analyze` (0 errors) and the affected tests
+      (test/*audit*, test/*governance*, test/*health*,
+      test/*overview*, test/*live_events*, test/*support*,
+      test/admin_operations*, test/admin_shell*) until green. Finish
+      within the time budget: apply fixes, run checks ONCE, write the
+      report — do not iterate indefinitely.
+      Return a change report as above.
+    output: docs/ui/pages/fix-system.md
+
+  - name: fix_developers
+    from_prompt: |
+      Read the audit first:
+      - per-page findings: docs/ui/admin-pages/audit.md
+      - summary + top-impact list: docs/ui/pages/audit.md
+      Fix the developers-group page findings (webhooks/
+      recovery-releases pages and their detail screens, recovery
+      dialogs).
+      STRICT RULES:
+      - ONLY touch files under lib/screens/admin/ belonging to the
+        developers group (webhook*, recovery_release*,
+        recovery_dialogs*) plus lib/i18n/ EN/ZH keys if strictly
+        needed.
+      - Replace template lists with appropriate domain components
+        (status_chip, empty_state, section_header, admin_data_table,
+        paginated_list, skeleton_list, hover_card, ...).
+      - Color icons with adminModuleIconColor(module).
+      - Preserve behavior: webhook replay/dead-letter semantics,
+        recovery release pin/rollback semantics, i18n keys.
+      - No new dependencies; keep files within the 400-line budget.
+      - NEVER run git commands; do not commit.
+      Run `flutter analyze` (0 errors) and the affected tests
+      (test/*webhook*, test/*recovery*, test/admin_dialogs*,
+      test/admin_secondary_tabs*) until green. Finish within the time
+      budget: apply fixes, run checks ONCE, write the report — do not
+      iterate indefinitely.
+      Return a change report as above.
+    output: docs/ui/pages/fix-developers.md
+
+  # ── 对抗审查：ui/visual 审查角色复核所有修复 ──
+  - name: review
+    from_outputs:
+      - fix_tenants
+      - fix_system
+      - fix_developers
+    meta: true
+    meta_timeout: 1500
+    role_dir: prompts
+    output_dir: docs/ui/pages/reviews
+    max_iterations: 2
+    mode: serial
+
+  # ── 裁决门 ──
+  - name: acceptance
+    from_outputs:
+      - fix_tenants
+      - fix_system
+      - fix_developers
+      - review
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Independently verify the pages UI refactor using repository
+          evidence:
+          - every high/medium audit finding is fixed or explicitly
+            rejected with reason (map by item number from
+            docs/ui/admin-pages/audit.md);
+          - template lists were replaced with fitting domain components,
+            not forced;
+          - page icons use the group accent colors
+            (adminModuleIconColor);
+          - behavior preserved: API contracts, capability gating,
+            routes, i18n keys, commerce/break-glass/audit/webhook
+            semantics;
+          - flutter analyze 0 errors; affected test files pass
+            (spot-check at least one per group);
+          - no off-whitelist file was modified (git status check).
+          Final line MUST be:
+          VERDICT: PASS - <why the refactor is complete>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/pages/acceptance.md

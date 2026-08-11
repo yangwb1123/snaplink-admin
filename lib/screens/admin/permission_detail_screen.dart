@@ -4,6 +4,8 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'admin_route.dart';
 
@@ -107,7 +109,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       ),
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const SkeletonListTile(itemCount: 6)
         : _error != null
         ? Center(
             child: Column(
@@ -181,7 +183,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-          ? [const Center(child: LocalizedText('No roles defined'))]
+          ? [const EmptyState(compact: true, title: 'No roles defined')]
           : items.map((r) => _roleCard(r)).toList(),
     );
   }
@@ -200,7 +202,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
           children: [
             if (r['permissions'] != null)
               Chip(
-                label: LocalizedText(
+                label: Text(
                   '${(r['permissions'] as List?)?.length ?? 0} perms',
                 ),
               ),
@@ -215,7 +217,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
-          ? [const Center(child: LocalizedText('No assignments'))]
+          ? [const EmptyState(compact: true, title: 'No assignments')]
           : items
                 .map(
                   (a) => Card(
@@ -224,7 +226,14 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                       leading: const Icon(Icons.assignment_ind),
                       title: Text(a['role']?.toString() ?? ''),
                       subtitle: LocalizedText(
-                        'Subject: ${a['subject'] ?? a['user_id'] ?? a['group_id'] ?? ''}',
+                        'Subject: {subject}',
+                        args: {
+                          'subject':
+                              a['subject'] ??
+                              a['user_id'] ??
+                              a['group_id'] ??
+                              '',
+                        },
                       ),
                     ),
                   ),

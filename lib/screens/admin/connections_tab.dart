@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'connections/connection_contract.dart';
 import 'connections_widgets.dart';
@@ -333,10 +334,10 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
         !_availability.canList &&
         !_availability.canCreate &&
         !_availability.canGet) {
-      return const Center(
-        child: LocalizedText(
-          'Identity connection management is not enabled on this Snaplink replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title:
+            'Identity connection management is not enabled on this Snaplink replica.',
       );
     }
     return ListView(
@@ -347,7 +348,8 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
           refreshEnabled: !_loadingList && !_mutating,
           onRefresh: _loadConnections,
         ),
-        if (_error != null) ConnectionErrorCard(error: _error!),
+        if (_error != null)
+          ConnectionErrorCard(error: _error!, onRetry: _loadConnections),
         ConnectionsListCard(
           tenantController: _tenantCtrl,
           lookupController: _lookupCtrl,

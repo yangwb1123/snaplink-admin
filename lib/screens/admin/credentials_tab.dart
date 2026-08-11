@@ -5,7 +5,11 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -134,11 +138,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText(
-          'Credential management is not enabled on this replica.',
-        ),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -161,9 +161,20 @@ class _CredentialsTabState extends State<CredentialsTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_showReportForm) _buildReportForm(context),
@@ -174,31 +185,59 @@ class _CredentialsTabState extends State<CredentialsTab> {
         ),
         if (_loading) const SkeletonListTile(itemCount: 4),
         if (!_loading && _credentials.isEmpty && !_showReportForm)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: LocalizedText('No credentials found.'),
-          ),
-        if (!_loading)
-          for (final c in _credentials)
-            Card(
-              margin: const EdgeInsets.only(top: 8),
-              child: ListTile(
-                leading: Icon(
-                  Icons.vpn_key,
-                  color: c['status'] == 'active' ? AppColors.success : AppColors.warning,
+          EmptyState(title: 'No credentials found.'),
+        if (!_loading && _credentials.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: AdminDataTable(
+              minWidth: 680,
+              columns: [
+                AdminDataColumn(
+                  id: 'credential',
+                  label: 'Credential',
+                  width: 240,
+                  cardPrimary: true,
+                  builder: (_, i) {
+                    final c = _credentials[i];
+                    final type = c['type']?.toString() ??
+                        c['credential_type']?.toString() ??
+                        '';
+                    final id = c['id']?.toString() ?? '';
+                    return TableCellText(
+                      type.isEmpty ? id : '$type · $id',
+                      level: DataEmphasisLevel.primary,
+                    );
+                  },
                 ),
-                title: Text(
-                  c['type']?.toString() ??
-                      c['credential_type']?.toString() ??
-                      '',
+                AdminDataColumn(
+                  id: 'status',
+                  label: 'Status',
+                  builder: (_, i) {
+                    final status = _credentials[i]['status']?.toString() ??
+                        'unknown';
+                    return status == 'active'
+                        ? StatusChip.active(label: 'Active')
+                        : StatusChip.suspended(label: status);
+                  },
                 ),
-                subtitle: LocalizedText(
-                  '${c['id'] ?? ''}\nstatus: ${c['status'] ?? 'unknown'} · rotated: ${c['rotated_at'] ?? c['last_rotated'] ?? 'never'}',
+                AdminDataColumn(
+                  id: 'rotated',
+                  label: 'Rotated',
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _credentials[i]['rotated_at']?.toString() ??
+                        _credentials[i]['last_rotated']?.toString() ??
+                        'never',
+                    muted: true,
+                    maxLines: 2,
+                  ),
                 ),
-                isThreeLine: true,
-                onTap: () => AdminRoute.go('credentials'),
-              ),
+              ],
+              itemCount: _credentials.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
+              onRowTap: (_) => AdminRoute.go('credentials'),
             ),
+          ),
         if (!_showReportForm)
           Padding(
             padding: const EdgeInsets.only(top: 8),

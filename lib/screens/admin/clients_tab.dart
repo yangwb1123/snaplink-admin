@@ -12,9 +12,11 @@ import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/services/operator_persona.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'client_form_dialog.dart';
 import 'client_secret_lifecycle.dart';
@@ -302,35 +304,41 @@ class _ClientsTabState extends State<ClientsTab>
   }
 
   /// 批量操作栏：已选数量 + 批量动作 + 退出选择。
+  /// 与 [BatchActionBar] 同一视觉语言（primaryContainer + checklist）；
+  /// 保留 Approve/Reject 双动作（BatchActionBar 仅支持单一删除动作，
+  /// 不适用客户端双动作语义），图标用身份组强调色。
   Widget _batchBar(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            LocalizedText('{count} selected', args: {'count': selected.length}),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _batchApprove,
-              icon: const Icon(Icons.check_circle_outline, size: 18),
-              label: const LocalizedText('Approve'),
-            ),
-            const SizedBox(width: 4),
-            TextButton.icon(
-              onPressed: _batchReject,
-              icon: const Icon(Icons.cancel_outlined, size: 18),
-              label: const LocalizedText('Reject'),
-            ),
-            IconButton(
-              tooltip: 'Clear selection'.localized,
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: () => clearSelection(),
-            ),
-          ],
-        ),
+    final accent = adminModuleIconColor('clients');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.checklist, size: 20, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          LocalizedText('{count} selected', args: {'count': selected.length}),
+          const Spacer(),
+          TextButton.icon(
+            onPressed: _batchApprove,
+            icon: Icon(Icons.check_circle_outline, size: 18, color: accent),
+            label: const LocalizedText('Approve'),
+          ),
+          const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: _batchReject,
+            icon: Icon(Icons.cancel_outlined, size: 18, color: accent),
+            label: const LocalizedText('Reject'),
+          ),
+          IconButton(
+            tooltip: 'Clear selection'.localized,
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () => clearSelection(),
+          ),
+        ],
       ),
     );
   }
@@ -581,7 +589,7 @@ class _ClientsTabState extends State<ClientsTab>
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonListTile(itemCount: 6);
               }
               if (snap.hasError) {
                 return Center(

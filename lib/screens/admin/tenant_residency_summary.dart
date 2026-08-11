@@ -39,7 +39,7 @@ class TenantResidencySummary extends StatelessWidget {
                     'ID: {id}',
                     args: {'id': tenant?['id'] ?? fallbackId},
                   ),
-                  LocalizedText(
+                  Text(
                     'Domain: ${tenant?['domain'] ?? tenant?['primary_domain'] ?? ''}',
                   ),
                   ..._residencySection(

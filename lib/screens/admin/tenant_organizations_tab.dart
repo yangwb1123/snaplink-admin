@@ -6,6 +6,8 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'org_members_card.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'tenant_export_download.dart';
 import 'tenant_organization_cards.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -266,10 +268,10 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_supportsMembers && !_supportsInvitations && !_supportsExport) {
-      return const Center(
-        child: LocalizedText(
-          'Organization management is not enabled on this Snaplink replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title:
+            'Organization management is not enabled on this Snaplink replica.',
       );
     }
     return ListView(
@@ -306,15 +308,26 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         if (_error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _error!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.refresh),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ),
           ),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 20),
-            child: Center(child: CircularProgressIndicator()),
+            child: SkeletonListTile(itemCount: 3),
           ),
         if (_supportsMembers) _membersCard(context),
         if (_supportsInvitations)

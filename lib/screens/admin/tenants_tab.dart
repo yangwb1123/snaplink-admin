@@ -13,7 +13,10 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_lifecycle_copy.dart';
 import 'list_metrics.dart';
@@ -177,8 +180,11 @@ class _TenantsTabState extends State<TenantsTab>
   }
 
   /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择。
+  /// 批量语义是挂起/激活（非删除），BatchActionBar 的固定 delete 语义不适用；
+  /// 沿用此栏但图标统一使用租户组强调色（X7）。
   Widget _batchBar(BuildContext context) {
     final theme = Theme.of(context);
+    final accent = adminModuleIconColor(AdminModuleId.tenants);
     return Material(
       color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
       borderRadius: BorderRadius.circular(12),
@@ -190,13 +196,13 @@ class _TenantsTabState extends State<TenantsTab>
             const Spacer(),
             TextButton.icon(
               onPressed: () => _batchSetStatus('suspended'),
-              icon: const Icon(Icons.pause_circle_outline, size: 18),
+              icon: Icon(Icons.pause_circle_outline, size: 18, color: accent),
               label: const LocalizedText('Suspend'),
             ),
             const SizedBox(width: 4),
             TextButton.icon(
               onPressed: () => _batchSetStatus('active'),
-              icon: const Icon(Icons.play_circle_outline, size: 18),
+              icon: Icon(Icons.play_circle_outline, size: 18, color: accent),
               label: const LocalizedText('Activate'),
             ),
             IconButton(
@@ -405,13 +411,24 @@ class _TenantsTabState extends State<TenantsTab>
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonListTile(itemCount: 6);
               }
               if (snap.hasError) {
                 return Center(
-                  child: LocalizedText(
-                    'Error: {snap_error}',
-                    args: {'snap_error': snap.error},
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LocalizedText(
+                        'Error: {snap_error}',
+                        args: {'snap_error': snap.error},
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _reload,
+                        icon: const Icon(Icons.refresh),
+                        label: const LocalizedText('Retry'),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -443,6 +460,7 @@ class _TenantsTabState extends State<TenantsTab>
                   : AdminDataTable(
                       scrollable: true,
                       minWidth: 760,
+                      density: TableDensity.compact,
                       onRowTap: selecting
                           ? (i) =>
                                 toggleSelect(items[i]['id']?.toString() ?? '')

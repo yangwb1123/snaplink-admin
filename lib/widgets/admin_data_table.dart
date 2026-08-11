@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
@@ -53,9 +55,12 @@ class _AdminDataTableState extends State<AdminDataTable> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tableWidth =
-        widget.minWidth ??
-        widget.columns.fold<double>(0, (sum, c) => sum + (c.width ?? 160)) + 64;
+    final columnSum = widget.columns
+            .fold<double>(0, (sum, c) => sum + (c.width ?? 160)) +
+        64;
+    // minWidth 小于列总宽时取列总宽：header/data Row 在 tight 宽度下会
+    // 溢出（表头 Row 溢出即此 bug 的渲染症状）。
+    final tableWidth = math.max(widget.minWidth ?? 0, columnSum);
 
     // 卡片模式：父级可用宽度 < 640 且宽度有界（无界宽度 = 横向滚动容器内
     // 宿主 → 回退表格模式，防 unbounded 异常）。

@@ -3,11 +3,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/sparkline.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'usage_analytics_contract.dart';
 
 class UsageAnalyticsTab extends StatefulWidget {
@@ -197,11 +202,17 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       _filters(context),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
+        Text(_error!, style: const TextStyle(color: AppColors.danger)),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+          label: const LocalizedText('Retry'),
+        ),
       ],
       if (_loading) ...[
         const SizedBox(height: 20),
-        const Center(child: CircularProgressIndicator()),
+        const SkeletonListTile(itemCount: 3),
       ],
       if (!_loading) ...[
         const SizedBox(height: 12),
@@ -274,57 +285,80 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
     return _section(
       context,
       'Top tenants',
-      tenants.isEmpty
+      metrics.isEmpty
           ? const [
               LocalizedText(
                 'Tenant usage metering is unavailable or has no data.',
               ),
             ]
           : [
-              ...tenants.indexed.map(
-                (entry) =>
-                    _tenantUsageTile(entry.$1, entry.$2 as Map, maxLogins),
+              AdminDataTable(
+                density: TableDensity.compact,
+                minWidth: 720,
+                columns: [
+                  AdminDataColumn(
+                    id: 'rank',
+                    label: 'RANK',
+                    width: 56,
+                    builder: (context, i) =>
+                        TableCellText('${i + 1}', muted: true),
+                  ),
+                  AdminDataColumn(
+                    id: 'tenant',
+                    label: 'TENANT',
+                    width: 220,
+                    cardPrimary: true,
+                    builder: (context, i) => TableCellText(
+                      metrics[i]['tenant_name']?.toString() ??
+                          metrics[i]['tenant_id']?.toString() ??
+                          'Tenant',
+                      bold: true,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'metrics',
+                    label: 'METRICS',
+                    width: 260,
+                    cardDetail: true,
+                    builder: (context, i) => TableCellText(
+                      formatUsageMetricSummary(metrics[i]),
+                      muted: true,
+                      maxLines: 2,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'usage',
+                    label: 'LOGIN SHARE',
+                    width: 180,
+                    builder: (context, i) {
+                      if (maxLogins <= 0) return const SizedBox.shrink();
+                      return DistributionBar(
+                        segments: [
+                          DistributionSegment(
+                            label: 'logins',
+                            value: (metrics[i]['logins'] as num? ?? 0).toInt(),
+                            color: adminModuleIconColor(
+                              AdminModuleId.usageAnalytics,
+                            ),
+                          ),
+                        ],
+                        total: maxLogins.toInt(),
+                        showLegend: false,
+                        height: 4,
+                      );
+                    },
+                  ),
+                ],
+                itemCount: metrics.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
               ),
             ],
     );
   }
 
-  Widget _tenantUsageTile(int index, Map tenant, num maxLogins) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: CircleAvatar(
-              radius: 14,
-              child: LocalizedText('${index + 1}'),
-            ),
-            title: LocalizedText(
-              tenant['tenant_name']?.toString() ??
-                  tenant['tenant_id']?.toString() ??
-                  'Tenant',
-            ),
-            subtitle: Text(
-              formatUsageMetricSummary(tenant),
-            ),
-          ),
-          if (maxLogins > 0)
-            Padding(
-              padding: const EdgeInsets.only(left: 48, right: 16),
-              child: _UsageBar(
-                fraction: (tenant['logins'] as num? ?? 0) / maxLogins,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   Widget _tokenBuckets(BuildContext context) {
     final buckets = _tokenUsage?['buckets'] as List? ?? const [];
+    final rows = buckets.take(50).whereType<Map>().toList();
     return _section(
       context,
       'Token traffic',
@@ -347,55 +381,67 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
                     height: 36,
                   ),
                 ),
-              ...buckets.take(50).indexed.map(
-                (entry) => _tokenBucketTile(entry.$1, entry.$2 as Map),
+              AdminDataTable(
+                density: TableDensity.compact,
+                minWidth: 680,
+                columns: [
+                  AdminDataColumn(
+                    id: 'token',
+                    label: 'CLIENT · KIND',
+                    width: 260,
+                    cardPrimary: true,
+                    builder: (context, i) {
+                      final row = rows[i];
+                      final peak = i < 3 && ((row['count'] as num?) ?? 0) > 0;
+                      return TableCellText(
+                        '${row['client_id'] ?? 'unknown client'} · ${row['kind'] ?? 'token'}',
+                        bold: peak,
+                        color: peak ? AppColors.danger : null,
+                      );
+                    },
+                  ),
+                  AdminDataColumn(
+                    id: 'detail',
+                    label: 'ENDPOINT · MINUTE',
+                    width: 280,
+                    cardDetail: true,
+                    builder: (context, i) => TableCellText(
+                      '${rows[i]['endpoint'] ?? ''} · ${rows[i]['minute'] ?? ''}',
+                      muted: true,
+                      maxLines: 2,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'count',
+                    label: 'COUNT',
+                    width: 140,
+                    builder: (context, i) {
+                      final count = (rows[i]['count'] as num?) ?? 0;
+                      final peak = i < 3 && count > 0;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (peak)
+                            StatusChip(
+                              label: 'Peak',
+                              color: AppColors.danger,
+                              icon: Icons.local_fire_department,
+                            ),
+                          const SizedBox(width: 8),
+                          Text('$count'),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+                itemCount: rows.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
               ),
               if (buckets.length > 50)
-                LocalizedText(
-                  '${buckets.length - 50} additional buckets omitted.',
-                ),
+                Text('${buckets.length - 50} additional buckets omitted.'),
             ],
     );
   }
-
-  Widget _tokenBucketTile(int index, Map<dynamic, dynamic> bucket) {
-    final count = (bucket['count'] as num?) ?? 0;
-    // 异常优先：最高流量前 3 名高亮（峰值即关注点）。
-    final peak = index < 3 && count > 0;
-    final hot = index < 6 && count > 0;
-    return ListTile(
-      dense: true,
-      leading: Icon(
-        Icons.token_outlined,
-        color: peak ? AppColors.danger : hot ? AppColors.warning : null,
-      ),
-      title: LocalizedText(
-        '${bucket['client_id'] ?? 'unknown client'} · ${bucket['kind'] ?? 'token'}',
-        style: TextStyle(
-          fontWeight: peak ? FontWeight.w700 : null,
-          color: peak ? AppColors.danger : null,
-        ),
-      ),
-      subtitle: LocalizedText(
-        '${bucket['endpoint'] ?? ''} · ${bucket['minute'] ?? ''}',
-      ),
-      trailing: _peakTrailing(count, peak),
-    );
-  }
-
-  Row _peakTrailing(num count, bool peak) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      if (peak)
-        StatusChip(
-          label: 'Peak',
-          color: AppColors.danger,
-          icon: Icons.local_fire_department,
-        ),
-      const SizedBox(width: 8),
-      LocalizedText('$count'),
-    ],
-  );
 
   Widget _subjectInspector(
     BuildContext context,
@@ -462,43 +508,4 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       ),
     ],
   );
-}
-
-/// 用量比例条：宽度按 logins/max 动画增长（Linear 风格迷你条形图）。
-class _UsageBar extends StatelessWidget {
-  final double fraction;
-
-  const _UsageBar({required this.fraction});
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(999),
-      child: Container(
-        height: 4,
-        color: scheme.primary.withValues(alpha: 0.12),
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: fraction.clamp(0.0, 1.0)),
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeOutCubic,
-          builder: (context, value, _) => FractionallySizedBox(
-            alignment: Alignment.centerLeft,
-            widthFactor: value,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(999),
-                gradient: LinearGradient(
-                  colors: [
-                    scheme.primary,
-                    scheme.primary.withValues(alpha: 0.65),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

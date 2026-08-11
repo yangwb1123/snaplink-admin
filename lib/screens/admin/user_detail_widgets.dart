@@ -26,8 +26,11 @@ class UserDetailHeader extends StatelessWidget {
                 ),
                 LocalizedText('Provider: {provider}', args: {'provider': user?['provider'] ?? ''}),
                 LocalizedText(
-                  'External ID: '
-                  '${user?['externalId'] ?? user?['external_id'] ?? ''}',
+                  'External ID: {external_id}',
+                  args: {
+                    'external_id':
+                        user?['externalId'] ?? user?['external_id'] ?? '',
+                  },
                 ),
               ],
             ),
@@ -89,8 +92,11 @@ class UserSessionsView extends StatelessWidget {
                     leading: const Icon(Icons.devices),
                     title: Text(session['id']?.toString() ?? ''),
                     subtitle: LocalizedText(
-                      'IP: ${session['ip'] ?? ''}  '
-                      'UA: ${_truncatedUserAgent(session)}',
+                      'IP: {address}  UA: {agent}',
+                      args: {
+                        'address': session['ip'] ?? '',
+                        'agent': _truncatedUserAgent(session),
+                      },
                     ),
                   ),
                 ),
@@ -178,7 +184,8 @@ class UserMfaView extends StatelessWidget {
                           '',
                     ),
                     subtitle: LocalizedText(
-                      'Method: ${factor['method'] ?? ''}',
+                      'Method: {method}',
+                      args: {'method': factor['method'] ?? ''},
                     ),
                     trailing: TextButton(
                       onPressed: mutating
@@ -228,7 +235,8 @@ class UserLifecycleView extends StatelessWidget {
                 const Icon(Icons.route, size: 48, color: AppColors.accentBlue),
                 const SizedBox(height: 8),
                 LocalizedText(
-                  'Current state: $state',
+                  'Current state: {state}',
+                  args: {'state': state},
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (transitions.isNotEmpty) ...[
@@ -239,8 +247,7 @@ class UserLifecycleView extends StatelessWidget {
                     spacing: 8,
                     children: transitions
                         .map(
-                          (transition) =>
-                              Chip(label: LocalizedText(transition)),
+                          (transition) => Chip(label: Text(transition)),
                         )
                         .toList(),
                   ),

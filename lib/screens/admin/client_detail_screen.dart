@@ -7,9 +7,11 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'client_detail_secret_card.dart';
 import 'client_form_dialog.dart';
@@ -99,7 +101,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonListTile(itemCount: 6)
           : _error != null
           ? Center(
               child: Column(
@@ -220,7 +222,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.app_registration, size: 40),
+              Icon(
+                Icons.app_registration,
+                size: 40,
+                color: adminModuleIconColor('clients'),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

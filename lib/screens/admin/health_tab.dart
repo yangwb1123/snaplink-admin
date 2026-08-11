@@ -2,9 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_route.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'distributed_cluster_panel.dart';
 
 /// System health dashboard.
@@ -222,7 +226,7 @@ class _HealthTabState extends State<HealthTab> {
               const SizedBox(height: 4),
               LocalizedText(
                 _error!,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.muted),
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -261,19 +265,20 @@ class _HealthTabState extends State<HealthTab> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
-                Chip(
-                  label: Text(status.toUpperCase()),
-                  backgroundColor: isOk
-                      ? AppColors.success.withValues(alpha: 0.10)
-                      : AppColors.danger.withValues(alpha: 0.10),
+                StatusChip(
+                  label: status.toUpperCase(),
+                  color: isOk ? AppColors.success : AppColors.danger,
+                  icon: isOk ? Icons.check_circle : Icons.error,
                 ),
               ],
             ),
             const Divider(),
-            _row('Version', h['version']?.toString() ?? '—'),
-            _row('Issuer', h['issuer']?.toString() ?? '—'),
-            _row('Revision', revisionShort),
-            _row('Build Time', h['vcs_time']?.toString() ?? '—'),
+            _row('Version', h['version']?.toString() ?? '—',
+                localized: true),
+            _row('Issuer', h['issuer']?.toString() ?? '—', localized: true),
+            _row('Revision', revisionShort, localized: true),
+            _row('Build Time', h['vcs_time']?.toString() ?? '—',
+                localized: true),
           ],
         ),
       ),
@@ -293,7 +298,11 @@ class _HealthTabState extends State<HealthTab> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 24),
+              Icon(
+                icon,
+                size: 24,
+                color: adminModuleIconColor(AdminModuleId.health),
+              ),
               const SizedBox(width: 8),
               LocalizedText(
                 title,
@@ -319,7 +328,11 @@ class _HealthTabState extends State<HealthTab> {
         children: [
           Row(
             children: [
-              const Icon(Icons.info_outline, size: 24),
+              Icon(
+                Icons.info_outline,
+                size: 24,
+                color: adminModuleIconColor(AdminModuleId.health),
+              ),
               const SizedBox(width: 8),
               LocalizedText(
                 'Quick Actions',
@@ -356,20 +369,24 @@ class _HealthTabState extends State<HealthTab> {
     ),
   );
 
-  Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: Text(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
+  Widget _row(String label, String value, {bool localized = false}) =>
+    Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              localized ? context.tr(label) : label,
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
           ),
-        ),
-        Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
-      ],
-    ),
-  );
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
+        ],
+      ),
+    );
 }

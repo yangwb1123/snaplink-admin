@@ -8,6 +8,8 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_branding_tab.dart';
@@ -208,7 +210,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const SkeletonListTile(itemCount: 6)
           : _error != null
           ? Center(
               child: Column(
@@ -231,7 +233,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
                       _error!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ),
@@ -312,7 +316,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: LocalizedText('${_tabs[i].$2}  (${_countForTab(i)})'),
+              label: Text(
+                '${context.tr(_tabs[i].$2)} (${_countForTab(i)})',
+              ),
               selected: _tabIndex == i,
               onSelected: (_) => _selectTab(i, _tabs[i].$1),
             ),
@@ -358,8 +364,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       case 'branding':
         return TenantBrandingTab(api: widget.api, tenantId: widget.tenantId);
       default:
-        return const Center(child: LocalizedText('Select a tab'));
-    }
+        return const Center(child: LocalizedText('Select a tab'));    }
   }
 
   Future<void> _removeMember(String userId) async {

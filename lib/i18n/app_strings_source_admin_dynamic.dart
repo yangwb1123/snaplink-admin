@@ -95,6 +95,7 @@ const appAdminDynamicSourceZh = <String, String>{
   'User: {userId}': '用户：{userId}',
   'Verify {domain}?': '验证 {domain}？',
   'Webhook #{id}': 'Webhook #{id}',
+  'Webhook details': 'Webhook 详情',
   'Webhook: {id}': 'Webhook：{id}',
   '{count} additional buckets omitted.': '已省略另外 {count} 个分桶。',
   '{count} devices currently require attention': '当前有 {count} 台设备需要关注',

@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_bulk_revoke_dialog.dart';
 import 'device_security_dashboard_widgets.dart';
@@ -275,17 +276,34 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        LocalizedText(_error!, style: const TextStyle(color: AppColors.danger)),
+        Row(
+          children: [
+            Expanded(
+              child: LocalizedText(
+                _error!,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const LocalizedText('Retry'),
+            ),
+          ],
+        ),
       ],
       if (_loading) ...[
         const SizedBox(height: 24),
-        const Center(child: CircularProgressIndicator()),
+        const SkeletonListTile(itemCount: 3),
       ] else ...[
         const SizedBox(height: 12),
         DeviceListPanel(
           title: _query.isEmpty
-              ? 'All devices ($_fleetTotal total)'
-              : 'Filtered devices (${_devices.length} of $_fleetTotal)',
+              ? 'All devices ({total} total)'
+              : 'Filtered devices ({shown} of {total})',
+          titleArgs: _query.isEmpty
+              ? {'total': _fleetTotal}
+              : {'shown': _devices.length, 'total': _fleetTotal},
           devices: _devices,
           actionsEnabled: !_mutating,
           onActivity: _showActivity,

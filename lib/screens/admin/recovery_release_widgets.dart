@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'admin_module_groups.dart';
 
 List<Map<String, dynamic>> recoveryRecords(Object? value) => value is List
     ? value
@@ -20,7 +24,10 @@ class RecoveryStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
     child: ListTile(
-      leading: const Icon(Icons.health_and_safety_outlined),
+      leading: Icon(
+        Icons.health_and_safety_outlined,
+        color: adminModuleIconColor('recovery-releases'),
+      ),
       title: const LocalizedText('Disaster-recovery readiness'),
       subtitle: Text(
         status.entries
@@ -54,7 +61,11 @@ class RecoveryOperationsCard extends StatelessWidget {
           if (operations.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No recovery or release operations.'),
+              child: EmptyState(
+                variant: EmptyStateVariant.empty,
+                title: 'No recovery or release operations.',
+                compact: true,
+              ),
             ),
           for (final operation in operations)
             ExpansionTile(
@@ -65,6 +76,11 @@ class RecoveryOperationsCard extends StatelessWidget {
                     : operation['state'] == 'failed'
                     ? Icons.error_outline
                     : Icons.pending_outlined,
+                color: operation['state'] == 'succeeded'
+                    ? AppColors.success
+                    : operation['state'] == 'failed'
+                    ? AppColors.danger
+                    : AppColors.warning,
               ),
               title: Text(operation['id']?.toString() ?? ''),
               subtitle: Text(
@@ -135,50 +151,75 @@ class RecoverySnapshotsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              LocalizedText(
-                'Snapshots',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              if (canCreate)
-                FilledButton.icon(
-                  onPressed: mutating ? null : onCreate,
-                  icon: const Icon(Icons.camera_outlined),
-                  label: const LocalizedText('Export snapshot'),
-                ),
-            ],
+          SectionHeader(
+            'Snapshots',
+            action: canCreate
+                ? FilledButton.icon(
+                    onPressed: mutating ? null : onCreate,
+                    icon: const Icon(Icons.camera_outlined),
+                    label: const LocalizedText('Export snapshot'),
+                  )
+                : null,
           ),
           if (snapshots.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No stored snapshots.'),
+              child: EmptyState(
+                variant: EmptyStateVariant.empty,
+                title: 'No stored snapshots.',
+                compact: true,
+              ),
             ),
-          for (final snapshot in snapshots)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(snapshot['snapshot_id']?.toString() ?? ''),
-              subtitle: LocalizedText(
-                '${snapshot['codec'] ?? ''} · ${snapshot['size_bytes'] ?? 0} '
-                'bytes · schema ${snapshot['schema_version'] ?? ''}',
-              ),
-              trailing: PopupMenuButton<String>(
-                enabled: !mutating,
-                onSelected: (action) => action == 'restore'
-                    ? onRestore(snapshot)
-                    : onDelete(snapshot),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: 'restore',
-                    child: LocalizedText('Restore'),
+          if (snapshots.isNotEmpty)
+            AdminDataTable(
+              density: TableDensity.compact,
+              minWidth: 560,
+              columns: [
+                AdminDataColumn(
+                  id: 'snapshot',
+                  label: 'SNAPSHOT',
+                  width: 200,
+                  cardPrimary: true,
+                  builder: (context, i) => TableCellText(
+                    snapshots[i]['snapshot_id']?.toString() ?? '',
+                    bold: true,
                   ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: LocalizedText('Delete'),
+                ),
+                AdminDataColumn(
+                  id: 'details',
+                  label: 'DETAILS',
+                  width: 260,
+                  builder: (context, i) => TableCellText(
+                    '${snapshots[i]['codec'] ?? ''} · '
+                    '${snapshots[i]['size_bytes'] ?? 0} bytes · schema '
+                    '${snapshots[i]['schema_version'] ?? ''}',
+                    muted: true,
                   ),
-                ],
-              ),
+                ),
+                AdminDataColumn(
+                  id: 'actions',
+                  label: '',
+                  width: 100,
+                  builder: (context, i) => PopupMenuButton<String>(
+                    enabled: !mutating,
+                    onSelected: (action) => action == 'restore'
+                        ? onRestore(snapshots[i])
+                        : onDelete(snapshots[i]),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'restore',
+                        child: LocalizedText('Restore'),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: LocalizedText('Delete'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              itemCount: snapshots.length,
+              rowBuilder: (context, i) => const SizedBox.shrink(),
             ),
         ],
       ),
@@ -211,53 +252,82 @@ class RecoveryReleasesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              LocalizedText(
-                'Paired releases',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              if (canRegister)
-                FilledButton.icon(
-                  onPressed: mutating ? null : onRegister,
-                  icon: const Icon(Icons.add),
-                  label: const LocalizedText('Register release'),
-                ),
-            ],
+          SectionHeader(
+            'Paired releases',
+            action: canRegister
+                ? FilledButton.icon(
+                    onPressed: mutating ? null : onRegister,
+                    icon: const Icon(Icons.add),
+                    label: const LocalizedText('Register release'),
+                  )
+                : null,
           ),
           if (current != null)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.push_pin, color: AppColors.success),
-              title: LocalizedText('Current: {id}', args: {'id': current!['id'] ?? ''}),
+              title: LocalizedText(
+                'Current: {id}',
+                args: {'id': current!['id'] ?? ''},
+              ),
               subtitle: Text(releaseSummary(current!)),
             ),
           if (releases.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No registered releases.'),
-            ),
-          for (final release in releases)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(release['id']?.toString() ?? ''),
-              subtitle: Text(releaseSummary(release)),
-              trailing: PopupMenuButton<String>(
-                enabled: !mutating,
-                onSelected: (action) => onAction(release, action),
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'pin', child: LocalizedText('Pin')),
-                  PopupMenuItem(
-                    value: 'rollback',
-                    child: LocalizedText('Rollback'),
-                  ),
-                  PopupMenuItem(
-                    value: 'delete',
-                    child: LocalizedText('Delete'),
-                  ),
-                ],
+              child: EmptyState(
+                variant: EmptyStateVariant.empty,
+                title: 'No registered releases.',
+                compact: true,
               ),
+            ),
+          if (releases.isNotEmpty)
+            AdminDataTable(
+              density: TableDensity.compact,
+              minWidth: 560,
+              columns: [
+                AdminDataColumn(
+                  id: 'release',
+                  label: 'RELEASE',
+                  width: 200,
+                  cardPrimary: true,
+                  builder: (context, i) => TableCellText(
+                    releases[i]['id']?.toString() ?? '',
+                    bold: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'summary',
+                  label: 'SUMMARY',
+                  width: 300,
+                  builder: (context, i) => TableCellText(
+                    releaseSummary(releases[i]),
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'actions',
+                  label: '',
+                  width: 100,
+                  builder: (context, i) => PopupMenuButton<String>(
+                    enabled: !mutating,
+                    onSelected: (action) => onAction(releases[i], action),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'pin', child: LocalizedText('Pin')),
+                      PopupMenuItem(
+                        value: 'rollback',
+                        child: LocalizedText('Rollback'),
+                      ),
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: LocalizedText('Delete'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              itemCount: releases.length,
+              rowBuilder: (context, i) => const SizedBox.shrink(),
             ),
         ],
       ),

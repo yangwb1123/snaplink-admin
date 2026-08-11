@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 class CommerceWalletPanel extends StatelessWidget {
   final String currency;
@@ -79,50 +82,85 @@ class CommerceWalletPanel extends StatelessWidget {
             tilePadding: EdgeInsets.zero,
             title: LocalizedText('Ledger entries ({entries_length})', args: {'entries_length': entries.length}),
             children: entries.isEmpty
-                ? [const ListTile(title: LocalizedText('No ledger entries.'))]
-                : entries.map(_ledgerTile).toList(growable: false),
+                ? [
+                    const EmptyState(
+                      variant: EmptyStateVariant.empty,
+                      title: 'No ledger entries.',
+                    ),
+                  ]
+                : [_ledgerTable(context)],
           ),
         ],
       ),
     ),
   );
 
-  Widget _walletSummary(BuildContext context) => Wrap(
-    spacing: 16,
-    runSpacing: 8,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      Icon(
-        wallet!['status'] == 'active'
-            ? Icons.account_balance_wallet
-            : Icons.lock,
-        color: wallet!['status'] == 'active' ? AppColors.success : AppColors.danger,
-        size: 32,
-      ),
-      LocalizedText(
-        '${wallet!['currency'] ?? currency} ${wallet!['balance_minor'] ?? 0} minor units',
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      Chip(label: Text(wallet!['status']?.toString() ?? '—')),
-      LocalizedText('Wallet version {version}', args: {'version': wallet!['version'] ?? 0}),
-    ],
-  );
+  Widget _walletSummary(BuildContext context) {
+    final statusLabel = wallet!['status']?.toString() ?? 'unknown';
+    final balance =
+        '${wallet!['currency'] ?? currency} ${wallet!['balance_minor'] ?? 0} minor units';
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Icon(
+          wallet!['status'] == 'active'
+              ? Icons.account_balance_wallet
+              : Icons.lock,
+          color: wallet!['status'] == 'active' ? AppColors.success : AppColors.danger,
+          size: 32,
+        ),
+        Text(balance, style: Theme.of(context).textTheme.titleMedium),
+        StatusChip(
+          label: statusLabel,
+          color: wallet!['status'] == 'active'
+              ? AppColors.success
+              : AppColors.warning,
+          icon: wallet!['status'] == 'active'
+              ? Icons.check_circle
+              : Icons.circle_outlined,
+        ),
+        LocalizedText('Wallet version {version}', args: {'version': wallet!['version'] ?? 0}),
+      ],
+    );
+  }
 
-  Widget _ledgerTile(Map<String, dynamic> entry) => ListTile(
-    dense: true,
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(
-      (entry['amount_minor'] as num? ?? 0) >= 0
-          ? Icons.add_circle_outline
-          : Icons.remove_circle_outline,
-    ),
-    title: LocalizedText(
-      '${entry['kind'] ?? 'unknown'} · ${entry['amount_minor'] ?? 0} minor units',
-    ),
-    subtitle: LocalizedText(
-      'Balance ${entry['balance_after'] ?? '—'} · ${entry['reference'] ?? '—'} · ${entry['occurred_at'] ?? '—'}',
-    ),
-    trailing: Text('v${entry['wallet_version'] ?? '—'}'),
+  Widget _ledgerTable(BuildContext context) => AdminDataTable(
+    density: TableDensity.compact,
+    minWidth: 640,
+    columns: [
+      AdminDataColumn(
+        id: 'kind',
+        label: 'KIND · AMOUNT',
+        width: 240,
+        cardPrimary: true,
+        builder: (context, i) => TableCellText(
+          '${entries[i]['kind'] ?? 'unknown'} · ${entries[i]['amount_minor'] ?? 0} minor units',
+          bold: true,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'detail',
+        label: 'BALANCE · REFERENCE · OCCURRED',
+        width: 340,
+        cardDetail: true,
+        builder: (context, i) => TableCellText(
+          'Balance ${entries[i]['balance_after'] ?? '—'} · ${entries[i]['reference'] ?? '—'} · ${entries[i]['occurred_at'] ?? '—'}',
+          muted: true,
+          maxLines: 2,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'version',
+        label: 'VERSION',
+        width: 100,
+        builder: (context, i) =>
+            TableCellText('v${entries[i]['wallet_version'] ?? '—'}'),
+      ),
+    ],
+    itemCount: entries.length,
+    rowBuilder: (context, i) => const SizedBox.shrink(),
   );
 
   Widget _paymentsCard(BuildContext context) => Card(
@@ -181,6 +219,12 @@ class CommerceWalletPanel extends StatelessWidget {
         order['status'] == 'pending' &&
         order['provider'] == 'stripe' &&
         (order['provider_order_id']?.toString() ?? '').isEmpty;
+    final title =
+        '${order['status'] ?? 'unknown'} · ${order['currency'] ?? ''} ${order['amount_minor'] ?? 0} minor units';
+    final provider =
+        'Provider reference: ${order['provider'] ?? '—'} / ${order['provider_order_id'] ?? '—'}';
+    final paid =
+        'Paid ${order['paid_minor'] ?? 0} · refunded ${order['refunded_minor'] ?? 0}';
     return Card.outlined(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -190,10 +234,7 @@ class CommerceWalletPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: LocalizedText(
-                    '${order['status'] ?? 'unknown'} · ${order['currency'] ?? ''} ${order['amount_minor'] ?? 0} minor units',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
                 ),
                 Chip(
                   label: LocalizedText('Revision {revision}', args: {'revision': order['revision'] ?? '—'}),
@@ -201,12 +242,8 @@ class CommerceWalletPanel extends StatelessWidget {
               ],
             ),
             SelectableText(id.isEmpty ? '—' : id),
-            LocalizedText(
-              'Provider reference: ${order['provider'] ?? '—'} / ${order['provider_order_id'] ?? '—'}',
-            ),
-            LocalizedText(
-              'Paid ${order['paid_minor'] ?? 0} · refunded ${order['refunded_minor'] ?? 0}',
-            ),
+            Text(provider),
+            Text(paid),
             Wrap(
               spacing: 8,
               children: [
@@ -227,32 +264,48 @@ class CommerceWalletPanel extends StatelessWidget {
                   ),
               ],
             ),
-            if (showingEvents) _eventList(),
+            if (showingEvents) _eventList(context),
           ],
         ),
       ),
     );
   }
 
-  Widget _eventList() => Column(
+  Widget _eventList(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const Divider(),
       if (events.isEmpty)
         const LocalizedText('No normalized payment facts are recorded.')
       else
-        ...events.map(
-          (event) => ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.verified_outlined),
-            title: LocalizedText(
-              '${event['type'] ?? 'unknown'} · ${event['amount_minor'] ?? 0} minor units',
+        AdminDataTable(
+          density: TableDensity.compact,
+          minWidth: 560,
+          columns: [
+            AdminDataColumn(
+              id: 'type',
+              label: 'TYPE · AMOUNT',
+              width: 260,
+              cardPrimary: true,
+              builder: (context, i) => TableCellText(
+                '${events[i]['type'] ?? 'unknown'} · ${events[i]['amount_minor'] ?? 0} minor units',
+                bold: true,
+              ),
             ),
-            subtitle: LocalizedText(
-              '${event['id'] ?? '—'} · ${event['occurred_at'] ?? '—'}',
+            AdminDataColumn(
+              id: 'detail',
+              label: 'ID · OCCURRED',
+              width: 300,
+              cardDetail: true,
+              builder: (context, i) => TableCellText(
+                '${events[i]['id'] ?? '—'} · ${events[i]['occurred_at'] ?? '—'}',
+                muted: true,
+                maxLines: 2,
+              ),
             ),
-          ),
+          ],
+          itemCount: events.length,
+          rowBuilder: (context, i) => const SizedBox.shrink(),
         ),
     ],
   );
@@ -266,22 +319,37 @@ class CommerceWalletPanel extends StatelessWidget {
           'Reconciliation report',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        LocalizedText(
+        Text(
           '${reconciliation!['orders_checked'] ?? 0} orders checked · ${issues.length} issues',
         ),
         if (issues.isEmpty)
           const LocalizedText('Order totals match the immutable ledger.')
         else
-          ...issues.map(
-            (issue) => ListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.error_outline, color: AppColors.danger),
-              title: Text(issue['order_id']?.toString() ?? '—'),
-              subtitle: LocalizedText(
-                'Expected ${issue['expected_minor'] ?? 0} · ledger ${issue['ledger_minor'] ?? 0}',
+          AdminDataTable(
+            density: TableDensity.compact,
+            minWidth: 520,
+            columns: [
+              AdminDataColumn(
+                id: 'order',
+                label: 'ORDER',
+                width: 240,
+                cardPrimary: true,
+                builder: (context, i) =>
+                    TableCellText(issues[i]['order_id']?.toString() ?? '—', bold: true),
               ),
-            ),
+              AdminDataColumn(
+                id: 'detail',
+                label: 'EXPECTED · LEDGER',
+                width: 280,
+                cardDetail: true,
+                builder: (context, i) => TableCellText(
+                  'Expected ${issues[i]['expected_minor'] ?? 0} · ledger ${issues[i]['ledger_minor'] ?? 0}',
+                  muted: true,
+                ),
+              ),
+            ],
+            itemCount: issues.length,
+            rowBuilder: (context, i) => const SizedBox.shrink(),
           ),
       ],
     );

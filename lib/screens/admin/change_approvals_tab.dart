@@ -7,6 +7,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 
 import 'change_approval_models.dart';
@@ -215,16 +216,21 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     final pending = status == ChangeStatus.pending;
     final decidedBy = change['approved_by']?.toString().trim() ?? '';
     final action = change['action_type']?.toString() ?? 'Change request';
+    final proposedBy = change['proposed_by']?.toString() ?? 'unknown';
+    final reason = change['reason']?.toString() ?? '';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
-        leading: Icon(
-          _statusIcon(status),
-          color: _statusColor(context, status),
+        title: Row(
+          children: [
+            Expanded(child: Text(action)),
+            _statusChip(status),
+          ],
         ),
-        title: LocalizedText(action),
-        subtitle: LocalizedText(
-          '$status · proposed by ${change['proposed_by'] ?? 'unknown'}\n${change['reason'] ?? ''}',
+        subtitle: Text(
+          [if (reason.isNotEmpty) reason, 'proposed by $proposedBy'].join(
+            '\n',
+          ),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -245,7 +251,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             ),
           ],
           const SizedBox(height: 12),
-          LocalizedText(
+          Text(
             'Created ${change['created_at'] ?? ''}'
             '${decidedBy.isEmpty ? '' : ' · decided by $decidedBy'}',
             style: Theme.of(context).textTheme.bodySmall,
@@ -270,20 +276,13 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     );
   }
 
-  IconData _statusIcon(String status) => switch (status) {
-    'pending' => Icons.hourglass_top,
-    'approved' => Icons.verified_outlined,
-    'applied' => Icons.check_circle_outline,
-    'rejected' => Icons.block,
-    'failed' => Icons.error_outline,
-    _ => Icons.help_outline,
-  };
-
-  Color _statusColor(BuildContext context, String status) => switch (status) {
-    'pending' => AppColors.warning,
-    'approved' || 'applied' => AppColors.success,
-    'rejected' || 'failed' => AppColors.danger,
-    _ => Theme.of(context).colorScheme.onSurfaceVariant,
+  Widget _statusChip(String status) => switch (status) {
+    'pending' => StatusChip.pending(label: 'Pending'),
+    'approved' => StatusChip.active(label: 'Approved'),
+    'applied' => StatusChip.active(label: 'Applied'),
+    'rejected' => StatusChip.failed(label: 'Rejected'),
+    'failed' => StatusChip.failed(label: 'Failed'),
+    _ => StatusChip.unknown(label: status),
   };
 }
 

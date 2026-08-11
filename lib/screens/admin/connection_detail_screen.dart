@@ -9,6 +9,10 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'admin_route.dart';
 
 /// Connection detail screen.
@@ -93,7 +97,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       ),
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const SkeletonListTile(itemCount: 4)
         : _error != null
         ? Center(
             child: Column(
@@ -162,7 +166,11 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.link, size: 40),
+              Icon(
+                Icons.link,
+                size: 40,
+                color: adminModuleIconColor(AdminModuleId.connections),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -200,21 +208,16 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     final isHealthy = _health?['healthy'] == true;
     return Column(
       children: [
-        Chip(
-          label: LocalizedText(status),
-          backgroundColor: status == 'active'
-              ? AppColors.success.withValues(alpha: 0.10)
-              : AppColors.warning.withValues(alpha: 0.10),
-        ),
+        if (status == 'active')
+          StatusChip.active(label: 'Active')
+        else if (status == 'suspended')
+          StatusChip.suspended(label: 'Suspended')
+        else
+          StatusChip.inactive(label: status),
         if (_health != null && _health!.isNotEmpty)
-          Chip(
-            label: isHealthy
-                ? const LocalizedText('Healthy')
-                : const LocalizedText('Unhealthy'),
-            backgroundColor: isHealthy
-                ? AppColors.success.withValues(alpha: 0.10)
-                : AppColors.danger.withValues(alpha: 0.10),
-          ),
+          isHealthy
+              ? StatusChip.healthy()
+              : StatusChip.unhealthy(),
       ],
     );
   }

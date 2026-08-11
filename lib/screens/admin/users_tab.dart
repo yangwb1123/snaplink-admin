@@ -11,7 +11,10 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'admin_route.dart';
 import 'user_form_dialog.dart';
 import 'list_metrics.dart';
@@ -184,34 +187,6 @@ class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
     _reload();
   }
 
-  /// 批量操作栏。
-  Widget _batchBar(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            LocalizedText('{count} selected', args: {'count': selected.length}),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _busyId == null ? _batchDelete : null,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const LocalizedText('Delete'),
-            ),
-            IconButton(
-              tooltip: 'Clear selection'.localized,
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: clearSelection,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
     if (id.isEmpty || _busyId != null) return;
@@ -253,7 +228,15 @@ class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
           onCreate: () => AdminRoute.go('users', action: 'new'),
           onRefresh: _reload,
         ),
-        if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
+        if (selecting) ...[
+          BatchActionBar(
+            selectedCount: selected.length,
+            onDelete: _batchDelete,
+            onClearSelection: clearSelection,
+            isLoading: _busyId != null,
+          ),
+          const SizedBox(height: 8),
+        ],
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Wrap(
@@ -336,13 +319,39 @@ class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
             future: _future,
             builder: (context, snap) {
               if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
+                return const SkeletonListTile(itemCount: 6);
               }
               if (snap.hasError) {
                 return Center(
-                  child: LocalizedText(
-                    'Error: {snap_error}',
-                    args: {'snap_error': snap.error},
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.danger,
+                      ),
+                      const SizedBox(height: 16),
+                      LocalizedText(
+                        'Failed to load',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: LocalizedText(
+                          'Error: {snap_error}',
+                          args: {'snap_error': snap.error},
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _reload,
+                        icon: const Icon(Icons.refresh),
+                        label: const LocalizedText('Retry'),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -364,6 +373,7 @@ class _UsersTabState extends State<UsersTab> with BatchSelection<UsersTab> {
                                 AdminRoute.go('users', action: 'new'),
                           )
                         : EmptyState(
+                            variant: EmptyStateVariant.empty,
                             icon: Icons.person,
                             title: 'No users',
                             subtitle: 'No users match the current filter.',

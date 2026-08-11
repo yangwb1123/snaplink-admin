@@ -38,6 +38,7 @@ const appAdminNavigationSourceZh = <String, String>{
   'MFA': 'MFA',
   'Lifecycle': '生命周期',
   'Invitations': '邀请',
+  'Branding': '品牌',
   'Usage': '使用情况',
   'Assignments': '分配',
   'Dead Letters': '死信',

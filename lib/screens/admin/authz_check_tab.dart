@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// ReBAC and WASM authorization policy check tool tab.
@@ -124,10 +125,9 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
   @override
   Widget build(BuildContext context) {
     if (!_hasRebac && !_hasWasm) {
-      return const Center(
-        child: LocalizedText(
-          'Authorization check tools are not enabled on this replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Authorization check tools are not enabled on this replica.',
       );
     }
     return ListView(

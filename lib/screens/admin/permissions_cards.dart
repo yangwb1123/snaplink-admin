@@ -51,7 +51,7 @@ class RolesCard extends StatelessWidget {
               title: Text(
                 role['name']?.toString() ?? role['code']?.toString() ?? '',
               ),
-              subtitle: LocalizedText(
+              subtitle: Text(
                 "${role['code'] ?? ''}\n${(role['permissions'] as List?)?.map((e) => e.toString()).join(', ') ?? ''}",
               ),
               isThreeLine: role['description']?.toString().isNotEmpty == true,

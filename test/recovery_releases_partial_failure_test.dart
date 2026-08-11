@@ -101,9 +101,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('op_rollback_1'), findsOneWidget);
-    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    // 页面重构后 snapshots/releases 卡更高，operations 卡在 600px 视口外
+    // （ListView 懒构建），先滚动到可见。
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
     await tester.pumpAndSettle();
+    expect(find.text('op_rollback_1'), findsOneWidget);
     await tester.tap(find.text('op_rollback_1'));
     await tester.pumpAndSettle();
     expect(find.textContaining('apply_release · failed'), findsOneWidget);

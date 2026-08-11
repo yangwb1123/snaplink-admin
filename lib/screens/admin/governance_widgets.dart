@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 
@@ -101,13 +102,27 @@ class GovernanceJsonCard extends StatelessWidget {
 /// Error banner displayed in governance views.
 class GovernanceErrorBanner extends StatelessWidget {
   final String error;
-  const GovernanceErrorBanner({super.key, required this.error});
+  final VoidCallback? onRetry;
+  const GovernanceErrorBanner({super.key, required this.error, this.onRetry});
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: 12),
-    child: LocalizedText(
-      error,
-      style: const TextStyle(color: AppColors.danger),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LocalizedText(
+          error,
+          style: const TextStyle(color: AppColors.danger),
+        ),
+        if (onRetry != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const LocalizedText('Retry'),
+          ),
+        ],
+      ],
     ),
   );
 }
@@ -137,12 +152,12 @@ class GovernanceAuditResults extends StatelessWidget {
               ListTile(
                 dense: true,
                 contentPadding: EdgeInsets.zero,
-                title: LocalizedText(
+                title: Text(
                   event['type']?.toString() ??
                       event['id']?.toString() ??
-                      'Event',
+                      context.tr('Event'),
                 ),
-                subtitle: LocalizedText(
+                subtitle: Text(
                   '${event['timestamp'] ?? event['created_at'] ?? ''} ${event['outcome'] ?? ''}'
                       .trim(),
                 ),

@@ -18,6 +18,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'list_metrics.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 
@@ -382,21 +383,15 @@ class _AuditLogTabState extends State<AuditLogTab> {
                 ),
               ),
               const SizedBox(width: 12),
-              DropdownButton<String>(
+              StatusFilterDropdown(
                 value: _outcomeFilter,
-                items: const [
-                  DropdownMenuItem(value: 'ALL', child: LocalizedText('All')),
-                  DropdownMenuItem(
-                    value: 'success',
-                    child: LocalizedText('success'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'failure',
-                    child: LocalizedText('failure'),
-                  ),
-                ],
+                options: const {
+                  'ALL': 'All',
+                  'success': 'success',
+                  'failure': 'failure',
+                },
                 onChanged: (v) {
-                  setState(() => _outcomeFilter = v ?? 'ALL');
+                  setState(() => _outcomeFilter = v);
                   _refresh();
                 },
               ),

@@ -10,6 +10,7 @@ import 'package:sso_admin/services/operator_persona.dart';
 
 import 'admin_overview_metrics.dart';
 import 'snaplink_admin_api.dart';
+import 'admin_module_groups.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Landing page for the Snaplink operator console.
@@ -138,7 +139,11 @@ class AdminOverviewTab extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         LocalizedText(
-                          '$running running · $documentedOnly documented-only',
+                          '{running} running · {documented} documented-only',
+                          args: {
+                            'running': running,
+                            'documented': documentedOnly,
+                          },
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(
                                 color: Theme.of(context)
@@ -242,13 +247,16 @@ class AdminOverviewTab extends StatelessWidget {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+          color: entry.value.color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(entry.value.icon, size: 20),
+        child: Icon(entry.value.icon, size: 20, color: entry.value.color),
       ),
       title: LocalizedText(entry.key),
-      subtitle: LocalizedText('${entry.value.endpoints.length} live endpoints'),
+      subtitle: LocalizedText(
+        '{count} live endpoints',
+        args: {'count': entry.value.endpoints.length},
+      ),
       children: [..._endpointTiles(entry.value.endpoints)],
     ),
   );
@@ -272,40 +280,64 @@ class AdminOverviewTab extends StatelessWidget {
     for (final endpoint in endpoints) {
       final group = _groupFor(endpoint.path);
       groups
-          .putIfAbsent(group.$1, () => _EndpointGroup(group.$2))
+          .putIfAbsent(group.$1, () => _EndpointGroup(group.$2, group.$3))
           .endpoints
           .add(endpoint);
     }
     return groups;
   }
 
-  (String, IconData) _groupFor(String path) {
+  (String, IconData, Color) _groupFor(String path) {
     if (path.contains('/clients') || path.contains('/register')) {
-      return ('Applications and OAuth', Icons.apps_outlined);
+      return (
+        'Applications and OAuth',
+        Icons.apps_outlined,
+        adminGroupIconColor('identity'),
+      );
     }
     if (path.contains('/users') ||
         path.contains('/local-users') ||
         path.contains('/connections')) {
-      return ('Identity and connections', Icons.people_outline);
+      return (
+        'Identity and connections',
+        Icons.people_outline,
+        adminGroupIconColor('identity'),
+      );
     }
     if (path.contains('/tenants') || path.contains('/domains')) {
-      return ('Tenants and organizations', Icons.business_outlined);
+      return (
+        'Tenants and organizations',
+        Icons.business_outlined,
+        adminGroupIconColor('tenants'),
+      );
     }
     if (path.contains('/tokens') ||
         path.contains('/sessions') ||
         path.contains('/logout')) {
-      return ('Tokens and sessions', Icons.security_outlined);
+      return (
+        'Tokens and sessions',
+        Icons.security_outlined,
+        adminGroupIconColor('security'),
+      );
     }
     if (path.contains('/keys') ||
         path.contains('/credentials') ||
         path.contains('/break-glass')) {
-      return ('Security operations', Icons.key_outlined);
+      return (
+        'Security operations',
+        Icons.key_outlined,
+        adminGroupIconColor('security'),
+      );
     }
     if (path.contains('/compliance') ||
         path.contains('/changes') ||
         path.contains('/audit') ||
         path.contains('/policy')) {
-      return ('Governance and compliance', Icons.gavel_outlined);
+      return (
+        'Governance and compliance',
+        Icons.gavel_outlined,
+        adminGroupIconColor('system'),
+      );
     }
     if (path.contains('/snapshots') ||
         path.contains('/releases') ||
@@ -313,9 +345,17 @@ class AdminOverviewTab extends StatelessWidget {
         path.contains('/dr/') ||
         path.contains('/health') ||
         path.contains('/config')) {
-      return ('Platform operations', Icons.monitor_heart_outlined);
+      return (
+        'Platform operations',
+        Icons.monitor_heart_outlined,
+        adminGroupIconColor('overview'),
+      );
     }
-    return ('Other exposed APIs', Icons.extension_outlined);
+    return (
+      'Other exposed APIs',
+      Icons.extension_outlined,
+      adminGroupIconColor('other'),
+    );
   }
 }
 
@@ -353,9 +393,10 @@ class _MethodChip extends StatelessWidget {
 
 class _EndpointGroup {
   final IconData icon;
+  final Color color;
   final List<SnaplinkAdminEndpoint> endpoints = [];
 
-  _EndpointGroup(this.icon);
+  _EndpointGroup(this.icon, this.color);
 }
 
 /// Hero 统计项：健康度环（ProgressRing 数据表达——健康度图形化）。

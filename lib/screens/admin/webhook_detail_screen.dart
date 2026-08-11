@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
 import 'webhook_detail_widgets.dart';
 
@@ -123,7 +124,10 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       ],
     ),
     body: _loading
-        ? const Center(child: CircularProgressIndicator())
+        ? const Padding(
+            padding: EdgeInsets.all(16),
+            child: SkeletonListTile(itemCount: 4),
+          )
         : _error != null
         ? Center(
             child: Column(
@@ -146,7 +150,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                     _error!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                      color: AppColors.muted,
                     ),
                   ),
                 ),

@@ -5,7 +5,10 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 import 'local_user_validation.dart';
@@ -157,33 +160,13 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     await _load();
   }
 
-  /// 批量操作栏（列表顶部）。
-  Widget _batchBar(BuildContext context) {
-    final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.4),
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            LocalizedText('{count} selected', args: {'count': selected.length}),
-            const Spacer(),
-            TextButton.icon(
-              onPressed: _mutating ? null : _batchDelete,
-              icon: const Icon(Icons.delete_outline, size: 18),
-              label: const LocalizedText('Delete'),
-            ),
-            IconButton(
-              tooltip: 'Clear selection'.localized,
-              icon: const Icon(Icons.close, size: 18),
-              onPressed: clearSelection,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  /// 批量操作栏（列表顶部）——BatchActionBar（删除 + 清除选择）。
+  Widget _batchBar(BuildContext context) => BatchActionBar(
+    selectedCount: selected.length,
+    onDelete: _batchDelete,
+    onClearSelection: clearSelection,
+    isLoading: _mutating,
+  );
 
   Future<void> _delete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
@@ -218,10 +201,9 @@ class _LocalUsersTabState extends State<LocalUsersTab>
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText(
-          'Local password users are not enabled on this replica.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Local password users are not enabled on this replica.',
       );
     }
     return ListView(
@@ -266,56 +248,110 @@ class _LocalUsersTabState extends State<LocalUsersTab>
           emptySubtitle: 'Create the first password-authenticated account.',
           dataBuilder: (users) => Column(
             children: [
-              for (final user in users)
-                Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    onTap: selecting
-                        ? () => toggleSelect(user['id']?.toString() ?? '')
-                        : null,
-                    onLongPress: () =>
-                        toggleSelect(user['id']?.toString() ?? ''),
-                    leading: selecting
-                        ? Checkbox(
-                            value: selected.contains(
-                                user['id']?.toString() ?? ''),
-                            onChanged: (_) =>
-                                toggleSelect(user['id']?.toString() ?? ''),
-                          )
-                        : UserAvatar(
-                            name: user['id']?.toString() ?? '?',
-                            radius: 16,
-                          ),
-                    title: Text(
-                      user['display_name']?.toString().isNotEmpty == true
-                          ? user['display_name'].toString()
-                          : user['username']?.toString() ?? '',
-                    ),
-                    subtitle: LocalizedText(
-                      '${user['username'] ?? ''}\n${user['email'] ?? ''}',
-                    ),
-                    isThreeLine: true,
-                    trailing: selecting
-                        ? null
-                        : PopupMenuButton<String>(
-                      enabled: !_mutating,
-                      onSelected: (action) {
-                        if (action == 'edit') _openForm(user);
-                        if (action == 'delete') _delete(user);
+              AdminDataTable(
+                scrollable: false,
+                minWidth: 760,
+                onRowTap: selecting
+                    ? (i) => toggleSelect(users[i]['id']?.toString() ?? '')
+                    : null,
+                onRowLongPress: selecting
+                    ? null
+                    : (i) => toggleSelect(users[i]['id']?.toString() ?? ''),
+                columns: [
+                  if (selecting)
+                    AdminDataColumn(
+                      id: 'select',
+                      label: '',
+                      width: 44,
+                      builder: (context, i) {
+                        final uid = users[i]['id']?.toString() ?? '';
+                        return Checkbox(
+                          value: selected.contains(uid),
+                          onChanged: (_) => toggleSelect(uid),
+                        );
                       },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: LocalizedText('Edit'),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: LocalizedText('Delete'),
-                        ),
-                      ],
+                    ),
+                  AdminDataColumn(
+                    id: 'user',
+                    label: 'USER',
+                    width: 300,
+                    cardPrimary: true,
+                    builder: (context, i) {
+                      final user = users[i];
+                      final display =
+                          user['display_name']?.toString().isNotEmpty == true
+                          ? user['display_name'].toString()
+                          : user['username']?.toString() ?? '';
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          UserAvatar(
+                            name: user['id']?.toString() ?? '?',
+                            radius: 14,
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: TableCellText(display, bold: true),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  AdminDataColumn(
+                    id: 'username',
+                    label: 'USERNAME',
+                    width: 180,
+                    builder: (context, i) {
+                      final user = users[i];
+                      final display =
+                          user['display_name']?.toString().isNotEmpty == true
+                          ? user['display_name'].toString()
+                          : user['username']?.toString() ?? '';
+                      final username = user['username']?.toString() ?? '';
+                      // 与显示名相同时不重复渲染（保持单实例文本）。
+                      return TableCellText(
+                        username == display ? '' : username,
+                        muted: true,
+                      );
+                    },
+                  ),
+                  AdminDataColumn(
+                    id: 'email',
+                    label: 'EMAIL',
+                    builder: (context, i) => TableCellText(
+                      users[i]['email']?.toString() ?? '',
+                      muted: true,
                     ),
                   ),
-                ),
+                  AdminDataColumn(
+                    id: 'actions',
+                    label: '',
+                    width: 60,
+                    builder: (context, i) {
+                      final user = users[i];
+                      return PopupMenuButton<String>(
+                        enabled: !_mutating,
+                        onSelected: (action) {
+                          if (action == 'edit') _openForm(user);
+                          if (action == 'delete') _delete(user);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: LocalizedText('Edit'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: LocalizedText('Delete'),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+                itemCount: users.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
+              ),
             ],
           ),
         ),

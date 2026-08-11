@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
 class TenantMembersTab extends StatelessWidget {
   final List<dynamic> members;
@@ -27,30 +29,62 @@ class TenantMembersTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (members.isEmpty)
-        const Center(child: LocalizedText('No members'))
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No members',
+        )
       else
-        for (final raw in members.whereType<Map>())
-          _memberCard(Map<String, dynamic>.from(raw)),
+        _membersTable(context),
     ],
   );
 
-  Widget _memberCard(Map<String, dynamic> member) {
-    final id = member['user_id']?.toString() ?? member['id']?.toString() ?? '';
-    final initial = id.isEmpty ? '?' : id[0].toUpperCase();
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: CircleAvatar(child: Text(initial)),
-        title: Text(id),
-        subtitle: LocalizedText('Role: {role}', args: {'role': member['role'] ?? 'member'}),
-        trailing: member['role'] == 'owner'
-            ? null
-            : TextButton(
-                onPressed: id.isEmpty ? null : () => onRemove(id),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-                child: const LocalizedText('Remove'),
-              ),
-      ),
+  Widget _membersTable(BuildContext context) {
+    final rows = members.whereType<Map>().toList();
+    return AdminDataTable(
+      density: TableDensity.compact,
+      minWidth: 640,
+      columns: [
+        AdminDataColumn(
+          id: 'user',
+          label: 'USER',
+          width: 260,
+          cardPrimary: true,
+          builder: (context, i) {
+            final id =
+                rows[i]['user_id']?.toString() ?? rows[i]['id']?.toString() ?? '';
+            return TableCellText(id.isEmpty ? '?' : id, bold: true);
+          },
+        ),
+        AdminDataColumn(
+          id: 'role',
+          label: 'ROLE',
+          width: 140,
+          builder: (context, i) => TableCellText(
+            rows[i]['role']?.toString() ?? 'member',
+            muted: true,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 110,
+          builder: (context, i) {
+            final id =
+                rows[i]['user_id']?.toString() ?? rows[i]['id']?.toString() ?? '';
+            return rows[i]['role'] == 'owner'
+                ? const SizedBox.shrink()
+                : TextButton(
+                    onPressed: id.isEmpty ? null : () => onRemove(id),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                    ),
+                    child: const LocalizedText('Remove'),
+                  );
+          },
+        ),
+      ],
+      itemCount: rows.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
     );
   }
 }
@@ -82,39 +116,79 @@ class TenantInvitationsTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (invitations.isEmpty)
-        const Center(child: LocalizedText('No pending invitations'))
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No pending invitations',
+        )
       else
-        for (final raw in invitations.whereType<Map>())
-          _invitationCard(Map<String, dynamic>.from(raw)),
+        _invitationsTable(context),
     ],
   );
 
-  Widget _invitationCard(Map<String, dynamic> invitation) {
-    final email = invitation['email']?.toString() ?? '';
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: const Icon(Icons.mail_outline),
-        title: Text(email),
-        subtitle: LocalizedText(
-          'Role: ${invitation['role'] ?? 'member'}  '
-          'Expires: ${invitation['expires_at'] ?? invitation['expiry'] ?? ''}',
+  Widget _invitationsTable(BuildContext context) {
+    final rows = invitations.whereType<Map>().toList();
+    return AdminDataTable(
+      density: TableDensity.compact,
+      minWidth: 640,
+      columns: [
+        AdminDataColumn(
+          id: 'email',
+          label: 'EMAIL',
+          width: 240,
+          cardPrimary: true,
+          builder: (context, i) => TableCellText(
+            rows[i]['email']?.toString() ?? '',
+            bold: true,
+          ),
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextButton(
-              onPressed: email.isEmpty ? null : () => onResend(invitation),
-              child: const LocalizedText('Resend'),
-            ),
-            TextButton(
-              onPressed: email.isEmpty ? null : () => onRevoke(email),
-              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-              child: const LocalizedText('Revoke'),
-            ),
-          ],
+        AdminDataColumn(
+          id: 'role',
+          label: 'ROLE',
+          width: 120,
+          builder: (context, i) => TableCellText(
+            rows[i]['role']?.toString() ?? 'member',
+            muted: true,
+          ),
         ),
-      ),
+        AdminDataColumn(
+          id: 'expires',
+          label: 'EXPIRES',
+          width: 200,
+          builder: (context, i) => TableCellText(
+            rows[i]['expires_at']?.toString() ??
+                rows[i]['expiry']?.toString() ??
+                '—',
+            muted: true,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 160,
+          builder: (context, i) {
+            final email = rows[i]['email']?.toString() ?? '';
+            final invitation = Map<String, dynamic>.from(rows[i]);
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextButton(
+                  onPressed: email.isEmpty ? null : () => onResend(invitation),
+                  child: const LocalizedText('Resend'),
+                ),
+                TextButton(
+                  onPressed: email.isEmpty ? null : () => onRevoke(email),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.danger,
+                  ),
+                  child: const LocalizedText('Revoke'),
+                ),
+              ],
+            );
+          },
+        ),
+      ],
+      itemCount: rows.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
     );
   }
 }
@@ -142,7 +216,10 @@ class TenantUsageTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (usage.isEmpty)
-        const Center(child: LocalizedText('No usage data'))
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No usage data',
+        )
       else
         Card(
           child: Padding(
@@ -200,7 +277,7 @@ class _SectionUnavailable extends StatelessWidget {
     child: ListTile(
       leading: const Icon(Icons.info_outline, color: AppColors.warning),
       title: LocalizedText(title),
-      subtitle: LocalizedText(error),
+      subtitle: Text(error),
       trailing: IconButton(
         onPressed: onRetry,
         icon: const Icon(Icons.refresh),

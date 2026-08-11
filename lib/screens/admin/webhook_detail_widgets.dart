@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'admin_module_groups.dart';
 
 class WebhookInfoCard extends StatelessWidget {
   final String subscriptionId;
@@ -32,28 +36,31 @@ class WebhookInfoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.webhook, size: 40),
+              Icon(
+                Icons.webhook,
+                size: 40,
+                color: adminModuleIconColor('webhooks'),
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    LocalizedText(
-                      'Webhook #$subscriptionId',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    const LocalizedText(
+                      'Webhook details',
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    LocalizedText('URL: {url}', args: {'url': _displayUrl(subscription?['url'])}),
+                    LocalizedText(
+                      'URL: {url}',
+                      args: {'url': _displayUrl(subscription?['url'])},
+                    ),
                   ],
                 ),
               ),
-              Chip(
-                label: LocalizedText(
-                  subscription?['active'] == true ? 'Active' : 'Inactive',
-                ),
-                backgroundColor: subscription?['active'] == true
-                    ? AppColors.success.withValues(alpha: 0.10)
-                    : Colors.grey.shade200,
-              ),
+              if (subscription?['active'] == true)
+                StatusChip.active(label: context.tr('Active'))
+              else
+                StatusChip.inactive(label: context.tr('Inactive')),
             ],
           ),
           const Divider(),
@@ -148,57 +155,80 @@ class WebhookDeadLetterSection extends StatelessWidget {
             child: Row(
               children: [
                 LocalizedText(
-                  'Dead Letters (${deadLetters.length})',
+                  'Dead Letters ({count})',
+                  args: {'count': deadLetters.length},
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const Spacer(),
-                Icon(expanded ? Icons.expand_less : Icons.expand_more),
+                Icon(
+                  expanded ? Icons.expand_less : Icons.expand_more,
+                  color: adminModuleIconColor('webhooks'),
+                ),
               ],
             ),
           ),
           if (expanded) ...[
             const SizedBox(height: 8),
             if (deadLetters.isEmpty)
-              const LocalizedText('No dead letters')
-            else
-              ...deadLetters
-                  .take(20)
-                  .map(
-                    (deadLetter) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Card(
-                        color: AppColors.danger.withValues(alpha: 0.05),
-                        child: ListTile(
-                          title: LocalizedText(
-                            deadLetter['event_type']?.toString() ?? 'Event',
-                          ),
-                          subtitle: LocalizedText(
-                            '${deadLetter['error']?.toString() ?? ''}\n'
-                            '${deadLetter['failed_at']?.toString() ?? ''}',
-                          ),
-                          trailing: TextButton(
-                            onPressed: mutating
-                                ? null
-                                : () => onReplay(
-                                    deadLetter['id']?.toString() ?? '',
-                                  ),
-                            child: const LocalizedText('Replay'),
-                          ),
-                        ),
-                      ),
+              const EmptyState(
+                variant: EmptyStateVariant.empty,
+                title: 'No dead letters',
+                compact: true,
+              )
+            else ...[
+              AdminDataTable(
+                density: TableDensity.compact,
+                minWidth: 560,
+                columns: [
+                  AdminDataColumn(
+                    id: 'event',
+                    label: 'EVENT',
+                    width: 220,
+                    cardPrimary: true,
+                    builder: (context, i) => TableCellText(
+                      deadLetters[i]['event_type']?.toString() ?? 'Event',
+                      bold: true,
                     ),
                   ),
-            if (deadLetters.length > 20)
-              LocalizedText(
-                '+ ${deadLetters.length - 20} more',
-                style: Theme.of(context).textTheme.bodySmall,
+                  AdminDataColumn(
+                    id: 'error',
+                    label: 'ERROR',
+                    width: 300,
+                    builder: (context, i) => TableCellText(
+                      '${deadLetters[i]['error']?.toString() ?? ''}\n'
+                      '${deadLetters[i]['failed_at']?.toString() ?? ''}',
+                      muted: true,
+                      maxLines: 2,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'actions',
+                    label: '',
+                    width: 90,
+                    builder: (context, i) => TextButton(
+                      onPressed: mutating
+                          ? null
+                          : () => onReplay(
+                              deadLetters[i]['id']?.toString() ?? '',
+                            ),
+                      child: const LocalizedText('Replay'),
+                    ),
+                  ),
+                ],
+                itemCount: deadLetters.length > 20 ? 20 : deadLetters.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
               ),
-            const SizedBox(height: 8),
-            if (deadLetters.isNotEmpty)
+              if (deadLetters.length > 20)
+                Text(
+                  '+ ${deadLetters.length - 20} more',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              const SizedBox(height: 8),
               OutlinedButton(
                 onPressed: mutating ? null : onReplayAll,
                 child: const LocalizedText('Replay all dead letters'),
               ),
+            ],
           ],
         ],
       ),
@@ -221,7 +251,7 @@ class _InfoRow extends StatelessWidget {
         SizedBox(
           width: 80,
           child: Text(
-            label,
+            context.tr(label),
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ),
