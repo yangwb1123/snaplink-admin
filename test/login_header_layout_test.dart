@@ -272,7 +272,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final size in [18.0, 18.0, 20.0]) {
+    for (final size in [20.0, 20.0, 20.0]) {
       final arrows = tester
           .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
           .where((icon) => icon.size == size);
@@ -289,8 +289,8 @@ void main() {
     );
     expect(
       compactIconButton.constraints,
-      const BoxConstraints.tightFor(width: 18, height: 18),
-      reason: 'compact arrow must be pinned to an 18x18 centered region',
+      const BoxConstraints.tightFor(width: 20, height: 20),
+      reason: 'compact arrow must be pinned to a 20x20 centered region',
     );
   });
 
@@ -387,5 +387,48 @@ void main() {
       expect(radius, const BorderRadius.all(Radius.circular(8)),
           reason: 'hover/focus background must be rounded like the active box');
     }
+  });
+
+  // compact（登录头）与 form（设置页）下拉共享同一图标几何：prefix/suffix
+  // 区域 20x20、箭头尺寸 20，视觉一致。
+  testWidgets('compact and form variants share icon geometry', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              LanguageDropdown(compact: true),
+              SizedBox(height: 16),
+              LanguageDropdown(), // form 模式（设置页）
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final dropdown in find.byType(DropdownMenu<Locale>).evaluate()) {
+      final iconButtons = find
+          .descendant(
+            of: find.byWidget(dropdown.widget),
+            matching: find.byType(IconButton),
+          )
+          .evaluate();
+      expect(iconButtons, isNotEmpty);
+      for (final element in iconButtons) {
+        final button = element.widget as IconButton;
+        expect(
+          button.constraints,
+          const BoxConstraints.tightFor(width: 20, height: 20),
+          reason: 'every icon region must be 20x20 in both variants',
+        );
+      }
+    }
+    // 箭头尺寸统一 20。
+    final arrows = tester
+        .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
+        .where((icon) => icon.size == 20);
+    expect(arrows.length, 4, reason: 'two dropdowns x (closed arrow + measure copy)');
   });
 }

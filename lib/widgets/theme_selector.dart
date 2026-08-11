@@ -68,7 +68,7 @@ class ThemeDropdown extends StatelessWidget {
       ),
       leadingIcon: Icon(
         _modeIcons[current]!,
-        size: compact ? 18 : 20,
+        size: compact ? 20 : 20,
         color: currentColor,
       ),
       // 箭头显式指定尺寸（默认 24px 在紧凑 18px 约束下会被压到不可见）。

@@ -92,13 +92,14 @@ IconData get headerDropdownArrowUpIcon => Icons.arrow_drop_up;
 
 /// compact 模式箭头尺寸（与 [compactHeaderDecoration] 的
 /// suffixIconConstraints 一致）。
-const headerDropdownCompactArrowSize = 18.0;
+const headerDropdownCompactArrowSize = 20.0;
 
 /// form 模式箭头尺寸（InputDecorator 默认 suffix 区域，居中于输入框）。
 const headerDropdownFormArrowSize = 20.0;
 
 /// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
-/// 18px，否则 InputDecorator 的 icon 默认 48px 高会把控件撑高。
+/// 20px（与设置页表单版同一视觉），否则 InputDecorator 的 icon 默认
+/// 48px 高会把控件撑高。
 ///
 /// 触摸目标：字段高度 = 正文 16 + 上下 contentPadding 16×2 = 48px
 /// （Material 最小交互尺寸），与旁边 48px 的设置 IconButton 对齐。
@@ -114,16 +115,20 @@ InputDecorationTheme compactHeaderDecoration(ThemeData theme) =>
         borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-      prefixIconConstraints: const BoxConstraints.tightFor(width: 18, height: 18),
-      suffixIconConstraints: const BoxConstraints.tightFor(width: 18, height: 18),
+      prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+      suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
     );
 
 /// 设置页表单输入装饰（圆角边框，与设置页其他控件一致）。
+/// prefix/suffix 图标约束与登录头紧凑版同一视觉：icon 区域 20x20，
+/// 避免 InputDecorator 默认 48x48 图标区把国旗/箭头撑大。
 InputDecorationTheme formHeaderDecoration(ThemeData theme) =>
     InputDecorationTheme(
       isDense: true,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+      suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
     );
 
 /// 测量下拉内容的自然宽度：最长文字 + leading 图标 + 箭头 + 留白。
