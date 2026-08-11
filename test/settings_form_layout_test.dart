@@ -82,4 +82,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(AppSettings.instance.adminNavMode, AdminNavMode.normal);
   });
+
+  // F1：设置页表单变体箭头在收起/展开两态下均 20×20、垂直居中于字段、
+  // 右缘贴齐（间隙一致）。
+  testWidgets('form dropdown arrow is centered in both states', (tester) async {
+    await pumpSettings(tester);
+
+    final field = tester.getRect(find.byType(LanguageDropdown));
+    Finder fieldArrow(IconData data) => find.descendant(
+      of: find.descendant(
+        of: find.byType(LanguageDropdown),
+        matching: find.byType(InputDecorator),
+      ),
+      matching: find.byIcon(data),
+    );
+
+    expect(fieldArrow(Icons.arrow_drop_down), findsOneWidget);
+    final collapsed = tester.getRect(fieldArrow(Icons.arrow_drop_down));
+    expect(collapsed.size, const Size(20, 20),
+        reason: 'arrow must keep the 20x20 icon region');
+    expect(collapsed.center.dy, closeTo(field.center.dy, 1.5),
+        reason: 'arrow must be vertically centered in the field');
+    expect(field.right - collapsed.right, closeTo(0, 0.5),
+        reason: 'arrow must sit flush with the field right edge');
+
+    await tester.tap(find.byType(LanguageDropdown));
+    await tester.pumpAndSettle();
+    final open = tester.getRect(fieldArrow(Icons.arrow_drop_up));
+    expect(open.size, const Size(20, 20));
+    expect(open.center.dy, closeTo(field.center.dy, 1.5),
+        reason: 'arrow must stay vertically centered when open');
+    expect(
+      field.right - open.right,
+      closeTo(field.right - collapsed.right, 0.5),
+      reason: 'arrow gap from the right edge must match across states',
+    );
+  });
 }

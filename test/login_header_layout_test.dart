@@ -249,9 +249,9 @@ void main() {
             '${violations.join('\n')}');
   });
 
-  // 下拉箭头：显式尺寸与 suffix 约束一致（默认 24px 在紧凑 18px 约束下
-  // 会被压到不可见），IconButton 约束保证垂直居中。
-  testWidgets('dropdown arrows match their constraints and center', (
+  // 下拉箭头（审计 F1 修复后）：普通 Icon 直装 suffix 槽——每个下拉字段
+  // 内的箭头都是 20×20、垂直居中于字段、右缘贴齐字段（间隙一致）。
+  testWidgets('dropdown arrows render 20x20 and center on the field axis', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -272,26 +272,37 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    for (final size in [20.0, 20.0, 20.0]) {
-      final arrows = tester
-          .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
-          .where((icon) => icon.size == size);
-      expect(arrows, isNotEmpty, reason: 'arrow size $size must be present');
+    final dropdowns =
+        find.byWidgetPredicate((widget) => widget is DropdownMenu<dynamic>);
+    expect(dropdowns, findsNWidgets(3));
+    for (final element in dropdowns.evaluate()) {
+      final field = tester.getRect(find.byWidget(element.widget));
+      final decorator = find.descendant(
+        of: find.byWidget(element.widget),
+        matching: find.byType(InputDecorator),
+      );
+      expect(decorator, findsOneWidget,
+          reason: 'one input decorator per dropdown');
+      // suffix 区域仍是 20x20（与 prefix 一致，两个变体同一视觉）。
+      final decoration = tester.widget<InputDecorator>(decorator).decoration;
+      expect(
+        decoration.suffixIconConstraints,
+        const BoxConstraints.tightFor(width: 20, height: 20),
+        reason: 'arrow must be pinned to a 20x20 centered region',
+      );
+      final arrow = find.descendant(
+        of: decorator,
+        matching: find.byIcon(Icons.arrow_drop_down),
+      );
+      expect(arrow, findsOneWidget, reason: 'one field arrow per dropdown');
+      final arrowRect = tester.getRect(arrow);
+      expect(arrowRect.size, const Size(20, 20),
+          reason: 'arrow must render at its 20x20 icon region');
+      expect(arrowRect.center.dy, closeTo(field.center.dy, 1.5),
+          reason: 'arrow must be vertically centered in the field');
+      expect(field.right - arrowRect.right, closeTo(0, 0.5),
+          reason: 'arrow gap from the right edge must be consistent');
     }
-    // compact 的 suffix 区域被约束为 18x18（垂直居中由 InputDecorator 保证）。
-    final compactIconButton = tester.widget<IconButton>(
-      find
-          .descendant(
-            of: find.byType(ThemeDropdown),
-            matching: find.byType(IconButton),
-          )
-          .first,
-    );
-    expect(
-      compactIconButton.constraints,
-      const BoxConstraints.tightFor(width: 20, height: 20),
-      reason: 'compact arrow must be pinned to a 20x20 centered region',
-    );
   });
 
   // 菜单项内部对齐：国旗、语言名、勾选徽标的垂直中心一致；各菜单项的
@@ -409,23 +420,24 @@ void main() {
     await tester.pumpAndSettle();
 
     for (final dropdown in find.byType(DropdownMenu<Locale>).evaluate()) {
-      final iconButtons = find
-          .descendant(
-            of: find.byWidget(dropdown.widget),
-            matching: find.byType(IconButton),
-          )
-          .evaluate();
-      expect(iconButtons, isNotEmpty);
-      for (final element in iconButtons) {
-        final button = element.widget as IconButton;
-        expect(
-          button.constraints,
-          const BoxConstraints.tightFor(width: 20, height: 20),
-          reason: 'every icon region must be 20x20 in both variants',
-        );
-      }
+      final decorator = find.descendant(
+        of: find.byWidget(dropdown.widget),
+        matching: find.byType(InputDecorator),
+      );
+      expect(decorator, findsOneWidget);
+      final decoration = tester.widget<InputDecorator>(decorator).decoration;
+      expect(
+        decoration.prefixIconConstraints,
+        const BoxConstraints.tightFor(width: 20, height: 20),
+        reason: 'prefix icon region must be 20x20 in both variants',
+      );
+      expect(
+        decoration.suffixIconConstraints,
+        const BoxConstraints.tightFor(width: 20, height: 20),
+        reason: 'suffix icon region must be 20x20 in both variants',
+      );
     }
-    // 箭头尺寸统一 20。
+    // 箭头尺寸统一 20（字段 + 宽度测量副本，两变体共 4 个实例）。
     final arrows = tester
         .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
         .where((icon) => icon.size == 20);

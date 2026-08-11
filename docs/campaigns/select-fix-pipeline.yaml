@@ -1,0 +1,129 @@
+# snaplink-console select 修复管线 — /login 头 + 设置页
+#
+# 用户反馈的两个具体问题：
+#   1) 菜单项 selected item 的边框要对齐宽度（高亮框/边框与菜单项宽度
+#      对齐，且与系统其他选中态（主题瓦片 2px）的边框宽度协调）；
+#   2) select 右侧的指示器（下拉箭头）要居中（收起/展开两种状态的垂直
+#      与水平居中）。
+#
+# 范围白名单（只允许改这些文件）：
+#   lib/widgets/select_style.dart
+#   lib/widgets/language_selector.dart
+#   lib/widgets/theme_selector.dart
+#   lib/screens/oidc_login/oidc_login_view_flow.dart
+#   lib/screens/settings_screen.dart
+#   test/language_selector_test.dart
+#   test/theme_selector_test.dart
+#   test/login_header_layout_test.dart
+#   test/settings_form_layout_test.dart
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/select-fix-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/select-fix.log
+git_commit: false
+decision_log: docs/ui/select-fix/DECISIONS.md
+archive_dir: docs/ui/select-fix/archive
+
+stages:
+  # ── 1. 取证：不改代码，精确定位两个问题 ──
+  - name: audit
+    from_prompt: |
+      You are the UI reviewer for the two dropdown selectors in the
+      snaplink-console: the /login header (ThemeDropdown +
+      LanguageDropdown, compact variant) and the settings page
+      (LanguageDropdown, form variant). Audit WITHOUT modifying code.
+
+      Files:
+      - lib/widgets/select_style.dart (appDropdownEntryContent,
+        appDropdownEntryStyle, compactHeaderDecoration,
+        formHeaderDecoration, headerDropdownArrow*)
+      - lib/widgets/language_selector.dart
+      - lib/widgets/theme_selector.dart
+
+      User-reported problems to verify with exact measurements:
+      1. "selected item 的边框要对齐宽度": the selected menu entry's
+         highlight box + border. Check: does the border/highlight span
+         the full menu-item content width (compare against the
+         MenuItemButton width and the unselected entries)? Is the
+         selected border width consistent with the rest of the system
+         (theme tiles in settings use 2px borders)? Does the 1px border
+         cause a visual width mismatch with unselected entries?
+      2. "select 的右边的指示器要居中": the trailing arrow indicator
+         (Icons.arrow_drop_down / arrow_drop_up). Check vertical and
+         horizontal centering inside the input field for BOTH states
+         (collapsed and open) and BOTH variants (compact 20x20 region,
+         form 20x20 region). Measure: arrow center vs field center,
+         arrow center vs suffix region center, gap from the field's
+         right edge.
+      Also check: flag/icon vertical alignment inside menu entries,
+      spacing tokens, rounded corners of hover/active backgrounds.
+      Write a widget-test probe (temporary file under test/, prefixed
+      zz_) that renders both selectors and prints the measurements —
+      run it, then DELETE the probe before finishing.
+      Output a findings report: each finding with severity, file/symbol,
+      measured evidence (numbers), concrete fix, and the test that would
+      catch it. Mark machine- vs review-verifiable.
+    output: docs/ui/select-fix/audit.md
+
+  # ── 2. 修复 ──
+  - name: fix
+    from_outputs: audit
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/select-fix-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_selector_test.dart test/login_header_layout_test.dart test/settings_form_layout_test.dart 2>&1 | tee /tmp/select-fix-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          Fix the two user-reported problems from the audit. STRICT
+          RULES:
+          - ONLY touch the whitelisted files listed in the pipeline
+            header. Any other file is off-limits.
+          - Problem 1 (selected border alignment): make the selected
+            entry's highlight box + border span the full menu-item
+            content width and keep the selected border width consistent
+            with the system (theme tiles use 2px) — pick the approach
+            the audit measured as correct; ensure unselected entries do
+            not shift text by more than 0.5px.
+          - Problem 2 (indicator centering): the trailing arrow must be
+            vertically AND horizontally centered in both collapsed and
+            open states, both variants. Adjust icon size/constraints or
+            alignment as needed; do not regress the 20x20 icon region
+            consistency.
+          - Preserve behavior: backend-driven language options,
+            downward-opening menus, text-sized widths, focus border,
+            rounded hover/active backgrounds, i18n.
+          - No new dependencies; keep the 400-line budget.
+          - NEVER run git commands; do not commit.
+          - Add/adjust widget tests asserting: selected border spans
+            full item width; arrow center == field center (vertical,
+            tolerance 1.5px) for collapsed and open states, both
+            variants; arrow gap from right edge is consistent.
+          Run `flutter analyze` (0 errors) and the four test files until
+          green. Finish within the time budget: fix, run checks ONCE,
+          write the report — do not iterate indefinitely.
+          Return a change report mapping fixes to audit findings.
+          {input_content}
+        output: docs/ui/select-fix/changes.md
+        timeout: 1800
+
+  # ── 3. 裁决门 ──
+  - name: acceptance
+    from_outputs:
+      - audit
+      - fix
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Verify the select fixes using repository evidence:
+          - selected highlight + border span the full menu-item content
+            width (measure against MenuItemButton width);
+          - trailing arrow centered vertically and horizontally in
+            collapsed and open states, compact and form variants;
+          - only whitelisted files modified (git status check);
+          - flutter analyze 0 errors; the four test files pass;
+          - behavior preserved (backend language options, downward
+            menus, i18n).
+          Final line MUST be:
+          VERDICT: PASS - <why the fixes are complete>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/select-fix/acceptance.md

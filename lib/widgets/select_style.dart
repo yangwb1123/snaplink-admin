@@ -58,9 +58,12 @@ Widget appDropdownEntryContent({
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
-      border: selected
-          ? Border.all(color: theme.colorScheme.primary, width: 1)
-          : null,
+      // 选中/未选中统一 2px 边框（未选中透明）：条目几何完全一致，选中
+      // 内容不相对未选中位移；宽度与设置页主题瓦片一致（F2）。
+      border: Border.all(
+        color: selected ? theme.colorScheme.primary : Colors.transparent,
+        width: 2,
+      ),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.max,
@@ -84,18 +87,61 @@ Widget menuFlagEmoji(String flag) => SizedBox(
   ),
 );
 
-/// 与控件尺寸匹配的下拉箭头：DropdownMenu 默认箭头是 24px 的
-/// [Icons.arrow_drop_down]，在紧凑模式 18px 的 suffixIcon 约束下会被压成
-/// 不可见的 2x2；显式指定 size 与约束一致，保证可见且居中。
+/// 与控件尺寸匹配的下拉箭头。DropdownMenu 默认把箭头包进 IconButton，在
+/// 20px 收紧约束下被 SDK 内边距（Padding 4 + M3 按钮 Padding 8）塌缩成
+/// 0×0，并从字段右下角溢出绘制（审计 F1）。因此箭头不走 trailingIcon，
+/// 由 [appHeaderDropdownSuffixIcon] 自建按钮直装 suffix 槽。
 IconData get headerDropdownArrowIcon => Icons.arrow_drop_down;
 IconData get headerDropdownArrowUpIcon => Icons.arrow_drop_up;
 
-/// compact 模式箭头尺寸（与 [compactHeaderDecoration] 的
-/// suffixIconConstraints 一致）。
-const headerDropdownCompactArrowSize = 20.0;
+/// 箭头尺寸（与 [compactHeaderDecoration] / [formHeaderDecoration] 的
+/// suffixIconConstraints 一致，20×20）。
+const headerDropdownArrowSize = 20.0;
 
-/// form 模式箭头尺寸（InputDecorator 默认 suffix 区域，居中于输入框）。
-const headerDropdownFormArrowSize = 20.0;
+/// 下拉箭头按钮（decorationBuilder 的 suffixIcon 用）：DropdownMenu 默认
+/// 箭头按钮被 SDK 的 Padding(4) + M3 内边距包装，在 20px 收紧约束下塌缩
+/// 成 0×0 并从字段右下角溢出绘制（审计 F1）。这里绕开默认包装：自建
+/// IconButton 用零内边距 + 20×20 紧约束 + 20px 图标，恰好填满
+/// InputDecorator 的 suffix 槽（20×20、垂直居中、右缘贴齐字段）。
+///
+/// 按钮保留 Tab 焦点与键盘激活（登录头 _HoverTint 依赖子级焦点绘制聚焦
+/// 底色）；展开/收起经 [MenuController] 的 isOpen 切换箭头方向与开关。
+/// [ExcludeSemantics] 排除按钮语义（字段本身带展开/收起语义，与 SDK
+/// 默认 isButton 行为一致）。
+Widget appHeaderDropdownSuffixIcon(
+  ThemeData theme,
+  MenuController controller, {
+  required bool enabled,
+}) =>
+    ExcludeSemantics(
+      child: IconButton(
+        icon: const Icon(
+          Icons.arrow_drop_down,
+          size: headerDropdownArrowSize,
+        ),
+        selectedIcon: const Icon(
+          Icons.arrow_drop_up,
+          size: headerDropdownArrowSize,
+        ),
+        isSelected: controller.isOpen,
+        onPressed: enabled
+            ? () => controller.isOpen
+                ? controller.close()
+                : controller.open()
+            : null,
+        iconSize: headerDropdownArrowSize,
+        color: theme.colorScheme.onSurfaceVariant,
+        constraints: const BoxConstraints.tightFor(
+          width: headerDropdownArrowSize,
+          height: headerDropdownArrowSize,
+        ),
+        style: IconButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+      ),
+    );
 
 /// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
 /// 20px（与设置页表单版同一视觉），否则 InputDecorator 的 icon 默认

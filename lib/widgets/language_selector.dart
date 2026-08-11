@@ -66,26 +66,24 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
         leadingWidth: 24, // 国旗 16 + 间距 8
         compact: widget.compact,
       ),
-      // 收起态前导国旗仅装饰：字段值（如 "English"）已由输入框朗读，
-      // 这里把 emoji 排除出语义树，避免屏幕阅读器朗读原始表情符号。
-      leadingIcon: ExcludeSemantics(
-        child: Text(
-          flagEmojiForLocale(current),
-          style: const TextStyle(fontSize: 16),
+      // 装饰经 decorationBuilder 提供（审计 F1）：suffixIcon 用普通 Icon
+      // 直装 suffix 槽，绕开 SDK 默认 IconButton 包装的 0×0 塌缩，箭头
+      // 方向随 MenuController 切换。prefixIcon 承载收起态前导国旗（仅
+      // 装饰：字段值已由输入框朗读，emoji 排除出语义树）。其余字段
+      // （isDense/边框/contentPadding/图标约束）由 inputDecorationTheme
+      // 经 applyDefaults 合并。
+      decorationBuilder: (context, controller) => InputDecoration(
+        prefixIcon: ExcludeSemantics(
+          child: Text(
+            flagEmojiForLocale(current),
+            style: const TextStyle(fontSize: 16),
+          ),
         ),
-      ),
-      // 箭头显式指定尺寸（默认 24px 在紧凑 18px 约束下会被压到不可见）。
-      trailingIcon: Icon(
-        headerDropdownArrowIcon,
-        size: widget.compact
-            ? headerDropdownCompactArrowSize
-            : headerDropdownFormArrowSize,
-      ),
-      selectedTrailingIcon: Icon(
-        headerDropdownArrowUpIcon,
-        size: widget.compact
-            ? headerDropdownCompactArrowSize
-            : headerDropdownFormArrowSize,
+        suffixIcon: appHeaderDropdownSuffixIcon(
+          theme,
+          controller,
+          enabled: widget.enabled,
+        ),
       ),
       textStyle: textStyle,
       inputDecorationTheme: widget.compact

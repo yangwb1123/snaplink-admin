@@ -150,6 +150,126 @@ void main() {
     expect(menuItem('中文'), findsOneWidget);
   });
 
+  // F2：选中项高亮框 + 边框占满菜单项内容宽度，边框宽度 2px（与设置页
+  // 主题瓦片一致）；选中/未选中条目几何完全一致（文字不位移）。
+  testWidgets('selected entry border spans the item width with a 2px border', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap(const LanguageDropdown()));
+    await openMenu(tester, find.byType(DropdownMenu<Locale>));
+
+    final item =
+        tester.getRect(find.byType(MenuItemButton).hitTestable().first);
+    final boxes = tester
+        .renderObjectList<RenderBox>(
+          find.descendant(
+            of: find.byType(MenuItemButton).hitTestable(),
+            matching: find.byType(AnimatedContainer),
+          ),
+        )
+        .toList();
+    expect(boxes.length, greaterThanOrEqualTo(2),
+        reason: 'menu shows selected and unselected entries');
+
+    Rect boxRect(RenderBox box) => box.localToGlobal(Offset.zero) & box.size;
+    final rects = boxes.map(boxRect).toList();
+    // 所有条目（选中/未选中）边框几何一致 → 文字不位移（≤0.5px）。
+    for (final rect in rects.skip(1)) {
+      expect(rect.left, closeTo(rects.first.left, 0.1),
+          reason: 'entry boxes must share the left edge');
+      expect(rect.width, closeTo(rects.first.width, 0.1),
+          reason: 'entry boxes must have identical widths');
+      expect(rect.height, closeTo(rects.first.height, 0.1),
+          reason: 'entry boxes must have identical heights');
+    }
+    // 高亮框占满菜单项内容宽度（菜单项宽度 - 左右 padding 12x2 -
+    // startGap 4），选中与未选中一致。
+    expect(rects.first.width, closeTo(item.width - 28, 1.5),
+        reason: 'highlight must span the full item content width');
+
+    // 边框宽度 2px：选中 = primary，未选中 = 透明（几何占位）。
+    final borderBoxes = find
+        .descendant(
+          of: find.byType(MenuItemButton).hitTestable(),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnimatedContainer &&
+                widget.decoration is BoxDecoration &&
+                (widget.decoration as BoxDecoration).border != null,
+          ),
+        )
+        .hitTestable();
+    final decorations = tester
+        .widgetList<AnimatedContainer>(borderBoxes)
+        .map((container) => container.decoration! as BoxDecoration)
+        .toList();
+    expect(decorations.length, greaterThanOrEqualTo(2));
+    for (final decoration in decorations) {
+      final border = decoration.border! as Border;
+      expect(border.top.width, 2,
+          reason: 'entry border must match the 2px system tiles');
+      expect(border.bottom.width, 2);
+    }
+    final primary = Theme.of(
+      tester.element(find.byType(LanguageDropdown)),
+    ).colorScheme.primary;
+    expect(
+      decorations.any(
+        (d) => (d.border! as Border).top.color == primary,
+      ),
+      isTrue,
+      reason: 'selected entry border must use the primary color',
+    );
+    expect(
+      decorations.any(
+        (d) => (d.border! as Border).top.color == Colors.transparent,
+      ),
+      isTrue,
+      reason: 'unselected entries keep a transparent 2px placeholder',
+    );
+  });
+
+  // F1：箭头在收起/展开两态、紧凑/表单两变体下均为 20×20、垂直居中于
+  // 字段（容差 1.5px）、右缘贴齐（间隙一致，不超出字段）。
+  testWidgets('trailing arrow is centered in both states and variants', (
+    tester,
+  ) async {
+    for (final compact in [true, false]) {
+      // 每次迭代全新元素树：否则重 pump 时 DropdownMenu 状态被复用，
+      // 上一迭代未关闭的菜单会让新实例的 isOpen 仍为 true。
+      await tester.pumpWidget(
+        wrap(LanguageDropdown(key: UniqueKey(), compact: compact)),
+      );
+      await tester.pumpAndSettle();
+
+      final field = tester.getRect(find.byType(DropdownMenu<Locale>));
+      Rect arrowRect(IconData data) {
+        final arrow = find.descendant(
+          of: find.byType(InputDecorator),
+          matching: find.byIcon(data),
+        );
+        expect(arrow, findsOneWidget);
+        final rect = tester.getRect(arrow);
+        expect(rect.size, const Size(20, 20),
+            reason: 'arrow must keep the 20x20 icon region');
+        expect(rect.center.dy, closeTo(field.center.dy, 1.5),
+            reason: 'arrow must be vertically centered in the field');
+        expect(field.right - rect.right, closeTo(0, 0.5),
+            reason: 'arrow must sit flush with the field right edge');
+        return rect;
+      }
+
+      final collapsed = arrowRect(Icons.arrow_drop_down);
+      await openMenu(tester, find.byType(DropdownMenu<Locale>));
+      final open = arrowRect(Icons.arrow_drop_up);
+      expect(
+        field.right - open.right,
+        closeTo(field.right - collapsed.right, 0.5),
+        reason: 'arrow gap from the right edge must match across states',
+      );
+    }
+  });
+
   // F2：国旗 emoji 必须携带文本标签，原始 emoji 不进语义树；收起态前导
   // 国旗被排除（字段值 "English" 已由输入框朗读）。
   testWidgets('flags carry accessible labels and never announce raw emoji', (

@@ -83,4 +83,34 @@ void main() {
       }
     }
   });
+
+  // F1：紧凑变体箭头在收起/展开两态下均 20×20、垂直居中于字段、右缘
+  // 贴齐（间隙一致）。
+  testWidgets('compact trailing arrow is centered in collapsed and open states', (
+    tester,
+  ) async {
+    await tester.pumpWidget(wrap(const ThemeDropdown(compact: true)));
+    await tester.pumpAndSettle();
+
+    final field = tester.getRect(find.byType(DropdownMenu<ThemeMode>));
+    void checkArrow(IconData data) {
+      final rect = tester.getRect(
+        find.descendant(
+          of: find.byType(InputDecorator),
+          matching: find.byIcon(data),
+        ),
+      );
+      expect(rect.size, const Size(20, 20),
+          reason: 'arrow must keep the 20x20 icon region');
+      expect(rect.center.dy, closeTo(field.center.dy, 1.5),
+          reason: 'arrow must be vertically centered in the field');
+      expect(field.right - rect.right, closeTo(0, 0.5),
+          reason: 'arrow gap from the right edge must be consistent');
+    }
+
+    checkArrow(Icons.arrow_drop_down);
+    await tester.tap(find.byType(DropdownMenu<ThemeMode>));
+    await tester.pumpAndSettle();
+    checkArrow(Icons.arrow_drop_up);
+  });
 }
