@@ -1,0 +1,143 @@
+# snaplink-console select 修复管线 — /login select item 选中背景宽度对齐
+#
+# 用户反馈：/login 路由界面的 select（主题/语言下拉）菜单项，选中
+# （actived）项的背景颜色要与 select item 的宽度对齐——当前选中背景
+# （primaryContainer 高亮）画在内容区 appDropdownEntryContent 内，宽度
+# = 菜单项 − 28px（menu padding 8 + item padding 12×2 + startGap 4），
+# 与上一轮已修复的 2px 选中边框（ButtonStyle.side，横贯整宽）不一致。
+#
+# 范围白名单（只允许改这些文件）：
+#   lib/widgets/select_style.dart
+#   lib/widgets/language_selector.dart
+#   lib/widgets/theme_selector.dart
+#   test/language_selector_test.dart
+#   test/theme_selector_test.dart
+#   test/login_header_layout_test.dart
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/select-bg-align-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/select-bg-align.log
+git_commit: false
+decision_log: docs/ui/select-bg/DECISIONS.md
+archive_dir: docs/ui/select-bg/archive
+
+stages:
+  # ── 1. 取证：像素级测量选中背景与菜单项宽度的差值 ──
+  - name: audit
+    from_prompt: |
+      You are the UI reviewer for the /login header dropdowns
+      (ThemeDropdown + LanguageDropdown, compact variant). Audit WITHOUT
+      modifying code. The user reports: the SELECTED menu item's
+      background color must align with the SELECT ITEM's width —
+      currently the selected background (primaryContainer highlight) is
+      inset inside the MenuItemButton content area, while the selected
+      2px border already spans the full item width (fixed by the
+      previous pipeline via ButtonStyle.side resolved on
+      WidgetState.focused).
+
+      Files: lib/widgets/select_style.dart (appDropdownEntryContent,
+      appDropdownEntryStyle), lib/widgets/language_selector.dart,
+      lib/widgets/theme_selector.dart.
+
+      Verify with exact measurements (write a temporary widget-test
+      probe under test/ named zz_*, run it, DELETE it before finishing):
+      1. Selected background box width vs MenuItemButton width (both
+         selectors). Expected: background = item − ~28px — confirm the
+         exact measured inset (start/end).
+      2. Where the inset comes from (menu padding 8 + item padding 12×2
+         + startGap 4) and why the content-area AnimatedContainer cannot
+         reach the item edges.
+      3. Feasible fix paths:
+         a. move the selected background to the MenuItemButton's
+            ButtonStyle.backgroundColor resolved on the state DropdownMenu
+            drives on the highlighted/selected entry (WidgetState.focused
+            — same proxy the side fix uses); background then spans the
+            full item width by construction and inherits the rounded-8
+            shape;
+         b. keep the content-area highlight (inset background) — not
+            acceptable per the user report;
+         c. RECOMMENDED: background via ButtonStyle.backgroundColor
+            (focused → primaryContainer ~45% alpha, else transparent),
+            keep the check badge inside the content row, drop the
+            content-area background. Verify hover interaction: the
+            overlayColor (surfaceContainerHighest 60%) stacks on top of
+            the selected background — measure/describe the combined
+            appearance; consider whether selected+hover should be
+            visually distinct from plain selected.
+      4. Verify ButtonStyle.backgroundColor does not affect layout
+         (painted inside the Material shape) and that unselected entries
+         keep identical geometry.
+      5. Check whether existing tests encode the inset defect (e.g.
+         login_header_layout_test 'active highlight fills the item…'
+         may assert highlight width == item − 28).
+      Output a findings report with severity, measured evidence
+      (numbers), recommended fix, and the tests that would catch it.
+      Mark machine- vs review-verifiable.
+    output: docs/ui/select-bg/audit.md
+
+  # ── 2. 修复 ──
+  - name: fix
+    from_outputs: audit
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/select-bg-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_selector_test.dart test/login_header_layout_test.dart 2>&1 | tee /tmp/select-bg-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          Fix the selected-entry background alignment per the audit.
+          STRICT RULES:
+          - ONLY touch the whitelisted files listed in the pipeline
+            header.
+          - Goal: the SELECTED entry's background must span the full
+            MenuItemButton width (aligned with the select item), in
+            both ThemeDropdown and LanguageDropdown, open-state.
+            Prefer the audit's recommended path (ButtonStyle.
+            backgroundColor resolved via the focused/selected state
+            DropdownMenu drives on the highlighted entry; keep the
+            check badge inside; drop the content-area background).
+          - Preserve: the 2px full-width selected border from the
+            previous fix, rounded corners (8), no layout delta between
+            selected/unselected entries, menu text alignment with the
+            field text column, downward-opening menus, focus visibility,
+            hover appearance (selected+hover must stay visually
+            distinct), i18n.
+          - No new dependencies; keep the 400-line budget.
+          - NEVER run git commands; do not commit.
+          - Add/adjust widget tests asserting: selected background box
+            width == MenuItemButton width (within 1px, both selectors);
+            selected/unselected entry box geometries equal (within
+            0.1px); background color present on selected and transparent
+            on unselected; the full-width 2px border still present.
+          Run `flutter analyze` (0 errors) and the three test files
+          until green. Finish within the time budget: fix, run checks
+          ONCE, write the report — do not iterate indefinitely.
+          Return a change report mapping fixes to audit findings.
+          {input_content}
+        output: docs/ui/select-bg/changes.md
+        timeout: 1800
+
+  # ── 3. 裁决门 ──
+  - name: acceptance
+    from_outputs:
+      - audit
+      - fix
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Verify the background-alignment fix using repository evidence:
+          - selected background box width == MenuItemButton width (within
+            1px, ThemeDropdown and LanguageDropdown, open menu);
+          - background primaryContainer on selected, transparent on
+            unselected;
+          - full-width 2px border still present (previous fix intact);
+          - no layout delta between selected and unselected entries
+            (0.1px);
+          - hover still renders (overlayColor) and selected+hover stays
+            distinct;
+          - only whitelisted files modified (git status check);
+          - flutter analyze 0 errors; the three test files pass;
+          - behavior preserved (downward menus, text alignment, i18n).
+          Final line MUST be:
+          VERDICT: PASS - <why the background now spans the select item>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/select-bg/acceptance.md

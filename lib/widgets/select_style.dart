@@ -42,6 +42,19 @@ ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
       width: 2,
     ),
   ),
+  // 选中项背景（审计 select-bg F1 修复）：DropdownMenu 打开时经
+  // _highlightedItemStatesController 给高亮项（即当前选中项）注入
+  // WidgetState.focused，backgroundColor 由 SDK 解析后作为 MenuItemButton
+  // 的 Material 背景色，横贯整个菜单项宽度、与 select item 对齐——内容区
+  // AnimatedContainer 受 item padding 12×2 + startGap 4 约束，审计实测内缩
+  // 28px、永远画不到条目边缘，因此背景不走内容区。未选中项透明同宽占位，
+  // 同时顶掉 SDK 默认的 onSurface@0.12 底衬。backgroundColor 只参与绘制、
+  // 不参与布局 → 选中/未选中条目几何完全一致。
+  backgroundColor: WidgetStateProperty.resolveWith(
+    (states) => states.contains(WidgetState.focused)
+        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
+        : Colors.transparent,
+  ),
   overlayColor: WidgetStatePropertyAll(
     theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
   ),
@@ -52,14 +65,18 @@ ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
   ),
 );
 
-/// 圆角选中态条目：当前值高亮（primaryContainer 圆角背景 + 勾选徽标），
-/// 其余项透明。`content` 由调用方提供（国旗/彩色图标 + 文本）。
+/// 圆角选中态条目内容行：选中项带勾选徽标，其余项无徽标。`content` 由
+/// 调用方提供（国旗/彩色图标 + 文本）。
 ///
-/// 高亮背景占满整个菜单项内容宽度（active 框 100%）；水平方向内容不加
-/// padding：DropdownMenu 已把 labelWidget 起点与输入框内容起点对齐，再
-/// 叠加水平 padding 会把菜单项文字推出对齐线。外圈 2px 选中边框不在此
-/// 绘制——由 [appDropdownEntryStyle] 的 ButtonStyle.side 画在菜单项整宽上
-/// （审计 select-border F2 修复），内容区不再带内缩的 Border.all。
+/// 选中背景不画在内容区——labelWidget 是 DropdownMenu 内容的最内层，
+/// ancestor 的 item padding 12×2 + startGap 4 使其永远无法抵达条目边缘
+/// （审计 select-bg 实测内缩 28px）。选中背景由 [appDropdownEntryStyle] 的
+/// ButtonStyle.backgroundColor（WidgetState.focused）画在 MenuItemButton 的
+/// Material 上，横贯整宽、与 select item 对齐（审计 select-bg F1 修复）；
+/// 勾选徽标保留在本行内。此处容器恒为透明，仅提供垂直 padding 与满宽
+/// 约束，保证选中/未选中条目几何完全一致。水平方向不加 padding：
+/// DropdownMenu 已把 labelWidget 起点与输入框内容起点对齐，再叠加水平
+/// padding 会把菜单项文字推出对齐线。
 Widget appDropdownEntryContent({
   required bool selected,
   required Widget content,
@@ -69,12 +86,6 @@ Widget appDropdownEntryContent({
     duration: const Duration(milliseconds: 120),
     width: double.infinity,
     padding: const EdgeInsets.symmetric(vertical: 8),
-    decoration: BoxDecoration(
-      color: selected
-          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
-          : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
-    ),
     child: Row(
       mainAxisSize: MainAxisSize.max,
       children: [
