@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -58,7 +59,8 @@ class ConnectionDetailsCard extends StatelessWidget {
             children: [
               Expanded(
                 child: LocalizedText(
-                  'Connection: $id',
+                  'Connection: {id}',
+                  args: {'id': id},
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
@@ -74,8 +76,17 @@ class ConnectionDetailsCard extends StatelessWidget {
               padding: EdgeInsets.only(top: 8),
               child: SkeletonListTile(itemCount: 2),
             )
+          else if (connection == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: EmptyState(
+                compact: true,
+                variant: EmptyStateVariant.empty,
+                title: 'No connection details loaded.',
+              ),
+            )
           else ...[
-            if (connection != null) _summary(context),
+            _summary(context),
             if (health != null) _healthCard(context),
             if (canProbe) _probeCard(),
             if (canListDomains) _domainsCard(context),
@@ -102,18 +113,15 @@ class ConnectionDetailsCard extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        LocalizedText(
+        Text(
           '${connection!['display_name'] ?? connection!['id']} · ${connection!['type'] ?? ''}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        LocalizedText(
-          connection!['enabled'] == false ? 'Disabled' : 'Enabled',
-          style: TextStyle(
-            color: connection!['enabled'] == false
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.primary,
-          ),
-        ),
+        const SizedBox(height: 6),
+        if (connection!['enabled'] == false)
+          StatusChip.inactive(label: 'Disabled')
+        else
+          StatusChip.active(label: 'Enabled'),
         if (connection!['config'] is Map)
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -156,8 +164,10 @@ class ConnectionDetailsCard extends StatelessWidget {
             switch (status) {
               'healthy' => StatusChip.healthy(),
               'degraded' => StatusChip(
-                  label: 'Degraded', color: AppColors.warning,
-                  icon: Icons.warning_amber),
+                label: 'Degraded',
+                color: AppColors.warning,
+                icon: Icons.warning_amber,
+              ),
               'unreachable' => StatusChip.unhealthy(),
               _ => StatusChip.inactive(),
             },
@@ -190,10 +200,7 @@ class ConnectionDetailsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Domain ownership',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          SectionHeader('Domain ownership'),
           const SizedBox(height: 4),
           const LocalizedText(
             'Publish each DNS TXT record and then verify it. The challenge value is public DNS data, not a bearer secret.',

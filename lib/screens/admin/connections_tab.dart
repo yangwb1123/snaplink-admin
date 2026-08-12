@@ -10,9 +10,7 @@ import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Operates Snaplink enterprise connections for one tenant at a time.
-/// Snaplink indexes connections by tenant, so this screen deliberately never
-/// offers a cross-tenant list. Mutations can change home-realm routing or make
-/// an outbound request, and therefore each requires an operator confirmation.
+/// Mutations can change home-realm routing or make an outbound request; both require operator confirmation.
 class ConnectionsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -39,6 +37,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   Map<String, dynamic>? _health;
   String? _selectedId;
   String? _error;
+  VoidCallback? _retry;
   bool _loadingList = false;
   bool _loadingConnection = false;
   bool _mutating = false;
@@ -59,10 +58,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
 
   void _handleRoute() {
     final route = AdminRoute.current();
-    if (route.module != 'connections') return;
-    if (route.isNew) {
-      _upsertConnection();
-    }
+    if (route.module == 'connections' && route.isNew) _upsertConnection();
   }
 
   @override
@@ -78,17 +74,20 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     super.dispose();
   }
 
+  void _fail(String message, {VoidCallback? retry}) => setState(() {
+    _error = message;
+    _retry = retry;
+  });
+
   Future<void> _loadConnections() async {
     widget.api.skipCache();
     final tenantId = _tenantCtrl.text.trim();
     if (tenantId.isEmpty) {
-      setState(() => _error = 'Enter a tenant ID to list its connections.');
+      _fail('Enter a tenant ID to list its connections.');
       return;
     }
     if (!_availability.canList) {
-      setState(
-        () => _error = 'Connection listing is not enabled on this replica.',
-      );
+      _fail('Connection listing is not enabled on this replica.');
       return;
     }
     setState(() {
@@ -108,14 +107,15 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
                 .toList() ??
             const [];
         _selectedId = null;
-        _connection = null;
-        _health = null;
+        _connection = _health = null;
         _domainClaims = const [];
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) _fail(error.toString(), retry: _loadConnections);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load connections.');
+      if (mounted) {
+        _fail('Could not load connections.', retry: _loadConnections);
+      }
     } finally {
       if (mounted) setState(() => _loadingList = false);
     }
@@ -124,21 +124,18 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   Future<void> _loadSelected() async {
     final id = _lookupCtrl.text.trim();
     if (id.isEmpty) {
-      setState(() => _error = 'Enter a connection ID first.');
+      _fail('Enter a connection ID first.');
       return;
     }
     if (!_availability.canGet) {
-      setState(
-        () => _error = 'Connection lookup is not enabled on this replica.',
-      );
+      _fail('Connection lookup is not enabled on this replica.');
       return;
     }
     setState(() {
       _loadingConnection = true;
       _error = null;
       _selectedId = id;
-      _connection = null;
-      _health = null;
+      _connection = _health = null;
       _domainClaims = const [];
     });
     final errors = <String>[];
@@ -177,6 +174,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       _health = health;
       _domainClaims = domains;
       _error = errors.isEmpty ? null : errors.join('\n');
+      _retry = errors.isEmpty ? null : _loadSelected;
       _loadingConnection = false;
     });
   }
@@ -188,16 +186,14 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     try {
       config = decodeConnectionConfiguration(_configCtrl.text);
     } on ConnectionConfigurationNotObject {
-      setState(
-        () => _error = 'Connection configuration must be a JSON object.',
-      );
+      _fail('Connection configuration must be a JSON object.');
       return;
     } on FormatException {
-      setState(() => _error = 'Connection configuration is not valid JSON.');
+      _fail('Connection configuration is not valid JSON.');
       return;
     }
     if (id.isEmpty || tenantId.isEmpty) {
-      setState(() => _error = 'Connection ID and tenant ID are required.');
+      _fail('Connection ID and tenant ID are required.');
       return;
     }
     final confirmed = await _confirm(
@@ -249,8 +245,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
         if (mounted) {
           setState(() {
             _selectedId = null;
-            _connection = null;
-            _health = null;
+            _connection = _health = null;
             _domainClaims = const [];
           });
         }
@@ -306,9 +301,9 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
       ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await afterSuccess();
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) _fail(error.toString(), retry: _loadSelected);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Connection operation failed.');
+      if (mounted) _fail('Connection operation failed.', retry: _loadSelected);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -328,6 +323,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     destructive: destructive,
     confirmText: confirmText,
   );
+
   @override
   Widget build(BuildContext context) {
     if (!_availability.familyAvailable &&
@@ -349,7 +345,10 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
           onRefresh: _loadConnections,
         ),
         if (_error != null)
-          ConnectionErrorCard(error: _error!, onRetry: _loadConnections),
+          ConnectionErrorCard(
+            error: _error!,
+            onRetry: _retry ?? _loadConnections,
+          ),
         ConnectionsListCard(
           tenantController: _tenantCtrl,
           lookupController: _lookupCtrl,

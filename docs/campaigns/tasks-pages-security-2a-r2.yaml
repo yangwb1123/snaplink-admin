@@ -1,0 +1,43 @@
+# 逐页 UI 重构 — batch 2a 续跑（token-policies/token-exchange）
+#
+# 前 4 页（connections/domains/device-security/token-security）已完成并提交
+# （6f8bc49）；本文件只跑剩余 2 页。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-security-2a-r2.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-security-2a-r2.log
+
+tasks:
+- prompt: |
+    重构 Token 策略页面。步骤：
+    1. 分析现有代码：lib/screens/admin/token_policies_tab.dart —— 读完整
+       文件，梳理策略列表/用量/Subject 组合的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('token-policies')），
+       结合 docs/ui/admin-pages/audit.md 中 token-policies 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；策略语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/token-policies.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/token-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 Token 交换页面。步骤：
+    1. 分析现有代码：lib/screens/admin/token_exchange_tab.dart —— 读完整
+       文件，梳理交换链追踪的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('token-exchange')），
+       结合 docs/ui/admin-pages/audit.md 中 token-exchange 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；交换链语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/token-exchange.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/token-exchange.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

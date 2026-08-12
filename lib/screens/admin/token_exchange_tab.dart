@@ -3,10 +3,20 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
 /// Token exchange chain audit view tab.
+///
+/// 只读工作台：输入 token JTI → GET /api/v1/admin/tokenexchange/chains/{jti}
+/// → 返回交换链（chains/chain 双键 + 单对象回退），按跳次顺序渲染每一跳的
+/// subject/actor/源目标 jti/grant_type/scopes/client_id/时间戳。语义保持
+/// 与旧版一致：字段别名回退、scopes 列表 join、空值显示 '-'。
 class TokenExchangeTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -20,13 +30,22 @@ class TokenExchangeTab extends StatefulWidget {
 }
 
 class _TokenExchangeTabState extends State<TokenExchangeTab> {
+  static const _chainsPrefix = '/api/v1/admin/tokenexchange/chains/';
+
   final _searchCtrl = TextEditingController();
   Map<String, dynamic>? _chain;
   String? _error;
   bool _loading = false;
 
+  /// 模块强调色（security 组 rose）：页内图标/按钮统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.tokenExchange);
+
   bool get _available =>
-      widget.capabilities.hasAnyPathPrefix('/api/v1/admin/tokenexchange');
+      widget.capabilities.hasAnyPathPrefix('/api/v1/admin/tokenexchange') ||
+      SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+        '/api/v1/admin/tokenexchange',
+      );
+
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -46,7 +65,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     });
     try {
       final data = await widget.api.get(
-        '/api/v1/admin/tokenexchange/chains/${Uri.encodeComponent(jti)}',
+        '$_chainsPrefix${Uri.encodeComponent(jti)}',
       );
       if (!mounted) return;
       setState(() {
@@ -70,121 +89,168 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     }
   }
 
+  /// 交换链解析语义保持：chains 列表 > chain 列表 > 单对象（一跳）。
+  List<Map<String, dynamic>> _hops(Map<String, dynamic> data) {
+    final raw = data['chains'] as List? ?? data['chain'] as List? ?? [data];
+    return [for (final c in raw) Map<String, dynamic>.from(c as Map)];
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText('Token exchange audit is not enabled.'),
-      );
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
-        Text(
-          AppStrings.of(context).tokenExchange,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Token ID (JTI)'.localized,
-                  hintText:
-                      'Enter a token JTI to trace its exchange chain'.localized,
-                ),
-                onSubmitted: (_) => _load(),
-              ),
-            ),
-            const SizedBox(width: 12),
+        AdminListHeader(
+          title: AppStrings.of(context).tokenExchange,
+          subtitle: 'Trace token exchange chains by JTI.',
+          onRefresh: _load,
+          actions: [
             IconButton(
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.search),
-              tooltip: 'Search'.localized,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+        _searchRow(context),
+        if (_error != null) _ErrorBanner(error: _error!, onRetry: _load),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: SkeletonListTile(itemCount: 3),
+          ),
+        if (!_loading && _chain != null) _chainSection(context, _chain!),
+      ],
+    );
+  }
+
+  Widget _searchRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                labelText: 'Token ID (JTI)'.localized,
+                hintText: 'Enter a token JTI to trace its exchange chain'
+                    .localized,
+                prefixIcon: Icon(Icons.key_outlined, color: _accent),
+              ),
+              onSubmitted: (_) => _load(),
             ),
           ),
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (_chain != null) ...[
-          const SizedBox(height: 16),
-          LocalizedText(
-            'Exchange chain',
-            style: Theme.of(context).textTheme.titleMedium,
+          const SizedBox(width: 12),
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: Icon(Icons.search, color: _accent),
+            tooltip: 'Search'.localized,
           ),
-          const SizedBox(height: 8),
-          _chainData(context, _chain!),
+        ],
+      ),
+    );
+  }
+
+  /// 交换链结果区：组色图标 + SectionHeader（跳数）+ 逐跳卡片，跳间以
+  /// 向下箭头连接表达链式顺序。空链 → EmptyState（X8）。
+  Widget _chainSection(BuildContext context, Map<String, dynamic> data) {
+    final hops = _hops(data);
+    if (hops.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: EmptyState(
+          compact: true,
+          variant: EmptyStateVariant.empty,
+          title: 'No exchange chain found for this token.',
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.swap_horiz_outlined, size: 20, color: _accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SectionHeader('Exchange chain', count: hops.length),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        for (var i = 0; i < hops.length; i++) ...[
+          if (i > 0) const _ChainConnector(),
+          _hopCard(context, hops[i], index: i + 1),
         ],
       ],
     );
   }
 
-  Widget _chainData(BuildContext context, Map<String, dynamic> data) {
-    final chains = data['chains'] as List? ?? data['chain'] as List? ?? [data];
-    return Column(
-      children: [
-        for (final c in chains)
-          Card(
-            margin: const EdgeInsets.only(top: 8),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _row(
-                    'Subject',
-                    c['subject']?.toString() ?? c['sub']?.toString() ?? '',
+  /// 单跳卡片：跳次编号（组色 token 图标）+ 字段明细行。字段值来自 API，
+  /// 走 SelectableText（可复制），标签走 context.tr（X1/X10 合规）。
+  Widget _hopCard(
+    BuildContext context,
+    Map<String, dynamic> entry, {
+    required int index,
+  }) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(top: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.token_outlined, size: 16, color: _accent),
+                const SizedBox(width: 6),
+                Text(
+                  context.tr('Hop {index}', {'index': index}),
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                  _row(
-                    'Actor',
-                    c['actor']?.toString() ?? c['actor_id']?.toString() ?? '',
-                  ),
-                  _row('Source Token', c['source_jti']?.toString() ?? ''),
-                  _row(
-                    'Target Token',
-                    c['target_jti']?.toString() ?? c['jti']?.toString() ?? '',
-                  ),
-                  _row('Grant Type', c['grant_type']?.toString() ?? ''),
-                  _row(
-                    'Scope',
-                    (c['scopes'] as List?)?.join(', ') ??
-                        c['scope']?.toString() ??
-                        '',
-                  ),
-                  _row('Client', c['client_id']?.toString() ?? ''),
-                  _row(
-                    'Timestamp',
-                    c['timestamp']?.toString() ??
-                        c['created_at']?.toString() ??
-                        '',
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-      ],
+            const SizedBox(height: 8),
+            _row(context, 'Subject', _pick(entry, ['subject', 'sub'])),
+            _row(context, 'Actor', _pick(entry, ['actor', 'actor_id'])),
+            _row(context, 'Source Token', _pick(entry, ['source_jti'])),
+            _row(
+              context,
+              'Target Token',
+              _pick(entry, ['target_jti', 'jti']),
+            ),
+            _row(context, 'Grant Type', _pick(entry, ['grant_type'])),
+            _row(context, 'Scope', _scope(entry)),
+            _row(context, 'Client', _pick(entry, ['client_id'])),
+            _row(
+              context,
+              'Timestamp',
+              _pick(entry, ['timestamp', 'created_at']),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _row(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+  /// 字段行：可翻译标签（冒号后缀仅用于展示，翻译键不含冒号）+ 等宽值。
+  Widget _row(BuildContext context, String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 3),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: 120,
           child: Text(
-            '$label:',
+            '${context.tr(label)}:',
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),
         ),
@@ -195,6 +261,66 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
           ),
         ),
       ],
+    ),
+  );
+
+  static String _pick(Map<String, dynamic> entry, List<String> keys) {
+    for (final key in keys) {
+      final value = entry[key];
+      if (value != null) return value.toString();
+    }
+    return '';
+  }
+
+  static String _scope(Map<String, dynamic> entry) {
+    final scopes = entry['scopes'];
+    if (scopes is List) return scopes.join(', ');
+    return entry['scope']?.toString() ?? '';
+  }
+}
+
+/// 跳间连接符：向下箭头表达交换链的先后顺序。
+class _ChainConnector extends StatelessWidget {
+  const _ChainConnector();
+  @override
+  Widget build(BuildContext context) => const Center(
+    child: Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Icon(Icons.arrow_downward, size: 14, color: AppColors.textSubtle),
+    ),
+  );
+}
+
+/// 错误横幅（X4 模式）：danger 图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                error,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
+      ),
     ),
   );
 }

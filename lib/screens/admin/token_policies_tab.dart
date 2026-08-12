@@ -4,12 +4,20 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
 /// Token policy governance view tab.
+///
+/// 只读策略列表页：GET /api/v1/admin/token-policies → 策略 name/effect/
+/// priority/description。用量/Subject 统计属 usage-analytics 模块，不在本页。
 class TokenPoliciesTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -27,6 +35,9 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
   List<Map<String, dynamic>> _policies = const [];
   String? _error;
   bool _loading = false;
+
+  /// 模块强调色（security 组 rose）：页内图标/刷新统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.tokenPolicies);
 
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_path) ||
@@ -73,89 +84,156 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).tokenPolicies,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).tokenPolicies,
+          subtitle: 'Token issuance and validation policy configuration.',
+          onRefresh: _load,
+          actions: [
             IconButton(
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh'.localized,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Token issuance and validation policy configuration.',
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
+        if (_error != null) _ErrorBanner(error: _error!, onRetry: _load),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: SkeletonListTile(itemCount: 3),
+          ),
+        if (!_loading && _policies.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: EmptyState(
+              compact: true,
+              variant: EmptyStateVariant.empty,
+              title: 'No token policies configured.',
+            ),
+          ),
+        if (!_loading && _policies.isNotEmpty) _policiesCard(context),
+      ],
+    );
+  }
+
+  /// 策略卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
+  Widget _policiesCard(BuildContext context) {
+    final rows = _policies;
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
+                Icon(Icons.policy_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.danger),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const LocalizedText('Retry'),
+                  child: SectionHeader('Token policies', count: rows.length),
                 ),
               ],
             ),
-          ),
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (!_loading && _policies.isEmpty)
-          EmptyState(title: 'No token policies configured.'),
-        if (!_loading && _policies.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: AdminDataTable(
-              minWidth: 720,
+            const SizedBox(height: 12),
+            AdminDataTable(
+              density: TableDensity.compact,
               columns: [
                 AdminDataColumn(
                   id: 'policy',
-                  label: 'Policy',
+                  label: 'Policy'.localized,
                   width: 220,
                   cardPrimary: true,
                   builder: (_, i) => TableCellText(
-                    _policies[i]['name']?.toString() ??
-                        _policies[i]['id']?.toString() ??
+                    rows[i]['name']?.toString() ??
+                        rows[i]['id']?.toString() ??
                         '',
                     level: DataEmphasisLevel.primary,
                   ),
                 ),
                 AdminDataColumn(
                   id: 'effect',
-                  label: 'Effect',
-                  builder: (_, i) => TableCellText(
-                    '${_policies[i]['effect'] ?? _policies[i]['action'] ?? 'allow'} · ${_policies[i]['priority'] ?? ''}',
-                    muted: true,
-                  ),
+                  label: 'Effect'.localized,
+                  builder: (_, i) => _effectCell(rows[i]),
                 ),
                 AdminDataColumn(
                   id: 'description',
-                  label: 'Description',
+                  label: 'Description'.localized,
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
-                    _policies[i]['description']?.toString() ?? '',
+                    rows[i]['description']?.toString() ?? '',
                     muted: true,
                     maxLines: 2,
                   ),
                 ),
               ],
-              itemCount: _policies.length,
+              itemCount: rows.length,
               rowBuilder: (_, _) => const SizedBox.shrink(),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Effect 单元格：StatusChip 表达 allow/deny 语义色（X9）；effect 与
+  /// priority 均来自 API，走纯 Text（X1/X10 合规）。
+  Widget _effectCell(Map<String, dynamic> policy) {
+    final effect = (policy['effect'] ?? policy['action'] ?? 'allow').toString();
+    final priority = policy['priority']?.toString() ?? '';
+    final chip = switch (effect.toLowerCase()) {
+      'allow' || 'permit' => StatusChip.active(label: effect),
+      'deny' || 'block' => StatusChip.failed(label: effect),
+      _ => StatusChip.info(label: effect),
+    };
+    return Row(
+      children: [
+        chip,
+        if (priority.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              priority,
+              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
+            ),
           ),
+        ],
       ],
     );
   }
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                error,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
+      ),
+    ),
+  );
 }

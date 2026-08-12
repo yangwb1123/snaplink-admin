@@ -18,6 +18,7 @@ const appAdminCoreSourceZh = <String, String>{
   '{reason}\nby {createdBy} · scope: {scope} · {id}':
       '{reason}\n发起人 {createdBy} · 范围 {scope} · {id}',
   'Client: {id}': '客户端：{id}',
+  'Connection: {id}': '连接：{id}',
   'Connection: {widget_connectionId}': '连接：{widget_connectionId}',
   'Emergency Access: {widget_sessionId}': '紧急访问：{widget_sessionId}',
   'Error: {e}': '错误：{e}',
@@ -322,6 +323,7 @@ const appAdminCoreSourceZh = <String, String>{
   'No assignments loaded.': '未加载分配项。',
   'No audit entries': '没有审计记录',
   'No break-glass sessions.': '没有紧急访问会话。',
+  'No connection details loaded.': '未加载连接详情。',
   'No connections loaded.': '未加载连接。',
   'Created': '创建时间',
   'Updated': '更新时间',

@@ -112,7 +112,13 @@ class ConnectionCreateCard extends StatelessWidget {
           const SizedBox(height: 12),
           FilledButton.icon(
             onPressed: mutating ? null : onSave,
-            icon: const Icon(Icons.save_outlined),
+            icon: mutating
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
             label: const LocalizedText('Save connection'),
           ),
         ],

@@ -83,9 +83,10 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Connection: {widget_connectionId}', args: {
-        'widget_connectionId': widget.connectionId,
-      }),
+      title: LocalizedText(
+        'Connection: {widget_connectionId}',
+        args: {'widget_connectionId': widget.connectionId},
+      ),
       leading: IconButton(
         tooltip: 'Back'.localized,
         icon: const Icon(Icons.arrow_back),
@@ -116,9 +117,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                     _error!,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurfaceVariant,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ),
@@ -176,9 +175,10 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
                           widget.connectionId,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    LocalizedText('ID: {id}', args: {
-                      'id': _conn?['id'] ?? widget.connectionId,
-                    }),
+                    LocalizedText(
+                      'ID: {id}',
+                      args: {'id': _conn?['id'] ?? widget.connectionId},
+                    ),
                   ],
                 ),
               ),
@@ -213,9 +213,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
         else
           StatusChip.inactive(label: status),
         if (_health != null && _health!.isNotEmpty)
-          isHealthy
-              ? StatusChip.healthy()
-              : StatusChip.unhealthy(),
+          isHealthy ? StatusChip.healthy() : StatusChip.unhealthy(),
       ],
     );
   }
@@ -243,9 +241,17 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LocalizedText(
-            'Health',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.monitor_heart_outlined, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LocalizedText(
+                  'Health',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           _infoRow('Last checked', _health?['last_checked']?.toString() ?? '—'),
@@ -296,10 +302,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: LocalizedText(
-              'Error: {detail}',
-              args: {'detail': e},
-            ),
+            content: LocalizedText('Error: {detail}', args: {'detail': e}),
           ),
         );
       }
@@ -316,11 +319,14 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             onTap: () => setState(() => _showConfig = !_showConfig),
             child: Row(
               children: [
-                LocalizedText(
-                  'Configuration',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Icon(Icons.tune_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LocalizedText(
+                    'Configuration',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-                const Spacer(),
                 Icon(_showConfig ? Icons.expand_less : Icons.expand_more),
               ],
             ),
@@ -331,9 +337,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Theme.of(
-                  context,
-                ).colorScheme.surfaceContainerHighest,
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: SelectableText(

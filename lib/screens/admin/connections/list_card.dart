@@ -5,8 +5,10 @@ import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/distribution_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import '../admin_module_groups.dart';
 
 class ConnectionsListCard extends StatelessWidget {
   final TextEditingController tenantController;
@@ -36,6 +38,9 @@ class ConnectionsListCard extends StatelessWidget {
     required this.onSelect,
   });
 
+  /// 模块强调色（connections → security 组 rose）。
+  Color get _accent => adminModuleIconColor('connections');
+
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(top: 16),
@@ -44,9 +49,12 @@ class ConnectionsListCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Tenant connections',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.link_outlined, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              const Expanded(child: SectionHeader('Tenant connections')),
+            ],
           ),
           const SizedBox(height: 12),
           TextField(
@@ -80,7 +88,12 @@ class ConnectionsListCard extends StatelessWidget {
                 : onLoadSelected,
             child: const LocalizedText('Get connection'),
           ),
-          if (connections.isEmpty && !loadingList)
+          if (loadingList && connections.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: SkeletonListTile(itemCount: 3),
+            )
+          else if (connections.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
               child: EmptyState(
@@ -88,9 +101,9 @@ class ConnectionsListCard extends StatelessWidget {
                 variant: EmptyStateVariant.empty,
                 title: 'No connections loaded.',
               ),
-            ),
-          if (connections.isNotEmpty) _summaryBar(context),
-          if (connections.isNotEmpty)
+            )
+          else ...[
+            _summaryBar(context),
             AdminDataTable(
               minWidth: 640,
               columns: [
@@ -127,6 +140,7 @@ class ConnectionsListCard extends StatelessWidget {
                   ? null
                   : (i) => onSelect(connections[i]['id']?.toString() ?? ''),
             ),
+          ],
         ],
       ),
     ),
@@ -137,9 +151,7 @@ class ConnectionsListCard extends StatelessWidget {
   /// 分段，Disabled 前置强调），替代手绘进度条。
   Widget _summaryBar(BuildContext context) {
     final total = connections.length;
-    final disabled = connections
-        .where((c) => c['enabled'] == false)
-        .length;
+    final disabled = connections.where((c) => c['enabled'] == false).length;
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
