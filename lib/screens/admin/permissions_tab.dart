@@ -1,28 +1,26 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'permissions_role_dialog.dart';
 import 'permissions_cards.dart';
 import 'permissions_workspace_widgets.dart';
-import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Client-scoped role definitions, subject assignments, and navigation trees.
 /// URL: /admin/permissions/{clientId}[/roles|assignments]
 class PermissionsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-  const PermissionsTab({
-    super.key,
-    required this.api,
-    required this.capabilities,
-  });
+  const PermissionsTab({super.key, required this.api, required this.capabilities});
   @override
   State<PermissionsTab> createState() => _PermissionsTabState();
 }
@@ -75,9 +73,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'permissions') return;
-    if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) {
-      _clientCtrl.text = route.resourceId;
-    }
+    if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) _clientCtrl.text = route.resourceId;
     _currentSection = route.subresource.isNotEmpty ? route.subresource : 'all';
     if (_clientId != null) _load();
     if (mounted) setState(() {});
@@ -85,12 +81,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
 
   void _selectSection(String section) {
     setState(() => _currentSection = section);
-    final rid = _clientId ?? '';
-    if (section == 'all') {
-      AdminRoute.go('permissions', resourceId: rid);
-    } else {
-      AdminRoute.go('permissions', resourceId: rid, subresource: section);
-    }
+    AdminRoute.go('permissions', resourceId: _clientId ?? '', subresource: section == 'all' ? '' : section);
   }
 
   @override
@@ -111,20 +102,12 @@ class _PermissionsTabState extends State<PermissionsTab> {
     return path;
   }
 
-  List<String> _codes(String text) => text
-      .split(RegExp(r'[,\n]'))
-      .map((v) => v.trim())
-      .where((v) => v.isNotEmpty)
-      .toSet()
-      .toList();
+  List<String> _codes(String text) =>
+      text.split(RegExp(r'[,\n]')).map((v) => v.trim()).where((v) => v.isNotEmpty).toSet().toList();
 
-  List<Map<String, dynamic>> _records(Object? value) {
-    if (value is! List) return [];
-    return value
-        .whereType<Map>()
-        .map((i) => Map<String, dynamic>.from(i))
-        .toList();
-  }
+  List<Map<String, dynamic>> _records(Object? value) => value is! List
+      ? const []
+      : value.whereType<Map>().map((i) => Map<String, dynamic>.from(i)).toList();
 
   Future<void> _load() async {
     widget.api.skipCache();
@@ -133,20 +116,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
       setState(() => _error = 'Enter a client ID first.');
       return;
     }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final jobs = <Future>[];
-      if (_supportsRoles) {
-        jobs.add(widget.api.get(_path(_rolesPath, {'client_id': clientId})));
-      }
-      if (_supportsAssignments) {
-        jobs.add(
+      final jobs = <Future>[
+        if (_supportsRoles)
+          widget.api.get(_path(_rolesPath, {'client_id': clientId})),
+        if (_supportsAssignments)
           widget.api.get(_path(_assignmentsPath, {'client_id': clientId})),
-        );
-      }
+      ];
       final results = await Future.wait(jobs);
       var idx = 0;
       final roles = _supportsRoles
@@ -156,10 +133,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
           ? _records(results[idx]['assignments'])
           : <Map<String, dynamic>>[];
       if (!mounted) return;
-      setState(() {
-        _roles = roles;
-        _assignments = assignments;
-      });
+      setState(() { _roles = roles; _assignments = assignments; });
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } catch (_) {
@@ -179,21 +153,18 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (cid == null) return;
     final editing = existing != null;
     if (!await _confirm(
-      editing ? 'Update role?' : 'Create role?',
-      '${editing ? "Update" : "Add"} role ${role.code} for $cid?',
+      context.tr(editing ? 'Update role?' : 'Create role?'),
+      context.tr(
+        editing ? 'Update role {code} for {client}?' : 'Create role {code} for {client}?',
+        {'code': role.code, 'client': cid},
+      ),
     )) {
       return;
     }
     await _write(
       () => editing
-          ? widget.api.put(
-              _path(_rolePath, {'client_id': cid, 'role_code': role.code}),
-              role.toJson(),
-            )
-          : widget.api.post(
-              _path(_rolesPath, {'client_id': cid}),
-              role.toJson(),
-            ),
+          ? widget.api.put(_path(_rolePath, {'client_id': cid, 'role_code': role.code}), role.toJson())
+          : widget.api.post(_path(_rolesPath, {'client_id': cid}), role.toJson()),
       editing ? 'Role updated.' : 'Role created.',
     );
   }
@@ -202,17 +173,15 @@ class _PermissionsTabState extends State<PermissionsTab> {
     final cid = _clientId;
     if (cid == null || code.isEmpty) return;
     if (!await _confirm(
-      'Delete role?',
-      'Delete $code from $cid? This cannot be undone.',
+      context.tr('Delete role?'),
+      context.tr('Delete {code} from {client}? This cannot be undone.', {'code': code, 'client': cid}),
       destructive: true,
       confirmText: code,
     )) {
       return;
     }
     await _write(
-      () => widget.api.delete(
-        _path(_rolePath, {'client_id': cid, 'role_code': code}),
-      ),
+      () => widget.api.delete(_path(_rolePath, {'client_id': cid, 'role_code': code})),
       'Role deleted.',
     );
   }
@@ -230,8 +199,8 @@ class _PermissionsTabState extends State<PermissionsTab> {
       return;
     }
     if (!await _confirm(
-      'Assign roles?',
-      'Assign ${codes.join(", ")} to $uid?',
+      context.tr('Assign roles?'),
+      context.tr('Assign {roles} to {user}?', {'roles': codes.join(', '), 'user': uid}),
     )) {
       return;
     }
@@ -248,17 +217,15 @@ class _PermissionsTabState extends State<PermissionsTab> {
     final cid = _clientId;
     if (cid == null) return;
     if (!await _confirm(
-      'Unassign user?',
-      'Remove all role assignments for $uid?',
+      context.tr('Unassign user?'),
+      context.tr('Remove all role assignments for {user}?', {'user': uid}),
       destructive: true,
       confirmText: uid,
     )) {
       return;
     }
     await _write(
-      () => widget.api.post(
-        _path(_unassignPath, {'client_id': cid, 'user_id': uid}),
-      ),
+      () => widget.api.post(_path(_unassignPath, {'client_id': cid, 'user_id': uid})),
       'User unassigned.',
     );
   }
@@ -268,11 +235,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (cid == null) return;
     try {
       final menus = jsonDecode(_menusCtrl.text) as List;
-      if (!await _confirm('Save menus?', 'Update navigation tree?')) return;
+      if (!await _confirm(
+        context.tr('Save menus?'),
+        context.tr('Update navigation tree?'),
+      )) {
+        return;
+      }
       await _write(
-        () => widget.api.put(_path(_menusPath, {'client_id': cid}), {
-          'menus': menus,
-        }),
+        () => widget.api.put(_path(_menusPath, {'client_id': cid}), {'menus': menus}),
         'Navigation tree updated.',
       );
     } on FormatException {
@@ -299,9 +269,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     try {
       await fn();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(okMsg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(okMsg)));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -315,15 +283,35 @@ class _PermissionsTabState extends State<PermissionsTab> {
   @override
   Widget build(BuildContext context) {
     final clientId = _clientId;
+    final accent = adminModuleIconColor('permissions');
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Text(
-          AppStrings.of(context).permissions,
-          style: Theme.of(context).textTheme.headlineSmall,
+        const AdminBreadcrumb(),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+              child: Icon(Icons.admin_panel_settings_outlined, color: accent),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 2),
+                  LocalizedText(
+                    'Client-scoped roles, assignments and navigation menus.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         PermissionsClientSelector(
           controller: _clientCtrl,
           clientId: clientId,
@@ -331,55 +319,64 @@ class _PermissionsTabState extends State<PermissionsTab> {
           onSearch: _load,
           onSubmitted: _handleRoute,
         ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.danger),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _clientId == null ? null : _load,
-                  child: const LocalizedText('Retry'),
-                ),
-              ],
-            ),
-          ),
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (clientId != null)
-          PermissionSectionSelector(
-            selectedSection: _currentSection,
+        if (_error != null) ...[const SizedBox(height: 8), _errorBanner(context)],
+        if (clientId != null) ...[
+          const SizedBox(height: 12),
+          SectionSelector(
+            current: _currentSection,
             onSelected: _selectSection,
+            sections: [
+              SectionDef('all', 'All', Icons.view_quilt_outlined, color: accent),
+              SectionDef('roles', 'Roles', Icons.shield_outlined, color: accent),
+              SectionDef('assignments', 'Assignments', Icons.assignment_outlined, color: accent),
+              SectionDef('menus', 'Menus', Icons.account_tree_outlined, color: accent),
+            ],
           ),
-        if (clientId != null &&
-            (_currentSection == 'all' || _currentSection == 'roles') &&
-            _supportsRoles) ...[
-          const SizedBox(height: 12),
-          _roleSection(context),
         ],
-        if (clientId != null &&
-            (_currentSection == 'all' || _currentSection == 'assignments') &&
-            _supportsAssignments) ...[
+        if (clientId != null && _loading) ...[
           const SizedBox(height: 12),
-          _assignmentSection(context),
+          const SkeletonListTile(itemCount: 3),
         ],
-        if (clientId != null &&
-            (_currentSection == 'all' || _currentSection == 'menus') &&
-            _supportsMenus) ...[
-          const SizedBox(height: 12),
-          PermissionMenusCard(
-            controller: _menusCtrl,
-            mutating: _mutating,
-            onSave: _saveMenus,
-          ),
+        if (clientId != null && !_loading) ...[
+          if ((_currentSection == 'all' || _currentSection == 'roles') && _supportsRoles) ...[
+            const SizedBox(height: 12),
+            _roleSection(context),
+          ],
+          if ((_currentSection == 'all' || _currentSection == 'assignments') && _supportsAssignments) ...[
+            const SizedBox(height: 12),
+            _assignmentSection(context),
+          ],
+          if ((_currentSection == 'all' || _currentSection == 'menus') && _supportsMenus) ...[
+            const SizedBox(height: 12),
+            PermissionMenusCard(
+              controller: _menusCtrl,
+              mutating: _mutating,
+              onSave: _saveMenus,
+            ),
+          ],
         ],
       ],
     );
   }
+
+  Widget _errorBanner(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+    decoration: BoxDecoration(
+      color: AppColors.dangerTint.withValues(alpha: 0.3),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+        const SizedBox(width: 8),
+        Expanded(child: Text(context.tr(_error!), style: const TextStyle(color: AppColors.danger))),
+        TextButton(
+          onPressed: _clientId == null ? null : _load,
+          child: const LocalizedText('Retry'),
+        ),
+      ],
+    ),
+  );
 
   Widget _roleSection(BuildContext context) => RolesCard(
     roles: _roles.map((r) => Map<String, dynamic>.from(r)).toList(),

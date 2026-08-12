@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'admin_module_groups.dart';
 
-/// Roles management card.
+/// 权限模块组色（identity → indigo-violet）。
+Color _accent() => adminModuleIconColor('permissions');
+
+/// Roles management card: header + AdminDataTable (workbench rows).
 class RolesCard extends StatelessWidget {
   final List<Map<String, dynamic>> roles;
   final bool mutating;
@@ -21,65 +27,129 @@ class RolesCard extends StatelessWidget {
     required this.onDeleteRole,
   });
 
+  String _name(Map<String, dynamic> role) =>
+      role['name']?.toString() ?? role['code']?.toString() ?? '';
+
+  String _code(Map<String, dynamic> role) =>
+      role['code']?.toString() ?? '';
+
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              LocalizedText(
-                'Roles',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              FilledButton.icon(
+  Widget build(BuildContext context) {
+    final accent = _accent();
+    final items = List<Map<String, dynamic>>.of(roles);
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              'Roles',
+              count: items.length,
+              action: FilledButton.icon(
                 onPressed: mutating || clientId == null ? null : onCreateRole,
-                icon: const Icon(Icons.add),
+                icon: const Icon(Icons.add, size: 18),
                 label: const LocalizedText('Create role'),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (roles.isEmpty) const LocalizedText('No roles loaded.'),
-          for (final role in roles)
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text(
-                role['name']?.toString() ?? role['code']?.toString() ?? '',
-              ),
-              subtitle: Text(
-                "${role['code'] ?? ''}\n${(role['permissions'] as List?)?.map((e) => e.toString()).join(', ') ?? ''}",
-              ),
-              isThreeLine: role['description']?.toString().isNotEmpty == true,
-              trailing: Wrap(
-                children: [
-                  IconButton(
-                    tooltip: 'Edit role'.localized,
-                    onPressed: mutating ? null : () => onEditRole(role),
-                    icon: const Icon(Icons.edit_outlined),
+            ),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              const EmptyState(compact: true, title: 'No roles loaded.')
+            else
+              AdminDataTable(
+                minWidth: 720,
+                columns: [
+                  AdminDataColumn(
+                    id: 'role',
+                    label: 'ROLE',
+                    width: 280,
+                    cardPrimary: true,
+                    builder: (context, i) => Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.shield_outlined, size: 16, color: accent),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: TableCellText(_name(items[i]), bold: true),
+                        ),
+                      ],
+                    ),
                   ),
-                  IconButton(
-                    tooltip: 'Delete role'.localized,
-                    onPressed: mutating
-                        ? null
-                        : () => onDeleteRole(role['code']?.toString() ?? ''),
-                    color: AppColors.danger,
-                    icon: const Icon(Icons.delete_outline),
+                  AdminDataColumn(
+                    id: 'code',
+                    label: 'CODE',
+                    width: 180,
+                    builder: (context, i) {
+                      final code = _code(items[i]);
+                      // 与显示名相同时不重复渲染（保持单实例文本）。
+                      return TableCellText(
+                        code == _name(items[i]) ? '' : code,
+                        muted: true,
+                      );
+                    },
+                  ),
+                  AdminDataColumn(
+                    id: 'permissions',
+                    label: 'PERMISSIONS',
+                    width: 200,
+                    builder: (context, i) {
+                      final count =
+                          (items[i]['permissions'] as List?)?.length ?? 0;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.key_outlined, size: 14, color: accent),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: LocalizedText(
+                              '{n} permissions',
+                              args: {'n': count},
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  AdminDataColumn(
+                    id: 'actions',
+                    label: '',
+                    width: 96,
+                    builder: (context, i) {
+                      final role = items[i];
+                      return PopupMenuButton<String>(
+                        enabled: !mutating,
+                        onSelected: (action) {
+                          if (action == 'edit') onEditRole(role);
+                          if (action == 'delete') onDeleteRole(_code(role));
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: LocalizedText('Edit'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: LocalizedText('Delete'),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ],
+                itemCount: items.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
-/// User role assignments card.
+/// User role assignments card: assign form + AdminDataTable of subjects.
 class AssignmentsCard extends StatelessWidget {
   final List<Map<String, dynamic>> assignments;
   final bool mutating;
@@ -101,137 +171,95 @@ class AssignmentsCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LocalizedText(
-            'User role assignments',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: userController,
-            decoration: InputDecoration(labelText: 'User ID'.localized),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: roleCodesController,
-            decoration: InputDecoration(
-              labelText: 'Role codes'.localized,
-              helperText:
-                  'Comma or line separated. Snaplink validates that each role exists.'
-                      .localized,
-            ),
-            minLines: 1,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: mutating || clientId == null ? null : onAssignRoles,
-            child: const LocalizedText('Assign roles'),
-          ),
-          if (assignments.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No assignments loaded.'),
-            ),
-          for (final assignment in assignments)
-            _AssignmentRowTile(
-              assignment: assignment,
-              mutating: mutating,
-              onUnassign: onUnassignRole,
-            ),
-        ],
-      ),
-    ),
-  );
-}
-
-/// A single assignment row showing a user and their role chips.
-class _AssignmentRowTile extends StatelessWidget {
-  final Map<String, dynamic> assignment;
-  final bool mutating;
-  final void Function(String userId, String roleCode) onUnassign;
-
-  const _AssignmentRowTile({
-    required this.assignment,
-    required this.mutating,
-    required this.onUnassign,
-  });
-
-  @override
   Widget build(BuildContext context) {
-    final userId = assignment['user_id']?.toString() ?? '';
-    final roles =
-        (assignment['roles'] as List?)?.map((e) => e.toString()).toList() ??
-        const [];
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(userId),
-      subtitle: Wrap(
-        spacing: 6,
-        children: [
-          for (final code in roles)
-            InputChip(
-              label: Text(code),
-              onDeleted: mutating ? null : () => onUnassign(userId, code),
+    final accent = _accent();
+    final items = List<Map<String, dynamic>>.of(assignments);
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader('User role assignments', count: items.length),
+            const SizedBox(height: 12),
+            TextField(
+              controller: userController,
+              decoration: InputDecoration(
+                labelText: 'User ID'.localized,
+                prefixIcon: Icon(Icons.person_outline, size: 18, color: accent),
+              ),
             ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: roleCodesController,
+              decoration: InputDecoration(
+                labelText: 'Role codes'.localized,
+                helperText:
+                    'Comma or line separated. Snaplink validates that each role exists.'
+                        .localized,
+                prefixIcon: Icon(Icons.key_outlined, size: 18, color: accent),
+              ),
+              minLines: 1,
+              maxLines: 3,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: mutating || clientId == null ? null : onAssignRoles,
+              icon: const Icon(Icons.person_add_alt_1, size: 18),
+              label: const LocalizedText('Assign roles'),
+            ),
+            const SizedBox(height: 16),
+            if (items.isEmpty)
+              const EmptyState(compact: true, title: 'No assignments loaded.')
+            else
+              AdminDataTable(
+                minWidth: 640,
+                columns: [
+                  AdminDataColumn(
+                    id: 'user',
+                    label: 'USER',
+                    width: 280,
+                    cardPrimary: true,
+                    builder: (context, i) => TableCellText(
+                      items[i]['user_id']?.toString() ?? '',
+                      bold: true,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'roles',
+                    label: 'ROLES',
+                    width: 460,
+                    builder: (context, i) {
+                      final userId = items[i]['user_id']?.toString() ?? '';
+                      final roles =
+                          (items[i]['roles'] as List?)
+                              ?.map((e) => e.toString())
+                              .toList() ??
+                          const <String>[];
+                      return Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final code in roles)
+                            InputChip(
+                              label: Text(code),
+                              visualDensity: VisualDensity.compact,
+                              onDeleted: mutating
+                                  ? null
+                                  : () => onUnassignRole(userId, code),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+                itemCount: items.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
+              ),
+          ],
+        ),
       ),
     );
   }
-}
-
-/// Menu tree JSON editor card.
-class MenusCard extends StatelessWidget {
-  final bool mutating;
-  final String? clientId;
-  final TextEditingController menusController;
-  final VoidCallback onSetMenus;
-
-  const MenusCard({
-    super.key,
-    required this.mutating,
-    required this.clientId,
-    required this.menusController,
-    required this.onSetMenus,
-  });
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 20),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LocalizedText(
-            'Menu tree JSON',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 12),
-          const LocalizedText(
-            'Provide an array of menu items. Each item needs id and name; children and buttons are nested arrays.',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: menusController,
-            decoration: InputDecoration(labelText: 'Menu tree'.localized),
-            minLines: 8,
-            maxLines: 16,
-            style: TextStyle(fontFamily: 'monospace'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: mutating || clientId == null ? null : onSetMenus,
-            child: const LocalizedText('Replace menu tree'),
-          ),
-        ],
-      ),
-    ),
-  );
 }

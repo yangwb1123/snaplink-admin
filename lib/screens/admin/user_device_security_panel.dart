@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
+import 'admin_module_groups.dart';
 
 /// Reusable helpdesk view for a user's devices and completed login history.
 ///
@@ -157,6 +158,11 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
     children: [
       Row(
         children: [
+          Icon(
+            Icons.phonelink_lock,
+            color: adminModuleIconColor('users'),
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

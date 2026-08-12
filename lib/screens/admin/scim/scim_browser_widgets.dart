@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:flutter/services.dart';
 
+import '../admin_module_groups.dart';
 import 'scim_models.dart';
 
 String formatScimBytes(int bytes) => bytes >= 1024 * 1024
@@ -218,78 +221,130 @@ class ScimQueryBar extends StatelessWidget {
   );
 }
 
-class ScimResourceTile extends StatelessWidget {
+/// Users/Groups 资源表（AdminDataTable 替代手写 Card+ListTile 模板行）。
+/// 行点击打开详情；`enabled` 为 false 时（变更进行中）禁用手势。
+class ScimResourceTable extends StatelessWidget {
   final ScimResourceKind kind;
-  final Map<String, dynamic> resource;
-  final VoidCallback onTap;
+  final List<Map<String, dynamic>> resources;
+  final bool enabled;
+  final ValueChanged<Map<String, dynamic>> onOpen;
 
-  const ScimResourceTile({
+  const ScimResourceTable({
     super.key,
     required this.kind,
-    required this.resource,
-    required this.onTap,
+    required this.resources,
+    required this.enabled,
+    required this.onOpen,
   });
 
   @override
   Widget build(BuildContext context) {
-    final id = resource['id']?.toString() ?? '';
+    final accent = adminModuleIconColor('scim-directory');
     final isUser = kind == ScimResourceKind.users;
-    final title = isUser
-        ? resource['displayName']?.toString().isNotEmpty == true
-              ? resource['displayName'].toString()
-              : resource['userName']?.toString() ?? id
-        : resource['displayName']?.toString() ?? id;
-    final details = isUser
-        ? [
-            resource['userName']?.toString() ?? '',
-            _primaryEmail(resource['emails']),
-            resource['externalId']?.toString() ?? '',
-          ]
-        : ['$id · ${(resource['members'] as List? ?? const []).length} members'];
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        onTap: onTap,
-        leading: CircleAvatar(
-          child: Icon(isUser ? Icons.person_outline : Icons.groups_outlined),
-        ),
-        title: Text(title),
-        subtitle: Text(
-          details.where((value) => value.isNotEmpty).join('\n'),
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-        ),
-        isThreeLine: isUser,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (isUser)
-              Tooltip(
-                message: resource['active'] == false ? 'Inactive' : 'Active',
-                child: Icon(
-                  resource['active'] == false
-                      ? Icons.block
-                      : Icons.check_circle_outline,
-                  color: resource['active'] == false
-                      ? Theme.of(context).colorScheme.error
-                      : AppColors.success,
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: isUser ? 880 : 700,
+      onRowTap: enabled ? (index) => onOpen(resources[index]) : null,
+      columns: [
+        AdminDataColumn(
+          id: 'name',
+          label: isUser ? 'USER' : 'GROUP',
+          width: 280,
+          cardPrimary: true,
+          builder: (context, index) {
+            final resource = resources[index];
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor: accent.withValues(alpha: 0.14),
+                  child: Icon(
+                    isUser ? Icons.person_outline : Icons.groups_outlined,
+                    size: 16,
+                    color: accent,
+                  ),
                 ),
-              ),
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right),
-          ],
+                const SizedBox(width: 8),
+                Flexible(
+                  child: TableCellText(
+                    _displayName(resource, isUser),
+                    bold: true,
+                    maxLines: 1,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
-      ),
+        AdminDataColumn(
+          id: 'id',
+          label: 'ID',
+          width: 240,
+          builder: (context, index) => TableCellText(
+            resources[index]['id']?.toString() ?? '',
+            muted: true,
+            maxLines: 1,
+          ),
+        ),
+        if (isUser)
+          AdminDataColumn(
+            id: 'email',
+            label: 'EMAIL',
+            builder: (context, index) => TableCellText(
+              _primaryEmail(resources[index]['emails']),
+              muted: true,
+              maxLines: 1,
+            ),
+          )
+        else
+          AdminDataColumn(
+            id: 'members',
+            label: 'MEMBERS',
+            width: 110,
+            builder: (context, index) => TableCellText(
+              '${(resources[index]['members'] as List? ?? const []).length}',
+              muted: true,
+            ),
+          ),
+        if (isUser)
+          AdminDataColumn(
+            id: 'status',
+            label: 'STATUS',
+            width: 120,
+            builder: (context, index) {
+              final active = resources[index]['active'] != false;
+              return Tooltip(
+                message: active ? 'Active' : 'Inactive',
+                child: Icon(
+                  active ? Icons.check_circle_outline : Icons.block,
+                  size: 18,
+                  color: active
+                      ? AppColors.success
+                      : Theme.of(context).colorScheme.error,
+                ),
+              );
+            },
+          ),
+      ],
+      itemCount: resources.length,
+      rowBuilder: (_, _) => const SizedBox.shrink(),
     );
+  }
+
+  static String _displayName(Map<String, dynamic> resource, bool isUser) {
+    final name = resource['displayName']?.toString() ?? '';
+    if (name.isNotEmpty) return name;
+    return isUser
+        ? resource['userName']?.toString() ?? ''
+        : resource['id']?.toString() ?? '';
   }
 
   static String _primaryEmail(Object? value) {
     if (value is! List) return '';
     final emails = value.whereType<Map>().toList();
     if (emails.isEmpty) return '';
-    final primary = emails
-        .where((email) => email['primary'] == true)
-        .firstOrNull;
+    final primary = emails.where((email) => email['primary'] == true).firstOrNull;
     return (primary ?? emails.first)['value']?.toString() ?? '';
   }
 }
@@ -301,35 +356,16 @@ class ScimUnavailable extends StatelessWidget {
   const ScimUnavailable({super.key, this.kind, required this.onRetry});
 
   @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.extension_off_outlined, size: 48),
-          const SizedBox(height: 12),
-          LocalizedText(
-            kind == ScimResourceKind.groups
-                ? 'SCIM Groups are not enabled'
-                : 'SCIM is not enabled on this replica',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          LocalizedText(
-            kind == ScimResourceKind.groups
-                ? 'Groups require scim.groups.enabled and a permissions provider.'
-                : 'The server returned 404 or 501 for this SCIM surface.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const LocalizedText('Probe again'),
-          ),
-        ],
-      ),
-    ),
+  Widget build(BuildContext context) => EmptyState(
+    variant: EmptyStateVariant.notEnabled,
+    icon: Icons.extension_off_outlined,
+    title: kind == ScimResourceKind.groups
+        ? 'SCIM Groups are not enabled'
+        : 'SCIM is not enabled on this replica',
+    subtitle: kind == ScimResourceKind.groups
+        ? 'Groups require scim.groups.enabled and a permissions provider.'
+        : 'The server returned 404 or 501 for this SCIM surface.',
+    actionLabel: 'Probe again',
+    onAction: onRetry,
   );
 }

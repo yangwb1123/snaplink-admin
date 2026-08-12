@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
+import '../admin_module_groups.dart';
 import 'scim_models.dart';
 
 enum ScimDetailAction { replace, patch, delete }
@@ -29,6 +30,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
             kind == ScimResourceKind.users
                 ? Icons.person_outline
                 : Icons.groups_outlined,
+            color: adminModuleIconColor('scim-directory'),
           ),
           const SizedBox(width: 8),
           Expanded(child: LocalizedText(_title)),
@@ -134,24 +136,25 @@ class ScimResourceDetailDialog extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _section(context, 'Identity'),
-        _row('User name', resource['userName']),
-        _row('Display name', resource['displayName']),
-        _row('External ID', resource['externalId']),
+        _row(context, 'User name', resource['userName']),
+        _row(context, 'Display name', resource['displayName']),
+        _row(context, 'External ID', resource['externalId']),
         if (name.isNotEmpty) ...[
           _section(context, 'Name'),
-          for (final entry in name.entries) _row(entry.key, entry.value),
+          for (final entry in name.entries) _row(context, entry.key, entry.value),
         ],
         _section(context, 'Emails'),
         _objectList(resource['emails'], emptyText: 'No email addresses'),
         if (enterprise.isNotEmpty) ...[
           _section(context, 'Enterprise extension'),
           for (final entry in enterprise.entries)
-            if (entry.key != 'manager') _row(entry.key, entry.value),
-          if (manager.isNotEmpty)
-            _row(
-              'manager',
-              '${manager['displayName'] ?? ''} (${manager['value'] ?? ''})',
-            ),
+            if (entry.key != 'manager') _row(context, entry.key, entry.value),
+            if (manager.isNotEmpty)
+              _row(
+                context,
+                'manager',
+                '${manager['displayName'] ?? ''} (${manager['value'] ?? ''})',
+              ),
         ],
       ],
     );
@@ -161,8 +164,8 @@ class ScimResourceDetailDialog extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _section(context, 'Group'),
-      _row('Display name', resource['displayName']),
-      _row('External ID', resource['externalId']),
+      _row(context, 'Display name', resource['displayName']),
+      _row(context, 'External ID', resource['externalId']),
       _section(context, 'Members'),
       _objectList(resource['members'], emptyText: 'No members'),
     ],
@@ -172,10 +175,10 @@ class ScimResourceDetailDialog extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       _section(context, 'Metadata'),
-      _row('Resource type', meta['resourceType']),
-      _row('Created', meta['created']),
-      _row('Last modified', meta['lastModified']),
-      _row('Location', meta['location']),
+      _row(context, 'Resource type', meta['resourceType']),
+      _row(context, 'Created', meta['created']),
+      _row(context, 'Last modified', meta['lastModified']),
+      _row(context, 'Location', meta['location']),
     ],
   );
 
@@ -184,7 +187,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
     child: LocalizedText(text, style: Theme.of(context).textTheme.titleSmall),
   );
 
-  Widget _row(String label, Object? value) {
+  Widget _row(BuildContext context, String label, Object? value) {
     final text = value?.toString() ?? '';
     if (text.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -196,7 +199,9 @@ class ScimResourceDetailDialog extends StatelessWidget {
             width: 130,
             child: LocalizedText(
               label,
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(child: SelectableText(text)),

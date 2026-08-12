@@ -1,34 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/user_avatar.dart';
-import 'package:sso_admin/widgets/paginated_list.dart';
-import 'package:sso_admin/widgets/batch_selection.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/batch_action_bar.dart';
-import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
-
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/user_avatar.dart';
+import 'admin_module_groups.dart';
 import 'local_user_validation.dart';
 
 /// Password-authenticated directory users.
 ///
-/// This is intentionally separate from the federated `/admin/users` surface:
-/// local users own a username and password credential while federated users do
-/// not. Mixing the two models makes password reset and identity-source status
-/// ambiguous for operators.
+/// Intentionally separate from the federated `/admin/users` surface: local
+/// users own a username + password credential, federated users do not.
 class LocalUsersTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-
-  const LocalUsersTab({
-    super.key,
-    required this.api,
-    required this.capabilities,
-  });
-
+  const LocalUsersTab({super.key, required this.api, required this.capabilities});
   @override
   State<LocalUsersTab> createState() => _LocalUsersTabState();
 }
@@ -40,11 +34,11 @@ class _LocalUsersTabState extends State<LocalUsersTab>
 
   List<Map<String, dynamic>> _users = const [];
   String? _error;
-  int _page = 1;
-  int _total = 0;
-  bool _loading = false;
-  bool _mutating = false;
+  int _page = 1, _total = 0;
+  bool _loading = false, _mutating = false;
 
+  /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
+  Color get _accent => adminModuleIconColor('local-users');
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_basePath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_basePath);
@@ -58,24 +52,15 @@ class _LocalUsersTabState extends State<LocalUsersTab>
   Future<void> _load({int? page}) async {
     if (!_available) return;
     final target = page ?? _page;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final data = await widget.api.get(
-        _basePath,
-        query: {'page': '$target', 'limit': '$_pageSize'},
-      );
+      final data = await widget.api.get(_basePath, query: {'page': '$target', 'limit': '$_pageSize'});
       final values = data['users'] as List? ?? const [];
       if (!mounted) return;
       setState(() {
         _page = target;
         _total = (data['total'] as num?)?.toInt() ?? values.length;
-        _users = values
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false);
+        _users = values.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
       });
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -96,19 +81,12 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         await widget.api.post(_basePath, draft.createBody);
       } else {
         final id = existing['id']?.toString() ?? '';
-        await widget.api.put(
-          '$_basePath/${Uri.encodeComponent(id)}',
-          draft.updateBody,
-        );
+        await widget.api.put('$_basePath/${Uri.encodeComponent(id)}', draft.updateBody);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            existing == null ? 'Local user created.' : 'Local user updated.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: LocalizedText(existing == null ? 'Local user created.' : 'Local user updated.'),
+      ));
       await _load(page: existing == null ? 1 : _page);
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -117,22 +95,18 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     }
   }
 
-  /// 批量删除本地用户（确认影响数量 → 并行执行 → 明细报告）。
+  /// 批量删除：确认影响数量 → 并行执行 → 明细报告（i18n 键 + args）。
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
-      title: 'Delete ${ids.length} local users?',
-      message:
-          'This will delete ${ids.length} selected local users and their '
-          'password credentials. This cannot be undone.',
+      title: context.tr('Delete {n} local users?', {'n': ids.length}),
+      message: context.tr('This will delete {n} selected local users and their password credentials. This cannot be undone.', {'n': ids.length}),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
-    final failures = <String>[];
-    var ok = 0;
     final results = await Future.wait(ids.map((id) async {
       try {
         await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
@@ -141,31 +115,22 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         return '$id: $e';
       }
     }));
-    for (final failure in results) {
-      if (failure == null) {
-        ok++;
-      } else {
-        failures.add(failure);
-      }
-    }
+    final failures = results.whereType<String>().toList();
+    final ok = ids.length - failures.length;
     if (!mounted) return;
     clearSelection();
     final message = failures.isEmpty
-        ? 'Deleted $ok of ${ids.length} local users.'
-        : 'Delete: $ok succeeded, ${failures.length} failed. '
-              '${failures.take(3).join('; ')}';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+        ? context.tr('Deleted {n} of {total} local users.', {'n': ok, 'total': ids.length})
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}',
+            {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     await _load();
   }
 
   /// 批量操作栏（列表顶部）——BatchActionBar（删除 + 清除选择）。
   Widget _batchBar(BuildContext context) => BatchActionBar(
-    selectedCount: selected.length,
-    onDelete: _batchDelete,
-    onClearSelection: clearSelection,
-    isLoading: _mutating,
+    selectedCount: selected.length, onDelete: _batchDelete,
+    onClearSelection: clearSelection, isLoading: _mutating,
   );
 
   Future<void> _delete(Map<String, dynamic> user) async {
@@ -174,9 +139,8 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     final label = user['username']?.toString() ?? id;
     final confirmed = await ConfirmDialog.show(
       context,
-      title: 'Delete local user?',
-      message:
-          'Delete $label and its password credential? This cannot be undone.',
+      title: context.tr('Delete local user?'),
+      message: context.tr('Delete {label} and its password credential? This cannot be undone.', {'label': label}),
       confirmLabel: 'Delete user',
       destructive: true,
       confirmText: label,
@@ -186,9 +150,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     try {
       await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Local user deleted.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Local user deleted.')));
       final nextPage = _users.length == 1 && _page > 1 ? _page - 1 : _page;
       await _load(page: nextPage);
     } on SnaplinkAdminApiError catch (error) {
@@ -206,179 +168,130 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         title: 'Local password users are not enabled on this replica.',
       );
     }
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).localUsers,
+          subtitle: 'Password-authenticated accounts managed by this SSO server.',
+          onRefresh: _load,
+          actions: [
+            FilledButton.icon(onPressed: _mutating ? null : _openForm,
+                icon: const Icon(Icons.person_add_alt_1), label: const LocalizedText('Create local user')),
+            const SizedBox(width: 4),
+            IconButton(onPressed: _loading || _mutating ? null : _load,
+                tooltip: 'Refresh'.localized, icon: Icon(Icons.refresh, color: _accent)),
+          ],
+        ),
         if (selecting) ...[
           _batchBar(context),
           const SizedBox(height: 8),
         ],
-        const AdminBreadcrumb(),
-        Row(
-          children: [
-            LocalizedText(
-              'Local users',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: _loading || _mutating ? null : _load,
-              tooltip: 'Refresh'.localized,
-              icon: const Icon(Icons.refresh),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(
-              onPressed: _mutating ? null : _openForm,
-              icon: const Icon(Icons.person_add_alt_1),
-              label: const LocalizedText('Create local user'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Password-authenticated accounts managed by this SSO server.',
-        ),
-        const SizedBox(height: 12),
-        AsyncView<List<Map<String, dynamic>>>(
-          loading: _loading,
-          error: _error,
-          data: _users,
-          onRetry: _load,
-          emptyTitle: 'No local users',
-          emptySubtitle: 'Create the first password-authenticated account.',
-          dataBuilder: (users) => Column(
-            children: [
-              AdminDataTable(
-                scrollable: false,
-                minWidth: 760,
-                onRowTap: selecting
-                    ? (i) => toggleSelect(users[i]['id']?.toString() ?? '')
-                    : null,
-                onRowLongPress: selecting
-                    ? null
-                    : (i) => toggleSelect(users[i]['id']?.toString() ?? ''),
-                columns: [
-                  if (selecting)
-                    AdminDataColumn(
-                      id: 'select',
-                      label: '',
-                      width: 44,
-                      builder: (context, i) {
-                        final uid = users[i]['id']?.toString() ?? '';
-                        return Checkbox(
-                          value: selected.contains(uid),
-                          onChanged: (_) => toggleSelect(uid),
-                        );
-                      },
-                    ),
-                  AdminDataColumn(
-                    id: 'user',
-                    label: 'USER',
-                    width: 300,
-                    cardPrimary: true,
-                    builder: (context, i) {
-                      final user = users[i];
-                      final display =
-                          user['display_name']?.toString().isNotEmpty == true
-                          ? user['display_name'].toString()
-                          : user['username']?.toString() ?? '';
-                      return Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          UserAvatar(
-                            name: user['id']?.toString() ?? '?',
-                            radius: 14,
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: TableCellText(display, bold: true),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  AdminDataColumn(
-                    id: 'username',
-                    label: 'USERNAME',
-                    width: 180,
-                    builder: (context, i) {
-                      final user = users[i];
-                      final display =
-                          user['display_name']?.toString().isNotEmpty == true
-                          ? user['display_name'].toString()
-                          : user['username']?.toString() ?? '';
-                      final username = user['username']?.toString() ?? '';
-                      // 与显示名相同时不重复渲染（保持单实例文本）。
-                      return TableCellText(
-                        username == display ? '' : username,
-                        muted: true,
-                      );
-                    },
-                  ),
-                  AdminDataColumn(
-                    id: 'email',
-                    label: 'EMAIL',
-                    builder: (context, i) => TableCellText(
-                      users[i]['email']?.toString() ?? '',
-                      muted: true,
-                    ),
-                  ),
-                  AdminDataColumn(
-                    id: 'actions',
-                    label: '',
-                    width: 60,
-                    builder: (context, i) {
-                      final user = users[i];
-                      return PopupMenuButton<String>(
-                        enabled: !_mutating,
-                        onSelected: (action) {
-                          if (action == 'edit') _openForm(user);
-                          if (action == 'delete') _delete(user);
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: LocalizedText('Edit'),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: LocalizedText('Delete'),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-                itemCount: users.length,
-                rowBuilder: (context, i) => const SizedBox.shrink(),
-              ),
-            ],
+        Expanded(
+          child: AsyncView<List<Map<String, dynamic>>>(
+            loading: _loading, error: _error, data: _users, onRetry: _load,
+            emptyTitle: 'No local users',
+            emptySubtitle: 'Create the first password-authenticated account.',
+            dataBuilder: _dataTable,
           ),
         ),
         if (_total > _pageSize)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              PaginationControls(
-                page: _page,
-                total: _total,
-                canGoBack: _page > 1 && !_loading,
-                canGoNext: _page * _pageSize < _total && !_loading,
-                onPrevious: () => _load(page: _page - 1),
-                onNext: () => _load(page: _page + 1),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                PaginationControls(
+                  page: _page,
+                  total: _total,
+                  canGoBack: _page > 1 && !_loading,
+                  canGoNext: _page * _pageSize < _total && !_loading,
+                  onPrevious: () => _load(page: _page - 1),
+                  onNext: () => _load(page: _page + 1),
+                ),
+              ],
+            ),
           ),
       ],
+    );
+  }
+
+  /// 列表单元格主显示名（display_name 优先，回退 username）。
+  String _display(Map<String, dynamic> user) {
+    final name = user['display_name']?.toString() ?? '';
+    return name.isNotEmpty ? name : user['username']?.toString() ?? '';
+  }
+
+  Widget _dataTable(List<Map<String, dynamic>> users) {
+    String uid(int i) => users[i]['id']?.toString() ?? '';
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: 760,
+      onRowTap: selecting ? (i) => toggleSelect(uid(i)) : null,
+      onRowLongPress: selecting ? null : (i) => toggleSelect(uid(i)),
+      columns: [
+        if (selecting)
+          AdminDataColumn(id: 'select', label: '', width: 44, builder: (context, i) => Checkbox(
+            value: selected.contains(uid(i)), onChanged: (_) => toggleSelect(uid(i)),
+          )),
+        AdminDataColumn(
+          id: 'user',
+          label: 'USER',
+          width: 300,
+          cardPrimary: true,
+          builder: (context, i) => Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              UserAvatar(name: uid(i), radius: 14),
+              const SizedBox(width: 8),
+              Flexible(child: TableCellText(_display(users[i]), bold: true, maxLines: 1)),
+            ],
+          ),
+        ),
+        AdminDataColumn(
+          id: 'username',
+          label: 'USERNAME',
+          width: 180,
+          builder: (context, i) {
+            // 与显示名相同时不重复渲染（保持单实例文本）。
+            final username = users[i]['username']?.toString() ?? '';
+            return TableCellText(username == _display(users[i]) ? '' : username, muted: true);
+          },
+        ),
+        AdminDataColumn(
+          id: 'email',
+          label: 'EMAIL',
+          builder: (context, i) => TableCellText(users[i]['email']?.toString() ?? '', muted: true),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 60,
+          builder: (context, i) {
+            final user = users[i];
+            return PopupMenuButton<String>(
+              enabled: !_mutating,
+              onSelected: (action) {
+                if (action == 'edit') _openForm(user);
+                if (action == 'delete') _delete(user);
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
+                PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
+              ],
+            );
+          },
+        ),
+      ],
+      itemCount: users.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
     );
   }
 }
 
 class _LocalUserDraft {
-  final String username;
-  final String email;
-  final String displayName;
-  final String password;
+  final String username, email, displayName, password;
 
   const _LocalUserDraft({
     required this.username,
@@ -387,52 +300,30 @@ class _LocalUserDraft {
     required this.password,
   });
 
-  Map<String, dynamic> get createBody => {
-    'username': username,
-    'email': email,
-    'display_name': displayName,
-    'password': password,
-  };
-
-  Map<String, dynamic> get updateBody => {
-    'email': email,
-    'display_name': displayName,
-  };
+  Map<String, dynamic> get createBody => {'username': username, 'email': email, 'display_name': displayName, 'password': password};
+  Map<String, dynamic> get updateBody => {'email': email, 'display_name': displayName};
 }
 
 class _LocalUserDialog extends StatefulWidget {
   final Map<String, dynamic>? existing;
-
   const _LocalUserDialog({this.existing});
-
   @override
   State<_LocalUserDialog> createState() => _LocalUserDialogState();
 }
 
 class _LocalUserDialogState extends State<_LocalUserDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameCtrl;
-  late final TextEditingController _emailCtrl;
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _passwordCtrl;
+  late final TextEditingController _usernameCtrl, _emailCtrl, _nameCtrl, _passwordCtrl;
 
   bool get _editing => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
-    _usernameCtrl = TextEditingController(
-      text: widget.existing?['username']?.toString() ?? '',
-    );
-    _emailCtrl = TextEditingController(
-      text: widget.existing?['email']?.toString() ?? '',
-    );
-    _nameCtrl = TextEditingController(
-      text:
-          widget.existing?['display_name']?.toString() ??
-          widget.existing?['name']?.toString() ??
-          '',
-    );
+    final existing = widget.existing;
+    _usernameCtrl = TextEditingController(text: existing?['username']?.toString() ?? '');
+    _emailCtrl = TextEditingController(text: existing?['email']?.toString() ?? '');
+    _nameCtrl = TextEditingController(text: existing?['display_name']?.toString() ?? existing?['name']?.toString() ?? '');
     _passwordCtrl = TextEditingController();
   }
 
@@ -445,18 +336,38 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
     super.dispose();
   }
 
+  /// 校验消息本地化：validator 返回目录键 → 渲染时按当前 locale 翻译。
+  String? _validate(String? Function(String?) rule, String? value) {
+    final message = rule(value);
+    return message == null ? null : context.tr(message);
+  }
+
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.pop(
-      context,
-      _LocalUserDraft(
-        username: _usernameCtrl.text.trim(),
-        email: _emailCtrl.text.trim(),
-        displayName: _nameCtrl.text.trim(),
-        password: _passwordCtrl.text,
-      ),
-    );
+    Navigator.pop(context, _LocalUserDraft(
+      username: _usernameCtrl.text.trim(), email: _emailCtrl.text.trim(),
+      displayName: _nameCtrl.text.trim(), password: _passwordCtrl.text,
+    ));
   }
+
+  Widget _field({
+    required TextEditingController controller,
+    required String label,
+    bool enabled = true,
+    bool obscure = false,
+    TextInputType? keyboard,
+    String? Function(String?)? validate,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: TextFormField(
+      controller: controller,
+      enabled: enabled,
+      obscureText: obscure,
+      keyboardType: keyboard,
+      decoration: InputDecoration(labelText: label.localized),
+      validator: validate,
+    ),
+  );
 
   @override
   Widget build(BuildContext context) => AlertDialog(
@@ -467,44 +378,17 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextFormField(
-              controller: _usernameCtrl,
-              enabled: !_editing,
-              decoration: InputDecoration(labelText: 'Username'.localized),
-              validator: validateSnaplinkLocalUsername,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _emailCtrl,
-              decoration: InputDecoration(labelText: 'Email'.localized),
-              keyboardType: TextInputType.emailAddress,
-              validator: validateSnaplinkLocalEmail,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _nameCtrl,
-              decoration: InputDecoration(labelText: 'Display name'.localized),
-            ),
-            if (!_editing) ...[
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _passwordCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: 'Initial password'.localized,
-                ),
-                validator: validateSnaplinkInitialPassword,
-              ),
-            ],
+            _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
+            _field(controller: _emailCtrl, label: 'Email', keyboard: TextInputType.emailAddress, validate: (v) => _validate(validateSnaplinkLocalEmail, v)),
+            _field(controller: _nameCtrl, label: 'Display name'),
+            if (!_editing)
+              _field(controller: _passwordCtrl, label: 'Initial password', obscure: true, validate: (v) => _validate(validateSnaplinkInitialPassword, v)),
           ],
         ),
       ),
     ),
     actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const LocalizedText('Cancel'),
-      ),
+      TextButton(onPressed: () => Navigator.pop(context), child: const LocalizedText('Cancel')),
       FilledButton(onPressed: _submit, child: const LocalizedText('Save')),
     ],
   );

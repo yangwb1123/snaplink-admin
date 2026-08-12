@@ -2,12 +2,14 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
+import '../admin_module_groups.dart';
 import 'scim_browser_widgets.dart';
 import 'scim_group_dialog.dart';
 import 'scim_models.dart';
@@ -38,6 +40,8 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   String? _error;
 
   String get _path => widget.kind.path;
+
+  Color get _accent => adminModuleIconColor('scim-directory');
 
   @override
   void initState() {
@@ -88,7 +92,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
         }
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load the directory.');
+      if (mounted) {
+        setState(() => _error = context.tr('Could not load the directory.'));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -216,7 +222,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load resource details.');
+      if (mounted) {
+        setState(
+          () => _error = context.tr('Could not load resource details.'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -256,7 +266,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) setState(() => _error = 'The SCIM operation failed.');
+      if (mounted) {
+        setState(
+          () => _error = context.tr('The SCIM operation failed.'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -276,13 +290,15 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           Row(
             children: [
               LocalizedText(
-                'SCIM ${widget.kind.collection}',
+                widget.kind == ScimResourceKind.users
+                    ? 'SCIM Users'
+                    : 'SCIM Groups',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const Spacer(),
               IconButton(
                 onPressed: _loading || _mutating ? null : _load,
-                icon: const Icon(Icons.refresh),
+                icon: Icon(Icons.refresh, color: _accent),
                 tooltip: 'Refresh'.localized,
               ),
               const SizedBox(width: 8),
@@ -323,18 +339,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
                             variant: EmptyStateVariant.empty,
                             title: 'No resources match this query.',
                           )
-                        : ListView.builder(
-                            itemCount: page.resources.length,
-                            itemBuilder: (context, index) {
-                              final resource = page.resources[index];
-                              return ScimResourceTile(
-                                kind: widget.kind,
-                                resource: resource,
-                                onTap: _mutating
-                                    ? () {}
-                                    : () => _showDetail(resource),
-                              );
-                            },
+                        : ScimResourceTable(
+                            kind: widget.kind,
+                            resources: page.resources,
+                            enabled: !_mutating,
+                            onOpen: _showDetail,
                           ),
                   ),
                   // 光标语义：page 传 null（无“Page null”胶囊），
@@ -372,7 +381,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     color: Theme.of(context).colorScheme.errorContainer,
     child: ListTile(
       leading: const Icon(Icons.error_outline),
-      title: LocalizedText(_error!),
+      title: Text(_error!),
       trailing: TextButton.icon(
         onPressed: _loading ? null : _load,
         icon: const Icon(Icons.refresh),
@@ -381,6 +390,8 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     ),
   );
 
-  String _errorMessage(SnaplinkAdminApiError error) =>
-      'SCIM request failed (${error.status}): ${error.toString()}';
+  String _errorMessage(SnaplinkAdminApiError error) => context.tr(
+    'SCIM request failed ({status}): {error}',
+    {'status': '${error.status}', 'error': error.toString()},
+  );
 }

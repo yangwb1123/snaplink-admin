@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -69,17 +70,20 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
       _validate();
     } on SnaplinkAdminApiError catch (error) {
       if (!mounted) return;
-      setState(() {
-        if (error.status == 404 || error.status == 501) {
-          _unavailable = true;
-        } else {
-          _error =
-              'Could not load bulk limits (${error.status}): '
-              '${error.toString()}';
-        }
-      });
+      if (error.status == 404 || error.status == 501) {
+        setState(() => _unavailable = true);
+      } else {
+        setState(
+          () => _error = context.tr(
+            'Could not load bulk limits ({status}): {error}',
+            {'status': '${error.status}', 'error': error.toString()},
+          ),
+        );
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load bulk limits.');
+      if (mounted) {
+        setState(() => _error = context.tr('Could not load bulk limits.'));
+      }
     } finally {
       if (mounted) setState(() => _loadingProfile = false);
     }
@@ -103,28 +107,31 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
     _controller.text = const JsonEncoder.withIndent('  ').convert(template);
   }
 
-  Future<void> _submit() async {
+  /// 执行前置检查：失败时返回已入目录的错误文案 key。
+  String? _guardError() {
     if (_outcomeUnknown) {
-      setState(
-        () => _error =
-            'Reconcile Users and Groups before authorizing another bulk '
-            'request.',
-      );
-      return;
+      return 'Reconcile Users and Groups before authorizing another bulk '
+          'request.';
     }
     if (_profile?.bulk != true) {
-      setState(
-        () => _error =
-            'Bulk execution is disabled until capability discovery succeeds.',
-      );
-      return;
+      return 'Bulk execution is disabled until capability discovery '
+          'succeeds.';
     }
     _validate();
     final preview = _preview;
     if (preview == null || !preview.isValid || preview.body == null) {
-      setState(() => _error = preview?.error ?? 'Valid bulk JSON is required.');
+      return 'Valid bulk JSON is required.';
+    }
+    return null;
+  }
+
+  Future<void> _submit() async {
+    final guard = _guardError();
+    if (guard != null) {
+      setState(() => _error = context.tr(guard));
       return;
     }
+    final preview = _preview!;
     final deletes = preview.methodCounts['DELETE'] ?? 0;
     final confirmed = await ConfirmDialog.show(
       context,
@@ -165,22 +172,28 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
         } else {
           _outcomeUnknown = unknown;
           _error = unknown
-              ? 'Bulk result is unknown (HTTP ${error.status}). Operations '
-                    'may have partially applied. Reconcile Users and Groups '
-                    'before acknowledging and sending another request.'
-              : 'Bulk was rejected (${error.status}): ${error.toString()}';
+              ? context.tr(
+                  'Bulk result is unknown (HTTP {status}). Operations '
+                  'may have partially applied. Reconcile Users and Groups '
+                  'before acknowledging and sending another request.',
+                  {'status': '${error.status}'},
+                )
+              : context.tr(
+                  'Bulk was rejected ({status}): {error}',
+                  {'status': '${error.status}', 'error': error.toString()},
+                );
         }
       });
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _outcomeUnknown = true;
-          _error =
-              'Bulk result is unknown because the response was not received. '
-              'Operations may have partially applied. Reconcile Users and '
-              'Groups before acknowledging and sending another request.';
-        });
-      }
+      if (!mounted) return;
+      setState(() {
+        _outcomeUnknown = true;
+        _error = context.tr(
+          'Bulk result is unknown because the response was not received. '
+          'Operations may have partially applied. Reconcile Users and '
+          'Groups before acknowledging and sending another request.',
+        );
+      });
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -201,7 +214,9 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
     if (!confirmed || !mounted) return;
     setState(() {
       _outcomeUnknown = false;
-      _error = 'Reconciliation acknowledged. Review the draft before sending.';
+      _error = context.tr(
+        'Reconciliation acknowledged. Review the draft before sending.',
+      );
     });
   }
 
@@ -241,22 +256,23 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
         ),
         const SizedBox(height: 8),
         LocalizedText(
-          'Bounded expert mode · max $_maxOperations operations · '
-          'max ${formatScimBytes(_maxPayload)}. POST operations require bulkId; '
-          'targets are limited to /Users and /Groups.',
+          'Bounded expert mode · max {maxOperations} operations · '
+          'max {maxPayload}. POST operations require bulkId; targets are '
+          'limited to /Users and /Groups.',
+          args: {
+            'maxOperations': '$_maxOperations',
+            'maxPayload': formatScimBytes(_maxPayload),
+          },
         ),
         const SizedBox(height: 12),
-        Card(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          child: const ListTile(
-            leading: Icon(Icons.security_outlined),
-            title: LocalizedText('Validate before execution'),
-            subtitle: LocalizedText(
+        _NoticeCard(
+          background: Theme.of(context).colorScheme.secondaryContainer,
+          icon: Icons.security_outlined,
+          title: 'Validate before execution',
+          subtitle:
               'Empty, malformed, oversized, recursive, or unsupported '
               'requests cannot be sent. Keep credentials and secrets out of '
               'the editor; the server returns per-operation status.',
-            ),
-          ),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -278,22 +294,12 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            ScimMetric(
-              label: 'Operations',
-              value: '${preview?.operationCount ?? 0}',
-            ),
-            ScimMetric(
-              label: 'Payload',
-              value: formatScimBytes(preview?.payloadBytes ?? 0),
-            ),
+            ScimMetric(label: 'Operations', value: '${preview?.operationCount ?? 0}'),
+            ScimMetric(label: 'Payload', value: formatScimBytes(preview?.payloadBytes ?? 0)),
             for (final entry in (preview?.methodCounts ?? const {}).entries)
               ScimMetric(label: entry.key, value: '${entry.value}'),
             FilledButton.icon(
-              onPressed:
-                  preview?.isValid == true &&
-                      !_submitting &&
-                      supported &&
-                      !_outcomeUnknown
+              onPressed: preview?.isValid == true && !_submitting && supported && !_outcomeUnknown
                   ? _submit
                   : null,
               icon: _submitting
@@ -309,43 +315,29 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
         if (!supported && !_loadingProfile && _error == null)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: LocalizedText(
-              'This service provider does not advertise Bulk.',
-            ),
+            child: LocalizedText('This service provider does not advertise Bulk.'),
           ),
         if (_outcomeUnknown)
-          Card(
-            color: Theme.of(context).colorScheme.errorContainer,
-            child: ListTile(
-              leading: const Icon(Icons.sync_problem_outlined),
-              title: const LocalizedText('Previous bulk outcome is unknown'),
-              subtitle: const LocalizedText(
-                'The retained request is locked until server state has been '
-                'reconciled.',
-              ),
-              trailing: TextButton(
-                onPressed: _acknowledgeReconciliation,
-                child: const LocalizedText('I reconciled server state'),
-              ),
-            ),
+          _NoticeCard(
+            icon: Icons.sync_problem_outlined,
+            title: 'Previous bulk outcome is unknown',
+            subtitle: 'The retained request is locked until server state has '
+                'been reconciled.',
+            trailing: TextButton(onPressed: _acknowledgeReconciliation, child: const LocalizedText('I reconciled server state')),
           ),
         if (_error != null)
-          Card(
-            color: Theme.of(context).colorScheme.errorContainer,
-            child: ListTile(
-              leading: const Icon(Icons.error_outline),
-              title: Text(_error!),
-              trailing: _profile == null && !_outcomeUnknown
-                  ? TextButton.icon(
-                      onPressed: _loadingProfile ? null : _loadProfile,
-                      icon: const Icon(Icons.refresh),
-                      label: const LocalizedText('Retry discovery'),
-                    )
-                  : null,
-            ),
+          _NoticeCard(
+            icon: Icons.error_outline,
+            title: _error!,
+            trailing: _profile == null && !_outcomeUnknown
+                ? TextButton.icon(
+                    onPressed: _loadingProfile ? null : _loadProfile,
+                    icon: const Icon(Icons.refresh),
+                    label: const LocalizedText('Retry discovery'),
+                  )
+                : null,
           ),
         if (_result != null) ...[
-          const SizedBox(height: 16),
           ScimBulkResultSummary(result: _result!),
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
@@ -375,4 +367,33 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
       ],
     );
   }
+}
+
+/// 批量面板的消息卡（安全提示 / 未知结果 / 错误），统一 ListTile 模板。
+/// 默认错误底色；`background` 可覆盖（如安全提示的 secondaryContainer）。
+class _NoticeCard extends StatelessWidget {
+  final Color? background;
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  const _NoticeCard({
+    this.background,
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) => Card(
+    color: background ?? Theme.of(context).colorScheme.errorContainer,
+    child: ListTile(
+      leading: Icon(icon),
+      title: LocalizedText(title),
+      subtitle: subtitle == null ? null : LocalizedText(subtitle!),
+      trailing: trailing,
+    ),
+  );
 }

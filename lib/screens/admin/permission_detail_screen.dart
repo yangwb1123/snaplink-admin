@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 
 /// Permission roles/assignments for a specific client.
@@ -33,20 +33,15 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   String? _error;
   bool _loading = true;
   int _tabIndex = 0;
-  late final void Function() _cancelPopState;
 
   static const _tabs = [
-    ('roles', 'Roles', Icons.shield),
-    ('assignments', 'Assignments', Icons.assignment),
+    ('roles', 'Roles', Icons.shield_outlined),
+    ('assignments', 'Assignments', Icons.assignment_outlined),
   ];
 
   @override
   void initState() {
     super.initState();
-    _handleRoute();
-    _cancelPopState = BrowserNavigation.listenToLocationChange(_onPopState);
-    _handleRoute();
-    _load();
     final route = AdminRoute.current();
     for (var i = 0; i < _tabs.length; i++) {
       if (_tabs[i].$1 == route.subresource) {
@@ -54,12 +49,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
         break;
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _cancelPopState();
-    super.dispose();
+    _load();
   }
 
   Future<void> _load() async {
@@ -99,73 +89,79 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: LocalizedText('Permissions: {widget_clientId}', args: {'widget_clientId': widget.clientId}),
-      leading: IconButton(
-        tooltip: 'Back'.localized,
+  Widget build(BuildContext context) {
+    final accent = adminModuleIconColor('permissions');
+    return Scaffold(
+      appBar: AppBar(
+        title: LocalizedText('Permissions: {widget_clientId}', args: {
+          'widget_clientId': widget.clientId,
+        }),
+        leading: IconButton(
+          tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),
-        onPressed: () => AdminRoute.go('permissions'),
+          onPressed: () => AdminRoute.go('permissions'),
+        ),
       ),
-    ),
-    body: _loading
-        ? const SkeletonListTile(itemCount: 6)
-        : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: AppColors.danger,
-                ),
-                const SizedBox(height: 16),
-                LocalizedText(
-                  'Failed to load',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+      body: _loading
+          ? const SkeletonListTile(itemCount: 6)
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: AppColors.danger,
+                  ),
+                  const SizedBox(height: 16),
+                  LocalizedText(
+                    'Failed to load',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh),
+                    label: const LocalizedText('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                AdminBreadcrumb(),
+                SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: _tabChips(accent),
+                  ),
                 ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const LocalizedText('Retry'),
-                ),
+                Expanded(child: _tabContent(context, accent)),
               ],
             ),
-          )
-        : Column(
-            children: [
-              AdminBreadcrumb(),
-              SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: _tabChips(),
-                ),
-              ),
-              Expanded(child: _tabContent(context)),
-            ],
-          ),
-  );
+    );
+  }
 
-  List<Widget> _tabChips() => [
+  List<Widget> _tabChips(Color accent) => [
     for (var i = 0; i < _tabs.length; i++)
       Padding(
         padding: const EdgeInsets.only(right: 8),
         child: ChoiceChip(
+          avatar: Icon(_tabs[i].$3, size: 16, color: accent),
           label: LocalizedText(_tabs[i].$2),
           selected: _tabIndex == i,
           onSelected: (_) => _selectTab(i, _tabs[i].$1),
@@ -173,81 +169,79 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       ),
   ];
 
-  Widget _tabContent(BuildContext context) {
-    if (_tabIndex == 0) return _rolesList(context);
-    return _assignmentList(context);
+  Widget _tabContent(BuildContext context, Color accent) {
+    if (_tabIndex == 0) return _rolesList(context, accent);
+    return _assignmentList(context, accent);
   }
 
-  Widget _rolesList(BuildContext context) {
+  Widget _rolesList(BuildContext context, Color accent) {
     final items = _roles?.values.first as List? ?? [];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
           ? [const EmptyState(compact: true, title: 'No roles defined')]
-          : items.map((r) => _roleCard(r)).toList(),
+          : items.map((r) => _roleCard(context, r, accent)).toList(),
     );
   }
 
-  Widget _roleCard(Map<String, dynamic> r) {
+  Widget _roleCard(BuildContext context, Map<String, dynamic> r, Color accent) {
+    final code = r['code']?.toString() ?? r['name']?.toString() ?? '';
+    final count = (r['permissions'] as List?)?.length ?? 0;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: const Icon(Icons.shield),
-        title: Text(
-          r['code']?.toString() ?? r['name']?.toString() ?? '',
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(Icons.shield_outlined, size: 20, color: accent),
         ),
-        subtitle: Text(r['description']?.toString() ?? ''),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (r['permissions'] != null)
-              Chip(
-                label: Text(
-                  '${(r['permissions'] as List?)?.length ?? 0} perms',
-                ),
-              ),
-          ],
+        title: Text(code),
+        subtitle: r['description']?.toString().isNotEmpty == true
+            ? Text(r['description'].toString())
+            : null,
+        trailing: Chip(
+          avatar: Icon(Icons.key_outlined, size: 14, color: accent),
+          label: LocalizedText('{n} permissions', args: {'n': count}),
+          visualDensity: VisualDensity.compact,
         ),
       ),
     );
   }
 
-  Widget _assignmentList(BuildContext context) {
+  Widget _assignmentList(BuildContext context, Color accent) {
     final items = _assignments?.values.first as List? ?? [];
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
           ? [const EmptyState(compact: true, title: 'No assignments')]
-          : items
-                .map(
-                  (a) => Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      leading: const Icon(Icons.assignment_ind),
-                      title: Text(a['role']?.toString() ?? ''),
-                      subtitle: LocalizedText(
-                        'Subject: {subject}',
-                        args: {
-                          'subject':
-                              a['subject'] ??
-                              a['user_id'] ??
-                              a['group_id'] ??
-                              '',
-                        },
-                      ),
-                    ),
-                  ),
-                )
-                .toList(),
+          : items.map((a) => _assignmentCard(context, a, accent)).toList(),
     );
   }
 
-  void _handleRoute() {
-    final route = AdminRoute.current();
-    if (route.module != 'permissions') return;
-  }
-
-  void _onPopState() {
-    if (mounted) _handleRoute();
+  Widget _assignmentCard(
+    BuildContext context,
+    Map<String, dynamic> a,
+    Color accent,
+  ) {
+    final role = a['role']?.toString() ?? a['role_id']?.toString() ?? '';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+          child: Icon(Icons.assignment_outlined, size: 20, color: accent),
+        ),
+        title: Text(role),
+        subtitle: LocalizedText(
+          'Subject: {subject}',
+          args: {
+            'subject':
+                a['subject'] ??
+                a['user_id'] ??
+                a['group_id'] ??
+                '',
+          },
+        ),
+      ),
+    );
   }
 }

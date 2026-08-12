@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -86,19 +87,19 @@ class ScimDirectoryTab extends StatelessWidget {
             tabs: [
               Tab(
                 icon: Icon(Icons.info_outline, color: accent),
-                text: 'Overview',
+                text: context.tr('Overview'),
               ),
               Tab(
                 icon: Icon(Icons.people_outline, color: accent),
-                text: 'Users',
+                text: context.tr('Users'),
               ),
               Tab(
                 icon: Icon(Icons.groups_outlined, color: accent),
-                text: 'Groups',
+                text: context.tr('Groups'),
               ),
               Tab(
                 icon: Icon(Icons.layers_outlined, color: accent),
-                text: 'Bulk',
+                text: context.tr('Bulk'),
               ),
             ],
           ),

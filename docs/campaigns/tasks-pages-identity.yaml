@@ -1,0 +1,133 @@
+# 逐页 UI 重构 — batch 1（identity 组：clients/users/local-users/scim/permissions/authz-checks）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial），每页完成后 operator 验证并提交，
+# 再推进下一页（"逐个一步一步"）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-identity.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-identity.log
+# 参考：docs/ui/admin-pages/audit.md（全站审计，含本组逐页发现）、
+#       docs/ui/pages/fix-identity.md（上一轮批量修复记录，避免重复劳动）
+
+tasks:
+- prompt: |
+    重构客户端页面。步骤：
+    1. 分析现有代码：lib/screens/admin/clients_tab.dart、
+       client_detail_screen.dart、client_detail_secret_card.dart、
+       client_form_dialog.dart、client_secret_lifecycle.dart —— 读完整
+       文件，梳理列表/详情/表单的结构、状态管理与渲染方式。
+    2. 对照可用组件（lib/widgets/：admin_data_table、status_chip、
+       empty_state、skeleton_list、search_filter_bar、paginated_list、
+       batch_action_bar、section_header、async_view、error_boundary、
+       key_metric_card 等）与组色（adminModuleIconColor('clients')），
+       结合 docs/ui/admin-pages/audit.md 中 clients 条目，列出本页可
+       改进点：模板化渲染、缺失状态、单色图标、硬编码颜色/文案。
+    3. 实施重构（只改上述 5 个文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染（不强行套用）；
+       - 图标按组色上色；loading/empty/error 三态齐全；
+       - 保持 API 契约、能力门控、路由、i18n、现有测试语义；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart
+       test/admin_dialogs_final_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/clients.md：分析摘要（现状结构）→
+       问题清单（severity+证据+建议组件）→ 修复映射（问题→改动）→
+       验证结果（命令输出）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/clients.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构用户页面。步骤：
+    1. 分析现有代码：lib/screens/admin/users_tab.dart、user_detail_screen.dart、
+       user_detail_widgets.dart、user_form_dialog.dart、
+       user_device_security_panel.dart、user_support_cards.dart —— 读完整
+       文件，梳理列表/详情/表单/支持操作的结构与渲染方式。
+    2. 对照可用组件与组色（adminModuleIconColor('users')），结合
+       docs/ui/admin-pages/audit.md 中 users 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；保持行为与测试语义；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_support_tabs_test.dart
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/users.md（同上结构）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/users.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_support_tabs_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构本地用户页面。步骤：
+    1. 分析现有代码：lib/screens/admin/local_users_tab.dart、
+       local_user_validation.dart —— 读完整文件，梳理列表/表单结构。
+    2. 对照可用组件与组色（adminModuleIconColor('local-users')），结合
+       docs/ui/admin-pages/audit.md 中 local-users 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；保持行为与测试语义；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/local-users.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/local-users.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 SCIM 目录页面。步骤：
+    1. 分析现有代码：lib/screens/admin/scim/（scim_directory_tab.dart、
+       scim_browser_widgets.dart、scim_discovery_panel.dart、
+       scim_resource_browser.dart、scim_bulk_panel.dart、
+       scim_group_dialog.dart、scim_user_dialog.dart、scim_patch_dialog.dart、
+       scim_resource_detail_dialog.dart）——读完整文件，梳理
+       User/Group 浏览、详情、PATCH、Bulk 的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('scim-directory')），结合
+       docs/ui/admin-pages/audit.md 中 scim-directory 条目，列出改进点。
+    3. 实施重构（只改 lib/screens/admin/scim/ 下文件 + lib/i18n/ EN/ZH
+       key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；SCIM 语义（If-Match 412、Bulk
+         逐项结果）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/scim_browser_widgets_test.dart（如存在）及
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/scim-directory.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/scim-directory.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构权限页面。步骤：
+    1. 分析现有代码：lib/screens/admin/permissions_tab.dart、
+       permissions_cards.dart、permissions_role_dialog.dart、
+       permissions_workspace_widgets.dart、permission_detail_screen.dart ——
+       读完整文件，梳理角色/分配/菜单/ReBAC 检查的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('permissions')），结合
+       docs/ui/admin-pages/audit.md 中 permissions 条目（上一轮已用
+       SkeletonListTile/组色，聚焦剩余问题），列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；权限语义与能力门控保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/permissions.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/permissions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构授权检查页面。步骤：
+    1. 分析现有代码：lib/screens/admin/authz_check_tab.dart —— 读完整
+       文件，梳理 ReBAC/WASM 检查工作台的结构与渲染方式。
+    2. 对照可用组件与组色（adminModuleIconColor('authz-checks')），结合
+       docs/ui/admin-pages/audit.md 中 authz-checks 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；检查语义（授权请求构造、结果
+         呈现）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/authz_check_tab_test.dart（如存在）及
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/authz-checks.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/authz-checks.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -1,38 +1,32 @@
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/admin_data_table.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/services/operator_persona.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
-import 'package:sso_admin/widgets/search_filter_bar.dart';
-import 'package:sso_admin/widgets/empty_state.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/services/operator_persona.dart';
 import 'admin_module_groups.dart';
 import 'admin_route.dart';
+import 'client_detail_secret_card.dart';
 import 'client_form_dialog.dart';
 import 'client_secret_lifecycle.dart';
 import 'list_metrics.dart';
-
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
-
-  /// Persona emphasis (default = no emphasis).
   final OperatorPersona persona;
-
-  const ClientsTab({
-    super.key,
-    required this.client,
-    this.persona = OperatorPersona.general,
-  });
+  const ClientsTab({super.key, required this.client, this.persona = OperatorPersona.general});
   @override
   State<ClientsTab> createState() => _ClientsTabState();
 }
@@ -41,14 +35,16 @@ class _ClientsTabState extends State<ClientsTab>
     with BatchSelection<ClientsTab>, PaginatedListMixin<ClientsTab> {
   final _filterCtrl = TextEditingController();
   late Future<SSOAdminListPage> _future;
-  var _pageSize = 100;
+  SSOAdminListPage? _lastPage;
+  var _pageSize = 100, _orderBy = 'id';
   String _sortColumn = 'id';
   bool _sortAscending = true;
-  var _orderBy = 'id';
-  var _expiringOnly = false;
-  var _statusFilter = 'all';
+  var _expiringOnly = false, _statusFilter = 'all';
   late final void Function() _cancelPopState;
-
+  /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
+  Color get _accent => adminModuleIconColor('clients');
+  @override
+  bool? get canGoNext => _lastPage?.nextPageToken != null;
   @override
   void initState() {
     super.initState();
@@ -58,87 +54,51 @@ class _ClientsTabState extends State<ClientsTab>
       if (mounted) _handleRoute();
     });
   }
-
-  void _handleRoute() {
-    final route = AdminRoute.current();
-    if (route.module != 'clients') return;
-    if (route.isNew) {
-      _openCreateDialog();
-    } else if (route.isEdit) {
-      _openEditForId(route.resourceId);
-    }
-  }
-
-  Future<void> _openEditForId(String id) async {
-    try {
-      final client = await widget.client.getClient(id);
-      if (!mounted) return;
-      await _openEditDialog(client);
-    } catch (e) {
-      debugPrint('clients_tab edit error: $e');
-    }
-    if (mounted) AdminRoute.go('clients');
-  }
-
   @override
   void dispose() {
     _cancelPopState();
     _filterCtrl.dispose();
     super.dispose();
   }
-
-  SSOAdminListPage? _lastPage;
-
-  @override
-  bool? get canGoNext => _lastPage?.nextPageToken != null;
-
+  void _handleRoute() {
+    final route = AdminRoute.current();
+    if (route.module != 'clients') return;
+    if (route.isNew) {
+      _openDialog();
+    } else if (route.isEdit) {
+      _openEditForId(route.resourceId);
+    }
+  }
+  Future<void> _openEditForId(String id) async {
+    try {
+      final client = await widget.client.getClient(id);
+      if (!mounted) return;
+      await _openDialog(existing: client);
+    } catch (e) {
+      debugPrint('clients_tab edit error: $e');
+    }
+    if (mounted) AdminRoute.go('clients');
+  }
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
       final items = await widget.client.listExpiringClients();
-      final page = SSOAdminListPage(
-        items: items,
-        nextPageToken: null,
-        totalSize: items.length,
-      );
-      _lastPage = page;
-      return page;
+      return _lastPage = SSOAdminListPage(items: items, nextPageToken: null, totalSize: items.length);
     }
-    final page = await widget.client.listClients(
+    final query = _statusFilter == 'all'
+        ? _filterCtrl.text
+        : _filterCtrl.text.trim().isEmpty
+        ? 'active:${_statusFilter == 'active'}'
+        : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}';
+    return _lastPage = await widget.client.listClients(
       pageToken: currentPageToken,
       pageSize: _pageSize,
       orderBy: _orderBy,
-      filter: _statusFilter == 'all'
-          ? _filterCtrl.text
-          : _filterCtrl.text.trim().isEmpty
-          ? 'active:${_statusFilter == 'active'}'
-          : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}',
+      filter: query,
     );
-    _lastPage = page;
-    return page;
   }
-
-  /// 导出当前页客户端为 CSV（剪贴板；公式注入防护）。
-  void _sortItems(List<Map<String, dynamic>> items) {
-    final column = _sortColumn;
-    items.sort((a, b) {
-      int cmp;
-      switch (column) {
-        case 'name':
-          cmp = (a['name']?.toString() ?? '').toLowerCase().compareTo(
-            (b['name']?.toString() ?? '').toLowerCase(),
-          );
-        case 'status':
-          cmp = (a['active'] == true ? 0 : 1) - (b['active'] == true ? 0 : 1);
-        default:
-          cmp = (a['id']?.toString() ?? '').compareTo(
-            b['id']?.toString() ?? '',
-          );
-      }
-      return _sortAscending ? cmp : -cmp;
-    });
-  }
-
+  /// 列头排序 → 服务端 orderBy（避免只排当前页）；status 列不可排。
   void _onSort(String column) {
+    if (column == 'status') return;
     setState(() {
       if (_sortColumn == column) {
         _sortAscending = !_sortAscending;
@@ -146,48 +106,34 @@ class _ClientsTabState extends State<ClientsTab>
         _sortColumn = column;
         _sortAscending = true;
       }
+      _orderBy = (_sortAscending ? '' : '-') + column;
     });
+    _reload();
   }
-
+  /// 导出当前页为 CSV（剪贴板；`= + - @` 前缀做公式注入防护）。
   Future<void> _exportCsv(List<Map<String, dynamic>> items) async {
     final sb = StringBuffer('id,name,active,strategy\n');
     for (final c in items) {
-      final cells = [
+      sb.writeln([
         c['id']?.toString() ?? '',
         c['name']?.toString() ?? '',
         c['active'] == true ? 'active' : 'inactive',
         c['tokenStrategy']?.toString() ?? c['token_strategy']?.toString() ?? '',
-      ].map(_csvCell).join(',');
-      sb.writeln(cells);
+      ].map(_csvCell).join(','));
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            'Exported ${items.length} clients as CSV to clipboard',
-          ),
-        ),
-      );
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText('Exported {n} clients as CSV to clipboard', args: {'n': items.length})));
   }
-
-  /// CSV 单元格转义 + 公式注入防护（= + - @ 前缀）。
   String _csvCell(String value) {
     var cell = value.replaceAll('"', '""');
-    if (cell.startsWith(RegExp(r'[=+\-@]'))) {
-      cell = "'$cell";
-    }
+    if (cell.startsWith(RegExp(r'[=+\-@]'))) cell = "'$cell";
     return '"$cell"';
   }
-
-  void _reload() {
-    setState(() {
-      resetPagination();
-      _future = _loadPage();
-    });
-  }
-
+  void _reload() => setState(() {
+    resetPagination();
+    _future = _loadPage();
+  });
   void _goPrevious() {
     if (!canGoBack) return;
     setState(() {
@@ -195,7 +141,6 @@ class _ClientsTabState extends State<ClientsTab>
       _future = _loadPage();
     });
   }
-
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken == null) return;
     setState(() {
@@ -203,626 +148,247 @@ class _ClientsTabState extends State<ClientsTab>
       _future = _loadPage();
     });
   }
-
-  Future<void> _openCreateDialog() async {
-    final created = await showDialog<bool>(
-      context: context,
-      builder: (_) => ClientFormDialog(client: widget.client),
-    );
-    if (created == true) _reload();
+  Future<void> _openDialog({Map<String, dynamic>? existing}) async {
+    final changed = await showDialog<bool>(context: context, builder: (_) => ClientFormDialog(client: widget.client, existing: existing));
+    if (changed == true) _reload();
     if (mounted) AdminRoute.go('clients');
   }
-
-  Future<void> _openEditDialog(Map<String, dynamic> c) async {
-    final updated = await showDialog<bool>(
-      context: context,
-      builder: (_) => ClientFormDialog(client: widget.client, existing: c),
-    );
-    if (updated == true) _reload();
-    if (mounted) AdminRoute.go('clients');
-  }
-
-  Future<void> _approveClient(Map<String, dynamic> c) async {
+  static const _copy = <String, (String, String, String, String?)>{
+    'approve': ('Approve client?', 'Approve {clientId} for use on this authorization server?', 'Approve', 'Client {id} approved.'),
+    'reject': ('Reject client?', 'Reject the pending client registration for {clientId}?', 'Reject', 'Client {id} rejected.'),
+    'delete': ('Delete client?', 'Delete {clientId} permanently? Existing tokens and integrations may stop working.', 'Delete permanently', null),
+  };
+  /// 单客户端动作公共骨架：确认（破坏性需输入 ID）→ 调用 → 报告 → 刷新。
+  Future<void> _clientAction(Map<String, dynamic> c, String kind) async {
     final id = c['id']?.toString() ?? '';
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Approve client?',
-      message: 'Approve $id for use on this authorization server?',
-      confirmLabel: 'Approve',
-    );
+    final (titleKey, msgKey, confirm, snack) = _copy[kind]!;
+    final destructive = kind != 'approve';
+    final confirmed = await ConfirmDialog.show(context, title: context.tr(titleKey), message: context.tr(msgKey, {'clientId': id}), confirmLabel: confirm, destructive: destructive, confirmText: destructive ? id : null);
     if (!confirmed) return;
     try {
-      await widget.client.approveClient(id);
+      await switch (kind) {
+        'approve' => widget.client.approveClient(id),
+        'reject' => widget.client.rejectClient(id),
+        _ => widget.client.deleteClient(id),
+      };
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText('Client {id} approved.', args: {'id': id}),
-        ),
-      );
+      if (snack != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(snack, args: {'id': id})));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
   }
-
-  /// 批量批准选中的客户端（interaction-patterns: 选择→确认→执行→明细报告）。
-  Future<void> _batchApprove() async {
-    await _runBatch('Approve', (id) => widget.client.approveClient(id));
+  Future<void> _rotateSecret(Map<String, dynamic> c) async {
+    final id = c['id']?.toString() ?? '';
+    final confirmed = await ConfirmDialog.show(context, title: context.tr('Rotate client secret?'), message: context.tr('The current secret for {clientId} remains valid for 24 hours. Update every integration with the new one-time value before that window closes.', {'clientId': id}), confirmLabel: 'Rotate secret', destructive: true, confirmText: id);
+    if (!confirmed) return;
+    try {
+      final rotation = await widget.client.rotateClientSecretWithPolicy(id);
+      if (!mounted) return;
+      final secret = rotation['secret']?.toString() ?? '';
+      if (secret.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('The secret was rotated, but its one-time value was not returned.')));
+        return;
+      }
+      await showRotatedClientSecret(context, secret, expiryLabel: clientSecretExpiryLabel(context, rotation));
+    } on SSOError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    }
   }
-
-  Future<void> _batchReject() async {
-    await _runBatch('Reject', (id) => widget.client.rejectClient(id));
-  }
-
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
-  Future<void> _runBatch(
-    String action,
-    Future<void> Function(String) run,
-  ) async {
+  Future<void> _runBatch(String action, Future<void> Function(String) run) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: '$action ${ids.length} clients?',
-      message:
-          'This will $action ${ids.length} selected clients in one operation.',
-      confirmLabel: action,
-    );
+    final approve = action == 'Approve';
+    final confirmed = await ConfirmDialog.show(context, title: context.tr(approve ? 'Approve {n} clients?' : 'Reject {n} clients?', {'n': ids.length}), message: context.tr(approve ? 'This will approve {n} selected clients in one operation.' : 'This will reject {n} selected clients in one operation.', {'n': ids.length}), confirmLabel: action);
     if (!confirmed) return;
-    final failures = <String>[];
-    var ok = 0;
-    final results = await Future.wait(
-      ids.map((id) async {
-        try {
-          await run(id);
-          return null;
-        } catch (e) {
-          return '$id: $e';
-        }
-      }),
-    );
-    for (final failure in results) {
-      if (failure == null) {
-        ok++;
-      } else {
-        failures.add(failure);
+    final results = await Future.wait(ids.map((id) async {
+      try {
+        await run(id);
+        return null;
+      } catch (e) {
+        return '$id: $e';
       }
-    }
+    }));
+    final failures = results.whereType<String>().toList();
+    final ok = ids.length - failures.length;
     if (!mounted) return;
     clearSelection();
     final message = failures.isEmpty
-        ? '$action completed for $ok of ${ids.length} clients.'
-        : '$action: $ok succeeded, ${failures.length} failed. '
-              '${failures.take(3).join('; ')}';
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: LocalizedText(message)));
+        ? context.tr('{action} completed for {n} of {total} clients.', {'action': action, 'n': ok, 'total': ids.length})
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': action, 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     _reload();
   }
-
-  /// 批量操作栏：已选数量 + 批量动作 + 退出选择。
-  /// 与 [BatchActionBar] 同一视觉语言（primaryContainer + checklist）；
-  /// 保留 Approve/Reject 双动作（BatchActionBar 仅支持单一删除动作，
-  /// 不适用客户端双动作语义），图标用身份组强调色。
+  /// 批量操作栏。BatchActionBar 仅支持单一删除动作，客户端需 Approve/Reject
+  /// 双动作 → 保留自定义实现（同一视觉语言），图标用身份组强调色。
   Widget _batchBar(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = adminModuleIconColor('clients');
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.checklist, size: 20, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
-          LocalizedText('{count} selected', args: {'count': selected.length}),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: _batchApprove,
-            icon: Icon(Icons.check_circle_outline, size: 18, color: accent),
-            label: const LocalizedText('Approve'),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: _batchReject,
-            icon: Icon(Icons.cancel_outlined, size: 18, color: accent),
-            label: const LocalizedText('Reject'),
-          ),
-          IconButton(
-            tooltip: 'Clear selection'.localized,
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: () => clearSelection(),
-          ),
-        ],
-      ),
+      decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
+      child: Row(children: [
+        Icon(Icons.checklist, size: 20, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        LocalizedText('{count} selected', args: {'count': selected.length}),
+        const Spacer(),
+        TextButton.icon(onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id)), icon: Icon(Icons.check_circle_outline, size: 18, color: _accent), label: const LocalizedText('Approve')),
+        const SizedBox(width: 4),
+        TextButton.icon(onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id)), icon: Icon(Icons.cancel_outlined, size: 18, color: _accent), label: const LocalizedText('Reject')),
+        IconButton(tooltip: 'Clear selection'.localized, icon: const Icon(Icons.close, size: 18), onPressed: () => clearSelection()),
+      ]),
     );
   }
-
-  Future<void> _rejectClient(Map<String, dynamic> c) async {
-    final id = c['id']?.toString() ?? '';
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Reject client?',
-      message: 'Reject the pending client registration for $id?',
-      confirmLabel: 'Reject',
-      destructive: true,
-      confirmText: id,
-    );
-    if (!confirmed) return;
-    try {
-      await widget.client.rejectClient(id);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText('Client {id} rejected.', args: {'id': id}),
-        ),
-      );
-      _reload();
-    } on SSOError catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
-  }
-
-  Future<void> _confirmDelete(Map<String, dynamic> c) async {
-    final id = c['id']?.toString() ?? '';
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Delete client?',
-      message:
-          'Delete $id permanently? Existing tokens and integrations may '
-          'stop working.',
-      confirmLabel: 'Delete permanently',
-      confirmText: id,
-      destructive: true,
-    );
-    if (!confirmed) return;
-    try {
-      await widget.client.deleteClient(id);
-      if (!mounted) return;
-      _reload();
-    } on SSOError catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
-  }
-
-  Future<void> _rotateSecret(Map<String, dynamic> c) async {
-    final id = c['id']?.toString() ?? '';
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Rotate client secret?',
-      message:
-          'The current secret for $id remains valid for 24 hours. Update every '
-          'integration with the new one-time value before that window closes.',
-      confirmLabel: 'Rotate secret',
-      confirmText: id,
-      destructive: true,
-    );
-    if (!confirmed) return;
-    Map<String, dynamic> rotation;
-    try {
-      rotation = await widget.client.rotateClientSecretWithPolicy(id);
-    } on SSOError catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-      return;
-    }
-    if (!mounted) return;
-    final secret = rotation['secret']?.toString() ?? '';
-    if (secret.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LocalizedText(
-            'The secret was rotated, but its one-time value was not returned.',
-          ),
-        ),
-      );
-      return;
-    }
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const LocalizedText('New client secret'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const LocalizedText('This secret will not be shown again.'),
-            LocalizedText(clientSecretExpiryLabel(rotation)),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: SelectableText(secret)),
-                IconButton(
-                  icon: const Icon(Icons.copy),
-                  tooltip: 'Copy to clipboard'.localized,
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: secret));
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: LocalizedText('Copied to clipboard'),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const LocalizedText('I have saved it'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
+
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).clients,
-          subtitle: 'Manage OAuth clients, secrets and expiring credentials.',
-          createTooltip: 'Create client',
-          onCreate: () => AdminRoute.go('clients', action: 'new'),
-          onRefresh: _reload,
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 280,
-                child: SearchFilterBar(
-                  labelText: 'Filter'.localized,
-                  controller: _filterCtrl,
-                  debounce: false,
-                  onSearchChanged: (_) {},
-                  onSubmitted: (_) => _reload(),
-                ),
-              ),
-              DropdownButton<String>(
-                value: _orderBy,
-                items: const [
-                  DropdownMenuItem(
-                    value: 'id',
-                    child: LocalizedText('ID ascending'),
-                  ),
-                  DropdownMenuItem(
-                    value: '-id',
-                    child: LocalizedText('ID descending'),
-                  ),
-                  DropdownMenuItem(
-                    value: 'name',
-                    child: LocalizedText('Name ascending'),
-                  ),
-                  DropdownMenuItem(
-                    value: '-name',
-                    child: LocalizedText('Name descending'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _orderBy = value);
-                  _reload();
-                },
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                tooltip: 'Export CSV'.localized,
-                icon: const Icon(Icons.file_download_outlined),
-                onPressed: _lastPage == null || _lastPage!.items.isEmpty
-                    ? null
-                    : () => _exportCsv(_lastPage!.items),
-              ),
-              StatusFilterDropdown(
-                value: _statusFilter,
-                options: const {
-                  'all': 'All statuses',
-                  'active': 'Active only',
-                  'inactive': 'Inactive only',
-                },
-                onChanged: (value) {
-                  setState(() => _statusFilter = value);
-                  _reload();
-                },
-              ),
-              DropdownButton<int>(
-                value: _pageSize,
-                items: const [
-                  DropdownMenuItem(
-                    value: 25,
-                    child: LocalizedText('25 per page'),
-                  ),
-                  DropdownMenuItem(
-                    value: 100,
-                    child: LocalizedText('100 per page'),
-                  ),
-                  DropdownMenuItem(
-                    value: 250,
-                    child: LocalizedText('250 per page'),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() => _pageSize = value);
-                  _reload();
-                },
-              ),
-              FilterChip(
-                label: const LocalizedText('Expiring within 30 days'),
-                selected: _expiringOnly,
-                onSelected: (value) {
-                  _expiringOnly = value;
-                  _reload();
-                },
-              ),
-            ],
-          ),
-        ),
+        AdminListHeader(title: AppStrings.of(context).clients, subtitle: 'Manage OAuth clients, secrets and expiring credentials.', createTooltip: 'Create client', onCreate: () => AdminRoute.go('clients', action: 'new'), onRefresh: _reload),
+        _filterBar(context),
         const SizedBox(height: 8),
         Expanded(
           child: FutureBuilder<SSOAdminListPage>(
             future: _future,
             builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
+              if (!snap.hasData) {
+                if (snap.hasError) return _errorState(snap.error!);
                 return const SkeletonListTile(itemCount: 6);
-              }
-              if (snap.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      LocalizedText(
-                        'Error: {detail}',
-                        args: {'detail': snap.error},
-                      ),
-                      const SizedBox(height: 12),
-                      FilledButton.tonal(
-                        onPressed: _reload,
-                        child: const LocalizedText('Retry'),
-                      ),
-                    ],
-                  ),
-                );
               }
               final page = snap.data!;
               final items = [...page.items];
-              _sortItems(items);
-              final metrics = ClientMetrics(
-                items: items,
-                totalSize: page.totalSize,
-                persona: widget.persona,
-              );
-              final list = items.isEmpty
-                  ? (_filterCtrl.text.isNotEmpty || _statusFilter != 'all')
-                        ? EmptyState(
-                            variant: EmptyStateVariant.noMatch,
-                            title: 'No clients',
-                            subtitle: 'No clients match the current filter.',
-                          )
-                        : EmptyState(
-                            icon: Icons.apps,
-                            title: 'No clients',
-                            subtitle:
-                                'Create your first client to get started.',
-                            actionLabel: 'Create client',
-                            onAction: () =>
-                                AdminRoute.go('clients', action: 'new'),
-                          )
-                  : AdminDataTable(
-                      scrollable: true,
-                      minWidth: 980,
-                      sortColumn: _sortColumn,
-                      sortAscending: _sortAscending,
-                      onSort: _onSort,
-                      onRowTap: selecting
-                          ? (i) =>
-                                toggleSelect(items[i]['id']?.toString() ?? '')
-                          : (i) => AdminRoute.go(
-                              'clients',
-                              resourceId: items[i]['id']?.toString() ?? '',
-                            ),
-                      onRowLongPress: selecting
-                          ? null
-                          : (i) =>
-                                toggleSelect(items[i]['id']?.toString() ?? ''),
-                      columns: [
-                        if (selecting)
-                          AdminDataColumn(
-                            id: 'select',
-                            label: '',
-                            width: 44,
-                            builder: (context, i) {
-                              final cid = items[i]['id']?.toString() ?? '';
-                              return Checkbox(
-                                value: selected.contains(cid),
-                                onChanged: (_) => setState(() {
-                                  if (!selected.remove(cid)) {
-                                    toggleSelect(cid);
-                                  }
-                                }),
-                              );
-                            },
-                          ),
-                        AdminDataColumn(
-                          id: 'id',
-                          label: 'CLIENT ID',
-                          width: 190,
-                          builder: (context, i) => CopyableCell(
-                            text: items[i]['id']?.toString() ?? '?',
-                            contextProvider: () => context,
-                            enabled: !selecting,
-                          ),
-                        ),
-                        AdminDataColumn(
-                          id: 'name',
-                          label: 'NAME',
-                          width: 180,
-                          builder: (context, i) => TableCellText(
-                            items[i]['name']?.toString() ?? '',
-                            bold: true,
-                            maxLines: 2,
-                          ),
-                        ),
-                        AdminDataColumn(
-                          id: 'status',
-                          label: 'STATUS',
-                          width: 160,
-                          builder: (context, i) {
-                            final active = items[i]['active'] == true;
-                            return active
-                                ? StatusChip.active()
-                                : StatusChip.inactive();
-                          },
-                        ),
-                        AdminDataColumn(
-                          id: 'strategy',
-                          label: 'TOKEN',
-                          width: 110,
-                          builder: (context, i) => TableCellText(
-                            items[i]['tokenStrategy']?.toString() ??
-                                items[i]['token_strategy']?.toString() ??
-                                '',
-                            muted: true,
-                          ),
-                        ),
-                        AdminDataColumn(
-                          id: 'expiry',
-                          label: 'SECRET',
-                          width: 170,
-                          builder: (context, i) => TableCellText(
-                            clientSecretExpiryLabel(items[i]),
-                            muted: true,
-                          ),
-                        ),
-                        AdminDataColumn(
-                          id: 'actions',
-                          label: '',
-                          width: 60,
-                          builder: (context, i) {
-                            final c = items[i];
-                            return PopupMenuButton<String>(
-                              onSelected: (value) {
-                                switch (value) {
-                                  case 'edit':
-                                    AdminRoute.go(
-                                      'clients',
-                                      action: 'edit',
-                                      resourceId: c['id']?.toString() ?? '',
-                                    );
-                                  case 'rotate':
-                                    _rotateSecret(c);
-                                  case 'approve':
-                                    _approveClient(c);
-                                  case 'reject':
-                                    _rejectClient(c);
-                                  case 'delete':
-                                    _confirmDelete(c);
-                                }
-                              },
-                              itemBuilder: (context) => const [
-                                PopupMenuItem(
-                                  value: 'edit',
-                                  child: LocalizedText('Edit'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'rotate',
-                                  child: LocalizedText('Rotate secret'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'approve',
-                                  child: LocalizedText('Approve'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'reject',
-                                  child: LocalizedText('Reject'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'delete',
-                                  child: LocalizedText('Delete'),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
-                      itemCount: items.length,
-                      rowBuilder: (context, i) => const SizedBox.shrink(),
-                    );
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxHeight < 380) {
-                    // Short viewport: the page scrolls; the table keeps its
-                    // own internal scroll area (no overflow).
-                    return SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          if (selecting) ...[
-                            _batchBar(context),
-                            const SizedBox(height: 8),
-                          ],
-                          metrics,
-                          SizedBox(height: 280, child: list),
-                          PaginationControls(
-                            page: currentPage,
-                            total: page.totalSize,
-                            canGoBack: canGoBack,
-                            canGoNext: page.nextPageToken != null,
-                            onPrevious: _goPrevious,
-                            onNext: () => _goNext(page),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-                  return Column(
-                    children: [
-                      if (selecting) ...[
-                        _batchBar(context),
-                        const SizedBox(height: 8),
-                      ],
-                      metrics,
-                      Expanded(child: list),
-                      PaginationControls(
-                        page: currentPage,
-                        total: page.totalSize,
-                        canGoBack: canGoBack,
-                        canGoNext: page.nextPageToken != null,
-                        onPrevious: _goPrevious,
-                        onNext: () => _goNext(page),
-                      ),
-                    ],
-                  );
-                },
-              );
+              return _listBody(context, page, items, ClientMetrics(items: items, totalSize: page.totalSize, persona: widget.persona));
             },
           ),
         ),
       ],
+    );
+  }
+  /// 带刷新语义的通用下拉（排序/每页条数共用）。
+  Widget _menu<T>(T value, List<DropdownMenuItem<T>> items, ValueChanged<T> onPicked) => DropdownButton<T>(value: value, items: items, onChanged: (v) {
+    if (v == null) return;
+    setState(() => onPicked(v));
+    _reload();
+  });
+  Widget _filterBar(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      SizedBox(width: 280, child: SearchFilterBar(labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false, onSearchChanged: (_) {}, onSubmitted: (_) => _reload())),
+      _menu<String>(_orderBy, const [
+        DropdownMenuItem(value: 'id', child: LocalizedText('ID ascending')),
+        DropdownMenuItem(value: '-id', child: LocalizedText('ID descending')),
+        DropdownMenuItem(value: 'name', child: LocalizedText('Name ascending')),
+        DropdownMenuItem(value: '-name', child: LocalizedText('Name descending')),
+      ], (v) => _orderBy = v),
+      IconButton(
+        tooltip: 'Export CSV'.localized,
+        icon: Icon(Icons.file_download_outlined, color: _accent),
+        onPressed: _lastPage == null || _lastPage!.items.isEmpty ? null : () => _exportCsv(_lastPage!.items),
+      ),
+      StatusFilterDropdown(value: _statusFilter, options: const {'all': 'All statuses', 'active': 'Active only', 'inactive': 'Inactive only'}, onChanged: (value) {
+        setState(() => _statusFilter = value);
+        _reload();
+      }),
+      _menu<int>(_pageSize, const [
+        DropdownMenuItem(value: 25, child: LocalizedText('25 per page')),
+        DropdownMenuItem(value: 100, child: LocalizedText('100 per page')),
+        DropdownMenuItem(value: 250, child: LocalizedText('250 per page')),
+      ], (v) => _pageSize = v),
+      FilterChip(label: const LocalizedText('Expiring within 30 days'), selected: _expiringOnly, onSelected: (value) {
+        _expiringOnly = value;
+        _reload();
+      }),
+    ]),
+  );
+  /// 加载失败三态之一：图标 + 标题 + 明细 + 重试（与 AsyncView 错误态同构）。
+  Widget _errorState(Object error) => Center(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+      const SizedBox(height: 16),
+      LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 8),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text('$error', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600))),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
+    ]),
+  );
+  Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
+    final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
+    final list = items.isEmpty
+        ? EmptyState(
+            variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+            icon: filtered ? null : Icons.apps,
+            title: 'No clients',
+            subtitle: filtered ? 'No clients match the current filter.' : 'Create your first client to get started.',
+            actionLabel: filtered ? null : 'Create client',
+            onAction: filtered ? null : () => AdminRoute.go('clients', action: 'new'),
+          )
+        : _dataTable(items);
+    final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final short = constraints.maxHeight < 380;
+        final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
+          metrics,
+          if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
+          pagination,
+        ]);
+        return short ? SingleChildScrollView(child: content) : content;
+      },
+    );
+  }
+
+  Widget _dataTable(List<Map<String, dynamic>> items) {
+    String cid(int i) => items[i]['id']?.toString() ?? '';
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: 980,
+      sortColumn: _sortColumn,
+      sortAscending: _sortAscending,
+      onSort: _onSort,
+      onRowTap: selecting ? (i) => toggleSelect(cid(i)) : (i) => AdminRoute.go('clients', resourceId: cid(i)),
+      onRowLongPress: selecting ? null : (i) => toggleSelect(cid(i)),
+      columns: [
+        if (selecting)
+          AdminDataColumn(id: 'select', label: '', width: 44, builder: (context, i) => Checkbox(
+            value: selected.contains(cid(i)),
+            onChanged: (_) {
+              if (!selected.remove(cid(i))) toggleSelect(cid(i));
+            },
+          )),
+        AdminDataColumn(id: 'id', label: 'CLIENT ID', width: 190, sortable: true, builder: (context, i) => CopyableCell(text: cid(i), contextProvider: () => context, enabled: !selecting)),
+        AdminDataColumn(id: 'name', label: 'NAME', width: 180, sortable: true, builder: (context, i) => TableCellText(items[i]['name']?.toString() ?? '', bold: true, maxLines: 2)),
+        AdminDataColumn(id: 'status', label: 'STATUS', width: 160, builder: (context, i) => items[i]['active'] == true ? StatusChip.active() : StatusChip.inactive()),
+        AdminDataColumn(id: 'strategy', label: 'TOKEN', width: 110, builder: (context, i) => TableCellText(items[i]['tokenStrategy']?.toString() ?? items[i]['token_strategy']?.toString() ?? '', muted: true)),
+        AdminDataColumn(id: 'expiry', label: 'SECRET', width: 170, builder: (context, i) => TableCellText(clientSecretExpiryLabel(context, items[i]), muted: true)),
+        AdminDataColumn(id: 'actions', label: '', width: 60, builder: (context, i) {
+          final c = items[i];
+          return PopupMenuButton<String>(
+            onSelected: (value) => switch (value) {
+              'edit' => AdminRoute.go('clients', action: 'edit', resourceId: c['id']?.toString() ?? ''),
+              'rotate' => _rotateSecret(c),
+              'approve' => _clientAction(c, 'approve'),
+              'reject' => _clientAction(c, 'reject'),
+              'delete' => _clientAction(c, 'delete'),
+              _ => null,
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
+              PopupMenuItem(value: 'rotate', child: LocalizedText('Rotate secret')),
+              PopupMenuItem(value: 'approve', child: LocalizedText('Approve')),
+              PopupMenuItem(value: 'reject', child: LocalizedText('Reject')),
+              PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
+            ],
+          );
+        }),
+      ],
+      itemCount: items.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
     );
   }
 }

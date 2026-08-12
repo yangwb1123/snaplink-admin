@@ -1,3 +1,9 @@
+/// Local-user form validators (username / email / initial password).
+///
+/// Pure rules returning catalog keys — the create/edit dialog renders them
+/// through `context.tr` so zh users get translated validation copy.
+library;
+
 String? validateSnaplinkLocalUsername(String? value) {
   final username = value?.trim() ?? '';
   if (username.length < 3 || username.length > 50) {

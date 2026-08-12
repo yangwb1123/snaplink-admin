@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -7,6 +8,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'user_device_security_panel.dart';
 import 'user_detail_widgets.dart';
@@ -76,6 +78,8 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     ),
   ];
 
+  /// 模块强调色（identity 组 indigo-violet）。
+  Color get _accent => adminModuleIconColor('users');
   /// Tabs backed by a runtime-inventory endpoint; while the inventory is
   /// still loading (empty) every tab stays visible.
   List<(String, String, IconData)> get _tabs =>
@@ -106,10 +110,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     final route = AdminRoute.current();
     if (route.resourceId != widget.userId) return;
     for (var i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].$1 == route.subresource) {
-        setState(() => _tabIndex = i);
-        return;
-      }
+      if (_tabs[i].$1 == route.subresource) setState(() => _tabIndex = i);
     }
   }
 
@@ -126,15 +127,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     try {
       final user = await widget.client.getUser(widget.userId);
       final uid = Uri.encodeComponent(widget.userId);
-      // 各 tab 数据端点并行加载（Future.wait，_optionalGet 内部容错）。
+      // 各 tab 端点并行加载（Future.wait，_optionalGet 内部容错）。
       final tabFutures = <String, Future<Map<String, dynamic>>>{};
       for (final tab in _tabs) {
         if (tab.$1 == 'device-security') continue; // self-loading panel
         final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        tabFutures[tab.$1] = _optionalGet(
-          tab.$1,
-          spec.$5.replaceAll(':id', uid),
-        );
+        tabFutures[tab.$1] = _optionalGet(tab.$1, spec.$5.replaceAll(':id', uid));
       }
       final tabResults = await Future.wait(tabFutures.values);
       final sections = <String, Map<String, dynamic>>{
@@ -159,7 +157,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       }
     }
   }
-
   Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
     try {
       final result = await widget.api.get(path, forceRefresh: true);
@@ -170,7 +167,6 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       return <String, dynamic>{};
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -242,14 +238,13 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       Expanded(child: _tabContent(context)),
     ],
   );
-
   /// Tab label with count suffix ONLY when the count is > 0 — count ≤ 0
   /// renders the bare label (exact-match pins at
-  /// user_detail_optional_resources_test.dart:71-72 stay green; '—' is
-  /// never used as a suffix).
+  /// user_detail_optional_resources_test.dart:71-72 stay green).
   String _tabLabel(int index) {
+    final label = context.tr(_tabs[index].$2);
     final count = _countForTab(index);
-    return count > 0 ? '${_tabs[index].$2}  ($count)' : _tabs[index].$2;
+    return count > 0 ? '$label  ($count)' : label;
   }
 
   int _countForTab(int index) {
@@ -272,9 +267,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       case 'sessions':
         return _optionalSection(
           'sessions',
-          UserSessionsView(
-            sessions: _sessions?['sessions'] as List? ?? const [],
-          ),
+          UserSessionsView(sessions: _sessions?['sessions'] as List? ?? const []),
         );
       case 'consents':
         return _optionalSection(
@@ -319,7 +312,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.info_outline, size: 40),
+            Icon(Icons.info_outline, size: 40, color: _accent),
             const SizedBox(height: 12),
             LocalizedText('This user resource is unavailable.'),
             const SizedBox(height: 8),

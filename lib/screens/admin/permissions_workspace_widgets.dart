@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'admin_module_groups.dart';
+
+/// 权限模块组色（identity → indigo-violet）。
+Color _accent() => adminModuleIconColor('permissions');
 
 class PermissionsClientSelector extends StatelessWidget {
   final TextEditingController controller;
@@ -18,65 +22,43 @@ class PermissionsClientSelector extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      SizedBox(
-        width: 300,
-        child: TextField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: 'Client ID'.localized,
-            hintText: 'Enter client ID and press Search'.localized,
-          ),
-          onSubmitted: (_) => onSubmitted(),
-        ),
-      ),
-      const SizedBox(width: 8),
-      ElevatedButton(
-        onPressed: loading ? null : onSearch,
-        child: const LocalizedText('Search'),
-      ),
-      if (clientId case final value?) ...[
-        const SizedBox(width: 8),
-        Text(value, style: Theme.of(context).textTheme.titleMedium),
-      ],
-    ],
-  );
-}
-
-class PermissionSectionSelector extends StatelessWidget {
-  final String selectedSection;
-  final ValueChanged<String> onSelected;
-
-  const PermissionSectionSelector({
-    super.key,
-    required this.selectedSection,
-    required this.onSelected,
-  });
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    height: 36,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
+  Widget build(BuildContext context) {
+    final accent = _accent();
+    return Row(
       children: [
-        for (final section in const [
-          ('all', 'All'),
-          ('roles', 'Roles'),
-          ('assignments', 'Assignments'),
-          ('menus', 'Menus'),
-        ])
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(section.$2),
-              selected: selectedSection == section.$1,
-              onSelected: (_) => onSelected(section.$1),
+        SizedBox(
+          width: 300,
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              labelText: 'Client ID'.localized,
+              hintText: 'Enter client ID and press Search'.localized,
+              prefixIcon: Icon(
+                Icons.business_outlined,
+                size: 18,
+                color: accent,
+              ),
             ),
+            onSubmitted: (_) => onSubmitted(),
           ),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          onPressed: loading ? null : onSearch,
+          icon: const Icon(Icons.search, size: 18),
+          label: const LocalizedText('Search'),
+        ),
+        if (clientId case final value?) ...[
+          const SizedBox(width: 12),
+          Chip(
+            avatar: Icon(Icons.check_circle, size: 16, color: accent),
+            label: Text(value),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ],
-    ),
-  );
+    );
+  }
 }
 
 class PermissionMenusCard extends StatelessWidget {
@@ -92,30 +74,52 @@ class PermissionMenusCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LocalizedText(
-            'Navigation tree (JSON)',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: controller,
-            decoration: InputDecoration(border: OutlineInputBorder()),
-            maxLines: 6,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          ),
-          const SizedBox(height: 12),
-          FilledButton(
-            onPressed: mutating ? null : onSave,
-            child: const LocalizedText('Save menus'),
-          ),
-        ],
+  Widget build(BuildContext context) {
+    final accent = _accent();
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
+                  child: Icon(Icons.account_tree_outlined, size: 18, color: accent),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: LocalizedText(
+                    'Navigation tree (JSON)',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                border: const OutlineInputBorder(),
+                labelText: 'Menu tree'.localized,
+              ),
+              maxLines: 6,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: mutating ? null : onSave,
+              icon: const Icon(Icons.save_outlined, size: 18),
+              label: const LocalizedText('Save menus'),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

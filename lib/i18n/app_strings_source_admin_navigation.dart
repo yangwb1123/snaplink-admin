@@ -6,6 +6,7 @@ const appAdminNavigationSourceZh = <String, String>{
   'System': '系统',
 
   'Users': '用户',
+  'Groups': '组',
   'Local Users': '本地用户',
   'SCIM Directory': 'SCIM 目录',
   'Clients': '客户端',
@@ -28,6 +29,7 @@ const appAdminNavigationSourceZh = <String, String>{
   'DR Mode': '灾难恢复模式',
   'User Support': '用户支持',
   'Device Security': '设备安全',
+  'Device security': '设备安全',
   'Live Activity': '实时活动',
   'Operations': '操作',
   'AuthZ Checks': '授权检查',

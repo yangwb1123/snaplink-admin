@@ -82,7 +82,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
           !uri.hasScheme ||
           uri.fragment.isNotEmpty ||
           uri.userInfo.isNotEmpty) {
-        return 'Invalid redirect URI: $raw';
+        return 'Invalid redirect URI: {uri}'.localized.replaceFirst('{uri}', raw);
       }
     }
     return null;
@@ -171,7 +171,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                 enabled: !widget.isEdit,
                 decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
               ),
               const SizedBox(height: 8),
               TextFormField(
@@ -190,7 +190,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                 controller: _nameController,
                 decoration: InputDecoration(labelText: 'Name'.localized),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+                    (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
               ),
               const SizedBox(height: 8),
               TextFormField(

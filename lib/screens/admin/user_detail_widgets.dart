@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+
+/// 模块强调色（identity 组 indigo-violet）：详情头部与子资源图标统一按组色上色。
+Color _userAccent() => adminModuleIconColor('users');
 
 class UserDetailHeader extends StatelessWidget {
   final Map<String, dynamic>? user;
@@ -14,7 +21,15 @@ class UserDetailHeader extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          const Icon(Icons.person, size: 48),
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: _userAccent().withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(Icons.person, size: 32, color: _userAccent()),
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
@@ -24,7 +39,10 @@ class UserDetailHeader extends StatelessWidget {
                   user?['id']?.toString() ?? '',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
-                LocalizedText('Provider: {provider}', args: {'provider': user?['provider'] ?? ''}),
+                LocalizedText(
+                  'Provider: {provider}',
+                  args: {'provider': user?['provider'] ?? ''},
+                ),
                 LocalizedText(
                   'External ID: {external_id}',
                   args: {
@@ -74,42 +92,64 @@ class UserDetailTabBar extends StatelessWidget {
   );
 }
 
+/// 会话列表：空态用 EmptyState，数据用 AdminDataTable(compact)。
 class UserSessionsView extends StatelessWidget {
   final List<dynamic> sessions;
 
   const UserSessionsView({super.key, required this.sessions});
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: sessions.isEmpty
-        ? [const LocalizedText('No active sessions')]
-        : sessions
-              .map(
-                (session) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.devices),
-                    title: Text(session['id']?.toString() ?? ''),
-                    subtitle: LocalizedText(
-                      'IP: {address}  UA: {agent}',
-                      args: {
-                        'address': session['ip'] ?? '',
-                        'agent': _truncatedUserAgent(session),
-                      },
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-  );
+  Widget build(BuildContext context) {
+    if (sessions.isEmpty) {
+      return const EmptyState(
+        variant: EmptyStateVariant.empty,
+        icon: Icons.devices,
+        title: 'No active sessions',
+        compact: true,
+      );
+    }
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: 560,
+      density: TableDensity.compact,
+      columns: [
+        AdminDataColumn(
+          id: 'session',
+          label: 'SESSION',
+          width: 240,
+          cardPrimary: true,
+          builder: (context, i) => TableCellText(
+            sessions[i]['id']?.toString() ?? '',
+            bold: true,
+            maxLines: 1,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'context',
+          label: 'CONTEXT',
+          builder: (context, i) => LocalizedText(
+            'IP: {address}  UA: {agent}',
+            args: {
+              'address': sessions[i]['ip'] ?? '',
+              'agent': _truncatedUserAgent(sessions[i]),
+            },
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+      itemCount: sessions.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
+    );
+  }
 
   static String _truncatedUserAgent(dynamic session) {
     final userAgent = session['user_agent']?.toString() ?? '';
-    return userAgent.substring(0, userAgent.length.clamp(0, 80));
+    return userAgent.length <= 80 ? userAgent : userAgent.substring(0, 80);
   }
 }
 
+/// 授权同意列表：空态 + AdminDataTable + 撤销动作。
 class UserConsentsView extends StatelessWidget {
   final List<dynamic> consents;
   final bool mutating;
@@ -123,38 +163,60 @@ class UserConsentsView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: consents.isEmpty
-        ? [const LocalizedText('No consents granted')]
-        : consents
-              .map(
-                (consent) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.checklist),
-                    title: Text(consent['client_id']?.toString() ?? ''),
-                    subtitle: Text(
-                      (consent['scopes'] as List?)?.join(', ') ?? '',
-                    ),
-                    trailing: TextButton(
-                      onPressed: mutating
-                          ? null
-                          : () => onRevoke(
-                              consent['client_id']?.toString() ?? '',
-                            ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                      ),
-                      child: const LocalizedText('Revoke'),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-  );
+  Widget build(BuildContext context) {
+    if (consents.isEmpty) {
+      return const EmptyState(
+        variant: EmptyStateVariant.empty,
+        icon: Icons.checklist,
+        title: 'No consents granted',
+        compact: true,
+      );
+    }
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: 560,
+      density: TableDensity.compact,
+      columns: [
+        AdminDataColumn(
+          id: 'client',
+          label: 'CLIENT',
+          width: 240,
+          cardPrimary: true,
+          builder: (context, i) => TableCellText(
+            consents[i]['client_id']?.toString() ?? '',
+            bold: true,
+            maxLines: 1,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'scopes',
+          label: 'SCOPES',
+          builder: (context, i) => TableCellText(
+            (consents[i]['scopes'] as List?)?.join(', ') ?? '',
+            muted: true,
+            maxLines: 2,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 100,
+          builder: (context, i) => TextButton(
+            onPressed: mutating
+                ? null
+                : () => onRevoke(consents[i]['client_id']?.toString() ?? ''),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const LocalizedText('Revoke'),
+          ),
+        ),
+      ],
+      itemCount: consents.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
+    );
+  }
 }
 
+/// MFA 因素列表：空态 + AdminDataTable + 移除动作。
 class UserMfaView extends StatelessWidget {
   final List<dynamic> factors;
   final bool mutating;
@@ -168,39 +230,59 @@ class UserMfaView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: factors.isEmpty
-        ? [const LocalizedText('No MFA factors registered')]
-        : factors
-              .map(
-                (factor) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.security),
-                    title: Text(
-                      factor['label']?.toString() ??
-                          factor['method']?.toString() ??
-                          '',
-                    ),
-                    subtitle: LocalizedText(
-                      'Method: {method}',
-                      args: {'method': factor['method'] ?? ''},
-                    ),
-                    trailing: TextButton(
-                      onPressed: mutating
-                          ? null
-                          : () => onRemove(factor['id']?.toString() ?? ''),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                      ),
-                      child: const LocalizedText('Remove'),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
-  );
+  Widget build(BuildContext context) {
+    if (factors.isEmpty) {
+      return const EmptyState(
+        variant: EmptyStateVariant.empty,
+        icon: Icons.security,
+        title: 'No MFA factors registered',
+        compact: true,
+      );
+    }
+    return AdminDataTable(
+      scrollable: true,
+      minWidth: 520,
+      density: TableDensity.compact,
+      columns: [
+        AdminDataColumn(
+          id: 'factor',
+          label: 'FACTOR',
+          width: 220,
+          cardPrimary: true,
+          builder: (context, i) => TableCellText(
+            factors[i]['label']?.toString() ??
+                factors[i]['method']?.toString() ??
+                '',
+            bold: true,
+            maxLines: 1,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'method',
+          label: 'METHOD',
+          width: 160,
+          builder: (context, i) => TableCellText(
+            factors[i]['method']?.toString() ?? '',
+            muted: true,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 110,
+          builder: (context, i) => TextButton(
+            onPressed: mutating
+                ? null
+                : () => onRemove(factors[i]['id']?.toString() ?? ''),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const LocalizedText('Remove'),
+          ),
+        ),
+      ],
+      itemCount: factors.length,
+      rowBuilder: (context, i) => const SizedBox.shrink(),
+    );
+  }
 }
 
 class UserLifecycleView extends StatelessWidget {
@@ -232,13 +314,15 @@ class UserLifecycleView extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                const Icon(Icons.route, size: 48, color: AppColors.accentBlue),
+                Icon(Icons.route, size: 48, color: _userAccent()),
                 const SizedBox(height: 8),
                 LocalizedText(
                   'Current state: {state}',
                   args: {'state': state},
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
+                const SizedBox(height: 8),
+                StatusChip.info(label: state),
                 if (transitions.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   const LocalizedText('Allowed transitions:'),

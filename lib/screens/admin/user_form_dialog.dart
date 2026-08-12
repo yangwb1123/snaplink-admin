@@ -114,18 +114,22 @@ class _UserFormDialogState extends State<UserFormDialog> {
               TextFormField(
                 controller: _idController,
                 enabled: !_isEditing,
+                autofocus: !_isEditing,
                 decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _externalIdController,
                 decoration: InputDecoration(labelText: 'External ID'.localized),
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _providerController,
                 decoration: InputDecoration(labelText: 'Provider'.localized),
               ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _attributesController,
                 decoration: InputDecoration(

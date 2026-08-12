@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'admin_module_groups.dart';
 
 class PermissionsRoleDraft {
   final String code;
@@ -87,52 +89,77 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: LocalizedText(_editing ? 'Edit role' : 'Create role'),
-    content: SizedBox(
-      width: 480,
-      child: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _codeCtrl,
-                enabled: !_editing,
-                decoration: InputDecoration(labelText: 'Role code'.localized),
-                validator: (value) =>
-                    value == null || value.trim().isEmpty ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: InputDecoration(labelText: 'Name'.localized),
-              ),
-              TextFormField(
-                controller: _descriptionCtrl,
-                decoration: InputDecoration(labelText: 'Description'.localized),
-                maxLines: 2,
-              ),
-              TextFormField(
-                controller: _permissionsCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Permissions'.localized,
-                  helperText: 'Comma or line separated'.localized,
+  Widget build(BuildContext context) {
+    final accent = adminModuleIconColor('permissions');
+    return AlertDialog(
+      title: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            child: Icon(Icons.shield_outlined, size: 18, color: accent),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: LocalizedText(_editing ? 'Edit role' : 'Create role'),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _codeCtrl,
+                  enabled: !_editing,
+                  autofocus: !_editing,
+                  decoration: InputDecoration(
+                    labelText: 'Role code'.localized,
+                  ),
+                  validator: (value) => value == null || value.trim().isEmpty
+                      ? context.tr('Required')
+                      : null,
                 ),
-                minLines: 2,
-                maxLines: 5,
-              ),
-            ],
+                TextFormField(
+                  controller: _nameCtrl,
+                  decoration: InputDecoration(labelText: 'Name'.localized),
+                ),
+                TextFormField(
+                  controller: _descriptionCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Description'.localized,
+                  ),
+                  maxLines: 2,
+                ),
+                TextFormField(
+                  controller: _permissionsCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Permissions'.localized,
+                    helperText: 'Comma or line separated'.localized,
+                  ),
+                  minLines: 2,
+                  maxLines: 5,
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const LocalizedText('Cancel'),
-      ),
-      FilledButton(onPressed: _submit, child: const LocalizedText('Continue')),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const LocalizedText('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const LocalizedText('Continue'),
+        ),
+      ],
+    );
+  }
 }
+

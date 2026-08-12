@@ -4,7 +4,10 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
+import '../admin_module_groups.dart';
 import 'scim_browser_widgets.dart';
 import 'scim_models.dart';
 
@@ -23,6 +26,8 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
   String? _error;
   bool _loading = false;
   bool _unavailable = false;
+
+  Color get _accent => adminModuleIconColor('scim-directory');
 
   @override
   void initState() {
@@ -56,11 +61,16 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
         if (error.status == 404 || error.status == 501) {
           _unavailable = true;
         } else {
-          _error = 'Discovery failed (${error.status}): ${error.toString()}';
+          _error = context.tr(
+            'SCIM request failed ({status}): {error}',
+            {'status': '${error.status}', 'error': error.toString()},
+          );
         }
       });
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load SCIM discovery.');
+      if (mounted) {
+        setState(() => _error = context.tr('Could not load SCIM discovery.'));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -70,16 +80,19 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
   Widget build(BuildContext context) {
     if (_unavailable) return ScimUnavailable(onRetry: _load);
     if (_loading && _profile == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: SkeletonListTile(itemCount: 4),
+      );
     }
     if (_error != null && _profile == null) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.error_outline, size: 48),
+            const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
             const SizedBox(height: 8),
-            LocalizedText(_error!, textAlign: TextAlign.center),
+            Text(_error!, textAlign: TextAlign.center),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _load,
@@ -95,19 +108,13 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            LocalizedText(
-              'Provider capabilities',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh discovery'.localized,
-            ),
-          ],
+        SectionHeader(
+          'Provider capabilities',
+          action: IconButton(
+            onPressed: _loading ? null : _load,
+            icon: Icon(Icons.refresh, color: _accent),
+            tooltip: 'Refresh discovery'.localized,
+          ),
         ),
         const SizedBox(height: 8),
         LayoutBuilder(
@@ -201,10 +208,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           ),
         ],
         const SizedBox(height: 20),
-        LocalizedText(
-          'Implemented schemas',
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+        SectionHeader('Implemented schemas'),
         const SizedBox(height: 8),
         Card(
           child: ListTile(
@@ -247,6 +251,7 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
           schema['name'] == 'Group'
               ? Icons.groups_outlined
               : Icons.person_outline,
+          color: _accent,
         ),
         title: Text(schema['name']?.toString() ?? context.tr('Schema')),
         subtitle: Text(
@@ -304,7 +309,9 @@ class _FeatureCard extends StatelessWidget {
     child: ListTile(
       leading: Icon(
         supported ? Icons.check_circle_outline : Icons.cancel_outlined,
-        color: supported ? AppColors.success : Colors.grey,
+        color: supported
+            ? AppColors.success
+            : Theme.of(context).colorScheme.outline,
       ),
       title: LocalizedText(title),
       subtitle: LocalizedText(supported ? detail : 'Not supported'),

@@ -62,6 +62,8 @@ const appAdminDynamicSourceZh = <String, String>{
   'Reject {action}? It will never be applied.': '拒绝“{action}”？它将永远不会执行。',
   'Reject the pending client registration for {clientId}?':
       '拒绝客户端 {clientId} 的待处理注册？',
+  'The current secret for {clientId} remains valid for 24 hours. Update every integration with the new one-time value before that window closes.':
+      '{clientId} 的当前密钥在 24 小时内仍然有效。请在该窗口关闭前使用新的一次性值更新所有集成。',
   'Resend failed: {error}': '重新发送失败：{error}',
   'Restore snapshot {snapshotId}': '恢复快照 {snapshotId}',
   'Revoke {count} matching devices?': '撤销 {count} 个匹配设备？',

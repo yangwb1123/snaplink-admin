@@ -15,6 +15,9 @@ const appAdminFeatureSourceZh = <String, String>{
       '创建经过审计且有时间限制的用户账户紧急访问。',
   'Create or replace connection': '创建或替换连接',
   'Data-subject request': '数据主体请求',
+  'Client-scoped roles, assignments and navigation menus.':
+      '客户端范围内的角色、分配与导航菜单。',
+  'Could not load permission data.': '无法加载权限数据。',
   'Domain added.': '域名已添加。',
   'Domain deleted.': '域名已删除。',
   'Domain management is not enabled.': '域名管理功能未启用。',
@@ -73,6 +76,9 @@ const appAdminFeatureSourceZh = <String, String>{
   'Rotation inventory': '轮换清单',
   'SCIM 2.0 Directory': 'SCIM 2.0 目录',
   'SCIM 2.0 is not advertised by this deployment.': '此部署未声明支持 SCIM 2.0。',
+  'SCIM Groups': 'SCIM 组',
+  'SCIM Users': 'SCIM 用户',
+  'SCIM is not enabled on this replica': '此副本未启用 SCIM。',
   'Secret rotated.': '密钥已轮换。',
   'Set a subject and/or client ID to bound the revocation.':
       '请设置主体和/或客户端 ID 以限定撤销范围。',
@@ -84,6 +90,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Tenant usage metering is unavailable or has no data.': '租户使用计量不可用或没有数据。',
   'Test ReBAC and WASM authorization policies.': '测试 ReBAC 和 WASM 授权策略。',
   'The SCIM operation failed.': 'SCIM 操作失败。',
+  'Valid bulk JSON is required.': '需要有效的批量 JSON。',
   'The selected device has no user/device ID.': '所选设备没有用户/设备 ID。',
   'The server returned an empty response.': '服务器返回了空响应。',
   'The secret was rotated, but its one-time value was not returned.':
@@ -195,6 +202,8 @@ const appAdminFeatureSourceZh = <String, String>{
       '请求无法关闭服务器强制的试运行模式。超过保留期的审计事件只会被报告，此清理不会删除它们。',
   'A successful dry run with the same snapshot, mode, exclusions, and bootstrap setting is required before commit.':
       '提交前必须使用相同快照、模式、排除项和引导设置成功完成试运行。',
+  'Bulk result is unknown (HTTP {status}). Operations may have partially applied. Reconcile Users and Groups before acknowledging and sending another request.':
+      '批量结果未知（HTTP {status}）。操作可能已部分应用。请先核对用户和组，再确认并发送另一个请求。',
   'Bulk result is unknown because the response was not received. Operations may have partially applied. Reconcile Users and Groups before acknowledging and sending another request.':
       '由于未收到响应，批量操作结果未知，部分操作可能已经生效。请先核对用户和组，再确认并发送其他请求。',
   'Client ID and the exact login identifier are required to clear a lockout.':
@@ -214,11 +223,16 @@ const appAdminFeatureSourceZh = <String, String>{
   'No conditions (matches every session)': '无条件（匹配所有会话）',
   'Scope ceiling': '权限范围上限',
   'Could not load break-glass sessions.': '无法加载紧急访问会话。',
+  'Could not load bulk limits ({status}): {error}': '无法加载批量限制（{status}）：{error}',
+  'Could not load bulk limits.': '无法加载批量限制。',
   'Could not load credentials.': '无法加载凭据。',
   'Could not load crypto keys.': '无法加载加密密钥。',
   'Could not load domains.': '无法加载域名。',
   'Could not load DR mode status.': '无法加载灾难恢复模式状态。',
   'Could not load exchange chain.': '无法加载交换链。',
+  'Could not load resource details.': '无法加载资源详情。',
+  'Could not load SCIM discovery.': '无法加载 SCIM 发现信息。',
+  'Could not load the directory.': '无法加载目录。',
   'Could not load threat policies.': '无法加载威胁策略。',
   'Could not load token policies.': '无法加载令牌策略。',
   'Could not load webhooks.': '无法加载 Webhook。',
@@ -264,8 +278,11 @@ const appAdminFeatureSourceZh = <String, String>{
       '降低服务级别前，请添加事件或变更引用。',
   'Approval payloads are persisted. Reference a secret by ID; do not include passwords, tokens, or credentials.':
       '审批载荷会被持久化。请通过 ID 引用密钥，不要包含密码、令牌或凭据。',
+  'Bounded expert mode · max {maxOperations} operations · max {maxPayload}. POST operations require bulkId; targets are limited to /Users and /Groups.':
+      '受限专家模式 · 最多 {maxOperations} 个操作 · 最大 {maxPayload}。POST 操作需要 bulkId；目标仅限于 /Users 和 /Groups。',
   'Bulk execution is disabled until capability discovery succeeds.':
       '在能力发现成功前，批量执行处于禁用状态。',
+  'Bulk was rejected ({status}): {error}': '批量请求被拒绝（{status}）：{error}',
   'Choose at least one condition. An unfiltered revocation is never allowed.':
       '请至少选择一个条件，绝不允许无筛选条件的撤销。',
   'Connection configuration must be a JSON object.': '连接配置必须是 JSON 对象。',
@@ -278,6 +295,7 @@ const appAdminFeatureSourceZh = <String, String>{
       '授权其他批量请求前，请先核对用户和组。',
   'Refresh the estimate with a bounded filter before continuing.':
       '继续前，请使用有限筛选条件刷新估算结果。',
+  'Run a check to see the decision.': '运行检查以查看授权决定。',
   'Run a fresh dry-run preview for this subject before erasure.':
       '擦除前，请为此主体重新运行试运行预览。',
   'Run a successful dry-run preview with these exact restore settings before committing.':
@@ -301,6 +319,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Item': '项目',
   'Create SCIM user': '创建 SCIM 用户',
   'Create user': '创建用户',
+  'Create your first user to get started.': '创建您的第一个用户以开始使用。',
   'Replace SCIM user': '替换 SCIM 用户',
   'Replace user': '替换用户',
   'The documented event broker is not listed by this replica\'s inventory. You can connect when the route is mounted; otherwise use audit queries.':
