@@ -10,6 +10,8 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'admin_route.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_branding_tab.dart';
@@ -53,35 +55,14 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   late final void Function() _cancelPopState;
 
   static const _tabSpecs = [
-    (
-      'members',
-      'Members',
-      Icons.people,
-      'GET',
-      '/api/v1/admin/tenants/:id/members',
-    ),
-    (
-      'invitations',
-      'Invitations',
-      Icons.mail_outline,
-      'GET',
-      '/api/v1/admin/tenants/:id/invitations',
-    ),
-    (
-      'usage',
-      'Usage',
-      Icons.bar_chart,
-      'GET',
-      '/api/v1/admin/tenants/:id/usage',
-    ),
-    (
-      'branding',
-      'Branding',
-      Icons.palette_outlined,
-      'GET',
-      '/api/v1/admin/branding',
-    ),
+    ('members', 'Members', Icons.people, 'GET', '/api/v1/admin/tenants/:id/members'),
+    ('invitations', 'Invitations', Icons.mail_outline, 'GET', '/api/v1/admin/tenants/:id/invitations'),
+    ('usage', 'Usage', Icons.bar_chart, 'GET', '/api/v1/admin/tenants/:id/usage'),
+    ('branding', 'Branding', Icons.palette_outlined, 'GET', '/api/v1/admin/branding'),
   ];
+
+  /// 模块强调色（tenants 组 amber）：AppBar 编辑键与 tab 芯片图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.tenants);
 
   /// Tabs backed by a runtime-inventory endpoint; while the inventory is
   /// still loading (empty) every tab stays visible.
@@ -138,21 +119,18 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       final tid = Uri.encodeComponent(widget.tenantId);
       final tenant = await widget.client.getTenant(widget.tenantId);
       // 各 tab 数据端点并行加载（Future.wait，_optionalGet 内部容错）。
-      final tabFutures = <String, Future<Map<String, dynamic>>>{};
+      final futures = <String, Future<Map<String, dynamic>>>{};
       for (final tab in _tabs) {
         if (tab.$1 == 'branding') continue; // self-loading tab
         final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        tabFutures[tab.$1] = _optionalGet(
-          tab.$1,
-          spec.$5.replaceAll(':id', tid),
-        );
+        futures[tab.$1] = _optionalGet(tab.$1, spec.$5.replaceAll(':id', tid));
       }
-      final tabResults = await Future.wait(tabFutures.values);
-      final sections = <String, Map<String, dynamic>>{
-        for (var i = 0; i < tabFutures.keys.length; i++)
-          tabFutures.keys.elementAt(i): tabResults[i],
-      };
+      final results = await Future.wait(futures.values);
       if (!mounted) return;
+      final sections = <String, Map<String, dynamic>>{
+        for (var i = 0; i < futures.keys.length; i++)
+          futures.keys.elementAt(i): results[i],
+      };
       setState(() {
         _tenant = tenant;
         _members = _firstList(sections['members'] ?? const {});
@@ -188,74 +166,65 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     return const [];
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: LocalizedText(
-          'Tenant: {widget_tenantId}',
-          args: {'widget_tenantId': widget.tenantId},
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          tooltip: 'Back'.localized,
-          onPressed: () => AdminRoute.go('tenants'),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            tooltip: 'Edit tenant'.localized,
-            onPressed: () => _editTenant(context),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const SkeletonListTile(itemCount: 6)
-          : _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: AppColors.danger,
-                  ),
-                  const SizedBox(height: 16),
-                  LocalizedText(
-                    'Failed to load',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh),
-                    label: const LocalizedText('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : Column(
-              children: [
-                AdminBreadcrumb(),
-                Expanded(child: _buildContent(context)),
-              ],
-            ),
+  void _snack(String message, [Map<String, Object?>? args]) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: LocalizedText(message, args: args)),
     );
   }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: LocalizedText(
+        'Tenant: {widget_tenantId}',
+        args: {'widget_tenantId': widget.tenantId},
+      ),
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: 'Back'.localized,
+        onPressed: () => AdminRoute.go('tenants'),
+      ),
+      actions: [
+        IconButton(
+          icon: Icon(Icons.edit, color: _accent),
+          tooltip: 'Edit tenant'.localized,
+          onPressed: () => _editTenant(context),
+        ),
+      ],
+    ),
+    body: _loading
+        ? const SkeletonListTile(itemCount: 6)
+        : _error != null
+        ? _errorState(_error!)
+        : Column(
+            children: [
+              AdminBreadcrumb(),
+              Expanded(child: _buildContent(context)),
+            ],
+          ),
+  );
+
+  /// 加载失败三态之一：图标 + 标题 + 明细 + 重试（X4 模式）。
+  Widget _errorState(String error) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+        const SizedBox(height: 16),
+        LocalizedText(
+          'Failed to load',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(error, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
+      ],
+    ),
+  );
 
   Widget _buildContent(BuildContext context) => Column(
     children: [
@@ -276,23 +245,17 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     final cardByMetric = <TenantDetailMetric, KeyMetricCard>{
       if (showMembers)
         TenantDetailMetric.members: KeyMetricCard(
-          label: 'Members',
-          value: _members.length,
-          icon: Icons.people_outline,
-          color: AppColors.primary,
+          label: 'Members', value: _members.length,
+          icon: Icons.people_outline, color: AppColors.primary,
         ),
       TenantDetailMetric.invitations: KeyMetricCard(
-        label: 'Invitations',
-        value: _invitations.length,
-        icon: Icons.mail_outline,
-        color: AppColors.accentBlue,
+        label: 'Invitations', value: _invitations.length,
+        icon: Icons.mail_outline, color: AppColors.accentBlue,
       ),
       TenantDetailMetric.residencyRegion: KeyMetricCard(
-        label: 'Home region',
-        value: homeRegion.isEmpty ? 0 : 1,
+        label: 'Home region', value: homeRegion.isEmpty ? 0 : 1,
         caption: homeRegion.isEmpty ? '—' : homeRegion,
-        icon: Icons.public,
-        color: AppColors.success,
+        icon: Icons.public, color: AppColors.success,
       ),
     };
     return MetricStrip(
@@ -316,9 +279,8 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
-              label: Text(
-                '${context.tr(_tabs[i].$2)} (${_countForTab(i)})',
-              ),
+              avatar: Icon(_tabs[i].$3, size: 16, color: _accent),
+              label: Text('${context.tr(_tabs[i].$2)} (${_countForTab(i)})'),
               selected: _tabIndex == i,
               onSelected: (_) => _selectTab(i, _tabs[i].$1),
             ),
@@ -327,72 +289,52 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     ),
   );
 
-  String _countForTab(int i) {
-    switch (i) {
-      case 0:
-        return '${_members.length}';
-      case 1:
-        return '${_invitations.length}';
-      default:
-        return '';
-    }
-  }
+  String _countForTab(int i) => switch (i) {
+    0 => '${_members.length}',
+    1 => '${_invitations.length}',
+    _ => '',
+  };
 
   Widget _tabContent(BuildContext context) {
     switch (_tabs[_tabIndex].$1) {
       case 'members':
         return TenantMembersTab(
-          members: _members,
-          error: _sectionErrors['members'],
-          onRetry: _load,
-          onRemove: _removeMember,
+          members: _members, error: _sectionErrors['members'],
+          onRetry: _load, onRemove: _removeMember,
         );
       case 'invitations':
         return TenantInvitationsTab(
-          invitations: _invitations,
-          error: _sectionErrors['invitations'],
+          invitations: _invitations, error: _sectionErrors['invitations'],
           onRetry: _load,
-          onResend: _resendInvitation,
-          onRevoke: _revokeInvitation,
+          onResend: _resendInvitation, onRevoke: _revokeInvitation,
         );
       case 'usage':
         return TenantUsageTab(
-          usage: _usage ?? const {},
-          error: _sectionErrors['usage'],
-          onRetry: _load,
+          usage: _usage ?? const {}, error: _sectionErrors['usage'], onRetry: _load,
         );
       case 'branding':
         return TenantBrandingTab(api: widget.api, tenantId: widget.tenantId);
       default:
-        return const Center(child: LocalizedText('Select a tab'));    }
+        return const Center(child: LocalizedText('Select a tab'));
+    }
   }
 
   Future<void> _removeMember(String userId) async {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Remove member?',
-      message: 'Remove $userId from tenant?',
+      message: context.tr('Remove {userId} from tenant?', {'userId': userId}),
       destructive: true,
       confirmText: userId,
     );
     if (!confirmed) return;
     try {
-      await widget.api.delete(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}',
-      );
+      await widget.api.delete('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText('Removed {userId}', args: {'userId': userId}),
-        ),
-      );
+      _snack('Removed {userId}', {'userId': userId});
       _load();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
-      }
+      if (mounted) _snack('{e}', {'e': e});
     }
   }
 
@@ -402,33 +344,21 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Resend invitation?',
-      message:
-          'Send a new invitation message to $email. Any previously issued '
-          'pending invitation for the address may be replaced.',
+      message: context.tr(
+        'Send a new invitation message to {email}. Any previously issued '
+        'pending invitation for the address may be replaced.',
+        {'email': email},
+      ),
       confirmLabel: 'Resend invitation',
     );
     if (!confirmed) return;
     try {
-      await widget.api.post(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations',
-        {'email': email, 'role': invitation['role']?.toString() ?? 'member'},
-      );
+      await widget.api.post('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations', {'email': email, 'role': invitation['role']?.toString() ?? 'member'});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Invitation resent')),
-      );
+      _snack('Invitation resent');
       await _load();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: LocalizedText(
-              'Resend failed: {error}',
-              args: {'error': error},
-            ),
-          ),
-        );
-      }
+      if (mounted) _snack('Resend failed: {error}', {'error': error});
     }
   }
 
@@ -437,31 +367,18 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke invitation?',
-      message: 'Revoke this invitation?',
+      message: context.tr('Revoke this invitation?'),
       destructive: true,
       confirmText: email,
     );
     if (!confirmed) return;
     try {
-      await widget.api.delete(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}',
-      );
+      await widget.api.delete('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Invitation revoked')),
-      );
+      _snack('Invitation revoked');
       _load();
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: LocalizedText(
-              'Revoke failed: {error}',
-              args: {'error': error},
-            ),
-          ),
-        );
-      }
+      if (mounted) _snack('Revoke failed: {error}', {'error': error});
     }
   }
 

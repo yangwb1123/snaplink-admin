@@ -1,0 +1,109 @@
+# 逐页 UI 重构 — batch 3（tenants 组：tenants/organizations/commerce/usage-analytics/privacy-compliance）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-tenants.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-tenants.log
+# 参考：docs/ui/admin-pages/audit.md、docs/ui/pages/fix-tenants.md
+
+tasks:
+- prompt: |
+    重构租户页面。步骤：
+    1. 分析现有代码：lib/screens/admin/tenants_tab.dart、tenant_detail_screen.dart、
+       tenant_detail_tabs.dart、tenant_form_dialog.dart、tenant_export_download.dart、
+       tenant_lifecycle_copy.dart —— 读完整文件，梳理租户列表/详情/表单/
+       导出/生命周期操作的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与组色（adminModuleIconColor
+       ('tenants')），结合 docs/ui/admin-pages/audit.md 中 tenants 条目，
+       列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；租户语义（suspend/delete 撤销
+         报告、数据驻留、导出下载）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart
+       test/admin_dialogs_final_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/tenants.md（分析摘要→问题清单→修复
+       映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/tenants.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构组织页面。步骤：
+    1. 分析现有代码：lib/screens/admin/tenant_organizations_tab.dart、
+       tenant_organization_cards.dart、org_members_card.dart —— 读完整
+       文件，梳理组织视图/成员/邀请的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('organizations')），
+       结合 docs/ui/admin-pages/audit.md 中 organizations 条目，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；成员/邀请语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/organizations.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/organizations.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构充值/订阅页面。步骤：
+    1. 分析现有代码：lib/screens/admin/commerce/（commerce_tab.dart、
+       commerce_wallet_panel.dart、commerce_plan_dialog.dart、
+       commerce_subscription_dialogs.dart、commerce_money_dialogs.dart、
+       commerce_checkout.dart、commerce_checkout_flow.dart、
+       commerce_panels.dart）—— 读完整文件，梳理钱包/计划/Checkout 的
+       UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('commerce')），结合
+       docs/ui/admin-pages/audit.md 中 commerce 条目，列出改进点。
+    3. 实施重构（只改 lib/screens/admin/commerce/ 下文件 + lib/i18n/
+       EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；Checkout 语义（pending 订单、
+         金额币种服务端权威、重试不重放）保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/commerce_api_test.dart test/admin_secondary_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/commerce.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/commerce.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/commerce_api_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构用量分析页面。步骤：
+    1. 分析现有代码：lib/screens/admin/usage_analytics_tab.dart、
+       usage_analytics_contract.dart —— 读完整文件，梳理用量指标/图表/
+       筛选的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('usage-analytics')），
+       结合 docs/ui/admin-pages/audit.md 中 usage-analytics 条目，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染（指标卡/分布条/迷你图）；图标按组色
+         上色；loading/empty/error 三态齐全；
+       - 用量 wire 语义保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/usage-analytics.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/usage-analytics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构隐私合规页面。步骤：
+    1. 分析现有代码：lib/screens/admin/privacy_compliance_tab.dart ——
+       读完整文件，梳理数据映射/擦除 dry-run/保留扫描/证据导出的 UI
+       结构。
+    2. 对照可用组件与组色（adminModuleIconColor('privacy-compliance')），
+       结合 docs/ui/admin-pages/audit.md 中 privacy-compliance 条目，
+       列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；GDPR 擦除（dry-run 先行、主体
+         标识确认、法律保留提示）语义保持不变；不新增依赖；
+         文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/privacy-compliance.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/privacy-compliance.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

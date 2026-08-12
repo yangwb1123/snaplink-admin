@@ -3,7 +3,11 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
+/// 租户详情各子资源 tab（成员/邀请/用量/品牌）。成员与邀请用
+/// AdminDataTable（compact），用量为 METRIC/VALUE 两列表，三态齐全。
 class TenantMembersTab extends StatelessWidget {
   final List<dynamic> members;
   final String? error;
@@ -205,6 +209,25 @@ class TenantUsageTab extends StatelessWidget {
     required this.onRetry,
   });
 
+  static const _labels = [
+    'Period',
+    'Period start',
+    'Successful logins',
+    'Tokens issued',
+    'Active users',
+    'Active clients',
+    'MFA challenges',
+  ];
+  static const _keys = [
+    'period',
+    'period_start',
+    'logins',
+    'tokens_issued',
+    'active_users',
+    'active_clients',
+    'mfa_challenges',
+  ];
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
@@ -225,42 +248,57 @@ class TenantUsageTab extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                LocalizedText(
-                  'Tenant usage',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Row(
+                  children: [
+                    Icon(
+                      Icons.bar_chart,
+                      size: 20,
+                      color: adminModuleIconColor(AdminModuleId.tenants),
+                    ),
+                    const SizedBox(width: 8),
+                    LocalizedText(
+                      'Tenant usage',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                _row('Period', usage['period']),
-                _row('Period start', usage['period_start']),
-                _row('Successful logins', usage['logins']),
-                _row('Tokens issued', usage['tokens_issued']),
-                _row('Active users', usage['active_users']),
-                _row('Active clients', usage['active_clients']),
-                _row('MFA challenges', usage['mfa_challenges']),
+                const SizedBox(height: 12),
+                AdminDataTable(
+                  density: TableDensity.compact,
+                  minWidth: 420,
+                  columns: [
+                    AdminDataColumn(
+                      id: 'metric',
+                      label: 'METRIC',
+                      width: 200,
+                      builder: (context, i) => TableCellText(
+                        _labels[i],
+                        bold: true,
+                      ),
+                    ),
+                    AdminDataColumn(
+                      id: 'value',
+                      label: 'VALUE',
+                      builder: (context, i) => TableCellText(
+                        usage[_keys[i]]?.toString() ?? '—',
+                        muted: true,
+                      ),
+                    ),
+                  ],
+                  itemCount: _labels.length,
+                  rowBuilder: (context, i) => const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
         ),
     ],
   );
-
-  Widget _row(String label, Object? value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        LocalizedText(label),
-        Text(
-          value?.toString() ?? '—',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ],
-    ),
-  );
 }
 
+/// 分区数据加载失败：提示卡 + Retry（X4 模式）。
 class _SectionUnavailable extends StatelessWidget {
   final String title;
   final String error;

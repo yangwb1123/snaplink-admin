@@ -3,7 +3,10 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import '../admin_module_groups.dart';
+import '../admin_navigation.dart';
 
 class CommerceWalletPanel extends StatelessWidget {
   final String currency;
@@ -54,20 +57,13 @@ class CommerceWalletPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: LocalizedText(
-                  'Wallet and immutable ledger',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: onAdjust,
-                icon: const Icon(Icons.post_add_outlined),
-                label: const LocalizedText('Post adjustment'),
-              ),
-            ],
+          SectionHeader(
+            'Wallet and immutable ledger',
+            action: OutlinedButton.icon(
+              onPressed: onAdjust,
+              icon: const Icon(Icons.post_add_outlined, size: 18),
+              label: const LocalizedText('Post adjustment'),
+            ),
           ),
           const LocalizedText(
             'All values are integer minor units. Currency decimal exponents are never inferred by this console.',
@@ -169,30 +165,23 @@ class CommerceWalletPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: LocalizedText(
-                  'Top-up orders and payment facts',
-                  style: Theme.of(context).textTheme.titleLarge,
+          SectionHeader(
+            'Top-up orders and payment facts',
+            action: Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: onReconcile,
+                  icon: const Icon(Icons.rule_outlined, size: 18),
+                  label: const LocalizedText('Reconcile'),
                 ),
-              ),
-              Wrap(
-                spacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: onReconcile,
-                    icon: const Icon(Icons.rule_outlined),
-                    label: const LocalizedText('Reconcile'),
-                  ),
-                  FilledButton.icon(
-                    onPressed: onTopUp,
-                    icon: const Icon(Icons.add_card_outlined),
-                    label: const LocalizedText('Create top-up order'),
-                  ),
-                ],
-              ),
-            ],
+                FilledButton.icon(
+                  onPressed: onTopUp,
+                  icon: const Icon(Icons.add_card_outlined, size: 18),
+                  label: const LocalizedText('Create top-up order'),
+                ),
+              ],
+            ),
           ),
           const LocalizedText(
             'Only the authenticated payment adapter can apply captured, rejected, refunded, or chargeback facts. This console never handles card data or provider secrets.',
@@ -219,8 +208,6 @@ class CommerceWalletPanel extends StatelessWidget {
         order['status'] == 'pending' &&
         order['provider'] == 'stripe' &&
         (order['provider_order_id']?.toString() ?? '').isEmpty;
-    final title =
-        '${order['status'] ?? 'unknown'} · ${order['currency'] ?? ''} ${order['amount_minor'] ?? 0} minor units';
     final provider =
         'Provider reference: ${order['provider'] ?? '—'} / ${order['provider_order_id'] ?? '—'}';
     final paid =
@@ -234,8 +221,17 @@ class CommerceWalletPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  child: LocalizedText(
+                    '{currency} {amount} minor units',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    args: {
+                      'currency': order['currency'] ?? '',
+                      'amount': order['amount_minor'] ?? 0,
+                    },
+                  ),
                 ),
+                _orderStatusChip(order['status']?.toString() ?? 'unknown'),
+                const SizedBox(width: 8),
                 Chip(
                   label: LocalizedText('Revision {revision}', args: {'revision': order['revision'] ?? '—'}),
                 ),
@@ -251,7 +247,7 @@ class CommerceWalletPanel extends StatelessWidget {
                   onPressed: id.isEmpty || onLoadEvents == null
                       ? null
                       : () => onLoadEvents!(id),
-                  icon: const Icon(Icons.receipt_long_outlined),
+                  icon: Icon(Icons.receipt_long_outlined, color: adminModuleIconColor(AdminModuleId.commerce)),
                   label: const LocalizedText('Load payment facts'),
                 ),
                 if (checkoutReady)
@@ -355,6 +351,16 @@ class CommerceWalletPanel extends StatelessWidget {
     );
   }
 }
+
+/// 订单状态双表达（X9）：pending/captured/failed/refunded 语义工厂，
+/// 未知值原样展示（API 值走 Text，X10 不伪造 i18n 键）。
+StatusChip _orderStatusChip(String status) => switch (status) {
+  'pending' => StatusChip.pending(label: status),
+  'captured' || 'paid' => StatusChip.active(label: status),
+  'failed' || 'rejected' => StatusChip.failed(label: status),
+  'refunded' || 'chargebacked' => StatusChip.suspended(label: status),
+  _ => StatusChip.unknown(label: status),
+};
 
 List<Map<String, dynamic>> _records(Object? value) {
   if (value is! List) return const [];

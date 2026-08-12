@@ -5,8 +5,11 @@ import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import '../admin_module_groups.dart';
+import '../admin_navigation.dart';
 
 import 'commerce_api.dart';
 import 'commerce_checkout.dart';
@@ -63,6 +66,9 @@ class _CommerceTabState extends State<CommerceTab> {
   bool _mutating = false;
   bool _tenantLoaded = false;
 
+  /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.commerce);
+
   void _update(VoidCallback mutation) => setState(mutation);
 
   @override
@@ -80,10 +86,7 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _loadPlans() async {
-    setState(() {
-      _catalogLoading = true;
-      _catalogError = null;
-    });
+    setState(() { _catalogLoading = true; _catalogError = null; });
     try {
       final response = await _commerce.listPlans();
       if (!mounted) return;
@@ -96,10 +99,8 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _probeCheckout() async {
-    // P0-1 (api-gap analysis): the checkout session endpoint lives on the
-    // stripe-adapter process. Probe once per tab lifecycle with an
-    // unauthenticated-outcome client (a 401 must never trigger the
-    // dashboard's session-expiry logout); memoize the result.
+    // P0-1 (api-gap): probe once per tab lifecycle with an unauthenticated-
+    // outcome client (a 401 never triggers session-expiry logout); memoize.
     final probeClient =
         widget.probeClientBuilder?.call() ??
         SnaplinkAdminApi(
@@ -121,38 +122,29 @@ class _CommerceTabState extends State<CommerceTab> {
     final tenantID = _tenant.text.trim();
     final currency = _currency.text.trim().toUpperCase();
     if (tenantID.isEmpty || !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
-      setState(
-        () => _tenantError =
-            'Enter a tenant ID and a three-letter currency code.',
-      );
+      setState(() => _tenantError = 'Enter a tenant ID and a three-letter currency code.');
       return;
     }
     _currency.text = currency;
-    setState(() {
-      _tenantLoading = true;
-      _tenantError = null;
-    });
+    setState(() { _tenantLoading = true; _tenantError = null; });
     final results = await Future.wait([
       _section(_commerce.listSubscriptions(tenantID)),
       _section(_commerce.getEntitlement(tenantID), allowMissing: true),
       _section(_commerce.getWallet(tenantID, currency), allowMissing: true),
-      _section(
-        _commerce.listWalletEntries(tenantID, currency),
-        allowMissing: true,
-      ),
+      _section(_commerce.listWalletEntries(tenantID, currency),
+          allowMissing: true),
       _section(_commerce.listOrders(tenantID)),
     ]);
     if (!mounted) return;
     _applyTenantResults(results);
   }
 
-  void _applyTenantResults(List<_CommerceSection> results) {
+  void _applyTenantResults(
+    List<({Map<String, dynamic>? data, String? error})> results,
+  ) {
     final errors = results.map((result) => result.error).whereType<String>();
     setState(() {
-      _subscriptions = commerceRecords(
-        results[0].data ?? const {},
-        'subscriptions',
-      );
+      _subscriptions = commerceRecords(results[0].data ?? const {}, 'subscriptions');
       _entitlement = commerceRecord(results[1].data ?? const {}, 'entitlement');
       _wallet = commerceRecord(results[2].data ?? const {}, 'wallet');
       _entries = commerceRecords(results[3].data ?? const {}, 'entries');
@@ -166,17 +158,19 @@ class _CommerceTabState extends State<CommerceTab> {
     });
   }
 
-  Future<_CommerceSection> _section(
+  Future<({Map<String, dynamic>? data, String? error})> _section(
     Future<Map<String, dynamic>> request, {
     bool allowMissing = false,
   }) async {
     try {
-      return _CommerceSection(data: await request);
-    } on SnaplinkAdminApiError catch (error) {
-      if (allowMissing && error.status == 404) return const _CommerceSection();
-      return _CommerceSection(error: error.toString());
+      return (data: await request, error: null);
     } catch (error) {
-      return _CommerceSection(error: error.toString());
+      if (allowMissing &&
+          error is SnaplinkAdminApiError &&
+          error.status == 404) {
+        return (data: null, error: null);
+      }
+      return (data: null, error: error.toString());
     }
   }
 
@@ -200,10 +194,7 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _changeStatus(Map<String, dynamic> subscription) async {
-    final status = await CommerceStatusDialog.show(
-      context,
-      subscription['status']?.toString() ?? 'pending',
-    );
+    final status = await CommerceStatusDialog.show(context, subscription['status']?.toString() ?? 'pending');
     if (status == null) return;
     await _mutate(
       () => _commerce.transitionSubscription(
@@ -233,8 +224,7 @@ class _CommerceTabState extends State<CommerceTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Run administrative renewal?',
-      message:
-          'This repair action advances the subscription period without debiting the wallet. Normal paid renewal belongs to the opt-in renewal worker.',
+      message: 'This repair action advances the subscription period without debiting the wallet. Normal paid renewal belongs to the opt-in renewal worker.',
       confirmLabel: 'Renew without debit',
     );
     if (!confirmed) return;
@@ -265,42 +255,38 @@ class _CommerceTabState extends State<CommerceTab> {
   Future<bool> _confirmFinancial(String title) => ConfirmDialog.show(
     context,
     title: title,
-    message:
-        'This changes the tenant financial record. Type the tenant ID to confirm the exact target.',
+    message: 'This changes the tenant financial record. Type the tenant ID to confirm the exact target.',
     confirmLabel: 'Confirm financial change',
     destructive: true,
     confirmText: _tenant.text.trim(),
   );
 
-  Future<void> _reconcile() async {
-    setState(() => _mutating = true);
-    try {
-      final response = await _commerce.reconcile(_tenant.text.trim());
-      if (!mounted) return;
-      setState(() {
-        _reconciliation = commerceRecord(response, 'report');
-        _tenantError = null;
-      });
-    } catch (error) {
-      if (mounted) setState(() => _tenantError = error.toString());
-    } finally {
-      if (mounted) setState(() => _mutating = false);
-    }
-  }
+  Future<void> _reconcile() => _run(
+    () => _commerce.reconcile(_tenant.text.trim()),
+    onSuccess: (response) {
+      _reconciliation = commerceRecord(response, 'report');
+      _tenantError = null;
+    },
+  );
 
-  Future<void> _loadEvents(String orderID) async {
+  Future<void> _loadEvents(String orderID) => _run(
+    () => _commerce.listPaymentEvents(_tenant.text.trim(), orderID),
+    onSuccess: (response) {
+      _eventOrderID = orderID;
+      _events = commerceRecords(response, 'events');
+      _tenantError = null;
+    },
+  );
+
+  /// 共享后台写入：busy 置位 → 成功/失败回填 → busy 复位。
+  Future<void> _run(
+    Future<Map<String, dynamic>> Function() action, {
+    void Function(Map<String, dynamic> response)? onSuccess,
+  }) async {
     setState(() => _mutating = true);
     try {
-      final response = await _commerce.listPaymentEvents(
-        _tenant.text.trim(),
-        orderID,
-      );
-      if (!mounted) return;
-      setState(() {
-        _eventOrderID = orderID;
-        _events = commerceRecords(response, 'events');
-        _tenantError = null;
-      });
+      final response = await action();
+      if (mounted && onSuccess != null) setState(() => onSuccess(response));
     } catch (error) {
       if (mounted) setState(() => _tenantError = error.toString());
     } finally {
@@ -317,9 +303,7 @@ class _CommerceTabState extends State<CommerceTab> {
     try {
       await action();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(success)));
       if (reloadPlans) await _loadPlans();
       if (_tenantLoaded) await _loadTenant();
     } catch (error) {
@@ -334,23 +318,17 @@ class _CommerceTabState extends State<CommerceTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      Row(
-        children: [
-          Expanded(
-            child: LocalizedText(
-              'Commercial subscriptions and quotas',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-          ),
+      AdminListHeader(
+        title: 'Commercial subscriptions and quotas',
+        subtitle: 'Manage immutable plan versions, tenant subscriptions, projected entitlements, wallet ledger entries, and normalized payment facts.',
+        onRefresh: _refresh,
+        actions: [
           IconButton(
             onPressed: _catalogLoading || _tenantLoading ? null : _refresh,
-            icon: const Icon(Icons.refresh),
+            icon: Icon(Icons.refresh, color: _accent),
             tooltip: 'Refresh'.localized,
           ),
         ],
-      ),
-      const LocalizedText(
-        'Manage immutable plan versions, tenant subscriptions, projected entitlements, wallet ledger entries, and normalized payment facts.',
       ),
       if (widget.availabilityError != null)
         CommerceErrorCard(
@@ -416,11 +394,4 @@ class _CommerceTabState extends State<CommerceTab> {
 
   static int _revision(Map<String, dynamic> record) =>
       (record['revision'] as num?)?.toInt() ?? 0;
-}
-
-class _CommerceSection {
-  final Map<String, dynamic>? data;
-  final String? error;
-
-  const _CommerceSection({this.data, this.error});
 }

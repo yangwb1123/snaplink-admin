@@ -48,6 +48,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Enter at least one role code.': '请至少输入一个角色代码。',
   'Enter the affected snapshot, release, or change ID.': '请输入受影响的快照、发布或变更 ID。',
   'Enter the data subject’s user ID.': '请输入数据主体的用户 ID。',
+  'No compliance operations are advertised by this replica.': '此副本未公布任何合规操作。',
   'Exact write confirmation': '精确写入确认',
   'Failed to create break-glass session.': '无法创建紧急访问会话。',
   'Fleet devices': '设备总数',

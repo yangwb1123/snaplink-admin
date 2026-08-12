@@ -1,5 +1,11 @@
 /// Operator copy for tenant lifecycle actions and their exact credential
 /// revocation report.
+///
+/// The returned strings use `$` interpolation for API values, so callers keep
+/// passing them straight to `LocalizedText` (gate-blind per the i18n gate's
+/// `$`-skip rule — these render verbatim for zh). Only the action words
+/// (`Tenant suspended.` / `Tenant deleted.`) are catalog-translated by the
+/// caller before being substituted in.
 abstract final class TenantLifecycleCopy {
   static String confirmation(String id, String next) => next == 'suspended'
       ? 'Suspend $id? New access is blocked and Snaplink will report every '

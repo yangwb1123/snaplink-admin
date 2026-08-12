@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import '../admin_module_groups.dart';
+import '../admin_navigation.dart';
 
 import 'commerce_models.dart';
 
@@ -45,7 +49,7 @@ class CommerceTenantSelector extends StatelessWidget {
           ),
           FilledButton.icon(
             onPressed: enabled ? onLoad : null,
-            icon: const Icon(Icons.search),
+            icon: Icon(Icons.search, color: adminModuleIconColor(AdminModuleId.commerce)),
             label: const LocalizedText('Load tenant commerce'),
           ),
         ],
@@ -99,12 +103,12 @@ class CommercePlansPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _panelHeader(
-            context,
+          SectionHeader(
             'Immutable plan catalog',
-            FilledButton.icon(
+            count: plans.length,
+            action: FilledButton.icon(
               onPressed: onPublish,
-              icon: const Icon(Icons.add),
+              icon: const Icon(Icons.add, size: 18),
               label: const LocalizedText('Publish plan version'),
             ),
           ),
@@ -113,7 +117,10 @@ class CommercePlansPanel extends StatelessWidget {
           ),
           const Divider(),
           if (plans.isEmpty)
-            const LocalizedText('No plan versions are available.')
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: EmptyState(compact: true, title: 'No plan versions are available.'),
+            )
           else
             ...plans.map((plan) => _planTile(context, plan)),
         ],
@@ -136,6 +143,7 @@ class CommercePlansPanel extends StatelessWidget {
         plan['status'] == 'active'
             ? Icons.sell_outlined
             : Icons.archive_outlined,
+        color: adminModuleIconColor(AdminModuleId.commerce),
       ),
       title: Text(commercePlanLabel(plan)),
       subtitle: Text(subtitle),
@@ -177,17 +185,20 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _panelHeader(
-            context,
+          SectionHeader(
             'Tenant subscriptions',
-            FilledButton.icon(
+            count: subscriptions.length,
+            action: FilledButton.icon(
               onPressed: onCreate,
-              icon: const Icon(Icons.add_card_outlined),
+              icon: const Icon(Icons.add_card_outlined, size: 18),
               label: const LocalizedText('Create subscription'),
             ),
           ),
           if (subscriptions.isEmpty)
-            const LocalizedText('This tenant has no subscriptions.')
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: EmptyState(compact: true, title: 'This tenant has no subscriptions.'),
+            )
           else
             ...subscriptions.map(
               (subscription) => _subscriptionCard(context, subscription),
@@ -272,7 +283,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _panelHeader(context, 'Effective entitlement', null),
+          SectionHeader('Effective entitlement'),
           if (entitlement == null)
             const LocalizedText(
               'No entitlement projection exists for this tenant.',
@@ -378,18 +389,6 @@ class CommerceEntitlementPanel extends StatelessWidget {
     return const Icon(Icons.speed_outlined);
   }
 }
-
-Widget _panelHeader(BuildContext context, String title, Widget? action) => Row(
-  children: [
-    Expanded(
-      child: LocalizedText(
-        title,
-        style: Theme.of(context).textTheme.titleLarge,
-      ),
-    ),
-    ?action,
-  ],
-);
 
 Map<String, dynamic> _map(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : const <String, dynamic>{};

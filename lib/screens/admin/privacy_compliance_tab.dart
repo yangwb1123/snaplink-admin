@@ -4,7 +4,10 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
+import 'admin_module_groups.dart';
 import 'tenant_export_download.dart';
 
 /// Operator workflow for GDPR subject requests and retention execution.
@@ -29,6 +32,9 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
   static const _subjectPrefix = '/api/v1/compliance/users';
   static const _retentionPath = '/api/v1/admin/compliance/retention-sweep';
 
+  /// 组色（tenants → amber）：页头与区块图标按组色上色（X7）。
+  Color get _accent => adminModuleIconColor('privacy-compliance');
+
   final _subject = TextEditingController();
   Map<String, dynamic>? _erasurePreview;
   Map<String, dynamic>? _erasureResult;
@@ -37,6 +43,10 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
   String? _error;
   bool _busy = false;
   Future<void> Function()? _lastOperation;
+
+  bool get _exportable => _has('GET', '$_subjectPrefix/{id}/export');
+  bool get _erasable => _has('POST', '$_subjectPrefix/{id}/erase');
+  bool get _sweepable => _has('POST', _retentionPath);
 
   bool _has(String method, String path) =>
       widget.capabilities.has(method, path) ||
@@ -177,9 +187,15 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      LocalizedText(
-        'Privacy and retention',
-        style: Theme.of(context).textTheme.headlineSmall,
+      Row(
+        children: [
+          Icon(Icons.privacy_tip_outlined, color: _accent),
+          const SizedBox(width: 8),
+          LocalizedText(
+            'Privacy and retention',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ],
       ),
       const SizedBox(height: 4),
       const LocalizedText(
@@ -188,139 +204,158 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 12),
-        Text(_error!, style: const TextStyle(color: AppColors.danger)),
-        if (_lastOperation != null) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _busy ? null : () => _run(_lastOperation!),
-            icon: const Icon(Icons.refresh),
-            label: const LocalizedText('Retry'),
-          ),
-        ],
+        _errorCard(context),
       ],
       if (_busy) ...[
         const SizedBox(height: 12),
         const LinearProgressIndicator(),
       ],
-      const SizedBox(height: 12),
-      _subjectCard(context),
-      const SizedBox(height: 12),
-      _retentionCard(context),
+      if (!_exportable && !_erasable && !_sweepable)
+        const EmptyState(
+          variant: EmptyStateVariant.notEnabled,
+          compact: true,
+          title: 'No compliance operations are advertised by this replica.',
+        )
+      else ...[
+        const SizedBox(height: 12),
+        _subjectCard(context),
+        const SizedBox(height: 12),
+        _retentionCard(context),
+      ],
     ],
   );
 
-  Widget _subjectCard(BuildContext context) => Card(
+  /// 错误区：danger 卡片 + Retry（X4）——`_lastOperation` 提供重试闭包。
+  Widget _errorCard(BuildContext context) => Card(
+    color: AppColors.danger.withValues(alpha: 0.06),
     child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      padding: const EdgeInsets.all(12),
+      child: Row(
         children: [
-          LocalizedText(
-            'Data-subject request',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          const LocalizedText(
-            'Exports may contain PII. They download directly and are never '
-            'placed in console history or clipboard.',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _subject,
-            enabled: !_busy,
-            decoration: InputDecoration(labelText: 'User ID'.localized),
-            onChanged: (_) {
-              if (_previewSubject != _subject.text.trim()) {
-                setState(() {
-                  _erasurePreview = null;
-                  _previewSubject = null;
-                });
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              if (_has('GET', '$_subjectPrefix/{id}/export'))
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _export,
-                  icon: const Icon(Icons.download_outlined),
-                  label: const LocalizedText('Download export'),
-                ),
-              if (_has('POST', '$_subjectPrefix/{id}/erase'))
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _previewErase,
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: const LocalizedText('Preview erasure'),
-                ),
-              if (_has('POST', '$_subjectPrefix/{id}/erase'))
-                FilledButton.icon(
-                  onPressed: _busy || _erasurePreview == null
-                      ? null
-                      : _commitErase,
-                  style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-                  icon: const Icon(Icons.person_remove_outlined),
-                  label: const LocalizedText('Commit erasure'),
-                ),
-            ],
-          ),
-          if (_erasurePreview != null) ...[
-            const SizedBox(height: 12),
-            _reportCard('Dry-run preview', _erasurePreview!),
-          ],
-          if (_erasureResult != null) ...[
-            const SizedBox(height: 12),
-            _reportCard('Erasure report', _erasureResult!),
+          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
+          if (_lastOperation != null) ...[
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : () => _run(_lastOperation!),
+              icon: const Icon(Icons.refresh),
+              label: const LocalizedText('Retry'),
+            ),
           ],
         ],
       ),
     ),
   );
 
-  Widget _retentionCard(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+  Widget _subjectCard(BuildContext context) => _section(
+    context,
+    'Data-subject request',
+    'Exports may contain PII. They download directly and are never placed in '
+        'console history or clipboard.',
+    [
+      TextField(
+        controller: _subject,
+        enabled: !_busy,
+        decoration: InputDecoration(labelText: 'User ID'.localized),
+        onChanged: (_) {
+          if (_previewSubject != _subject.text.trim()) {
+            setState(() {
+              _erasurePreview = null;
+              _previewSubject = null;
+            });
+          }
+        },
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
         children: [
-          LocalizedText(
-            'Retention sweep',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const LocalizedText(
-            'A request cannot disable server-enforced dry-run mode. Audit '
-            'events past retention are reported, never deleted by this sweep.',
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            children: [
-              OutlinedButton(
-                onPressed: _busy ? null : () => _retention(dryRun: true),
-                child: const LocalizedText('Preview sweep'),
-              ),
-              FilledButton(
-                onPressed: _busy ? null : () => _retention(dryRun: false),
-                child: const LocalizedText('Run governed sweep'),
-              ),
-            ],
-          ),
-          if (_retentionReport != null) ...[
-            const SizedBox(height: 12),
-            _reportCard('Latest retention report', _retentionReport!),
-          ],
+          if (_exportable)
+            OutlinedButton.icon(onPressed: _busy ? null : _export, icon: const Icon(Icons.download_outlined), label: const LocalizedText('Download export')),
+          if (_erasable)
+            OutlinedButton.icon(onPressed: _busy ? null : _previewErase, icon: const Icon(Icons.fact_check_outlined), label: const LocalizedText('Preview erasure')),
+          if (_erasable)
+            FilledButton.icon(onPressed: _busy || _erasurePreview == null ? null : _commitErase, style: FilledButton.styleFrom(backgroundColor: AppColors.danger), icon: const Icon(Icons.person_remove_outlined), label: const LocalizedText('Commit erasure')),
         ],
       ),
-    ),
+      if (_erasurePreview != null) ...[
+        const SizedBox(height: 12),
+        _reportCard('Dry-run preview', _erasurePreview!),
+      ],
+      if (_erasureResult != null) ...[
+        const SizedBox(height: 12),
+        _reportCard('Erasure report', _erasureResult!),
+      ],
+    ],
+    icon: Icons.manage_accounts_outlined,
   );
 
+  Widget _retentionCard(BuildContext context) => _section(
+    context,
+    'Retention sweep',
+    'A request cannot disable server-enforced dry-run mode. Audit events past '
+        'retention are reported, never deleted by this sweep.',
+    [
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton(
+            onPressed: _busy ? null : () => _retention(dryRun: true),
+            child: const LocalizedText('Preview sweep'),
+          ),
+          FilledButton(
+            onPressed: _busy ? null : () => _retention(dryRun: false),
+            child: const LocalizedText('Run governed sweep'),
+          ),
+        ],
+      ),
+      if (_retentionReport != null) ...[
+        const SizedBox(height: 12),
+        _reportCard('Latest retention report', _retentionReport!),
+      ],
+    ],
+    icon: Icons.history_toggle_off,
+  );
+
+  /// 区块卡片：图标按组色上色（X7），标题/副标题 + Divider 分隔内容。
+  Widget _section(
+    BuildContext context,
+    String title,
+    String subtitle,
+    List<Widget> children, {
+    IconData? icon,
+  }) =>
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  if (icon != null) ...[Icon(icon, size: 18, color: _accent), const SizedBox(width: 8)],
+                  LocalizedText(title, style: Theme.of(context).textTheme.titleMedium),
+                ],
+              ),
+              const SizedBox(height: 4),
+              LocalizedText(subtitle),
+              const Divider(),
+              ...children,
+            ],
+          ),
+        ),
+      );
+
+  /// 结果卡：报告标题 + 结果状态徽章；API 字段用 Text 渲染（X1/X10）。
   Widget _reportCard(String title, Map<String, dynamic> report) {
     final errors = report['errors'] as List? ?? const [];
+    final ok = errors.isEmpty;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: errors.isEmpty
+        color: ok
             ? AppColors.success.withValues(alpha: 0.08)
             : AppColors.warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
@@ -330,9 +365,22 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LocalizedText(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                LocalizedText(
+                  title,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (ok)
+                  StatusChip(
+                    label: 'Success'.localized,
+                    color: AppColors.success,
+                    icon: Icons.check_circle,
+                  )
+                else
+                  StatusChip.degraded(label: 'Errors'.localized),
+              ],
             ),
             for (final entry in report.entries)
               if (entry.key != 'errors')

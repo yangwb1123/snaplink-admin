@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'tenant_residency_fields.dart';
 
 /// Create/edit form for a single tenant. `existing` is null for create;
@@ -94,6 +96,10 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      icon: Icon(
+        Icons.business,
+        color: adminModuleIconColor(AdminModuleId.tenants),
+      ),
       title: LocalizedText(_isEdit ? 'Edit tenant' : 'New tenant'),
       content: Form(
         key: _formKey,

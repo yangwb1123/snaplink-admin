@@ -60,6 +60,13 @@ const appAdminIndirectSourceZh = <String, String>{
   'Erasure report': '擦除报告',
   'Latest retention report': '最新保留报告',
   'Permanently erase subject data?': '永久擦除主体数据？',
+  'This revokes credentials and sessions before deleting the account. Snaplink does not expose a legal-hold check here; verify the request against your external hold register first.':
+      '删除账户前会先吊销凭据与会话。Snaplink 不在此处提供法律保留检查；请先对照外部保留登记册核实该请求。',
+  'Erase subject': '擦除主体',
+  'Run retention sweep?': '运行保留策略清理？',
+  'Expired sessions may be destroyed and dormant accounts may be erased when the server’s AutoEraseDormant policy is enabled.':
+      '当服务器的 AutoEraseDormant 策略启用时，过期的会话可能被销毁，休眠账户可能被擦除。',
+  'Run sweep': '运行清理',
   'Restore snapshot?': '恢复快照？',
   'Reconciliation complete?': '核对完成？',
   'Ascending or descending before pagination': '分页前按升序或降序排列',

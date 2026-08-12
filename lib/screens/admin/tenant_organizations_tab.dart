@@ -11,6 +11,9 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'tenant_export_download.dart';
 import 'tenant_organization_cards.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
 /// Manages the B2B organization features attached to a Snaplink tenant.
 ///
@@ -44,11 +47,15 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
 
   List<Map<String, dynamic>> _members = const [];
   List<Map<String, dynamic>> _invitations = const [];
-  String? _error;
+  String? _loadError; // 加载错误 → 带 Retry 的横幅（X4）
+  String? _actionError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
   String _memberRole = 'member';
   String _inviteRole = 'member';
+
+  /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.organizations);
 
   // Snaplink's inventory establishes whether an optional backing store is
   // wired. Older server builds advertise only one representative method of a
@@ -92,12 +99,13 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   Future<void> _load() async {
     final tenantId = _tenantId;
     if (tenantId == null) {
-      setState(() => _error = 'Enter a tenant ID first.');
+      setState(() => _actionError = 'Enter a tenant ID first.');
       return;
     }
     setState(() {
       _loading = true;
-      _error = null;
+      _loadError = null;
+      _actionError = null;
     });
     try {
       final jobs = <Future<Map<String, dynamic>>>[];
@@ -115,17 +123,17 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       final invitations = _supportsInvitations
           ? _maps(results[resultIndex]['invitations'])
           : const <Map<String, dynamic>>[];
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _members = members;
         _invitations = invitations;
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _loadError = error.toString());
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load organization data.');
+      if (mounted) {
+        setState(() => _loadError = 'Could not load organization data.');
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -143,7 +151,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     final tenantId = _tenantId;
     final userId = _memberCtrl.text.trim();
     if (tenantId == null || userId.isEmpty) {
-      setState(() => _error = 'Tenant ID and user ID are required.');
+      setState(() => _actionError = 'Tenant ID and user ID are required.');
       return;
     }
     await _mutate(
@@ -160,7 +168,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     if (tenantId == null ||
         !await _confirm(
           'Remove member?',
-          'Remove $userId from this organization?',
+          context.tr('Remove {userId} from this organization?', {
+            'userId': userId,
+          }),
           confirmText: userId,
         )) {
       return;
@@ -175,7 +185,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     final tenantId = _tenantId;
     final email = _inviteCtrl.text.trim();
     if (tenantId == null || email.isEmpty) {
-      setState(() => _error = 'Tenant ID and invitation email are required.');
+      setState(
+        () => _actionError = 'Tenant ID and invitation email are required.',
+      );
       return;
     }
     await _mutate(
@@ -193,7 +205,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     if (tenantId == null ||
         !await _confirm(
           'Revoke invitation?',
-          'Revoke every pending invitation for $email?',
+          context.tr('Revoke every pending invitation for {email}?', {
+            'email': email,
+          }),
           confirmText: email,
         )) {
       return;
@@ -207,7 +221,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   Future<void> _exportTenant() async {
     final tenantId = _tenantId;
     if (tenantId == null) {
-      setState(() => _error = 'Enter a tenant ID first.');
+      setState(() => _actionError = 'Enter a tenant ID first.');
       return;
     }
     setState(() => _mutating = true);
@@ -223,7 +237,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         ),
       );
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _actionError = error.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -236,7 +250,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   }) async {
     setState(() {
       _mutating = true;
-      _error = null;
+      _actionError = null;
     });
     try {
       await request();
@@ -247,7 +261,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       ).showSnackBar(SnackBar(content: LocalizedText(success)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) setState(() => _actionError = error.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -277,53 +291,50 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).tenantOrganizations,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).tenantOrganizations,
+          onRefresh: _load,
+          actions: [
             IconButton(
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _tenantCtrl,
-          decoration: InputDecoration(
-            labelText: 'Tenant ID'.localized,
-            hintText: 'acme'.localized,
-          ),
-          onSubmitted: (_) => _load(),
-        ),
-        const SizedBox(height: 12),
-        FilledButton(
-          onPressed: _loading ? null : _load,
-          child: const LocalizedText('Load organization'),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _error!,
-                  style: const TextStyle(color: AppColors.danger),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _tenantCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Tenant ID'.localized,
+                  hintText: 'acme'.localized,
+                  prefixIcon: Icon(Icons.business_outlined, color: _accent),
                 ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  onPressed: _loading ? null : _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const LocalizedText('Retry'),
-                ),
-              ],
+                onSubmitted: (_) => _load(),
+              ),
             ),
+            const SizedBox(width: 12),
+            FilledButton.icon(
+              onPressed: _loading ? null : _load,
+              icon: const Icon(Icons.search, size: 18),
+              label: const LocalizedText('Load organization'),
+            ),
+          ],
+        ),
+        if (_actionError != null) ...[
+          const SizedBox(height: 12),
+          LocalizedText(
+            _actionError!,
+            style: const TextStyle(color: AppColors.danger),
           ),
+        ],
+        if (_loadError != null) ...[
+          const SizedBox(height: 12),
+          _ErrorBanner(error: _loadError!, onRetry: _load),
+        ],
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 20),
@@ -336,6 +347,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
             emailController: _inviteCtrl,
             role: _inviteRole,
             mutating: _mutating,
+            accent: _accent,
             onRoleChanged: (value) => setState(() => _inviteRole = value),
             onSend: _sendInvitation,
             onRevoke: _revokeInvitation,
@@ -343,6 +355,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         if (_supportsExport)
           TenantOrganizationExportCard(
             mutating: _mutating,
+            accent: _accent,
             onExport: _exportTenant,
           ),
       ],
@@ -354,8 +367,34 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     mutating: _mutating,
     memberUserController: _memberCtrl,
     memberRole: _memberRole,
+    accent: _accent,
     onRoleChanged: (v) => setState(() => _memberRole = v),
     onSaveMember: _saveMember,
     onRemoveMember: (u) => _removeMember(u),
+  );
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(error, style: const TextStyle(color: AppColors.danger)),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
+      ),
+    ),
   );
 }

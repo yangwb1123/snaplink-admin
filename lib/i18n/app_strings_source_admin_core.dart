@@ -133,6 +133,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Active': '启用',
   'Active clients': '活跃客户端',
   'Active users': '活跃用户',
+  'Across top tenants': '按排名前租户统计',
   'Algorithm': '算法',
   'Add domain': '添加域名',
   'Add or update member': '添加或更新成员',
@@ -214,8 +215,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Copy JSON': '复制 JSON',
   'Copy to clipboard': '复制到剪贴板',
   'Could not load connections.': '无法加载连接。',
-  'Crypto key management is not enabled on this replica.':
-      '此副本未启用加密密钥管理。',
+  'Crypto key management is not enabled on this replica.': '此副本未启用加密密钥管理。',
   'Copied to clipboard': '已复制到剪贴板',
   'Count': '数量',
   'Create break-glass request': '创建紧急访问请求',
@@ -314,6 +314,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Local user deleted.': '本地用户已删除。',
   'Login identifier': '登录标识',
   'Logo URL': '徽标 URL',
+  'Logins': '登录次数',
   'MFA challenges': 'MFA 质询次数',
   'MFA factor removed': 'MFA 验证因素已移除',
   'Max 200': '最多 200',
@@ -491,8 +492,7 @@ const appAdminCoreSourceZh = <String, String>{
       '响应将报告来源退役是已完成、失败、不受支持，还是仍需验证。',
   'Token ID (JTI)': '令牌 ID（JTI）',
   'Transition to': '转换到',
-  'Trigger signing-key rotation across the cluster?':
-      '是否在集群范围内触发签名密钥轮换？',
+  'Trigger signing-key rotation across the cluster?': '是否在集群范围内触发签名密钥轮换？',
   'Trust score below': '信任分数低于',
   'Turn off to deprovision': '关闭以取消预配',
   'Type {id} and provide an incident reference.': '输入 {id} 并提供事件引用。',
@@ -559,6 +559,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Tenant connections': '租户连接',
   'Tenant ID': '租户 ID',
   'Tenant usage': '租户使用情况',
+  'Token requests': '令牌请求数',
   'Tokens issued': '签发的令牌数',
   'TTL (seconds, default 900)': '有效期（秒，默认 900）',
   'URL: ': 'URL：',
@@ -605,6 +606,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Any': '任意',
   'Unknown device': '未知设备',
   'Failed': '失败',
+  'Errors': '错误',
   'No activity metadata': '无活动元数据',
   'Success': '成功',
   'Unknown service posture.': '服务状态未知。',
@@ -631,4 +633,42 @@ const appAdminCoreSourceZh = <String, String>{
   'Edit User': '编辑用户',
   'New User': '新建用户',
   'Operation completed.': '操作已完成。',
+
+  // --- tenants（列表/详情/表单/生命周期）新增 key ---
+  'Create tenant': '创建租户',
+  'Delete tenant?': '删除租户？',
+  'Delete tenant': '删除租户',
+  'Suspend tenant?': '暂停租户？',
+  'Suspend tenant': '暂停租户',
+  'Suspend tenants': '暂停租户',
+  'Activate tenant?': '启用租户？',
+  'Activate tenant': '启用租户',
+  'Activate tenants': '启用租户',
+  'Suspend {n} tenants?': '暂停 {n} 个租户？',
+  'Activate {n} tenants?': '启用 {n} 个租户？',
+  'This will suspend {n} selected tenants in one operation.':
+      '此操作将一次暂停所选 {n} 个租户。',
+  'This will activate {n} selected tenants in one operation.':
+      '此操作将一次启用所选 {n} 个租户。',
+  'Suspended {ok} of {total} tenants.': '已暂停 {total} 个租户中的 {ok} 个。',
+  'Activated {ok} of {total} tenants.': '已启用 {total} 个租户中的 {ok} 个。',
+  'Suspend: {ok} succeeded, {failed} failed. {detail}':
+      '暂停：成功 {ok} 个，失败 {failed} 个。{detail}',
+  'Activate: {ok} succeeded, {failed} failed. {detail}':
+      '启用：成功 {ok} 个，失败 {failed} 个。{detail}',
+  'Tenant suspended.': '租户已暂停。',
+  'Tenant activated.': '租户已启用。',
+  'Tenant deleted.': '租户已删除。',
+  'Resend invitation': '重新发送邀请',
+  'Send a new invitation message to {email}. Any previously issued pending invitation for the address may be replaced.':
+      '向 {email} 发送新的邀请消息。此前为该地址发出的待处理邀请可能被替换。',
+  'Revoke this invitation?': '撤销此邀请？',
+
+  // --- tenant organizations（成员/邀请/导出）新增 key ---
+  'Tenant Organizations': '租户组织',
+  'Could not load organization data.': '无法加载组织数据。',
+  'Tenant ID and user ID are required.': '租户 ID 和用户 ID 为必填项。',
+  'Tenant ID and invitation email are required.': '租户 ID 和邀请邮箱为必填项。',
+  'Membership saved.': '成员已保存。',
+  'Invitation sent.': '邀请已发送。',
 };

@@ -51,3 +51,14 @@ String formatUsageMetricSummary(Map<dynamic, dynamic> tenant) {
       .map((field) => '${tenant[field.$1]} ${field.$2}')
       .join(' · ');
 }
+
+/// Sums a numeric tenant-metric field across normalized usage records.
+/// Missing/unknown fields count as zero, so only reported metrics contribute
+/// to the headline cards (data-honesty: never fabricate a total).
+int sumTenantMetric(
+  List<Map<dynamic, dynamic>> tenants,
+  String field,
+) => tenants.fold<int>(
+  0,
+  (sum, tenant) => sum + ((tenant[field] as num?) ?? 0).toInt(),
+);
