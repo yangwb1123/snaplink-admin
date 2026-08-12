@@ -28,6 +28,20 @@ ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
   shape: WidgetStatePropertyAll(
     RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   ),
+  // 选中项外圈 2px 边框（审计 select-border F2 修复）：DropdownMenu 打开
+  // 时经 _highlightedItemStatesController 给高亮项（即当前选中项）注入
+  // WidgetState.focused，side 画在 MenuItemButton 的 Material shape 上，
+  // 横贯整个菜单项宽度、与 select item 对齐（不再内缩 28px）；未选中项
+  // 同宽透明占位。side 只参与绘制、不参与布局 → 选中/未选中条目几何
+  // 完全一致。
+  side: WidgetStateProperty.resolveWith(
+    (states) => BorderSide(
+      color: states.contains(WidgetState.focused)
+          ? theme.colorScheme.primary
+          : Colors.transparent,
+      width: 2,
+    ),
+  ),
   overlayColor: WidgetStatePropertyAll(
     theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
   ),
@@ -38,12 +52,14 @@ ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
   ),
 );
 
-/// 圆角选中态条目：当前值高亮（primaryContainer 圆角背景 + 主色边框 +
-/// 勾选徽标），其余项透明。`content` 由调用方提供（国旗/彩色图标 + 文本）。
+/// 圆角选中态条目：当前值高亮（primaryContainer 圆角背景 + 勾选徽标），
+/// 其余项透明。`content` 由调用方提供（国旗/彩色图标 + 文本）。
 ///
-/// 高亮背景占满整个菜单项宽度（active 框 100%）；水平方向内容不加 padding：
-/// DropdownMenu 已把 labelWidget 起点与输入框内容起点对齐，再叠加水平
-/// padding 会把菜单项文字推出对齐线。
+/// 高亮背景占满整个菜单项内容宽度（active 框 100%）；水平方向内容不加
+/// padding：DropdownMenu 已把 labelWidget 起点与输入框内容起点对齐，再
+/// 叠加水平 padding 会把菜单项文字推出对齐线。外圈 2px 选中边框不在此
+/// 绘制——由 [appDropdownEntryStyle] 的 ButtonStyle.side 画在菜单项整宽上
+/// （审计 select-border F2 修复），内容区不再带内缩的 Border.all。
 Widget appDropdownEntryContent({
   required bool selected,
   required Widget content,
@@ -58,12 +74,6 @@ Widget appDropdownEntryContent({
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
           : Colors.transparent,
       borderRadius: BorderRadius.circular(8),
-      // 选中/未选中统一 2px 边框（未选中透明）：条目几何完全一致，选中
-      // 内容不相对未选中位移；宽度与设置页主题瓦片一致（F2）。
-      border: Border.all(
-        color: selected ? theme.colorScheme.primary : Colors.transparent,
-        width: 2,
-      ),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.max,

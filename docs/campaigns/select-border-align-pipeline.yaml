@@ -1,0 +1,130 @@
+# snaplink-console select 修复管线 — /login select item 选中边框宽度对齐
+#
+# 用户反馈：/login 路由界面的 select（主题/语言下拉）菜单项，选中
+# （actived）项的边框宽度要与 select item 的宽度对齐——当前边框盒
+# 缩在 MenuItemButton 内容区（labelWidget 内，距菜单项边缘约 28px：
+# menu padding 8 + item padding 12×2 + startGap 4），视觉上边框没有
+# 横贯整个菜单项。
+#
+# 范围白名单（只允许改这些文件）：
+#   lib/widgets/select_style.dart
+#   lib/widgets/language_selector.dart
+#   lib/widgets/theme_selector.dart
+#   test/language_selector_test.dart
+#   test/theme_selector_test.dart
+#   test/login_header_layout_test.dart
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/select-border-align-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/select-border-align.log
+git_commit: false
+decision_log: docs/ui/select-border/DECISIONS.md
+archive_dir: docs/ui/select-border/archive
+
+stages:
+  # ── 1. 取证：像素级测量选中边框与菜单项宽度的差值 ──
+  - name: audit
+    from_prompt: |
+      You are the UI reviewer for the /login header dropdowns
+      (ThemeDropdown + LanguageDropdown, compact variant). Audit WITHOUT
+      modifying code. The user reports: the SELECTED menu item's border
+      width must align with the SELECT ITEM's width — currently the
+      selected border box is inset inside the MenuItemButton content
+      area.
+
+      Files: lib/widgets/select_style.dart (appDropdownEntryContent,
+      appDropdownEntryStyle), lib/widgets/language_selector.dart,
+      lib/widgets/theme_selector.dart.
+
+      Verify with exact measurements (write a temporary widget-test
+      probe under test/ named zz_*, run it, DELETE it before finishing):
+      1. Selected entry border box width vs MenuItemButton width (both
+         variants, login header context). Expected today: box =
+         item − ~28px (menu padding 8 + item horizontal padding 12×2 +
+         startGap 4) — confirm the exact measured inset.
+      2. Where the inset comes from: MenuItemButton padding (from
+         appDropdownEntryStyle padding: start 12 / end 12), the menu
+         container padding (appHeaderMenuStyle 8), and the startGap
+         (DropdownMenu adds ~4). 
+      3. Feasible fix paths:
+         a. move the selected border to the MenuItemButton's own
+            ButtonStyle.side (width then equals the full item width;
+            resolved via WidgetState — note DropdownMenu drives the
+            focused state on the highlighted/selected entry via
+            _highlightedItemStatesController, so WidgetState.focused is
+            the "selected" proxy while the menu is open);
+         b. shrink the entry padding so the content border reaches the
+            item edges;
+         c. keep the content-area highlight but add the item-wide border
+            via side (recommended: background stays inside, border spans
+            the item).
+      Also verify: does ButtonStyle.side affect layout (it should not —
+      it paints inside the Material shape), so selected/unselected
+      geometries stay identical; and does the content-area 2px border
+      (current) still cause any box delta.
+      Output a findings report with severity, measured evidence
+      (numbers), recommended fix, and the tests that would catch it.
+      Mark machine- vs review-verifiable.
+    output: docs/ui/select-border/audit.md
+
+  # ── 2. 修复 ──
+  - name: fix
+    from_outputs: audit
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/select-border-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_selector_test.dart test/login_header_layout_test.dart 2>&1 | tee /tmp/select-border-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          Fix the selected-entry border alignment per the audit.
+          STRICT RULES:
+          - ONLY touch the whitelisted files listed in the pipeline
+            header.
+          - Goal: the SELECTED entry's border must span the full
+            MenuItemButton width (aligned with the select item), in
+            both ThemeDropdown and LanguageDropdown, open-state.
+            Prefer the audit's recommended path (ButtonStyle.side on
+            the entry style, resolved via the focused/selected state
+            that DropdownMenu drives on the highlighted entry; keep the
+            content-area highlight background inside).
+          - Preserve: 2px border thickness (system consistency), rounded
+            corners (8), no layout delta between selected/unselected
+            entries, menu text alignment with the field text column,
+            downward-opening menus, focus visibility, i18n.
+          - No new dependencies; keep the 400-line budget.
+          - NEVER run git commands; do not commit.
+          - Add/adjust widget tests asserting: selected border box width
+            == MenuItemButton width (within 1px, both selectors);
+            selected/unselected entry box geometries equal (within
+            0.1px); border thickness 2.0; content highlight still
+            renders.
+          Run `flutter analyze` (0 errors) and the three test files
+          until green. Finish within the time budget: fix, run checks
+          ONCE, write the report — do not iterate indefinitely.
+          Return a change report mapping fixes to audit findings.
+          {input_content}
+        output: docs/ui/select-border/changes.md
+        timeout: 1800
+
+  # ── 3. 裁决门 ──
+  - name: acceptance
+    from_outputs:
+      - audit
+      - fix
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          Verify the border-alignment fix using repository evidence:
+          - selected border box width == MenuItemButton width (within
+            1px, ThemeDropdown and LanguageDropdown, open menu);
+          - border thickness 2.0; rounded 8;
+          - no layout delta between selected and unselected entries
+            (0.1px);
+          - content highlight background still present;
+          - only whitelisted files modified (git status check);
+          - flutter analyze 0 errors; the three test files pass;
+          - behavior preserved (downward menus, text alignment, i18n).
+          Final line MUST be:
+          VERDICT: PASS - <why the border now spans the select item>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/select-border/acceptance.md

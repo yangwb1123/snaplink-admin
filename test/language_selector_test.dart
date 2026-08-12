@@ -150,22 +150,22 @@ void main() {
     expect(menuItem('中文'), findsOneWidget);
   });
 
-  // F2：选中项高亮框 + 边框占满菜单项内容宽度，边框宽度 2px（与设置页
-  // 主题瓦片一致）；选中/未选中条目几何完全一致（文字不位移）。
+  // F2：选中项边框横贯整个菜单项宽度、与 select item 对齐（审计修复：
+  // 不再内缩 28px），2px primary、圆角 8（与设置页主题瓦片一致）；内容
+  // 区高亮背景仍在框内；选中/未选中条目几何完全一致（文字不位移）。
   testWidgets('selected entry border spans the item width with a 2px border', (
     tester,
   ) async {
     await tester.pumpWidget(wrap(const LanguageDropdown()));
     await openMenu(tester, find.byType(DropdownMenu<Locale>));
 
-    final item =
-        tester.getRect(find.byType(MenuItemButton).hitTestable().first);
+    final buttons = find.byType(MenuItemButton).hitTestable();
+    final item = tester.getRect(buttons.first);
+
+    // 内容区高亮框（AnimatedContainer）：选中/未选中几何完全一致（≤0.1px）。
     final boxes = tester
         .renderObjectList<RenderBox>(
-          find.descendant(
-            of: find.byType(MenuItemButton).hitTestable(),
-            matching: find.byType(AnimatedContainer),
-          ),
+          find.descendant(of: buttons, matching: find.byType(AnimatedContainer)),
         )
         .toList();
     expect(boxes.length, greaterThanOrEqualTo(2),
@@ -173,7 +173,6 @@ void main() {
 
     Rect boxRect(RenderBox box) => box.localToGlobal(Offset.zero) & box.size;
     final rects = boxes.map(boxRect).toList();
-    // 所有条目（选中/未选中）边框几何一致 → 文字不位移（≤0.5px）。
     for (final rect in rects.skip(1)) {
       expect(rect.left, closeTo(rects.first.left, 0.1),
           reason: 'entry boxes must share the left edge');
@@ -182,51 +181,84 @@ void main() {
       expect(rect.height, closeTo(rects.first.height, 0.1),
           reason: 'entry boxes must have identical heights');
     }
-    // 高亮框占满菜单项内容宽度（菜单项宽度 - 左右 padding 12x2 -
-    // startGap 4），选中与未选中一致。
-    expect(rects.first.width, closeTo(item.width - 28, 1.5),
-        reason: 'highlight must span the full item content width');
 
-    // 边框宽度 2px：选中 = primary，未选中 = 透明（几何占位）。
-    final borderBoxes = find
-        .descendant(
-          of: find.byType(MenuItemButton).hitTestable(),
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is AnimatedContainer &&
-                widget.decoration is BoxDecoration &&
-                (widget.decoration as BoxDecoration).border != null,
-          ),
+    // 内容区高亮仍在渲染：选中项带 primaryContainer 背景，未选中透明。
+    final container = Theme.of(
+      tester.element(find.byType(LanguageDropdown)),
+    ).colorScheme.primaryContainer.withValues(alpha: 0.45);
+    final highlightColors = tester
+        .widgetList<AnimatedContainer>(
+          find.descendant(of: buttons, matching: find.byType(AnimatedContainer)),
         )
-        .hitTestable();
-    final decorations = tester
-        .widgetList<AnimatedContainer>(borderBoxes)
-        .map((container) => container.decoration! as BoxDecoration)
+        .map((c) => (c.decoration! as BoxDecoration).color)
         .toList();
-    expect(decorations.length, greaterThanOrEqualTo(2));
-    for (final decoration in decorations) {
-      final border = decoration.border! as Border;
-      expect(border.top.width, 2,
-          reason: 'entry border must match the 2px system tiles');
-      expect(border.bottom.width, 2);
-    }
+    expect(highlightColors, contains(container),
+        reason: 'selected entry keeps the content highlight background');
+    expect(
+      highlightColors.where((c) => c != container).toSet(),
+      {Colors.transparent},
+      reason: 'unselected entries keep a transparent highlight',
+    );
+
+    // 外圈 2px 边框画在 MenuItemButton 的 Material shape side 上（审计
+    // 推荐路径 c）：选中（高亮，DropdownMenu 注入 WidgetState.focused）项
+    // primary，未选中项同宽透明占位；圆角 8。
     final primary = Theme.of(
       tester.element(find.byType(LanguageDropdown)),
     ).colorScheme.primary;
-    expect(
-      decorations.any(
-        (d) => (d.border! as Border).top.color == primary,
-      ),
-      isTrue,
-      reason: 'selected entry border must use the primary color',
+    final shapes = tester
+        .widgetList<Material>(
+          find.descendant(
+            of: buttons,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Material && widget.shape is RoundedRectangleBorder,
+            ),
+          ),
+        )
+        .map((m) => m.shape! as RoundedRectangleBorder)
+        .toList();
+    expect(shapes.length, greaterThanOrEqualTo(2),
+        reason: 'each entry button renders its bordered shape');
+    for (final shape in shapes) {
+      expect(shape.side.width, 2,
+          reason: 'entry border must match the 2px system tiles');
+    }
+    final selectedShapes =
+        shapes.where((s) => s.side.color == primary).toList();
+    expect(selectedShapes, hasLength(1),
+        reason: 'exactly the selected entry carries the primary border');
+    expect(selectedShapes.single.borderRadius,
+        const BorderRadius.all(Radius.circular(8)),
+        reason: 'selected border must keep the 8px rounded corners');
+    for (final shape in shapes.where((s) => s.side.color != primary)) {
+      expect(shape.side.color, Colors.transparent,
+          reason: 'unselected entries keep a transparent 2px placeholder');
+    }
+
+    // 选中边框盒（Material 整宽绘制）与 MenuItemButton 同框：横贯整个
+    // 菜单项宽度，不再内缩 28px。
+    final ringBox = tester.renderObject<RenderBox>(
+      find
+          .descendant(
+            of: buttons,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Material &&
+                  widget.shape is RoundedRectangleBorder &&
+                  (widget.shape! as RoundedRectangleBorder).side.color ==
+                      primary,
+            ),
+          )
+          .first,
     );
-    expect(
-      decorations.any(
-        (d) => (d.border! as Border).top.color == Colors.transparent,
-      ),
-      isTrue,
-      reason: 'unselected entries keep a transparent 2px placeholder',
-    );
+    final ring = ringBox.localToGlobal(Offset.zero) & ringBox.size;
+    expect(ring.left, closeTo(item.left, 1),
+        reason: 'selected border must start at the item left edge');
+    expect(ring.width, closeTo(item.width, 1),
+        reason: 'selected border box must span the full MenuItemButton width');
+    expect(ring.right, closeTo(item.right, 1),
+        reason: 'selected border must end at the item right edge');
   });
 
   // F1：箭头在收起/展开两态、紧凑/表单两变体下均为 20×20、垂直居中于

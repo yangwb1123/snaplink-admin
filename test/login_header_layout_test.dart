@@ -358,8 +358,10 @@ void main() {
     expect(flagLefts.length, 1, reason: 'all flags start at the same x');
   });
 
-  // active 框占满菜单项内容区宽度；每个菜单项携带圆角 shape 的 style
-  // （hover/focus 背景圆角由 MenuItemButton 的 style.shape 决定）。
+  // 内容高亮框占满菜单项内容区宽度；外圈 2px 选中边框（ButtonStyle.side）
+  // 横贯整个菜单项宽度、与 select item 对齐（审计 F2 修复）；每个菜单项
+  // 携带圆角 shape 的 style（hover/focus 背景圆角由 MenuItemButton 的
+  // style.shape 决定）。
   testWidgets('active highlight fills the item and entries carry rounded styles', (
     tester,
   ) async {
@@ -370,23 +372,48 @@ void main() {
     await tester.tap(find.byType(DropdownMenu<Locale>));
     await tester.pumpAndSettle();
 
-    final item = tester.renderObject<RenderBox>(
-      find.byType(MenuItemButton).hitTestable().first,
-    );
+    final buttons = find.byType(MenuItemButton).hitTestable();
+    final item = tester.renderObject<RenderBox>(buttons.first);
     final highlight = tester.renderObject<RenderBox>(
       find
-          .byWidgetPredicate(
-            (widget) =>
-                widget is AnimatedContainer &&
-                widget.decoration is BoxDecoration &&
-                (widget.decoration as BoxDecoration).border != null,
-          )
-          .hitTestable()
+          .descendant(of: buttons, matching: find.byType(AnimatedContainer))
           .first,
     );
-    // 高亮撑满 labelWidget 可用区（菜单项宽度 - 左右 padding 12x2 - startGap 4）。
+    // 内容高亮背景撑满 labelWidget 可用区（菜单项宽度 - 左右 padding 12x2
+    // - startGap 4）；外圈 2px 边框在菜单项整宽上（见下）。
     expect(highlight.size.width, closeTo(item.size.width - 28, 1.5),
-        reason: 'active highlight must span the full item content width');
+        reason: 'content highlight must span the full item content width');
+
+    // 外圈 2px 选中边框由 ButtonStyle.side 画在 Material shape 上：边框盒
+    // 与 MenuItemButton 同框，横贯整个菜单项宽度（审计 F2 修复）。
+    final primary = Theme.of(
+      tester.element(find.byType(LanguageDropdown)),
+    ).colorScheme.primary;
+    final ringBox = tester.renderObject<RenderBox>(
+      find
+          .descendant(
+            of: buttons,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Material &&
+                  widget.shape is RoundedRectangleBorder &&
+                  (widget.shape! as RoundedRectangleBorder).side.color ==
+                      primary,
+            ),
+          )
+          .first,
+    );
+    final ring = ringBox.localToGlobal(Offset.zero) & ringBox.size;
+    expect(ring.left, closeTo(item.localToGlobal(Offset.zero).dx, 1),
+        reason: 'selected border must start at the item left edge');
+    expect(ring.width, closeTo(item.size.width, 1),
+        reason: 'selected border box must span the full MenuItemButton width');
+    expect(ring.right,
+        closeTo(
+          item.localToGlobal(Offset.zero).dx + item.size.width,
+          1,
+        ),
+        reason: 'selected border must end at the item right edge');
 
     final menu = tester
         .widget<DropdownMenu<Locale>>(find.byType(DropdownMenu<Locale>));
