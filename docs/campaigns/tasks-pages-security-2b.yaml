@@ -1,0 +1,151 @@
+# 逐页 UI 重构 — batch 2b（security 组：network-policies/access-policies/threat-policies/dr-mode/crypto-keys/credentials/break-glass/change-approvals）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial），每页完成后 operator 验证并提交，
+# 再推进下一页（"逐个一步一步"）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-security-2b.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-security-2b.log
+# 参考：docs/ui/admin-pages/audit.md（全站审计）、
+#       docs/ui/pages/fix-security.md（上一轮批量修复记录）
+
+tasks:
+- prompt: |
+    重构网络策略页面。步骤：
+    1. 分析现有代码：lib/screens/admin/network_policies_tab.dart、
+       network_policy_dialog.dart —— 读完整文件，梳理策略列表/分类/CRUD
+       的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与组色（adminModuleIconColor
+       ('network-policies')），结合 docs/ui/admin-pages/audit.md 中
+       network-policies 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；策略语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs2_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/network-policies.md（分析摘要→问题
+       清单→修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/network-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs2_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构访问策略页面。步骤：
+    1. 分析现有代码：lib/screens/admin/access_policies_tab.dart —— 读完整
+       文件，梳理策略列表/分类/CRUD 的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('access-policies')），
+       结合 docs/ui/admin-pages/audit.md 中 access-policies 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；策略语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/access_policies_tab_test.dart（如存在）及
+       test/admin_secondary_tabs2_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/access-policies.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/access-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs2_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构威胁策略页面。步骤：
+    1. 分析现有代码：lib/screens/admin/threat_policies_tab.dart —— 读完整
+       文件，梳理策略列表/CRUD 的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('threat-policies')），
+       结合 docs/ui/admin-pages/audit.md 中 threat-policies 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；策略语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs2_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/threat-policies.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/threat-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs2_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 DR 模式页面。步骤：
+    1. 分析现有代码：lib/screens/admin/dr_mode_tab.dart —— 读完整文件，
+       梳理模式状态/切换/降级原因的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('dr-mode')），结合
+       docs/ui/admin-pages/audit.md 中 dr-mode 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；降级确认（原因必填）语义保持；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs2_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/dr-mode.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/dr-mode.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs2_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构加密密钥页面。步骤：
+    1. 分析现有代码：lib/screens/admin/crypto_keys_tab.dart —— 读完整
+       文件，梳理密钥列表/轮换/泄露标记的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('crypto-keys')），结合
+       docs/ui/admin-pages/audit.md 中 crypto-keys 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；轮换/泄露语义（密钥类、回滚
+         状态）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/crypto-keys.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/crypto-keys.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构凭据页面。步骤：
+    1. 分析现有代码：lib/screens/admin/credentials_tab.dart —— 读完整
+       文件，梳理凭据库存/泄露处理的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('credentials')），结合
+       docs/ui/admin-pages/audit.md 中 credentials 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；泄露处理语义（类型必填）保持；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/credentials.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/credentials.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构紧急访问页面。步骤：
+    1. 分析现有代码：lib/screens/admin/break_glass_tab.dart、
+       break_glass_widgets.dart、break_glass_detail_screen.dart —— 读完整
+       文件，梳理 pending 审批/模拟/撤销的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('emergency-access')），
+       结合 docs/ui/admin-pages/audit.md 中 emergency-access 条目，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；Break-glass 生命周期（审批后
+         激活、模拟 Token 一次性展示、撤销清理）语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_health_breakglass_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/emergency-access.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/emergency-access.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_health_breakglass_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构变更审批页面。步骤：
+    1. 分析现有代码：lib/screens/admin/change_approvals_tab.dart、
+       change_approval_models.dart —— 读完整文件，梳理变更申请/审批/
+       拒绝的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('change-approvals')），
+       结合 docs/ui/admin-pages/audit.md 中 change-approvals 条目，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；审批/拒绝语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/change-approvals.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/change-approvals.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

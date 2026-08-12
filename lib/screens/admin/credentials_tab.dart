@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'admin_route.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Credential rotation inventory and compromise reporting tab.
-/// URL: /admin/credentials[/report]
+/// URLs: /admin/credentials, /admin/credentials/report
 class CredentialsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -40,18 +44,31 @@ class _CredentialsTabState extends State<CredentialsTab> {
   final _typeCtrl = TextEditingController();
   late final void Function() _cancelPopState;
 
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.credentials);
+
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_credsPath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_credsPath);
 
+  /// 首个命中的字段值（兼容新旧字段命名；API 值一律走 Text，X1/X10）。
+  String _value(int i, List<String> keys) {
+    final map = _credentials[i];
+    for (final key in keys) {
+      final v = map[key];
+      if (v != null) return v.toString();
+    }
+    return '';
+  }
+
   @override
   void initState() {
     super.initState();
-    _load();
     _handleRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
+    if (_available) _load();
   }
 
   @override
@@ -67,6 +84,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   }
 
   Future<void> _load() async {
+    if (!_available) return;
     widget.api.skipCache();
     setState(() {
       _loading = true;
@@ -102,6 +120,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
 
   Future<void> _reportCompromise() async {
     final type = _typeCtrl.text.trim();
+    // 泄露处理语义：凭据类型必填（门禁在提交前强制，测试依赖此文案）。
     if (type.isEmpty) {
       setState(() => _error = 'Enter a credential type.');
       return;
@@ -128,6 +147,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: LocalizedText('Compromise reported.')),
       );
+      await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -143,66 +163,84 @@ class _CredentialsTabState extends State<CredentialsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).credentials,
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).credentials,
+          subtitle: 'Credential rotation inventory and compromise reporting.',
+          onRefresh: _load,
+          actions: [
+            if (!_showReportForm)
+              OutlinedButton.icon(
+                onPressed: () =>
+                    AdminRoute.go('credentials', subresource: 'report'),
+                icon: Icon(Icons.warning_amber_outlined, size: 18, color: _accent),
+                label: const LocalizedText('Report compromise'),
+              ),
+            const SizedBox(width: 4),
             IconButton(
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh'.localized,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
+        if (_showReportForm) _buildReportForm(context),
+        if (!_loading && _error != null)
+          _ErrorBanner(error: _error!, onRetry: _load),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: SkeletonListTile(itemCount: 3),
+          ),
+        if (!_loading &&
+            _error == null &&
+            _credentials.isEmpty &&
+            !_showReportForm)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: EmptyState(compact: true, title: 'No credentials found.'),
+          ),
+        if (!_loading && _error == null && _credentials.isNotEmpty)
+          _credentialsCard(context),
+      ],
+    );
+  }
+
+  /// 凭据库存卡：组色钥匙图标 + SectionHeader（计数）+ AdminDataTable(compact)。
+  Widget _credentialsCard(BuildContext context) {
+    final credentials = _credentials;
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
+                Icon(Icons.vpn_key_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.danger),
+                  child: SectionHeader(
+                    AppStrings.of(context).credentials,
+                    count: credentials.length,
                   ),
-                ),
-                TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
-          ),
-        if (_showReportForm) _buildReportForm(context),
-        const SizedBox(height: 16),
-        LocalizedText(
-          'Rotation inventory',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        if (_loading) const SkeletonListTile(itemCount: 4),
-        if (!_loading && _credentials.isEmpty && !_showReportForm)
-          EmptyState(title: 'No credentials found.'),
-        if (!_loading && _credentials.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: AdminDataTable(
+            const SizedBox(height: 12),
+            AdminDataTable(
+              density: TableDensity.compact,
               minWidth: 680,
               columns: [
                 AdminDataColumn(
                   id: 'credential',
-                  label: 'Credential',
+                  label: 'Credential'.localized,
                   width: 240,
                   cardPrimary: true,
                   builder: (_, i) {
-                    final c = _credentials[i];
-                    final type = c['type']?.toString() ??
-                        c['credential_type']?.toString() ??
-                        '';
-                    final id = c['id']?.toString() ?? '';
+                    final type = _value(i, ['type', 'credential_type']);
+                    final id = _value(i, ['id']);
                     return TableCellText(
                       type.isEmpty ? id : '$type · $id',
                       level: DataEmphasisLevel.primary,
@@ -211,58 +249,72 @@ class _CredentialsTabState extends State<CredentialsTab> {
                 ),
                 AdminDataColumn(
                   id: 'status',
-                  label: 'Status',
-                  builder: (_, i) {
-                    final status = _credentials[i]['status']?.toString() ??
-                        'unknown';
-                    return status == 'active'
-                        ? StatusChip.active(label: 'Active')
-                        : StatusChip.suspended(label: status);
-                  },
+                  label: 'Status'.localized,
+                  builder: (_, i) =>
+                      _statusChip(context, _value(i, ['status'])),
                 ),
                 AdminDataColumn(
                   id: 'rotated',
-                  label: 'Rotated',
+                  label: 'Rotated'.localized,
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
-                    _credentials[i]['rotated_at']?.toString() ??
-                        _credentials[i]['last_rotated']?.toString() ??
-                        'never',
+                    _value(i, ['rotated_at', 'last_rotated']).isEmpty
+                        ? context.tr('never')
+                        : _value(i, ['rotated_at', 'last_rotated']),
                     muted: true,
                     maxLines: 2,
                   ),
                 ),
               ],
-              itemCount: _credentials.length,
+              itemCount: credentials.length,
               rowBuilder: (_, _) => const SizedBox.shrink(),
-              onRowTap: (_) => AdminRoute.go('credentials'),
             ),
-          ),
-        if (!_showReportForm)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: OutlinedButton.icon(
-              onPressed: () =>
-                  AdminRoute.go('credentials', subresource: 'report'),
-              icon: const Icon(Icons.warning),
-              label: const LocalizedText('Report compromise'),
-            ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
+  /// 状态双表达：active/compromised/expired/suspended 用语义工厂；未知值走 Text（X10）。
+  Widget _statusChip(BuildContext context, String status) => switch (status) {
+    'active' => StatusChip.active(label: context.tr('Active')),
+    'compromised' => StatusChip.failed(label: context.tr('Compromised')),
+    'expired' => StatusChip.degraded(label: context.tr('Expired')),
+    'suspended' => StatusChip.suspended(label: context.tr('Suspended')),
+    _ => StatusChip.unknown(
+        label: status.isEmpty ? context.tr('unknown') : status,
+      ),
+  };
+
   Widget _buildReportForm(BuildContext context) => Card(
+    color: AppColors.warning.withValues(alpha: 0.05),
+    margin: const EdgeInsets.only(top: 12),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Report credential compromise',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.warning_amber_outlined, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LocalizedText(
+                  'Report credential compromise',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
+          const LocalizedText(
+            'Report a credential type as compromised to trigger rotation and '
+            'containment across services.',
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _typeCtrl,
             decoration: InputDecoration(
@@ -284,6 +336,38 @@ class _CredentialsTabState extends State<CredentialsTab> {
               ),
             ],
           ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(error, style: const TextStyle(color: AppColors.danger)),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
         ],
       ),
     ),

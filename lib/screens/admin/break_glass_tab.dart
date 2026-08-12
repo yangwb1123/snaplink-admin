@@ -3,13 +3,15 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'admin_navigation.dart';
 import 'break_glass_widgets.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Break Glass (emergency access) management tab.
 ///
@@ -40,10 +42,14 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   String? _tenantId;
 
   List<Map<String, dynamic>> _sessions = const [];
-  String? _error;
+  String? _loadError; // 加载错误 → 带 Retry 的横幅（X4）
+  String? _actionError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
   late final void Function() _cancelPopState;
+
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.emergencyAccess);
 
   bool get _available => widget.capabilities.hasAnyPathPrefix(_basePath);
 
@@ -78,7 +84,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _error = null;
+      _loadError = null;
     });
     try {
       final data = await widget.api.get(_basePath);
@@ -98,7 +104,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = e is SnaplinkAdminApiError
+        _loadError = e is SnaplinkAdminApiError
             ? e.toString()
             : 'Could not load break-glass sessions.';
         _loading = false;
@@ -110,7 +116,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     final target = _targetCtrl.text.trim();
     final reason = _reasonCtrl.text.trim();
     if (target.isEmpty || reason.isEmpty) {
-      setState(() => _error = 'Target user and reason are required.');
+      setState(() => _actionError = 'Target user and reason are required.');
       return;
     }
     final confirmed = await ConfirmDialog.show(
@@ -127,7 +133,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     if (!confirmed) return;
     setState(() {
       _mutating = true;
-      _error = null;
+      _actionError = null;
     });
     try {
       await widget.api.post(_basePath, {
@@ -148,10 +154,10 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       if (mounted) AdminRoute.go('emergency-access');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _actionError = e.toString());
     } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Failed to create break-glass session.');
+        setState(() => _actionError = 'Failed to create break-glass session.');
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -170,7 +176,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     if (!confirmed) return;
     setState(() {
       _mutating = true;
-      _error = null;
+      _actionError = null;
     });
     try {
       await widget.api.post('$_basePath/${Uri.encodeComponent(id)}/approve');
@@ -180,7 +186,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _actionError = e.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -198,7 +204,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     if (!confirmed) return;
     setState(() {
       _mutating = true;
-      _error = null;
+      _actionError = null;
     });
     try {
       final response = await widget.api.delete(
@@ -212,7 +218,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _actionError = e.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -230,7 +236,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     if (!confirmed) return;
     setState(() {
       _mutating = true;
-      _error = null;
+      _actionError = null;
     });
     try {
       final data = await widget.api.post(
@@ -240,10 +246,12 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       final token =
           data['access_token']?.toString() ?? data['token']?.toString() ?? '';
       if (token.isNotEmpty) {
+        // 一次性展示：仅此对话框持有 token，控制台不保留。
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
           builder: (c) => AlertDialog(
+            icon: Icon(Icons.emergency_outlined, color: _accent, size: 32),
             title: const LocalizedText('Impersonation token'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -253,9 +261,20 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
                   'This bearer is shown once and is not retained by the console.',
                 ),
                 const SizedBox(height: 12),
-                SelectableText(
-                  token,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(c).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    token,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -269,14 +288,14 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         );
       } else {
         setState(
-          () => _error =
+          () => _actionError =
               'Snaplink accepted the impersonation request but did not return '
               'a bearer. Do not retry until server state is verified.',
         );
       }
       await _load();
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) setState(() => _actionError = e.toString());
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -293,30 +312,28 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Text(
-          AppStrings.of(context).emergencyAccess,
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Create audited, time-bound emergency access to user accounts.',
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              _error!,
-              style: const TextStyle(color: AppColors.danger),
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).emergencyAccess,
+          subtitle:
+              'Create audited, time-bound emergency access to user accounts.',
+          onRefresh: _load,
+          actions: [
+            IconButton(
+              onPressed: _loading ? null : _load,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
-          ),
-        const SizedBox(height: 16),
+          ],
+        ),
         BreakGlassRequestCard(
           targetController: _targetCtrl,
           reasonController: _reasonCtrl,
           scope: _scope,
           requireApproval: _requireApproval,
           mutating: _mutating,
+          accent: _accent,
+          formError: _actionError,
           onScopeChanged: (value) => setState(() => _scope = value),
           onTtlChanged: (value) => _ttl = value,
           onRequireApprovalChanged: (value) =>
@@ -324,17 +341,56 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
           onCreate: () => AdminRoute.go('emergency-access', action: 'new'),
         ),
         const SizedBox(height: 16),
-        BreakGlassSessionsList(
-          sessions: _sessions,
-          loading: _loading,
-          mutating: _mutating,
-          onRefresh: _load,
-          onOpen: (id) => AdminRoute.go('emergency-access', resourceId: id),
-          onApprove: _approve,
-          onImpersonate: _impersonate,
-          onRevoke: _revoke,
-        ),
+        if (_loadError != null)
+          _ErrorBanner(error: _loadError!, onRetry: _load)
+        else
+          BreakGlassSessionsList(
+            sessions: _sessions,
+            loading: _loading,
+            mutating: _mutating,
+            accent: _accent,
+            onRefresh: _load,
+            onOpen: (id) => AdminRoute.go('emergency-access', resourceId: id),
+            onApprove: _approve,
+            onImpersonate: _impersonate,
+            onRevoke: _revoke,
+          ),
       ],
     );
   }
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                error,
+                style: const TextStyle(color: AppColors.danger),
+              ),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
+      ),
+    ),
+  );
 }

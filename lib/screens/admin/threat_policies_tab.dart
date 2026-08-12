@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
-import 'admin_route.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
+import 'admin_route.dart';
 
 /// Threat detection policy management tab.
 /// URLs: /admin/threat-policies, /admin/threat-policies/new, /admin/threat-policies/{id}/edit
@@ -35,7 +39,11 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   bool _mutating = false;
   late final void Function() _cancelPopState;
 
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.threatPolicies);
+
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
+
   @override
   void initState() {
     super.initState();
@@ -70,9 +78,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         _nameCtrl.text = existing['name']?.toString() ?? '';
         _descCtrl.text = existing['description']?.toString() ?? '';
         _rulesCtrl.text =
-            existing['rules']?.toString() ??
-            existing['config']?.toString() ??
-            '';
+            existing['rules']?.toString() ?? existing['config']?.toString() ?? '';
       }
     }
     if (mounted) setState(() {});
@@ -88,6 +94,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   }
 
   Future<void> _load() async {
+    if (!_available) return;
     setState(() {
       _loading = true;
       _error = null;
@@ -97,25 +104,15 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       final items = data['policies'] as List? ?? [];
       if (!mounted) return;
       setState(() {
-        _policies = items
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        _policies = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         _loading = false;
         _handleRoute();
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
     } catch (_) {
       if (mounted) {
-        setState(() {
-          _error = 'Could not load threat policies.';
-          _loading = false;
-        });
+        setState(() { _error = 'Could not load threat policies.'; _loading = false; });
       }
     }
   }
@@ -136,12 +133,10 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       final pathName = _editing && _editId != null ? _editId! : name;
       await widget.api.put('$_path/${Uri.encodeComponent(pathName)}', body);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            _editing ? 'Policy updated.' : 'Policy created.',
-          ),
-        ),
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(
+        SnackBar(content: LocalizedText(_editing ? 'Policy updated.' : 'Policy created.')),
       );
       if (mounted) AdminRoute.go('threat-policies');
       await _load();
@@ -186,147 +181,153 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Row(
-          children: [
-            Text(
-              AppStrings.of(context).threatPolicies,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
-      ),
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).threatPolicies,
+          subtitle:
+              'Realtime threat detection rules protecting authentication flows.',
+          onRefresh: _load,
+          actions: [
+            FilledButton.icon(
+              onPressed: () => AdminRoute.go('threat-policies', action: 'new'),
+              icon: const Icon(Icons.add, size: 18),
+              label: const LocalizedText('New policy'),
             ),
-            const Spacer(),
+            const SizedBox(width: 4),
             IconButton(
               onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh'.localized,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Realtime threat detection rules protecting authentication flows.',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSubtle,
+        if (!_loading && _error != null)
+          _ErrorBanner(error: _error!, onRetry: _load),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: SkeletonListTile(itemCount: 3),
           ),
-        ),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
+        if (!_loading && _error == null && _policies.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: EmptyState(compact: true, title: 'No threat policies configured.'),
+          ),
+        if (!_loading && _error == null && _policies.isNotEmpty)
+          _policiesCard(context),
+      ],
+    );
+  }
+
+  /// 策略列表卡：组色盾牌图标 + SectionHeader（计数）+ AdminDataTable(compact)。
+  Widget _policiesCard(BuildContext context) {
+    final policies = _policies;
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
+                Icon(Icons.shield_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: LocalizedText(
-                    _error!,
-                    style: const TextStyle(color: AppColors.danger),
+                  child: SectionHeader(
+                    AppStrings.of(context).threatPolicies,
+                    count: policies.length,
                   ),
-                ),
-                TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const LocalizedText('Retry'),
                 ),
               ],
             ),
-          ),
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (!_loading && _policies.isEmpty)
-          EmptyState(title: 'No threat policies configured.'),
-        if (!_loading) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: FilledButton.icon(
-              onPressed: () => AdminRoute.go('threat-policies', action: 'new'),
-              icon: const Icon(Icons.add),
-              label: const LocalizedText('New policy'),
-            ),
-          ),
-          if (_policies.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: AdminDataTable(
-                minWidth: 920,
-                columns: [
-                  AdminDataColumn(
-                    id: 'policy',
-                    label: 'Policy',
-                    width: 220,
-                    cardPrimary: true,
-                    builder: (_, i) => TableCellText(
-                      _policies[i]['name']?.toString() ?? '',
-                      level: DataEmphasisLevel.primary,
-                    ),
+            const SizedBox(height: 12),
+            AdminDataTable(
+              density: TableDensity.compact,
+              minWidth: 920,
+              columns: [
+                AdminDataColumn(
+                  id: 'policy',
+                  label: 'Policy'.localized,
+                  width: 220,
+                  cardPrimary: true,
+                  builder: (_, i) => TableCellText(
+                    policies[i]['name']?.toString() ?? '',
+                    level: DataEmphasisLevel.primary,
                   ),
-                  AdminDataColumn(
-                    id: 'description',
-                    label: 'Description',
-                    cardDetail: true,
-                    builder: (_, i) => TableCellText(
-                      _policies[i]['description']?.toString() ?? '',
-                      muted: true,
-                      maxLines: 2,
-                    ),
-                  ),
-                  AdminDataColumn(
-                    id: 'id',
-                    label: 'ID',
-                    builder: (_, i) => TableCellText(
-                      _policies[i]['id']?.toString() ?? '',
-                      muted: true,
-                    ),
-                  ),
-                  AdminDataColumn(
-                    id: 'status',
-                    label: 'Status',
-                    builder: (_, i) => _policies[i]['enabled'] == true
-                        ? StatusChip.active(label: 'Enabled')
-                        : StatusChip.inactive(label: 'Disabled'),
-                  ),
-                  AdminDataColumn(
-                    id: 'actions',
-                    label: '',
-                    width: 100,
-                    builder: (_, i) {
-                      final name = _policies[i]['name']?.toString() ?? '';
-                      return TextButton(
-                        onPressed: () => _delete(name),
-                        style: TextButton.styleFrom(
-                          foregroundColor: AppColors.danger,
-                        ),
-                        child: const LocalizedText('Delete'),
-                      );
-                    },
-                  ),
-                ],
-                itemCount: _policies.length,
-                rowBuilder: (_, _) => const SizedBox.shrink(),
-                onRowTap: (i) => AdminRoute.go(
-                  'threat-policies',
-                  resourceId: _policies[i]['name']?.toString() ?? '',
-                  action: 'edit',
                 ),
+                AdminDataColumn(
+                  id: 'description',
+                  label: 'Description'.localized,
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    policies[i]['description']?.toString() ?? '',
+                    muted: true,
+                    maxLines: 2,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'id',
+                  label: 'ID'.localized,
+                  builder: (_, i) => TableCellText(
+                    policies[i]['id']?.toString() ?? '',
+                    muted: true,
+                  ),
+                ),
+                AdminDataColumn(
+                  id: 'status',
+                  label: 'Status'.localized,
+                  builder: (_, i) => policies[i]['enabled'] == true
+                      ? StatusChip.active(label: 'Enabled')
+                      : StatusChip.inactive(label: 'Disabled'),
+                ),
+                AdminDataColumn(
+                  id: 'actions',
+                  label: '',
+                  width: 100,
+                  builder: (_, i) => TextButton(
+                    onPressed: _mutating
+                        ? null
+                        : () => _delete(policies[i]['name']?.toString() ?? ''),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                    ),
+                    child: const LocalizedText('Delete'),
+                  ),
+                ),
+              ],
+              itemCount: policies.length,
+              rowBuilder: (_, _) => const SizedBox.shrink(),
+              onRowTap: (i) => AdminRoute.go(
+                'threat-policies',
+                resourceId: policies[i]['name']?.toString() ?? '',
+                action: 'edit',
               ),
             ),
-        ],
-      ],
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildForm(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
     children: [
-      AdminBreadcrumb(),
-      LocalizedText(
-        _editing ? 'Edit policy' : 'New policy',
-        style: Theme.of(context).textTheme.headlineSmall,
+      const AdminBreadcrumb(),
+      Row(
+        children: [
+          Icon(Icons.shield_outlined, size: 22, color: _accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: LocalizedText(
+              _editing ? 'Edit policy' : 'New policy',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+          ),
+        ],
       ),
       const SizedBox(height: 16),
-      TextField(
-        controller: _nameCtrl,
-        decoration: InputDecoration(labelText: 'Name'.localized),
-      ),
+      TextField(controller: _nameCtrl, decoration: InputDecoration(labelText: 'Name'.localized)),
       const SizedBox(height: 12),
       TextField(
         controller: _descCtrl,
@@ -362,5 +363,37 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           ),
         ),
     ],
+  );
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(error, style: const TextStyle(color: AppColors.danger)),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
+      ),
+    ),
   );
 }

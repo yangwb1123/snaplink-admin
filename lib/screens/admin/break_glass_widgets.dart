@@ -3,9 +3,11 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
+/// 撤销文案（目录背书的固定文案 + 按 API 值渲染的结果摘要）。
 abstract final class BreakGlassRevocationCopy {
   static const confirmation =
       'Revoke this emergency-access grant? Snaplink will report every derived '
@@ -27,12 +29,21 @@ abstract final class BreakGlassRevocationCopy {
   }
 }
 
+/// 新建 break-glass 请求的表单卡：组色图标 + SectionHeader，校验/提交错误
+/// 内联展示（formError 与加载错误职责分离）。
 class BreakGlassRequestCard extends StatelessWidget {
   final TextEditingController targetController;
   final TextEditingController reasonController;
   final String scope;
   final bool requireApproval;
   final bool mutating;
+
+  /// 模块强调色（security 组 rose）。
+  final Color accent;
+
+  /// 校验/提交错误 → 表单内联提示。
+  final String? formError;
+
   final ValueChanged<String> onScopeChanged;
   final ValueChanged<String> onTtlChanged;
   final ValueChanged<bool> onRequireApprovalChanged;
@@ -45,6 +56,8 @@ class BreakGlassRequestCard extends StatelessWidget {
     required this.scope,
     required this.requireApproval,
     required this.mutating,
+    required this.accent,
+    required this.formError,
     required this.onScopeChanged,
     required this.onTtlChanged,
     required this.onRequireApprovalChanged,
@@ -59,13 +72,17 @@ class BreakGlassRequestCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'New break-glass request',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.emergency_outlined, size: 20, color: accent),
+              const SizedBox(width: 8),
+              const Expanded(child: SectionHeader('New break-glass request')),
+            ],
           ),
           const SizedBox(height: 12),
           TextField(
             controller: targetController,
+            enabled: !mutating,
             decoration: InputDecoration(
               labelText: 'Target user ID'.localized,
               hintText: 'user@example.com'.localized,
@@ -74,6 +91,7 @@ class BreakGlassRequestCard extends StatelessWidget {
           const SizedBox(height: 12),
           TextField(
             controller: reasonController,
+            enabled: !mutating,
             decoration: InputDecoration(
               labelText: 'Reason (ticket/incident ref)'.localized,
               hintText: 'INC-12345'.localized,
@@ -98,10 +116,13 @@ class BreakGlassRequestCard extends StatelessWidget {
                 child: LocalizedText('Escalate'),
               ),
             ],
-            onChanged: (value) => onScopeChanged(value ?? 'readonly'),
+            onChanged: mutating
+                ? null
+                : (value) => onScopeChanged(value ?? 'readonly'),
           ),
           const SizedBox(height: 12),
           TextField(
+            enabled: !mutating,
             decoration: InputDecoration(
               labelText: 'TTL (seconds, default 900)'.localized,
             ),
@@ -111,29 +132,45 @@ class BreakGlassRequestCard extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: const LocalizedText('Require approval'),
             value: requireApproval,
-            onChanged: (value) => onRequireApprovalChanged(value ?? false),
+            onChanged: mutating
+                ? null
+                : (value) => onRequireApprovalChanged(value ?? false),
           ),
           const SizedBox(height: 12),
-          FilledButton(
-            onPressed: onCreate,
-            child: mutating
+          FilledButton.icon(
+            onPressed: mutating ? null : onCreate,
+            icon: mutating
                 ? const SizedBox(
                     height: 16,
                     width: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const LocalizedText('Create break-glass request'),
+                : const Icon(Icons.add, size: 18),
+            label: const LocalizedText('Create break-glass request'),
           ),
+          if (formError != null) ...[
+            const SizedBox(height: 12),
+            LocalizedText(
+              formError!,
+              style: const TextStyle(color: AppColors.danger),
+            ),
+          ],
         ],
       ),
     ),
   );
 }
 
+/// 会话列表：SectionHeader（计数 + 组色刷新）+ loading/empty/table 三态，
+/// 状态列用 StatusChip（颜色 + 文字双表达），行点击进入详情。
 class BreakGlassSessionsList extends StatelessWidget {
   final List<Map<String, dynamic>> sessions;
   final bool loading;
   final bool mutating;
+
+  /// 模块强调色（security 组 rose）。
+  final Color accent;
+
   final VoidCallback onRefresh;
   final ValueChanged<String> onOpen;
   final ValueChanged<String> onApprove;
@@ -145,6 +182,7 @@ class BreakGlassSessionsList extends StatelessWidget {
     required this.sessions,
     required this.loading,
     required this.mutating,
+    required this.accent,
     required this.onRefresh,
     required this.onOpen,
     required this.onApprove,
@@ -156,41 +194,40 @@ class BreakGlassSessionsList extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Row(
-        children: [
-          LocalizedText(
-            'Sessions',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: loading ? null : onRefresh,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh'.localized,
-          ),
-        ],
+      SectionHeader(
+        'Sessions',
+        count: sessions.isEmpty ? null : sessions.length,
+        action: IconButton(
+          onPressed: loading ? null : onRefresh,
+          icon: Icon(Icons.refresh, color: accent),
+          tooltip: 'Refresh'.localized,
+        ),
       ),
       if (loading) const SkeletonListTile(itemCount: 3),
       if (!loading && sessions.isEmpty)
-        EmptyState(title: 'No break-glass sessions.'),
+        const EmptyState(
+          compact: true,
+          title: 'No break-glass sessions.',
+        ),
       if (!loading && sessions.isNotEmpty)
         AdminDataTable(
           minWidth: 920,
+          density: TableDensity.compact,
           columns: [
             AdminDataColumn(
               id: 'session',
               label: 'Session',
               width: 220,
               cardPrimary: true,
-              builder: (_, i) => LocalizedText(
-                '{targetUser} · {status}',
-                args: {
-                  'targetUser': sessions[i]['target_user_id']?.toString() ??
-                      sessions[i]['target_user']?.toString() ??
-                      '',
-                  'status': sessions[i]['status']?.toString() ?? 'unknown',
-                },
-              ),
+              builder: (_, i) {
+                final target =
+                    sessions[i]['target_user_id']?.toString() ??
+                    sessions[i]['target_user']?.toString() ??
+                    '';
+                final status =
+                    sessions[i]['status']?.toString() ?? 'unknown';
+                return TableCellText('$target · $status', bold: true);
+              },
             ),
             AdminDataColumn(
               id: 'status',

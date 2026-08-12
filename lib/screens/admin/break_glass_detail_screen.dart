@@ -3,11 +3,15 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'admin_module_groups.dart';
 import 'admin_route.dart';
+import 'admin_navigation.dart';
 import 'break_glass_widgets.dart';
 
 /// Emergency (break-glass) access session detail.
@@ -32,6 +36,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   bool _loading = true;
   bool _mutating = false;
   late final void Function() _cancelPopState;
+
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.emergencyAccess);
 
   @override
   void initState() {
@@ -91,49 +98,24 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Emergency Access: {widget_sessionId}', args: {'widget_sessionId': widget.sessionId}),
+      title: LocalizedText(
+        'Emergency Access: {widget_sessionId}',
+        args: {'widget_sessionId': widget.sessionId},
+      ),
       leading: IconButton(
         tooltip: 'Back'.localized,
-          icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('emergency-access'),
       ),
     ),
     body: _loading
         ? const SkeletonListTile(itemCount: 3)
         : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: AppColors.danger,
-                ),
-                const SizedBox(height: 16),
-                LocalizedText(
-                  'Failed to load',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const LocalizedText('Retry'),
-                ),
-              ],
-            ),
+        ? _errorView(context)
+        : _session == null
+        ? const EmptyState(
+            variant: EmptyStateVariant.empty,
+            title: 'Break-glass session not found.',
           )
         : Column(
             children: [
@@ -159,8 +141,39 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   bool get _isPending => _session?['status']?.toString() == 'pending';
 
   List<Widget> _pendingActionCards() => [
-        if (_isPending) _actionsCard(context),
-      ];
+    if (_isPending) _actionsCard(context),
+  ];
+
+  Widget _errorView(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+        const SizedBox(height: 16),
+        LocalizedText(
+          'Failed to load',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _load,
+          icon: const Icon(Icons.refresh),
+          label: const LocalizedText('Retry'),
+        ),
+      ],
+    ),
+  );
 
   Widget _infoCard(BuildContext context) => Card(
     child: Padding(
@@ -170,22 +183,23 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber, size: 40, color: AppColors.warning),
+              Icon(Icons.emergency_outlined, size: 28, color: _accent),
               const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LocalizedText(
-                      'Break-Glass Session',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    LocalizedText('ID: {id}', args: {'id': widget.sessionId}),
-                  ],
+                child: SectionHeader(
+                  'Break-Glass Session',
+                  action: _statusChip(),
                 ),
               ),
-              _statusChip(),
             ],
+          ),
+          const SizedBox(height: 4),
+          LocalizedText(
+            'ID: {id}',
+            args: {'id': widget.sessionId},
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSubtle,
+            ),
           ),
           const Divider(),
           _infoRow(
@@ -222,10 +236,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LocalizedText(
-            'Actions',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          const SectionHeader('Actions'),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -234,7 +245,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                   onPressed: _mutating ? null : () => _approve(),
                   icon: const Icon(Icons.check),
                   label: const LocalizedText('Approve'),
-                  style: FilledButton.styleFrom(backgroundColor: AppColors.success),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.success,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -261,10 +274,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LocalizedText(
-            'Audit Trail',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          const SectionHeader('Audit Trail'),
           const SizedBox(height: 8),
           if (_session?['audit'] != null)
             ...((_session!['audit'] as List?) ?? []).map(
@@ -323,7 +333,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -355,7 +365,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
+        ).showSnackBar(SnackBar(content: Text('$e')));
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

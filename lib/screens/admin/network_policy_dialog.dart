@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
@@ -156,8 +157,9 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
                 controller: _nameCtrl,
                 enabled: !_editing,
                 decoration: InputDecoration(labelText: 'Policy name'.localized),
-                validator: (value) =>
-                    value?.trim().isEmpty == true ? 'Required' : null,
+                validator: (value) => value?.trim().isEmpty == true
+                    ? context.tr('Required')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -186,7 +188,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(labelText: 'Priority'.localized),
                 validator: (value) => int.tryParse(value?.trim() ?? '') == null
-                    ? 'Enter an integer'
+                    ? context.tr('Enter an integer')
                     : null,
               ),
               const SizedBox(height: 12),

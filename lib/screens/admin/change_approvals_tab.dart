@@ -1,15 +1,20 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/async_view.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
-
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'change_approval_models.dart';
 
 /// 变更审批状态（后端规范 02：状态集中定义，防散落字符串漂移）。
@@ -20,10 +25,12 @@ abstract final class ChangeStatus {
   static const rejected = 'rejected';
 }
 
-
+/// 双人审批队列：高影响变更须由与提议者不同的管理员批准后才可应用，
+/// 拒绝的变更永不应用。审批/拒绝均需输入变更 ID 二次确认（语义不变）。
 class ChangeApprovalsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
+
   const ChangeApprovalsTab({
     super.key,
     required this.api,
@@ -36,11 +43,16 @@ class ChangeApprovalsTab extends StatefulWidget {
 
 class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   static const _basePath = '/api/v1/admin/changes';
+
   List<Map<String, dynamic>> _changes = const [];
   String _status = ChangeStatus.all;
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.changeApprovals);
+
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_basePath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_basePath);
@@ -50,6 +62,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       : _changes
             .where((change) => change['status']?.toString() == _status)
             .toList(growable: false);
+
   @override
   void initState() {
     super.initState();
@@ -80,9 +93,9 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   }
 
   Future<void> _propose() async {
-    final draft = await showDialog<_ChangeDraft>(
+    final draft = await showDialog<ChangeApprovalDraft>(
       context: context,
-      builder: (_) => const _ChangeProposalDialog(),
+      builder: (_) => const ChangeApprovalProposalDialog(),
     );
     if (draft == null || !mounted) return;
     await _write(
@@ -95,20 +108,29 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     final id = change['id']?.toString() ?? '';
     if (id.isEmpty) return;
     final action = approve ? 'approve' : 'reject';
+    final actionName = change['action_type']?.toString() ?? 'this request';
     final confirmed = await ConfirmDialog.show(
       context,
       title: approve ? 'Approve this change?' : 'Reject this change?',
       message: approve
-          ? 'Approval may immediately apply ${change['action_type'] ?? 'the requested action'}. You must be a different administrator from the proposer.'
-          : 'Reject ${change['action_type'] ?? 'this request'}? It will never be applied.',
+          ? context.tr(
+              'Approval may immediately apply {action}. You must be a different administrator from the proposer.',
+              {'action': actionName},
+            )
+          : context.tr(
+              'Reject {action}? It will never be applied.',
+              {'action': actionName},
+            ),
       confirmLabel: approve ? 'Approve' : 'Reject',
       destructive: true,
       confirmText: id,
     );
     if (!confirmed) return;
     await _write(
-      () =>
-          widget.api.post('$_basePath/${Uri.encodeComponent(id)}/$action', {}),
+      () => widget.api.post(
+        '$_basePath/${Uri.encodeComponent(id)}/$action',
+        {},
+      ),
       approve ? 'Change approved.' : 'Change rejected.',
     );
   }
@@ -124,9 +146,9 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     try {
       await operation();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: LocalizedText(success)),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -138,79 +160,104 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) {
-      return const Center(
-        child: LocalizedText(
-          'Two-person administrative approvals are not enabled.',
-        ),
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Two-person administrative approvals are not enabled.',
       );
     }
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
-        Row(
-          children: [
-            LocalizedText(
-              'Change approvals',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const Spacer(),
-            IconButton(
-              onPressed: _loading || _mutating ? null : _load,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Refresh'.localized,
-            ),
-            const SizedBox(width: 8),
+        AdminListHeader(
+          title: AppStrings.of(context).changeApprovals,
+          subtitle:
+              'High-impact changes require an independent administrator to approve them before application.',
+          onRefresh: _load,
+          actions: [
             FilledButton.icon(
               onPressed: _mutating ? null : _propose,
-              icon: const Icon(Icons.add_task),
+              icon: const Icon(Icons.add_task, size: 18),
               label: const LocalizedText('Propose change'),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              onPressed: _loading ? null : _load,
+              icon: Icon(Icons.refresh, color: _accent),
+              tooltip: context.strings.refresh,
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'High-impact changes require an independent administrator to approve them before application.',
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            for (final status in const [
-              ChangeStatus.all,
-              ChangeStatus.pending,
-              ChangeStatus.approved,
-              'applied',
-              ChangeStatus.rejected,
-              'failed',
-            ])
-              ChoiceChip(
-                label: LocalizedText(status),
-                selected: _status == status,
-                onSelected: (_) => setState(() => _status = status),
-              ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        AsyncView<List<Map<String, dynamic>>>(
-          loading: _loading,
-          error: _error,
-          data: _visible,
-          onRetry: _load,
-          emptyTitle: 'No change requests',
-          emptySubtitle: _status == ChangeStatus.all
-              ? 'No governed changes have been proposed.'
-              : 'No requests currently have this status.',
-          dataBuilder: (changes) => Column(
-            children: [
-              for (final change in changes) _changeCard(context, change),
-            ],
+        _statusFilter(context),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: SkeletonListTile(itemCount: 3),
           ),
-        ),
+        if (!_loading && _error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _ErrorBanner(error: _error!, onRetry: _load),
+          ),
+        if (!_loading && _error == null && _visible.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: EmptyState(
+              compact: true,
+              title: 'No change requests',
+              subtitle: _status == ChangeStatus.all
+                  ? 'No governed changes have been proposed.'
+                  : 'No requests currently have this status.',
+            ),
+          ),
+        if (!_loading && _error == null && _visible.isNotEmpty)
+          _changeList(context),
       ],
     );
   }
 
+  /// 状态过滤：常量状态值走 i18n 键（all/pending/approved/applied/rejected/failed）。
+  Widget _statusFilter(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(top: 12),
+    child: Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        for (final status in const [
+          ChangeStatus.all,
+          ChangeStatus.pending,
+          ChangeStatus.approved,
+          'applied',
+          ChangeStatus.rejected,
+          'failed',
+        ])
+          ChoiceChip(
+            label: LocalizedText(status),
+            selected: _status == status,
+            onSelected: (_) => setState(() => _status = status),
+          ),
+      ],
+    ),
+  );
+
+  /// 审批队列：SectionHeader（计数）+ 变更卡片（ExpansionTile 展开详情）。
+  Widget _changeList(BuildContext context) {
+    final changes = _visible;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: SectionHeader('Change requests', count: changes.length),
+        ),
+        const SizedBox(height: 4),
+        for (final change in changes) _changeCard(context, change),
+      ],
+    );
+  }
+
+  /// 变更卡片：动作类型 + StatusChip（双表达）；展开显示 payload JSON /
+  /// 失败原因 / 决策元数据；pending 变更提供 批准/拒绝（type-to-confirm）。
   Widget _changeCard(BuildContext context, Map<String, dynamic> change) {
     final status = change['status']?.toString() ?? 'unknown';
     final pending = status == ChangeStatus.pending;
@@ -218,19 +265,22 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     final action = change['action_type']?.toString() ?? 'Change request';
     final proposedBy = change['proposed_by']?.toString() ?? 'unknown';
     final reason = change['reason']?.toString() ?? '';
+    final createdAt = change['created_at']?.toString() ?? '';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ExpansionTile(
+        leading: Icon(Icons.task_alt_outlined, size: 20, color: _accent),
         title: Row(
           children: [
             Expanded(child: Text(action)),
-            _statusChip(status),
+            _statusChip(context, status),
           ],
         ),
         subtitle: Text(
-          [if (reason.isNotEmpty) reason, 'proposed by $proposedBy'].join(
-            '\n',
-          ),
+          [
+            if (reason.isNotEmpty) reason,
+            context.tr('Proposed by {user}', {'user': proposedBy}),
+          ].join('\n'),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
@@ -252,8 +302,12 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
           ],
           const SizedBox(height: 12),
           Text(
-            'Created ${change['created_at'] ?? ''}'
-            '${decidedBy.isEmpty ? '' : ' · decided by $decidedBy'}',
+            [
+              if (createdAt.isNotEmpty)
+                context.tr('Created {date}', {'date': createdAt}),
+              if (decidedBy.isNotEmpty)
+                context.tr('Decided by {user}', {'user': decidedBy}),
+            ].join(' · '),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (pending) ...[
@@ -276,134 +330,51 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     );
   }
 
-  Widget _statusChip(String status) => switch (status) {
-    'pending' => StatusChip.pending(label: 'Pending'),
-    'approved' => StatusChip.active(label: 'Approved'),
-    'applied' => StatusChip.active(label: 'Applied'),
-    'rejected' => StatusChip.failed(label: 'Rejected'),
-    'failed' => StatusChip.failed(label: 'Failed'),
-    _ => StatusChip.unknown(label: status),
+  /// 状态双表达：pending/approved/applied/rejected/failed 用语义工厂；
+  /// 未知值原样展示（API 值走 Text，X10 不伪造 i18n 键）。
+  Widget _statusChip(BuildContext context, String status) => switch (status) {
+    'pending' => StatusChip.pending(label: context.tr('Pending')),
+    'approved' => StatusChip.active(label: context.tr('Approved')),
+    'applied' => StatusChip.active(label: context.tr('Applied')),
+    'rejected' => StatusChip.failed(label: context.tr('Rejected')),
+    'failed' => StatusChip.failed(label: context.tr('Failed')),
+    _ => StatusChip.unknown(
+        label: status.isEmpty ? context.tr('unknown') : status,
+      ),
   };
 }
 
-class _ChangeDraft {
-  final String actionType;
-  final String reason;
-  final Map<String, dynamic> payload;
-  const _ChangeDraft({
-    required this.actionType,
-    required this.reason,
-    required this.payload,
-  });
-
-  Map<String, dynamic> get body => {
-    'action_type': actionType,
-    'reason': reason,
-    'payload': payload,
-  };
-}
-
-class _ChangeProposalDialog extends StatefulWidget {
-  const _ChangeProposalDialog();
+/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
 
   @override
-  State<_ChangeProposalDialog> createState() => _ChangeProposalDialogState();
-}
-
-class _ChangeProposalDialogState extends State<_ChangeProposalDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final _typeCtrl = TextEditingController();
-  final _reasonCtrl = TextEditingController();
-  final _payloadCtrl = TextEditingController(text: '{}');
-  String? _error;
-  @override
-  void dispose() {
-    _typeCtrl.dispose();
-    _reasonCtrl.dispose();
-    _payloadCtrl.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    if (!_formKey.currentState!.validate()) return;
-    try {
-      final decoded = jsonDecode(_payloadCtrl.text);
-      if (decoded is! Map) throw const FormatException();
-      if (SensitiveData.containsSensitiveField(decoded)) {
-        setState(
-          () => _error =
-              'Approval payloads are persisted. Reference a secret by ID; '
-              'do not include passwords, tokens, or credentials.',
-        );
-        return;
-      }
-      Navigator.pop(
-        context,
-        _ChangeDraft(
-          actionType: _typeCtrl.text.trim(),
-          reason: _reasonCtrl.text.trim(),
-          payload: Map<String, dynamic>.from(decoded),
-        ),
-      );
-    } on FormatException {
-      setState(() => _error = 'Payload must be a JSON object.');
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const LocalizedText('Propose governed change'),
-    content: Form(
-      key: _formKey,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: _typeCtrl,
-              decoration: InputDecoration(
-                labelText: 'Action type'.localized,
-                helperText:
-                    'Must match an action enabled by the server.'.localized,
-              ),
-              validator: (value) =>
-                  value?.trim().isEmpty == true ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _reasonCtrl,
-              decoration: InputDecoration(
-                labelText: 'Business justification / ticket'.localized,
-              ),
-              maxLines: 2,
-              validator: (value) =>
-                  value?.trim().isEmpty == true ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _payloadCtrl,
-              decoration: InputDecoration(labelText: 'Payload JSON'.localized),
-              minLines: 4,
-              maxLines: 8,
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-            ),
-            if (_error != null) ...[
-              const SizedBox(height: 8),
-              LocalizedText(
-                _error!,
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text(
+                error,
                 style: const TextStyle(color: AppColors.danger),
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+        ],
       ),
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const LocalizedText('Cancel'),
-      ),
-      FilledButton(onPressed: _submit, child: const LocalizedText('Propose')),
-    ],
   );
 }
