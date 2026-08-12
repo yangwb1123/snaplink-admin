@@ -1,0 +1,136 @@
+# 逐页 UI 重构 — batch 4a（system+overview 组：governance/audit-log/user-support/overview/health/live-activity/operations）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-system.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-system.log
+# 参考：docs/ui/admin-pages/audit.md、docs/ui/pages/fix-system.md
+
+tasks:
+- prompt: |
+    重构治理页面。步骤：
+    1. 分析现有代码：lib/screens/admin/governance_tab.dart、
+       governance_widgets.dart、governance_models.dart —— 读完整文件，
+       梳理配置差异/历史/集群差异/健康/实时事件的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与组色（adminModuleIconColor
+       ('governance')），结合 docs/ui/admin-pages/audit.md 中 governance
+       条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；审计查询/筛选语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/governance.md（分析摘要→问题清单→
+       修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/governance.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构审计日志页面。步骤：
+    1. 分析现有代码：lib/screens/admin/audit_log_tab.dart —— 读完整文件，
+       梳理审计事件列表/筛选/详情的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('audit-log')），结合
+       docs/ui/admin-pages/audit.md 中 audit-log 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；审计查询/去重/分页语义保持；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/audit_log_tab_test.dart test/admin_governance_security_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/audit-log.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/audit-log.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/audit_log_tab_test.dart test/admin_governance_security_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构用户支持页面。步骤：
+    1. 分析现有代码：lib/screens/admin/user_support_tab.dart、
+       user_support_cards.dart、org_members_card.dart —— 读完整文件，
+       梳理账户锁定/MFA 重置/恢复支持的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('user-support')），结合
+       docs/ui/admin-pages/audit.md 中 user-support 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；锁定清除（client_id+identifier）
+         语义保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_support_tabs_test.dart test/admin_secondary_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/user-support.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/user-support.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_support_tabs_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构总览页面。步骤：
+    1. 分析现有代码：lib/screens/admin/admin_overview_tab.dart、
+       admin_overview_metrics.dart —— 读完整文件，梳理指标卡/分布条/
+       角色化呈现的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('overview')），结合
+       docs/ui/admin-pages/audit.md 中 overview 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；指标语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_overview*（如存在）及 test/admin_shell_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/overview.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/overview.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构健康页面。步骤：
+    1. 分析现有代码：lib/screens/admin/health_tab.dart —— 读完整文件，
+       梳理服务健康/存储/联邦健康状态的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('health')），结合
+       docs/ui/admin-pages/audit.md 中 health 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；健康语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_health_breakglass_test.dart test/admin_shell_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/health.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/health.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_health_breakglass_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构实时活动页面。步骤：
+    1. 分析现有代码：lib/screens/admin/admin_live_events_tab.dart ——
+       读完整文件，梳理 SSE 实时事件流的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('live-activity')），结合
+       docs/ui/admin-pages/audit.md 中 live-activity 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；SSE 可取消语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_live_events_detail_read_test.dart（如存在）及
+       test/admin_shell_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/live-activity.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/live-activity.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构运维操作页面。步骤：
+    1. 分析现有代码：lib/screens/admin/admin_operations_tab.dart、
+       admin_ops_helpers.dart —— 读完整文件，梳理高级操作/契约端点的
+       UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('operations')），结合
+       docs/ui/admin-pages/audit.md 中 operations 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；Advanced operations 语义
+         （目录约束、确认短语、结果未知不重放）保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_operations_unknown_outcome_test.dart
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/operations.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/operations.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_operations_unknown_outcome_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

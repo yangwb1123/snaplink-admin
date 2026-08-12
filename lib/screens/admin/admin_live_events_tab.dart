@@ -3,16 +3,18 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
-import 'snaplink_admin_api.dart';
-import '../../widgets/admin_breadcrumb.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
+import 'snaplink_admin_api.dart';
 
 /// Realtime, redacted audit activity backed by Snaplink's SSE endpoint.
 ///
@@ -48,6 +50,9 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
   bool _reconnectWanted = false;
   int _connectionGeneration = 0;
   int _reconnectAttempt = 0;
+
+  /// Module accent: live-activity inherits the developers group (emerald).
+  Color get _accent => adminModuleIconColor(AdminModuleId.liveActivity);
 
   bool get _advertised => widget.endpoints.any(
     (endpoint) =>
@@ -196,15 +201,116 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     }
   }
 
+  String _summary(SnaplinkAdminEvent event) {
+    final fields = [
+      'outcome',
+      'actor_id',
+      'tenant_id',
+      'client_id',
+      'resource',
+      'timestamp',
+    ];
+    final values = fields
+        .map((field) => event.data[field]?.toString())
+        .whereType<String>()
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+    return values.isEmpty ? 'Redacted event summary' : values.join(' · ');
+  }
+
+  // ---- presentational helpers ----
+
+  Widget _connectionChip() {
+    if (_connecting) {
+      return StatusChip(
+        label: context.tr('Connecting…'),
+        color: AppColors.accentBlue,
+        icon: Icons.sync,
+      );
+    }
+    return StatusChip(
+      label: context.tr(_connected ? 'Connected' : 'Disconnected'),
+      color: _connected ? AppColors.success : AppColors.muted,
+      icon: _connected ? Icons.wifi : Icons.wifi_off,
+    );
+  }
+
+  /// Error banner; Retry covers terminal stops (e.g. 401), auto-reconnect
+  /// carries its countdown in the message.
+  Widget _errorCard() {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer.withValues(alpha: 0.45),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: scheme.error),
+            const SizedBox(width: 12),
+            Expanded(child: Text(_error!, style: TextStyle(color: scheme.error))),
+            if (!_reconnectWanted)
+              TextButton(
+                onPressed: _connect,
+                child: const LocalizedText('Retry'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Loading / empty / live feed states.
+  List<Widget> _feed() {
+    if (_events.isNotEmpty) {
+      return _events.map(_eventRow).toList(growable: false);
+    }
+    if (_connecting) return const [SkeletonListTile(itemCount: 4)];
+    return const [
+      EmptyState(variant: EmptyStateVariant.empty, title: 'No events received yet.'),
+    ];
+  }
+
+  /// Tappable row keeps the monospace id for the detail-read interaction.
+  Widget _eventRow(SnaplinkAdminEvent event) {
+    final theme = Theme.of(context);
+    return Card(
+      child: ListTile(
+        onTap: () => _showDetail(event),
+        leading: Icon(Icons.notifications_outlined, color: _accent),
+        title: Text(event.data['type']?.toString() ?? event.type),
+        subtitle: Text(_summary(event)),
+        trailing: event.id == null
+            ? null
+            : Text(
+                event.id!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         AdminBreadcrumb(),
-        Text(
-          AppStrings.of(context).liveActivity,
-          style: Theme.of(context).textTheme.headlineSmall,
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(Icons.sensors_outlined, color: _accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                AppStrings.of(context).liveActivity,
+                style: theme.textTheme.headlineSmall,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         LocalizedText(
@@ -265,68 +371,30 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
+          _errorCard(),
         ],
         const SizedBox(height: 16),
         Row(
           children: [
-            StatusChip(
-              label: _connected ? 'Connected' : 'Disconnected',
-              color: _connected ? AppColors.success : AppColors.muted,
-              icon: _connected ? Icons.wifi : Icons.wifi_off,
-            ),
+            _connectionChip(),
             if (_connected) ...[
               const SizedBox(width: 8),
               LocalizedText(
                 'Connected · latest {count} events are retained locally.',
                 args: {'count': _maximumEvents},
-                style: Theme.of(context).textTheme.titleSmall,
+                style: theme.textTheme.titleSmall,
               ),
             ],
           ],
         ),
+        const SizedBox(height: 16),
+        SectionHeader(
+          'Live event feed',
+          count: _events.isEmpty ? null : _events.length,
+        ),
         const SizedBox(height: 8),
-        if (_events.isEmpty)
-          const EmptyState(
-            variant: EmptyStateVariant.empty,
-            title: 'No events received yet.',
-          )
-        else
-          ..._events.map(
-            (event) => Card(
-              child: ListTile(
-                onTap: () => _showDetail(event),
-                leading: Icon(
-                  Icons.notifications_outlined,
-                  color: adminModuleIconColor(AdminModuleId.liveActivity),
-                ),
-                title: Text(event.data['type']?.toString() ?? event.type),
-                subtitle: Text(_summary(event)),
-                trailing: event.id == null ? null : Text(event.id!),
-              ),
-            ),
-          ),
+        ..._feed(),
       ],
     );
-  }
-
-  String _summary(SnaplinkAdminEvent event) {
-    final fields = [
-      'outcome',
-      'actor_id',
-      'tenant_id',
-      'client_id',
-      'resource',
-      'timestamp',
-    ];
-    final values = fields
-        .map((field) => event.data[field]?.toString())
-        .whereType<String>()
-        .where((value) => value.isNotEmpty)
-        .toList(growable: false);
-    return values.isEmpty ? 'Redacted event summary' : values.join(' · ');
   }
 }

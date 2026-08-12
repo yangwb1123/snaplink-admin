@@ -1,22 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/audit_query.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'admin_route.dart';
-import 'admin_ops_helpers.dart';
 import 'governance_models.dart';
 import 'governance_widgets.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
-import 'package:sso_admin/widgets/section_selector.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
 
 class GovernanceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
@@ -36,12 +34,12 @@ class _GovernanceTabState extends State<GovernanceTab> {
   // constants with AuditQuery-built parameters (guard scan 5).
   static const _auditPath = AuditReadClient.eventsPath;
   static const _facetPath = AuditReadClient.facetsPath;
+
+  /// 模块组色（system → indigo）：页头与区块图标统一按组色上色（X7）。
+  Color get _accent => adminModuleIconColor(AdminModuleId.governance);
+
   final _auditQuery = TextEditingController(text: '{"limit": 100}');
-  final _resourceId = TextEditingController();
-  final _writeBody = TextEditingController(text: '{}');
-  final _confirm = TextEditingController();
   final Map<String, Map<String, dynamic>> _data = {};
-  GovernanceWriteOperation _op = governanceWriteOperations.first;
   String? _error;
   bool _loading = false;
   bool _writing = false;
@@ -61,11 +59,10 @@ class _GovernanceTabState extends State<GovernanceTab> {
     SectionDef('write', 'Write', Icons.edit,
         color: adminModuleIconColor(AdminModuleId.governance)),
   ];
+
   @override
   void initState() {
     super.initState();
-    _resourceId.addListener(_resourceIdChanged);
-    _writeBody.addListener(_invalidateWriteConfirmation);
     _refresh();
     _initSectionFromRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
@@ -103,13 +100,11 @@ class _GovernanceTabState extends State<GovernanceTab> {
   String _route(String path) => path
       .replaceAllMapped(RegExp(r'\{[A-Za-z_][A-Za-z0-9_]*\}'), (_) => ':id')
       .replaceAllMapped(RegExp(r':[A-Za-z_][A-Za-z0-9_]*'), (_) => ':id');
+
   @override
   void dispose() {
     _cancelPopState();
     _auditQuery.dispose();
-    _resourceId.dispose();
-    _writeBody.dispose();
-    _confirm.dispose();
     super.dispose();
   }
 
@@ -142,9 +137,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         }),
       );
       if (!mounted) return;
-      final failures = results
-          .where((result) => result.error.isNotEmpty)
-          .toList();
+      final failures = results.where((result) => result.error.isNotEmpty).toList();
       setState(() {
         _data.addEntries(
           results
@@ -210,45 +203,32 @@ class _GovernanceTabState extends State<GovernanceTab> {
     }
   }
 
-  Future<void> _runWrite() async {
-    var path = _op.path;
-    if (path.contains(':id')) {
-      final id = _resourceId.text.trim();
-      if (id.isEmpty) {
-        setState(
-          () => _error = 'Enter the affected snapshot, release, or change ID.',
-        );
-        return;
-      }
-      path = path.replaceAll(':id', Uri.encodeComponent(id));
-    }
-    final body = _json(_writeBody.text, 'Request body');
-    if (body == null) return;
-    if (SensitiveData.containsSensitiveField(body)) {
-      setState(
-        () => _error =
-            'Generic governance payloads are retained in reports and approval '
-            'records. Do not include passwords, tokens, or private keys.',
-      );
-      return;
-    }
-    if (!await _confirmed('Run ${_op.label}?', path)) return;
+  /// Wire half of the governed write: the panel pre-flights (ID/JSON/
+  /// sensitive/typed-confirmation/dialog), this runs the mutation and
+  /// returns a displayable error or null on success.
+  Future<String?> _submitWrite(
+    String method,
+    String path,
+    Map<String, dynamic> body,
+    String label,
+  ) async {
     setState(() {
       _writing = true;
       _error = null;
     });
     try {
-      final result = _op.method == 'POST'
+      final result = method == 'POST'
           ? await widget.api.post(path, body)
           : await widget.api.delete(path, body);
-      if (!mounted) return;
+      if (!mounted) return null;
       setState(() => _data['lastWrite'] = _safe(result));
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LocalizedText('{op} completed.', args: {'op': _op.label})),
+        SnackBar(content: LocalizedText('{op} completed.', args: {'op': label})),
       );
       await _refresh();
+      return null;
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      return error.toString();
     } finally {
       if (mounted) setState(() => _writing = false);
     }
@@ -268,283 +248,102 @@ class _GovernanceTabState extends State<GovernanceTab> {
   Map<String, dynamic> _safe(Map<String, dynamic> value) =>
       Map<String, dynamic>.from(SensitiveData.redact(value)! as Map);
 
-  void _invalidateWriteConfirmation() {
-    if (_confirm.text.isNotEmpty) _confirm.clear();
-  }
-
-  void _resourceIdChanged() {
-    _invalidateWriteConfirmation();
-    if (mounted) setState(() {});
-  }
-
-  String get _writeConfirmationHint {
-    var path = _op.path;
-    if (path.contains(':id')) {
-      final id = _resourceId.text.trim();
-      if (id.isEmpty) {
-        return 'CONFIRM ${_op.method} <resolved path>';
-      }
-      path = path.replaceAll(':id', Uri.encodeComponent(id));
-    }
-    return AdminOpsHelpers.writeConfirmation(_op.method, path);
-  }
-
-  Future<bool> _confirmed(String action, String resolvedPath) async {
-    final required = AdminOpsHelpers.writeConfirmation(
-      _op.method,
-      resolvedPath,
-    );
-    if (_confirm.text.trim() != required) {
-      setState(() => _error = 'Type the exact confirmation phrase: $required');
-      return false;
-    }
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Confirm',
-      message: action,
-      confirmLabel: 'Run operation',
-      destructive: true,
-    );
-    _confirm.clear();
-    return confirmed;
-  }
-
   @override
-  Widget build(BuildContext context) {
-    // 子菜单固定在最上面一行（非滚动区）——Material TabBar 模式。
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AdminBreadcrumb(),
-              Row(
-                children: [
-                  Text(
-                    AppStrings.of(context).governanceOperations,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: _loading || _writing ? null : _refresh,
-                    tooltip: 'Refresh'.localized,
-                    icon: const Icon(Icons.refresh),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              SectionSelector(
-                sections: _sections,
-                current: _currentSection,
-                onSelected: _selectSection,
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (_error != null) _errorBanner(),
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (_currentSection == 'all' || _currentSection == 'health')
-          _readArea(context, 'Platform health', 'health'),
-        if (_currentSection == 'all' || _currentSection == 'audit')
-          _auditArea(context),
-        if (_currentSection == 'all' || _currentSection == 'compliance')
-          _readArea(context, 'Compliance evidence', 'compliance'),
-        if (_currentSection == 'all' || _currentSection == 'configuration')
-          _readArea(context, 'Configuration assurance', 'configuration'),
-        if (_currentSection == 'all' || _currentSection == 'lifecycle')
-          _readArea(
-            context,
-            'Snapshots, releases, and change approvals',
-            'lifecycle',
-          ),
-        if (_currentSection == 'all' || _currentSection == 'write')
-          _writeArea(context),
-        if (_data.containsKey('lastWrite'))
-          _jsonCard(context, 'Last write response', _data['lastWrite']!),
-      ],
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const AdminBreadcrumb(),
+            Row(
+              children: [
+                Icon(Icons.admin_panel_settings_outlined, color: _accent),
+                const SizedBox(width: 8),
+                Text(
+                  AppStrings.of(context).governanceOperations,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _loading || _writing ? null : _refresh,
+                  tooltip: 'Refresh'.localized,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SectionSelector(
+              sections: _sections,
+              current: _currentSection,
+              onSelected: _selectSection,
+            ),
+          ],
         ),
       ),
-      ],
-    );
-  }
-
-  Widget _errorBanner() => GovernanceErrorBanner(error: _error!, onRetry: _refresh);
-  Widget _readArea(BuildContext context, String title, String section) {
-    final available = governanceReadSpecs
-        .where((spec) => spec.section == section && _has('GET', spec.path))
-        .toList();
-    return _section(context, title, [
-      if (available.isEmpty)
-        const LocalizedText(
-          'This feature is not enabled on the connected replica.',
+      Expanded(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            if (_error != null)
+              GovernanceErrorBanner(error: _error!, onRetry: _refresh),
+            if (_loading) const SkeletonListTile(itemCount: 3),
+            if (_show('all') || _show('health'))
+              _readSection('Platform health', Icons.monitor_heart_outlined, 'health'),
+            if (_show('all') || _show('audit')) _auditPanel(context),
+            if (_show('all') || _show('compliance'))
+              _readSection('Compliance evidence', Icons.verified_outlined, 'compliance'),
+            if (_show('all') || _show('configuration'))
+              _readSection('Configuration assurance', Icons.settings_outlined, 'configuration'),
+            if (_show('all') || _show('lifecycle'))
+              _readSection(
+                'Snapshots, releases, and change approvals',
+                Icons.swap_vert,
+                'lifecycle',
+              ),
+            if (_show('all') || _show('write')) _writePanel(context),
+            if (_data.containsKey('lastWrite'))
+              GovernanceJsonCard(title: 'Last write response', data: _data['lastWrite']!),
+          ],
         ),
-      if (available.isNotEmpty)
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: available
-              .map(
-                (spec) => OutlinedButton.icon(
-                  onPressed: _loading ? null : () => _read(spec),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: LocalizedText('Refresh {spec_title}', args: {'spec_title': spec.title}),
-                ),
-              )
-              .toList(growable: false),
-        ),
-      for (final spec in available)
-        if (_data.containsKey(spec.key))
-          _jsonCard(context, spec.title, _data[spec.key]!),
-    ]);
-  }
-
-  Widget _auditArea(BuildContext context) => _section(
-    context,
-    'Audit investigation',
-    [
-      if (!_has('GET', _auditPath))
-        const LocalizedText(
-          'Audit querying is not enabled on the connected replica.',
-        ),
-      if (_has('GET', _auditPath)) ...[
-        TextField(
-          controller: _auditQuery,
-          maxLines: 3,
-          enabled: !_loading,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          decoration: InputDecoration(
-            labelText: 'Audit filter JSON'.localized,
-            helperText:
-                'Example: {"tenant_id":"acme","outcome":"failure","limit":100}'
-                    .localized,
-          ),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: _loading ? null : _queryAudit,
-          icon: const Icon(Icons.manage_search),
-          label: const LocalizedText('Query audit events'),
-        ),
-        if (_data.containsKey('audit')) _auditResults(context),
-        if (_data.containsKey('facets'))
-          _jsonCard(context, 'Matching audit facets', _data['facets']!),
-      ],
+      ),
     ],
   );
-  Widget _auditResults(BuildContext context) {
-    final result = _data['audit']!;
-    final events =
-        (result['events'] as List?)?.cast<Map<String, dynamic>>().toList() ??
-        const [];
-    return _card('Audit results (${result['count'] ?? events.length})', [
-      if (events.isEmpty) const LocalizedText('No matching events.'),
-      for (final event in events.take(20))
-        ListTile(
-          dense: true,
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            event['type']?.toString() ??
-                event['id']?.toString() ??
-                context.tr('Event'),
-          ),
-          subtitle: Text(
-            '${event['timestamp'] ?? event['created_at'] ?? ''} ${event['outcome'] ?? ''}'
-                .trim(),
-          ),
-        ),
-      if (events.length > 20)
-        LocalizedText(
-          '{count} more results are present in the copied JSON.',
-        ),
-    ]);
-  }
 
-  Widget _writeArea(BuildContext context) {
-    final available = governanceWriteOperations
-        .where((op) => _has(op.method, op.path))
-        .toList();
-    if (available.isEmpty) return const SizedBox.shrink();
-    final selected = available.contains(_op) ? _op : available.first;
-    if (_op != selected) _op = selected;
-    return _section(context, 'Governed write composer', [
-      const LocalizedText(
-        'Use this for snapshots, deployments, disaster recovery, retention, and two-person change control.',
-      ),
-      const SizedBox(height: 8),
-      DropdownButtonFormField<GovernanceWriteOperation>(
-        initialValue: selected,
-        isExpanded: true,
-        decoration: InputDecoration(labelText: 'Operation'.localized),
-        items: available
-            .map(
-              (item) => DropdownMenuItem(
-                value: item,
-                child: LocalizedText(item.label),
-              ),
-            )
+  bool _show(String section) =>
+      _currentSection == 'all' || _currentSection == section;
+
+  Widget _readSection(String title, IconData icon, String section) =>
+      GovernanceReadSection(
+        title: title,
+        icon: icon,
+        specs: governanceReadSpecs
+            .where((spec) => spec.section == section && _has('GET', spec.path))
             .toList(),
-        onChanged: _writing
-            ? null
-            : (value) => setState(() {
-                _op = value!;
-                _resourceId.clear();
-                _writeBody.text = value.example;
-                _confirm.clear();
-              }),
-      ),
-      if (selected.path.contains(':id')) ...[
-        const SizedBox(height: 12),
-        TextField(
-          controller: _resourceId,
-          decoration: InputDecoration(labelText: 'Resource ID'.localized),
-        ),
-      ],
-      const SizedBox(height: 12),
-      TextField(
-        controller: _writeBody,
-        maxLines: 6,
-        enabled: !_writing,
-        style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-        decoration: InputDecoration(labelText: 'Request JSON'.localized),
-      ),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _confirm,
-        enabled: !_writing,
-        decoration: InputDecoration(
-          labelText: 'Exact write confirmation'.localized,
-          helperText: _writeConfirmationHint,
-        ),
-      ),
-      const SizedBox(height: 12),
-      FilledButton.icon(
-        onPressed: _writing ? null : _runWrite,
-        icon: _writing
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.warning_amber),
-        label: LocalizedText('Run {selected_label}', args: {'selected_label': selected.label}),
-      ),
-    ]);
-  }
+        data: _data,
+        loading: _loading,
+        accent: _accent,
+        onRefresh: _read,
+      );
 
-  Widget _section(BuildContext context, String title, List<Widget> children) =>
-      GovernanceSection(title: title, children: children);
-  Widget _card(String title, List<Widget> children) =>
-      GovernanceCard(title: title, children: children);
-  Widget _jsonCard(
-    BuildContext context,
-    String title,
-    Map<String, dynamic> data,
-  ) => GovernanceJsonCard(title: title, data: data);
+  Widget _auditPanel(BuildContext context) => GovernanceAuditPanel(
+    queryController: _auditQuery,
+    enabled: _has('GET', _auditPath),
+    loading: _loading,
+    accent: _accent,
+    onQuery: _queryAudit,
+    result: _data['audit'],
+    facets: _data['facets'],
+  );
+
+  Widget _writePanel(BuildContext context) => GovernanceWritePanel(
+    operations: governanceWriteOperations
+        .where((op) => _has(op.method, op.path))
+        .toList(),
+    writing: _writing,
+    accent: _accent,
+    onWrite: _submitWrite,
+  );
 }

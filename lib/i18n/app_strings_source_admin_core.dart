@@ -38,6 +38,8 @@ const appAdminCoreSourceZh = <String, String>{
   'Restore snapshot {widget_snapshotId}': '恢复快照 {widget_snapshotId}',
   'Run {endpoint_method}': '运行 {endpoint_method}',
   'Run {selected_label}': '运行 {selected_label}',
+  'Run operation': '运行操作',
+  'Request body must be a JSON object.': '请求体必须是 JSON 对象。',
   'Service mode changed to {_selectedMode}.': '服务模式已切换为 {_selectedMode}。',
   'Tenant: {widget_tenantId}': '租户：{widget_tenantId}',
   'All request classes are available.': '所有请求类别均可用。',
@@ -49,6 +51,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Every non-probe request is rejected.': '除探测外的所有请求均被拒绝。',
   'Total: {total}': '总计：{total}',
   'Anomalies': '异常',
+  'Audit': '审计',
   'Expired': '已过期',
   'Expiring': '即将到期',
   'All devices ({total} total)': '全部设备（共 {total} 台）',
@@ -68,13 +71,24 @@ const appAdminCoreSourceZh = <String, String>{
   '{count} documented routes not advertised': '{count} 条文档路由未公布',
   'Every OpenAPI contract route is advertised by this replica — no fallback access needed.':
       '本副本公布了全部 OpenAPI 契约路由——无需回退访问。',
+  'OpenAPI-only modules stay visible for compatibility and report 404/501 as not enabled. Probe the module to confirm it is intentional.':
+      '仅存在于 OpenAPI 的模块为兼容性保持可见，并将 404/501 报告为未启用。探测该模块以确认这是有意为之。',
+  'The console is using its versioned OpenAPI catalog and will probe optional pages safely.':
+      '控制台将使用其版本化 OpenAPI 目录，并安全地探测可选页面。',
+  'Runtime error: {error}': '运行时错误：{error}',
   'A subsystem needs attention': '有子系统需要关注',
   'All subsystems healthy': '全部子系统健康',
   'down': '异常',
   'Peak': '峰值',
+  'Platform health': '平台健康',
   'Fleet trust distribution': '设备信任分布',
   'Connections health': '连接健康',
+  'Compliance': '合规',
+  'Compliance evidence': '合规证据',
+  'Config': '配置',
+  'Configuration assurance': '配置保障',
   'Subscriptions health': '订阅健康',
+  'Snapshots, releases, and change approvals': '快照、发布与变更审批',
   'Client {id} approved.': '客户端 {id} 已批准。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
@@ -85,6 +99,10 @@ const appAdminCoreSourceZh = <String, String>{
   '{n}% errors': '错误率 {n}%',
   'Health checks aggregate runtime reachability of the server, storage and cluster.':
       '健康检查汇总服务器、存储与集群的运行时可达性。',
+  'Server': '服务器',
+  'Storage': '存储',
+  'Federation': '联邦',
+  'No health data returned by the server yet.': '服务器尚未返回健康数据。',
   'Token issuance, lifetimes and rotation policies across clients.':
       '各客户端的令牌签发、生命周期与轮换策略。',
   'Realtime threat detection rules protecting authentication flows.':
@@ -307,6 +325,8 @@ const appAdminCoreSourceZh = <String, String>{
   'Key marked as compromised. Source retirement: {retirement}.':
       '密钥已标记为泄露。来源退役状态：{retirement}。',
   'Last operation report': '最近一次操作报告',
+  'Last write response': '最近写入响应',
+  'Live event feed': '实时事件流',
   'Load account support data': '加载账户支持数据',
   'Load organization': '加载组织',
   'Load template': '加载模板',
@@ -316,6 +336,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Logo URL': '徽标 URL',
   'Logins': '登录次数',
   'MFA challenges': 'MFA 质询次数',
+  'Matching audit facets': '匹配的审计分面',
   'MFA factor removed': 'MFA 验证因素已移除',
   'Max 200': '最多 200',
   'Member': '成员',
@@ -505,6 +526,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Verified': '已验证',
   'View activity': '查看活动',
   'Webhook URL': 'Webhook URL',
+  'Write': '写入',
   'Action type': '操作类型',
   'App': '应用',
   'Attributes (one key=value per line)': '属性（每行一个 key=value）',

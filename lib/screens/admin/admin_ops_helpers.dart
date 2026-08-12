@@ -1,7 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+
+import 'tenant_export_download.dart';
 
 /// Helpers for admin operations tab.
 class AdminOpsHelpers {
@@ -82,6 +88,176 @@ class AdminOpsHelpers {
   /// Sanitize a generic response before it is retained, rendered, or copied.
   static Map<String, dynamic> redactResponse(Map<String, dynamic> response) =>
       Map<String, dynamic>.from(SensitiveData.redact(response)! as Map);
+
+  /// 请求体/查询 JSON 解析：必须解码为 JSON 对象。
+  static Map<String, dynamic> parseJsonObject(String value, String label) {
+    Object? decoded;
+    try {
+      decoded = jsonDecode(value.trim().isEmpty ? '{}' : value);
+    } on FormatException {
+      // Normalized below so the operator sees which input needs correction.
+    }
+    if (decoded is Map) {
+      return decoded is Map<String, dynamic>
+          ? decoded
+          : Map<String, dynamic>.from(decoded);
+    }
+    throw FormatException('$label must be a JSON object.');
+  }
+
+  /// 查询参数映射（值字符串化）。
+  static Map<String, String> stringMap(String value, String label) =>
+      parseJsonObject(value, label)
+          .map((key, item) => MapEntry(key, item.toString()));
+
+  /// 按端点契约派发单个请求；GET /docs 返回 null，文档文本由调用方单独拉取。
+  static Future<Map<String, dynamic>?> dispatchRequest(
+    SnaplinkAdminApi api,
+    SnaplinkAdminEndpoint endpoint,
+    String path,
+    Map<String, String> query,
+    Object? body,
+  ) async {
+    if (endpoint.method == 'GET' && endpoint.path == '/api/v1/admin/docs') {
+      return null;
+    }
+    final contentType = endpoint.path.startsWith('/api/v1/scim/')
+        ? 'application/scim+json'
+        : 'application/json';
+    return switch (endpoint.method) {
+      'GET' => await api.get(path, query: query),
+      'POST' => await api.post(path, body, contentType),
+      'PUT' => await api.put(path, body, contentType),
+      'PATCH' => await api.patch(path, body, contentType),
+      'DELETE' => await api.delete(path, body, contentType),
+      _ => throw ArgumentError.value(
+          endpoint.method,
+          'method',
+          'Unsupported HTTP method',
+        ),
+    };
+  }
+
+  /// 主体导出：直接触发浏览器下载，不在控制台预览。
+  static Future<void> downloadSubjectExport(
+    BuildContext context,
+    SnaplinkAdminApi api,
+    String path,
+    Map<String, String> query,
+  ) async {
+    final export = await api.getDownload(path, query: query);
+    if (!context.mounted) return;
+    downloadAdminAttachment(
+      export,
+      fallbackFilename: 'snaplink-subject-export.json',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: LocalizedText('Subject export downloaded without previewing it.'),
+      ),
+    );
+  }
+
+  /// 响应文本：JSON（缩进）或原始文档；供面板与复制共用。
+  static String responseText(
+    Map<String, dynamic>? response,
+    String? rawResponse,
+  ) => response == null
+      ? rawResponse ?? ''
+      : const JsonEncoder.withIndent('  ').convert(response);
+
+  /// 结果未知锁：上一写入可能已提交 → 输入锁定，必须先核对权威状态。
+  static Widget unknownOutcomeCard(
+    BuildContext context, {
+    required VoidCallback? onAcknowledge,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer,
+      child: ListTile(
+        leading: Icon(Icons.sync_problem_outlined, color: scheme.error),
+        title: const LocalizedText('Previous write outcome is unknown'),
+        subtitle: const LocalizedText(
+          'Mutation inputs are locked. Select and run a safe GET, or '
+          'use the dedicated resource screen, then explicitly '
+          'acknowledge reconciliation.',
+        ),
+        trailing: TextButton(
+          onPressed: onAcknowledge,
+          child: const LocalizedText('I reconciled server state'),
+        ),
+      ),
+    );
+  }
+
+  /// 三态-error：danger 容器错误卡；错误文本动态渲染（FM-1）。
+  /// 刻意不提供 Retry——重放写入会破坏“结果未知不重放”语义。
+  static Widget errorCard(BuildContext context, String error) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer.withValues(alpha: 0.45),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, color: scheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: LocalizedText(
+                error,
+                style: TextStyle(color: scheme.error),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 三态-loading：运行中（响应未回）时响应面板显示骨架。
+  static Widget loadingCard() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SectionHeader('Response'),
+      const SizedBox(height: 8),
+      const SkeletonListTile(itemCount: 2),
+    ],
+  );
+
+  /// 响应面板：SectionHeader + 复制 + monospace 只读 JSON。
+  static Widget responseCard(
+    BuildContext context, {
+    required String body,
+    required VoidCallback onCopy,
+  }) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            'Response',
+            action: TextButton.icon(
+              onPressed: onCopy,
+              icon: const Icon(Icons.copy, size: 16),
+              label: const LocalizedText('Copy'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 360),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                body,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 
   /// Show a dialog for one-time credentials.
   static Future<void> showOneTimeCredential(

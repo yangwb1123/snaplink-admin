@@ -9,6 +9,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Apply ordered operation': '应用有序操作',
   'Audit Log': '审计日志',
   'Authorization check tools are not enabled on this replica.': '此副本未启用授权检查工具。',
+  'Availability: documented contract; this replica has not advertised the route.':
+      '可用性：仅文档契约；此副本未公布该路由。',
   'Break-glass approved.': '紧急访问已批准。',
   'Break-glass session created.': '紧急访问会话已创建。',
   'Target user and reason are required.': '请填写目标用户与原因。',
@@ -146,6 +148,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'This bearer is shown once and is not retained by the console.':
       '此持有者令牌仅显示一次，控制台不会保留。',
   'This feature is not enabled on the connected replica.': '连接的副本未启用此功能。',
+  'Audit querying is not enabled on the connected replica.': '连接的副本未启用审计查询。',
   'This secret will not be shown again.': '此密钥不会再次显示。',
   'This user resource is unavailable.': '此用户资源不可用。',
   'Threat policy management is not enabled.': '威胁策略管理功能未启用。',
@@ -196,6 +199,7 @@ const appAdminFeatureSourceZh = <String, String>{
       '发现提供商能力、核对用户和组，并执行有限范围的批量操作。',
   'Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.':
       '此处列出已记录的 Snaplink 管理路由；运行时清单会标记当前副本报告为活跃的路由。服务器端功能门禁仍为最终依据，写操作会被审计且需要明确确认。',
+  'Documented only': '仅文档契约',
   'Empty, malformed, oversized, recursive, or unsupported bulk requests are rejected before submission.':
       '空、格式错误、过大、递归或不受支持的批量请求会在提交前被拒绝。',
   'Enabled feature surfaces': '已启用的功能界面',
@@ -375,6 +379,7 @@ const appAdminFeatureSourceZh = <String, String>{
       '擦除前，请为此主体重新运行试运行预览。',
   'Run a successful dry-run preview with these exact restore settings before committing.':
       '提交前，请使用这些精确的恢复设置成功运行试运行预览。',
+  'Runtime feature surface: {feature}': '运行时功能面：{feature}',
   'Safety boundary blocked an unfiltered bulk device revocation.':
       '安全边界已阻止无筛选条件的设备批量撤销。',  'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.':
       'Snaplink 已接受模拟用户请求，但未返回持有者令牌。在核实服务器状态前请勿重试。',
@@ -428,4 +433,37 @@ const appAdminFeatureSourceZh = <String, String>{
       '客户端断开或服务器重启后，仍可查询恢复、固定和回滚步骤。',
   'No recovery or release operations.': '暂无恢复或发布操作。',
   'Operation error': '操作错误',
+  // User support page (user_support_tab.dart / user_support_cards.dart)
+  'Enter a user ID to load support data.': '输入用户 ID 以加载支持数据。',
+  'Some support data is unavailable: {sources}': '部分支持数据不可用：{sources}',
+  'Affected user: {userId}': '受影响用户：{userId}',
+  'Confirm for user': '为用户确认',
+  'Clear lockout': '清除锁定',
+  'Consent revoked.': '授权已撤销。',
+  'Remove this application grant for {userId}?': '移除 {userId} 的应用授权？',
+  'The user will no longer be able to use this factor.': '用户将无法再使用该验证方式。',
+  'Reset recovery codes?': '重置恢复代码？',
+  'All remaining recovery codes will be invalidated.': '所有剩余恢复代码将失效。',
+  'Change lifecycle state?': '更改生命周期状态？',
+  'Transition {userId} to {state}?': '将 {userId} 过渡到 {state}？',
+  'Set a new password?': '设置新密码？',
+  'This immediately replaces the user password.': '这将立即替换用户密码。',
+  'Password reset.': '密码已重置。',
+  'Force-set email?': '强制设置邮箱？',
+  'This bypasses the self-service email verification flow.': '这将绕过自助邮箱验证流程。',
+  'Revoke all refresh tokens': '撤销全部刷新令牌',
+  'Revoke all refresh tokens?': '撤销全部刷新令牌？',
+  'Revoke device secrets': '撤销设备密钥',
+  'Revoke device secrets?': '撤销设备密钥？',
+  'Revoke password reset links': '撤销密码重置链接',
+  'Revoke password reset links?': '撤销密码重置链接？',
+  'Revoke email change links': '撤销邮箱变更链接',
+  'Revoke email change links?': '撤销邮箱变更链接？',
+  'This action is immediate and cannot be undone.': '此操作立即生效且无法撤销。',
+  'Refresh tokens revoked.': '刷新令牌已撤销。',
+  'Device secrets revoked.': '设备密钥已撤销。',
+  'Password reset links revoked.': '密码重置链接已撤销。',
+  'Email change links revoked.': '邮箱变更链接已撤销。',
+  'No recovery or containment actions are available.': '暂无可用的恢复或遏制操作。',
+  'Add members using the form above.': '使用上方表单添加成员。',
 };

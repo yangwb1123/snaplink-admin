@@ -8,6 +8,9 @@ import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
 /// Members management card for tenant organizations.
+///
+/// 图标按模块组色（tenants 组 amber）上色（X7）；count 徽章恒显示，
+/// 空列表时与 EmptyState 并存（与用户支持页卡片一致）。
 class OrgMembersCard extends StatelessWidget {
   final List<Map<String, dynamic>> members;
   final bool mutating;
@@ -50,10 +53,7 @@ class OrgMembersCard extends StatelessWidget {
                 Icon(Icons.groups_outlined, size: 20, color: accent),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SectionHeader(
-                    'Members',
-                    count: members.isEmpty ? null : members.length,
-                  ),
+                  child: SectionHeader('Members', count: members.length),
                 ),
               ],
             ),
@@ -92,7 +92,12 @@ class OrgMembersCard extends StatelessWidget {
             if (members.isEmpty)
               const Padding(
                 padding: EdgeInsets.only(top: 12),
-                child: EmptyState(compact: true, title: 'No members loaded.'),
+                child: EmptyState(
+                  variant: EmptyStateVariant.empty,
+                  title: 'No members loaded.',
+                  subtitle: 'Add members using the form above.',
+                  compact: true,
+                ),
               )
             else
               Padding(
