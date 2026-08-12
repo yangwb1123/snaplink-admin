@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 
 List<Map<String, dynamic>> recoveryRecords(Object? value) => value is List
@@ -16,6 +17,12 @@ List<Map<String, dynamic>> recoveryRecords(Object? value) => value is List
 Map<String, dynamic>? recoveryRecord(Object? value) =>
     value is Map ? Map<String, dynamic>.from(value) : null;
 
+String releaseSummary(Map<String, dynamic> release) =>
+    '${release['channel'] ?? ''} · schema ${release['schema_version'] ?? 0}'
+    '${release['config_snapshot']?.toString().isNotEmpty == true ? ' · snapshot ${release['config_snapshot']}' : ''}';
+
+/// DR readiness summary — a single-record status card (not a list), with the
+/// module accent icon (X7) and copyable server key/value pairs.
 class RecoveryStatusCard extends StatelessWidget {
   final Map<String, dynamic> status;
 
@@ -23,21 +30,40 @@ class RecoveryStatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Card(
-    child: ListTile(
-      leading: Icon(
-        Icons.health_and_safety_outlined,
-        color: adminModuleIconColor('recovery-releases'),
-      ),
-      title: const LocalizedText('Disaster-recovery readiness'),
-      subtitle: Text(
-        status.entries
-            .map((entry) => '${entry.key}: ${entry.value}')
-            .join(' · '),
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.health_and_safety_outlined,
+                color: adminModuleIconColor('recovery-releases'),
+              ),
+              const SizedBox(width: 8),
+              LocalizedText(
+                'Disaster-recovery readiness',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SelectableText(
+            status.entries
+                .map((entry) => '${entry.key}: ${entry.value}')
+                .join(' · '),
+          ),
+        ],
       ),
     ),
   );
 }
 
+/// Durable operation journal — a hierarchical drill-down (operation → steps →
+/// compensations), so disclosure tiles are the right primitive for the
+/// hierarchy; each operation's state is double-encoded via leading icon and a
+/// trailing [StatusChip] (X9). Server values always render as [Text] (X1).
 class RecoveryOperationsCard extends StatelessWidget {
   final List<Map<String, dynamic>> operations;
 
@@ -50,10 +76,7 @@ class RecoveryOperationsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LocalizedText(
-            'Durable operation journal',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          SectionHeader('Durable operation journal', count: operations.length),
           const SizedBox(height: 4),
           const LocalizedText(
             'Restore, pin, and rollback steps remain queryable after a client disconnect or server restart.',
@@ -70,23 +93,12 @@ class RecoveryOperationsCard extends StatelessWidget {
           for (final operation in operations)
             ExpansionTile(
               tilePadding: EdgeInsets.zero,
-              leading: Icon(
-                operation['state'] == 'succeeded'
-                    ? Icons.task_alt
-                    : operation['state'] == 'failed'
-                    ? Icons.error_outline
-                    : Icons.pending_outlined,
-                color: operation['state'] == 'succeeded'
-                    ? AppColors.success
-                    : operation['state'] == 'failed'
-                    ? AppColors.danger
-                    : AppColors.warning,
-              ),
+              leading: _operationIcon(operation),
               title: Text(operation['id']?.toString() ?? ''),
               subtitle: Text(
-                '${operation['kind'] ?? ''} · ${operation['target'] ?? ''} · '
-                '${operation['state'] ?? ''}',
+                '${operation['kind'] ?? ''} · ${operation['target'] ?? ''}',
               ),
+              trailing: _operationChip(operation['state']?.toString() ?? ''),
               children: [
                 for (final step in recoveryRecords(operation['steps']))
                   _OperationStepTile(label: 'Step', step: step),
@@ -106,6 +118,42 @@ class RecoveryOperationsCard extends StatelessWidget {
   );
 }
 
+Widget _operationIcon(Map<String, dynamic> operation) {
+  final state = operation['state']?.toString();
+  return Icon(
+    state == 'succeeded'
+        ? Icons.task_alt
+        : state == 'failed'
+        ? Icons.error_outline
+        : Icons.pending_outlined,
+    color: state == 'succeeded'
+        ? AppColors.success
+        : state == 'failed'
+        ? AppColors.danger
+        : AppColors.warning,
+  );
+}
+
+Widget _operationChip(String state) => switch (state) {
+  'succeeded' => StatusChip(
+    label: state,
+    color: AppColors.success,
+    icon: Icons.check_circle_outline,
+  ),
+  'failed' => StatusChip(
+    label: state,
+    color: AppColors.danger,
+    icon: Icons.error_outline,
+  ),
+  _ => StatusChip(
+    label: state,
+    color: AppColors.warning,
+    icon: Icons.pending_outlined,
+  ),
+};
+
+/// One journal step/compensation row. Title is interpolated server data, so
+/// it renders as [Text] — never as an i18n key (X1).
 class _OperationStepTile extends StatelessWidget {
   final String label;
   final Map<String, dynamic> step;
@@ -122,10 +170,8 @@ class _OperationStepTile extends StatelessWidget {
   );
 }
 
-String releaseSummary(Map<String, dynamic> release) =>
-    '${release['channel'] ?? ''} · schema ${release['schema_version'] ?? 0}'
-    '${release['config_snapshot']?.toString().isNotEmpty == true ? ' · snapshot ${release['config_snapshot']}' : ''}';
-
+/// Stored snapshots — flat list of records, rendered as a compact
+/// [AdminDataTable] (X6) with per-row restore/delete actions.
 class RecoverySnapshotsCard extends StatelessWidget {
   final List<Map<String, dynamic>> snapshots;
   final bool canCreate;
@@ -153,6 +199,7 @@ class RecoverySnapshotsCard extends StatelessWidget {
         children: [
           SectionHeader(
             'Snapshots',
+            count: snapshots.length,
             action: canCreate
                 ? FilledButton.icon(
                     onPressed: mutating ? null : onCreate,
@@ -227,6 +274,8 @@ class RecoverySnapshotsCard extends StatelessWidget {
   );
 }
 
+/// Paired releases — compact [AdminDataTable] (X6) with the pinned current
+/// release shown above, and per-row pin/rollback/delete actions.
 class RecoveryReleasesCard extends StatelessWidget {
   final List<Map<String, dynamic>> releases;
   final Map<String, dynamic>? current;
@@ -254,6 +303,7 @@ class RecoveryReleasesCard extends StatelessWidget {
         children: [
           SectionHeader(
             'Paired releases',
+            count: releases.length,
             action: canRegister
                 ? FilledButton.icon(
                     onPressed: mutating ? null : onRegister,
@@ -313,7 +363,10 @@ class RecoveryReleasesCard extends StatelessWidget {
                     enabled: !mutating,
                     onSelected: (action) => onAction(releases[i], action),
                     itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'pin', child: LocalizedText('Pin')),
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: LocalizedText('Pin'),
+                      ),
                       PopupMenuItem(
                         value: 'rollback',
                         child: LocalizedText('Rollback'),

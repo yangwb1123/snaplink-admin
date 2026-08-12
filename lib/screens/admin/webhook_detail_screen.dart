@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
@@ -32,6 +33,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   Map<String, dynamic>? _sub;
   List<dynamic> _deadLetters = [];
   String? _error;
+  String? _notice;
   bool _loading = true;
   bool _mutating = false;
   bool _showDeadLetters = false;
@@ -109,10 +111,13 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText('Webhook: {widget_subId}', args: {'widget_subId': widget.subId}),
+      title: LocalizedText(
+        'Webhook: {widget_subId}',
+        args: {'widget_subId': widget.subId},
+      ),
       leading: IconButton(
         tooltip: 'Back'.localized,
-          icon: const Icon(Icons.arrow_back),
+        icon: const Icon(Icons.arrow_back),
         onPressed: () => AdminRoute.go('webhooks'),
       ),
       actions: [
@@ -129,43 +134,14 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
             child: SkeletonListTile(itemCount: 4),
           )
         : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: AppColors.danger,
-                ),
-                const SizedBox(height: 16),
-                LocalizedText(
-                  'Failed to load',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const LocalizedText('Retry'),
-                ),
-              ],
-            ),
-          )
+        ? _errorView(context)
         : Column(
             children: [
-              AdminBreadcrumb(),
+              const AdminBreadcrumb(),
+              if (_notice != null) ...[
+                _replayBanner(context),
+                const SizedBox(height: 12),
+              ],
               Expanded(
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
@@ -182,9 +158,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                         deadLetters: _deadLetters,
                         expanded: _showDeadLetters,
                         mutating: _mutating,
-                        onToggle: () => setState(
-                          () => _showDeadLetters = !_showDeadLetters,
-                        ),
+                        onToggle: () => setState(() => _showDeadLetters = !_showDeadLetters),
                         onReplay: _replay,
                         onReplayAll: _replayAll,
                       ),
@@ -196,14 +170,73 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
           ),
   );
 
+  /// 加载错误视图：danger 图标 + 详情 + Retry（X4）。
+  Widget _errorView(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
+        const SizedBox(height: 16),
+        LocalizedText(
+          'Failed to load',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
+          ),
+        ),
+        const SizedBox(height: 16),
+        OutlinedButton.icon(
+          onPressed: _load,
+          icon: const Icon(Icons.refresh),
+          label: const LocalizedText('Retry'),
+        ),
+      ],
+    ),
+  );
+
+  /// 重放结果横幅：部分失败/待清理时保留页面（不翻转整页错误态）。
+  /// 语义保持——cleanup-pending 如实上报，仍可继续操作。
+  Widget _replayBanner(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer.withValues(alpha: 0.45),
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, color: scheme.error),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(_notice!, style: TextStyle(color: scheme.error)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: 'Close'.localized,
+              onPressed: () => setState(() => _notice = null),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _replay(String dlId) async {
     if (dlId.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Replay webhook delivery?',
       message:
-          'This sends the stored event to the subscription’s current URL '
-          'using its current secret. The receiver may repeat a business action.',
+          "This sends the stored event to the subscription's current URL using "
+          'its current secret. The receiver may repeat a business action.',
       confirmLabel: 'Replay delivery',
       destructive: true,
       confirmText: dlId,
@@ -231,9 +264,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -260,22 +291,24 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     setState(() => _mutating = true);
     // Parallel replay: independent per-id operations (N+1 fix — the
     // sequential await-per-id loop is replaced with Future.wait).
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        final response = await widget.api.post(
-          '/api/v1/admin/webhooks/deadletters/'
-              '${Uri.encodeComponent(id)}/replay',
-          {},
-        );
-        return (
-          delivered: 1,
-          cleanupPending: response['cleanup_status'] != 'complete' ? 1 : 0,
-          failed: 0,
-        );
-      } catch (_) {
-        return (delivered: 0, cleanupPending: 0, failed: 1);
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          final response = await widget.api.post(
+            '/api/v1/admin/webhooks/deadletters/'
+            '${Uri.encodeComponent(id)}/replay',
+            {},
+          );
+          return (
+            delivered: 1,
+            cleanupPending: response['cleanup_status'] != 'complete' ? 1 : 0,
+            failed: 0,
+          );
+        } catch (_) {
+          return (delivered: 0, cleanupPending: 0, failed: 1);
+        }
+      }),
+    );
     var delivered = 0;
     var cleanupPending = 0;
     var failed = 0;
@@ -295,24 +328,36 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
           .length;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: LocalizedText(
             cleanupPending > 0
-                ? '$delivered deliveries succeeded; cleanup is pending for '
-                      '$cleanupPending. Retrying those entries is cleanup-only '
-                      'and cannot redeliver them.'
+                ? '{delivered} deliveries succeeded; cleanup is pending for '
+                      '{pending}. Retrying those entries is cleanup-only and '
+                      'cannot redeliver them.'
                 : failed == 0
-                ? 'All $delivered deliveries were sent and cleaned up.'
-                : '$delivered deliveries were sent; $failed failed.',
+                ? 'All {delivered} deliveries were sent and cleaned up.'
+                : '{delivered} deliveries were sent; {failed} failed.',
+            args: {
+              'delivered': delivered,
+              'pending': cleanupPending,
+              'failed': failed,
+            },
           ),
         ),
       );
       if (failed > 0 || cleanupPending > 0 || remainingQueued > 0) {
-        setState(
-          () => _error =
-              'Replay result: $delivered delivered, $failed failed, '
-              '$cleanupPending awaiting cleanup, and $remainingQueued '
-              'selected dead letters remain visible.',
-        );
+        setState(() {
+          _notice = context.tr(
+            'Replay result: {delivered} delivered, {failed} failed, '
+            '{pending} awaiting cleanup, and {remaining} selected dead '
+            'letters remain visible.',
+            {
+              'delivered': delivered,
+              'failed': failed,
+              'pending': cleanupPending,
+              'remaining': remainingQueued,
+            },
+          );
+        });
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -342,9 +387,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     } catch (e) {
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText('{e}', args: {'e': e})));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

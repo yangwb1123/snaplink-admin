@@ -1,0 +1,48 @@
+# 逐页 UI 重构 — batch 4b（developers 组：webhooks/recovery-releases + 详情/恢复对话框）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-developers.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-developers.log
+# 参考：docs/ui/admin-pages/audit.md、docs/ui/pages/fix-developers.md
+
+tasks:
+- prompt: |
+    重构 Webhook 页面。步骤：
+    1. 分析现有代码：lib/screens/admin/webhooks_tab.dart、
+       webhook_detail_screen.dart、webhook_detail_widgets.dart —— 读完整
+       文件，梳理订阅列表/详情/死信/重放的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与组色（adminModuleIconColor
+       ('webhooks')），结合 docs/ui/admin-pages/audit.md 中 webhooks
+       条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；重放/死信语义（replay claim
+         持久化、cleanup-pending）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/webhooks.md（分析摘要→问题清单→修复
+       映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/webhooks.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构恢复/发布页面。步骤：
+    1. 分析现有代码：lib/screens/admin/recovery_releases_tab.dart、
+       recovery_release_widgets.dart、recovery_dialogs.dart —— 读完整
+       文件，梳理备份/快照/恢复/发布/固定/回滚的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('recovery-releases')），
+       结合 docs/ui/admin-pages/audit.md 中 recovery 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；恢复/发布语义（operation 持久
+         化、结果未知不重放）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/recovery_dialogs_test.dart test/admin_secondary_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/recovery-releases.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/recovery-releases.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/recovery_dialogs_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -117,7 +117,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Response copied to clipboard.': '响应已复制到剪贴板。',
   'Rotation inventory': '轮换清单',
   'Rotated': '已轮换',
-  'Report a credential type as compromised to trigger rotation and containment across services.': '将某一凭据类型报告为已泄露，以触发跨服务的轮换与遏制。',
+  'Report a credential type as compromised to trigger rotation and containment across services.':
+      '将某一凭据类型报告为已泄露，以触发跨服务的轮换与遏制。',
   'SCIM 2.0 Directory': 'SCIM 2.0 目录',
   'SCIM 2.0 is not advertised by this deployment.': '此部署未声明支持 SCIM 2.0。',
   'SCIM Groups': 'SCIM 组',
@@ -192,7 +193,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Define a bounded risk segment. Empty filters are blocked because an unfiltered revocation can affect every device.':
       '定义有限的风险分段。系统会阻止空筛选条件，因为无筛选撤销可能影响所有设备。',
   'Device inventory unavailable': '设备清单不可用',
-  'Device revoked. Bound-session invalidation was requested.': '设备已撤销，已请求使绑定会话失效。',
+  'Device revoked. Bound-session invalidation was requested.':
+      '设备已撤销，已请求使绑定会话失效。',
   'Device trust reset.': '设备信任已重置。',
   'Devices and login history': '设备与登录历史',
   'Discover provider capabilities, reconcile users and groups, and execute bounded bulk operations.':
@@ -263,11 +265,15 @@ const appAdminFeatureSourceZh = <String, String>{
   'One per line, for example 10.0.0.0/8.': '每行一个，例如 10.0.0.0/8。',
   'Webhook subscription created.': 'Webhook 订阅已创建。',
   'Webhook management is not enabled on this replica.': '此副本未启用 Webhook 管理。',
-  'Manage event notification webhook subscriptions and dead letters.': '管理事件通知 Webhook 订阅与死信。',
+  'Manage event notification webhook subscriptions and dead letters.':
+      '管理事件通知 Webhook 订阅与死信。',
   'Delete subscription?': '删除订阅？',
   'Delete webhook?': '删除 Webhook？',
   'Delete this subscription?': '删除此订阅？',
   'URL is required.': '必须填写 URL。',
+  'Replay this failed delivery?': '重放此失败投递？',
+  "This sends the stored event to the subscription's current URL using its current secret. The receiver may repeat a business action.":
+      '这将把存储的事件发送到订阅当前的 URL，并使用其当前的签名密钥。接收方可能会重复执行业务操作。',
   '25 per page': '每页 25 条',
   '100 per page': '每页 100 条',
   '250 per page': '每页 250 条',
@@ -300,7 +306,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Priority-ordered session access decisions; converge applies them to active sessions.':
       '按优先级排序的会话访问决策；收敛操作将其应用到活跃会话。',
   'Could not load break-glass sessions.': '无法加载紧急访问会话。',
-  'Could not load bulk limits ({status}): {error}': '无法加载批量限制（{status}）：{error}',
+  'Could not load bulk limits ({status}): {error}':
+      '无法加载批量限制（{status}）：{error}',
   'Could not load bulk limits.': '无法加载批量限制。',
   'Could not load credentials.': '无法加载凭据。',
   'Could not load crypto keys.': '无法加载加密密钥。',
@@ -381,7 +388,8 @@ const appAdminFeatureSourceZh = <String, String>{
       '提交前，请使用这些精确的恢复设置成功运行试运行预览。',
   'Runtime feature surface: {feature}': '运行时功能面：{feature}',
   'Safety boundary blocked an unfiltered bulk device revocation.':
-      '安全边界已阻止无筛选条件的设备批量撤销。',  'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.':
+      '安全边界已阻止无筛选条件的设备批量撤销。',
+  'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.':
       'Snaplink 已接受模拟用户请求，但未返回持有者令牌。在核实服务器状态前请勿重试。',
   'The secret was rotated, but the server did not return its one-time value.':
       '密钥已轮换，但服务器未返回其一次性值。',

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 
 class WebhookInfoCard extends StatelessWidget {
   final String subscriptionId;
@@ -39,7 +40,7 @@ class WebhookInfoCard extends StatelessWidget {
               Icon(
                 Icons.webhook,
                 size: 40,
-                color: adminModuleIconColor('webhooks'),
+                color: adminModuleIconColor(AdminModuleId.webhooks),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -95,18 +96,27 @@ class WebhookEventsCard extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 4,
-            runSpacing: 4,
-            children: _events
-                .map(
-                  (event) => Chip(
-                    label: Text(event, style: const TextStyle(fontSize: 12)),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                )
-                .toList(),
-          ),
+          // 空事件列表 = 订阅全部事件；API 值走 Text（X10）。
+          if (_events.isEmpty)
+            LocalizedText(
+              'All events',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              children: _events
+                  .map(
+                    (event) => Chip(
+                      label: Text(event, style: const TextStyle(fontSize: 12)),
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  )
+                  .toList(),
+            ),
         ],
       ),
     ),
@@ -162,7 +172,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
                 const Spacer(),
                 Icon(
                   expanded ? Icons.expand_less : Icons.expand_more,
-                  color: adminModuleIconColor('webhooks'),
+                  color: adminModuleIconColor(AdminModuleId.webhooks),
                 ),
               ],
             ),

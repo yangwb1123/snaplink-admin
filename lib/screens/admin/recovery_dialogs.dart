@@ -250,7 +250,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
                 controller: _channelCtrl,
                 decoration: InputDecoration(labelText: 'Channel'.localized),
                 validator: (value) =>
-                    value?.trim().isEmpty == true ? 'Required' : null,
+                    value?.trim().isEmpty == true ? 'Required'.localized : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -261,7 +261,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
                 validator: (_) =>
                     _hasArtifact(_frontendRefCtrl.text, _frontendUriCtrl.text)
                     ? null
-                    : 'Set a frontend Git reference or URI',
+                    : 'Set a frontend Git reference or URI'.localized,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -279,7 +279,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
                 validator: (_) =>
                     _hasArtifact(_backendRefCtrl.text, _backendUriCtrl.text)
                     ? null
-                    : 'Set a backend Git reference or URI',
+                    : 'Set a backend Git reference or URI'.localized,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -296,7 +296,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
                   labelText: 'Schema version'.localized,
                 ),
                 validator: (value) => int.tryParse(value?.trim() ?? '') == null
-                    ? 'Enter an integer'
+                    ? 'Enter an integer'.localized
                     : null,
               ),
               const SizedBox(height: 12),

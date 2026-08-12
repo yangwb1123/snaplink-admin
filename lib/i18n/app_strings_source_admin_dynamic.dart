@@ -24,6 +24,16 @@ const appAdminDynamicSourceZh = <String, String>{
   'Current state: {state}': '当前状态：{state}',
   'Current: {id}': '当前：{id}',
   'Dead Letters ({count})': '死信（{count}）',
+  'Send all {count} stored events again. Receivers may repeat business actions. Each result is reported independently.':
+      '再次发送全部 {count} 个存储事件。接收方可能会重复执行业务操作。每个结果独立报告。',
+  '{delivered} deliveries succeeded; cleanup is pending for {pending}. Retrying those entries is cleanup-only and cannot redeliver them.':
+      '{delivered} 次投递成功；{pending} 次清理待处理。重试这些条目仅会执行清理，无法重新投递。',
+  'All {delivered} deliveries were sent and cleaned up.':
+      '全部 {delivered} 次投递已发送并清理完成。',
+  '{delivered} deliveries were sent; {failed} failed.':
+      '{delivered} 次投递已发送；{failed} 次失败。',
+  'Replay result: {delivered} delivered, {failed} failed, {pending} awaiting cleanup, and {remaining} selected dead letters remain visible.':
+      '重放结果：{delivered} 次已投递，{failed} 次失败，{pending} 次等待清理，{remaining} 个选中的死信仍可见。',
   'Delete {clientId} permanently? Existing tokens and integrations may stop working.':
       '永久删除 {clientId}？现有令牌和集成可能会停止工作。',
   'Delete {hostname}?': '删除 {hostname}？',
