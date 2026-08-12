@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import '../admin_module_groups.dart';
 
 class ConnectionCreateCard extends StatelessWidget {
   final TextEditingController idController;
@@ -29,6 +30,9 @@ class ConnectionCreateCard extends StatelessWidget {
     required this.onSave,
   });
 
+  /// 模块强调色（connections → security 组 rose）。
+  Color get _accent => adminModuleIconColor('connections');
+
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(top: 16),
@@ -37,9 +41,17 @@ class ConnectionCreateCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Create or replace connection',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.add_link, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LocalizedText(
+                  'Create or replace connection',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const LocalizedText(

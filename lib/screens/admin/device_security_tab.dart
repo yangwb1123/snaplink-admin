@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
@@ -10,6 +12,10 @@ import 'device_bulk_revoke_dialog.dart';
 import 'device_security_dashboard_widgets.dart';
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
+
+/// 写入操作的本地化反馈：(i18n key, placeholder args)。
+typedef _WriteMessage = (String, Map<String, Object?>)
+    Function(Map<String, dynamic> result);
 
 /// Fleet-level device risk and response workspace.
 ///
@@ -110,7 +116,10 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       }
       _error = failures.isEmpty
           ? null
-          : 'Some device data is unavailable — ${failures.join(' · ')}';
+          : context.tr(
+              'Some device data is unavailable — {failures}',
+              {'failures': failures.join(' · ')},
+            );
       _loading = false;
     });
   }
@@ -137,14 +146,20 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       context,
       title: 'Reset device trust?',
       message:
-          'Snaplink will set this device to the neutral 0.50 trust baseline and record an admin-reset history entry.',
+          'Snaplink will set this device to the neutral 0.50 trust baseline '
+          'and record an admin-reset history entry.',
       confirmLabel: 'Reset trust',
     );
     if (!confirmed) return;
     await _write(
       () => widget.api.post(DeviceSecurityPaths.resetTrust(id)),
-      (result) =>
-          'Trust reset to ${result['trust_score'] ?? '0.5'} (${result['trust_label'] ?? 'Medium'}).',
+      (result) => (
+        'Trust reset to {score} ({label}).',
+        {
+          'score': result['trust_score'] ?? '0.5',
+          'label': result['trust_label'] ?? 'Medium',
+        },
+      ),
     );
   }
 
@@ -169,7 +184,10 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
     if (!confirmed) return;
     await _write(
       () => widget.api.delete(DeviceSecurityPaths.userDevice(userId, id)),
-      (_) => 'Device revoked. Bound-session invalidation was requested.',
+      (_) => (
+        'Device revoked. Bound-session invalidation was requested.',
+        const <String, Object?>{},
+      ),
     );
   }
 
@@ -192,17 +210,18 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
     }
     await _write(
       () => widget.api.post(DeviceSecurityPaths.bulkRevoke, body),
-      (result) =>
-          'Bulk revocation request accepted. The server reported '
-          '${result['revoked'] ?? 0} revoked of '
-          '${result['matched'] ?? 0} matched; verify device inventory before '
-          'treating the segment as fully revoked.',
+      (result) => (
+        'Bulk revocation request accepted. The server reported {revoked} '
+            'revoked of {matched} matched; verify device inventory before '
+            'treating the segment as fully revoked.',
+        {'revoked': result['revoked'] ?? 0, 'matched': result['matched'] ?? 0},
+      ),
     );
   }
 
   Future<void> _write(
     Future<Map<String, dynamic>> Function() request,
-    String Function(Map<String, dynamic>) message,
+    _WriteMessage message,
   ) async {
     setState(() {
       _mutating = true;
@@ -211,9 +230,10 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
     try {
       final result = await request();
       if (!mounted) return;
+      final (key, args) = message(result);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: LocalizedText(message(result))));
+      ).showSnackBar(SnackBar(content: LocalizedText(key, args: args)));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -227,37 +247,29 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                LocalizedText(
-                  'Device security',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const LocalizedText(
-                  'Fleet posture, device-level investigation, and bounded incident response.',
-                ),
-              ],
-            ),
-          ),
-          OutlinedButton.icon(
-            onPressed: _loading || _mutating ? null : _load,
-            icon: const Icon(Icons.refresh),
-            label: const LocalizedText('Refresh'),
-          ),
-          const SizedBox(width: 8),
+      AdminListHeader(
+        title: 'Device security',
+        subtitle:
+            'Fleet posture, device-level investigation, and bounded incident '
+            'response.',
+        onRefresh: () {
+          if (!_loading && !_mutating) _load();
+        },
+        actions: [
           FilledButton.icon(
             onPressed: _loading || _mutating ? null : _bulkRevoke,
             style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             icon: const Icon(Icons.phonelink_erase),
             label: const LocalizedText('Bulk revoke'),
           ),
+          const SizedBox(width: 4),
+          IconButton(
+            onPressed: _loading || _mutating ? null : _load,
+            tooltip: 'Refresh'.localized,
+            icon: const Icon(Icons.refresh),
+          ),
         ],
       ),
-      const SizedBox(height: 12),
       DeviceStatsCards(stats: _stats, fleetTotal: _fleetTotal),
       const SizedBox(height: 12),
       DeviceFleetFilters(
@@ -276,24 +288,13 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       ),
       if (_error != null) ...[
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: LocalizedText(
-                _error!,
-                style: const TextStyle(color: AppColors.danger),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const LocalizedText('Retry'),
-            ),
-          ],
+        _ErrorBanner(
+          error: _error!,
+          onRetry: _loading ? null : _load,
         ),
       ],
       if (_loading) ...[
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         const SkeletonListTile(itemCount: 3),
       ] else ...[
         const SizedBox(height: 12),
@@ -318,4 +319,49 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       ],
     ],
   );
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息 + 重试，与页面 loading/empty 三态配套。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback? onRetry;
+
+  const _ErrorBanner({required this.error, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Icon(
+                Icons.error_outline,
+                size: 18,
+                color: AppColors.danger,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onRetry,
+              child: const LocalizedText('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

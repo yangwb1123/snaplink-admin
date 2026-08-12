@@ -1,21 +1,25 @@
-import 'package:flutter/material.dart';
-import 'package:sso_admin/widgets/admin_data_table.dart';
-import 'package:sso_admin/widgets/empty_state.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
-import 'package:sso_admin/widgets/search_filter_bar.dart';
-import 'package:sso_admin/services/export_service.dart';
-import 'package:sso_admin/services/event_bus.dart';
-import 'package:sso_admin/services/browser_navigation.dart';
 import 'dart:async';
-import 'admin_route.dart';
+
+import 'package:flutter/material.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/services/event_bus.dart';
+import 'package:sso_admin/services/export_service.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'admin_module_groups.dart';
+import 'admin_route.dart';
 
 /// Domain ownership management tab with URL routing.
 /// URLs: /admin/domains, /admin/domains/new
@@ -30,7 +34,6 @@ class DomainsTab extends StatefulWidget {
 class _DomainsTabState extends State<DomainsTab> {
   static const _path = '/api/v1/admin/domains';
   final _hostCtrl = TextEditingController();
-  final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _domains = const [];
   List<Map<String, dynamic>> _filteredDomains = const [];
   String? _error;
@@ -43,28 +46,29 @@ class _DomainsTabState extends State<DomainsTab> {
   late final StreamSubscription<DataChangedEvent> _sub;
 
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
-  @override
-  void dispose() {
-    _cancelPopState();
-    _sub.cancel();
-    _hostCtrl.dispose();
-    _searchCtrl.dispose();
-    super.dispose();
-  }
+
+  /// 模块强调色（security 组 rose）：页内图标统一按组色上色。
+  Color get _accent => adminModuleIconColor('domains');
 
   @override
   void initState() {
     super.initState();
     _load();
     _sub = EventBus().on<DataChangedEvent>().listen((e) {
-      if (e.resourceType == 'domains' || e.resourceType == 'domains') {
-        _load();
-      }
+      if (e.resourceType == 'domains') _load();
     });
     _handleRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
+  }
+
+  @override
+  void dispose() {
+    _cancelPopState();
+    _sub.cancel();
+    _hostCtrl.dispose();
+    super.dispose();
   }
 
   void _handleRoute() {
@@ -189,129 +193,110 @@ class _DomainsTabState extends State<DomainsTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        AdminBreadcrumb(),
-        Text(
-          AppStrings.of(context).domains,
-          style: Theme.of(context).textTheme.headlineSmall,
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: AppStrings.of(context).domains,
+          subtitle: 'Manage email domains for home-realm discovery.',
+          createTooltip: 'Add domain',
+          onCreate: _showForm
+              ? null
+              : () => AdminRoute.go('domains', action: 'new'),
+          onRefresh: _load,
         ),
-        const SizedBox(height: 4),
-        const LocalizedText('Manage email domains for home-realm discovery.'),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _error!,
-                    style: const TextStyle(color: AppColors.danger),
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const LocalizedText('Retry'),
-                ),
-              ],
+        if (_error != null) ...[
+          _ErrorBanner(error: _error!, onRetry: _load),
+          const SizedBox(height: 12),
+        ],
+        if (_showForm) _buildForm(context),
+        if (_domains.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SectionHeader(
+            'Registered domains',
+            count: _filteredDomains.length,
+            action: IconButton(
+              icon: Icon(Icons.download, color: _accent),
+              tooltip: 'Export CSV'.localized,
+              onPressed: () =>
+                  ExportService.exportCsv(_filteredDomains, 'domains.csv'),
             ),
           ),
-        if (_showForm) _buildForm(context),
-        const SizedBox(height: 16),
-        if (_domains.isNotEmpty) ...[
-          Row(
-            children: [
-              LocalizedText(
-                'Registered domains',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.download),
-                tooltip: 'Export CSV'.localized,
-                onPressed: () =>
-                    ExportService.exportCsv(_filteredDomains, 'domains.csv'),
-              ),
-              IconButton(
-                onPressed: _loading ? null : _load,
-                icon: const Icon(Icons.refresh),
-                tooltip: 'Refresh'.localized,
-              ),
-            ],
-          ),
           const SizedBox(height: 8),
-        ],
-        if (_loading) const SkeletonListTile(itemCount: 3),
-        if (_domains.isNotEmpty)
           SearchFilterBar(
             hintText: 'Search domains...'.localized,
             onSearchChanged: _onSearchChanged,
             onRefresh: _load,
           ),
-        const SizedBox(height: 8),
-        if (!_loading && _filteredDomains.isEmpty && !_showForm)
-          EmptyState(title: 'No domains registered.'),
-        if (!_loading && _filteredDomains.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: AdminDataTable(
-              minWidth: 720,
-              columns: [
-                AdminDataColumn(
-                  id: 'hostname',
-                  label: 'Hostname',
-                  width: 260,
-                  cardPrimary: true,
-                  builder: (_, i) => TableCellText(
-                    _filteredDomains[i]['hostname']?.toString() ?? '',
-                    level: DataEmphasisLevel.primary,
-                  ),
+        ],
+        const SizedBox(height: 12),
+        if (_loading)
+          const SkeletonListTile(itemCount: 3)
+        else if (_filteredDomains.isEmpty && !_showForm)
+          EmptyState(
+            variant: _searchQuery.isEmpty
+                ? EmptyStateVariant.empty
+                : EmptyStateVariant.noMatch,
+            title: _searchQuery.isEmpty ? 'No domains registered.' : null,
+          )
+        else if (_filteredDomains.isNotEmpty)
+          AdminDataTable(
+            minWidth: 720,
+            density: TableDensity.compact,
+            columns: [
+              AdminDataColumn(
+                id: 'hostname',
+                label: 'Hostname',
+                width: 260,
+                cardPrimary: true,
+                builder: (_, i) => TableCellText(
+                  _filteredDomains[i]['hostname']?.toString() ?? '',
+                  level: DataEmphasisLevel.primary,
                 ),
-                AdminDataColumn(
-                  id: 'id',
-                  label: 'ID',
-                  cardDetail: true,
-                  builder: (_, i) => TableCellText(
-                    _filteredDomains[i]['id']?.toString() ?? '',
-                    muted: true,
-                  ),
+              ),
+              AdminDataColumn(
+                id: 'id',
+                label: 'ID',
+                cardDetail: true,
+                builder: (_, i) => TableCellText(
+                  _filteredDomains[i]['id']?.toString() ?? '',
+                  muted: true,
                 ),
-                AdminDataColumn(
-                  id: 'verified',
-                  label: 'Status',
-                  builder: (_, i) {
-                    final verified = _filteredDomains[i]['verified'] == true;
-                    return verified
-                        ? StatusChip.active(label: 'Verified')
-                        : StatusChip.pending(label: 'Pending');
-                  },
-                ),
-                AdminDataColumn(
-                  id: 'actions',
-                  label: '',
-                  width: 110,
-                  builder: (_, i) {
-                    final hostname =
-                        _filteredDomains[i]['hostname']?.toString() ?? '';
-                    return TextButton(
-                      onPressed: _mutating ? null : () => _delete(hostname),
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                      ),
-                      child: const LocalizedText('Delete'),
-                    );
-                  },
-                ),
-              ],
-              itemCount: _filteredDomains.length,
-              rowBuilder: (_, _) => const SizedBox.shrink(),
-            ),
+              ),
+              AdminDataColumn(
+                id: 'verified',
+                label: 'Status',
+                builder: (_, i) {
+                  final verified = _filteredDomains[i]['verified'] == true;
+                  return verified
+                      ? StatusChip.active(label: context.tr('Verified'))
+                      : StatusChip.pending(label: context.tr('Pending'));
+                },
+              ),
+              AdminDataColumn(
+                id: 'actions',
+                label: '',
+                width: 110,
+                builder: (_, i) {
+                  final hostname =
+                      _filteredDomains[i]['hostname']?.toString() ?? '';
+                  return TextButton(
+                    onPressed: _mutating ? null : () => _delete(hostname),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.danger,
+                    ),
+                    child: const LocalizedText('Delete'),
+                  );
+                },
+              ),
+            ],
+            itemCount: _filteredDomains.length,
+            rowBuilder: (_, _) => const SizedBox.shrink(),
           ),
         if (!_showForm)
           Padding(
-            padding: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.only(top: 12),
             child: OutlinedButton.icon(
               onPressed: () => AdminRoute.go('domains', action: 'new'),
-              icon: const Icon(Icons.add),
+              icon: Icon(Icons.add, color: _accent),
               label: const LocalizedText('Add domain'),
             ),
           ),
@@ -320,15 +305,21 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   Widget _buildForm(BuildContext context) => Card(
-    margin: const EdgeInsets.only(top: 12),
+    margin: const EdgeInsets.only(top: 8),
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Add domain',
-            style: Theme.of(context).textTheme.titleMedium,
+          Row(
+            children: [
+              Icon(Icons.language, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              LocalizedText(
+                'Add domain',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           TextField(
@@ -356,4 +347,45 @@ class _DomainsTabState extends State<DomainsTab> {
       ),
     ),
   );
+}
+
+/// 错误横幅（X4 模式）：图标 + 消息 + 重试，与页面 loading/empty 三态配套。
+class _ErrorBanner extends StatelessWidget {
+  final String error;
+  final VoidCallback onRetry;
+  const _ErrorBanner({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 12),
+              child: Icon(
+                Icons.error_outline,
+                size: 18,
+                color: AppColors.danger,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
 }

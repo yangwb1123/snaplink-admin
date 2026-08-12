@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 class ConnectionsListCard extends StatelessWidget {
@@ -80,7 +83,11 @@ class ConnectionsListCard extends StatelessWidget {
           if (connections.isEmpty && !loadingList)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No connections loaded.'),
+              child: EmptyState(
+                compact: true,
+                variant: EmptyStateVariant.empty,
+                title: 'No connections loaded.',
+              ),
             ),
           if (connections.isNotEmpty) _summaryBar(context),
           if (connections.isNotEmpty)
@@ -126,59 +133,34 @@ class ConnectionsListCard extends StatelessWidget {
   );
 
   /// 连接健康摘要（异常优先：禁用连接占比一眼可见）。
+  /// SectionHeader（标题 + 总数徽章）+ DistributionBar（Enabled/Disabled
+  /// 分段，Disabled 前置强调），替代手绘进度条。
   Widget _summaryBar(BuildContext context) {
     final total = connections.length;
     final disabled = connections
         .where((c) => c['enabled'] == false)
         .length;
-    final disabledFraction = total == 0 ? 0.0 : disabled / total;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(top: 12),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              LocalizedText(
-                'Connections health',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+          SectionHeader('Connections health', count: total),
+          const SizedBox(height: 8),
+          DistributionBar(
+            emphasizedLabel: 'Disabled',
+            segments: [
+              DistributionSegment(
+                label: 'Enabled',
+                value: total - disabled,
+                color: AppColors.success,
               ),
-              const Spacer(),
-              Text(
-                '$disabled of $total disabled',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: disabledFraction > 0.3
-                      ? AppColors.danger
-                      : disabledFraction > 0.1
-                      ? AppColors.warning
-                      : AppColors.success,
-                ),
+              DistributionSegment(
+                label: 'Disabled',
+                value: disabled,
+                color: AppColors.warning,
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              height: 6,
-              color: AppColors.success.withValues(alpha: 0.15),
-              child: FractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: disabledFraction.clamp(0.0, 1.0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    gradient: LinearGradient(
-                      colors: [AppColors.warning, AppColors.danger],
-                    ),
-                  ),
-                ),
-              ),
-            ),
           ),
         ],
       ),

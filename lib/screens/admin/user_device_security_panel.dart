@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
+import 'device_security_dashboard_widgets.dart';
 import 'admin_module_groups.dart';
 
 /// Reusable helpdesk view for a user's devices and completed login history.
@@ -188,7 +189,12 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
         const SizedBox(height: 24),
         const SkeletonListTile(itemCount: 3),
       ] else ...[
-        if (_deviceError != null) _warning('Device inventory', _deviceError!),
+        if (_deviceError != null)
+          _warning(
+            'Device inventory unavailable',
+            _deviceError!,
+            onRetry: _load,
+          ),
         DeviceListPanel(
           title: 'Registered devices',
           devices: _devices,
@@ -201,18 +207,29 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
           onRevoke: _revoke,
         ),
         const SizedBox(height: 12),
-        if (_historyError != null) _warning('Login history', _historyError!),
+        if (_historyError != null)
+          _warning(
+            'Login history unavailable',
+            _historyError!,
+            onRetry: _load,
+          ),
         LoginHistoryPanel(records: _history),
       ],
     ],
   );
 
-  Widget _warning(String resource, String error) => Card(
+  Widget _warning(String title, String error, {VoidCallback? onRetry}) => Card(
     color: AppColors.warning.withValues(alpha: 0.08),
     child: ListTile(
       leading: const Icon(Icons.info_outline, color: AppColors.warning),
-      title: LocalizedText('{resource} unavailable', args: {'resource': resource}),
-      subtitle: LocalizedText(error),
+      title: LocalizedText(title),
+      subtitle: Text(error),
+      trailing: onRetry == null
+          ? null
+          : TextButton(
+              onPressed: _loading || _mutating ? null : onRetry,
+              child: const LocalizedText('Retry'),
+            ),
     ),
   );
 }

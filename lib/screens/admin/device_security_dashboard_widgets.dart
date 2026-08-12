@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
+import 'admin_module_groups.dart';
+import 'admin_navigation.dart';
 import 'device_security_models.dart';
+import 'device_security_widgets.dart';
 
 class DeviceStatsCards extends StatelessWidget {
   final Map<String, dynamic> stats;
@@ -55,8 +60,9 @@ class DeviceStatsCards extends StatelessWidget {
                 ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
-              Text(
-                '${(riskyFraction * 100).round()}% suspicious',
+              LocalizedText(
+                '{percent}% suspicious',
+                args: {'percent': (riskyFraction * 100).round()},
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -237,18 +243,21 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: ExpansionTile(
       initiallyExpanded: events.isNotEmpty,
-      leading: const Icon(Icons.policy_outlined),
+      leading: Icon(
+        Icons.policy_outlined,
+        color: adminModuleIconColor(AdminModuleId.deviceSecurity),
+      ),
       title: const LocalizedText('Security activity'),
-      subtitle: Text(
-        '${events.length} devices currently require attention',
+      subtitle: LocalizedText(
+        '{count} devices currently require attention',
+        args: {'count': events.length},
       ),
       children: events.isEmpty
           ? const [
-              ListTile(
-                leading: Icon(Icons.verified_user_outlined),
-                title: LocalizedText(
-                  'No suspicious or very-low-trust devices found.',
-                ),
+              EmptyState(
+                compact: true,
+                icon: Icons.verified_user_outlined,
+                title: 'No suspicious or very-low-trust devices found.',
               ),
             ]
           : [
@@ -261,10 +270,12 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                   title: event['device_name']?.toString().isNotEmpty == true
                       ? Text(event['device_name'].toString())
                       : Text(
-                          event['device_id']?.toString() ?? context.tr('Unknown device'),
+                          event['device_id']?.toString() ??
+                              context.tr('Unknown device'),
                         ),
                   subtitle: Text(
-                    'User ${event['user_id'] ?? '—'} · Trust ${event['trust_score'] ?? '—'} · ${event['time'] ?? ''}',
+                    'User ${event['user_id'] ?? '—'} · Trust '
+                    '${event['trust_score'] ?? '—'} · ${event['time'] ?? ''}',
                   ),
                   trailing: TextButton(
                     onPressed: () => onInvestigate(event),
@@ -273,5 +284,104 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                 ),
             ],
     ),
+  );
+}
+
+/// 单设备活动调查对话框：loading/error（含重试）/数据三态。
+class DeviceActivityDialog extends StatefulWidget {
+  final SnaplinkAdminApi api;
+  final DeviceJson device;
+
+  const DeviceActivityDialog({
+    super.key,
+    required this.api,
+    required this.device,
+  });
+
+  static Future<void> show(
+    BuildContext context, {
+    required SnaplinkAdminApi api,
+    required DeviceJson device,
+  }) => showDialog<void>(
+    context: context,
+    builder: (_) => DeviceActivityDialog(api: api, device: device),
+  );
+
+  @override
+  State<DeviceActivityDialog> createState() => _DeviceActivityDialogState();
+}
+
+class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
+  Map<String, dynamic>? _result;
+  Object? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _error = null;
+      _result = null;
+    });
+    try {
+      final id = deviceId(widget.device);
+      if (id.isEmpty) {
+        throw StateError('The activity event has no device identifier.');
+      }
+      final result = await widget.api.get(DeviceSecurityPaths.activity(id));
+      if (mounted) setState(() => _result = result);
+    } catch (error) {
+      if (mounted) setState(() => _error = error);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const LocalizedText('Device activity'),
+    content: SizedBox(
+      width: 720,
+      height: 520,
+      child: _error != null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 40,
+                    color: AppColors.danger,
+                  ),
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      '$_error',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const LocalizedText('Retry'),
+                  ),
+                ],
+              ),
+            )
+          : _result == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: LoginHistoryPanel(records: loginHistoryFrom(_result)),
+            ),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const LocalizedText('Close'),
+      ),
+    ],
   );
 }

@@ -1,0 +1,126 @@
+# 逐页 UI 重构 — batch 2a（security 组：connections/domains/device-security/token-security/token-policies/token-exchange）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial），每页完成后 operator 验证并提交，
+# 再推进下一页（"逐个一步一步"）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-security-2a.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-security-2a.log
+# 参考：docs/ui/admin-pages/audit.md（全站审计）、
+#       docs/ui/pages/fix-security.md（上一轮批量修复记录）
+
+tasks:
+- prompt: |
+    重构联邦连接页面。步骤：
+    1. 分析现有代码：lib/screens/admin/connections_tab.dart、
+       connections_widgets.dart、connections/（header.dart、list_card.dart、
+       create_card.dart、details_card.dart、error_card.dart）、
+       connection_detail_screen.dart —— 读完整文件，梳理连接列表/详情/
+       创建的结构与渲染方式。
+    2. 对照可用组件（lib/widgets/）与组色（adminModuleIconColor
+       ('connections')），结合 docs/ui/admin-pages/audit.md 中
+       connections 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；连接契约（secret 脱敏、健康探测）
+         语义保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/connections.md（分析摘要→问题清单→
+       修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/connections.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构域名页面。步骤：
+    1. 分析现有代码：lib/screens/admin/domains_tab.dart —— 读完整文件，
+       梳理域名列表/校验/生命周期操作的结构与渲染方式。
+    2. 对照可用组件与组色（adminModuleIconColor('domains')），结合
+       docs/ui/admin-pages/audit.md 中 domains 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；域名校验语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/domains.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/domains.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构设备安全页面。步骤：
+    1. 分析现有代码：lib/screens/admin/device_security_tab.dart、
+       device_security_widgets.dart、device_security_dashboard_widgets.dart、
+       device_security_models.dart、device_bulk_revoke_dialog.dart、
+       user_device_security_panel.dart —— 读完整文件，梳理设备列表/
+       统计/筛选/单个与批量撤销的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('device-security')），
+       结合 docs/ui/admin-pages/audit.md 中 device-security 条目，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；批量撤销（非空筛选、
+         'REVOKE N DEVICES' 确认、估算）语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/device_security_models_test.dart（如存在）及
+       test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/device-security.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/device-security.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 Token 安全页面。步骤：
+    1. 分析现有代码：lib/screens/admin/token_security_tab.dart —— 读完整
+       文件，梳理组合视图（portfolio/可疑/会话/临时 Token）与撤销流程
+       的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('token-security')），
+       结合 docs/ui/admin-pages/audit.md 中 token-security 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；撤销/临时 Token 语义与
+         一次性展示安全不变量保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/token_security_tab_test.dart（如存在）及
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/token-security.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/token-security.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 Token 策略页面。步骤：
+    1. 分析现有代码：lib/screens/admin/token_policies_tab.dart —— 读完整
+       文件，梳理策略列表/用量/Subject 组合的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('token-policies')），
+       结合 docs/ui/admin-pages/audit.md 中 token-policies 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；策略语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/token-policies.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/token-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 Token 交换页面。步骤：
+    1. 分析现有代码：lib/screens/admin/token_exchange_tab.dart —— 读完整
+       文件，梳理交换链追踪的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor('token-exchange')），
+       结合 docs/ui/admin-pages/audit.md 中 token-exchange 条目，列出
+       改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标按组色上色；
+       - loading/empty/error 三态齐全；交换链语义保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/token-exchange.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/token-exchange.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -2,9 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
+import '../admin_module_groups.dart';
 
 class ConnectionDetailsCard extends StatelessWidget {
   final String id;
@@ -40,6 +43,9 @@ class ConnectionDetailsCard extends StatelessWidget {
     required this.onVerifyDomain,
   });
 
+  /// 模块强调色（connections → security 组 rose）：页内操作图标统一上色。
+  Color get _accent => adminModuleIconColor('connections');
+
   @override
   Widget build(BuildContext context) => Card(
     margin: const EdgeInsets.only(top: 16),
@@ -59,14 +65,14 @@ class ConnectionDetailsCard extends StatelessWidget {
               IconButton(
                 onPressed: loading || mutating ? null : onRefresh,
                 tooltip: 'Refresh connection'.localized,
-                icon: const Icon(Icons.refresh),
+                icon: Icon(Icons.refresh, color: _accent),
               ),
             ],
           ),
           if (loading)
             const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
+              padding: EdgeInsets.only(top: 8),
+              child: SkeletonListTile(itemCount: 2),
             )
           else ...[
             if (connection != null) _summary(context),
@@ -165,7 +171,7 @@ class ConnectionDetailsCard extends StatelessWidget {
   Widget _probeCard() => Card(
     margin: const EdgeInsets.only(top: 16),
     child: ListTile(
-      leading: const Icon(Icons.network_ping_outlined),
+      leading: Icon(Icons.network_ping_outlined, color: _accent),
       title: const LocalizedText('Reachability probe'),
       subtitle: const LocalizedText(
         'Fetches the OIDC discovery document or SAML metadata and records the result.',
@@ -195,7 +201,11 @@ class ConnectionDetailsCard extends StatelessWidget {
           if (domainClaims.isEmpty)
             const Padding(
               padding: EdgeInsets.only(top: 12),
-              child: LocalizedText('No domain claims found.'),
+              child: EmptyState(
+                compact: true,
+                variant: EmptyStateVariant.empty,
+                title: 'No domain claims found.',
+              ),
             ),
           for (final claim in domainClaims)
             ListTile(

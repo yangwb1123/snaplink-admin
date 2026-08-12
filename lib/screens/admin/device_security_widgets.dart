@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -327,76 +326,6 @@ class _LoginHistoryTile extends StatelessWidget {
   }
 }
 
-class DeviceActivityDialog extends StatefulWidget {
-  final SnaplinkAdminApi api;
-  final DeviceJson device;
-
-  const DeviceActivityDialog({
-    super.key,
-    required this.api,
-    required this.device,
-  });
-
-  static Future<void> show(
-    BuildContext context, {
-    required SnaplinkAdminApi api,
-    required DeviceJson device,
-  }) => showDialog<void>(
-    context: context,
-    builder: (_) => DeviceActivityDialog(api: api, device: device),
-  );
-
-  @override
-  State<DeviceActivityDialog> createState() => _DeviceActivityDialogState();
-}
-
-class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
-  Map<String, dynamic>? _result;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final id = deviceId(widget.device);
-      if (id.isEmpty) {
-        throw StateError('The activity event has no device identifier.');
-      }
-      final result = await widget.api.get(DeviceSecurityPaths.activity(id));
-      if (mounted) setState(() => _result = result);
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final records = loginHistoryFrom(_result);
-    return AlertDialog(
-      title: const LocalizedText('Device activity'),
-      content: SizedBox(
-        width: 720,
-        height: 520,
-        child: _error != null
-            ? Center(child: LocalizedText('Unable to load activity: {_error}', args: {'_error': _error}))
-            : _result == null
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(child: LoginHistoryPanel(records: records)),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const LocalizedText('Close'),
-        ),
-      ],
-    );
-  }
-}
-
 class _TrustChip extends StatelessWidget {
   final DeviceJson device;
 
@@ -413,11 +342,7 @@ class _TrustChip extends StatelessWidget {
         : score < 0.6
         ? AppColors.warning
         : AppColors.success;
-    return Chip(
-      avatar: Icon(Icons.shield_outlined, size: 16, color: color),
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-    );
+    return StatusChip(label: label, color: color, icon: Icons.shield_outlined);
   }
 }
 

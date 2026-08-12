@@ -14,6 +14,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Create audited, time-bound emergency access to user accounts.':
       '创建经过审计且有时间限制的用户账户紧急访问。',
   'Create or replace connection': '创建或替换连接',
+  'Create or replace connection?': '创建或替换连接？',
   'Data-subject request': '数据主体请求',
   'Client-scoped roles, assignments and navigation menus.':
       '客户端范围内的角色、分配与导航菜单。',
@@ -22,6 +23,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Domain deleted.': '域名已删除。',
   'Domain management is not enabled.': '域名管理功能未启用。',
   'Domain ownership': '域名所有权',
+  'Delete connection?': '删除连接？',
   'Encrypted transport complete; export downloaded.': '加密传输完成，导出文件已下载。',
   'Enter a client ID first.': '请先输入客户端 ID。',
   'Enter a connection ID first.': '请先输入连接 ID。',
@@ -40,6 +42,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Enter the data subject’s user ID.': '请输入数据主体的用户 ID。',
   'Exact write confirmation': '精确写入确认',
   'Failed to create break-glass session.': '无法创建紧急访问会话。',
+  'Fleet devices': '设备总数',
   'Fleet posture, device-level investigation, and bounded incident response.':
       '设备群安全状态、设备级调查和有限范围的事件响应。',
   'Grant record revoked. Verify all derived sessions and tokens.':
@@ -55,11 +58,23 @@ const appAdminFeatureSourceZh = <String, String>{
   'Invalid JSON or request failed.': 'JSON 无效或请求失败。',
   'Local password users are not enabled on this replica.': '此副本未启用本地密码用户。',
   'Manage email domains for home-realm discovery.': '管理用于主域发现的邮箱域名。',
+  'Snaplink will contact the configured upstream identity provider and record the outcome.':
+      'Snaplink 将联系配置的上游身份提供商并记录结果。',
+  'Snaplink will contact the configured upstream identity provider and record the result.':
+      'Snaplink 将联系配置的上游身份提供商并记录结果。',
+  'Snaplink will query the DNS TXT challenge and may promote this connection as the domain owner.':
+      'Snaplink 将查询 DNS TXT 质询，并可能将该连接提升为域名所有者。',
+  'Snaplink will set this device to the neutral 0.50 trust baseline and record an admin-reset history entry.':
+      'Snaplink 将把此设备设为中性的 0.50 信任基线，并记录一条管理员重置历史记录。',
+  'This updates {id} and its home-realm domain routing for tenant {tenantId}.':
+      '这将更新 {id} 及租户 {tenantId} 的主域路由。',
   'Manage encrypted state snapshots and coordinated frontend/backend release pins.':
       '管理加密状态快照以及前后端协调发布固定点。',
   'Map trusted CIDRs and hostnames to advertised endpoints. Higher priority wins; hostname matches win over CIDRs.':
       '将受信任的 CIDR 和主机名映射到声明端点。优先级越高越先匹配，主机名优先于 CIDR。',
   'Network policy management is not enabled.': '网络策略管理功能未启用。',
+  'New device': '新设备',
+  'New location': '新地点',
   'No optional administration routes are registered on this replica.':
       '此副本未注册可选管理路由。',
   'Operational telemetry is aggregated and may lag live authentication traffic slightly.':
@@ -84,13 +99,19 @@ const appAdminFeatureSourceZh = <String, String>{
       '请设置主体和/或客户端 ID 以限定撤销范围。',
   'Some subject data is unavailable — {errors}': '部分主体数据不可用 — {errors}',
   'Some usage data is unavailable — {errors}': '部分使用数据不可用 — {errors}',
+  'Some device data is unavailable — {failures}': '部分设备数据不可用 — {failures}',
   'Subject investigation is not enabled.': '主体调查功能未启用。',
   'Supply at least one boundary. Snaplink rejects an unscoped revoke and may require confirmation for large batches.':
       '请至少提供一个范围限制。Snaplink 会拒绝无范围撤销，并可能要求确认大型批次。',
   'Tenant usage metering is unavailable or has no data.': '租户使用计量不可用或没有数据。',
+  'Bulk revocation request accepted. The server reported {revoked} revoked of {matched} matched; verify device inventory before treating the segment as fully revoked.':
+      '批量撤销请求已接受。服务器报告 {matched} 台匹配设备中已撤销 {revoked} 台；在将该设备段视为完全撤销前，请核对设备清单。',
   'Test ReBAC and WASM authorization policies.': '测试 ReBAC 和 WASM 授权策略。',
   'The SCIM operation failed.': 'SCIM 操作失败。',
+  'The device record will be deleted and bound-session invalidation will be requested. Verify active sessions separately. Type the device ID to continue.':
+      '设备记录将被删除，并会请求使绑定会话失效。请另行核对活动会话。请输入设备 ID 以继续。',
   'Valid bulk JSON is required.': '需要有效的批量 JSON。',
+  'Very low trust': '极低信任',
   'The selected device has no user/device ID.': '所选设备没有用户/设备 ID。',
   'The server returned an empty response.': '服务器返回了空响应。',
   'The secret was rotated, but its one-time value was not returned.':
@@ -106,6 +127,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Token policy management is not enabled.': '令牌策略管理功能未启用。',
   'Token usage telemetry is unavailable or has no data.': '令牌使用遥测不可用或没有数据。',
   'Two-person administrative approvals are not enabled.': '双人管理审批功能未启用。',
+  'Trust level': '信任级别',
+  'Trust reset to {score} ({label}).': '信任已重置为 {score}（{label}）。',
   'Unable to load activity: {error}': '无法加载活动：{error}',
   'Usage analytics is not enabled.': '使用分析功能未启用。',
   'Usage and session insights': '使用和会话分析',
@@ -118,6 +141,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Available management domains': '可用管理领域',
   '{running} running · {documented} documented-only':
       '{running} 个运行中 · {documented} 个仅文档',
+  '{percent}% suspicious': '{percent}% 可疑',
   'Calculate changes without persisting them.': '计算变更但不持久化。',
   'Conditions are combined with AND, matching Snaplink server semantics.':
       '各条件使用 AND 组合，与 Snaplink 服务器语义一致。',
@@ -125,6 +149,9 @@ const appAdminFeatureSourceZh = <String, String>{
       '创建经过脱敏的 Snaplink 租户下线或迁移包。',
   'Define a bounded risk segment. Empty filters are blocked because an unfiltered revocation can affect every device.':
       '定义有限的风险分段。系统会阻止空筛选条件，因为无筛选撤销可能影响所有设备。',
+  'Device inventory unavailable': '设备清单不可用',
+  'Device revoked. Bound-session invalidation was requested.': '设备已撤销，已请求使绑定会话失效。',
+  'Device trust reset.': '设备信任已重置。',
   'Devices and login history': '设备与登录历史',
   'Discover provider capabilities, reconcile users and groups, and execute bounded bulk operations.':
       '发现提供商能力、核对用户和组，并执行有限范围的批量操作。',
@@ -148,11 +175,14 @@ const appAdminFeatureSourceZh = <String, String>{
   'Key rotation initiated.': '密钥轮换已启动。',
   'Lockouts are scoped by OAuth client and the exact username, email, or phone identifier.':
       '锁定按 OAuth 客户端以及精确的用户名、邮箱或电话号码标识进行限定。',
+  'Last IP (exact)': '最后 IP（精确）',
+  'Login history unavailable': '登录历史不可用',
   'Must match an action enabled by the server.': '必须与服务器启用的操作匹配。',
   'No audit events returned by the server yet.': '服务器尚未返回审计事件。',
   'No resources match this query.': '没有资源匹配此查询。',
   'No suspicious or very-low-trust devices found.': '未发现可疑或信任度极低的设备。',
   'Per-operation status; overall HTTP is 200': '逐项操作状态；总体 HTTP 状态为 200',
+  'Platforms': '平台数',
   'Provide an array of menu items. Each item needs id and name; children and buttons are nested arrays.':
       '请提供菜单项数组。每项需要 id 和 name，children 与 buttons 使用嵌套数组。',
   'Publish each DNS TXT record and then verify it. The challenge value is public DNS data, not a bearer secret.':
@@ -301,8 +331,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Run a successful dry-run preview with these exact restore settings before committing.':
       '提交前，请使用这些精确的恢复设置成功运行试运行预览。',
   'Safety boundary blocked an unfiltered bulk device revocation.':
-      '安全边界已阻止无筛选条件的设备批量撤销。',
-  'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.':
+      '安全边界已阻止无筛选条件的设备批量撤销。',  'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.':
       'Snaplink 已接受模拟用户请求，但未返回持有者令牌。在核实服务器状态前请勿重试。',
   'The secret was rotated, but the server did not return its one-time value.':
       '密钥已轮换，但服务器未返回其一次性值。',
