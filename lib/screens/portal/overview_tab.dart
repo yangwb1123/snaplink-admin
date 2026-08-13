@@ -15,7 +15,7 @@ import 'portal_widgets.dart';
 /// Layout: MFA banner → metric strip → profile card (KvRow + display-name
 /// editor) → custom attributes editor → access disclosure. Loading renders
 /// SkeletonListTile, failures render a retryable [PortalErrorCard], and
-/// empty profile rows render EmptyState (audit X3/X4/X8).
+/// empty profile rows render EmptyState (UI review X3/X4/X8).
 class OverviewTab extends StatefulWidget {
   final PortalApi api;
   const OverviewTab({super.key, required this.api});

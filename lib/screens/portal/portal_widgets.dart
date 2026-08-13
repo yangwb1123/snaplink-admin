@@ -279,7 +279,7 @@ class PortalAuthzRow extends StatelessWidget {
   }
 }
 
-/// 整页加载失败态：danger 图标 + 可重试动作（audit X4）。
+/// 整页加载失败态：danger 图标 + 可重试动作（UI review X4）。
 class PortalErrorCard extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;

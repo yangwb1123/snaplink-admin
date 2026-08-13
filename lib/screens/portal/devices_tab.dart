@@ -22,7 +22,7 @@ import 'portal_widgets.dart';
 ///
 /// Layout: header → banner → three-state body. Loading renders
 /// SkeletonListTile, failures render a retryable [PortalErrorCard], and an
-/// empty list renders EmptyState (audit X3/X4/X8).
+/// empty list renders EmptyState (UI review X3/X4/X8).
 class DevicesTab extends StatefulWidget {
   final PortalApi api;
 
