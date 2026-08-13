@@ -1,0 +1,67 @@
+# 逐页 UI 重构 — batch 6（developer 入口组：注册/管理/凭据/发现）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-developer.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-developer.log
+
+tasks:
+- prompt: |
+    重构开发者注册面板。步骤：
+    1. 分析现有代码：lib/screens/developer/developer_screen.dart、
+       register_panel.dart、dcr_form_controller.dart、dcr_metadata_form.dart、
+       dcr_validation.dart —— 读完整文件，梳理 RFC 7591 注册向导
+       （metadata 表单/校验/提交）的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；DCR 语义（Discovery 约束、
+         redirect URI 校验、一次性凭据展示）保持不变；
+       - 禁止出现英文字样 'audit'（含注释，B6-1 scan 6b 负边界）；
+        不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/dcr_widgets_test.dart test/dcr_models_test.dart
+       test/developer_api_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/developer-register.md（分析摘要→问题
+       清单→修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/developer-register.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dcr_widgets_test.dart test/dcr_models_test.dart test/developer_api_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构开发者管理面板。步骤：
+    1. 分析现有代码：lib/screens/developer/manage_panel.dart、
+       dcr_update_projection.dart、dcr_round_trip_notice.dart、
+       dcr_delete_dialog.dart —— 读完整文件，梳理 RFC 7592 管理
+       （读取/更新/删除、无损往返提示）的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；RFC 7592 语义（无损往返、
+         删除确认、RAT 轮换后阻止关闭）保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/dcr_widgets_test.dart test/developer_serving_region_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/developer-manage.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/developer-manage.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dcr_widgets_test.dart test/developer_serving_region_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构开发者凭据与发现组件。步骤：
+    1. 分析现有代码：lib/screens/developer/dcr_credentials.dart、
+       discovery_region_notice.dart、dcr_models.dart —— 读完整文件，
+       梳理凭据一次性展示/轮换确认/发现区域提示的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；凭据一次性展示与轮换确认
+         语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/dcr_models_test.dart test/developer_api_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/developer-credentials.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/developer-credentials.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dcr_models_test.dart test/developer_api_test.dart 2>&1 | grep -qE 'All tests passed!'"

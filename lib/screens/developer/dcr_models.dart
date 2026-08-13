@@ -148,6 +148,8 @@ class DcrClientMetadata {
     );
   }
 
+  /// RFC 7591 register wire: typed fields plus any accepted expert
+  /// metadata; require_pkce is forced for public clients.
   Map<String, dynamic> toRegistrationWire() => {
     ...expertMetadata,
     'client_name': clientName,
@@ -167,6 +169,8 @@ class DcrClientMetadata {
 
   /// tenant_id remains immutable on RFC 7592 PUT; every other typed
   /// registration field round-trips through the management contract.
+  /// RFC 7592 PUT wire: same shape as registration but tenant_id stays
+  /// immutable on the server and is deliberately omitted.
   Map<String, dynamic> toManagementWire() => {
     ...expertMetadata,
     'client_name': clientName,
@@ -185,9 +189,12 @@ class DcrClientMetadata {
 
   bool get isPublicClient => tokenEndpointAuthMethod == 'none';
 
+  /// Pretty-printed expert metadata for the JSON editor.
   String expertJson() =>
       const JsonEncoder.withIndent('  ').convert(expertMetadata);
 
+  /// Parses the expert JSON editor value; rejects typed and credential
+  /// keys so the wire can never be shadowed by expert input.
   static Map<String, dynamic> parseExpertJson(String raw) {
     if (raw.trim().isEmpty) return const {};
     final decoded = jsonDecode(raw);
@@ -223,6 +230,9 @@ class DcrClientMetadata {
       : const [];
 }
 
+/// RFC 7592 lossless round-trip gate: a GET response that omits any
+/// typed field would be overwritten by a PUT, so saving is disabled until
+/// the full representation is known.
 class DcrRoundTripSafety {
   final bool grantTypesKnown;
   final bool responseTypesKnown;
@@ -236,6 +246,8 @@ class DcrRoundTripSafety {
     required this.tenantKnown,
   });
 
+  /// Trusted registration snapshots (echoed 201 response) may carry
+  /// explicitly empty lists; untrusted GET responses must contain the key.
   factory DcrRoundTripSafety.fromWire(
     Map<String, dynamic> value, {
     bool trustedRegistrationSnapshot = false,

@@ -33,6 +33,10 @@ const appDeveloperSourceZh = <String, String>{
   'Done and Erase': '完成并清除',
   'Dynamic client registration is not advertised by Snaplink.':
       'Snaplink 未声明支持动态客户端注册。',
+  'Enter the client ID and registration access token issued at registration to load the app for management.':
+      '请输入注册时签发的客户端 ID 和注册访问令牌，以加载应用进行管理。',
+  'Every typed field round-trips through the RFC 7592 PUT.':
+      '所有类型化字段均可通过 RFC 7592 PUT 无损往返。',
   'Examples: password, webauthn, totp.': '示例：password、webauthn、totp。',
   'Expert JSON': '高级 JSON',
   'Expert JSON cannot override typed or credential fields: {fields}.':
@@ -52,10 +56,17 @@ const appDeveloperSourceZh = <String, String>{
   'Issued credentials are displayed only until you confirm they have been saved.':
       '签发的凭据只会显示到您确认已保存为止。',
   'Leave blank only when open registration is enabled': '仅在启用开放注册时留空',
+  'Load a registered client with the registration access token issued during registration, then read, update, or delete it through RFC 7592.':
+      '使用注册时签发的注册访问令牌加载已注册客户端，再通过 RFC 7592 读取、更新或删除它。',
   'Load App': '加载应用',
+  'Loading app…': '正在加载应用…',
   'Manage App': '管理应用',
   'Manage This App': '管理此应用',
+  'Manage an existing OAuth 2.0 / OIDC client': '管理现有 OAuth 2.0 / OIDC 客户端',
   'New Registration Access Token': '新的注册访问令牌',
+  'No app loaded': '尚未加载应用',
+  'No credentials were issued.': '未签发任何凭据。',
+  'Not returned.': '服务器未返回。',
   'OAuth protocol': 'OAuth 协议',
   'OAuth resource indicators accepted for this client.': '此客户端接受的 OAuth 资源指示符。',
   'One-time credential': '一次性凭据',
@@ -75,6 +86,7 @@ const appDeveloperSourceZh = <String, String>{
       '只读：当前管理处理程序不会持久化 response_types。',
   'Redirect URIs (one per line)': '重定向 URI（每行一个）',
   'Register App': '注册应用',
+  'Register an OAuth 2.0 / OIDC client': '注册 OAuth 2.0 / OIDC 客户端',
   'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic Client Registration. Public clients are forced to PKCE S256. Issued credentials are displayed only until you confirm they have been saved.':
       '使用 Snaplink 动态客户端注册来创建 OAuth 2.0 / OIDC 客户端。公共客户端强制使用 S256 PKCE；签发的凭据只显示到您确认已保存为止。',
   'Registration Access Token': '注册访问令牌',
@@ -127,6 +139,8 @@ const appDeveloperSourceZh = <String, String>{
       '当前 Snaplink DCR 处理程序无法注册一致的隐式/混合授权；请使用 code 响应类型。',
   'The initial access token is sent once and cleared from this form as soon as registration starts.':
       '初始访问令牌只发送一次，并会在注册开始后立即从表单中清除。',
+  'The registration response was incomplete: the client ID is missing, so the issued credentials cannot be managed or erased here.':
+      '注册响应不完整：缺少客户端 ID，因此无法在此管理或清除已签发的凭据。',
   'Save this replacement token now. The previous token remains valid only during the server-defined overlap window.':
       '请立即保存替代令牌。旧令牌仅在服务器定义的重叠窗口内保持有效。',
   'The selected token endpoint authentication method is not accepted by Snaplink DCR.':
@@ -138,6 +152,7 @@ const appDeveloperSourceZh = <String, String>{
       'Snaplink 未声明支持此令牌端点身份验证方式：{method}',
   'Token strategy': '令牌策略',
   'Token strategy must be jwt or session.': '令牌策略必须是 jwt 或 session。',
+  'Type the exact client ID to enable deletion.': '输入完整的客户端 ID 以启用删除。',
   'Typed and credential fields are rejected here. Unknown keys may be ignored by Snaplink; the response is authoritative.':
       '此处不允许类型化字段和凭据字段。Snaplink 可能忽略未知键；应以响应为准。',
   'Unable to reach Snaplink. Check the connection and retry.':

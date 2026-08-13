@@ -1,5 +1,12 @@
 import 'dcr_models.dart';
 
+/// Projection of an RFC 7592 PUT response onto the manage form's working
+/// copy, keeping the lossless round-trip guarantee intact.
+///
+/// The response body is authoritative for every field the server echoes.
+/// Fields the server omits are back-filled from the metadata this process
+/// just validated and submitted, so an older replica that skips some keys
+/// cannot silently degrade the next save.
 class DcrUpdateProjection {
   final Map<String, dynamic> wire;
   final DcrRoundTripSafety safety;

@@ -4,13 +4,14 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'dcr_credentials.dart';
 import 'dcr_delete_dialog.dart';
 import 'dcr_form_controller.dart';
-import 'dcr_metadata_form.dart';
 import 'dcr_models.dart';
 import 'dcr_round_trip_notice.dart';
 import 'dcr_update_projection.dart';
 import 'dcr_validation.dart';
 import 'developer_api.dart';
 
+/// RFC 7592 management surface for a registered OAuth 2.0 / OIDC client:
+/// RAT-authenticated read (GET), update (PUT) and delete (DELETE).
 class ManagePanel extends StatefulWidget {
   final DeveloperApi api;
   final DcrDiscovery? discovery;
@@ -20,7 +21,6 @@ class ManagePanel extends StatefulWidget {
   @override
   State<ManagePanel> createState() => ManagePanelState();
 }
-
 class ManagePanelState extends State<ManagePanel> {
   final _clientIdController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -86,15 +86,20 @@ class ManagePanelState extends State<ManagePanel> {
     });
   }
 
+  void _setLoadError(String message, {bool credential = false}) {
+    setState(() {
+      _loadError = message;
+      _credentialError = credential;
+    });
+  }
+
   Future<void> _load() async {
     final clientId = _clientIdController.text.trim();
     final token = _tokenController.text.trim();
     if (clientId.isEmpty || token.isEmpty) {
-      setState(() {
-        _loadError =
-            'Client ID and registration access token are both required.';
-        _credentialError = false;
-      });
+      _setLoadError(
+        'Client ID and registration access token are both required.',
+      );
       return;
     }
 
@@ -112,27 +117,24 @@ class ManagePanelState extends State<ManagePanel> {
     } on DeveloperApiError catch (error) {
       if (!mounted) return;
       if (error.isInvalidManagementCredential) {
-        setState(() {
-          _loadError = 'Invalid client ID or registration access token.';
-          _credentialError = true;
-        });
+        _setLoadError(
+          'Invalid client ID or registration access token.',
+          credential: true,
+        );
       } else {
-        setState(() {
-          _loadError = error.isRetryable
+        _setLoadError(
+          error.isRetryable
               ? 'Snaplink is temporarily unavailable (HTTP ${error.status}). '
                     'Your credentials were not classified as invalid; retry.'
-              : 'Snaplink rejected the management request: $error';
-          _credentialError = false;
-        });
+              : 'Snaplink rejected the management request: $error',
+        );
       }
     } catch (_) {
       if (mounted) {
-        setState(() {
-          _loadError =
-              'Unable to reach Snaplink. Your credentials were not classified '
-              'as invalid; check the connection and retry.';
-          _credentialError = false;
-        });
+        _setLoadError(
+          'Unable to reach Snaplink. Your credentials were not classified '
+          'as invalid; check the connection and retry.',
+        );
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -181,6 +183,8 @@ class ManagePanelState extends State<ManagePanel> {
       _applyLoaded(projection.wire, safetyOverride: projection.safety);
 
       if (rotatedToken.isNotEmpty) {
+        // RFC 7592 RAT rotation: block dismissal until the replacement token
+        // is confirmed saved, then persist it for the next request.
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
@@ -284,116 +288,102 @@ class ManagePanelState extends State<ManagePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
+    final scheme = Theme.of(context).colorScheme;
+    // SingleChildScrollView + Column (not a lazy ListView): every child is
+    // always built, so the save/delete actions below the tall metadata form
+    // stay reachable for tests, semantics and keyboard focus.
+    return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                TextField(
-                  controller: _clientIdController,
-                  enabled: _currentApp == null && !_loading,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  textCapitalization: TextCapitalization.none,
-                  textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
-                    labelText: context.strings.clientId,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SensitiveTokenField(
-                  controller: _tokenController,
-                  label: 'Registration Access Token',
-                  enabled: !_loading && !_saving && !_deleting,
-                  readOnly: _currentApp != null,
-                  onSubmitted: (_) => _loadIfIdle(),
-                ),
-                if (_loadError != null) ...[
-                  const SizedBox(height: 12),
-                  Semantics(
-                    liveRegion: true,
-                    child: Text(
-                      context.tr(_loadError!),
-                      style: TextStyle(
-                        color: _credentialError
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _loading ? null : _load,
-                  child: _loading
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const ManageIntro(),
+          const SizedBox(height: 16),
+          _buildCredentialCard(scheme),
+          const SizedBox(height: 16),
+          ..._buildStatusArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCredentialCard(ColorScheme scheme) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: _clientIdController,
+              enabled: _currentApp == null && !_loading,
+              autocorrect: false,
+              enableSuggestions: false,
+              textCapitalization: TextCapitalization.none,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(labelText: context.strings.clientId),
+            ),
+            const SizedBox(height: 16),
+            SensitiveTokenField(
+              controller: _tokenController,
+              label: 'Registration Access Token',
+              enabled: !_loading && !_saving && !_deleting,
+              readOnly: _currentApp != null,
+              onSubmitted: (_) => _loadIfIdle(),
+            ),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: _loading ? null : _load,
+              child: _loading
+                  ? const ManageInlineSpinner()
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.download_outlined,
+                          size: 18,
+                          color: scheme.onPrimary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
                           context.tr(
                             _loadError == null ? 'Load App' : 'Retry Load',
                           ),
                         ),
-                ),
-              ],
+                      ],
+                    ),
             ),
-          ),
+          ],
         ),
-        if (_currentApp != null) ...[
-          const SizedBox(height: 16),
-          DcrRoundTripNotice(safety: _roundTripSafety!),
-          const SizedBox(height: 12),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  DcrMetadataForm(
-                    controller: _form,
-                    discovery: widget.discovery,
-                    managementMode: true,
-                    roundTripSafety: _roundTripSafety,
-                    onChanged: () => setState(() {}),
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed:
-                        _saving ||
-                            _deleting ||
-                            _roundTripSafety?.canSafelyUpdate != true
-                        ? null
-                        : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(context.tr('Save Changes')),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: _saving || _deleting ? null : _confirmDelete,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                    ),
-                    child: Text(
-                      context.tr(_deleting ? 'Deleting…' : 'Delete App'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
+      ),
     );
+  }
+
+  /// Loading / empty / error before an app loads, then the RFC 7592 data
+  /// surface: lossless round-trip notice + editable management card.
+  List<Widget> _buildStatusArea() {
+    if (_currentApp != null) {
+      return [
+        DcrRoundTripNotice(safety: _roundTripSafety!),
+        const SizedBox(height: 12),
+        ManageFormCard(
+          controller: _form,
+          discovery: widget.discovery,
+          safety: _roundTripSafety!,
+          saving: _saving,
+          deleting: _deleting,
+          onSave: _save,
+          onDelete: _confirmDelete,
+          onChanged: () => setState(() {}),
+        ),
+      ];
+    }
+    return [
+      ManageStatusArea(
+        loading: _loading,
+        loadError: _loadError,
+        credentialError: _credentialError,
+      ),
+    ];
   }
 }

@@ -137,26 +137,22 @@ class _RegisterPanelState extends State<RegisterPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final registrationEnabled =
+        widget.discovery == null || widget.discovery!.registrationEnabled;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              context.tr(
-                'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic Client Registration. Public clients are forced to PKCE S256. Issued credentials are displayed only until you confirm they have been saved.',
-              ),
-            ),
-          ),
-        ),
-        if (widget.discovery != null &&
-            !widget.discovery!.registrationEnabled) ...[
+        // Intro: what this panel does, the PKCE S256 stance, and the
+        // one-time display guarantee (RFC 7591 register surface).
+        const _RegisterIntro(),
+        if (!registrationEnabled) ...[
           const SizedBox(height: 12),
-          _notice(
-            context,
-            'Snaplink discovery does not advertise a registration_endpoint. '
-            'Registration is disabled for this deployment.',
+          _Notice(
+            icon: Icons.warning_amber_rounded,
+            message:
+                'Snaplink discovery does not advertise a registration_endpoint. '
+                'Registration is disabled for this deployment.',
             warning: true,
           ),
         ],
@@ -182,8 +178,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
                   enabled:
                       !_submitting &&
                       _result == null &&
-                      (widget.discovery == null ||
-                          widget.discovery!.registrationEnabled),
+                      registrationEnabled,
                   onSubmitted: (_) => _onSubmitted(),
                 ),
                 const SizedBox(height: 8),
@@ -191,18 +186,15 @@ class _RegisterPanelState extends State<RegisterPanel> {
                   context.tr(
                     'The initial access token is sent once and cleared from this form as soon as registration starts.',
                   ),
-                  style: const TextStyle(fontSize: 12),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
                   Semantics(
                     liveRegion: true,
-                    child: Text(
-                      context.tr(_error!),
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
+                    child: _ErrorBanner(message: _error!),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -210,8 +202,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
                   onPressed:
                       _submitting ||
                           _result != null ||
-                          (widget.discovery != null &&
-                              !widget.discovery!.registrationEnabled)
+                          !registrationEnabled
                       ? null
                       : _submit,
                   child: _submitting
@@ -242,31 +233,151 @@ class _RegisterPanelState extends State<RegisterPanel> {
         ],
         if (_completedClientId != null) ...[
           const SizedBox(height: 16),
-          _notice(
-            context,
-            'One-time credentials for $_completedClientId were erased from '
-            'the registration result.',
+          _Notice(
+            icon: Icons.check_circle_outline,
+            message:
+                'One-time credentials for $_completedClientId were erased from '
+                'the registration result.',
           ),
         ],
       ],
     );
   }
+}
 
-  Widget _notice(BuildContext context, String message, {bool warning = false}) {
-    final colors = Theme.of(context).colorScheme;
+/// Branded intro banner for the register wizard: icon tile + title + the
+/// RFC 7591 registration posture (open or IAT-gated, PKCE S256 for public
+/// clients, one-time credential display).
+class _RegisterIntro extends StatelessWidget {
+  const _RegisterIntro();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primary.withValues(alpha: 0.12),
+            scheme.primary.withValues(alpha: 0.03),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.app_registration, color: scheme.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.tr('Register an OAuth 2.0 / OIDC client'),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: scheme.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(
+                    'Register an OAuth 2.0 / OIDC client using Snaplink Dynamic Client Registration. Public clients are forced to PKCE S256. Issued credentials are displayed only until you confirm they have been saved.',
+                  ),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline callout used for the registration-disabled warning and the
+/// post-erase confirmation. Icon + container tinted by severity.
+class _Notice extends StatelessWidget {
+  final IconData icon;
+  final String message;
+  final bool warning;
+
+  const _Notice({
+    required this.icon,
+    required this.message,
+    this.warning = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final foreground = warning
+        ? scheme.onErrorContainer
+        : scheme.onSecondaryContainer;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: warning ? colors.errorContainer : colors.secondaryContainer,
+        color: warning ? scheme.errorContainer : scheme.secondaryContainer,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Text(
-        context.tr(message),
-        style: TextStyle(
-          color: warning
-              ? colors.onErrorContainer
-              : colors.onSecondaryContainer,
-        ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: foreground),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.tr(message),
+              style: TextStyle(color: foreground),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Validation/transport failure banner for the register form.
+class _ErrorBanner extends StatelessWidget {
+  final String message;
+
+  const _ErrorBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.error_outline, size: 20, color: scheme.onErrorContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.tr(message),
+              style: TextStyle(color: scheme.onErrorContainer),
+            ),
+          ),
+        ],
       ),
     );
   }

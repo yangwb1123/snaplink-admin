@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
+/// RFC 7592 DELETE confirmation: destructive, type-the-exact-client-id gate
+/// so the client cannot be removed by accident.
 Future<bool> confirmDcrDeletion(
   BuildContext context, {
   required String clientId,
@@ -35,7 +37,9 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
   @override
   Widget build(BuildContext context) {
     final matches = _confirmation.text == widget.clientId;
+    final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
+      icon: const Icon(Icons.delete_forever_outlined, color: AppColors.danger),
       title: Text(context.tr('Delete app permanently?')),
       content: SingleChildScrollView(
         child: Column(
@@ -48,9 +52,16 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
               ),
             ),
             const SizedBox(height: 12),
-            SelectableText(
-              widget.clientId,
-              style: const TextStyle(fontFamily: 'monospace'),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: scheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: SelectableText(
+                widget.clientId,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -62,11 +73,19 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 labelText: context.tr('Client ID confirmation'),
+                prefixIcon: const Icon(Icons.pin_outlined),
               ),
               onChanged: (_) => setState(() {}),
               onSubmitted: (_) {
                 if (matches) Navigator.of(context).pop(true);
               },
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.tr('Type the exact client ID to enable deletion.'),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

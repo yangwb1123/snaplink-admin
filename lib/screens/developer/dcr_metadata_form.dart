@@ -76,7 +76,7 @@ class DcrMetadataForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionTitle(context, 'Application'),
+        _sectionTitle(context, Icons.apps, 'Application'),
         TextField(
           controller: controller.clientName,
           textInputAction: TextInputAction.next,
@@ -107,7 +107,7 @@ class DcrMetadataForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _sectionTitle(context, 'OAuth protocol'),
+        _sectionTitle(context, Icons.lock_outline, 'OAuth protocol'),
         Text(
           context.tr('Grant types'),
           style: Theme.of(context).textTheme.labelLarge,
@@ -214,7 +214,7 @@ class DcrMetadataForm extends StatelessWidget {
                 },
         ),
         const SizedBox(height: 16),
-        _sectionTitle(context, 'Application policy'),
+        _sectionTitle(context, Icons.policy_outlined, 'Application policy'),
         _lineField(
           controller.postLogoutRedirectUris,
           context.tr('Post-logout redirect URIs (one per line)'),
@@ -256,7 +256,7 @@ class DcrMetadataForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 24),
-        _sectionTitle(context, 'Expert JSON'),
+        _sectionTitle(context, Icons.code, 'Expert JSON'),
         TextField(
           controller: controller.expertJson,
           minLines: 4,
@@ -299,13 +299,24 @@ class DcrMetadataForm extends StatelessWidget {
     );
   }
 
-  Widget _sectionTitle(BuildContext context, String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Text(
-      context.tr(text),
-      style: Theme.of(context).textTheme.titleMedium,
-    ),
-  );
+  Widget _sectionTitle(BuildContext context, IconData icon, String text) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              context.tr(text),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+      );
 
   List<String> _mergeOptions(Iterable<String> values, Set<String> selected) {
     final seen = <String>{};

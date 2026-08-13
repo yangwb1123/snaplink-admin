@@ -96,6 +96,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(strings.developerPortal),
@@ -104,21 +105,40 @@ class _DeveloperScreenState extends State<DeveloperScreen>
           isScrollable: true,
           tabAlignment: TabAlignment.start,
           tabs: [
-            Tab(text: strings.registerNewApp),
-            Tab(text: strings.manageExistingApp),
+            Tab(
+              icon: Icon(Icons.app_registration, color: scheme.primary),
+              text: strings.registerNewApp,
+            ),
+            Tab(
+              icon: Icon(
+                Icons.manage_accounts_outlined,
+                color: scheme.primary,
+              ),
+              text: strings.manageExistingApp,
+            ),
           ],
         ),
       ),
       body: Column(
         children: [
-          if (_loadingDiscovery) const LinearProgressIndicator(minHeight: 2),
+          // Discovery load state: thin brand progress strip while the
+          // well-known document is being fetched.
+          if (_loadingDiscovery)
+            LinearProgressIndicator(
+              minHeight: 2,
+              color: scheme.primary,
+              backgroundColor: scheme.surfaceContainerHighest,
+            ),
           if (_discoveryError != null)
             MaterialBanner(
               content: Semantics(
                 liveRegion: true,
                 child: Text(context.tr(_discoveryError!)),
               ),
-              leading: const Icon(Icons.cloud_off_outlined),
+              leading: Icon(
+                Icons.cloud_off_outlined,
+                color: scheme.error,
+              ),
               actions: [
                 TextButton.icon(
                   onPressed: _loadingDiscovery ? null : _loadDiscovery,
@@ -128,11 +148,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.refresh),
+                      : Icon(Icons.refresh, color: scheme.primary),
                   label: Text(strings.retryDiscovery),
                 ),
               ],
             ),
+          // Loaded: region provenance notice when discovery advertises one.
           if (_discovery?.servingRegion.isNotEmpty == true)
             DiscoveryRegionNotice(servingRegion: _discovery!.servingRegion),
           Expanded(

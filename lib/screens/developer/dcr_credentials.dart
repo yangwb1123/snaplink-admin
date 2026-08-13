@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 
 class SensitiveTokenField extends StatefulWidget {
   final TextEditingController controller;
@@ -29,6 +30,7 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return TextField(
       controller: widget.controller,
       enabled: widget.enabled,
@@ -51,7 +53,7 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
               onPressed: widget.enabled
                   ? () => setState(() => _visible = !_visible)
                   : null,
-              icon: Icon(_visible ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(_visible ? Icons.visibility_off : Icons.visibility, color: widget.enabled ? scheme.primary : null),
             ),
             PopupMenuButton<String>(
               tooltip: context.tr('{label} actions', {
@@ -66,11 +68,7 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
               },
               itemBuilder: (_) => [
                 PopupMenuItem(value: 'copy', child: Text(context.tr('Copy'))),
-                PopupMenuItem(
-                  value: 'clear',
-                  enabled: !widget.readOnly && widget.enabled,
-                  child: Text(context.tr('Clear')),
-                ),
+                PopupMenuItem(value: 'clear', enabled: !widget.readOnly && widget.enabled, child: Text(context.tr('Clear'))),
               ],
             ),
           ],
@@ -94,6 +92,7 @@ class CopyableDcrValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
@@ -104,7 +103,7 @@ class CopyableDcrValue extends StatelessWidget {
               Expanded(
                 child: Text(
                   context.tr(label).toUpperCase(),
-                  style: Theme.of(context).textTheme.labelSmall,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: scheme.onSurfaceVariant, letterSpacing: 0.6),
                 ),
               ),
               IconButton(
@@ -112,28 +111,29 @@ class CopyableDcrValue extends StatelessWidget {
                   'label': context.tr(label),
                 }),
                 onPressed: () => copyDcrValue(context, label, value),
-                icon: const Icon(Icons.copy_outlined, size: 19),
+                icon: Icon(Icons.copy_outlined, size: 19, color: scheme.primary),
               ),
             ],
           ),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(6),
+              color: scheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: scheme.outlineVariant),
             ),
             child: SelectableText(
-              value,
+              value.isEmpty ? context.tr('Not returned.') : value,
               key: ValueKey('dcr-value-$label'),
               style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
             ),
           ),
           if (sensitive)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 6),
               child: Text(
                 context.tr('One-time credential'),
-                style: const TextStyle(fontSize: 11),
+                style: TextStyle(fontSize: 11, color: scheme.error),
               ),
             ),
         ],
@@ -188,6 +188,23 @@ class _OneTimeRegistrationCredentialsState
     final managementUri =
         widget.result['registration_client_uri']?.toString() ?? '';
 
+    final issuedSomething =
+        clientId.isNotEmpty ||
+        clientSecret.isNotEmpty ||
+        rat.isNotEmpty ||
+        managementUri.isNotEmpty;
+
+    if (!issuedSomething) {
+      return const EmptyState(
+        compact: true,
+        icon: Icons.key_off_outlined,
+        title: 'No credentials were issued.',
+      );
+    }
+    if (clientId.isEmpty) {
+      return const _MalformedCredentialNotice();
+    }
+
     return Card(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -201,11 +218,17 @@ class _OneTimeRegistrationCredentialsState
             Semantics(
               header: true,
               liveRegion: true,
-              child: Text(
-                context.tr('SAVE THESE CREDENTIALS NOW'),
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              child: Row(
+                children: [
+                  Icon(Icons.verified_user_outlined, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      context.tr('SAVE THESE CREDENTIALS NOW'),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
@@ -247,15 +270,17 @@ class _OneTimeRegistrationCredentialsState
               ),
             ),
             if (rat.isNotEmpty) ...[
-              FilledButton(
+              FilledButton.icon(
                 onPressed: _confirmed ? widget.onManage : null,
-                child: Text(context.tr('Manage App')),
+                icon: const Icon(Icons.manage_accounts_outlined, size: 18),
+                label: Text(context.tr('Manage App')),
               ),
               const SizedBox(height: 12),
             ],
-            OutlinedButton(
+            OutlinedButton.icon(
               onPressed: _confirmed ? widget.onWipe : null,
-              child: Text(context.tr('Done and Erase')),
+              icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+              label: Text(context.tr('Done and Erase')),
             ),
           ],
         ),
@@ -264,6 +289,44 @@ class _OneTimeRegistrationCredentialsState
   }
 }
 
+class _MalformedCredentialNotice extends StatelessWidget {
+  const _MalformedCredentialNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.errorContainer,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Semantics(
+        liveRegion: true,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.error_outline, size: 20, color: scheme.onErrorContainer),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.tr(
+                  'The registration response was incomplete: the client ID '
+                  'is missing, so the issued credentials cannot be managed '
+                  'or erased here.',
+                ),
+                style: TextStyle(color: scheme.onErrorContainer),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// RFC 7592 RAT rotation confirmation: the replacement token is shown
+/// once and the dialog cannot be dismissed until it is saved.
 class RotatedRegistrationTokenDialog extends StatefulWidget {
   final String token;
   final VoidCallback onConfirmed;
@@ -285,10 +348,11 @@ class _RotatedRegistrationTokenDialogState
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return PopScope(
       canPop: false,
       child: AlertDialog(
-        icon: const Icon(Icons.key_outlined),
+        icon: Icon(Icons.key_outlined, color: scheme.primary),
         title: Text(context.tr('Registration token rotated')),
         content: SingleChildScrollView(
           child: Column(
@@ -310,20 +374,23 @@ class _RotatedRegistrationTokenDialogState
                 contentPadding: EdgeInsets.zero,
                 value: _saved,
                 onChanged: (value) => setState(() => _saved = value ?? false),
-                title: Text(context.tr('I have securely saved the new token.')),
+                title: Text(
+                  context.tr('I have securely saved the new token.'),
+                ),
               ),
             ],
           ),
         ),
         actions: [
-          FilledButton(
+          FilledButton.icon(
             onPressed: _saved
                 ? () {
                     widget.onConfirmed();
                     Navigator.of(context).pop();
                   }
                 : null,
-            child: Text(context.tr('Continue and Erase Display')),
+            icon: const Icon(Icons.arrow_forward, size: 18),
+            label: Text(context.tr('Continue and Erase Display')),
           ),
         ],
       ),
