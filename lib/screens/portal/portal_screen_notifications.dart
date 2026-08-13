@@ -1,5 +1,9 @@
 part of 'portal_screen.dart';
 
+/// Notification wiring for the portal shell: a five-item preview list plus an
+/// unread badge, refreshed from `/me/notifications` and kept live by the SSE
+/// stream. Marking a preview read updates local state directly instead of
+/// re-fetching the list and re-subscribing the stream.
 extension _PortalScreenNotifications on _PortalScreenState {
   Future<void> _initializeNotifications() async {
     await _notificationSubscription?.cancel();
@@ -7,10 +11,7 @@ extension _PortalScreenNotifications on _PortalScreenState {
       final response = await _api.get('/me/notifications?limit=5');
       if (response.statusCode != 200 || !mounted) return;
       final body = PortalApi.decode(response);
-      final items = (body['notifications'] as List? ?? const [])
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList();
+      final items = _notificationObjects(body['notifications']);
       _update(() {
         _recentNotifications = items.take(5).toList();
         _notificationUnread = (body['unread_count'] as num?)?.toInt() ?? 0;
@@ -60,11 +61,31 @@ extension _PortalScreenNotifications on _PortalScreenState {
   Future<void> _markNotificationRead(String id) async {
     try {
       final response = await _api.post('/me/notifications/$id/read');
-      if (response.statusCode == 200) await _initializeNotifications();
+      if (response.statusCode == 200 && mounted) {
+        _update(() {
+          final now = DateTime.now().toUtc().toIso8601String();
+          _recentNotifications = [
+            for (final item in _recentNotifications)
+              if (item['id']?.toString() == id)
+                {...item, 'read_at': now}
+              else
+                item,
+          ];
+          if (_notificationUnread > 0) _notificationUnread--;
+        });
+      }
     } catch (_) {
       // Navigation remains useful when notification persistence is unavailable.
     }
   }
+
+  List<Map<String, dynamic>> _notificationObjects(Object? value) =>
+      value is List
+      ? value
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList()
+      : const <Map<String, dynamic>>[];
 
   Future<void> _completePendingAction() async {
     if (!_pendingAction.isAvailable || _actionHandled) return;

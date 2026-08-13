@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
+/// Account notification inbox: unread counter, cursor pagination, mark-read
+/// (single + all), and channel/type preferences.
 class NotificationsTab extends StatefulWidget {
   final PortalApi api;
   final VoidCallback? onChanged;
@@ -35,6 +39,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  void _snack(String key) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(context.tr(key))));
   }
 
   Future<void> _load({bool more = false}) async {
@@ -102,37 +112,37 @@ class _NotificationsTabState extends State<NotificationsTab> {
     try {
       unread = await _allUnread();
     } catch (_) {
-      if (!mounted) return;
       return;
     }
-    if (unread.isEmpty) return;
-    if (!mounted) return;
+    if (unread.isEmpty || !mounted) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Mark all as read?'),
-      message: context.tr(
-          'This will mark {n} notifications as read.', {'n': '${unread.length}'}),
+      message: context.tr('This will mark {n} notifications as read.', {
+        'n': '${unread.length}',
+      }),
       confirmLabel: context.tr('Mark all'),
     );
     if (!confirmed) return;
     var failed = false;
-    var marked = 0;
     // Parallel mark-read: independent per-id posts (N+1 fix).
     final now = DateTime.now().toUtc().toIso8601String();
-    final results = await Future.wait(unread.map((item) async {
-      final id = item['id']?.toString() ?? '';
-      if (id.isEmpty) return false;
-      try {
-        final response = await widget.api.post('/me/notifications/$id/read');
-        if (response.statusCode != 200) return false;
-        item['read_at'] = now;
-        return true;
-      } catch (_) {
-        failed = true;
-        return false;
-      }
-    }));
-    marked = results.where((ok) => ok).length;
+    final results = await Future.wait(
+      unread.map((item) async {
+        final id = item['id']?.toString() ?? '';
+        if (id.isEmpty) return false;
+        try {
+          final response = await widget.api.post('/me/notifications/$id/read');
+          if (response.statusCode != 200) return false;
+          item['read_at'] = now;
+          return true;
+        } catch (_) {
+          failed = true;
+          return false;
+        }
+      }),
+    );
+    final marked = results.where((ok) => ok).length;
     if (!mounted) return;
     setState(() {
       final markedIDs = unread
@@ -148,15 +158,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
       _unread = remaining < 0 ? 0 : remaining;
     });
     widget.onChanged?.call();
-    if (failed) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.tr('Some notifications could not be marked as read.'),
-          ),
-        ),
-      );
-    }
+    if (failed) _snack('Some notifications could not be marked as read.');
   }
 
   Future<List<Map<String, dynamic>>> _allUnread() async {
@@ -193,129 +195,141 @@ class _NotificationsTabState extends State<NotificationsTab> {
 
   Future<void> _savePreferences() async {
     setState(() => _saving = true);
+    var ok = false;
     try {
       final response = await widget.api.put('/me/notifications/preferences', {
         'preferences': _preferences,
       });
       if (response.statusCode != 200) throw PortalApiError(response.statusCode);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.tr('Notification preferences saved.')),
-          ),
-        );
-      }
+      ok = true;
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              context.tr('Could not save notification preferences.'),
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
+      // Keep the failure snackbar below; the list state stays editable.
+    }
+    if (mounted) {
+      _snack(
+        ok
+            ? 'Notification preferences saved.'
+            : 'Could not save notification preferences.',
+      );
+      setState(() => _saving = false);
     }
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.tr('Notifications'),
-                  style: Theme.of(context).textTheme.headlineSmall,
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.tr('Notifications'),
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  Text(
+                    context.tr(
+                      '{count} unread security and account notifications.',
+                      {'count': _unread},
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_unread > 0)
+              TextButton(
+                onPressed: _loading ? null : _markAllRead,
+                child: Text(context.tr('Mark all as read')),
+              ),
+            IconButton(
+              onPressed: _loading ? null : _load,
+              tooltip: context.tr('Refresh notifications'),
+              icon: const Icon(Icons.refresh),
+              color: theme.colorScheme.primary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (_loading)
+          const SkeletonListTile(itemCount: 3)
+        else ...[
+          PortalCard(
+            title: 'Inbox',
+            children: [
+              if (_error != null) ...[
+                MessageBanner(_error),
+                OutlinedButton.icon(
+                  onPressed: _load,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(context.tr('Retry')),
                 ),
-                Text(
-                  context.tr(
-                    '{count} unread security and account notifications.',
-                    {'count': _unread},
+              ] else if (_items.isEmpty)
+                const EmptyState(
+                  compact: true,
+                  icon: Icons.notifications_off_outlined,
+                  title: 'You have no notifications.',
+                )
+              else ...[
+                for (final item in _items)
+                  _NotificationTile(item: item, onTap: () => _markRead(item)),
+                if (_hasMore)
+                  TextButton(
+                    onPressed: () => _load(more: true),
+                    child: Text(context.tr('Load more')),
+                  ),
+              ],
+            ],
+          ),
+          if (_preferences.isNotEmpty)
+            PortalCard(
+              title: 'Notification preferences',
+              children: [
+                for (final preference in _preferences)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      context.tr(
+                        _typeLabel(preference['type']?.toString() ?? ''),
+                      ),
+                    ),
+                    subtitle: Text(
+                      context.tr(
+                        _channelLabel(preference['channel']?.toString() ?? ''),
+                      ),
+                    ),
+                    value: preference['enabled'] != false,
+                    onChanged: (value) =>
+                        setState(() => preference['enabled'] = value),
+                  ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _savePreferences,
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save_outlined),
+                    label: Text(context.tr('Save preferences')),
                   ),
                 ),
               ],
             ),
-          ),
-          if (_unread > 0)
-            TextButton(
-              onPressed: _loading ? null : _markAllRead,
-              child: Text(context.tr('Mark all as read')),
-            ),
-          IconButton(
-            onPressed: _loading ? null : _load,
-            tooltip: context.tr('Refresh notifications'),
-            icon: const Icon(Icons.refresh),
-          ),
         ],
-      ),
-      const SizedBox(height: 16),
-      PortalCard(
-        title: 'Inbox',
-        children: [
-          if (_loading)
-            const LinearProgressIndicator()
-          else if (_error != null)
-            MessageBanner(_error)
-          else if (_items.isEmpty)
-            const EmptyHint('You have no notifications.')
-          else
-            ..._items.map(
-              (item) =>
-                  _NotificationTile(item: item, onTap: () => _markRead(item)),
-            ),
-          if (_hasMore)
-            TextButton(
-              onPressed: () => _load(more: true),
-              child: Text(context.tr('Load more')),
-            ),
-        ],
-      ),
-      if (_preferences.isNotEmpty)
-        PortalCard(
-          title: 'Notification preferences',
-          children: [
-            ..._preferences.map(
-              (preference) => SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(
-                  context.tr(_typeLabel(preference['type']?.toString() ?? '')),
-                ),
-                subtitle: Text(
-                  context.tr(
-                    _channelLabel(preference['channel']?.toString() ?? ''),
-                  ),
-                ),
-                value: preference['enabled'] != false,
-                onChanged: (value) =>
-                    setState(() => preference['enabled'] = value),
-              ),
-            ),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _savePreferences,
-                icon: _saving
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(context.tr('Save preferences')),
-              ),
-            ),
-          ],
-        ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
+/// Inbox row: severity icon, unread-bold title, meta, trailing severity chip.
 class _NotificationTile extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
@@ -323,22 +337,32 @@ class _NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final unread = item['read_at'] == null;
+    final severity = item['severity']?.toString() ?? '';
+    final (icon, color, label) = _severityStyle(severity);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       onTap: onTap,
-      leading: _severityChip(item['severity']?.toString()),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: unread ? color.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: unread ? color : theme.colorScheme.outline,
+        ),
+      ),
       title: Text(
         item['title']?.toString() ?? context.tr('Security notification'),
-        style: unread ? const TextStyle(fontWeight: FontWeight.w700) : null,
+        style: TextStyle(fontWeight: unread ? FontWeight.w700 : null),
       ),
       subtitle: Text(_join(item['body'], item['created_at'])),
-      trailing: unread
-          ? Semantics(
-              label: context.tr('Unread'),
-              child: const Icon(Icons.circle, size: 10),
-            )
-          : null,
+      trailing: StatusChip(label: context.tr(label), color: color, icon: icon),
     );
   }
 }
@@ -353,22 +377,12 @@ String _join(Object? first, Object? second) => [
   first,
   second,
 ].where((v) => v != null && v.toString().isNotEmpty).join(' · ');
-Widget _severityChip(String? severity) => switch (severity) {
-  'critical' => StatusChip(
-      label: 'Critical',
-      color: AppColors.danger,
-      icon: Icons.gpp_bad_outlined,
-    ),
-  'warning' => StatusChip(
-      label: 'Warning',
-      color: AppColors.warning,
-      icon: Icons.warning_amber,
-    ),
-  _ => StatusChip(
-      label: 'Notice',
-      color: AppColors.muted,
-      icon: Icons.notifications_outlined,
-    ),
+
+/// Severity → (icon, brand color, label key); unknown severities = Notice.
+(IconData, Color, String) _severityStyle(String severity) => switch (severity) {
+  'critical' => (Icons.gpp_bad_outlined, AppColors.danger, 'Critical'),
+  'warning' => (Icons.warning_amber_rounded, AppColors.warning, 'Warning'),
+  _ => (Icons.notifications_outlined, AppColors.accentBlue, 'Notice'),
 };
 String _channelLabel(String value) => value == 'email' ? 'Email' : 'In-app';
 String _typeLabel(String value) => switch (value) {

@@ -32,9 +32,9 @@ extension _PortalScreenShell on _PortalScreenState {
     3 => strings.sessions,
     4 => strings.activity,
     5 => strings.linkedIdentities,
-    6 => strings.translate('Connected applications'),
+    6 => strings.connectedApps,
     7 => strings.organizations,
-    8 => strings.translate('Notifications'),
+    8 => strings.notifications,
     _ => strings.privacy,
   };
 
@@ -73,9 +73,19 @@ extension _PortalScreenShell on _PortalScreenState {
     }
   }
 
-  List<SectionDef> _groupSections(List<int> groupTabs, AppStrings strings) => [
+  List<SectionDef> _groupSections(
+    BuildContext context,
+    List<int> groupTabs,
+    AppStrings strings,
+  ) => [
     for (final tab in groupTabs)
-      SectionDef('$tab', _portalTabLabel(tab, strings), _portalTabIcon(tab)),
+      SectionDef(
+        '$tab',
+        _portalTabLabel(tab, strings),
+        _portalTabIcon(tab),
+        // 品牌强调色：组内子菜单芯片图标与品牌色一致。
+        color: Theme.of(context).colorScheme.primary,
+      ),
   ];
 
   Widget _groupSelector(
@@ -95,7 +105,7 @@ extension _PortalScreenShell on _PortalScreenState {
           child: Align(
             alignment: Alignment.centerLeft,
             child: SectionSelector(
-              sections: _groupSections(groupTabs, strings),
+              sections: _groupSections(context, groupTabs, strings),
               current: '$_navIndex',
               onSelected: _selectTab,
             ),
@@ -103,9 +113,13 @@ extension _PortalScreenShell on _PortalScreenState {
         ),
       );
     }
+    // 单 tab 组：直接显示该 tab 的标签，而非账户标题。
     return Padding(
       padding: const EdgeInsets.only(left: 4),
-      child: Text(strings.accountTitle),
+      child: Text(
+        _portalTabLabel(groupTabs.single, strings),
+        style: Theme.of(context).textTheme.titleMedium,
+      ),
     );
   }
 

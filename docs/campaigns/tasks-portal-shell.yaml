@@ -1,0 +1,22 @@
+# 逐页 UI 重构 — portal-shell（batch 5b 第 5 页，tmux PATH 问题后单独跑）
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-portal-shell.yaml \
+#   --mode serial --timeout 1500 --log-file logs/portal-shell.log
+
+tasks:
+- prompt: |
+    重构门户壳层与导出页面。步骤：
+    1. 分析现有代码：lib/screens/portal/portal_screen.dart、
+       portal_entry.dart、portal_export_download.dart、
+       portal_security_contract.dart —— 读完整文件，梳理门户壳层
+       （tab 导航/安全契约/导出下载）的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；安全契约语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_entry_test.dart test/portal_security_contract_test.dart
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-shell.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-shell.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_entry_test.dart test/portal_security_contract_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"

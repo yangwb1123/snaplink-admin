@@ -1,0 +1,94 @@
+# 逐页 UI 重构 — batch 5b（portal 组：organizations/notifications/privacy/sessions/security-activity + shell）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-portal-5b.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-portal-5b.log
+
+tasks:
+- prompt: |
+    重构门户组织页面。步骤：
+    1. 分析现有代码：lib/screens/portal/organizations_tab.dart、
+       organization_admin_tab.dart、organization_admin_widgets.dart ——
+       读完整文件，梳理组织视图/成员管理的 UI 结构。
+    2. 对照可用组件（lib/widgets/）与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；成员/邀请语义保持不变；
+       - 禁止在 portal 代码中出现英文字样 'audit'（含注释，B6-1
+         负边界守卫会拦截）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/organization_admin_tab_test.dart test/portal_screens_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/portal-organizations.md（分析摘要→
+       问题清单→修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-organizations.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/organization_admin_tab_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户通知页面。步骤：
+    1. 分析现有代码：lib/screens/portal/notifications_tab.dart、
+       notification_bell.dart、portal_screen_notifications.dart —— 读完整
+       文件，梳理通知列表/铃铛的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；通知语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_notifications_test.dart test/portal_screens_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/portal-notifications.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-notifications.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_notifications_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户隐私页面。步骤：
+    1. 分析现有代码：lib/screens/portal/privacy_tab.dart —— 读完整文件，
+       梳理数据导出/擦除请求的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；导出下载/擦除请求语义保持；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-privacy.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-privacy.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户会话与活动页面。步骤：
+    1. 分析现有代码：lib/screens/portal/sessions_tab.dart、
+       security_activity_tab.dart —— 读完整文件，梳理会话列表/撤销与
+       登录历史/安全活动的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；会话撤销语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-sessions.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-sessions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户壳层与导出页面。步骤：
+    1. 分析现有代码：lib/screens/portal/portal_screen.dart、
+       portal_entry.dart、portal_export_download.dart、
+       portal_security_contract.dart —— 读完整文件，梳理门户壳层
+       （tab 导航/安全契约/导出下载）的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；安全契约语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_entry_test.dart test/portal_security_contract_test.dart
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-shell.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-shell.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_entry_test.dart test/portal_security_contract_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'portal_api.dart';
 import 'organization_admin_widgets.dart';
 import 'portal_widgets.dart';
 import 'member_row_tile.dart';
 
+/// Organization administration for a managed tenant: member roster with
+/// role changes / removals plus email invitations and pending-invitation
+/// revocation. Semantics preserved from app.js's organization admin view:
+/// the role dropdown is the change-role control, the danger Remove revokes
+/// membership, invitations are sent by email and never display their token.
+///
+/// Layout: admin header → three-state body. Loading renders
+/// [SkeletonListTile], "not available" (members 403) renders an [EmptyState]
+/// notEnabled variant, failures render a retryable [PortalErrorCard], and
+/// loaded data renders the members + invitations cards (loading/empty/error
+/// triad). Every mutation runs through a shared [ConfirmDialog] guard.
 class OrganizationAdminPanel extends StatefulWidget {
   final PortalApi api;
   final String tenantId;
@@ -31,6 +45,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   bool _available = true;
   bool _invitationsAvailable = true;
   bool _busy = false;
+  String? _error;
   List<Map<String, dynamic>> _members = const [];
   List<Map<String, dynamic>> _invitations = const [];
   String? _message;
@@ -54,6 +69,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   Future<void> _load({bool preserveMessage = false}) async {
     setState(() {
       _loading = true;
+      _error = null;
       if (!preserveMessage) {
         _message = null;
         _ok = false;
@@ -71,13 +87,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         return;
       }
       if (members.statusCode != 200) {
-        setState(() {
-          _available = true;
-          _members = const [];
-          _invitations = const [];
-          _message = 'Could not load the organization roster.';
-          _ok = false;
-        });
+        setState(() => _error = 'Could not load the organization roster.');
         return;
       }
       final roster = organizationRecords(PortalApi.decode(members)['members']);
@@ -113,13 +123,52 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       });
     } catch (_) {
       if (mounted) {
+        setState(() => _error = 'Could not load organization administration.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Shared mutation scaffold for role changes, removals, invites and
+  /// revocations: guard (validation + confirm) → busy state → request →
+  /// success banner + reload, or per-status failure copy.
+  Future<void> _mutate({
+    required Future<bool> Function() guard,
+    required Future<http.Response> Function() request,
+    required String success,
+    required String Function(int status) failure,
+  }) async {
+    if (!await guard() || !mounted) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+      _ok = false;
+    });
+    try {
+      final response = await request();
+      if (!mounted) return;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          _message = 'Could not load organization administration.';
+          _message = success;
+          _ok = true;
+        });
+        await _load(preserveMessage: true);
+      } else {
+        setState(() {
+          _message = failure(response.statusCode);
+          _ok = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _message = 'Request failed.';
           _ok = false;
         });
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -127,108 +176,56 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
     final userId = member['user_id']?.toString() ?? '';
     final oldRole = member['role']?.toString() ?? '';
     if (userId.isEmpty || role == oldRole) return;
-    final accepted = await confirmOrganizationAction(
-      context,
-      'Change member role?',
-      context.tr('Change {userId} from {oldRole} to {role}.', {
-        'userId': userId,
-        'oldRole': oldRole,
-        'role': role,
-      }),
-      'Change role',
-      confirmText: userId,
-      destructive: true,
-    );
-    if (!accepted) return;
-    setState(() {
-      _busy = true;
-      _message = null;
-      _ok = false;
-    });
-    try {
-      final response = await widget.api.put(
+    await _mutate(
+      guard: () async => confirmOrganizationAction(
+        context,
+        'Change member role?',
+        context.tr('Change {userId} from {oldRole} to {role}.', {
+          'userId': userId,
+          'oldRole': oldRole,
+          'role': role,
+        }),
+        'Change role',
+        confirmText: userId,
+        destructive: true,
+      ),
+      request: () => widget.api.put(
         '$_base/members/${Uri.encodeComponent(userId)}',
         {'role': role},
-      );
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        setState(() {
-          _message = 'Member role updated.';
-          _ok = true;
-        });
-        await _load(preserveMessage: true);
-      } else {
-        setState(() {
-          _message = response.statusCode == 409
-              ? 'Last admin protected.'
-              : response.statusCode == 403
-              ? 'Cannot change.'
-              : 'Role not updated.';
-          _ok = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _message = 'Request failed.';
-          _ok = false;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      ),
+      success: 'Member role updated.',
+      failure: (status) => status == 409
+          ? 'Last admin protected.'
+          : status == 403
+          ? 'Cannot change.'
+          : 'Role not updated.',
+    );
   }
 
   Future<void> _remove(Map<String, dynamic> member) async {
     final userId = member['user_id']?.toString() ?? '';
     if (userId.isEmpty) return;
-    final accepted = await confirmOrganizationAction(
-      context,
-      'Remove member?',
-      context.tr('{userId} will lose access to this organization.', {
-        'userId': userId,
-      }),
-      'Remove',
-      confirmText: userId,
-      destructive: true,
-    );
-    if (!accepted) return;
-    setState(() {
-      _busy = true;
-      _message = null;
-      _ok = false;
-    });
-    try {
-      final response = await widget.api.delete(
+    await _mutate(
+      guard: () async => confirmOrganizationAction(
+        context,
+        'Remove member?',
+        context.tr('{userId} will lose access to this organization.', {
+          'userId': userId,
+        }),
+        'Remove',
+        confirmText: userId,
+        destructive: true,
+      ),
+      request: () => widget.api.delete(
         '$_base/members/${Uri.encodeComponent(userId)}',
-      );
-      if (!mounted) return;
-      if (response.statusCode == 204) {
-        setState(() {
-          _message = 'Member removed.';
-          _ok = true;
-        });
-        await _load(preserveMessage: true);
-      } else {
-        setState(() {
-          _message = response.statusCode == 409
-              ? 'Last admin protected.'
-              : response.statusCode == 403
-              ? 'Cannot change.'
-              : 'Not removed.';
-          _ok = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _message = 'Request failed.';
-          _ok = false;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      ),
+      success: 'Member removed.',
+      failure: (status) => status == 409
+          ? 'Last admin protected.'
+          : status == 403
+          ? 'Cannot change.'
+          : 'Not removed.',
+    );
   }
 
   Future<void> _invite() async {
@@ -240,106 +237,53 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       });
       return;
     }
-    final accepted = await confirmOrganizationAction(
-      context,
-      'Send invitation?',
-      context.tr('Send a {role} invitation to {email}.', {
-        'role': _inviteRole,
+    await _mutate(
+      guard: () async => confirmOrganizationAction(
+        context,
+        'Send invitation?',
+        context.tr('Send a {role} invitation to {email}.', {
+          'role': _inviteRole,
+          'email': email,
+        }),
+        'Send invitation',
+      ),
+      request: () => widget.api.post('$_base/invitations', {
         'email': email,
+        'role': _inviteRole,
       }),
-      'Send invitation',
+      success: 'Invitation sent. Snaplink never exposes its token here.',
+      failure: (status) => status == 409
+          ? 'Duplicate or protected.'
+          : status == 403
+          ? 'Cannot change.'
+          : 'Invitation was not sent.',
     );
-    if (!accepted) return;
-    setState(() {
-      _busy = true;
-      _message = null;
-      _ok = false;
-    });
-    try {
-      final response = await widget.api.post('$_base/invitations', {
-        'email': email,
-        'role': _inviteRole,
-      });
-      if (!mounted) return;
-      if (response.statusCode == 202) {
-        _emailCtrl.clear();
-        setState(() {
-          _message = 'Invitation sent. Snaplink never exposes its token here.';
-          _ok = true;
-        });
-        await _load(preserveMessage: true);
-      } else {
-        setState(() {
-          _message = response.statusCode == 409
-              ? 'Duplicate or protected.'
-              : response.statusCode == 403
-              ? 'Cannot change.'
-              : 'Invitation was not sent.';
-          _ok = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _message = 'Request failed.';
-          _ok = false;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
   }
 
   Future<void> _revoke(Map<String, dynamic> invitation) async {
     final email = invitation['email']?.toString() ?? '';
     if (email.isEmpty) return;
-    final accepted = await confirmOrganizationAction(
-      context,
-      'Revoke invitation?',
-      context.tr('Revoke all pending invitations for {email}.', {
-        'email': email,
-      }),
-      'Revoke',
-      confirmText: email,
-      destructive: true,
-    );
-    if (!accepted) return;
-    setState(() {
-      _busy = true;
-      _message = null;
-      _ok = false;
-    });
-    try {
-      final response = await widget.api.delete(
+    await _mutate(
+      guard: () async => confirmOrganizationAction(
+        context,
+        'Revoke invitation?',
+        context.tr('Revoke all pending invitations for {email}.', {
+          'email': email,
+        }),
+        'Revoke',
+        confirmText: email,
+        destructive: true,
+      ),
+      request: () => widget.api.delete(
         '$_base/invitations/${Uri.encodeComponent(email)}',
-      );
-      if (!mounted) return;
-      if (response.statusCode == 204) {
-        setState(() {
-          _message = 'Invitation revoked.';
-          _ok = true;
-        });
-        await _load(preserveMessage: true);
-      } else {
-        setState(() {
-          _message = response.statusCode == 409
-              ? 'Duplicate or protected.'
-              : response.statusCode == 403
-              ? 'Cannot change.'
-              : 'Not revoked.';
-          _ok = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _message = 'Request failed.';
-          _ok = false;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+      ),
+      success: 'Invitation revoked.',
+      failure: (status) => status == 409
+          ? 'Duplicate or protected.'
+          : status == 403
+          ? 'Cannot change.'
+          : 'Not revoked.',
+    );
   }
 
   @override
@@ -354,11 +298,17 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       ),
       const SizedBox(height: 12),
       if (_loading)
-        const LinearProgressIndicator()
+        const SkeletonListTile(itemCount: 3)
       else if (!_available)
-        const EmptyHint(
-          'Organization administration is not available to this account.',
+        const EmptyState(
+          compact: true,
+          variant: EmptyStateVariant.notEnabled,
+          icon: Icons.admin_panel_settings_outlined,
+          title:
+              'Organization administration is not available to this account.',
         )
+      else if (_error != null)
+        PortalErrorCard(message: context.tr(_error!), onRetry: _load)
       else ...[
         PortalCard(
           title: 'Members',
@@ -384,6 +334,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       MessageBanner(_message, ok: _ok),
     ],
   );
+
   Widget _memberRow(Map<String, dynamic> member) => MemberRowTile(
     member: member,
     roles: _roles,

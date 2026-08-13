@@ -140,6 +140,7 @@ class AppStrings {
   String get activity => _t('activity');
   String get linkedIdentities => _t('linked_identities');
   String get connectedApps => _t('connected_apps');
+  String get notifications => _t('notifications');
   String get privacy => _t('privacy');
   String get signOut => _t('sign_out');
   String get redirectingToSignIn => _t('redirecting_to_sign_in');

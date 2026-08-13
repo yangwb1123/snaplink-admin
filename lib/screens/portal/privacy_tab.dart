@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -9,6 +8,11 @@ import 'portal_widgets.dart';
 
 /// GDPR data export + account deletion (Art. 17). Ports the "Download your
 /// data" and "Delete your account" cards / their handlers in app.js.
+///
+/// Action-driven page: idle renders guidance copy, busy shows an inline
+/// progress row plus button spinners, and outcomes render via [MessageBanner]
+/// (green success / red failure). Brand-tinted leading icons replace raw
+/// glyphs; secondary copy uses theme tokens instead of hard-coded greys.
 class PrivacyTab extends StatefulWidget {
   final PortalApi api;
   final String mySub;
@@ -44,10 +48,11 @@ class _PrivacyTabState extends State<PrivacyTab> {
   }
 
   Future<void> _export() async {
+    if (_exportBusy) return;
     setState(() {
       _exportBusy = true;
-      _exportMsg = 'Preparing your export...';
-      _exportOk = true;
+      _exportMsg = null;
+      _exportOk = false;
     });
     try {
       final r = await widget.api.get('/me/data-export');
@@ -83,6 +88,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
   }
 
   Future<void> _previewErase() async {
+    if (_previewBusy || _eraseBusy) return;
     setState(() {
       _previewBusy = true;
       _eraseMsg = null;
@@ -127,6 +133,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
   }
 
   Future<void> _erase() async {
+    if (_eraseBusy || _previewBusy) return;
     final confirm = _confirmCtrl.text.trim();
     if (confirm.isEmpty || confirm != widget.mySub) {
       setState(() => _eraseMsg = 'Type your subject exactly to confirm.');
@@ -160,112 +167,234 @@ class _PrivacyTabState extends State<PrivacyTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
           context.tr('Data and privacy'),
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
-              ),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+          ),
         ),
         const SizedBox(height: 4),
-        const LocalizedText(
-          'Data shared with this server and your export or deletion options.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+        Text(
+          context.tr(
+            'Data shared with this server and your export or deletion options.',
+          ),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
-        PortalCard(
-          title: 'Download your data',
+        _exportCard(theme, accent),
+        _deleteCard(theme),
+      ],
+    );
+  }
+
+  Widget _exportCard(ThemeData theme, Color accent) {
+    return PortalCard(
+      title: 'Download your data',
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.tr(
-                'Export a copy of the data we hold about your account.',
-              ),
-              style: TextStyle(color: Colors.grey.shade500),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                onPressed: _exportBusy ? null : _export,
-                child: _exportBusy
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.tr('Export my data')),
+            _LeadingIcon(icon: Icons.file_download_outlined, color: accent),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.tr(
+                  'Export a copy of the data we hold about your account.',
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
-            MessageBanner(_exportMsg, ok: _exportOk),
           ],
         ),
-        PortalCard(
-          title: 'Delete your account',
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _export,
+            icon: _exportBusy
+                ? _spinner(theme.colorScheme.onPrimary)
+                : const Icon(Icons.file_download_outlined, size: 18),
+            label: Text(context.tr('Export my data')),
+          ),
+        ),
+        if (_exportBusy)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: _busyRow(theme),
+          )
+        else
+          MessageBanner(_exportMsg, ok: _exportOk),
+      ],
+    );
+  }
+
+  Widget _deleteCard(ThemeData theme) {
+    return PortalCard(
+      title: 'Delete your account',
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              context.tr(
-                'This permanently removes your account, sessions and tokens. This cannot be undone.',
-              ),
-              style: TextStyle(color: Colors.grey.shade500),
+            const _LeadingIcon(
+              icon: Icons.delete_forever_outlined,
+              color: AppColors.danger,
             ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton(
-                onPressed: _previewBusy ? null : _previewErase,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.danger,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                context.tr(
+                  'This permanently removes your account, sessions and tokens. This cannot be undone.',
                 ),
-                child: _previewBusy
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.tr('Preview deletion (dry run)')),
-              ),
-            ),
-            if (_previewSummary != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                context.tr('Would remove — {summary}', {
-                  'summary': _previewSummary,
-                }),
-                style: TextStyle(color: Colors.grey.shade400),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: _confirmCtrl,
-              decoration: InputDecoration(
-                labelText: context.tr('Type your subject to confirm'),
-                hintText: widget.mySub,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton(
-                onPressed: _eraseBusy ? null : _erase,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.danger,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
-                child: _eraseBusy
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.tr('Permanently delete my account')),
               ),
             ),
-            MessageBanner(_eraseMsg, ok: false),
           ],
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _previewErase,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.danger,
+            ),
+            icon: _previewBusy
+                ? _spinner(AppColors.danger)
+                : const Icon(Icons.visibility_outlined, size: 18),
+            label: Text(context.tr('Preview deletion (dry run)')),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_previewSummary != null)
+          _previewPanel(theme)
+        else
+          Text(
+            context.tr('Run a dry run to see what will be removed.'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _confirmCtrl,
+          enabled: !_eraseBusy,
+          decoration: InputDecoration(
+            labelText: context.tr('Type your subject to confirm'),
+            hintText: widget.mySub,
+            prefixIcon: const Icon(Icons.person_outline, size: 20),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            onPressed: _erase,
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.danger,
+            ),
+            icon: _eraseBusy
+                ? _spinner(theme.colorScheme.onPrimary)
+                : const Icon(Icons.delete_outline, size: 18),
+            label: Text(context.tr('Permanently delete my account')),
+          ),
+        ),
+        MessageBanner(_eraseMsg, ok: false),
+      ],
+    );
+  }
+
+  /// Dry-run result: danger-tinted panel listing what deletion would remove.
+  Widget _previewPanel(ThemeData theme) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.danger.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 16, color: AppColors.danger),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.tr('Would remove — {summary}', {
+                'summary': _previewSummary!,
+              }),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: AppColors.danger,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Inline progress row shown while an action is in flight.
+  Widget _busyRow(ThemeData theme) {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            context.tr('Preparing your export...'),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
         ),
       ],
     );
   }
 }
+
+/// Brand-tinted rounded icon container for card leading glyphs.
+class _LeadingIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const _LeadingIcon({required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(icon, size: 19, color: color),
+    );
+  }
+}
+
+/// Small in-button busy indicator, tinted to sit on the button surface.
+Widget _spinner(Color color) => SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        valueColor: AlwaysStoppedAnimation(color),
+      ),
+    );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'organization_admin_tab.dart';
 import 'portal_api.dart';
@@ -13,6 +15,13 @@ import 'portal_widgets.dart';
 /// TenantUserStore isn't wired); since this tab is a static NavigationRail
 /// destination rather than a DOM element we can hide after the fact, we show
 /// the tab always and render an explanatory empty state instead.
+///
+/// Layout: header → three-state body. Loading renders [SkeletonListTile],
+/// "not available" (non-200) renders an [EmptyState] notEnabled variant,
+/// failures render a retryable [PortalErrorCard], and an empty list renders
+/// an [EmptyState] (loading/empty/error triad). Each row shows the tenant id
+/// (API value, raw [Text]), the role meta, and Manage/Leave actions; leave is
+/// confirmed via the shared [ConfirmDialog] and shows a per-row spinner.
 class OrganizationsTab extends StatefulWidget {
   final PortalApi api;
   const OrganizationsTab({super.key, required this.api});
@@ -24,11 +33,12 @@ class OrganizationsTab extends StatefulWidget {
 class _OrganizationsTabState extends State<OrganizationsTab> {
   bool _loading = true;
   bool _available = true;
-  List<dynamic> _orgs = const [];
+  String? _error;
+  String? _notice;
+  bool _ok = false;
+  List<Map<String, dynamic>> _orgs = const [];
 
   final TextEditingController _inviteCtrl = TextEditingController();
-  String? _msg;
-  bool _ok = false;
   bool _accepting = false;
   String? _leavingTenantId;
   String? _managedTenantId;
@@ -45,61 +55,60 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool preserveNotice = false}) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (!preserveNotice) {
+        _notice = null;
+        _ok = false;
+      }
+    });
     try {
       final r = await widget.api.get('/me/organizations');
+      if (!mounted) return;
       if (r.statusCode != 200) {
         setState(() {
           _available = false;
           _orgs = const [];
-          _loading = false;
         });
         return;
       }
       final d = PortalApi.decode(r);
       setState(() {
         _available = true;
-        _orgs = (d['organizations'] as List?) ?? const [];
-        _loading = false;
+        _orgs = (d['organizations'] as List?)
+                ?.whereType<Map>()
+                .map((value) => Map<String, dynamic>.from(value))
+                .toList(growable: false) ??
+            const [];
       });
     } catch (_) {
-      setState(() {
-        _available = false;
-        _orgs = const [];
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() => _error = 'Could not load your organizations.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _leave(String tenantId) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Leave organization?')),
-        content: Text(
-          context.tr(
-            'You will lose access to {tenantId} and its organization resources until an administrator invites you again.',
-            {'tenantId': tenantId},
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Leave')),
-          ),
-        ],
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Leave organization?',
+      message: context.tr(
+        'You will lose access to {tenantId} and its organization resources '
+        'until an administrator invites you again.',
+        {'tenantId': tenantId},
       ),
+      confirmLabel: 'Leave',
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
     setState(() {
       _leavingTenantId = tenantId;
-      _msg = null;
+      _notice = null;
+      _ok = false;
     });
     try {
       final response = await widget.api.delete(
@@ -108,20 +117,20 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() {
-          _msg = 'You have left the organization.';
+          _notice = 'You have left the organization.';
           _ok = true;
         });
-        await _load();
+        await _load(preserveNotice: true);
       } else {
         setState(() {
-          _msg = 'Could not leave the organization.';
+          _notice = 'Could not leave the organization.';
           _ok = false;
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
-          _msg = 'Could not leave the organization.';
+          _notice = 'Could not leave the organization.';
           _ok = false;
         });
       }
@@ -134,42 +143,46 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     final token = _inviteCtrl.text.trim();
     if (token.isEmpty) {
       setState(() {
-        _msg = 'Paste an invitation token.';
+        _notice = 'Paste an invitation token.';
         _ok = false;
       });
       return;
     }
     setState(() {
       _accepting = true;
-      _msg = null;
+      _notice = null;
+      _ok = false;
     });
     try {
       final r = await widget.api.post('/me/invitations/accept', {
         'token': token,
       });
+      if (!mounted) return;
       if (r.statusCode == 404) {
         setState(() {
-          _msg = 'Invitations are not enabled.';
+          _notice = 'Invitations are not enabled.';
           _ok = false;
         });
       } else if (r.statusCode != 200) {
         setState(() {
-          _msg = 'That invitation was not accepted.';
+          _notice = 'That invitation was not accepted.';
           _ok = false;
         });
       } else {
         _inviteCtrl.clear();
         setState(() {
-          _msg = 'You have joined the organization.';
+          _notice = 'You have joined the organization.';
           _ok = true;
         });
-        _load();
+        await _load(preserveNotice: true);
       }
     } catch (_) {
-      setState(() {
-        _msg = 'Request failed.';
-        _ok = false;
-      });
+      if (mounted) {
+        setState(() {
+          _notice = 'Request failed.';
+          _ok = false;
+        });
+      }
     } finally {
       if (mounted) setState(() => _accepting = false);
     }
@@ -185,6 +198,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
         onClose: () => setState(() => _managedTenantId = null),
       );
     }
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -192,108 +206,188 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text(
-                context.strings.organizations,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.strings.organizations,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.tr('Teams and organizations you belong to.'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+              IconButton(
+                tooltip: context.tr('Refresh organizations'),
+                onPressed:
+                    _loading || _accepting || _leavingTenantId != null
+                    ? null
+                    : _load,
+                icon: const Icon(Icons.refresh),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Teams and organizations you belong to.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
-        ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const SkeletonListTile(itemCount: 3)
+              : !_available
+              ? const EmptyState(
+                  compact: true,
+                  variant: EmptyStateVariant.notEnabled,
+                  icon: Icons.business_outlined,
+                  title:
+                      'Organizations are not available for this account.',
+                )
+              : _error != null
+              ? PortalErrorCard(
+                  message: context.tr(_error!),
+                  onRetry: _load,
+                )
               : ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  children: _bodyChildren(context),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  children: [
+                    MessageBanner(_notice, ok: _ok),
+                    if (_orgs.isEmpty)
+                      const EmptyState(
+                        compact: true,
+                        icon: Icons.groups_outlined,
+                        title:
+                            'You are not a member of any organization.',
+                      )
+                    else
+                      PortalCard(
+                        title: 'Your organizations',
+                        children: [
+                          for (final org in _orgs) _orgRow(org),
+                        ],
+                      ),
+                    PortalCard(
+                      title: 'Accept an invitation',
+                      children: [
+                        TextField(
+                          controller: _inviteCtrl,
+                          enabled: !_accepting,
+                          decoration: InputDecoration(
+                            labelText: context.tr('Invitation token'),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: FilledButton.icon(
+                            onPressed: _accepting ? null : _acceptInvite,
+                            icon: _accepting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.login, size: 18),
+                            label: Text(context.tr('Join organization')),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
         ),
       ],
     );
   }
 
-  List<Widget> _bodyChildren(BuildContext context) {
-    return [
-      if (!_available)
-        const EmptyHint(
-          'Organizations are not available for this account.',
-        )
-      else if (_orgs.isEmpty)
-        const EmptyHint(
-          'You are not a member of any organization.',
-        )
-      else
-        for (final raw in _orgs) _orgTile(raw as Map<String, dynamic>),
-      if (_available) ...[
-        const SizedBox(height: 20),
-        Text(
-          context.tr('Accept an invitation'),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _inviteCtrl,
-          decoration: InputDecoration(
-            labelText: context.tr('Invitation token'),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton(
-            onPressed: _accepting ? null : _acceptInvite,
-            child: _accepting
-                ? const SizedBox(
-                    height: 16,
-                    width: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                    ),
-                  )
-                : Text(context.tr('Join organization')),
-          ),
-        ),
-        MessageBanner(_msg, ok: _ok),
-      ],
-    ];
-  }
-
-  Widget _orgTile(Map<String, dynamic> o) {
-    final tenantId = o['tenant_id']?.toString() ?? '';
-    final role = o['role']?.toString() ?? 'member';
+  /// One organization row: brand-tinted tenant icon, tenant id (API value,
+  /// raw [Text]), role meta, and trailing Manage (admin only) / danger
+  /// Leave actions with a per-row busy spinner.
+  Widget _orgRow(Map<String, dynamic> org) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final tenantId = org['tenant_id']?.toString() ?? '';
+    final role = org['role']?.toString() ?? 'member';
     final canManage = role == 'admin' && tenantId.isNotEmpty;
-    return ListTile(
-      title: Text(tenantId),
-      subtitle: Text(context.tr(role)),
-      trailing: Wrap(
-        spacing: 4,
+    final leaving = _leavingTenantId == tenantId;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
         children: [
-          if (canManage)
-            TextButton(
-              onPressed: () => setState(() => _managedTenantId = tenantId),
-              child: Text(context.tr('Manage')),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
             ),
-          TextButton(
+            child: Icon(
+              canManage
+                  ? Icons.admin_panel_settings_outlined
+                  : Icons.business_outlined,
+              size: 17,
+              color: accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tenantId.isEmpty ? context.tr('Unknown') : tenantId,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.badge_outlined,
+                      size: 13,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      context.tr(role),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (canManage)
+            TextButton.icon(
+              onPressed: () => setState(() => _managedTenantId = tenantId),
+              icon: const Icon(Icons.settings_outlined, size: 16),
+              label: Text(context.tr('Manage')),
+            ),
+          TextButton.icon(
             onPressed: tenantId.isEmpty || _leavingTenantId != null
                 ? null
                 : () => _leave(tenantId),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: _leavingTenantId == tenantId
+            icon: leaving
                 ? const SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(context.tr('Leave')),
+                : const Icon(Icons.logout, size: 16),
+            label: Text(context.tr('Leave')),
           ),
         ],
       ),

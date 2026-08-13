@@ -173,20 +173,41 @@ class PortalActionNotice extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: succeeded
-        ? AppColors.success.withValues(alpha: 0.12)
-        : Theme.of(context).colorScheme.errorContainer,
-    child: ListTile(
-      leading: Icon(
-        succeeded ? Icons.check_circle : Icons.error,
-        color: succeeded
-            ? AppColors.success
-            : Theme.of(context).colorScheme.onErrorContainer,
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    // 成功：品牌绿 tint；失败：主题 errorContainer + onErrorContainer。
+    final (background, foreground, icon) = succeeded
+        ? (
+            AppColors.success.withValues(alpha: 0.12),
+            AppColors.success,
+            Icons.check_circle_outline,
+          )
+        : (scheme.errorContainer, scheme.onErrorContainer, Icons.error_outline);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
       ),
-      title: Text(context.tr(message)),
-    ),
-  );
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: foreground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.tr(message),
+              style: TextStyle(
+                color: foreground,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class PortalEntryProgress extends StatelessWidget {
@@ -242,19 +263,11 @@ class PortalTokenGate extends StatelessWidget {
     ],
     if (error != null) ...[
       const SizedBox(height: 16),
-      Text(
-        error!,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.danger),
-      ),
+      _GateMessage(message: error!, ok: false),
     ],
     if (notice != null) ...[
       const SizedBox(height: 16),
-      Text(
-        notice!,
-        textAlign: TextAlign.center,
-        style: const TextStyle(color: AppColors.success),
-      ),
+      _GateMessage(message: notice!, ok: true),
     ],
   ];
 
@@ -292,7 +305,9 @@ class PortalTokenGate extends StatelessWidget {
                     Text(
                       strings.accountSubtitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade500),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     TextField(
@@ -301,6 +316,7 @@ class PortalTokenGate extends StatelessWidget {
                       autocorrect: false,
                       decoration: InputDecoration(
                         labelText: strings.accessToken,
+                        prefixIcon: const Icon(Icons.key_outlined, size: 20),
                       ),
                       onSubmitted: (_) => onLogin(),
                     ),
@@ -323,6 +339,36 @@ class PortalTokenGate extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 令牌门上的结果行：图标 + 品牌色文案（成功绿 / 失败红）。
+class _GateMessage extends StatelessWidget {
+  final String message;
+  final bool ok;
+
+  const _GateMessage({required this.message, required this.ok});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = ok ? AppColors.success : AppColors.danger;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          ok ? Icons.check_circle_outline : Icons.error_outline,
+          size: 18,
+          color: color,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            context.tr(message),
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
     );
   }
 }
