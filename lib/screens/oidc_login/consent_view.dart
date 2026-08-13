@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/pressable_scale.dart';
+import 'package:sso_admin/widgets/section_header.dart';
 
 import 'hosted_login_models.dart';
 
@@ -28,6 +30,7 @@ class ConsentView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppStrings.of(context);
     final appName = clientName.isNotEmpty ? clientName : clientId;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -44,16 +47,16 @@ class ConsentView extends StatelessWidget {
         const SizedBox(height: 8),
         Text(context.tr('Review every permission before you continue.')),
         if (summary.scopes.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(context.strings.permissions, style: theme.textTheme.labelLarge),
+          const SizedBox(height: 20),
+          SectionHeader(strings.permissions, count: summary.scopes.length),
           const SizedBox(height: 8),
           for (final scope in summary.scopes) _ScopeRow(scope: scope),
         ],
         if (summary.authorizationDetails.isNotEmpty) ...[
           const SizedBox(height: 16),
-          Text(
+          SectionHeader(
             context.tr('Fine-grained authorization'),
-            style: theme.textTheme.labelLarge,
+            count: summary.authorizationDetails.length,
           ),
           const SizedBox(height: 8),
           for (final indexed in summary.authorizationDetails.indexed)
@@ -61,47 +64,93 @@ class ConsentView extends StatelessWidget {
         ],
         if (!summary.canAuthorize) ...[
           const SizedBox(height: 16),
-          _ConsentWarning(
-            message:
+          _notice(
+            context,
+            context.tr('{message} Authorization has been disabled.', {
+              'message': context.tr(
                 summary.parseError ?? ConsentRequestSummary.consentSummaryError,
+              ),
+            }),
+            Icons.warning_amber_rounded,
+            color: theme.colorScheme.onErrorContainer,
+            contained: true,
           ),
         ],
         if (error != null) ...[
           const SizedBox(height: 16),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              context.tr(error!),
-              style: TextStyle(color: theme.colorScheme.error),
-            ),
+          _notice(
+            context,
+            context.tr(error!),
+            Icons.error_outline,
+            color: theme.colorScheme.onErrorContainer,
+            contained: true,
+            live: true,
           ),
         ],
         const SizedBox(height: 20),
         Row(
           children: [
             Expanded(
-              child: OutlinedButton(
-                onPressed: loading ? null : onDeny,
-                child: Text(context.strings.deny),
+              child: PressableScale(
+                child: OutlinedButton(
+                  onPressed: loading ? null : onDeny,
+                  child: Text(strings.deny),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton(
-                onPressed: loading || !summary.canAuthorize ? null : onAllow,
-                child: loading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(context.tr('Allow')),
+              child: PressableScale(
+                child: FilledButton(
+                  onPressed: loading || !summary.canAuthorize ? null : onAllow,
+                  child: loading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(context.tr('Allow')),
+                ),
               ),
             ),
           ],
         ),
       ],
     );
+  }
+
+  /// 内联提示条：品牌/语义色图标 + 文案。`contained` 变体 = errorContainer
+  /// 底（警告/错误），替代手写 `Text` + `SizedBox` 模板。
+  Widget _notice(
+    BuildContext context,
+    String text,
+    IconData icon, {
+    Color? color,
+    bool contained = false,
+    bool live = false,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color ?? scheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color ?? scheme.primary)),
+        ),
+      ],
+    );
+    final wrapped = contained
+        ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: row,
+          )
+        : row;
+    return live ? Semantics(liveRegion: true, child: wrapped) : wrapped;
   }
 }
 
@@ -112,6 +161,7 @@ class _ScopeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final description = scope.description.isNotEmpty
         ? scope.description
         : context.tr(_fallbackScopeLabel(scope.scope));
@@ -120,9 +170,13 @@ class _ScopeRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Icon(Icons.check_circle_outline, size: 18),
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Icon(
+              Icons.check_circle_outline,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -132,7 +186,9 @@ class _ScopeRow extends StatelessWidget {
                 Text(description),
                 Text(
                   context.tr('Scope: {scope}', {'scope': scope.scope}),
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -171,13 +227,25 @@ class _AuthorizationDetailCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              type.isEmpty
-                  ? context.tr('Authorization detail {number}', {
-                      'number': index + 1,
-                    })
-                  : type,
-              style: theme.textTheme.titleSmall,
+            Row(
+              children: [
+                Icon(
+                  Icons.rule_outlined,
+                  size: 18,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    type.isEmpty
+                        ? context.tr('Authorization detail {number}', {
+                            'number': index + 1,
+                          })
+                        : type,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
             ),
             if (summary.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -232,37 +300,4 @@ class _AuthorizationDetailCard extends StatelessWidget {
 
   String _title(String value) =>
       '${value.substring(0, 1).toUpperCase()}${value.substring(1)}';
-}
-
-class _ConsentWarning extends StatelessWidget {
-  final String message;
-
-  const _ConsentWarning({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: colors.errorContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.warning_amber_rounded, color: colors.onErrorContainer),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              context.tr('{message} Authorization has been disabled.', {
-                'message': context.tr(message),
-              }),
-              style: TextStyle(color: colors.onErrorContainer),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

@@ -203,6 +203,7 @@ class AppStrings {
   String get authorizeDevice => _t('authorize_device');
   String get deviceCodeInstruction => _t('device_code_instruction');
   String get deviceCode => _t('device_code');
+  String get devicePreviewHint => _t('device_preview_hint');
   String get checkCode => _t('check_code');
   String get checking => _t('checking');
   String get approve => _t('approve');

@@ -20,11 +20,14 @@ const appOidcSourceZh = <String, String>{
   'Back to sign in': '返回登录',
   'Check the required account details and try again.': '请检查必填账户信息后重试。',
   'Check your email': '请检查邮箱',
+  'Checking for a pending federated sign-in…': '正在检查待处理的联合登录…',
   'Datatypes': '数据类型',
   'Choose a new password for your account.': '请为账户设置新密码。',
   'Choose a passkey to sign in without a password.': '选择通行密钥以免密登录。',
   'Confirm below to finish creating your account.': '请在下方确认以完成账户创建。',
   'Confirm new password': '确认新密码',
+  'Contact your administrator to enable sign-in for this application.':
+      '请联系管理员为此应用启用登录方式。',
   'Continue to {provider} to sign in.': '继续前往 {provider} 登录。',
   'Federated sign-in could not start because secure tab storage is unavailable.':
       '由于安全的标签页存储不可用，无法开始联合登录。',

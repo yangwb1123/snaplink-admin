@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/pressable_scale.dart';
 
 import '../../i18n/app_strings.dart';
 
+/// 账户流视图：忘记密码 / 重置密码 / 注册 / 邮箱验证 / 结果页。纯展示：
+/// 请求生命周期、防枚举文案与一次性令牌语义留在 flow（oidc_account_flow.dart）。
 class ForgotPasswordView extends StatelessWidget {
   final TextEditingController identifierController;
   final bool loading;
@@ -9,7 +12,6 @@ class ForgotPasswordView extends StatelessWidget {
   final String? error;
   final VoidCallback onSubmit;
   final VoidCallback onBack;
-
   const ForgotPasswordView({
     super.key,
     required this.identifierController,
@@ -29,16 +31,12 @@ class ForgotPasswordView extends StatelessWidget {
         'Enter your username or email. If the account is eligible, Snaplink will send recovery instructions.',
       ),
       fields: [
-        TextField(
+        _field(
           controller: identifierController,
+          label: strings.usernameOrEmail,
           enabled: !loading,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          autofillHints: const [AutofillHints.username, AutofillHints.email],
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(labelText: strings.usernameOrEmail),
-          onSubmitted: (_) => onSubmit(),
+          hints: const [AutofillHints.username, AutofillHints.email],
+          onSubmit: onSubmit,
         ),
       ],
       message: message,
@@ -80,29 +78,22 @@ class ResetPasswordView extends StatelessWidget {
           ? 'Choose a new password for your account.'
           : 'This reset link is missing its token. Request a new link.',
       fields: [
-        TextField(
+        _field(
           controller: passwordController,
+          label: context.tr('New password'),
           enabled: !loading,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.newPassword],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: context.tr('New password')),
+          hints: const [AutofillHints.newPassword],
+          obscure: true,
+          next: true,
         ),
         const SizedBox(height: 16),
-        TextField(
+        _field(
           controller: confirmController,
+          label: context.tr('Confirm new password'),
           enabled: !loading,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.newPassword],
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: context.tr('Confirm new password'),
-          ),
-          onSubmitted: (_) => onSubmit(),
+          hints: const [AutofillHints.newPassword],
+          obscure: true,
+          onSubmit: onSubmit,
         ),
       ],
       error: error,
@@ -146,50 +137,39 @@ class SignupView extends StatelessWidget {
         'Create a Snaplink account. Some organizations require email verification before the account becomes active.',
       ),
       fields: [
-        TextField(
+        _field(
           controller: usernameController,
+          label: strings.username,
           enabled: !loading,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          autofillHints: const [AutofillHints.newUsername],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: strings.username),
+          hints: const [AutofillHints.newUsername],
+          next: true,
         ),
         const SizedBox(height: 16),
-        TextField(
+        _field(
           controller: emailController,
+          label: strings.emailOptional,
           enabled: !loading,
-          autocorrect: false,
-          enableSuggestions: false,
-          textCapitalization: TextCapitalization.none,
-          keyboardType: TextInputType.emailAddress,
-          autofillHints: const [AutofillHints.email],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: strings.emailOptional),
+          hints: const [AutofillHints.email],
+          keyboard: TextInputType.emailAddress,
+          next: true,
         ),
         const SizedBox(height: 16),
-        TextField(
+        _field(
           controller: passwordController,
+          label: strings.password,
           enabled: !loading,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.newPassword],
-          textInputAction: TextInputAction.next,
-          decoration: InputDecoration(labelText: strings.password),
+          hints: const [AutofillHints.newPassword],
+          obscure: true,
+          next: true,
         ),
         const SizedBox(height: 16),
-        TextField(
+        _field(
           controller: confirmController,
+          label: strings.confirmPassword,
           enabled: !loading,
-          obscureText: true,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.newPassword],
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(labelText: strings.confirmPassword),
-          onSubmitted: (_) => onSubmit(),
+          hints: const [AutofillHints.newPassword],
+          obscure: true,
+          onSubmit: onSubmit,
         ),
       ],
       error: error,
@@ -218,23 +198,21 @@ class EmailVerificationView extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return _AccountFlowLayout(
-      title: context.tr('Verify your email'),
-      description: tokenAvailable
-          ? context.tr('Confirm below to finish creating your account.')
-          : context.tr(
-              'This verification link is missing its token. Request a new link.',
-            ),
-      fields: const [],
-      error: error,
-      loading: loading,
-      primaryEnabled: tokenAvailable,
-      primaryLabel: context.tr('Verify email'),
-      onPrimary: onVerify,
-      onBack: onBack,
-    );
-  }
+  Widget build(BuildContext context) => _AccountFlowLayout(
+    title: context.tr('Verify your email'),
+    description: tokenAvailable
+        ? context.tr('Confirm below to finish creating your account.')
+        : context.tr(
+            'This verification link is missing its token. Request a new link.',
+          ),
+    fields: const [],
+    error: error,
+    loading: loading,
+    primaryEnabled: tokenAvailable,
+    primaryLabel: context.tr('Verify email'),
+    onPrimary: onVerify,
+    onBack: onBack,
+  );
 }
 
 class AccountFlowResultView extends StatelessWidget {
@@ -266,7 +244,13 @@ class AccountFlowResultView extends StatelessWidget {
           style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
-        Text(context.tr(message), textAlign: TextAlign.center),
+        Text(
+          context.tr(message),
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
         const SizedBox(height: 24),
         FilledButton(
           onPressed: onBack,
@@ -277,6 +261,7 @@ class AccountFlowResultView extends StatelessWidget {
   }
 }
 
+/// 账户流共用骨架：标题 + 描述 + 字段 + 提示/错误 + 主操作 + 返回。
 class _AccountFlowLayout extends StatelessWidget {
   final String title;
   final String description;
@@ -304,7 +289,9 @@ class _AccountFlowLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = AppStrings.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    // 错误优先于消息（flow 中二者互斥，防御性取错误样式）。
+    final notice = error ?? message;
     return AutofillGroup(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -315,45 +302,99 @@ class _AccountFlowLayout extends StatelessWidget {
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 8),
-          Text(context.tr(description)),
+          Text(
+            context.tr(description),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
           if (fields.isNotEmpty) ...[const SizedBox(height: 20), ...fields],
-          if (message != null) ...[
+          if (notice != null) ...[
             const SizedBox(height: 16),
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                context.tr(message!),
-                style: TextStyle(color: Theme.of(context).colorScheme.primary),
-              ),
-            ),
-          ],
-          if (error != null) ...[
-            const SizedBox(height: 16),
-            Semantics(
-              liveRegion: true,
-              child: Text(
-                context.tr(error!),
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
+            _notice(
+              context,
+              context.tr(notice),
+              error != null ? Icons.error_outline : Icons.info_outline,
+              contained: error != null,
+              live: true,
             ),
           ],
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: loading || !primaryEnabled ? null : onPrimary,
-            child: loading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(context.tr(primaryLabel)),
+          PressableScale(
+            child: FilledButton(
+              onPressed: loading || !primaryEnabled ? null : onPrimary,
+              child: loading
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(context.tr(primaryLabel)),
+            ),
           ),
           TextButton(
             onPressed: loading ? null : onBack,
-            child: Text(strings.back),
+            child: Text(AppStrings.of(context).back),
           ),
         ],
       ),
     );
   }
+
+  /// 内联提示条：图标 + 文案；`contained` 变体 = errorContainer 底（错误）。
+  Widget _notice(
+    BuildContext context,
+    String text,
+    IconData icon, {
+    bool contained = false,
+    bool live = false,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = contained ? scheme.onErrorContainer : scheme.primary;
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color)),
+        ),
+      ],
+    );
+    final wrapped = contained
+        ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: row,
+          )
+        : row;
+    return live ? Semantics(liveRegion: true, child: wrapped) : wrapped;
+  }
 }
+
+/// 账户流字段：autofillHints/键盘/提交语义集中一处，loading 时禁用。
+Widget _field({
+  required TextEditingController controller,
+  required String label,
+  required bool enabled,
+  List<String>? hints,
+  TextInputType? keyboard,
+  bool obscure = false,
+  bool next = false,
+  VoidCallback? onSubmit,
+}) => TextField(
+  controller: controller,
+  enabled: enabled,
+  obscureText: obscure,
+  autocorrect: false,
+  enableSuggestions: false,
+  textCapitalization: TextCapitalization.none,
+  keyboardType: keyboard,
+  autofillHints: hints,
+  textInputAction: next ? TextInputAction.next : TextInputAction.done,
+  decoration: InputDecoration(labelText: label),
+  onSubmitted: onSubmit == null ? null : (_) => onSubmit(),
+);

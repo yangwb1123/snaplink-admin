@@ -11,28 +11,24 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: dark
-                ? [
-                    AppColors.primaryDark.withValues(alpha: 0.45),
-                    theme.scaffoldBackgroundColor,
-                  ]
-                : [
-                    AppColors.primary.withValues(alpha: 0.6),
-                    theme.scaffoldBackgroundColor,
-                  ],
+            colors: [
+              (dark ? AppColors.primaryDark : AppColors.primary).withValues(
+                alpha: dark ? 0.45 : 0.6,
+              ),
+              theme.scaffoldBackgroundColor,
+            ],
           ),
         ),
         child: Stack(
           children: [
-            // 装饰光斑（Vercel 登录质感）：柔和的品牌色光晕。
+            // 装饰光斑（Vercel 登录质感）：柔和的品牌色光晕，仅装饰。
             Positioned(
               top: -80,
               right: -60,
               child: _GlowOrb(
                 size: 220,
-                color: dark
-                    ? AppColors.primary.withValues(alpha: 0.10)
-                    : AppColors.primaryTint.withValues(alpha: 0.35),
+                color: (dark ? AppColors.primary : AppColors.primaryTint)
+                    .withValues(alpha: dark ? 0.10 : 0.35),
               ),
             ),
             Positioned(
@@ -40,9 +36,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               left: -70,
               child: _GlowOrb(
                 size: 260,
-                color: dark
-                    ? AppColors.accentBlue.withValues(alpha: 0.08)
-                    : AppColors.accentBlue.withValues(alpha: 0.18),
+                color: AppColors.accentBlue.withValues(alpha: dark ? 0.08 : 0.18),
               ),
             ),
             // 装饰性背景场景（orbit/shield/nodes）——纯装饰，不拦截、无语义。
@@ -54,10 +48,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // 主题选择靠左、语言选择靠右（spaceBetween 分隔）；两者都是
-                  // DropdownMenu：菜单统一向下弹出、圆角卡片、宽度贴合文字。
-                  // Wrap 而非 Row：窄屏（手机）放不下时语言选择换行右对齐，
-                  // 不会溢出。
+                  // 主题/语言/设置：专项优化区（勿改动）。
                   Wrap(
                     alignment: WrapAlignment.spaceBetween,
                     crossAxisAlignment: WrapCrossAlignment.center,
@@ -77,47 +68,21 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   ),
                   const SizedBox(height: 12),
                   // 品牌区：租户配置优先，缺省时展示产品默认品牌。
-                  if (_brandName != null || _brandLogoUrl != null) ...[
-                    BrandingHeader(
-                      brandLogoUrl: _brandLogoUrl,
-                      brandName: _brandName,
-                      brandColor: _brandColor,
-                    ),
-                  ] else
+                  if (_brandName != null || _brandLogoUrl != null)
+                    BrandingHeader(brandLogoUrl: _brandLogoUrl, brandName: _brandName, brandColor: _brandColor)
+                  else
                     _defaultBranding(context),
                   const SizedBox(height: 16),
                   // 副标语 + 安全徽章：价值主张与信任信号。
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 16,
-                        color: theme.colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.tr(
-                            'Enterprise-grade identity & access management',
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                  _trustSignal(context),
                   const SizedBox(height: 20),
                   _buildView(),
                   const SizedBox(height: 12),
+                  // 页脚：品牌署名。
                   Text(
-                    context.tr('© {year} snaplink · secure identity platform', {
-                      'year': '2026',
-                    }),
+                    context.tr('© {year} snaplink · secure identity platform', {'year': '2026'}),
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -128,7 +93,25 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     );
   }
 
+  /// 副标语 + 安全徽章：价值主张与信任信号，图标统一品牌主色。
+  Widget _trustSignal(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Icon(Icons.shield_outlined, size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            context.tr('Enterprise-grade identity & access management'),
+            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// 默认品牌区：产品徽标 + 名称 + 副标题（无租户品牌配置时展示）。
+  /// 徽标沿用 BrandLogo 的品牌渐变语言，缺省品牌与产品视觉一致。
   Widget _defaultBranding(BuildContext context) {
     final theme = Theme.of(context);
     return Row(
@@ -137,14 +120,14 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.primary, AppColors.violet],
+            ),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(
-            Icons.shield_outlined,
-            size: 28,
-            color: theme.colorScheme.primary,
-          ),
+          child: const Icon(Icons.shield_outlined, size: 28, color: Colors.white),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -153,17 +136,12 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             children: [
               Text(
                 context.tr('snaplink console'),
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
+                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
               ),
               const SizedBox(height: 4),
               Text(
                 context.tr('Identity & Access Management'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -174,10 +152,8 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
 
   Widget _buildView() {
     if (_checkingFederatedReturn) {
-      return const SizedBox(
-        height: 80,
-        child: Center(child: CircularProgressIndicator()),
-      );
+      // loading 态：挂载期检查联邦返回。
+      return _ShellStatus(spinner: true, title: context.tr('Checking for a pending federated sign-in…'));
     }
     switch (_view) {
       case _View.login:
@@ -240,27 +216,18 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       case _View.consent:
         return _consentView();
       case _View.success:
-        return Text(AppStrings.of(context).signedIn);
+        // success 态：登录完成，结果图标 + 文案。
+        return _ShellStatus(icon: Icons.check_circle_outline, title: AppStrings.of(context).signedIn);
     }
   }
 
   Widget _loginView() {
     if (_providerDiscoveryComplete && _providers.isEmpty) {
-      return Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            AppStrings.of(context).signIn,
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            context.tr(
-              'No sign-in methods are available for this application.',
-            ),
-          ),
-        ],
+      // empty 态：无可用登录方式（error 由各视图内联 liveRegion 提示呈现）。
+      return _ShellStatus(
+        icon: Icons.person_off_outlined,
+        title: context.tr('No sign-in methods are available for this application.'),
+        subtitle: context.tr('Contact your administrator to enable sign-in for this application.'),
       );
     }
     return LoginViewWidget(
@@ -326,6 +293,42 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     onAllow: () => _submitConsent(true),
     onDeny: () => _submitConsent(false),
   );
+}
+
+/// 壳层三态（loading / empty / success）统一状态块：spinner 或品牌主色
+/// 图标 + 标题 + 可选副标题，居中展示。part 文件无法新增 import，组件
+/// 文件内自足（对齐 login_view 的 _InlineNotice 先例）；error 态由各
+/// 视图内联 liveRegion 提示呈现，语义不变。
+class _ShellStatus extends StatelessWidget {
+  final IconData? icon;
+  final bool spinner;
+  final String title;
+  final String? subtitle;
+
+  const _ShellStatus({this.icon, this.spinner = false, required this.title, this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (spinner)
+            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+          else
+            Icon(icon, size: 44, color: theme.colorScheme.primary),
+          const SizedBox(height: 16),
+          Text(title, textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface)),
+          if (subtitle != null) ...[
+            const SizedBox(height: 8),
+            Text(subtitle!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
+        ],
+      ),
+    );
+  }
 }
 
 /// 装饰光斑：模糊圆形渐变（仅装饰，不拦截交互）。

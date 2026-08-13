@@ -89,6 +89,8 @@ const appAdditionalStrings = <String, Map<String, String>>{
     'device_code_instruction':
         'Enter the code displayed by the device you want to sign in on.',
     'device_code': 'Device code',
+    'device_preview_hint':
+        'The requesting application and scopes will appear here after you check a code.',
     'check_code': 'Check code',
     'checking': 'Checking…',
     'approve': 'Approve',
@@ -199,6 +201,7 @@ const appAdditionalStrings = <String, Map<String, String>>{
     'authorize_device': '授权设备',
     'device_code_instruction': '输入待登录设备上显示的代码。',
     'device_code': '设备代码',
+    'device_preview_hint': '检查代码后，这里会显示请求方应用与权限范围。',
     'check_code': '检查代码',
     'checking': '检查中…',
     'approve': '批准',

@@ -1,0 +1,104 @@
+# 逐页 UI 重构 — batch 7a（oidc_login 核心视图 + device 验证）
+#
+# oidc_login 是登录安全关键路径：保持 fail-closed、一次性事务、无重放
+# 等不变量；模块零 'audit' 字样（AC-2 静态守卫）。每页任务先分析现有
+# 代码再重构，validate 门禁逐页跑。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-login-7a.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-login-7a.log
+
+tasks:
+- prompt: |
+    重构托管登录表单视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/login_view_widget.dart ——
+       读完整文件，梳理密码/验证码/TOTP/WebAuthn 表单的 UI 结构。
+    2. 对照可用组件（lib/widgets/：status_chip、empty_state、
+       skeleton_list、async_view 等）与品牌色，列出改进点（模板渲染、
+       三态缺失、单色图标、硬编码文案）。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色（brand 色或
+         colorScheme.primary）；loading/disabled 态齐全；
+       - 保持表单语义：autofillHints（username/password/oneTimeCode）、
+         提交防重、错误内联展示不变；不新增依赖；文件 ≤400 行；
+       - 禁止出现英文字样 'audit'（含注释，AC-2 守卫）。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/login_view_widget_test.dart test/oidc_challenge_flow_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/login-view.md（分析摘要→问题清单→
+       修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-view.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_view_widget_test.dart test/oidc_challenge_flow_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构授权同意与 MFA 视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/consent_view.dart、
+       mfa_view.dart —— 读完整文件，梳理 Consent（Scope/RAR 展示、
+       同意/拒绝）与 MFA challenge（方法选择/验证码/WebAuthn）的 UI
+       结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/disabled 态齐全；Consent 一次性事务与 MFA 不变量
+         （challenge 失效重新认证、方法选择）保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/consent_view_test.dart test/oidc_challenge_flow_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/consent-mfa.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/consent-mfa.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/consent_view_test.dart test/oidc_challenge_flow_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构账户流视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/account_flow_views.dart ——
+       读完整文件，梳理注册/邮箱验证/重置密码（含新密码/确认）的 UI
+       结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/disabled 态齐全；账户流语义（反枚举响应、验证码
+         输入、密码强度）保持不变；autofillHints 保持；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/oidc_account_flow_test.dart test/oidc_challenge_flow_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/account-flow.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/account-flow.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/oidc_account_flow_test.dart test/oidc_challenge_flow_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构托管登录壳层。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/oidc_login_view_flow.dart ——
+       读完整文件，梳理品牌区/装饰背景/错误横幅/视图切换的 UI 结构
+       （登录头 select 已专项优化，勿重复改动）。
+    2. 对照可用组件与品牌色，列出改进点（模板渲染、三态、单色图标、
+       硬编码文案）。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；视图流语义保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/native_shell_test.dart test/oidc_login_ring_isolation_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/login-shell.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-shell.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/native_shell_test.dart test/oidc_login_ring_isolation_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构设备验证页面。步骤：
+    1. 分析现有代码：lib/screens/device/device_verify_screen.dart、
+       device_verify_widgets.dart —— 读完整文件，梳理 RFC 8628 设备码
+       确认（请求方/Scope/到期展示、批准/拒绝、终态锁定）的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；设备码语义（上下文缺失禁止
+         批准、终态锁定、规范化输入）保持不变；不新增依赖；
+         文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/device_verify_api_test.dart 及 device 相关 widget 测试
+       （如有）全绿。
+    5. 输出 docs/ui/pages-per-page/device-verify.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/device-verify.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/device_verify_api_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -93,10 +93,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     if (formatted != _checkedCode &&
         (_preview != null || _codeStatus != null || _message != null)) {
       setState(() {
-        _preview = null;
-        _codeStatus = null;
-        _checkedCode = null;
-        _message = null;
+        _preview = _codeStatus = _checkedCode = _message = null;
         _requiresSignIn = false;
         _ok = false;
       });
@@ -107,20 +104,13 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     final strings = AppStrings.of(context);
     final code = DeviceVerifyApi.normalizeUserCode(_codeCtrl.text);
     if (code.replaceAll('-', '').length != 8) {
-      setState(() {
-        _message = strings.deviceCodeIncomplete;
-        _requiresSignIn = false;
-        _ok = false;
-      });
+      _showMessage(strings.deviceCodeIncomplete);
       return;
     }
     setState(() {
-      _busy = true;
-      _checking = true;
-      _message = null;
+      _busy = _checking = true;
+      _message = _preview = _checkedCode = null;
       _requiresSignIn = false;
-      _preview = null;
-      _checkedCode = null;
     });
     try {
       final preview = await _api.check(code);
@@ -179,6 +169,15 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
         .resolve('/login/')
         .replace(queryParameters: {'redirect': target});
     BrowserNavigation.replaceLocation(login.toString());
+  }
+
+  /// 单一消息出口：设置消息 + 成功/错误语义 + 可选重新登录提示。
+  void _showMessage(String message, {bool ok = false, bool signIn = false}) {
+    setState(() {
+      _message = message;
+      _ok = ok;
+      _requiresSignIn = signIn;
+    });
   }
 
   Future<bool> _confirm(bool approve) async {
@@ -247,83 +246,55 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
         });
       } else if (response.statusCode == 401) {
         Session.clear();
-        setState(() {
-          _message = strings.signInExpired;
-          _requiresSignIn = true;
-          _ok = false;
-        });
+        _showMessage(strings.signInExpired, signIn: true);
       } else if (response.statusCode == 404 || response.statusCode == 501) {
-        setState(() {
-          _message = strings.deviceAuthorizationDisabled;
-          _ok = false;
-        });
+        _showMessage(strings.deviceAuthorizationDisabled);
       } else {
-        setState(() {
-          _message = strings.deviceCodeInvalidExpired;
-          _ok = false;
-        });
+        _showMessage(strings.deviceCodeInvalidExpired);
       }
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _message = strings.requestFailedRetry;
-          _ok = false;
-        });
-      }
+      if (mounted) _showMessage(strings.requestFailedRetry);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  List<Widget> _approvalPreviewSections() => [
-        if (_hasSafeApprovalPreview) ...[
-          const SizedBox(height: 16),
-          DeviceRequestPreview(preview: _preview!),
-        ],
-      ];
-
-  List<Widget> _messageSections(BuildContext context, AppStrings strings) => [
-        if (_message != null) ...[
-          const SizedBox(height: 16),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              _message!,
-              style: TextStyle(
-                color: _ok
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.error,
-              ),
-            ),
-          ),
-        ],
-      ];
-
-  List<Widget> _signInSections(AppStrings strings) => [
-        if (_requiresSignIn)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: _redirectToLogin,
-              child: Text(strings.signInAgain),
-            ),
-          ),
-      ];
+  /// 消息 → (图标, 颜色, contained) 四级语义映射：成功（品牌主色）/
+  /// 中性（onSurfaceVariant）/ 警告（amber）/ 错误（errorContainer 底）。
+  (IconData, Color, bool) _statusStyle(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    if (_ok) {
+      if (_codeStatus == 'pending' && !_hasSafeApprovalPreview) {
+        return (Icons.warning_amber_rounded, scheme.onErrorContainer, true);
+      }
+      return (Icons.check_circle_outline, scheme.primary, false);
+    }
+    return switch (_codeStatus) {
+      'approved' => (Icons.check_circle_outline, scheme.primary, false),
+      'denied' => (Icons.block, scheme.onSurfaceVariant, false),
+      'expired' => (Icons.schedule, AppColors.warning, false),
+      'not_found' || 'invalid' =>
+        (Icons.search_off, scheme.onErrorContainer, true),
+      'unavailable' => (Icons.toggle_off_outlined, AppColors.warning, false),
+      'error' => (Icons.error_outline, scheme.onErrorContainer, true),
+      _ => (Icons.error_outline, scheme.onErrorContainer, true),
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final strings = AppStrings.of(context);
+    final preview = _preview;
+    final status = _message == null ? null : _statusStyle(context);
     return Scaffold(
       body: ResponsiveEntryCard(
         maxWidth: 420,
         child: _redirectingToLogin
-            ? Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  Text(strings.redirectingToSignIn),
-                ],
+            ? DeviceStatusBlock(
+                spinner: true,
+                title: strings.redirectingToSignIn,
               )
             : Column(
                 mainAxisSize: MainAxisSize.min,
@@ -331,7 +302,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                 children: [
                   Text(
                     strings.authorizeDevice,
-                    style: Theme.of(context).textTheme.titleLarge,
+                    style: theme.textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
                   Text(strings.deviceCodeInstruction),
@@ -347,6 +318,10 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                     decoration: InputDecoration(
                       labelText: strings.deviceCode,
                       hintText: 'XXXX-XXXX',
+                      prefixIcon: Icon(
+                        Icons.pin_outlined,
+                        color: scheme.primary,
+                      ),
                     ),
                     onSubmitted: (_) => _checkCode(),
                   ),
@@ -364,7 +339,39 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                       _busy && _checking ? strings.checking : strings.checkCode,
                     ),
                   ),
-                  ..._approvalPreviewSections(),
+                  const SizedBox(height: 20),
+                  // 预览区三态：empty（未检查）/ data（安全预览）；loading
+                  // 由按钮内 spinner 呈现，error 由下方消息通知承接。
+                  if (preview != null && _hasSafeApprovalPreview)
+                    DeviceRequestPreview(preview: preview)
+                  else if (_message == null &&
+                      _checkedCode == null &&
+                      !_terminal)
+                    DeviceInlineNotice(
+                      text: strings.devicePreviewHint,
+                      icon: Icons.devices_other,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  if (_message != null) ...[
+                    const SizedBox(height: 16),
+                    DeviceInlineNotice(
+                      text: _message!,
+                      icon: status!.$1,
+                      color: status.$2,
+                      contained: status.$3,
+                      liveRegion: true,
+                    ),
+                  ],
+                  if (_requiresSignIn) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: _redirectToLogin,
+                        child: Text(strings.signInAgain),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   DeviceDecisionButtons(
                     busy: _busy,
@@ -380,8 +387,6 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                         ? null
                         : () => _verify(true),
                   ),
-                  ..._messageSections(context, strings),
-                  ..._signInSections(strings),
                 ],
               ),
       ),

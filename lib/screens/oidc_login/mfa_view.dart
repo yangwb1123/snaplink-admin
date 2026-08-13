@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/pressable_scale.dart';
 
 /// Multi-factor authentication view.
+///
+/// Pure presentation: the challenge lifecycle (invalidation, re-authentication,
+/// one-time method selection) lives in the owning flow. This view only renders
+/// the current server-declared factor list and disabled/loading states.
 class MfaView extends StatelessWidget {
   final List<String> mfaMethods;
   final String? selectedMfaMethod;
@@ -32,19 +37,28 @@ class MfaView extends StatelessWidget {
     required this.onBack,
   });
 
-  String _label(String m) {
-    const labels = {
-      'totp': 'Authenticator app (TOTP)',
-      'otp': 'One-time code',
-      'webauthn': 'Security key / passkey',
-      'push': 'Push notification',
-      'sms': 'SMS code',
-    };
-    return labels[m] ?? m;
-  }
+  String _label(AppStrings strings, String method) => switch (method) {
+    'totp' => strings.mfaMethodTotp,
+    'otp' => strings.mfaMethodOtp,
+    'webauthn' => strings.mfaMethodWebauthn,
+    'push' => strings.mfaMethodPush,
+    'sms' => strings.mfaMethodSms,
+    _ => method,
+  };
+
+  IconData _methodIcon(String method) => switch (method) {
+    'totp' => Icons.smartphone_outlined,
+    'otp' => Icons.pin_outlined,
+    'webauthn' => Icons.fingerprint,
+    'push' => Icons.notifications_active_outlined,
+    'sms' => Icons.sms_outlined,
+    _ => Icons.shield_outlined,
+  };
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final strings = AppStrings.of(context);
     final acceptsCode =
         selectedMfaMethod != null &&
@@ -56,7 +70,7 @@ class MfaView extends StatelessWidget {
       children: [
         Text(
           strings.verifyIdentity,
-          style: Theme.of(context).textTheme.titleLarge,
+          style: theme.textTheme.titleLarge,
         ),
         const SizedBox(height: 16),
         Wrap(
@@ -65,12 +79,25 @@ class MfaView extends StatelessWidget {
           children: mfaMethods.map((method) {
             final selected = selectedMfaMethod == method;
             return ChoiceChip(
-              label: Text(context.tr(_label(method))),
+              avatar: Icon(
+                _methodIcon(method),
+                size: 18,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+              label: Text(_label(strings, method)),
               selected: selected,
               onSelected: loading ? null : (_) => onMethodChanged(method),
             );
           }).toList(),
         ),
+        if (selectedMfaMethod == null && mfaMethods.length > 1) ...[
+          const SizedBox(height: 12),
+          _notice(
+            context,
+            context.tr('Select a verification method.'),
+            Icons.info_outline,
+          ),
+        ],
         if (acceptsCode) ...[
           const SizedBox(height: 16),
           TextField(
@@ -89,6 +116,7 @@ class MfaView extends StatelessWidget {
               labelText: selectedMfaMethod == 'recovery'
                   ? context.tr('Recovery code')
                   : strings.verificationCode,
+              prefixIcon: Icon(Icons.pin_outlined, color: scheme.primary),
             ),
             onSubmitted: (_) {
               if (!loading) onSubmit();
@@ -97,19 +125,32 @@ class MfaView extends StatelessWidget {
         ],
         if (selectedMfaMethod == 'webauthn') ...[
           const SizedBox(height: 16),
-          Text(context.tr('Use a registered passkey to verify this sign-in.')),
+          _notice(
+            context,
+            context.tr(
+              'Use a registered passkey to verify this sign-in.',
+            ),
+            Icons.fingerprint,
+          ),
         ],
         if (selectedMfaMethod == 'push') ...[
           const SizedBox(height: 16),
-          Text(
+          _notice(
+            context,
             context.tr(
               'Approve the notification on your device, then continue.',
             ),
+            Icons.notifications_active_outlined,
           ),
         ],
         if (allowTrustDevice)
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.trailing,
+            secondary: Icon(
+              Icons.verified_user_outlined,
+              color: scheme.primary,
+            ),
             title: Text(context.tr('Trust this device')),
             subtitle: Text(context.tr('Skip future MFA when allowed.')),
             value: trustThisDevice,
@@ -117,28 +158,31 @@ class MfaView extends StatelessWidget {
           ),
         if (error != null) ...[
           const SizedBox(height: 16),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              context.tr(error!),
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
+          _notice(
+            context,
+            context.tr(error!),
+            Icons.error_outline,
+            color: scheme.onErrorContainer,
+            contained: true,
+            live: true,
           ),
         ],
         const SizedBox(height: 20),
-        FilledButton(
-          onPressed: loading ? null : onSubmit,
-          child: loading
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(
-                  selectedMfaMethod == 'webauthn'
-                      ? context.tr('Use passkey')
-                      : strings.verify,
-                ),
+        PressableScale(
+          child: FilledButton(
+            onPressed: loading ? null : onSubmit,
+            child: loading
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    selectedMfaMethod == 'webauthn'
+                        ? context.tr('Use passkey')
+                        : strings.verify,
+                  ),
+          ),
         ),
         TextButton(
           onPressed: loading ? null : onBack,
@@ -146,5 +190,39 @@ class MfaView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// 内联提示条：品牌/语义色图标 + 文案；`contained` 变体用于错误
+  /// （errorContainer 底 + onErrorContainer 前景）。
+  Widget _notice(
+    BuildContext context,
+    String text,
+    IconData icon, {
+    Color? color,
+    bool contained = false,
+    bool live = false,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    final row = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: color ?? scheme.primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color ?? scheme.primary)),
+        ),
+      ],
+    );
+    final wrapped = contained
+        ? Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: scheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: row,
+          )
+        : row;
+    return live ? Semantics(liveRegion: true, child: wrapped) : wrapped;
   }
 }
