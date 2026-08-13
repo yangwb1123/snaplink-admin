@@ -44,6 +44,7 @@ const appPortalSourceZh = <String, String>{
       '通行密钥注册需要在支持 WebAuthn 的浏览器中进行。',
   'New device login': '新设备登录',
   'MFA removed': 'MFA 已移除',
+  'Application access revoked.': '应用访问权限已撤销。',
   'Application consent': '应用授权',
   'Session expiry': '会话过期',
   'Compromised password': '密码已泄露',
@@ -81,7 +82,9 @@ const appPortalSourceZh = <String, String>{
   'Complete MFA in this session before trusting a device.':
       '请先在当前会话中完成 MFA，再信任此设备。',
   'Confirm new email': '确认新邮箱',
+  'Authorized applications': '已授权的应用',
   'Connected applications': '已连接的应用',
+  'Connected apps': '已连接的应用',
   'Connected applications are not available.': '已连接应用功能不可用。',
   'Could not confirm TOTP enrollment.': '无法确认 TOTP 注册。',
   'Could not generate recovery codes.': '无法生成恢复代码。',
@@ -232,6 +235,7 @@ const appPortalSourceZh = <String, String>{
   'Physical-device tracking is not enabled.': '物理设备跟踪功能未启用。',
   'Physical-device tracking owns /me/devices in this deployment. Snaplink currently overlaps that route with MFA trusted-browser grants, so grant revocation is disabled here to prevent deleting a physical device by mistake.':
       '此部署的 /me/devices 由物理设备跟踪功能占用。Snaplink 当前又将该路由用于 MFA 受信任浏览器授权，因此这里已禁用授权撤销，以免误删物理设备。',
+  'Platform': '平台',
   'Posture': '安全状态',
   'Preparing your export...': '正在准备导出…',
   'Preview deletion (dry run)': '预览删除（试运行）',
@@ -244,8 +248,11 @@ const appPortalSourceZh = <String, String>{
   'Recovery codes hidden. Keep your saved copy secure.': '恢复代码已隐藏，请妥善保管已保存的副本。',
   'Recovery codes remaining: {count}': '剩余恢复代码：{count}',
   'I have saved these codes': '我已保存这些代码',
+  'Identity unlinked.': '身份已解除关联。',
   'Refresh activity': '刷新活动',
+  'Refresh applications': '刷新应用列表',
   'Refresh devices': '刷新设备',
+  'Refresh identities': '刷新关联身份',
   'Refresh sessions': '刷新会话',
   'Remove': '移除',
   'Remove member?': '移除成员？',
@@ -297,6 +304,7 @@ const appPortalSourceZh = <String, String>{
   'The organization invitation has been accepted.': '组织邀请已接受。',
   'This browser is trusted until the grant expires.': '当前浏览器在授权到期前将保持受信任状态。',
   'This device record has no usable ID.': '此设备记录没有可用 ID。',
+  'This identity record has no usable ID.': '此身份记录没有可用 ID。',
   'This device will be signed out immediately.': '此设备将立即退出登录。',
   'This email confirmation link is invalid or expired.': '此邮箱确认链接无效或已过期。',
   'This organization invitation is invalid or expired.': '此组织邀请无效或已过期。',
@@ -353,6 +361,7 @@ const appPortalSourceZh = <String, String>{
   '{clientId} will no longer be able to use the permissions you granted. You can authorize it again later.':
       '{clientId} 将无法继续使用您授予的权限；您之后仍可再次授权。',
   '{count} active sessions': '{count} 个活跃会话',
+  '{count} factors registered': '{count} 个因子已注册',
   'Trust {value}': '信任度 {value}',
   'Manage {tenantId}': '管理 {tenantId}',
   'Change {userId} from {oldRole} to {role}.':

@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
-/// Profile summary + editable display name + editable custom attributes +
+/// Account summary + editable display name + editable custom attributes +
 /// read-only "Roles and access" disclosure. Ports app.js's `render()` /
 /// `renderAttrs()` / `loadAuthz()` and the profile/attrs card markup from
 /// index.html into one tab (the JS renders all of this as plain top-of-page
 /// cards; grouping it under "Overview" is the only structural change).
+///
+/// Layout: MFA banner → metric strip → profile card (KvRow + display-name
+/// editor) → custom attributes editor → access disclosure. Loading renders
+/// SkeletonListTile, failures render a retryable [PortalErrorCard], and
+/// empty profile rows render EmptyState (audit X3/X4/X8).
 class OverviewTab extends StatefulWidget {
   final PortalApi api;
   const OverviewTab({super.key, required this.api});
@@ -188,13 +192,9 @@ class _OverviewTabState extends State<OverviewTab> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const SkeletonListTile(itemCount: 4)
               : _loadError != null
-              ? Center(
-                  child: Text(
-                    context.tr('Error: {error}', {'error': _loadError}),
-                  ),
-                )
+              ? PortalErrorCard(message: _loadError!, onRetry: _load)
               : _buildContent(context),
         ),
       ],
@@ -218,12 +218,19 @@ class _OverviewTabState extends State<OverviewTab> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
         // 账户摘要（信息优先级：用户 3 秒知道自己的安全状态）。
-        _accountSummary(context, _me),
+        PortalSecurityBanner(mfaEnabled: _me['mfa_enabled'] == true),
+        const SizedBox(height: 12),
         PortalCard(
           title: 'Profile',
           children: [
-            if (rows.isEmpty) const EmptyHint('No profile data.'),
-            for (final r in rows) KvRow(r.key, r.value),
+            if (rows.isEmpty)
+              const EmptyState(
+                compact: true,
+                icon: Icons.person_outline,
+                title: 'No profile data.',
+              )
+            else
+              for (final r in rows) KvRow(r.key, r.value),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -236,15 +243,10 @@ class _OverviewTabState extends State<OverviewTab> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: _nameSaving ? null : _saveName,
-                  child: _nameSaving
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.tr('Save name')),
+                _saveButton(
+                  saving: _nameSaving,
+                  onPressed: _saveName,
+                  label: 'Save name',
                 ),
               ],
             ),
@@ -264,20 +266,20 @@ class _OverviewTabState extends State<OverviewTab> {
               ],
               Align(
                 alignment: Alignment.centerLeft,
-                child: FilledButton(
-                  onPressed: _attrsSaving ? null : _saveAttrs,
-                  child: _attrsSaving
-                      ? const SizedBox(
-                          height: 16,
-                          width: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.tr('Save attributes')),
+                child: _saveButton(
+                  saving: _attrsSaving,
+                  onPressed: _saveAttrs,
+                  label: 'Save attributes',
                 ),
               ),
               MessageBanner(_attrsMsg, ok: _attrsOk),
             ],
           ),
+        PortalMetricsStrip(
+          activeSessions: (_me['active_sessions'] as num?)?.toInt() ?? 0,
+          connectedApps: (_me['granted_apps'] as num?)?.toInt() ?? 0,
+        ),
+        const SizedBox(height: 16),
         if (anyAuthz)
           PortalCard(
             title: 'Roles and access',
@@ -285,6 +287,7 @@ class _OverviewTabState extends State<OverviewTab> {
               if (_roles.isNotEmpty)
                 ..._authzSection(
                   'Roles',
+                  Icons.badge_outlined,
                   _roles,
                   (m) => m['name'] ?? m['code'],
                   (m) => m['code']?.toString() ?? '',
@@ -292,6 +295,7 @@ class _OverviewTabState extends State<OverviewTab> {
               if (_permissions.isNotEmpty)
                 ..._authzSection(
                   'Permissions',
+                  Icons.key_outlined,
                   _permissions,
                   (m) => m['code'],
                   (m) => m['resource']?.toString() ?? '',
@@ -299,6 +303,7 @@ class _OverviewTabState extends State<OverviewTab> {
               if (_menus.isNotEmpty)
                 ..._authzSection(
                   'Menu access',
+                  Icons.menu_outlined,
                   _menus,
                   (m) => m['name'] ?? m['id'],
                   (m) => m['path']?.toString() ?? '',
@@ -309,107 +314,52 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
-  Widget _accountSummary(BuildContext context, Map<String, dynamic>? me) {
-    final sessions = (me?['active_sessions'] as num?)?.toInt() ?? 0;
-    final apps = (me?['granted_apps'] as num?)?.toInt() ?? 0;
-    final mfaEnabled = me?['mfa_enabled'] == true;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  mfaEnabled ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
-                  color: mfaEnabled ? AppColors.success : AppColors.warning,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LocalizedText(
-                    mfaEnabled ? 'Account protected' : 'Enable MFA to protect your account',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: mfaEnabled ? AppColors.success : AppColors.warning,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                StatusChip(
-                  label: mfaEnabled ? 'MFA on' : 'MFA off',
-                  color: mfaEnabled ? AppColors.success : AppColors.warning,
-                  icon: mfaEnabled ? Icons.shield : Icons.shield_outlined,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _summaryStat(context, Icons.devices, sessions, 'Active sessions'),
-                const SizedBox(width: 24),
-                _summaryStat(context, Icons.apps, apps, 'Connected apps'),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _summaryStat(BuildContext context, IconData icon, int value, String label) {
-    final theme = Theme.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: theme.colorScheme.primary),
-        const SizedBox(width: 8),
-        Text(
-          '$value',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(width: 8),
-        LocalizedText(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+  Widget _saveButton({
+    required bool saving,
+    required VoidCallback onPressed,
+    required String label,
+  }) {
+    return FilledButton(
+      onPressed: saving ? null : onPressed,
+      child: saving
+          ? const SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(context.tr(label)),
     );
   }
 
   List<Widget> _authzSection(
     String title,
+    IconData icon,
     List<dynamic> items,
     Object? Function(Map m) titleOf,
     String Function(Map m) metaOf,
   ) {
+    final theme = Theme.of(context);
     return [
       Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 4),
-        child: Text(
-          context.tr(title),
-          style: Theme.of(context).textTheme.labelLarge,
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: theme.colorScheme.primary),
+            const SizedBox(width: 6),
+            Text(
+              context.tr(title),
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
       for (final raw in items)
-        Builder(
-          builder: (_) {
-            final m = raw as Map;
-            final meta = metaOf(m);
-            return ListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(titleOf(m)?.toString() ?? ''),
-              subtitle: meta.isEmpty ? null : Text(meta),
-            );
-          },
+        PortalAuthzRow(
+          icon: icon,
+          title: titleOf(raw)?.toString() ?? '',
+          meta: metaOf(raw),
         ),
     ];
   }

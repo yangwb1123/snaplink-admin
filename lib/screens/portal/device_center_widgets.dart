@@ -1,8 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 typedef DeviceAction = void Function(Map<String, dynamic> device);
 
+/// Physical-device list row: brand-tinted device icon, name + suspicious
+/// StatusChip, platform/browser/IP/last-seen summary, trust + active-session
+/// StatusChips, and the action menu (details / rename / trust / lost /
+/// delete). Icons are tinted with the portal brand color
+/// (`colorScheme.primary`) — admin group colors do not apply to portal
+/// surfaces.
 class PhysicalDeviceCard extends StatelessWidget {
   final Map<String, dynamic> device;
   final bool busy;
@@ -25,8 +33,12 @@ class PhysicalDeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
     final suspicious = device['suspicious'] == true;
     final name = _deviceName(context, device);
+    final trustLabel = device['trust_label'] ?? _score(context, device);
+    final trusted = device['trust_label'] == 'trusted';
     final details = <String>[
       if (device['platform']?.toString().isNotEmpty == true)
         device['platform'].toString(),
@@ -43,17 +55,36 @@ class PhysicalDeviceCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
         onTap: () => onDetails(device),
-        leading: CircleAvatar(
-          child: Icon(_deviceIcon(device['type']?.toString())),
+        leading: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            _deviceIcon(device['type']?.toString()),
+            size: 21,
+            color: accent,
+          ),
         ),
         title: Row(
           children: [
-            Flexible(child: Text(name)),
+            Flexible(
+              child: Text(
+                name,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
             if (suspicious) ...[
               const SizedBox(width: 8),
-              Chip(
-                avatar: const Icon(Icons.warning_amber, size: 16),
-                label: Text(context.tr('Suspicious')),
+              StatusChip(
+                label: context.tr('Suspicious'),
+                color: AppColors.warning,
+                icon: Icons.warning_amber,
               ),
             ],
           ],
@@ -62,23 +93,30 @@ class PhysicalDeviceCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (details.isNotEmpty) Text(details.join(' · ')),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 4,
               children: [
-                Chip(
-                  label: Text(
-                    context.tr('Trust {value}', {
-                      'value': device['trust_label'] ?? _score(context, device),
-                    }),
-                  ),
+                StatusChip(
+                  label: context.tr('Trust {value}', {
+                    'value': trustLabel,
+                  }),
+                  color: suspicious
+                      ? AppColors.warning
+                      : trusted
+                      ? AppColors.success
+                      : AppColors.muted,
+                  icon: trusted
+                      ? Icons.verified_user_outlined
+                      : Icons.shield_outlined,
                 ),
-                Chip(
-                  label: Text(
-                    context.tr('{count} active sessions', {
-                      'count': device['active_sessions'] ?? 0,
-                    }),
-                  ),
+                StatusChip(
+                  label: context.tr('{count} active sessions', {
+                    'count': device['active_sessions'] ?? 0,
+                  }),
+                  color: AppColors.accentBlue,
+                  icon: Icons.devices_outlined,
                 ),
               ],
             ),

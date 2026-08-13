@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_action_dialogs.dart';
 import 'device_center_widgets.dart';
@@ -9,6 +11,18 @@ import 'portal_api.dart';
 import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
+/// Physical-device center: lists every client Snaplink observed during
+/// authentication, with posture trust, sessions, rename/notes, report-lost
+/// and delete actions. Ports app.js's devices render + device action flows.
+///
+/// The page intentionally refuses to act on MFA trusted-browser grants that
+/// a misconfigured deployment exposes at /me/devices (defensive schema
+/// classification, see [classifyDeviceCollection]) — posture actions would
+/// otherwise mutate the wrong security data.
+///
+/// Layout: header → banner → three-state body. Loading renders
+/// SkeletonListTile, failures render a retryable [PortalErrorCard], and an
+/// empty list renders EmptyState (audit X3/X4/X8).
 class DevicesTab extends StatefulWidget {
   final PortalApi api;
 
@@ -192,59 +206,76 @@ class _DevicesTabState extends State<DevicesTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  context.strings.devices,
-                  style: Theme.of(context).textTheme.headlineSmall,
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.strings.devices,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.tr(
+                        'Physical clients Snaplink has observed during '
+                        'authentication.',
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr(
-                    'Physical clients Snaplink has observed during authentication.',
-                  ),
+              ),
+              IconButton(
+                tooltip: context.tr('Refresh devices'),
+                onPressed: _loading || _busy ? null : _load,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _loading
+              ? const SkeletonListTile(itemCount: 4)
+              : _error != null
+              ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  children: [
+                    MessageBanner(_notice, ok: true),
+                    if (_devices.isEmpty)
+                      const EmptyState(
+                        compact: true,
+                        icon: Icons.devices_other_outlined,
+                        title: 'No physical devices have been recorded.',
+                      )
+                    else
+                      for (final device in _devices)
+                        PhysicalDeviceCard(
+                          device: device,
+                          busy: _busy,
+                          onDetails: (value) => DeviceDetailDialog.show(
+                            context,
+                            api: widget.api,
+                            device: value,
+                          ),
+                          onEdit: _edit,
+                          onTrust: _trust,
+                          onLost: _reportLost,
+                          onDelete: _delete,
+                        ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          IconButton(
-            tooltip: context.tr('Refresh devices'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      MessageBanner(_error),
-      MessageBanner(_notice, ok: true),
-      if (_loading)
-        const LinearProgressIndicator()
-      else if (_devices.isEmpty && _error == null)
-        const EmptyHint('No physical devices have been recorded.')
-      else
-        for (final device in _devices)
-          PhysicalDeviceCard(
-            device: device,
-            busy: _busy,
-            onDetails: (value) => DeviceDetailDialog.show(
-              context,
-              api: widget.api,
-              device: value,
-            ),
-            onEdit: _edit,
-            onTrust: _trust,
-            onLost: _reportLost,
-            onDelete: _delete,
-          ),
-    ],
-  );
+        ),
+      ],
+    );
+  }
 }
 
 String _id(Map<String, dynamic> device) => device['id']?.toString() ?? '';

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 import 'passkey_enrollment_card.dart';
 import 'security_account_credentials.dart';
@@ -11,7 +11,9 @@ import 'recovery_codes_card.dart';
 import 'trusted_devices_card.dart';
 
 /// "Change email" cards from index.html / the loadMFA / totp / pw / email
-/// handlers in app.js.
+/// handlers in app.js. MFA factor list and TOTP enrollment live here; the
+/// other security surfaces (passkeys, recovery codes, trusted devices,
+/// password/email credentials) are self-contained cards below.
 class SecurityTab extends StatefulWidget {
   final PortalApi api;
   const SecurityTab({super.key, required this.api});
@@ -23,6 +25,9 @@ class _SecurityTabState extends State<SecurityTab> {
   // --- MFA factor list ---
   bool _mfaLoading = true;
   bool _mfaBusy = false;
+  bool _mfaError = false;
+  bool _mfaNotEnabled = false;
+  bool _mfaOk = false;
   List<dynamic> _factors = const [];
   String? _mfaEmptyHint; // e.g. "Factor management is not enabled."
   String? _mfaMessage;
@@ -53,6 +58,8 @@ class _SecurityTabState extends State<SecurityTab> {
   Future<void> _loadMfa() async {
     setState(() {
       _mfaLoading = true;
+      _mfaError = false;
+      _mfaNotEnabled = false;
       _mfaEmptyHint = null;
     });
     try {
@@ -62,6 +69,7 @@ class _SecurityTabState extends State<SecurityTab> {
         setState(() {
           _factors = const [];
           _mfaEmptyHint = 'Factor management is not enabled.';
+          _mfaNotEnabled = true;
           _mfaLoading = false;
         });
         return;
@@ -70,6 +78,7 @@ class _SecurityTabState extends State<SecurityTab> {
         setState(() {
           _factors = const [];
           _mfaEmptyHint = 'Could not load your second factors.';
+          _mfaError = true;
           _mfaLoading = false;
         });
         return;
@@ -86,6 +95,7 @@ class _SecurityTabState extends State<SecurityTab> {
       setState(() {
         _factors = const [];
         _mfaEmptyHint = 'Could not load your second factors.';
+        _mfaError = true;
         _mfaLoading = false;
       });
     }
@@ -93,32 +103,19 @@ class _SecurityTabState extends State<SecurityTab> {
 
   Future<void> _removeFactor(String id) async {
     if (id.isEmpty || _mfaBusy) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Remove second factor?')),
-        content: Text(
-          context.tr(
-            'You may lose access if this is your only sign-in backup. You can add another factor afterward.',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Remove')),
-          ),
-        ],
-      ),
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Remove second factor?',
+      message:
+          'You may lose access if this is your only sign-in backup. You can add another factor afterward.',
+      confirmLabel: 'Remove',
+      destructive: true,
     );
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
     setState(() {
       _mfaBusy = true;
       _mfaMessage = null;
+      _mfaOk = false;
     });
     try {
       final response = await widget.api.delete(
@@ -132,7 +129,10 @@ class _SecurityTabState extends State<SecurityTab> {
       }
       await _loadMfa();
       if (mounted) {
-        setState(() => _mfaMessage = 'Second factor removed.');
+        setState(() {
+          _mfaMessage = 'Second factor removed.';
+          _mfaOk = true;
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -238,27 +238,33 @@ class _SecurityTabState extends State<SecurityTab> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
           context.strings.security,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
-              ),
+          style: theme.textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.3,
+          ),
         ),
         const SizedBox(height: 4),
-        const LocalizedText(
+        LocalizedText(
           'Multi-factor authentication and the security factors on your account.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
         const SizedBox(height: 12),
         SecurityMfaCard(
           mfaLoading: _mfaLoading,
+          mfaError: _mfaError,
+          mfaNotEnabled: _mfaNotEnabled,
           factors: _factors,
           mfaEmptyHint: _mfaEmptyHint,
           mfaMessage: _mfaMessage,
+          mfaOk: _mfaOk,
           mfaBusy: _mfaBusy,
           totpPanelOpen: _totpPanelOpen,
           totpBusy: _totpBusy,
@@ -270,6 +276,7 @@ class _SecurityTabState extends State<SecurityTab> {
           onBeginTotp: _beginTotp,
           onConfirmTotp: _confirmTotp,
           onCancelTotp: _cancelTotp,
+          onRetry: _loadMfa,
           onRemoveFactor: (id) => _removeFactor(id),
         ),
         PasskeyEnrollmentCard(api: widget.api, onEnrolled: _loadMfa),

@@ -3,10 +3,14 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
-import 'portal_widgets.dart';
 import 'security_change_email_card.dart';
 import 'security_change_password_card.dart';
 
+/// Password / email credential management: two independent cards
+/// ([SecurityChangePasswordCard], [SecurityChangeEmailCard]), each owning
+/// its own [PortalCard] shell. Password success clears every trusted-browser
+/// grant for the current client (MFA-skip tokens are revoked on credential
+/// rotation).
 class SecurityAccountCredentials extends StatefulWidget {
   final PortalApi api;
 
@@ -207,33 +211,23 @@ class _SecurityAccountCredentialsState
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      PortalCard(
-        title: 'Change password',
-        children: [
-          SecurityChangePasswordCard(
-            curPwCtrl: _currentPassword,
-            newPwCtrl: _newPassword,
-            pwBusy: _passwordBusy,
-            pwMsg: _passwordMessage,
-            pwOk: _passwordOk,
-            onChangePassword: _changePassword,
-          ),
-        ],
+      SecurityChangePasswordCard(
+        curPwCtrl: _currentPassword,
+        newPwCtrl: _newPassword,
+        pwBusy: _passwordBusy,
+        pwMsg: _passwordMessage,
+        pwOk: _passwordOk,
+        onChangePassword: _changePassword,
       ),
-      PortalCard(
-        title: 'Change email',
-        children: [
-          SecurityChangeEmailCard(
-            newEmailCtrl: _newEmail,
-            emailTokenCtrl: _emailToken,
-            emailBusy: _emailBusy,
-            emailVerifyVisible: _emailVerifyVisible,
-            emailMsg: _emailMessage,
-            emailOk: _emailOk,
-            onSendCode: _sendEmailCode,
-            onVerifyCode: _verifyEmailCode,
-          ),
-        ],
+      SecurityChangeEmailCard(
+        newEmailCtrl: _newEmail,
+        emailTokenCtrl: _emailToken,
+        emailBusy: _emailBusy,
+        emailVerifyVisible: _emailVerifyVisible,
+        emailMsg: _emailMessage,
+        emailOk: _emailOk,
+        onSendCode: _sendEmailCode,
+        onVerifyCode: _verifyEmailCode,
       ),
     ],
   );

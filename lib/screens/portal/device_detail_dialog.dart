@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
+/// Physical-device detail dialog: posture KV rows + recent login activity +
+/// active sessions. The three payloads load independently and each section
+/// keeps its own loading / error / empty state — a failing optional resource
+/// never blocks the posture data that drives trust decisions.
 class DeviceDetailDialog extends StatefulWidget {
   final PortalApi api;
   final Map<String, dynamic> device;
@@ -145,13 +152,31 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   }
 
   Widget _detailsSection(Map<String, dynamic> device) {
-    if (_detailLoading) return const LinearProgressIndicator();
+    if (_detailLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: LinearProgressIndicator(),
+      );
+    }
+    final suspicious = device['suspicious'] == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          context.tr('Posture'),
-          style: Theme.of(context).textTheme.titleMedium,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.tr('Posture'),
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (suspicious)
+              StatusChip(
+                label: context.tr('Suspicious'),
+                color: AppColors.warning,
+                icon: Icons.warning_amber,
+              ),
+          ],
         ),
         if (_detailError != null) MessageBanner(_detailError),
         KvRow('Device ID', _id),
@@ -185,72 +210,100 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
     );
   }
 
-  Widget _activitySection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        context.tr('Recent activity'),
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      if (_activityLoading)
-        const LinearProgressIndicator()
-      else if (_activityError != null)
-        MessageBanner(_activityError)
-      else if (_activity.isEmpty)
-        const EmptyHint('No recorded login activity.')
-      else
-        for (final event in _activity)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              event['success'] == false
-                  ? Icons.error_outline
-                  : Icons.login_outlined,
+  Widget _activitySection() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.tr('Recent activity'),
+          style: theme.textTheme.titleMedium,
+        ),
+        if (_activityLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          )
+        else if (_activityError != null)
+          MessageBanner(_activityError)
+        else if (_activity.isEmpty)
+          const EmptyState(
+            compact: true,
+            icon: Icons.login_outlined,
+            title: 'No recorded login activity.',
+          )
+        else
+          for (final event in _activity)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                event['success'] == false
+                    ? Icons.error_outline
+                    : Icons.login_outlined,
+                color: event['success'] == false
+                    ? AppColors.danger
+                    : theme.colorScheme.primary,
+              ),
+              title: Text(
+                context.tr(event['success'] == false ? 'Failed login' : 'Login'),
+              ),
+              subtitle: Text(
+                _parts([
+                  event['time'],
+                  event['location'],
+                  event['ip'],
+                  event['provider'],
+                ]),
+              ),
             ),
-            title: Text(
-              context.tr(event['success'] == false ? 'Failed login' : 'Login'),
-            ),
-            subtitle: Text(
-              _parts([
-                event['time'],
-                event['location'],
-                event['ip'],
-                event['provider'],
-              ]),
-            ),
-          ),
-    ],
-  );
+      ],
+    );
+  }
 
-  Widget _sessionsSection() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(
-        context.tr('Active sessions'),
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      if (_sessionsLoading)
-        const LinearProgressIndicator()
-      else if (_sessionsError != null)
-        MessageBanner(_sessionsError)
-      else if (_sessions.isEmpty)
-        const EmptyHint('No active sessions on this device.')
-      else
-        for (final session in _sessions)
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.key_outlined),
-            title: Text(session['id']?.toString() ?? context.tr('Session')),
-            subtitle: Text(
-              _parts([
-                session['created_at'],
-                session['last_active_at'],
-                session['ip'],
-              ]),
+  Widget _sessionsSection() {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          context.tr('Active sessions'),
+          style: theme.textTheme.titleMedium,
+        ),
+        if (_sessionsLoading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          )
+        else if (_sessionsError != null)
+          MessageBanner(_sessionsError)
+        else if (_sessions.isEmpty)
+          const EmptyState(
+            compact: true,
+            icon: Icons.key_outlined,
+            title: 'No active sessions on this device.',
+          )
+        else
+          for (final session in _sessions)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.key_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              title: Text(
+                session['id']?.toString() ?? context.tr('Session'),
+              ),
+              subtitle: Text(
+                _parts([
+                  session['created_at'],
+                  session['last_active_at'],
+                  session['ip'],
+                ]),
+              ),
             ),
-          ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 String _parts(Iterable<Object?> values) => values

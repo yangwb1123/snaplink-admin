@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
 /// Connected applications (OAuth consents) list + per-app revoke. Ports the
 /// "Connected applications" card / loadConsents() in app.js.
+///
+/// Layout: header → three-state body. Loading renders [SkeletonListTile],
+/// failures render a retryable [PortalErrorCard], and an empty list renders
+/// an [EmptyState] (loading/empty/error triad). Each row shows the client id
+/// (API value, raw [Text]), the granted scopes, and a destructive Revoke
+/// action behind the shared [ConfirmDialog], with a per-row busy spinner.
 class ConsentsTab extends StatefulWidget {
   final PortalApi api;
+
   const ConsentsTab({super.key, required this.api});
 
   @override
@@ -17,61 +26,88 @@ class ConsentsTab extends StatefulWidget {
 }
 
 class _ConsentsTabState extends State<ConsentsTab> {
-  late Future<List<dynamic>> _future = _load();
+  bool _loading = true;
+  List<Map<String, dynamic>> _consents = const [];
+  String? _error;
+  String? _notice;
   String? _revokingClientId;
 
-  Future<List<dynamic>> _load() async {
-    final r = await widget.api.get('/consents/me');
-    if (r.statusCode == 401) {
-      throw PortalApiError(r.statusCode, 'Your session has expired.');
-    }
-    if (r.statusCode != 200) {
-      throw PortalApiError(
-        r.statusCode,
-        'Connected applications are not available.',
-      );
-    }
-    final d = PortalApi.decode(r);
-    return (d['consents'] as List?) ?? const [];
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  void _reload() => setState(() => _future = _load());
+  Future<void> _load({bool preserveNotice = false}) async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (!preserveNotice) _notice = null;
+    });
+    try {
+      final response = await widget.api.get('/consents/me');
+      if (!mounted) return;
+      if (response.statusCode == 401) {
+        setState(() => _error = 'Your session has expired.');
+        return;
+      }
+      if (response.statusCode != 200) {
+        setState(
+          () => _error = 'Connected applications are not available.',
+        );
+        return;
+      }
+      final values = PortalApi.decode(response)['consents'] as List? ??
+          const [];
+      setState(() {
+        _consents = values
+            .whereType<Map>()
+            .map((value) => Map<String, dynamic>.from(value))
+            .toList(growable: false);
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _error = 'Connected applications are not available.');
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   Future<void> _revoke(String clientId) async {
     if (clientId.isEmpty) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(context.tr('Revoke application access?')),
-        content: Text(
-          context.tr(
-            '{clientId} will no longer be able to use the permissions you granted. You can authorize it again later.',
-            {'clientId': clientId},
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(context.strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            child: Text(context.tr('Revoke')),
-          ),
-        ],
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Revoke application access?',
+      message: context.tr(
+        '{clientId} will no longer be able to use the permissions you '
+        'granted. You can authorize it again later.',
+        {'clientId': clientId},
       ),
+      confirmLabel: 'Revoke',
+      destructive: true,
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _revokingClientId = clientId);
+    setState(() {
+      _revokingClientId = clientId;
+      _notice = null;
+      _error = null;
+    });
     try {
       final response = await widget.api.delete(
         '/consents/me/${Uri.encodeComponent(clientId)}',
       );
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw PortalApiError(response.statusCode);
+      if (!mounted) return;
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        setState(() => _notice = 'Application access revoked.');
+        await _load(preserveNotice: true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.tr('Could not revoke application access.')),
+          ),
+        );
       }
-      _reload();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,8 +121,86 @@ class _ConsentsTabState extends State<ConsentsTab> {
     }
   }
 
+  /// Renders one consent row: brand-tinted app icon, client id (API value,
+  /// raw [Text]), granted scopes meta, and a danger Revoke action with a
+  /// per-row busy spinner. Scope text stays the API-joined `'a b c'` string
+  /// so the revoke semantics (and its tests) are unchanged.
+  Widget _consentRow(BuildContext context, Map<String, dynamic> consent) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final clientId = consent['client_id']?.toString() ?? '';
+    final scopes = ((consent['scopes'] as List?) ?? const [])
+        .map((scope) => scope.toString())
+        .join(' ');
+    final busy = _revokingClientId == clientId;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(Icons.apps_outlined, size: 17, color: accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  clientId.isEmpty ? context.tr('Unknown') : clientId,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (scopes.isNotEmpty)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.lock_outline,
+                        size: 13,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          scopes,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed:
+                busy || clientId.isEmpty ? null : () => _revoke(clientId),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(context.tr('Revoke')),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -94,87 +208,66 @@ class _ConsentsTabState extends State<ConsentsTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text(
-                context.tr('Connected applications'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.tr('Connected applications'),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.tr(
+                        'Applications you have authorized to access your '
+                        'account data.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Spacer(),
-              IconButton(onPressed: _reload, icon: const Icon(Icons.refresh)),
+              IconButton(
+                tooltip: context.tr('Refresh applications'),
+                onPressed: _loading || _revokingClientId != null ? null : _load,
+                icon: const Icon(Icons.refresh),
+              ),
             ],
           ),
         ),
-        const SizedBox(height: 4),
-        const LocalizedText(
-          'Applications you have authorized to access your account data.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
-        ),
         Expanded(
-          child: FutureBuilder<List<dynamic>>(
-            future: _future,
-            builder: (context, snap) {
-              if (snap.connectionState != ConnectionState.done) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snap.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        context.tr('Error: {error}', {
-                          'error': context.tr('${snap.error}'),
-                        }),
+          child: _loading
+              ? const SkeletonListTile(itemCount: 3)
+              : _error != null
+              ? PortalErrorCard(
+                  message: context.tr(_error!),
+                  onRetry: _load,
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  children: [
+                    MessageBanner(_notice, ok: true),
+                    if (_consents.isEmpty)
+                      const EmptyState(
+                        compact: true,
+                        icon: Icons.apps_outlined,
+                        title: 'No connected applications.',
+                      )
+                    else
+                      PortalCard(
+                        title: 'Authorized applications',
+                        children: [
+                          for (final consent in _consents)
+                            _consentRow(context, consent),
+                        ],
                       ),
-                      const SizedBox(height: 12),
-                      FilledButton.tonal(
-                        onPressed: _reload,
-                        child: const LocalizedText('Retry'),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              final items = snap.data ?? const [];
-              if (items.isEmpty) {
-                return const Center(
-                  child: EmptyHint('No connected applications.'),
-                );
-              }
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final c = items[i] as Map<String, dynamic>;
-                  final clientId = c['client_id']?.toString() ?? '';
-                  final scopes = ((c['scopes'] as List?) ?? const []).join(' ');
-                  return ListTile(
-                    title: Text(clientId),
-                    subtitle: scopes.isEmpty ? null : Text(scopes),
-                    trailing: TextButton(
-                      onPressed:
-                          _revokingClientId == null && clientId.isNotEmpty
-                          ? () => _revoke(clientId)
-                          : null,
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                      ),
-                      child: _revokingClientId == clientId
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(context.tr('Revoke')),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+                  ],
+                ),
         ),
       ],
     );

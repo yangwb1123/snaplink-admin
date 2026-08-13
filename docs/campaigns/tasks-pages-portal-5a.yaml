@@ -1,0 +1,104 @@
+# 逐页 UI 重构 — batch 5a（portal 组：overview/devices/security/identities/consents）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-portal-5a.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-portal-5a.log
+# 参考：docs/ui/admin-pages/audit.md（"Brief scans: lib/screens/portal/ has the
+#       same X3/X6/X8 family (11/14 files lack EmptyState/StatusChip/skeleton)"）
+
+tasks:
+- prompt: |
+    重构门户概览页面。步骤：
+    1. 分析现有代码：lib/screens/portal/overview_tab.dart、portal_widgets.dart、
+       portal_screen_shell.dart —— 读完整文件，梳理门户概览（账户/设备/
+       授权摘要）的 UI 结构。
+    2. 对照可用组件（lib/widgets/：key_metric_card、data_emphasis、
+       section_header、status_chip、empty_state、skeleton_list、
+       sparkline、progress_ring、timeline_list 等）与 portal 品牌色，
+       结合 docs/ui/admin-pages/audit.md 中 portal 的简要审计，列出
+       改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色（portal 无组色映射，用
+         colorScheme.primary 或品牌色）；
+       - loading/empty/error 三态齐全；保持行为与测试语义；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart test/portal_entry_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-overview.md（分析摘要→问题
+       清单→修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-overview.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart test/portal_entry_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户设备中心页面。步骤：
+    1. 分析现有代码：lib/screens/portal/devices_tab.dart、
+       device_center_widgets.dart、device_detail_dialog.dart、
+       device_action_dialogs.dart —— 读完整文件，梳理物理设备列表/
+       详情/改名/备注/报失/删除的 UI 结构。
+    2. 对照可用组件与组色（adminModuleIconColor 不可用于 portal——
+       用 colorScheme 品牌色），结合审计 portal 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；设备操作语义（报失/删除确认、
+         活动/会话/信任展示）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart test/portal_security_widgets_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/portal-devices.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-devices.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart test/portal_security_widgets_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户安全中心页面。步骤：
+    1. 分析现有代码：lib/screens/portal/security_tab.dart、
+       security_account_credentials.dart、security_mfa_card.dart、
+       security_change_password_card.dart、security_change_email_card.dart、
+       security_factor_tile.dart、trusted_devices_card.dart、
+       passkey_enrollment_card.dart、recovery_codes_card.dart —— 读完整
+       文件，梳理账户凭据/MFA/Passkey/恢复码/可信设备的 UI 结构。
+    2. 对照可用组件与品牌色，结合审计 portal 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；安全语义（恢复码一次性展示、
+         MFA 因子移除确认、Passkey 注册流）保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_security_widgets_test.dart test/portal_screens_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/portal-security.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-security.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_security_widgets_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户关联身份页面。步骤：
+    1. 分析现有代码：lib/screens/portal/identities_tab.dart、
+       member_row_tile.dart —— 读完整文件，梳理关联身份/成员的 UI
+       结构。
+    2. 对照可用组件与品牌色，结合审计 portal 条目，列出改进点。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；身份解除/成员操作语义保持；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-identities.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-identities.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构门户授权页面。步骤：
+    1. 分析现有代码：lib/screens/portal/consents_tab.dart —— 读完整
+       文件，梳理已授权应用列表/撤销的 UI 结构。
+    2. 对照可用组件与品牌色，结合审计 portal 条目，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；授权撤销语义（scope 展示、
+         撤销确认）保持不变；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/portal-consents.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/portal-consents.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"

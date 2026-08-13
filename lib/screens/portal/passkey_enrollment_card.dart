@@ -7,6 +7,8 @@ import 'portal_widgets.dart';
 
 /// Authenticated passkey enrollment, kept separate from TOTP management so a
 /// browser ceremony never makes the rest of the security screen unavailable.
+/// WebAuthn is browser-only; this card stays self-contained with its own
+/// busy/result states.
 class PasskeyEnrollmentCard extends StatefulWidget {
   final PortalApi api;
   final VoidCallback onEnrolled;
@@ -89,32 +91,42 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
   }
 
   @override
-  Widget build(BuildContext context) => PortalCard(
-    title: 'Add a passkey',
-    children: [
-      Text(context.tr('Use a biometric or security key for future sign-ins.')),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _nameCtrl,
-        decoration: InputDecoration(
-          labelText: context.tr('Passkey name (optional)'),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PortalCard(
+      title: 'Add a passkey',
+      children: [
+        Text(
+          context.tr('Use a biometric or security key for future sign-ins.'),
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
-      ),
-      const SizedBox(height: 12),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton(
-          onPressed: _busy ? null : _enroll,
-          child: _busy
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(context.tr('Add a passkey')),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _nameCtrl,
+          decoration: InputDecoration(
+            labelText: context.tr('Passkey name (optional)'),
+            prefixIcon: const Icon(Icons.fingerprint),
+          ),
         ),
-      ),
-      MessageBanner(_message, ok: _ok),
-    ],
-  );
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OutlinedButton.icon(
+            onPressed: _busy ? null : _enroll,
+            icon: _busy
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.fingerprint),
+            label: Text(context.tr('Add a passkey')),
+          ),
+        ),
+        MessageBanner(_message, ok: _ok),
+      ],
+    );
+  }
 }
