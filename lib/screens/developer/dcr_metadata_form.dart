@@ -152,6 +152,9 @@ class DcrMetadataForm extends StatelessWidget {
           key: ValueKey(
             'auth-${controller.tokenEndpointAuthMethod}-$managementMode',
           ),
+          // 窄视口（375）下按最宽菜单项定宽会撑出卡片；isExpanded 让按钮
+          // 占满字段宽、文字 ellipsis 截断（菜单项仍完整可读）。
+          isExpanded: true,
           initialValue: controller.tokenEndpointAuthMethod,
           decoration: InputDecoration(
             labelText: context.tr('Token endpoint authentication'),
@@ -180,6 +183,7 @@ class DcrMetadataForm extends StatelessWidget {
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           key: ValueKey('strategy-${controller.tokenStrategy}'),
+          isExpanded: true,
           initialValue: controller.tokenStrategy,
           decoration: InputDecoration(labelText: context.tr('Token strategy')),
           items: const [
@@ -310,9 +314,13 @@ class DcrMetadataForm extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             const SizedBox(width: 8),
-            Text(
-              context.tr(text),
-              style: Theme.of(context).textTheme.titleMedium,
+            Expanded(
+              child: Text(
+                context.tr(text),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
           ],
         ),

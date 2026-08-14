@@ -1,0 +1,93 @@
+# 第二轮质量提升 — batch 11（响应式审查 / 可访问性复检 / 质量门禁固化）
+#
+# 页面级重构与闭环验收已完成。本批深化：
+#   1) 响应式审查：6 入口代表性页面在 375px（移动）视口渲染，找溢出/
+#      截断，修复通用布局问题；
+#   2) 可访问性复检：WCAG 对比度（亮/暗模式）、焦点可见、语义标签、
+#      触摸目标抽查，修复低风险项；
+#   3) 质量门禁固化：把已修复的图标上色/spacing token 检查固化为自动化
+#      回归测试（像 i18n_coverage_test 一样防退化）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-quality-round2.yaml \
+#     --mode serial --timeout 1500 --log-file logs/quality-round2.log
+
+tasks:
+- prompt: |
+    响应式布局审查。步骤：
+    1. 对 6 个产品入口的代表性页面，在 375×812（移动）视口渲染并检查
+       溢出/截断/可用性：
+       - /admin/：dashboard_screen（rail + section selector + 一个列表
+         页如 clients_tab）与 settings_screen；
+       - /portal/：portal_screen_shell + security_tab；
+       - /login/：OidcLoginScreen（含登录头 Wrap 换行）；
+       - /device/verify：DeviceVerifyScreen；/setup/：SetupScreen；
+       - /developer/：DeveloperScreen。
+       写临时 widget 测试（test/zz_*）渲染这些页面于 375px 视口，
+       takeException 检查 RenderFlex overflow，逐页记录证据，跑完删除。
+    2. 分析每个溢出：根因（固定宽度/Row 不换行/最小宽度过大），修复
+       通用问题（只改 lib/screens/ 与 lib/widgets/，白名单）：
+       - 固定宽度改 Flexible/自适应；Row 溢出改 Wrap 或收缩；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login 模块。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/login_header_layout_test.dart test/settings_form_layout_test.dart
+       test/admin_shell_test.dart test/portal_screens_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/quality-responsive.md（逐页证据表 +
+       修复清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/quality-responsive.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_header_layout_test.dart test/settings_form_layout_test.dart test/admin_shell_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    可访问性复检。步骤：
+    1. 检查以下类别的低风险可访问性问题（逐项代码取证 + 必要时用
+       临时 widget 测试验证，跑完删除）：
+       a. WCAG 对比度：lib/theme/app_colors.dart 与 lib/widgets/
+          status_chip.dart 等组件中的颜色（danger/警告/成功/信息/
+          未知）在亮/暗模式下对 surface 的对比度 ≥3:1（图标/图形）或
+          ≥4.5:1（文本）；brand 强调色（admin_module_groups 组色、
+          select_style 强调色）暗模式对比度；
+       b. 焦点可见：IconButton/InkWell 无 focus 指示的抽查（登录头
+          _HoverTint 已有，检查其他页面级 IconButton）；
+       c. 语义标签：纯图标按钮无 tooltip/semanticsLabel 的抽查；
+       d. 触摸目标：<44px 的可点击区域抽查（页面级 IconButton 默认
+          48px 已满足，检查自定义紧凑控件）。
+    2. 修复低风险项（只改 lib/widgets/、lib/screens/、lib/theme/ +
+       lib/i18n/）：
+       - 对比度不足的颜色提亮/加深（保持品牌意图）；
+       - 缺失的 tooltip/semanticsLabel 补齐；
+       - 不改变行为与 API；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login 模块。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/theme_picker_test.dart test/status_chip*（如有）及
+       test/admin_shell_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/quality-a11y.md（检查表 + 修复清单 +
+       验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/quality-a11y.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/theme_picker_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    质量门禁固化。步骤：
+    1. 将此前已修复并验收的检查固化为自动化回归测试（放 test/ 下，
+       像 test/i18n_coverage_test.dart 一样常驻）：
+       a. 图标上色扫描：lib/screens/admin 下的页面级 Icon 若出现在
+          导航/批量/空态等上下文应使用 adminModuleIconColor 或显式
+          color——基于现有 test/admin_icon_colors_test.dart 扩展为
+          覆盖 portal/developer/login/device/setup 入口（品牌色或
+          colorScheme 派生色，允许 Icon 默认继承主题色的白名单）；
+       b. spacing token 扫描：把 login_header_layout_test 中的 token
+          检查（4-64 集）扩展为扫描 lib/widgets/ 公共组件与
+          lib/screens/ 的页面文件（SizedBox/EdgeInsets/leadingWidth
+          等字面量），豁免组件固有宽度（280/520 等）与 0 值；
+       c. 三态门禁：抽查数据区域页面文件包含 loading（SkeletonListTile/
+          CircularProgressIndicator）、empty（EmptyState）与 error
+          （重试）模式的静态扫描（宽松：缺失时仅告警输出不失败，
+          或在报告中列明豁免）。
+    2. 只新增 test/ 文件与必要的测试辅助；不修改 lib/ 产品代码
+       （发现违规只记录不修改，输出到报告）；不新增依赖。
+    3. 验证：flutter analyze 0 errors；flutter test 新增的扫描测试 +
+       test/i18n_coverage_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/quality-gates.md（门禁说明 + 扫描
+       结果 + 违规记录）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/quality-gates.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/admin_icon_colors_test.dart test/language_catalog_test.dart 2>&1 | grep -qE 'All tests passed!'"
