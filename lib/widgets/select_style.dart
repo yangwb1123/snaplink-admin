@@ -119,51 +119,6 @@ IconData get headerDropdownArrowUpIcon => Icons.arrow_drop_up;
 /// suffixIconConstraints 一致，20×20）。
 const headerDropdownArrowSize = 20.0;
 
-/// 下拉箭头按钮（decorationBuilder 的 suffixIcon 用）：DropdownMenu 默认
-/// 箭头按钮被 SDK 的 Padding(4) + M3 内边距包装，在 20px 收紧约束下塌缩
-/// 成 0×0 并从字段右下角溢出绘制（审计 F1）。这里绕开默认包装：自建
-/// IconButton 用零内边距 + 20×20 紧约束 + 20px 图标，恰好填满
-/// InputDecorator 的 suffix 槽（20×20、垂直居中、右缘贴齐字段）。
-///
-/// 按钮保留 Tab 焦点与键盘激活（登录头 _HoverTint 依赖子级焦点绘制聚焦
-/// 底色）；展开/收起经 [MenuController] 的 isOpen 切换箭头方向与开关。
-/// [ExcludeSemantics] 排除按钮语义（字段本身带展开/收起语义，与 SDK
-/// 默认 isButton 行为一致）。
-Widget appHeaderDropdownSuffixIcon(
-  ThemeData theme,
-  MenuController controller, {
-  required bool enabled,
-}) =>
-    ExcludeSemantics(
-      child: IconButton(
-        icon: const Icon(
-          Icons.arrow_drop_down,
-          size: headerDropdownArrowSize,
-        ),
-        selectedIcon: const Icon(
-          Icons.arrow_drop_up,
-          size: headerDropdownArrowSize,
-        ),
-        isSelected: controller.isOpen,
-        onPressed: enabled
-            ? () => controller.isOpen
-                ? controller.close()
-                : controller.open()
-            : null,
-        iconSize: headerDropdownArrowSize,
-        color: theme.colorScheme.onSurfaceVariant,
-        constraints: const BoxConstraints.tightFor(
-          width: headerDropdownArrowSize,
-          height: headerDropdownArrowSize,
-        ),
-        style: IconButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
-    );
-
 /// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
 /// 20px（与设置页表单版同一视觉），否则 InputDecorator 的 icon 默认
 /// 48px 高会把控件撑高。

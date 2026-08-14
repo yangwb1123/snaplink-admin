@@ -66,21 +66,24 @@ class ThemeDropdown extends StatelessWidget {
         leadingWidth: 26, // 彩色图标 18 + 间距 8
         compact: compact,
       ),
-      // 装饰经 decorationBuilder 提供（审计 F1）：suffixIcon 用普通 Icon
-      // 直装 suffix 槽，绕开 SDK 默认 IconButton 包装的 0×0 塌缩，箭头
-      // 方向随 MenuController 切换。prefixIcon 承载当前主题模式图标。其余
-      // 字段由 inputDecorationTheme 经 applyDefaults 合并。
-      decorationBuilder: (context, controller) => InputDecoration(
-        prefixIcon: Icon(
-          _modeIcons[current]!,
-          size: 20,
-          color: currentColor,
-        ),
-        suffixIcon: appHeaderDropdownSuffixIcon(
-          theme,
-          controller,
-          enabled: enabled,
-        ),
+      // 装饰经 SDK 原生参数提供（审计 F1，Flutter 3.38 兼容）：prefixIcon
+      // 承载当前主题模式图标；箭头方向随展开/收起自动切换
+      // （selectedTrailingIcon）。其余字段由 inputDecorationTheme 经
+      // applyDefaults 合并。
+      leadingIcon: Icon(
+        _modeIcons[current]!,
+        size: 20,
+        color: currentColor,
+      ),
+      trailingIcon: const Icon(
+        Icons.arrow_drop_down,
+        size: headerDropdownArrowSize,
+        color: Color(0xFF616161),
+      ),
+      selectedTrailingIcon: const Icon(
+        Icons.arrow_drop_up,
+        size: headerDropdownArrowSize,
+        color: Color(0xFF616161),
       ),
       textStyle: textStyle,
       inputDecorationTheme:
