@@ -15,10 +15,13 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const moduleDir = 'lib/screens/oidc_login';
   const authorizationFlow = '$moduleDir/oidc_authorization_flow.dart';
+  // batch 13 拆分：authorization 的 3 个 _handleSuccess 调用点随提交子流程
+  // 移至独立文件（行号 pin 同步；声明仍在 authorizationFlow:8）。
+  const authorizationSubmit = '$moduleDir/oidc_authorization_submit.dart';
   const challengeFlow = '$moduleDir/oidc_challenge_flow.dart';
   const providerFlow = '$moduleDir/oidc_provider_flow.dart';
   const accountFlow = '$moduleDir/oidc_account_flow.dart';
-  const flowFiles = [authorizationFlow, challengeFlow, providerFlow];
+  const flowFiles = [authorizationSubmit, challengeFlow, providerFlow];
 
   List<String> linesOf(String path) =>
       File(path).readAsStringSync().split('\n');
@@ -26,7 +29,9 @@ void main() {
   group('_handleSuccess census (REQ-1/REQ-4)', () {
     test('single declaration at oidc_authorization_flow.dart:8', () {
       final declarations = <String, List<int>>{};
-      for (final file in [...flowFiles, accountFlow]) {
+      // 声明固定在 authorization_flow.dart:8；调用点分布在 submit/
+      // challenge/provider 三个文件（flowFiles）。
+      for (final file in [authorizationFlow, ...flowFiles, accountFlow]) {
         final lines = linesOf(file);
         for (var i = 0; i < lines.length; i++) {
           if (lines[i].contains('void _handleSuccess(')) {
@@ -39,7 +44,7 @@ void main() {
 
     test('exactly six call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
-        authorizationFlow: [245, 326, 392],
+        authorizationSubmit: [21, 102, 168],
         challengeFlow: [150, 244],
         providerFlow: [60],
       };
@@ -339,7 +344,10 @@ void main() {
 
     List<(String, String, int, int, List<String>)> allSlices() {
       final out = <(String, String, int, int, List<String>)>[];
-      for (final f in flowFiles) {
+      // 声明文件（authorizationFlow）也参与切片：Gap A/B 需要定位
+      // _handleSuccess 声明（行 8）与 _submitLogin 分发；声明方法体不含
+      // 调用点，不改变 identified set == 6。
+      for (final f in [authorizationFlow, ...flowFiles]) {
         out.addAll(sliceMethods(f));
       }
       return out;
@@ -360,7 +368,7 @@ void main() {
                 'slicer miss) or a seventh path fails here, never silently: '
                 '${ids.length} found');
         const pinned = <String, List<int>>{
-          authorizationFlow: [245, 326, 392],
+          authorizationSubmit: [21, 102, 168],
           challengeFlow: [150, 244],
           providerFlow: [60],
         };
@@ -439,7 +447,7 @@ void main() {
       () {
         final all = allSlices();
         final submit = all.firstWhere(
-            (m) => m.$1 == authorizationFlow && m.$2 == '_submitLogin',
+            (m) => m.$1 == authorizationSubmit && m.$2 == '_submitLogin',
             orElse: () => throw StateError('_submitLogin slice not found'));
         final body = submit.$5;
         for (final anchor in [
