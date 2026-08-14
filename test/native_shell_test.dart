@@ -14,6 +14,21 @@ import 'package:sso_admin/services/app_navigator.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/session.dart';
 
+
+/// 登录表单输入框：登录头下拉（DropdownMenu 内部也是 TextField）使按类型
+/// 索引不稳定，用 autofillHints 定位。
+Finder usernameField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.username) ?? false),
+);
+
+Finder passwordField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.password) ?? false),
+);
+
 void main() {
   tearDown(Session.clear);
 
@@ -156,8 +171,8 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    await tester.enterText(find.byType(TextField).at(0), 'native-admin');
-    await tester.enterText(find.byType(TextField).at(1), 'password');
+    await tester.enterText(usernameField(), 'native-admin');
+    await tester.enterText(passwordField(), 'password');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
 
@@ -207,8 +222,8 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    await tester.enterText(find.byType(TextField).at(0), 'old-user');
-    await tester.enterText(find.byType(TextField).at(1), 'old-password');
+    await tester.enterText(usernameField(), 'old-user');
+    await tester.enterText(passwordField(), 'old-password');
 
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
