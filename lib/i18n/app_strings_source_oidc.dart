@@ -1,10 +1,10 @@
 /// Hosted login, account recovery, MFA, and consent copy.
 const appOidcSourceZh = <String, String>{
-    'snaplink console': 'snaplink 控制台',
+  'snaplink console': 'snaplink 控制台',
   'Identity & Access Management': '身份与访问管理',
   'Enterprise-grade identity & access management': '企业级身份与访问管理',
   '© {year} snaplink · secure identity platform': '© {year} snaplink · 安全身份平台',
-'Show password': '显示密码',
+  'Show password': '显示密码',
   'Hide password': '隐藏密码',
 
   'Account created. You can now sign in.': '账户已创建，现在可以登录。',
@@ -36,6 +36,14 @@ const appOidcSourceZh = <String, String>{
   'Federated RP sign-in requires a Snaplink deployment that preserves the server-owned authorization request and securely resumes it after the identity-provider callback.':
       '联合 RP 登录要求 Snaplink 完整保留服务器拥有的授权请求，并在身份提供方回调后安全续接。',
   'Federated sign-in requires the web console.': '联合登录需要使用 Web 控制台。',
+  'Federated sign-in completed. Resuming your session…':
+      '联合登录已完成，正在恢复您的会话…',
+  'Federated sign-in could not be completed. Start sign-in again; the one-time callback was not replayed.':
+      '联合登录未能完成。请重新开始登录；一次性回调不会被重放。',
+  'The federated sign-in code could not be exchanged. Start sign-in again; the one-time callback was not replayed.':
+      '无法交换联合登录的授权码。请重新开始登录；一次性回调不会被重放。',
+  'The identity provider declined the sign-in. Start again or choose another sign-in method.':
+      '身份提供方拒绝了本次登录。请重新开始或选择其他登录方式。',
   'Create a Snaplink account. Some organizations require email verification before the account becomes active.':
       '创建 Snaplink 账户。部分组织要求验证邮箱后账户才能激活。',
   'Deny': '拒绝',
@@ -101,6 +109,14 @@ const appOidcSourceZh = <String, String>{
       'Snaplink 未提供经服务器验证的授权续接地址；未重定向任何授权码、令牌或错误。',
   'Snaplink did not return a server-signed JARM response or a validated continuation. No unsigned code or token was redirected.':
       'Snaplink 未返回服务器签名的 JARM 响应或经验证的后续地址；未重定向未签名的代码或令牌。',
+  'Delivering the authorization result…': '正在传送授权结果…',
+  'Redirecting the authorization result to {host}.': '正在将授权结果重定向到 {host}。',
+  'Submitting the authorization result to {host}.': '正在向 {host} 提交授权结果。',
+  'Delivering the signed JARM envelope to {host}.':
+      '正在向 {host} 传送已签名的 JARM 信封。',
+  'Delivering the signed JARM envelope…': '正在传送已签名的 JARM 信封…',
+  'Submitting the signed JARM envelope to {host}.':
+      '正在向 {host} 提交已签名的 JARM 信封。',
   'Snaplink returned an incomplete verification challenge. Sign in again to request a new challenge.':
       'Snaplink 返回的验证挑战不完整。请重新登录以请求新的挑战。',
   'Snaplink did not return an access token. Sign in again to retry.':

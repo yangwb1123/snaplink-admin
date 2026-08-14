@@ -27,13 +27,48 @@ class LoginBackdrop extends StatelessWidget {
   );
 }
 
+/// 装饰图元调参常量：透明度 / 线宽 / 角度 / 尺寸系数统一命名，与
+/// [AppColors] 品牌色配对，避免 paint() 内散落魔法数字。
+abstract final class _BackdropStyle {
+  /// 中央排除带半宽：440px 卡水平居中 ±230px 内不绘制任何图元。
+  static const double exclusionHalfWidth = 230;
+
+  // 轨道环（orbit ring）：两条椭圆弧 + 两端卫星点。
+  static const double orbitRingAlpha = 0.25;
+  static const double orbitRingInnerAlpha = 0.15;
+  static const double orbitDotAlpha = 0.6;
+  static const double orbitDotRadius = 4;
+  static const double orbitStrokeWidth = 2;
+  static const double orbitRingInnerInset = 18; // 内弧相对外弧的收缩量。
+  static const double orbitOuterStart = 3.49; // 外弧起点（rad）。
+  static const double orbitOuterSweep = 2.44; // 外弧扫过角（rad）。
+  static const double orbitOuterEnd = 5.93; // 起点 + 扫过角（卫星点位置）。
+  static const double orbitInnerStart = 3.66; // 内弧起点（rad）。
+  static const double orbitInnerSweep = 2.09; // 内弧扫过角（rad）。
+
+  // 盾牌（shield）：填充 + 描边 + 中间对勾。
+  static const double shieldFillAlpha = 0.08;
+  static const double shieldStrokeAlpha = 0.35;
+  static const double shieldCheckAlpha = 0.5;
+  static const double shieldStrokeWidth = 2;
+  static const double shieldCheckStrokeWidth = 3;
+
+  // 节点簇（node cluster）：5 圆 + 2 连接线。
+  static const double nodeLineAlpha = 0.3;
+  static const double nodeLineStrokeWidth = 1.5;
+
+  // 底部虚线环（dashed ring）：手动分段弧（无原生 dash）。
+  static const double ringAlpha = 0.2;
+  static const double ringStrokeWidth = 1.5;
+  static const double ringSegment = 0.10; // 每段弧长（rad）。
+  static const double ringGap = 0.10; // 段间距（rad）。
+  static const int ringSegments = 32;
+}
+
 class _LoginBackdropPainter extends CustomPainter {
   final Brightness brightness;
 
   _LoginBackdropPainter(this.brightness);
-
-  /// 中央排除带半宽：440px 卡水平居中 ±230px 内不绘制任何图元。
-  static const double _exclusionHalfWidth = 230;
 
   // 节点簇相对坐标（相对簇中心，单位 px）。
   static const List<Offset> _nodeOffsets = [
@@ -51,6 +86,7 @@ class _LoginBackdropPainter extends CustomPainter {
 
   // Path 复用（避免每帧分配）。
   final Path _shield = Path();
+  final Path _shieldCheck = Path();
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -63,9 +99,9 @@ class _LoginBackdropPainter extends CustomPainter {
 
     // 中央排除带：左右两个区域分别绘制。
     final band = Rect.fromLTRB(
-      size.width / 2 - _exclusionHalfWidth,
+      size.width / 2 - _BackdropStyle.exclusionHalfWidth,
       0,
-      size.width / 2 + _exclusionHalfWidth,
+      size.width / 2 + _BackdropStyle.exclusionHalfWidth,
       size.height,
     );
     canvas.save();
@@ -93,18 +129,33 @@ class _LoginBackdropPainter extends CustomPainter {
     final rect = Rect.fromCenter(center: center, width: rx * 2, height: ry * 2);
 
     _stroke
-      ..color = color.withValues(alpha: 0.25)
-      ..strokeWidth = 2;
-    canvas.drawArc(rect, 3.49, 2.44, false, _stroke);
+      ..color = color.withValues(alpha: _BackdropStyle.orbitRingAlpha)
+      ..strokeWidth = _BackdropStyle.orbitStrokeWidth;
+    canvas.drawArc(
+      rect,
+      _BackdropStyle.orbitOuterStart,
+      _BackdropStyle.orbitOuterSweep,
+      false,
+      _stroke,
+    );
 
-    _stroke.color = color.withValues(alpha: 0.15);
-    canvas.drawArc(rect.deflate(18), 3.66, 2.09, false, _stroke);
+    _stroke.color = color.withValues(alpha: _BackdropStyle.orbitRingInnerAlpha);
+    canvas.drawArc(
+      rect.deflate(_BackdropStyle.orbitRingInnerInset),
+      _BackdropStyle.orbitInnerStart,
+      _BackdropStyle.orbitInnerSweep,
+      false,
+      _stroke,
+    );
 
     // 卫星点：外弧两端。
-    _fill.color = color.withValues(alpha: 0.6);
-    for (final angle in const [3.49, 5.93]) {
+    _fill.color = color.withValues(alpha: _BackdropStyle.orbitDotAlpha);
+    for (final angle in const [
+      _BackdropStyle.orbitOuterStart,
+      _BackdropStyle.orbitOuterEnd,
+    ]) {
       final dot = center + Offset(rx * math.cos(angle), ry * math.sin(angle));
-      canvas.drawCircle(dot, 4, _fill);
+      canvas.drawCircle(dot, _BackdropStyle.orbitDotRadius, _fill);
     }
   }
 
@@ -121,25 +172,26 @@ class _LoginBackdropPainter extends CustomPainter {
       ..quadraticBezierTo(cx - 45, cy - 45, cx, cy - 55)
       ..close();
 
-    _fill.color = color.withValues(alpha: 0.08);
+    _fill.color = color.withValues(alpha: _BackdropStyle.shieldFillAlpha);
     canvas.drawPath(_shield, _fill);
 
     _stroke
-      ..color = color.withValues(alpha: 0.35)
-      ..strokeWidth = 2;
+      ..color = color.withValues(alpha: _BackdropStyle.shieldStrokeAlpha)
+      ..strokeWidth = _BackdropStyle.shieldStrokeWidth;
     canvas.drawPath(_shield, _stroke);
 
-    // 对勾 polyline。
-    final check = Path()
+    // 对勾 polyline（Path 复用，与盾形同一策略）。
+    _shieldCheck
+      ..reset()
       ..moveTo(cx - 18, cy - 8)
       ..lineTo(cx - 6, cy + 6)
       ..lineTo(cx + 22, cy - 16);
     _stroke
-      ..color = color.withValues(alpha: 0.5)
-      ..strokeWidth = 3
+      ..color = color.withValues(alpha: _BackdropStyle.shieldCheckAlpha)
+      ..strokeWidth = _BackdropStyle.shieldCheckStrokeWidth
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
-    canvas.drawPath(check, _stroke);
+    canvas.drawPath(_shieldCheck, _stroke);
   }
 
   /// 右侧节点簇：5 个圆 + 2 条连接线。
@@ -147,8 +199,8 @@ class _LoginBackdropPainter extends CustomPainter {
     final center = Offset(size.width * 0.88, size.height * 0.60);
 
     _stroke
-      ..color = color.withValues(alpha: 0.3)
-      ..strokeWidth = 1.5;
+      ..color = color.withValues(alpha: _BackdropStyle.nodeLineAlpha)
+      ..strokeWidth = _BackdropStyle.nodeLineStrokeWidth;
     canvas.drawLine(
       center + _nodeOffsets[0],
       center + _nodeOffsets[1],
@@ -174,13 +226,16 @@ class _LoginBackdropPainter extends CustomPainter {
     final rect = Rect.fromCenter(center: center, width: rx * 2, height: ry * 2);
 
     _stroke
-      ..color = color.withValues(alpha: 0.2)
-      ..strokeWidth = 1.5;
-    const segment = 0.10; // 每段弧长（rad）
-    const gap = 0.10; // 段间距（rad）
-    const count = 32;
-    for (var i = 0; i < count; i++) {
-      canvas.drawArc(rect, i * (segment + gap), segment, false, _stroke);
+      ..color = color.withValues(alpha: _BackdropStyle.ringAlpha)
+      ..strokeWidth = _BackdropStyle.ringStrokeWidth;
+    for (var i = 0; i < _BackdropStyle.ringSegments; i++) {
+      canvas.drawArc(
+        rect,
+        i * (_BackdropStyle.ringSegment + _BackdropStyle.ringGap),
+        _BackdropStyle.ringSegment,
+        false,
+        _stroke,
+      );
     }
   }
 

@@ -1,0 +1,83 @@
+# 逐页 UI 重构 — batch 8a（oidc_login 剩余视图：品牌头/背景/授权交付/JARM/联合登录）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。oidc_login 模块零 'audit' 字样
+# （AC-2 守卫）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-login-8a.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-login-8a.log
+
+tasks:
+- prompt: |
+    重构品牌头与背景装饰。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/branding_header.dart、
+       login_backdrop.dart —— 读完整文件，梳理品牌展示（logo/名称/
+       副标题）与装饰背景（orbit/shield/nodes 光斑）的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点（模板渲染、硬编码颜色/间距、
+       语义可访问性）。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件/常量替换模板渲染与硬编码值；
+       - 保持装饰不拦截交互（IgnorePointer）与语义排除；品牌回退逻辑
+         保持不变；不新增依赖；文件 ≤400 行；
+       - 禁止出现英文字样 'audit'（含注释）。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/login-branding.md（分析摘要→问题
+       清单→修复映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-branding.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构授权交付视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/authorization_delivery.dart ——
+       读完整文件，梳理授权响应交付（form_post/query/fragment/JARM）
+       的 UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/error 态齐全；交付语义（仅采用服务端证明的终态、
+         一次性 transaction、防重放）保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/authorization_delivery_test.dart test/oidc_authorization_delivery_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/login-delivery.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-delivery.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/authorization_delivery_test.dart test/oidc_authorization_delivery_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构 JARM 完成视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/jarm_completion.dart ——
+       读完整文件，梳理 JARM（服务器签名 response envelope）完成的
+       UI 结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/error 态齐全；JARM 语义（单一签名 envelope、防重放）
+         保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/jarm_completion_test.dart test/oidc_authorization_delivery_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/login-jarm.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-jarm.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/jarm_completion_test.dart test/oidc_authorization_delivery_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    重构联合登录视图。步骤：
+    1. 分析现有代码：lib/screens/oidc_login/federated_login.dart ——
+       读完整文件，梳理联合登录按钮/跳转/回接的 UI 与交互结构。
+    2. 对照可用组件与品牌色，列出改进点。
+    3. 实施重构（只改该文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/disabled 态齐全；联合登录语义（PKCE verifier 与
+         state 只在当前 tab、一次性回调、反枚举）保持不变；
+       - 禁止出现英文字样 'audit'（含注释）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/oauth_params_test.dart test/oidc_challenge_flow_test.dart
+       全绿（federated_login_web_test 为 browser 测试，不在此跑）。
+    5. 输出 docs/ui/pages-per-page/login-federated.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/login-federated.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/oauth_params_test.dart test/oidc_challenge_flow_test.dart 2>&1 | grep -qE 'All tests passed!'"

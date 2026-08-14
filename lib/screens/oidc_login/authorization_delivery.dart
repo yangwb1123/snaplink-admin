@@ -1,5 +1,60 @@
+/// Authorization delivery: how and where a terminal authorization result
+/// leaves the hosted page.
+///
+/// Delivery semantics are fixed and fail closed:
+///
+/// * `query` — browser redirect with the result in the query string.
+/// * `fragment` — browser redirect with the result in the fragment.
+/// * `form_post` — a same-origin auto-submitted form whose action and field
+///   set were validated against the registered callback.
+/// * `jwt` / `query.jwt` / `fragment.jwt` / `form_post.jwt` (JARM) — only a
+///   compact JWT signed by Snaplink may leave; the browser never signs one.
+///
+/// Only a server-proven terminal state is adopted. PAR/JAR requests never
+/// fall back to browser-visible targets, each decision is a one-time
+/// transaction, and nothing is replayed on refresh.
+library;
+
+import '../../i18n/app_strings.dart';
 import 'authorization_redirect_policy.dart';
 import 'oauth_params.dart';
+
+/// Every response mode the hosted page may deliver. Unknown or dangerous
+/// modes fail closed in [resolveAuthorizationDelivery].
+const _deliveryModes = {
+  'query',
+  'fragment',
+  'form_post',
+  'jwt',
+  'query.jwt',
+  'fragment.jwt',
+  'form_post.jwt',
+};
+
+/// JARM modes: the response must be a compact JWT signed by Snaplink.
+const _jarmModes = {'jwt', 'query.jwt', 'fragment.jwt', 'form_post.jwt'};
+
+/// Typed delivery channel, replacing string matching at the call sites.
+enum AuthorizationDeliveryKind {
+  /// `response_mode=query` — browser redirect, result in the query string.
+  queryRedirect,
+
+  /// `response_mode=fragment` — browser redirect, result in the fragment.
+  fragmentRedirect,
+
+  /// `response_mode=form_post` — same-origin auto-submitted form whose action
+  /// and field set were validated against the registered callback.
+  formPost,
+
+  /// JARM (`jwt` / `query.jwt` / `fragment.jwt` / `form_post.jwt`) — only a
+  /// server-signed envelope may leave; the browser never signs one.
+  signedJarm,
+}
+
+/// Three-state presentation contract for the delivery surface: pending
+/// (result in flight), resolved (server-attested terminal state adopted), and
+/// blocked (fail closed — nothing left the hosted page).
+enum AuthorizationDeliveryPhase { pending, resolved, blocked }
 
 /// Server-attested delivery metadata for a non-form authorization response.
 class AuthorizationDelivery {
@@ -11,12 +66,15 @@ class AuthorizationDelivery {
     required this.responseMode,
   });
 
-  bool get usesJarm => const {
-    'jwt',
-    'query.jwt',
-    'fragment.jwt',
-    'form_post.jwt',
-  }.contains(responseMode);
+  bool get usesJarm => _jarmModes.contains(responseMode);
+
+  /// Typed channel for consumers that render delivery status.
+  AuthorizationDeliveryKind get kind => switch (responseMode) {
+    'query' => AuthorizationDeliveryKind.queryRedirect,
+    'fragment' => AuthorizationDeliveryKind.fragmentRedirect,
+    'form_post' => AuthorizationDeliveryKind.formPost,
+    _ => AuthorizationDeliveryKind.signedJarm,
+  };
 }
 
 /// Resolves where and how an authorization result may leave the hosted page.
@@ -64,15 +122,7 @@ AuthorizationDelivery? resolveAuthorizationDelivery({
   final effectiveMode = responseMode.isEmpty
       ? (tokenResponse ? 'fragment' : 'query')
       : responseMode;
-  if (!const {
-    'query',
-    'fragment',
-    'form_post',
-    'jwt',
-    'query.jwt',
-    'fragment.jwt',
-    'form_post.jwt',
-  }.contains(effectiveMode)) {
+  if (!_deliveryModes.contains(effectiveMode)) {
     return null;
   }
   return AuthorizationDelivery(
@@ -108,3 +158,40 @@ bool _isServerAttestedTarget(Uri uri) {
   }
   return uri.host.isNotEmpty;
 }
+
+/// Localized copy for the delivery status surface. [delivery] is required for
+/// [AuthorizationDeliveryPhase.resolved].
+String authorizationDeliveryStatusLabel(
+  AppStrings strings,
+  AuthorizationDeliveryPhase phase, [
+  AuthorizationDelivery? delivery,
+]) =>
+    switch (phase) {
+      AuthorizationDeliveryPhase.pending => strings.translate(
+        'Delivering the authorization result…',
+      ),
+      AuthorizationDeliveryPhase.resolved => strings.translate(
+        _deliveryTargetCopy(delivery!.kind),
+        {'host': delivery.redirectUri.host},
+      ),
+      AuthorizationDeliveryPhase.blocked => strings.translate(
+        _blockedDeliveryCopy,
+      ),
+    };
+
+String _deliveryTargetCopy(AuthorizationDeliveryKind kind) => switch (kind) {
+  AuthorizationDeliveryKind.formPost =>
+    'Submitting the authorization result to {host}.',
+  AuthorizationDeliveryKind.signedJarm =>
+    'Delivering the signed JARM envelope to {host}.',
+  AuthorizationDeliveryKind.queryRedirect ||
+  AuthorizationDeliveryKind.fragmentRedirect =>
+    'Redirecting the authorization result to {host}.',
+};
+
+/// Fail-closed copy for the delivery view: the browser never invents a
+/// continuation the server did not attest, and a blocked decision is not
+/// replayed.
+const _blockedDeliveryCopy =
+    'Snaplink did not provide a server-validated authorization continuation. '
+    'No code, token, or error was redirected.';

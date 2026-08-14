@@ -1,12 +1,43 @@
+/// JARM completion: the only terminal outcomes the hosted page accepts for a
+/// JARM request.
+///
+/// JARM semantics are fixed and fail closed:
+///
+/// * The browser never signs or rewrites a JARM JWT. It may only deliver a
+///   compact JWT returned by Snaplink, or continue to a URL that the HTTP
+///   exchange reached through Snaplink's own redirect response.
+/// * A completion is one-time and never replayed: a server-owned continuation
+///   is adopted only when it matches the registered callback on the exact
+///   channel (`query.jwt` / `fragment.jwt` / `form_post.jwt`), and the
+///   `response` field must be a single compact JWT with a non-`none`
+///   algorithm. Any unsigned code, token, or error field blocks it.
+library;
+
 import 'dart:convert';
 
+import '../../i18n/app_strings.dart';
 import 'authorization_redirect_policy.dart';
 
-/// The only terminal outcomes the hosted page accepts for a JARM request.
-///
-/// The browser never signs or rewrites a JARM JWT. It may only deliver a
-/// compact JWT returned by Snaplink, or continue to a URL that the HTTP
-/// exchange reached through Snaplink's own redirect response.
+/// Typed terminal channel for a JARM completion, replacing bare field
+/// matching at the call sites.
+enum JarmCompletionKind {
+  /// Browser redirect to a server-owned, validated continuation.
+  redirect,
+
+  /// Same-origin auto-submitted form whose action and field set were
+  /// validated against the registered callback.
+  formPost,
+
+  /// Fail closed — nothing unsigned left the hosted page.
+  blocked,
+}
+
+/// Three-state presentation contract for the JARM completion surface:
+/// pending (envelope in flight), resolved (server-signed envelope or
+/// validated continuation adopted), and blocked (fail closed — nothing
+/// unsigned was redirected).
+enum JarmCompletionPhase { pending, resolved, blocked }
+
 class JarmCompletion {
   static const blockedMessage =
       'Snaplink did not return a server-signed JARM response or a validated '
@@ -26,6 +57,35 @@ class JarmCompletion {
     : this._(error: message);
 
   bool get accepted => redirectTarget != null || formPostHtml != null;
+
+  /// Typed channel for consumers that render completion status.
+  JarmCompletionKind get kind {
+    if (redirectTarget != null) return JarmCompletionKind.redirect;
+    if (formPostHtml != null) return JarmCompletionKind.formPost;
+    return JarmCompletionKind.blocked;
+  }
+
+  /// Terminal phase: [JarmCompletionPhase.resolved] for an accepted envelope,
+  /// [JarmCompletionPhase.blocked] otherwise. Pending is owned by the
+  /// in-flight request, not by a completed instance.
+  JarmCompletionPhase get phase =>
+      accepted ? JarmCompletionPhase.resolved : JarmCompletionPhase.blocked;
+
+  /// Presentation-only target host of the resolved envelope. For a form-post
+  /// completion the action is read back from the HTML document already
+  /// validated by [resolveJarmCompletion]; this never re-validates it. Native
+  /// schemes fall back to the scheme as the displayed target.
+  String? get resolvedHost {
+    final target = redirectTarget;
+    if (target != null) return _displayHost(target);
+    final html = formPostHtml;
+    if (html == null) return null;
+    final form = _formTagPattern.firstMatch(html);
+    final raw = form == null ? null : _attribute(form.group(0)!, 'action');
+    return raw == null
+        ? null
+        : _displayHost(Uri.tryParse(_decodeHtmlAttribute(raw)) ?? Uri());
+  }
 }
 
 JarmCompletion resolveJarmCompletion({
@@ -101,10 +161,7 @@ bool isTrustedAuthorizationFormPost(String html, Uri expectedRedirect) {
       expectedRedirect.fragment.isNotEmpty) {
     return false;
   }
-  final forms = RegExp(
-    r'<form\b[^>]*>',
-    caseSensitive: false,
-  ).allMatches(html).toList(growable: false);
+  final forms = _formTagPattern.allMatches(html).toList(growable: false);
   if (forms.length != 1) return false;
   final formTag = forms.single.group(0)!;
   if (_attribute(formTag, 'method')?.toLowerCase() != 'post') return false;
@@ -119,10 +176,7 @@ bool isTrustedAuthorizationFormPost(String html, Uri expectedRedirect) {
 
   const allowedFields = {'code', 'state', 'iss'};
   final counts = <String, int>{};
-  for (final input in RegExp(
-    r'<input\b[^>]*>',
-    caseSensitive: false,
-  ).allMatches(html)) {
+  for (final input in _inputTagPattern.allMatches(html)) {
     final name = _attribute(input.group(0)!, 'name');
     if (name == null || !allowedFields.contains(name)) return false;
     final count = (counts[name] ?? 0) + 1;
@@ -131,6 +185,35 @@ bool isTrustedAuthorizationFormPost(String html, Uri expectedRedirect) {
   }
   return counts['code'] == 1;
 }
+
+/// Localized copy for the JARM completion surface: pending (envelope in
+/// flight), resolved (server-signed envelope delivered to its target host),
+/// and blocked (fail closed — nothing unsigned left the hosted page).
+/// [completion] is required for [JarmCompletionPhase.resolved].
+String jarmCompletionStatusLabel(
+  AppStrings strings,
+  JarmCompletionPhase phase, [
+  JarmCompletion? completion,
+]) => switch (phase) {
+  JarmCompletionPhase.pending => strings.translate(
+    'Delivering the signed JARM envelope…',
+  ),
+  JarmCompletionPhase.resolved => strings.translate(
+    _resolvedJarmCopy(completion!.kind),
+    {'host': completion.resolvedHost ?? ''},
+  ),
+  JarmCompletionPhase.blocked => strings.translate(
+    JarmCompletion.blockedMessage,
+  ),
+};
+
+String _resolvedJarmCopy(JarmCompletionKind kind) => switch (kind) {
+  JarmCompletionKind.redirect =>
+    'Delivering the signed JARM envelope to {host}.',
+  JarmCompletionKind.formPost =>
+    'Submitting the signed JARM envelope to {host}.',
+  JarmCompletionKind.blocked => JarmCompletion.blockedMessage,
+};
 
 const _jarmModes = {'jwt', 'query.jwt', 'fragment.jwt', 'form_post.jwt'};
 
@@ -147,6 +230,11 @@ const _unsignedAuthorizationFields = {
   'error',
   'error_description',
 };
+
+final _formTagPattern = RegExp(r'<form\b[^>]*>', caseSensitive: false);
+final _inputTagPattern = RegExp(r'<input\b[^>]*>', caseSensitive: false);
+
+String _displayHost(Uri uri) => uri.host.isNotEmpty ? uri.host : uri.scheme;
 
 bool _containsUnsignedAuthorizationFields(Map<String, dynamic> data) =>
     data.keys.any(_unsignedAuthorizationFields.contains);
@@ -238,10 +326,7 @@ bool _looksLikeSignedJwt(String value) {
 }
 
 bool _isTrustedJarmForm(String html, Uri expectedRedirect) {
-  final forms = RegExp(
-    r'<form\b[^>]*>',
-    caseSensitive: false,
-  ).allMatches(html).toList(growable: false);
+  final forms = _formTagPattern.allMatches(html).toList(growable: false);
   if (forms.length != 1) return false;
   final form = forms.single;
   final formTag = form.group(0)!;
@@ -257,10 +342,7 @@ bool _isTrustedJarmForm(String html, Uri expectedRedirect) {
   }
 
   String? response;
-  for (final input in RegExp(
-    r'<input\b[^>]*>',
-    caseSensitive: false,
-  ).allMatches(html)) {
+  for (final input in _inputTagPattern.allMatches(html)) {
     final tag = input.group(0)!;
     final name = _attribute(tag, 'name');
     if (_unsignedAuthorizationFields.contains(name)) return false;
