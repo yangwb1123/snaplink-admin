@@ -330,7 +330,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(context.tr('Recovery and releases'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(context.tr('Manage encrypted state snapshots and coordinated frontend/backend release pins.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ]),
         ),

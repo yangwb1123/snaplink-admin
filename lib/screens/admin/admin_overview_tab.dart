@@ -325,7 +325,7 @@ class _MethodChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(color: _color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
     child: Text(method, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color)),
   );

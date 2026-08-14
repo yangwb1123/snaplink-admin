@@ -84,7 +84,7 @@ class KeyMetricCard extends StatelessWidget {
                           size: 14,
                           color: delta! < 0 ? AppColors.danger : color,
                         ),
-                        const SizedBox(width: 2),
+                        const SizedBox(width: 4),
                         Text(
                           '${delta! < 0 ? '' : '+'}${delta!.toStringAsFixed(0)}%',
                           style: theme.textTheme.bodySmall?.copyWith(

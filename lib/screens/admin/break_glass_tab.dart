@@ -263,7 +263,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Theme.of(c).colorScheme.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(8),

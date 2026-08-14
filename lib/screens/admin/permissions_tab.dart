@@ -301,7 +301,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   LocalizedText(
                     'Client-scoped roles, assignments and navigation menus.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
@@ -360,7 +360,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
   }
 
   Widget _errorBanner(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
     decoration: BoxDecoration(
       color: AppColors.dangerTint.withValues(alpha: 0.3),
       borderRadius: BorderRadius.circular(8),

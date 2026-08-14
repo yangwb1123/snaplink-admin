@@ -66,26 +66,25 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
         leadingWidth: 24, // 国旗 16 + 间距 8
         compact: widget.compact,
       ),
-      // 装饰经 SDK 原生参数提供（审计 F1，Flutter 3.38 兼容）：prefixIcon
-      // 承载收起态前导国旗（仅装饰：字段值已由输入框朗读，emoji 排除出
-      // 语义树）；箭头方向随展开/收起自动切换（selectedTrailingIcon）。
-      // 其余字段（isDense/边框/contentPadding/图标约束）由
-      // inputDecorationTheme 经 applyDefaults 合并。
-      leadingIcon: ExcludeSemantics(
-        child: Text(
-          flagEmojiForLocale(current),
-          style: const TextStyle(fontSize: 16),
+      // 装饰经 decorationBuilder 提供（审计 F1）：suffixIcon 用自建零内边距
+      // 箭头按钮直装 suffix 槽，绕开 SDK 默认 IconButton 包装在 20px 收紧
+      // 约束下的 0×0 塌缩（Flutter 3.38+ master 实测复现），箭头方向随
+      // MenuController 切换。prefixIcon 承载收起态前导国旗（仅装饰：字段
+      // 值已由输入框朗读，emoji 排除出语义树）。其余字段
+      // （isDense/边框/contentPadding/图标约束）由 inputDecorationTheme
+      // 经 applyDefaults 合并。
+      decorationBuilder: (context, controller) => InputDecoration(
+        prefixIcon: ExcludeSemantics(
+          child: Text(
+            flagEmojiForLocale(current),
+            style: const TextStyle(fontSize: 16),
+          ),
         ),
-      ),
-      trailingIcon: const Icon(
-        Icons.arrow_drop_down,
-        size: headerDropdownArrowSize,
-        color: Color(0xFF616161),
-      ),
-      selectedTrailingIcon: const Icon(
-        Icons.arrow_drop_up,
-        size: headerDropdownArrowSize,
-        color: Color(0xFF616161),
+        suffixIcon: appHeaderDropdownSuffixIcon(
+          theme,
+          controller,
+          enabled: widget.enabled,
+        ),
       ),
       textStyle: textStyle,
       inputDecorationTheme: widget.compact

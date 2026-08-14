@@ -45,7 +45,7 @@ class NotificationBell extends StatelessWidget {
                     size: 18,
                     color: scheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Flexible(
                     child: Text(context.tr('You have no notifications.')),
                   ),

@@ -139,7 +139,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       const SizedBox(height: 16),
       LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text(error, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600))),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text(error, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted))),
       const SizedBox(height: 16),
       OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
     ]),

@@ -30,7 +30,7 @@ class MessageBanner extends StatelessWidget {
             size: 16,
             color: color,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(context.tr(t), style: TextStyle(color: color)),
           ),
@@ -164,7 +164,7 @@ class PortalSecurityBanner extends StatelessWidget {
             color: color,
             size: 22,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: LocalizedText(
               mfaEnabled

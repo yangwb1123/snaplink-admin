@@ -280,7 +280,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(context.tr('Audit Log'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(context.tr('All authentication and administrative events recorded by the server.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ]),
         ),

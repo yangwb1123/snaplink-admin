@@ -163,7 +163,7 @@ class _HealthTabState extends State<HealthTab> {
                     letterSpacing: -0.3,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 LocalizedText(
                   'Health checks aggregate runtime reachability of the server, storage and cluster.',
                   style: theme.textTheme.bodySmall?.copyWith(

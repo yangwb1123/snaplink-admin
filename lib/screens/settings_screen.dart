@@ -242,7 +242,7 @@ class _SettingsFormItem extends StatelessWidget {
                   ),
                 ),
                 if (description != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     description!,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -337,7 +337,7 @@ class _ThemeOptionTileState extends State<_ThemeOptionTile> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
               color: widget.selected
                   ? colorScheme.primaryContainer

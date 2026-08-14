@@ -161,7 +161,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             _error!,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.grey.shade600,
+              color: AppColors.muted,
             ),
           ),
         ),

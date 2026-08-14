@@ -1,0 +1,60 @@
+# 全站重构闭环验收 — batch 10（审计 finding 落实核对 + 一致性复检）
+#
+# 所有路由/子菜单页面已完成逐页重构（56 份产物）。本批做两层收尾：
+#   1) 对照全站审计报告逐项核对修复落实（代码证据），修复残留缺口；
+#   2) 全站一致性复检（图标上色/三态/token 间距/i18n 抽查）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-closure-review.yaml \
+#     --mode serial --timeout 1500 --log-file logs/closure-review.log
+
+tasks:
+- prompt: |
+    审计闭环核对。步骤：
+    1. 读取全站审计报告 docs/ui/admin-pages/audit.md（33 个 cross-cutting
+       finding + 每页条目 + portal/developer 简要扫描）与逐页产物
+       docs/ui/pages-per-page/（56 份，每份含问题清单与修复映射）。
+    2. 对审计中的每个 finding，在对应页面产物与当前代码中验证修复
+       状态（grep/读码取证），输出核对表：finding → 状态（已落实/
+       部分/未落实）→ 代码证据（文件:行）。
+    3. 对"未落实/部分"的 finding：如果修复是低风险的（模板渲染替换、
+       图标上色、空态/骨架补齐、硬编码颜色/token 化、i18n），直接修复；
+       涉及行为/语义/安全不变量的，只记录不修改，标注原因。
+    4. 修复范围白名单：lib/screens/ 与 lib/widgets/ 下任何文件 +
+       lib/i18n/ EN/ZH key。禁止出现英文字样 'audit' 于
+       lib/screens/portal、lib/screens/developer、lib/screens/oidc_login
+       模块（负边界守卫）。不新增依赖；文件 ≤400 行。
+    5. 验证：flutter analyze 0 errors；flutter test
+       test/i18n_coverage_test.dart test/admin_secondary_tabs_test.dart
+       test/portal_screens_test.dart 全绿。
+    6. 输出 docs/ui/pages-per-page/closure-audit.md（核对表 + 修复清单
+       + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/closure-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/admin_secondary_tabs_test.dart test/portal_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    全站一致性复检。步骤：
+    1. 抽样检查全部 6 个产品入口的页面（/admin/ /portal/ /developer/
+       /login/ /device/verify /setup/）与 lib/widgets/：
+       a. 图标上色：页面级图标是否使用组色（adminModuleIconColor，
+         admin 页）或品牌色（其他入口）——抽样每个入口 2-3 个页面
+         grep 取证；
+       b. 三态：loading（SkeletonListTile/CircularProgressIndicator 配
+         placeholder）、empty（EmptyState）、error（重试）——抽查
+         数据区域；
+       c. token 间距：SizedBox/EdgeInsets 非 4/8/12/16/20/24/32/40/48/64
+         抽样 grep；
+       d. i18n：raw Text 字面量（i18n_coverage_test 已门禁，抽查动态
+         插值遗漏）。
+    2. 对发现的问题：低风险直接修复（图标上色/间距 token/空态），
+       行为相关记录不修改。
+    3. 修复范围白名单：lib/screens/ 与 lib/widgets/ + lib/i18n/。
+       禁止 'audit' 字样进入 portal/developer/oidc_login 模块。
+       不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_icon_colors_test.dart test/language_selector_test.dart
+       test/i18n_coverage_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/closure-consistency.md（抽样表 +
+       修复清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/closure-consistency.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_icon_colors_test.dart test/language_selector_test.dart test/i18n_coverage_test.dart 2>&1 | grep -qE 'All tests passed!'"

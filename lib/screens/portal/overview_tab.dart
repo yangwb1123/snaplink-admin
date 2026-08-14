@@ -345,7 +345,7 @@ class _OverviewTabState extends State<OverviewTab> {
         child: Row(
           children: [
             Icon(icon, size: 16, color: theme.colorScheme.primary),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Text(
               context.tr(title),
               style: theme.textTheme.labelLarge?.copyWith(

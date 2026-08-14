@@ -130,7 +130,7 @@ class CopyableDcrValue extends StatelessWidget {
           ),
           if (sensitive)
             Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
                 context.tr('One-time credential'),
                 style: TextStyle(fontSize: 11, color: scheme.error),
@@ -307,7 +307,7 @@ class _MalformedCredentialNotice extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.error_outline, size: 20, color: scheme.onErrorContainer),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 context.tr(

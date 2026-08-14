@@ -15,6 +15,21 @@ import 'package:sso_admin/widgets/theme_selector.dart';
 /// 不溢出。另含审计修复的回归测试：键盘焦点可见（F1）、emoji 语义
 /// 标签（F2，见 language_selector_test）、触摸目标 ≥44px（F3）、间距
 /// token 门禁（F4）、加载中禁用（F6）。
+
+/// 登录表单输入框：登录头下拉（DropdownMenu 内部也是 TextField）使按类型
+/// 索引不稳定，用 autofillHints 定位。
+Finder usernameField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.username) ?? false),
+);
+
+Finder passwordField() => find.byWidgetPredicate(
+  (widget) =>
+      widget is TextField &&
+      (widget.autofillHints?.contains(AutofillHints.password) ?? false),
+);
+
 void main() {
 
   Future<void> pumpLogin(WidgetTester tester, Size size) async {
@@ -170,8 +185,8 @@ void main() {
       reason: 'selectors start enabled',
     );
 
-    await tester.enterText(find.byType(TextField).at(0), 'alice');
-    await tester.enterText(find.byType(TextField).at(1), 'secret');
+    await tester.enterText(usernameField(), 'alice');
+    await tester.enterText(passwordField(), 'secret');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pump();
 

@@ -18,7 +18,7 @@ class DiscoveryRegionNotice extends StatelessWidget {
       label: context.tr('Serving region: {region}', {'region': servingRegion}),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: scheme.secondaryContainer,
           borderRadius: BorderRadius.circular(12),
@@ -30,7 +30,7 @@ class DiscoveryRegionNotice extends StatelessWidget {
           dense: true,
           contentPadding: EdgeInsets.zero,
           leading: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(8),

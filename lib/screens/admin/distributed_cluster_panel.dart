@@ -239,7 +239,7 @@ class _PanelState extends State<DistributedClusterPanel> {
                   ),
                 if (verifyOnly.isNotEmpty) ...[
                   const Padding(
-                    padding: EdgeInsets.only(top: 4, bottom: 2),
+                    padding: EdgeInsets.only(top: 4, bottom: 4),
                     child: LocalizedText(
                       'Adopted peer keys (verify-only)',
                       style: TextStyle(

@@ -282,7 +282,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       final f = rows[i], critical = f['severity'] == 'critical';
       return Row(children: [
         Icon(critical ? Icons.warning_amber : Icons.info_outline, size: 16, color: critical ? AppColors.danger : AppColors.warning),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         Expanded(child: Text('${f['type'] ?? ''} · ${f['subject_id'] ?? ''}', overflow: TextOverflow.ellipsis)),
       ]);
     }),

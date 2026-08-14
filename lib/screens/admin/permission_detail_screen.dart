@@ -126,7 +126,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
                       _error!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                        color: AppColors.muted,
                       ),
                     ),
                   ),

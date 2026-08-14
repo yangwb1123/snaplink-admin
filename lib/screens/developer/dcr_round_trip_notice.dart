@@ -64,7 +64,7 @@ class DcrRoundTripNotice extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 if (safe)
                   Text(
                     context.tr(
@@ -86,7 +86,7 @@ class DcrRoundTripNotice extends StatelessWidget {
                             size: 14,
                             color: foreground,
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               context.tr(warning),
@@ -131,7 +131,7 @@ class ManageIntro extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
@@ -201,7 +201,7 @@ class ManageErrorBanner extends StatelessWidget {
               size: 20,
               color: scheme.onErrorContainer,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 context.tr(message),

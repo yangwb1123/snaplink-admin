@@ -117,7 +117,7 @@ class ConnectionDetailsCard extends StatelessWidget {
           '${connection!['display_name'] ?? connection!['id']} · ${connection!['type'] ?? ''}',
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         if (connection!['enabled'] == false)
           StatusChip.inactive(label: 'Disabled')
         else

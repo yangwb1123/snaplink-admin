@@ -185,7 +185,7 @@ class PortalActionNotice extends StatelessWidget {
         : (scheme.errorContainer, scheme.onErrorContainer, Icons.error_outline);
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(10),

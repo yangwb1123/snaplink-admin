@@ -319,10 +319,10 @@ class _CheckCard extends StatelessWidget {
             'Result:',
             style: TextStyle(fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
@@ -337,11 +337,11 @@ class _CheckCard extends StatelessWidget {
     }
     return Row(
       children: [
-        Icon(Icons.inbox_outlined, size: 16, color: Colors.grey.shade500),
+        Icon(Icons.inbox_outlined, size: 16, color: AppColors.muted),
         const SizedBox(width: 8),
         LocalizedText(
           'Run a check to see the decision.',
-          style: TextStyle(color: Colors.grey.shade500),
+          style: TextStyle(color: AppColors.muted),
         ),
       ],
     );

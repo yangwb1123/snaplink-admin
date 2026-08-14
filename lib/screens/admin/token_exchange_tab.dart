@@ -209,7 +209,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
             Row(
               children: [
                 Icon(Icons.token_outlined, size: 16, color: _accent),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Text(
                   context.tr('Hop {index}', {'index': index}),
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -243,7 +243,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
 
   /// 字段行：可翻译标签（冒号后缀仅用于展示，翻译键不含冒号）+ 等宽值。
   Widget _row(BuildContext context, String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
+    padding: const EdgeInsets.symmetric(vertical: 4),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

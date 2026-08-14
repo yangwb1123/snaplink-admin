@@ -272,7 +272,7 @@ class _RegisterIntro extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
@@ -338,7 +338,7 @@ class _Notice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 20, color: foreground),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               context.tr(message),
@@ -370,7 +370,7 @@ class _ErrorBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.error_outline, size: 20, color: scheme.onErrorContainer),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               context.tr(message),

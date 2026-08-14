@@ -99,7 +99,7 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
             backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             child: Icon(Icons.shield_outlined, size: 18, color: accent),
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: LocalizedText(_editing ? 'Edit role' : 'Create role'),
           ),

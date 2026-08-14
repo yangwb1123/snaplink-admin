@@ -53,7 +53,7 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
             ),
             const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(6),

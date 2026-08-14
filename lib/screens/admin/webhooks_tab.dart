@@ -240,7 +240,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(AppStrings.of(context).webhooks, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 LocalizedText('Manage event notification webhook subscriptions and dead letters.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],
             ),

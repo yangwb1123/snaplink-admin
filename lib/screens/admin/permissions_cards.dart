@@ -100,7 +100,7 @@ class RolesCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.key_outlined, size: 14, color: accent),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Flexible(
                             child: LocalizedText(
                               '{n} permissions',

@@ -230,7 +230,7 @@ class _ClientsTabState extends State<ClientsTab>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
       child: Row(children: [
-        Icon(Icons.checklist, size: 20, color: theme.colorScheme.primary),
+        Icon(Icons.checklist, size: 20, color: _accent),
         const SizedBox(width: 8),
         LocalizedText('{count} selected', args: {'count': selected.length}),
         const Spacer(),
@@ -311,7 +311,7 @@ class _ClientsTabState extends State<ClientsTab>
       const SizedBox(height: 16),
       LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 8),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text('$error', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600))),
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text('$error', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted))),
       const SizedBox(height: 16),
       OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
     ]),

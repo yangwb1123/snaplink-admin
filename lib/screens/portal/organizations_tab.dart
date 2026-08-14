@@ -348,7 +348,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Row(
                   children: [
                     Icon(

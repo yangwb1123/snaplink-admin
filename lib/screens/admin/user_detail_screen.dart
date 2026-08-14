@@ -205,7 +205,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
                       _error!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                        color: AppColors.muted,
                       ),
                     ),
                   ),
@@ -321,7 +321,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+              ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(

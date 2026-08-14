@@ -338,7 +338,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         items: _adminEndpoints
             .map((item) => DropdownMenuItem(
                   value: item,
-                  child: LocalizedText('${item.method} ${item.path}', overflow: TextOverflow.ellipsis),
+                  child: Text('${item.method} ${item.path}', overflow: TextOverflow.ellipsis),
                 ))
             .toList(growable: false),
         onChanged: _running ? null : _select,

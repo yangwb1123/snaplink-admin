@@ -92,7 +92,7 @@ class PermissionMenusCard extends StatelessWidget {
                   ).colorScheme.primaryContainer,
                   child: Icon(Icons.account_tree_outlined, size: 18, color: accent),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: LocalizedText(
                     'Navigation tree (JSON)',
