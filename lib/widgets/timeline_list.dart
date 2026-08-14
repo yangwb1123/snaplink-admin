@@ -19,7 +19,8 @@ class TimelineList extends StatelessWidget {
           _TimelineRow(item: items[index], isLast: index == items.length - 1),
           if (index < items.length - 1)
             Container(
-              margin: const EdgeInsets.only(left: 16),
+              // 竖线居中于 30px 圆点中心（x=15），与点对齐。
+              margin: const EdgeInsets.only(left: 14),
               width: 2,
               height: 12,
               color: scheme.outlineVariant.withValues(alpha: 0.5),

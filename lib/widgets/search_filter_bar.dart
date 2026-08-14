@@ -130,7 +130,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
           if (_showFilters && widget.filterOptions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Wrap(
-              spacing: 6,
+              spacing: 8,
               runSpacing: 4,
               children: [
                 for (final option in widget.filterOptions)

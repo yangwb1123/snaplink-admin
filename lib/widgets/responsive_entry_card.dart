@@ -22,7 +22,7 @@ class ResponsiveEntryCard extends StatelessWidget {
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 400;
           final outer = compact ? 12.0 : 24.0;
-          final inner = compact ? 20.0 : 28.0;
+          final inner = compact ? 20.0 : 24.0;
           final minHeight = constraints.hasBoundedHeight
               ? (constraints.maxHeight - outer * 2).clamp(0.0, double.infinity)
               : 0.0;

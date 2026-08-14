@@ -27,7 +27,7 @@ class StaggeredFadeIn extends StatelessWidget {
         return Opacity(
           opacity: v,
           child: Transform.translate(
-            offset: Offset(0, 10 * (1 - v)),
+            offset: Offset(0, 8 * (1 - v)),
             child: child,
           ),
         );

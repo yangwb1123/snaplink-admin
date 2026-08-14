@@ -402,7 +402,7 @@ class _HeaderCell extends StatelessWidget {
         child: sortable
             ? InkWell(
                 onTap: onTap,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -539,7 +539,7 @@ class CopyableCell extends StatelessWidget {
             );
           }
         },
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(8),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

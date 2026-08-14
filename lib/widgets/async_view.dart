@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'empty_state.dart';
 
@@ -60,16 +59,17 @@ class AsyncView<T> extends StatelessWidget {
     }
 
     if (error != null) {
+      final scheme = Theme.of(context).colorScheme;
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.error_outline,
                 size: 48,
-                color: AppColors.danger,
+                color: scheme.error,
               ),
               const SizedBox(height: 16),
               Text(
@@ -80,9 +80,9 @@ class AsyncView<T> extends StatelessWidget {
               Text(
                 context.tr(error!),
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               if (onRetry != null) ...[
                 const SizedBox(height: 16),

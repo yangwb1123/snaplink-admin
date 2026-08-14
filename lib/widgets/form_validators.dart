@@ -113,7 +113,9 @@ class ValidatedTextField extends StatelessWidget {
         hintText: hintText,
         prefixIcon: prefixIcon,
         suffixIcon: suffixIcon,
-        border: const OutlineInputBorder(),
+        border: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
         isDense: true,
       ),
       validator: validator,

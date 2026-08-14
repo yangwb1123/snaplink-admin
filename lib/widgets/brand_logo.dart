@@ -17,7 +17,7 @@ class BrandLogo extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -42,7 +42,7 @@ class BrandLogo extends StatelessWidget {
       message: 'Snaplink Admin',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         child: logo,
       ),
     );

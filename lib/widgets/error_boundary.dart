@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Error boundary widget that catches exceptions from its child subtree.
@@ -19,11 +19,14 @@ class ErrorBoundary extends StatefulWidget {
 
 class _ErrorBoundaryState extends State<ErrorBoundary> {
   String? _error;
+  // 保存上一个全局 handler（链式 restore，避免嵌套边界互相覆盖）。
+  FlutterExceptionHandler? _previousHandler;
 
   @override
   void initState() {
     super.initState();
     // Register error handler for this zone
+    _previousHandler = FlutterError.onError;
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
       if (mounted) {
@@ -34,21 +37,23 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
 
   @override
   void dispose() {
-    // Reset to default handler if we were the one who set it
-    FlutterError.onError = FlutterError.presentError;
+    // Restore the previous handler (not the global default), so nested
+    // boundaries and app-level handlers keep working.
+    FlutterError.onError = _previousHandler ?? FlutterError.presentError;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_error != null) {
+      final scheme = Theme.of(context).colorScheme;
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: AppColors.warning),
+              Icon(Icons.error_outline, size: 48, color: scheme.error),
               const SizedBox(height: 16),
               LocalizedText(
                 widget.label ?? 'Something went wrong',
@@ -60,9 +65,9 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                     ? '${_error!.substring(0, 200)}...'
                     : _error!,
                 textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(

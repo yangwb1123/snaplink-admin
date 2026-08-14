@@ -1,0 +1,75 @@
+# 共享组件库审查 — batch 9（43 个 widgets 逐组件分析 + 低风险修复）
+#
+# 组件层收尾：全部路由/子菜单页面已完成逐页重构（54 份产物），本批对
+# 所有页面共享的组件库做逐组件审查——API 一致性、间距/颜色 token、
+# 圆角统一、可访问性、文档。只做低风险修复（不改公开 API 签名、不改变
+# 行为），高风险发现写入报告由 operator 裁决。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-widgets-review.yaml \
+#     --mode serial --timeout 1500 --log-file logs/widgets-review.log
+
+tasks:
+- prompt: |
+    审查数据与列表组件。步骤：
+    1. 逐个读取 lib/widgets/ 下：admin_data_table.dart、section_selector.dart、
+       paginated_list.dart、search_filter_bar.dart、status_filter_dropdown.dart、
+       batch_action_bar.dart、batch_selection.dart、admin_list_header.dart、
+       admin_breadcrumb.dart —— 完整分析每个组件的 API 与实现。
+    2. 对每个组件输出：职责/API/状态覆盖/可访问性/间距与颜色 token/
+       圆角一致性/文档完备性 的检查结论；列出可改进点（severity）。
+    3. 实施低风险修复（只改这些文件 + 必要测试）：
+       - 间距对齐 4/8/12/16/20/24/32/40/48/64 token 集；硬编码颜色改
+         colorScheme；圆角统一 8/12；
+       - 不改变公开 API 签名与行为；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+       test/confirm_dialog_test.dart test/admin_navigation_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/widgets-data.md（逐组件分析表 + 修复
+       清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/widgets-data.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/admin_navigation_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    审查状态与反馈组件。步骤：
+    1. 逐个读取 lib/widgets/ 下：async_view.dart、empty_state.dart、
+       skeleton_list.dart、error_boundary.dart、offline_banner.dart、
+       status_chip.dart、count_up.dart、progress_ring.dart、sparkline.dart、
+       metric_delta.dart、data_emphasis.dart、distribution_bar.dart、
+       key_metric_card.dart、timeline_list.dart、hover_card.dart —— 完整
+       分析每个组件的 API 与实现。
+    2. 对每个组件输出：职责/API/状态覆盖/可访问性/间距与颜色 token/
+       圆角一致性/文档完备性 的检查结论；列出可改进点（severity）。
+    3. 实施低风险修复（只改这些文件 + 必要测试）：
+       - 间距对齐 token 集；硬编码颜色改 colorScheme；圆角统一；
+       - 不改变公开 API 签名与行为；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/async_view_test.dart test/empty_state_test.dart（如存在）及
+       test/admin_overview*（如存在）全绿。
+    5. 输出 docs/ui/pages-per-page/widgets-feedback.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/widgets-feedback.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/async_view_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    审查布局与交互组件。步骤：
+    1. 逐个读取 lib/widgets/ 下：responsive_entry_card.dart、
+       responsive_navigation_scaffold.dart、page_transition.dart、
+       pressable_scale.dart、staggered_fade_in.dart、user_avatar.dart、
+       brand_logo.dart、capability_gate.dart、command_palette.dart、
+       confirm_dialog.dart、shortcuts_dialog.dart、section_header.dart、
+       form_validators.dart、deferred_entry_screen.dart、language_selector.dart、
+       theme_selector.dart、select_style.dart —— 完整分析每个组件的 API
+       与实现。
+    2. 对每个组件输出检查结论与可改进点（severity）。
+    3. 实施低风险修复（只改这些文件 + 必要测试）：
+       - 间距对齐 token 集；硬编码颜色改 colorScheme；圆角统一；
+       - 不改变公开 API 签名与行为；select 组件（language/theme/
+         select_style）只允许间距/颜色级微调，不得改动其几何与行为
+         （专项测试已锁定）；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/language_selector_test.dart test/theme_selector_test.dart
+       test/login_header_layout_test.dart test/settings_form_layout_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/widgets-layout.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/widgets-layout.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_selector_test.dart test/login_header_layout_test.dart test/settings_form_layout_test.dart 2>&1 | grep -qE 'All tests passed!'"

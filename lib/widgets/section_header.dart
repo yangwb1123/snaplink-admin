@@ -29,7 +29,7 @@ class SectionHeader extends StatelessWidget {
         if (count != null) ...[
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: scheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(999),

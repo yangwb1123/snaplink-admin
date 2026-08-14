@@ -65,52 +65,56 @@ class _SkeletonListTileState extends State<SkeletonListTile>
     itemBuilder: (_, _) => _buildItem(),
   );
 
-  Widget _buildItem() => AnimatedBuilder(
-    animation: _animation,
-    builder: (_, _) => Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: _animation.value),
-                borderRadius: BorderRadius.circular(8),
+  Widget _buildItem() {
+    final scheme = Theme.of(context).colorScheme;
+    // 骨架底色主题化：onSurface 低 alpha（浅/深色模式自适应，替代硬编码 grey）。
+    Color block({required double factor}) =>
+        scheme.onSurface.withValues(alpha: _animation.value * factor);
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (_, _) => Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: block(factor: 0.35),
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 14,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: _animation.value),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    height: 10,
-                    width: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(
-                        alpha: _animation.value * 0.7,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 14,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: block(factor: 0.35),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      borderRadius: BorderRadius.circular(4),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 10,
+                      width: 200,
+                      decoration: BoxDecoration(
+                        color: block(factor: 0.245),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }

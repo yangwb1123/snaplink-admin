@@ -38,6 +38,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         if (_offline)
@@ -45,16 +46,25 @@ class _OfflineBannerState extends State<OfflineBanner> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             content: Text(
               context.tr('You are offline. Some features may be unavailable.'),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
-            leading: const Icon(Icons.wifi_off, color: Colors.white),
-            backgroundColor: AppColors.warning,
-            contentTextStyle: const TextStyle(color: Colors.white),
+            leading: Icon(Icons.wifi_off, color: AppColors.warning),
+            // 警告色 tint 叠表面（与 StatusChip 同语言）：浅/深色模式均
+            // 保证正文对比度 ≥4.5（白色正文叠实色 amber 仅 ≈3.2）。
+            backgroundColor: Color.alphaBlend(
+              AppColors.warning.withValues(alpha: 0.14),
+              scheme.surface,
+            ),
+            contentTextStyle: TextStyle(color: scheme.onSurface),
             actions: [
               TextButton(
                 onPressed: () {},
                 child: Text(
                   context.tr('Dismiss'),
-                  style: const TextStyle(color: Colors.white70),
+                  style: TextStyle(
+                    color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],

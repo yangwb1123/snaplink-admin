@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// 迷你趋势图（Sparkline）：数值序列 → 平滑折线 + 渐变面积。
@@ -119,7 +120,7 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SparklinePainter oldDelegate) =>
-      oldDelegate.data != data ||
+      !listEquals(oldDelegate.data, data) ||
       oldDelegate.color != color ||
       oldDelegate.reveal != reveal;
 }

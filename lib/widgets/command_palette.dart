@@ -107,7 +107,10 @@ class _CommandPaletteState extends State<CommandPalette> {
       ),
       subtitle: Text(
         cmd.path,
-        style: const TextStyle(fontSize: 11, color: Colors.grey),
+        style: TextStyle(
+          fontSize: 11,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
       dense: true,
       onTap: () => _activate(cmd),
@@ -170,10 +173,13 @@ class _CommandPaletteState extends State<CommandPalette> {
             ),
             Container(
               padding: const EdgeInsets.all(8),
-              color: Colors.grey.shade100,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: LocalizedText(
                 'Type to search · ${_results.length} commands',
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],

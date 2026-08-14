@@ -140,7 +140,9 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
             controller: _ctrl,
             onChanged: (v) => setState(() => _match = v == widget.confirmText),
             decoration: const InputDecoration(
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.all(Radius.circular(8)),
+              ),
               isDense: true,
             ),
           ),

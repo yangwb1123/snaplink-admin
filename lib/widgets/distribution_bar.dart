@@ -84,7 +84,7 @@ class DistributionBar extends StatelessWidget {
           ),
         ),
         if (showLegend) ...[
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             runSpacing: 4,

@@ -84,17 +84,17 @@ class EmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               context.tr(resolvedTitle),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey.shade600),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),
               Text(
                 context.tr(subtitle!),
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                ),
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
