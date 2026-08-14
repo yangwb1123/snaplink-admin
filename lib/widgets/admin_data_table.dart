@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
-import 'package:sso_admin/widgets/data_emphasis.dart';
-import 'package:flutter/services.dart';
+import 'admin_data_table/header_cell.dart';
+import 'admin_data_table/table_cells.dart';
+
+export 'admin_data_table/table_cells.dart' show TableCellText, CopyableCell;
 
 /// Row/header spacing density. Page-level opt-in knob only; affects spacing,
 /// never fonts (11/13 fixed). Default `comfortable` = today's pixels exactly.
@@ -281,7 +282,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
         child: Row(
           children: [
             for (final column in widget.columns)
-              _HeaderCell(
+              AdminDataTableHeaderCell(
                 column: column,
                 sorted: widget.sortColumn == column.id,
                 ascending: widget.sortAscending,
@@ -365,196 +366,3 @@ class AdminDataColumn {
   });
 }
 
-class _HeaderCell extends StatelessWidget {
-  final AdminDataColumn column;
-  final bool sorted;
-  final bool ascending;
-  final bool sortable;
-  final VoidCallback? onTap;
-  final TableDensity density;
-
-  const _HeaderCell({
-    required this.column,
-    required this.sorted,
-    required this.ascending,
-    required this.sortable,
-    required this.density,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final label = Text(
-      column.label,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.6,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-    final headerPadding = density == TableDensity.compact ? 6.0 : 10.0;
-    return SizedBox(
-      width: column.width ?? 160,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: headerPadding),
-        child: sortable
-            ? InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        column.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      sorted
-                          ? (ascending
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward)
-                          : Icons.unfold_more,
-                      size: 12,
-                      color: sorted
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                    ),
-                  ],
-                ),
-              )
-            : label,
-      ),
-    );
-  }
-}
-
-/// 表格内通用单元格文本。
-class TableCellText extends StatelessWidget {
-  final String text;
-  final bool bold;
-  final bool muted;
-  final Color? color;
-  final int maxLines;
-
-  /// When non-null, overrides [bold]/[muted] at the cell's fixed 13px:
-  /// primary → w700 onSurface; secondary → w600 onSurface;
-  /// tertiary → w400 onSurfaceVariant. Null = today's behavior.
-  final DataEmphasisLevel? level;
-
-  const TableCellText(
-    this.text, {
-    super.key,
-    this.bold = false,
-    this.muted = false,
-    this.color,
-    this.maxLines = 1,
-    this.level,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final (fontWeight, textColor) = switch (level) {
-      DataEmphasisLevel.primary => (
-        FontWeight.w700,
-        theme.colorScheme.onSurface,
-      ),
-      DataEmphasisLevel.secondary => (
-        FontWeight.w600,
-        theme.colorScheme.onSurface,
-      ),
-      DataEmphasisLevel.tertiary => (
-        FontWeight.w400,
-        theme.colorScheme.onSurfaceVariant,
-      ),
-      null => (
-        bold ? FontWeight.w600 : FontWeight.w400,
-        color ??
-            (muted
-                ? theme.colorScheme.onSurfaceVariant
-                : theme.colorScheme.onSurface),
-      ),
-    };
-    return Text(
-      text,
-      maxLines: maxLines,
-      overflow: maxLines > 1 ? TextOverflow.ellipsis : null,
-      style: TextStyle(fontSize: 13, fontWeight: fontWeight, color: textColor),
-    );
-  }
-}
-
-/// 可点击复制单元格（点击复制 + SnackBar 反馈）。
-class CopyableCell extends StatelessWidget {
-  final String text;
-  final BuildContext Function() contextProvider;
-
-  /// 选择模式下禁用复制（点击交给行手势做选择切换）。
-  final bool enabled;
-
-  const CopyableCell({
-    super.key,
-    required this.text,
-    required this.contextProvider,
-    this.enabled = true,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!enabled) {
-      return TableCellText(text, bold: true, maxLines: 1);
-    }
-    return Tooltip(
-      message: context.tr('Click to copy'),
-      triggerMode: TooltipTriggerMode.tap,
-      child: InkWell(
-        onTap: () async {
-          await Clipboard.setData(ClipboardData(text: text));
-          final messenger = ScaffoldMessenger.maybeOf(contextProvider());
-          if (messenger != null) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppStrings.of(
-                    contextProvider(),
-                  ).translate('Copied to clipboard'),
-                ),
-                duration: const Duration(seconds: 1),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
-        },
-        borderRadius: BorderRadius.circular(8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(child: TableCellText(text, bold: true, maxLines: 1)),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.copy_rounded,
-              size: 12,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

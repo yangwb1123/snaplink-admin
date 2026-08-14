@@ -17,6 +17,15 @@ MAX_SUBDIRS = _df.max_subdirs
 EXEMPT_DIRS = set(_df.exempt_dirs)
 
 
+def _is_exempt(rel: str) -> bool:
+    """True if a directory is exempt: a single path component anywhere in
+    the path (legacy semantics) or a multi-segment exempt dir matched as a
+    path prefix (e.g. `docs/auto` for pi-batch run outputs)."""
+    if any(part in EXEMPT_DIRS for part in Path(rel).parts):
+        return True
+    return any(rel == e or rel.startswith(e.rstrip("/") + "/") for e in EXEMPT_DIRS)
+
+
 def check(root: Path = None) -> list[str]:
     root = root or Path.cwd()
     violations = []
@@ -24,7 +33,7 @@ def check(root: Path = None) -> list[str]:
         if not dirpath.is_dir():
             continue
         rel = str(dirpath.relative_to(root))
-        if any(part in EXEMPT_DIRS for part in Path(rel).parts):
+        if _is_exempt(rel):
             continue
         if rel.startswith("."):
             continue

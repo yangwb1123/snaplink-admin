@@ -34,6 +34,7 @@ import 'webauthn_assertion.dart';
 
 part 'oidc_account_flow.dart';
 part 'oidc_authorization_flow.dart';
+part 'oidc_authorization_submit.dart';
 part 'oidc_challenge_flow.dart';
 part 'oidc_login_view_flow.dart';
 part 'oidc_provider_flow.dart';

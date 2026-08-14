@@ -5,27 +5,25 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
-import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
-import 'package:sso_admin/widgets/search_filter_bar.dart';
-import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
-import 'package:sso_admin/widgets/status_chip.dart';
-import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'admin_route.dart';
 import 'list_metrics.dart';
 import 'tenant_form_dialog.dart';
 import 'tenant_lifecycle_copy.dart';
+import 'tenants/tenants_batch_bar.dart';
+import 'tenants/tenants_filter_bar.dart';
+import 'tenants/tenants_table.dart';
 
 /// 租户列表页：光标分页 + 排序/每页条数 + 状态筛选 + 批量挂起/激活
 /// + 单行生命周期（suspend/delete 撤销报告），对齐参考页 clients。
+/// 纯 UI 子组件拆在 tenants/ 目录（筛选行/表格+行操作+空态/批量栏）。
 class TenantsTab extends StatefulWidget {
   final SSOAdminClient client;
 
@@ -53,20 +51,6 @@ class _TenantsTabState extends State<TenantsTab>
   var _pageSize = 100;
   var _orderBy = 'id';
   late final void Function() _cancelPopState;
-
-  static const _orderOptions = [
-    ('id', 'ID ascending'),
-    ('-id', 'ID descending'),
-    ('slug', 'Slug ascending'),
-    ('-slug', 'Slug descending'),
-    ('name', 'Name ascending'),
-    ('-name', 'Name descending'),
-  ];
-  static const _sizeOptions = [
-    (25, '25 per page'),
-    (100, '100 per page'),
-    (250, '250 per page'),
-  ];
 
   /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.tenants);
@@ -110,10 +94,9 @@ class _TenantsTabState extends State<TenantsTab>
 
   String get _filterQuery {
     final text = _filterCtrl.text.trim();
-    if (_statusFilter == 'all') return text;
-    return text.isEmpty
-        ? 'status:$_statusFilter'
-        : '$text and status:$_statusFilter';
+    return _statusFilter == 'all'
+        ? text
+        : '${text.isEmpty ? '' : '$text and '}status:$_statusFilter';
   }
 
   Future<SSOAdminListPage> _loadPage() => widget.client.listTenants(
@@ -123,15 +106,13 @@ class _TenantsTabState extends State<TenantsTab>
     filter: _filterQuery,
   );
 
-  void _reload() {
-    setState(() {
-      _pageTokens
-        ..clear()
-        ..add(null);
-      _pageIndex = 0;
-      _future = _loadPage();
-    });
-  }
+  void _reload() => setState(() {
+    _pageTokens
+      ..clear()
+      ..add(null);
+    _pageIndex = 0;
+    _future = _loadPage();
+  });
 
   void _goPrevious() {
     if (_pageIndex == 0) return;
@@ -197,31 +178,22 @@ class _TenantsTabState extends State<TenantsTab>
           : suspending
           ? 'Suspend: {ok} succeeded, {failed} failed. {detail}'
           : 'Activate: {ok} succeeded, {failed} failed. {detail}',
-      {
-        'ok': ok,
-        'total': n,
-        'failed': failures.length,
-        'detail': failures.take(3).join('; '),
-      },
+      {'ok': ok, 'total': n, 'failed': failures.length, 'detail': failures.take(3).join('; ')},
     );
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     _reload();
   }
 
-  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择（共享组件，图标用
-  /// 租户组强调色；确认弹窗语义保留在 [_batchSetStatus]）。
-  Widget _batchBar(BuildContext context) => BatchActionBar(
+  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择（组件拆在 tenants/tenants_batch_bar.dart，确认弹窗语义保留在 [_batchSetStatus]）。
+  Widget _batchBar() => TenantsBatchBar(
     selectedCount: selected.length,
     accent: _accent,
-    actions: [
-      BatchAction(label: 'Suspend', icon: Icons.pause_circle_outline, onPressed: () => _batchSetStatus('suspended')),
-      BatchAction(label: 'Activate', icon: Icons.play_circle_outline, onPressed: () => _batchSetStatus('active')),
-    ],
+    onSuspend: () => _batchSetStatus('suspended'),
+    onActivate: () => _batchSetStatus('active'),
     onClearSelection: clearSelection,
   );
 
-  /// 单条生命周期入口：type-to-confirm → 执行 → 撤销报告（suspend/delete）
-  /// 或激活提示 → 刷新。文案与撤销报告语义逐字保留。
+  /// 单条生命周期入口：type-to-confirm → 执行 → 撤销报告 → 刷新（语义逐字保留）。
   Future<void> _runLifecycle({
     required String id,
     required String title,
@@ -270,12 +242,8 @@ class _TenantsTabState extends State<TenantsTab>
     final suspending = next == 'suspended';
     _runLifecycle(
       id: id,
-      title: suspending
-          ? context.tr('Suspend tenant?')
-          : context.tr('Activate tenant?'),
-      confirmLabel: suspending
-          ? context.tr('Suspend tenant')
-          : context.tr('Activate tenant'),
+      title: suspending ? context.tr('Suspend tenant?') : context.tr('Activate tenant?'),
+      confirmLabel: suspending ? context.tr('Suspend tenant') : context.tr('Activate tenant'),
       confirmMessage: TenantLifecycleCopy.confirmation(id, next),
       destructive: suspending,
       successCopy: suspending ? 'Tenant suspended.' : 'Tenant activated.',
@@ -327,73 +295,36 @@ class _TenantsTabState extends State<TenantsTab>
         if (selecting) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _batchBar(context),
+            child: _batchBar(),
           ),
           const SizedBox(height: 8),
         ],
-        _filterBar(context),
+        _filterBar(),
         const SizedBox(height: 8),
         Expanded(child: _listArea(context)),
       ],
     );
   }
 
-  Widget _filterBar(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(
-          width: 280,
-          child: SearchFilterBar(
-            labelText: 'Filter'.localized,
-            controller: _filterCtrl,
-            debounce: false,
-            onSearchChanged: (_) {},
-            onSubmitted: (_) => _reload(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        StatusFilterDropdown(
-          value: _statusFilter,
-          options: const {
-            'all': 'All statuses',
-            'active': 'Active only',
-            'suspended': 'Suspended only',
-          },
-          onChanged: (value) {
-            setState(() => _statusFilter = value);
-            _reload();
-          },
-        ),
-        DropdownButton<String>(
-          value: _orderBy,
-          items: [
-            for (final (value, label) in _orderOptions)
-              DropdownMenuItem(value: value, child: LocalizedText(label)),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _orderBy = value);
-            _reload();
-          },
-        ),
-        DropdownButton<int>(
-          value: _pageSize,
-          items: [
-            for (final (size, label) in _sizeOptions)
-              DropdownMenuItem(value: size, child: LocalizedText(label)),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() => _pageSize = value);
-            _reload();
-          },
-        ),
-      ],
-    ),
+  /// 筛选行（搜索/状态/排序/每页条数）拆在 tenants/tenants_filter_bar.dart。
+  Widget _filterBar() => TenantsFilterBar(
+    controller: _filterCtrl,
+    statusFilter: _statusFilter,
+    orderBy: _orderBy,
+    pageSize: _pageSize,
+    onSearchSubmitted: _reload,
+    onStatusChanged: (value) {
+      setState(() => _statusFilter = value);
+      _reload();
+    },
+    onOrderChanged: (value) {
+      setState(() => _orderBy = value);
+      _reload();
+    },
+    onPageSizeChanged: (value) {
+      setState(() => _pageSize = value);
+      _reload();
+    },
   );
 
   Widget _listArea(BuildContext context) => FutureBuilder<SSOAdminListPage>(
@@ -412,7 +343,10 @@ class _TenantsTabState extends State<TenantsTab>
         totalSize: page.totalSize,
         persona: widget.persona,
       );
-      final list = items.isEmpty ? _emptyState() : _tenantTable(items);
+      final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
+      final list = items.isEmpty
+          ? TenantsEmptyState(filtering: filtered)
+          : _tenantTable(items);
       final pagination = PaginationControls(
         page: _pageIndex + 1,
         total: page.totalSize,
@@ -428,7 +362,10 @@ class _TenantsTabState extends State<TenantsTab>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               metrics,
-              if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
+              if (short)
+                SizedBox(height: 280, child: list)
+              else
+                Expanded(child: list),
               pagination,
             ],
           );
@@ -438,80 +375,24 @@ class _TenantsTabState extends State<TenantsTab>
     },
   );
 
-
-  Widget _emptyState() {
-    final filtering = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
-    return EmptyState(
-      variant: filtering ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-      icon: filtering ? null : Icons.business,
-      title: 'No tenants',
-      subtitle: 'No tenants match the current filter.',
-      actionLabel: 'Create tenant',
-      onAction: () => AdminRoute.go('tenants', action: 'new'),
-    );
-  }
-
-  Widget _tenantTable(List<Map<String, dynamic>> items) => AdminDataTable(
-    scrollable: true,
-    minWidth: 760,
-    density: TableDensity.compact,
+  /// 表格 + 行操作菜单 + 空态拆在 tenants/tenants_table.dart。
+  Widget _tenantTable(List<Map<String, dynamic>> items) => TenantsTable(
+    items: items,
+    selecting: selecting,
+    selected: selected,
+    busyId: _busyId,
     onRowTap: selecting
         ? (i) => toggleSelect(items[i]['id']?.toString() ?? '')
         : (i) => AdminRoute.go(
-            'tenants', resourceId: items[i]['id']?.toString() ?? ''),
+            'tenants',
+            resourceId: items[i]['id']?.toString() ?? '',
+          ),
     onRowLongPress: selecting
         ? null
         : (i) => toggleSelect(items[i]['id']?.toString() ?? ''),
-    columns: [
-      if (selecting)
-        AdminDataColumn(id: 'select', label: '', width: 44, builder: (context, i) {
-          final id = items[i]['id']?.toString() ?? '';
-          return Checkbox(value: selected.contains(id), onChanged: (_) => setState(() {
-            if (!selected.remove(id)) toggleSelect(id);
-          }));
-        }),
-      AdminDataColumn(id: 'name', label: 'TENANT', width: 240, sortable: true, builder: (context, i) => TableCellText(items[i]['name']?.toString() ?? items[i]['id']?.toString() ?? '?', bold: true, maxLines: 2)),
-      AdminDataColumn(id: 'slug', label: 'SLUG', width: 140, builder: (context, i) => TableCellText(items[i]['slug']?.toString() ?? '', muted: true)),
-      AdminDataColumn(id: 'status', label: 'STATUS', width: 190, sortable: true, builder: (context, i) {
-        final status = items[i]['status']?.toString() ?? 'active';
-        return status == 'suspended' ? StatusChip.suspended() : StatusChip.active();
-      }),
-      AdminDataColumn(id: 'actions', label: '', width: 60, builder: (context, i) => _rowActions(items[i])),
-    ],
-    itemCount: items.length,
-    rowBuilder: (context, i) => const SizedBox.shrink(),
+    onToggleSelect: toggleSelect,
+    onToggleStatus: _toggleStatus,
+    onEdit: (id) => AdminRoute.go('tenants', action: 'edit', resourceId: id),
+    onDelete: _delete,
   );
-
-  Widget _rowActions(Map<String, dynamic> t) {
-    final id = t['id']?.toString() ?? '';
-    final status = t['status']?.toString() ?? 'active';
-    final suspended = status == 'suspended';
-    if (_busyId == id) {
-      return const SizedBox(
-        height: 18,
-        width: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    return PopupMenuButton<String>(
-      onSelected: (value) {
-        switch (value) {
-          case 'toggle':
-            _toggleStatus(id, status);
-          case 'edit':
-            AdminRoute.go('tenants', action: 'edit', resourceId: id);
-          case 'delete':
-            _delete(id, t['name']?.toString() ?? id);
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'toggle',
-          child: LocalizedText(suspended ? 'Activate' : 'Suspend'),
-        ),
-        const PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
-        const PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
-      ],
-    );
-  }
 }

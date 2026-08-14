@@ -3,6 +3,7 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 
 /// 三态门禁（质量门禁固化）：抽查 6 个产品入口的数据区域页面文件，
@@ -60,10 +61,10 @@ void main() {
     }
     // 宽松门禁：缺失仅告警，不失败；告警计入质量门禁报告。
     // ignore: avoid_print
-    print('three-state warnings (${warnings.length}):');
+    debugPrint('three-state warnings (${warnings.length}):');
     for (final warning in warnings) {
       // ignore: avoid_print
-      print('  $warning');
+      debugPrint('  $warning');
     }
   });
 }

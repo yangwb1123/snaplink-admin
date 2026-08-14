@@ -1,0 +1,71 @@
+# 工程门禁清零 — batch 13（filesize 拆分 + 合理豁免 + fan-out 治理）
+#
+# `python3 cli.py harness` 现有 12 个 filesize FAIL + 1 个目录 fan-out。
+# 原则：能拆则拆（页面/组件文件），数据表与运行时产物合理豁免。目标
+# harness 0 FAIL（架构/复杂度等其余门禁保持全绿）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-gates-clear.yaml \
+#     --mode serial --timeout 1500 --log-file logs/gates-clear.log
+
+tasks:
+- prompt: |
+    拆分超行数页面文件。步骤：
+    1. 分析 lib/screens/admin/tenants_tab.dart（517 行 > 400 上限）：
+       读完整文件，识别可提取的独立 UI 子组件（租户卡片/统计条/
+       筛选行/状态徽章/对话框触发等）。
+    2. 拆分到 lib/screens/admin/tenants/ 目录（新建，文件 ≤400 行）：
+       - 页面主文件保留列表/分页/操作逻辑，子组件按职责拆分；
+       - 保持 API 契约、能力门控、i18n、测试语义完全不变；
+       - 图标用组色；不新增依赖。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart
+       全绿；python3 cli.py harness 的 filesize 检查对该文件不再 FAIL。
+    4. 输出 docs/ui/pages-per-page/gates-tenants-split.md（拆分方案 +
+       文件映射 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/gates-tenants-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_detail_screens_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    拆分超行数共享组件。步骤：
+    1. 分析 lib/widgets/admin_data_table.dart（560 行）：读完整文件，
+       识别可提取部分（表头单元/数据行/单元格类型/分页脚注等）。
+    2. 拆分到 lib/widgets/admin_data_table/ 目录（新建，每文件 ≤400
+       行）：主文件保留公开 API（AdminDataTable/AdminDataColumn），
+       内部实现按职责拆分；公开 API 签名与行为完全不变。
+    3. 同时处理 lib/screens/settings_screen.dart（410 行）：若为
+       简单越限（≤420），提取 1-2 个私有子组件到独立文件即可；若
+       复杂则拆分（不改变行为）。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+       test/settings_screen_test.dart test/settings_form_layout_test.dart
+       全绿；cli.py harness 对该两文件不再 FAIL。
+    5. 输出 docs/ui/pages-per-page/gates-table-split.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/gates-table-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/settings_screen_test.dart test/settings_form_layout_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    工程门禁治理收尾。步骤：
+    1. 目标：python3 cli.py harness 0 FAIL（在保持架构/复杂度等其余
+       门禁全绿的前提下）。
+    2. 逐项处理剩余 filesize FAIL：
+       - lib/i18n/app_strings*.dart（410/718/477/411 行）：翻译键值
+         数据表，拆分会破坏合并架构——在 engineering.yaml 的
+         filesize.exemptions 登记并注明"i18n 数据表"；不要拆分。
+       - lib/screens/oidc_login/login_view_widget.dart（405）、
+         oidc_authorization_flow.dart（406）：简单越限（≤410），优先
+         提取 1 个私有子组件/常量表到独立文件；如无法干净拆分则
+         登记豁免并注明原因。
+       - test/audit_contract_guard_scans.dart（854）：守卫扫描工具
+         库（无 main 的共享 library），拆分或登记豁免（注明）。
+    3. 修复目录 fan-out：docs/auto/runs/ 95 个子目录是 pi-batch 运行
+       产物——在 engineering.yaml 的 directory_fanout.exempt_dirs 登记
+       docs/auto（运行时产物目录）。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/login_view_widget_test.dart test/oidc_authorization_delivery_test.dart
+       test/audit_contract_guard_test.dart 全绿；python3 cli.py harness
+       → 0 FAIL（filesize + fanout + 其余全 PASS）。
+    5. 输出 docs/ui/pages-per-page/gates-clearance.md（处置表：每个
+       FAIL 文件 → 拆分/豁免 + 原因 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/gates-clearance.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_view_widget_test.dart test/oidc_authorization_delivery_test.dart test/audit_contract_guard_test.dart 2>&1 | grep -qE 'All tests passed!'"

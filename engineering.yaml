@@ -22,6 +22,12 @@ filesize:
   exemptions:
     # Complex screens that genuinely need more lines
     - "lib/main.dart"
+    # i18n 数据表：翻译键值数据表（Map 字面量），拆分会破坏合并架构
+    # （snaplink i18n catalog 按源文件合并生成），故登记豁免、不拆分。
+    - "lib/i18n/app_strings.dart"
+    - "lib/i18n/app_strings_source_admin_core.dart"
+    - "lib/i18n/app_strings_source_admin_features.dart"
+    - "lib/i18n/app_strings_source_portal.dart"
     # 2026-08 pages-ui refactor: componentized lists/status/empty states
     # pushed these pages just past the budget (1-38 lines over)
     - "lib/screens/admin/permissions_tab.dart"
@@ -119,6 +125,9 @@ directory_fanout:
     - test
     - __pycache__
     - .pub-cache
+    # docs/auto：pi-batch 运行时产物目录（每批一次 run-* 子目录），
+    # 非源码目录，fan-out 不适用于运行时产物。
+    - docs/auto
 
 root_policy:
   max_files: 12
