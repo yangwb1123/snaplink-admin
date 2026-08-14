@@ -80,6 +80,9 @@ const appAdditionalStrings = <String, Map<String, String>>{
     'password_minimum': 'Password must be at least 8 characters.',
     'passwords_mismatch': 'Passwords do not match.',
     'app_name_or_skip': 'Enter an application name, or use Skip and finish.',
+    'redirect_uri_invalid':
+        'Each redirect URI must be absolute HTTPS (HTTP is allowed only for '
+        'localhost) and must not contain user info or a fragment.',
     'step': 'Step',
     'of': 'of',
     'shown_once': 'shown once',
@@ -193,6 +196,7 @@ const appAdditionalStrings = <String, Map<String, String>>{
     'password_minimum': '密码至少需要 8 个字符。',
     'passwords_mismatch': '两次输入的密码不一致。',
     'app_name_or_skip': '请输入应用名称，或选择跳过并完成。',
+    'redirect_uri_invalid': '每个重定向 URI 必须是绝对的 HTTPS 地址（仅 localhost 允许 HTTP），且不能包含用户信息或片段。',
     'step': '第',
     'of': '/',
     'shown_once': '仅显示一次',

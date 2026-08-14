@@ -2,7 +2,15 @@
 ///
 /// OAuth redirect URIs cannot carry fragments, and embedded user-info is
 /// rejected to avoid displaying or forwarding credential-like URL material.
-List<String> parseSetupRedirectUris(String input) {
+/// [invalidMessage] lets callers surface a localized message; the default
+/// English text is the pure-function fallback (the thrown [FormatException]
+/// message is what the UI displays).
+List<String> parseSetupRedirectUris(
+  String input, {
+  String invalidMessage =
+      'Each redirect URI must be absolute HTTPS (HTTP is allowed only for '
+      'localhost) and must not contain user info or a fragment.',
+}) {
   final values = input
       .split(RegExp(r'[\r\n,]+'))
       .map((value) => value.trim())
@@ -19,10 +27,7 @@ List<String> parseSetupRedirectUris(String input) {
         uri.hasFragment ||
         uri.userInfo.isNotEmpty ||
         (uri.scheme != 'https' && !localhost)) {
-      throw const FormatException(
-        'Each redirect URI must be absolute HTTPS (HTTP is allowed only for '
-        'localhost) and must not contain user info or a fragment.',
-      );
+      throw FormatException(invalidMessage);
     }
   }
   return values;

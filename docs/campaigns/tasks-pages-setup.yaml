@@ -1,0 +1,29 @@
+# 逐页 UI 重构 — batch 7b（setup 首次初始化页）
+#
+# 每页一个任务：先分析该页现有代码，再实施重构，最后跑 analyze + 该页
+# 相关测试。串行执行（--mode serial）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-pages-setup.yaml \
+#     --mode serial --timeout 1500 --log-file logs/pages-setup.log
+
+tasks:
+- prompt: |
+    重构首次初始化页面。步骤：
+    1. 分析现有代码：lib/screens/setup/setup_screen.dart、
+       setup_widgets.dart、setup_validation.dart —— 读完整文件，梳理
+       状态探测/首个管理员/首个应用/多 Redirect URI/一次性密钥展示的
+       UI 结构。
+    2. 对照可用组件（lib/widgets/）与品牌色，列出改进点（模板渲染、
+       三态缺失、单色图标、硬编码文案）。
+    3. 实施重构（只改上述文件 + lib/i18n/ EN/ZH key）：
+       - 用合适组件替换模板渲染；图标上色；
+       - loading/empty/error 三态齐全；初始化语义（partial success
+         恢复 envelope、一次性密钥展示、校验）保持不变；
+       - 不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/setup_screen_test.dart test/setup_api_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/setup.md（分析摘要→问题清单→修复
+       映射→验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/setup.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/setup_screen_test.dart test/setup_api_test.dart 2>&1 | grep -qE 'All tests passed!'"

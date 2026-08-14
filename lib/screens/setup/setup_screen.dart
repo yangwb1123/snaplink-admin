@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../i18n/app_strings.dart';
 import '../../services/browser_navigation.dart';
+import '../../widgets/pressable_scale.dart';
 import '../../widgets/responsive_entry_card.dart';
 import 'setup_api.dart';
 import 'setup_validation.dart';
@@ -120,7 +121,10 @@ class _SetupScreenState extends State<SetupScreen> {
     }
     late final List<String> redirects;
     try {
-      redirects = parseSetupRedirectUris(_appRedirectCtrl.text);
+      redirects = parseSetupRedirectUris(
+        _appRedirectCtrl.text,
+        invalidMessage: strings.redirectUriInvalid,
+      );
     } on FormatException catch (error) {
       setState(() => _appError = error.message);
       return;
@@ -225,7 +229,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ),
           const SizedBox(height: 16),
           if (_adminError != null) ...[
-            SetupErrorBox(text: _adminError!),
+            SetupInlineNotice(text: _adminError!),
             const SizedBox(height: 16),
           ],
           TextField(
@@ -265,9 +269,11 @@ class _SetupScreenState extends State<SetupScreen> {
             onSubmitted: (_) => _continueFromAdminStep(),
           ),
           const SizedBox(height: 20),
-          FilledButton(
-            onPressed: _continueFromAdminStep,
-            child: Text(strings.continueLabel),
+          PressableScale(
+            child: FilledButton(
+              onPressed: _continueFromAdminStep,
+              child: Text(strings.continueLabel),
+            ),
           ),
         ],
       ),
@@ -305,7 +311,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ),
         const SizedBox(height: 16),
         if (_appError != null) ...[
-          SetupErrorBox(text: _appError!),
+          SetupInlineNotice(text: _appError!),
           const SizedBox(height: 16),
         ],
         TextField(
@@ -332,20 +338,24 @@ class _SetupScreenState extends State<SetupScreen> {
           maxLines: 5,
         ),
         const SizedBox(height: 20),
-        FilledButton(
-          onPressed: _submitting ? null : _submitAppStep,
-          child: _submitting
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(strings.createAndFinish),
+        PressableScale(
+          child: FilledButton(
+            onPressed: _submitting ? null : _submitAppStep,
+            child: _submitting
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(strings.createAndFinish),
+          ),
         ),
         const SizedBox(height: 12),
-        OutlinedButton(
-          onPressed: _submitting ? null : _skip,
-          child: Text(strings.skipAndFinish),
+        PressableScale(
+          child: OutlinedButton(
+            onPressed: _submitting ? null : _skip,
+            child: Text(strings.skipAndFinish),
+          ),
         ),
       ],
     );
@@ -359,6 +369,7 @@ class _SetupScreenState extends State<SetupScreen> {
     onRetryApplication: _recoveryApplication == null
         ? null
         : () => _finish(_recoveryApplication),
+    busy: _submitting,
     onDone: () => BrowserNavigation.replaceLocation('/admin/'),
   );
 }

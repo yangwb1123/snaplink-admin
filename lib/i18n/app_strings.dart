@@ -193,6 +193,7 @@ class AppStrings {
   String get passwordMinimum => _t('password_minimum');
   String get passwordsMismatch => _t('passwords_mismatch');
   String get appNameOrSkip => _t('app_name_or_skip');
+  String get redirectUriInvalid => _t('redirect_uri_invalid');
   String stepOf(int current, int total) =>
       '${_t('step')} $current ${_t('of')} $total';
   String shownOnce(String label) => '$label · ${_t('shown_once')}';
