@@ -29,6 +29,7 @@ class LoginViewWidget extends StatefulWidget {
   final VoidCallback onSignUp;
   final ValueChanged<String> onProviderChanged;
   final void Function(String connectionId) onFederatedSignIn;
+  final FocusNode? passwordFocusNode;
 
   const LoginViewWidget({
     super.key,
@@ -54,6 +55,7 @@ class LoginViewWidget extends StatefulWidget {
     required this.onSignUp,
     required this.onProviderChanged,
     required this.onFederatedSignIn,
+    this.passwordFocusNode,
   });
 
   @override
@@ -195,6 +197,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       const SizedBox(height: 16),
       _field(
         controller: widget.passCtrl,
+        focusNode: widget.passwordFocusNode,
         label: strings.password,
         hints: const [AutofillHints.password],
         obscure: true,
@@ -280,6 +283,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
   Widget _field({
     required TextEditingController controller,
     required String label,
+    FocusNode? focusNode,
     List<String>? hints,
     TextInputType? keyboard,
     bool next = false,
@@ -288,6 +292,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
     VoidCallback? onSubmit,
   }) => TextField(
     controller: controller,
+    focusNode: focusNode,
     enabled: !widget.loading,
     autocorrect: false,
     enableSuggestions: false,

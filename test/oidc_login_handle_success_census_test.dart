@@ -39,7 +39,7 @@ void main() {
 
     test('exactly six call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
-        authorizationFlow: [242, 313, 379],
+        authorizationFlow: [245, 326, 392],
         challengeFlow: [150, 244],
         providerFlow: [60],
       };
@@ -360,7 +360,7 @@ void main() {
                 'slicer miss) or a seventh path fails here, never silently: '
                 '${ids.length} found');
         const pinned = <String, List<int>>{
-          authorizationFlow: [242, 313, 379],
+          authorizationFlow: [245, 326, 392],
           challengeFlow: [150, 244],
           providerFlow: [60],
         };

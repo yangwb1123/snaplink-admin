@@ -266,6 +266,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
         _error = null;
       }),
       onFederatedSignIn: _signInWithFederated,
+      passwordFocusNode: _passwordFocusNode,
     );
   }
 

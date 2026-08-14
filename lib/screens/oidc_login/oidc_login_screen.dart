@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 
 import '../../i18n/app_strings.dart';
 import '../../app_settings.dart';
@@ -118,6 +119,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
 
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _passwordFocusNode = FocusNode();
   final _codeTargetCtrl = TextEditingController();
   final _providerCodeCtrl = TextEditingController();
   bool _codeSent = false;
@@ -285,6 +287,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     if (_ownsApi) _api.close();
     _userCtrl.dispose();
     _passCtrl.dispose();
+    _passwordFocusNode.dispose();
     _codeTargetCtrl.dispose();
     _providerCodeCtrl.dispose();
     _mfaCodeCtrl.dispose();

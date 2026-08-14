@@ -6,6 +6,9 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   }
 
   void _handleSuccess(LoginOutcome outcome) {
+    // 登录成功：通知浏览器保存凭据（用户下次访问时自动填充）。
+    // Flutter Web 上 finishAutofillContext 是让浏览器记住密码的唯一路径。
+    TextInput.finishAutofillContext(shouldSave: true);
     // Authentication credentials are no longer needed once the server has
     // reached a terminal success. Clear them even when redirect/JARM delivery
     // is later blocked and this widget remains mounted.
@@ -282,6 +285,16 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
     }
     if (_usesTotpProvider && (_userCtrl.text.trim().isEmpty || code.isEmpty)) {
       _update(() => _error = 'Enter your username and verification code.');
+      return;
+    }
+    if (!_usesCodeProvider &&
+        !_usesTotpProvider &&
+        _passCtrl.text.isEmpty) {
+      // 浏览器密码管理器在 Flutter Web 上经常不会把自动填充的密码同步进
+      // TextEditingController：这里在提交前拦截空密码并聚焦输入框，
+      // 避免向服务器发送注定 401 的空凭据请求。
+      _update(() => _error = 'Enter your password.');
+      _passwordFocusNode.requestFocus();
       return;
     }
     if (magicLinkToken != null) _scrubOneTimeLoginData();
