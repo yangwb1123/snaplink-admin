@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -241,30 +242,11 @@ class _HealthTabState extends State<HealthTab> {
     child: _statusChip(ok, context.tr(label)),
   );
 
-  /// 错误区：danger 卡片 + Retry（X4）；错误文本动态 Text（FM-1）。
-  Widget _errorCard(BuildContext context) => Card(
-    color: AppColors.danger.withValues(alpha: 0.06),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const Icon(Icons.cloud_off, size: 48, color: AppColors.danger),
-          const SizedBox(height: 8),
-          LocalizedText(
-            'Cannot reach backend',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(_error ?? '', style: const TextStyle(color: AppColors.muted)),
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _refresh,
-            icon: const Icon(Icons.refresh),
-            label: const LocalizedText('Retry'),
-          ),
-        ],
-      ),
-    ),
+  /// 错误区：统一 ErrorStateCard（标题 + 明细 + Retry）；错误文本动态 Text（FM-1）。
+  Widget _errorCard(BuildContext context) => ErrorStateCard(
+    title: 'Cannot reach backend',
+    message: _error ?? '',
+    onRetry: _refresh,
   );
 
   /// 服务器卡片：状态徽章（状态值 verbatim，X10）+ 版本信息。

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'admin_module_groups.dart';
@@ -105,40 +105,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       body: _loading
           ? const SkeletonListTile(itemCount: 6)
           : _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: AppColors.danger,
-                  ),
-                  const SizedBox(height: 16),
-                  LocalizedText(
-                    'Failed to load',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      _error!,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.muted,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh),
-                    label: const LocalizedText('Retry'),
-                  ),
-                ],
-              ),
-            )
+          ? ErrorStateView(message: _error!, onRetry: _load)
           : Column(
               children: [
                 AdminBreadcrumb(),

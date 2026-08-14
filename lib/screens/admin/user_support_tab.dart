@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
@@ -218,7 +218,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          _ErrorCard(error: _error!, onRetry: _load),
+          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
         ],
         if (_loading)
           const Padding(
@@ -370,30 +370,3 @@ class _UserSupportTabState extends State<UserSupportTab> {
   }
 }
 
-/// 错误卡（X4 模式）：图标 + 动态消息（API 值走 Text）+ Retry。
-class _ErrorCard extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
-  const _ErrorCard({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              error,
-              style: const TextStyle(color: AppColors.danger),
-            ),
-          ),
-          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
-        ],
-      ),
-    ),
-  );
-}

@@ -7,6 +7,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -197,7 +198,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         if (!_loading && _error != null)
           Padding(
             padding: const EdgeInsets.only(top: 12),
-            child: _ErrorBanner(error: _error!, onRetry: _load),
+            child: ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
           ),
         if (!_loading && _error == null && _visible.isEmpty)
           Padding(
@@ -344,37 +345,3 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   };
 }
 
-/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
-class _ErrorBanner extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
-  const _ErrorBanner({required this.error, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Icon(Icons.error_outline, size: 18, color: AppColors.danger),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                error,
-                style: const TextStyle(color: AppColors.danger),
-              ),
-            ),
-          ),
-          TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
-        ],
-      ),
-    ),
-  );
-}

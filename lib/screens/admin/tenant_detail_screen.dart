@@ -8,6 +8,7 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_module_groups.dart';
@@ -204,27 +205,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
           ),
   );
 
-  /// 加载失败三态之一：图标 + 标题 + 明细 + 重试（X4 模式）。
-  Widget _errorState(String error) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-        const SizedBox(height: 16),
-        LocalizedText(
-          'Failed to load',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(error, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-      ],
-    ),
-  );
+  /// 加载失败三态之一：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
+  Widget _errorState(String error) =>
+      ErrorStateView(message: error, onRetry: _load);
 
   Widget _buildContent(BuildContext context) => Column(
     children: [

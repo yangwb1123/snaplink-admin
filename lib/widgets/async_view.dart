@@ -28,6 +28,12 @@ class AsyncView<T> extends StatelessWidget {
   final String? error;
   final T? data;
   final VoidCallback? onRetry;
+
+  /// Error-state headline; defaults to 'Failed to load' (see
+  /// [ErrorStateView]). Page-specific titles (e.g. 'Failed to load user')
+  /// can override it without forking the error layout.
+  final String? errorTitle;
+
   final String? emptyTitle;
   final String? emptySubtitle;
   final String? emptyActionLabel;
@@ -40,6 +46,7 @@ class AsyncView<T> extends StatelessWidget {
     this.error,
     this.data,
     this.onRetry,
+    this.errorTitle,
     this.emptyTitle,
     this.emptySubtitle,
     this.emptyActionLabel,
@@ -59,42 +66,10 @@ class AsyncView<T> extends StatelessWidget {
     }
 
     if (error != null) {
-      final scheme = Theme.of(context).colorScheme;
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 48,
-                color: scheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                context.tr('Failed to load'),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.tr(error!),
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
-              ),
-              if (onRetry != null) ...[
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh),
-                  label: Text(context.strings.retry),
-                ),
-              ],
-            ],
-          ),
-        ),
+      return ErrorStateView(
+        title: errorTitle,
+        message: context.tr(error!),
+        onRetry: onRetry,
       );
     }
 
@@ -120,5 +95,158 @@ class AsyncView<T> extends StatelessWidget {
     if (data is Map) return data.isEmpty;
     if (data is String) return data.isEmpty;
     return false;
+  }
+}
+
+/// Full-page error state: icon + title + detail + Retry.
+///
+/// Single source of truth for the error branch of [AsyncView] and for
+/// pages/tabs that manage their own three-state switch but must render the
+/// same failure surface (detail screens, list tabs, portal tabs).
+class ErrorStateView extends StatelessWidget {
+  /// Headline; defaults to 'Failed to load' (already in the EN/ZH catalog).
+  final String? title;
+
+  /// Failure detail rendered under the headline.
+  final String message;
+
+  /// Optional retry action; omitting it hides the button.
+  final VoidCallback? onRetry;
+
+  /// Retry button label override (e.g. 'Retry discovery'); defaults to
+  /// 'Retry' from the shared catalog.
+  final String? retryLabel;
+
+  const ErrorStateView({
+    super.key,
+    this.title,
+    required this.message,
+    this.onRetry,
+    this.retryLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 48, color: scheme.error),
+            const SizedBox(height: 16),
+            Text(
+              context.tr(title ?? 'Failed to load'),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh),
+                label: Text(
+                  retryLabel == null
+                      ? context.strings.retry
+                      : context.tr(retryLabel!),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Inline error banner: tinted card with icon + message (+ optional
+/// headline) + Retry.
+///
+/// Unifies the tab-level "danger card + Retry" pattern (audit log, health,
+/// webhooks, usage analytics, SCIM browser, live events, …) and the
+/// workbench [ConnectionErrorCard] so every in-context failure surface
+/// shares one implementation.
+class ErrorStateCard extends StatelessWidget {
+  /// Optional headline above the message (e.g. 'Cannot reach backend').
+  final String? title;
+
+  /// Failure detail rendered as the card body.
+  final String message;
+
+  /// Retry action; omitting it hides the button.
+  final VoidCallback? onRetry;
+
+  /// Disables the retry button while a reload is already in flight.
+  final bool retryEnabled;
+
+  /// Renders the message as [SelectableText] (copyable errors).
+  final bool selectable;
+
+  /// Card margin override; defaults to the [Card] theme margin.
+  final EdgeInsetsGeometry? margin;
+
+  const ErrorStateCard({
+    super.key,
+    this.title,
+    required this.message,
+    this.onRetry,
+    this.retryEnabled = true,
+    this.selectable = false,
+    this.margin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final messageStyle = TextStyle(color: scheme.error);
+    final messageWidget = selectable
+        ? SelectableText(message, style: messageStyle)
+        : Text(message, style: messageStyle);
+    final detail = title == null
+        ? Expanded(child: messageWidget)
+        : Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.tr(title!),
+                  style: messageStyle.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                messageWidget,
+              ],
+            ),
+          );
+    return Card(
+      color: scheme.errorContainer.withValues(alpha: 0.45),
+      margin: margin,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            Icon(Icons.error_outline, color: scheme.error),
+            const SizedBox(width: 12),
+            detail,
+            if (onRetry != null) ...[
+              const SizedBox(width: 8),
+              TextButton.icon(
+                onPressed: retryEnabled ? onRetry : null,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: Text(context.strings.retry),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

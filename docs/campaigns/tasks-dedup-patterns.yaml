@@ -1,0 +1,82 @@
+# 第三轮深化 — batch 12（跨页面重复模式消除）
+#
+# 逐页重构后仍存在跨页面重复实现（每个页面各写一份），本轮逐页扫描
+# 提取共享组件并替换，减少维护成本、保证一致性：
+#   1) 批量操作栏（_batchBar 在 clients/local-users/tenants/users 4 处重复）；
+#   2) 详情信息行（_InfoRow 在 webhook/break-glass 等详情页重复）；
+#   3) 错误/加载态块（各页手写 error+retry、loading 骨架）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-dedup-patterns.yaml \
+#     --mode serial --timeout 1500 --log-file logs/dedup-patterns.log
+
+tasks:
+- prompt: |
+    统一批量操作栏。步骤：
+    1. 逐页分析现有代码中的批量操作栏实现：
+       lib/screens/admin/clients_tab.dart、local_users_tab.dart、
+       tenants_tab.dart、users_tab.dart 各自的 _batchBar（已选数量 +
+       批量动作 + 退出选择）。
+    2. 对照 lib/widgets/batch_action_bar.dart 与 batch_selection.dart
+       的现有 API（单一删除动作），设计统一方案：
+       - 优先扩展 BatchActionBar 支持动作列表（approve/reject/delete
+         等双/多动作语义）；
+       - 若扩展会破坏现有调用，则新建共享组件（如 AdminBatchBar）
+         并保持 BatchActionBar 不动；
+       - 保留每页的确认语义（如批量审批/拒绝的二次确认、撤销
+         估算提示）。
+    3. 实施替换（白名单：lib/widgets/batch_action_bar.dart（如扩）、
+       lib/screens/admin/{clients,local_users,tenants,users}_tab.dart、
+       对应测试文件、lib/i18n/ EN/ZH key）：
+       - 4 处 _batchBar 全部替换为共享组件，行为一致；
+       - 图标用 adminModuleIconColor 组色；不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart
+       test/admin_dialogs_final_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/dedup-batchbar.md（逐页差异表 +
+       共享组件 API + 替换清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/dedup-batchbar.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    统一详情信息行。步骤：
+    1. 逐页分析详情页的信息行实现（label + value 两列行）：
+       lib/screens/admin/webhook_detail_widgets.dart、
+       break_glass_detail_screen.dart、client_detail_screen.dart、
+       tenant_detail_screen.dart、connection_detail_screen.dart、
+       device_security_widgets.dart 等中的 _InfoRow/信息行模式。
+    2. 设计共享组件（如 lib/widgets/info_row.dart）：
+       - label（可选 icon）+ value + 可选复制按钮 + 可选强调/危险色；
+       - 保持各页现有布局语义（分隔线/密度）；
+       - 图标用组色或 colorScheme。
+    3. 实施替换（白名单：上述详情页文件 + lib/widgets/ 新组件 +
+       lib/i18n/ EN/ZH key）：所有重复信息行改用共享组件，行为一致；
+       不新增依赖；文件 ≤400 行。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart
+       test/admin_dialogs_final_test.dart 全绿。
+    5. 输出 docs/ui/pages-per-page/dedup-inforow.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/dedup-inforow.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    统一错误/加载态。步骤：
+    1. 逐页扫描 lib/screens/ 下的错误态与加载态实现（error + retry
+       块、loading 骨架/spinner），找出与 lib/widgets/ 的 async_view、
+       empty_state、skeleton_list 不一致的手写变体（grep 取证）。
+    2. 对发现的变体设计统一方案：优先改用 async_view/empty_state/
+       skeleton_list 的既有 API；API 不足时小步扩展（保持向后兼容）。
+    3. 实施替换（白名单：lib/widgets/async_view.dart（如扩）、
+       lib/screens/ 下扫描发现的页面文件、lib/i18n/ EN/ZH key）：
+       - 错误态统一为 图标+标题+明细+Retry 结构；
+       - 加载态统一为 skeleton 或带占位的 spinner；
+       - 行为与既有测试语义不变；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login 模块。
+    4. 验证：flutter analyze 0 errors；flutter test
+       test/async_view_test.dart test/admin_secondary_tabs_test.dart
+       test/portal_screens_test.dart test/three_state_gate_test.dart
+       全绿。
+    5. 输出 docs/ui/pages-per-page/dedup-states.md（扫描表 + 统一方案 +
+       替换清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/dedup-states.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/async_view_test.dart test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/three_state_gate_test.dart 2>&1 | grep -qE 'All tests passed!'"

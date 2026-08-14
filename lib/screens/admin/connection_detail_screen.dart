@@ -1,13 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/info_row.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
@@ -96,40 +97,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     body: _loading
         ? const SkeletonListTile(itemCount: 4)
         : _error != null
-        ? Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: AppColors.danger,
-                ),
-                const SizedBox(height: 16),
-                LocalizedText(
-                  'Failed to load',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    _error!,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: const LocalizedText('Retry'),
-                ),
-              ],
-            ),
-          )
+        ? ErrorStateView(message: _error!, onRetry: _load)
         : Column(
             children: [
               AdminBreadcrumb(),
@@ -186,16 +154,33 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             ],
           ),
           const Divider(),
-          _infoRow('Provider', _conn?['provider']?.toString() ?? '—'),
-          _infoRow(
-            'Type',
-            _conn?['type']?.toString() ??
+          InfoRow(
+            label: 'Provider',
+            value: _conn?['provider']?.toString() ?? '—',
+            labelWidth: 100,
+          ),
+          InfoRow(
+            label: 'Type',
+            value: _conn?['type']?.toString() ??
                 _conn?['connection_type']?.toString() ??
                 '—',
+            labelWidth: 100,
           ),
-          _infoRow('Domains', (_conn?['domains'] as List?)?.join(', ') ?? '—'),
-          _infoRow('Client ID', _conn?['client_id']?.toString() ?? '—'),
-          _infoRow('Issuer', _conn?['issuer']?.toString() ?? '—'),
+          InfoRow(
+            label: 'Domains',
+            value: (_conn?['domains'] as List?)?.join(', ') ?? '—',
+            labelWidth: 100,
+          ),
+          InfoRow(
+            label: 'Client ID',
+            value: _conn?['client_id']?.toString() ?? '—',
+            labelWidth: 100,
+          ),
+          InfoRow(
+            label: 'Issuer',
+            value: _conn?['issuer']?.toString() ?? '—',
+            labelWidth: 100,
+          ),
         ],
       ),
     ),
@@ -218,23 +203,6 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
     );
   }
 
-  Widget _infoRow(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 100,
-          child: LocalizedText(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-        Expanded(child: Text(value.isEmpty ? '—' : value)),
-      ],
-    ),
-  );
-
   Widget _healthCard(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
@@ -254,14 +222,23 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          _infoRow('Last checked', _health?['last_checked']?.toString() ?? '—'),
-          _infoRow(
-            'Latency',
-            _health?['latency_ms']?.toString() != null
+          InfoRow(
+            label: 'Last checked',
+            value: _health?['last_checked']?.toString() ?? '—',
+            labelWidth: 100,
+          ),
+          InfoRow(
+            label: 'Latency',
+            value: _health?['latency_ms']?.toString() != null
                 ? '${_health!['latency_ms']}ms'
                 : '—',
+            labelWidth: 100,
           ),
-          _infoRow('Error', _health?['error']?.toString() ?? 'none'),
+          InfoRow(
+            label: 'Error',
+            value: _health?['error']?.toString() ?? 'none',
+            labelWidth: 100,
+          ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () => _probe(),

@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/info_row.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -65,13 +66,15 @@ class WebhookInfoCard extends StatelessWidget {
             ],
           ),
           const Divider(),
-          _InfoRow(
+          InfoRow(
             label: 'Created',
             value: subscription?['created_at']?.toString() ?? '—',
+            labelWidth: 80,
           ),
-          _InfoRow(
+          InfoRow(
             label: 'Updated',
             value: subscription?['updated_at']?.toString() ?? '—',
+            labelWidth: 80,
           ),
         ],
       ),
@@ -246,27 +249,4 @@ class WebhookDeadLetterSection extends StatelessWidget {
   );
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
 
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            context.tr(label),
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-        Expanded(child: Text(value.isEmpty ? '—' : value)),
-      ],
-    ),
-  );
-}

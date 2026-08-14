@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -216,7 +217,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            if (_error != null) _ErrorBanner(error: _error!, onRetry: _load),
+            if (_error != null) ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
             if (_loading) const Padding(padding: EdgeInsets.only(top: 16), child: SkeletonListTile(itemCount: 3))
             else if (_data.isEmpty) const EmptyState(compact: true, variant: EmptyStateVariant.empty, title: 'No token data available.')
             else ...[
@@ -369,24 +370,4 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       ]),
     );
   }
-}
-
-/// 错误横幅（X4 模式）：图标 + 消息（API 值走 Text）+ Retry。
-class _ErrorBanner extends StatelessWidget {
-  final String error;
-  final VoidCallback onRetry;
-  const _ErrorBanner({required this.error, required this.onRetry});
-  @override
-  Widget build(BuildContext context) => Card(
-    margin: EdgeInsets.zero,
-    child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Padding(padding: EdgeInsets.only(top: 12), child: Icon(Icons.error_outline, size: 18, color: AppColors.danger)),
-        const SizedBox(width: 8),
-        Expanded(child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Text(error, style: const TextStyle(color: AppColors.danger)))),
-        TextButton(onPressed: onRetry, child: const LocalizedText('Retry')),
-      ]),
-    ),
-  );
 }

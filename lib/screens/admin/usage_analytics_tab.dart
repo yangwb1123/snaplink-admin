@@ -12,6 +12,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -229,19 +230,11 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
     ),
   );
 
-  Widget _errorCard(BuildContext context) => Card(
-    color: AppColors.danger.withValues(alpha: 0.06),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
-          const SizedBox(width: 8),
-          Expanded(child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
-          OutlinedButton.icon(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-        ],
-      ),
-    ),
+  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。
+  Widget _errorCard(BuildContext context) => ErrorStateCard(
+    message: _error!,
+    onRetry: _load,
+    retryEnabled: !_loading,
   );
 
   /// 页头指标卡：缺失字段不求和、不虚构总量；出错时整条隐藏（数据诚实）。

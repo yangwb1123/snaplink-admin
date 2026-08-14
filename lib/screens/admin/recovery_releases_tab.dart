@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -352,20 +352,12 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     );
   }
 
-  /// 错误区：danger 容器 + Retry（X4 参考模式）。Retry 只重放安全读取
-  /// （GET）——不会重放上次写入，结果未知不重放的语义保持不变。
-  Widget _errorCard(BuildContext context) => Card(
-    color: AppColors.danger.withValues(alpha: 0.06),
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(children: [
-        const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
-        const SizedBox(width: 8),
-        Expanded(child: Text(_error ?? '', style: const TextStyle(color: AppColors.danger))),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-      ]),
-    ),
+  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。Retry 只重放安全
+  /// 读取（GET）——不会重放上次写入，结果未知不重放的语义保持不变。
+  Widget _errorCard(BuildContext context) => ErrorStateCard(
+    message: _error ?? '',
+    onRetry: _load,
+    retryEnabled: !_loading,
   );
 
   Widget _reportCard(BuildContext context) => Card(

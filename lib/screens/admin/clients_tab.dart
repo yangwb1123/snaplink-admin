@@ -5,10 +5,10 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/batch_action_bar.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -16,6 +16,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'admin_module_groups.dart';
 import 'admin_route.dart';
@@ -222,25 +223,17 @@ class _ClientsTabState extends State<ClientsTab>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     _reload();
   }
-  /// 批量操作栏。BatchActionBar 仅支持单一删除动作，客户端需 Approve/Reject
-  /// 双动作 → 保留自定义实现（同一视觉语言），图标用身份组强调色。
-  Widget _batchBar(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: theme.colorScheme.primaryContainer, borderRadius: BorderRadius.circular(8)),
-      child: Row(children: [
-        Icon(Icons.checklist, size: 20, color: _accent),
-        const SizedBox(width: 8),
-        LocalizedText('{count} selected', args: {'count': selected.length}),
-        const Spacer(),
-        TextButton.icon(onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id)), icon: Icon(Icons.check_circle_outline, size: 18, color: _accent), label: const LocalizedText('Approve')),
-        const SizedBox(width: 4),
-        TextButton.icon(onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id)), icon: Icon(Icons.cancel_outlined, size: 18, color: _accent), label: const LocalizedText('Reject')),
-        IconButton(tooltip: 'Clear selection'.localized, icon: const Icon(Icons.close, size: 18), onPressed: () => clearSelection()),
-      ]),
-    );
-  }
+  /// 批量操作栏：已选数量 + Approve/Reject 双动作 + 退出选择（共享组件，
+  /// 图标用身份组强调色；确认弹窗语义保留在 [_runBatch]）。
+  Widget _batchBar(BuildContext context) => BatchActionBar(
+    selectedCount: selected.length,
+    accent: _accent,
+    actions: [
+      BatchAction(label: 'Approve', icon: Icons.check_circle_outline, onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id))),
+      BatchAction(label: 'Reject', icon: Icons.cancel_outlined, onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id))),
+    ],
+    onClearSelection: clearSelection,
+  );
   @override
 
   Widget build(BuildContext context) {
@@ -256,7 +249,9 @@ class _ClientsTabState extends State<ClientsTab>
             future: _future,
             builder: (context, snap) {
               if (!snap.hasData) {
-                if (snap.hasError) return _errorState(snap.error!);
+                if (snap.hasError) {
+                  return ErrorStateView(message: '${snap.error}', onRetry: _reload);
+                }
                 return const SkeletonListTile(itemCount: 6);
               }
               final page = snap.data!;
@@ -304,18 +299,7 @@ class _ClientsTabState extends State<ClientsTab>
       }),
     ]),
   );
-  /// 加载失败三态之一：图标 + 标题 + 明细 + 重试（与 AsyncView 错误态同构）。
-  Widget _errorState(Object error) => Center(
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-      const SizedBox(height: 16),
-      LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text('$error', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted))),
-      const SizedBox(height: 16),
-      OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-    ]),
-  );
+
   Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
     final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
     final list = items.isEmpty

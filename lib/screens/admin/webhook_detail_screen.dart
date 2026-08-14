@@ -4,9 +4,9 @@ import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_route.dart';
 import 'webhook_detail_widgets.dart';
@@ -170,37 +170,9 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
           ),
   );
 
-  /// 加载错误视图：danger 图标 + 详情 + Retry（X4）。
-  Widget _errorView(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-        const SizedBox(height: 16),
-        LocalizedText(
-          'Failed to load',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: AppColors.muted),
-          ),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh),
-          label: const LocalizedText('Retry'),
-        ),
-      ],
-    ),
-  );
+  /// 加载错误视图：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
+  Widget _errorView(BuildContext context) =>
+      ErrorStateView(message: _error!, onRetry: _load);
 
   /// 重放结果横幅：部分失败/待清理时保留页面（不翻转整页错误态）。
   /// 语义保持——cleanup-pending 如实上报，仍可继续操作。

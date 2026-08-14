@@ -7,6 +7,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import '../admin_module_groups.dart';
@@ -377,17 +378,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     );
   }
 
-  Widget _errorCard(BuildContext context) => Card(
-    color: Theme.of(context).colorScheme.errorContainer,
-    child: ListTile(
-      leading: const Icon(Icons.error_outline),
-      title: Text(_error!),
-      trailing: TextButton.icon(
-        onPressed: _loading ? null : _load,
-        icon: const Icon(Icons.refresh),
-        label: const LocalizedText('Retry'),
-      ),
-    ),
+  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。
+  Widget _errorCard(BuildContext context) => ErrorStateCard(
+    message: _error!,
+    onRetry: _load,
+    retryEnabled: !_loading,
   );
 
   String _errorMessage(SnaplinkAdminApiError error) => context.tr(

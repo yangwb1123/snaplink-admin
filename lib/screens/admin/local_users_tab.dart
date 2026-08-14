@@ -127,10 +127,11 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     await _load();
   }
 
-  /// 批量操作栏（列表顶部）——BatchActionBar（删除 + 清除选择）。
+  /// 批量操作栏：已选数量 + 批量删除 + 退出选择（共享 BatchActionBar）。
   Widget _batchBar(BuildContext context) => BatchActionBar(
-    selectedCount: selected.length, onDelete: _batchDelete,
-    onClearSelection: clearSelection, isLoading: _mutating,
+    selectedCount: selected.length, accent: _accent, isLoading: _mutating,
+    actions: [BatchAction(label: 'Delete', icon: Icons.delete_outline, destructive: true, onPressed: _batchDelete)],
+    onClearSelection: clearSelection,
   );
 
   Future<void> _delete(Map<String, dynamic> user) async {

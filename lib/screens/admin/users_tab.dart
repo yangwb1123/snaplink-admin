@@ -4,7 +4,6 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
@@ -14,6 +13,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
 import 'admin_module_groups.dart';
@@ -206,10 +206,9 @@ class _UsersTabState extends State<UsersTab>
       ),
       if (selecting) ...[
         BatchActionBar(
-          selectedCount: selected.length,
-          onDelete: _batchDelete,
+          selectedCount: selected.length, accent: _accent, isLoading: _busyId != null,
+          actions: [BatchAction(label: 'Delete', icon: Icons.delete_outline, destructive: true, onPressed: _batchDelete)],
           onClearSelection: clearSelection,
-          isLoading: _busyId != null,
         ),
         const SizedBox(height: 8),
       ],
@@ -220,7 +219,9 @@ class _UsersTabState extends State<UsersTab>
           future: _future,
           builder: (context, snap) {
             if (!snap.hasData) {
-              if (snap.hasError) return _errorState(snap.error!);
+              if (snap.hasError) {
+                return ErrorStateView(message: '${snap.error}', onRetry: _reload);
+              }
               return const SkeletonListTile(itemCount: 6);
             }
             final page = snap.data!;
@@ -272,24 +273,7 @@ class _UsersTabState extends State<UsersTab>
     ),
   );
 
-  /// 加载失败态：图标 + 标题 + 明细 + 重试（与 AsyncView 错误态同构）。
-  Widget _errorState(Object error) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-        const SizedBox(height: 16),
-        LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text('$error', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted)),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-      ],
-    ),
-  );
+
 
   Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
     final filtered = _filterCtrl.text.isNotEmpty;

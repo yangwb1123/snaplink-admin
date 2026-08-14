@@ -7,6 +7,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -237,27 +238,10 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
 
   /// Error banner; Retry covers terminal stops (e.g. 401), auto-reconnect
   /// carries its countdown in the message.
-  Widget _errorCard() {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.errorContainer.withValues(alpha: 0.45),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, color: scheme.error),
-            const SizedBox(width: 12),
-            Expanded(child: Text(_error!, style: TextStyle(color: scheme.error))),
-            if (!_reconnectWanted)
-              TextButton(
-                onPressed: _connect,
-                child: const LocalizedText('Retry'),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _errorCard() => ErrorStateCard(
+    message: _error!,
+    onRetry: _reconnectWanted ? null : _connect,
+  );
 
   /// Loading / empty / live feed states.
   List<Widget> _feed() {

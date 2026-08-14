@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/distribution_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -252,20 +253,12 @@ class _WebhooksTabState extends State<WebhooksTab> {
     );
   }
 
-  /// 错误区：danger 容器 + Retry（X4）；错误文本动态 Text（X10）。
-  Widget _errorCard(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Card(
-      color: scheme.errorContainer.withValues(alpha: 0.45),
-      child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Row(children: [
-          Icon(Icons.error_outline, color: scheme.error),
-          const SizedBox(width: 12),
-          Expanded(child: Text(_error!, style: TextStyle(color: scheme.error))),
-          TextButton(onPressed: _loading ? null : _load, child: const LocalizedText('Retry')),
-        ]),
-      ),
-    );
-  }
+  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）；错误文本动态 Text（X10）。
+  Widget _errorCard(BuildContext context) => ErrorStateCard(
+    message: _error!,
+    onRetry: _load,
+    retryEnabled: !_loading,
+  );
 
   Widget _createCard(BuildContext context) => Card(
     margin: EdgeInsets.zero,

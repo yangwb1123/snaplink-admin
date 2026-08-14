@@ -7,11 +7,13 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/batch_action_bar.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
@@ -206,37 +208,16 @@ class _TenantsTabState extends State<TenantsTab>
     _reload();
   }
 
-  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择。批量语义是挂起/激活
-  /// （非删除），BatchActionBar 的固定 delete 语义不适用；沿用此栏但图标
-  /// 统一使用租户组强调色（X7）。
-  Widget _batchBar(BuildContext context) => Material(
-    color: Theme.of(context).colorScheme.secondaryContainer.withValues(alpha: 0.4),
-    borderRadius: BorderRadius.circular(12),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          LocalizedText('{count} selected', args: {'count': selected.length}),
-          const Spacer(),
-          TextButton.icon(
-            onPressed: () => _batchSetStatus('suspended'),
-            icon: Icon(Icons.pause_circle_outline, size: 18, color: _accent),
-            label: const LocalizedText('Suspend'),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: () => _batchSetStatus('active'),
-            icon: Icon(Icons.play_circle_outline, size: 18, color: _accent),
-            label: const LocalizedText('Activate'),
-          ),
-          IconButton(
-            tooltip: 'Clear selection'.localized,
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: () => clearSelection(),
-          ),
-        ],
-      ),
-    ),
+  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择（共享组件，图标用
+  /// 租户组强调色；确认弹窗语义保留在 [_batchSetStatus]）。
+  Widget _batchBar(BuildContext context) => BatchActionBar(
+    selectedCount: selected.length,
+    accent: _accent,
+    actions: [
+      BatchAction(label: 'Suspend', icon: Icons.pause_circle_outline, onPressed: () => _batchSetStatus('suspended')),
+      BatchAction(label: 'Activate', icon: Icons.play_circle_outline, onPressed: () => _batchSetStatus('active')),
+    ],
+    onClearSelection: clearSelection,
   );
 
   /// 单条生命周期入口：type-to-confirm → 执行 → 撤销报告（suspend/delete）
@@ -422,7 +403,7 @@ class _TenantsTabState extends State<TenantsTab>
         return const SkeletonListTile(itemCount: 6);
       }
       if (snap.hasError) {
-        return _errorState(context, '${snap.error}');
+        return ErrorStateView(message: '${snap.error}', onRetry: _reload);
       }
       final page = snap.data!;
       final items = page.items;
@@ -457,16 +438,6 @@ class _TenantsTabState extends State<TenantsTab>
     },
   );
 
-  Widget _errorState(BuildContext context, String error) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        LocalizedText('Error: {snap_error}', args: {'snap_error': error}),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(onPressed: _reload, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-      ],
-    ),
-  );
 
   Widget _emptyState() {
     final filtering = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';

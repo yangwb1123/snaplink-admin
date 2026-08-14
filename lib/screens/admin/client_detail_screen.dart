@@ -7,6 +7,8 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/info_row.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -132,18 +134,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     );
   }
 
-  /// 加载失败三态之一：图标 + 标题 + 明细 + 重试（与 AsyncView 错误态同构）。
-  Widget _errorState(String error) => Center(
-    child: Column(mainAxisSize: MainAxisSize.min, children: [
-      const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-      const SizedBox(height: 16),
-      LocalizedText('Failed to load', style: Theme.of(context).textTheme.titleMedium),
-      const SizedBox(height: 8),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 32), child: Text(error, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.muted))),
-      const SizedBox(height: 16),
-      OutlinedButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const LocalizedText('Retry')),
-    ]),
-  );
+  /// 加载失败三态之一：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
+  Widget _errorState(String error) =>
+      ErrorStateView(message: error, onRetry: _load);
 
   /// 真实值 mini strip（grant types / scopes / secret expiry），顺序按
   /// `clientDetailMetricOrder(persona)`（设计 §4.9 T-06）。无箭头。
@@ -192,14 +185,47 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ],
           ),
           const Divider(),
-          _infoRow('Client ID', _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId, level: DataEmphasisLevel.secondary),
-          _infoRow('Redirect URIs', (_client?['redirect_uris'] as List?)?.join(', ') ?? '—'),
-          _infoRow('Login page URI', _client?['login_page_uri']?.toString() ?? _client?['loginPageUri']?.toString() ?? '—'),
-          if (_client?['grant_types'] is List) _infoRow('Grant types', (_client!['grant_types'] as List).join(', ')),
-          _infoRow('Allowed scopes', ((_client?['allowed_scopes'] ?? _client?['scopes']) as List?)?.join(', ') ?? '—'),
-          _infoRow('Authenticators', (_client?['allowed_authenticators'] as List?)?.join(', ') ?? 'Any'),
-          _infoRow('Token strategy', _client?['token_strategy']?.toString() ?? '—', level: DataEmphasisLevel.secondary),
-          _infoRow('Client secret', clientSecretExpiryLabel(context, _client)),
+          InfoRow(
+            label: 'Client ID',
+            value: _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId,
+            level: DataEmphasisLevel.secondary,
+          ),
+          InfoRow(
+            label: 'Redirect URIs',
+            value: (_client?['redirect_uris'] as List?)?.join(', ') ?? '—',
+            level: DataEmphasisLevel.tertiary,
+          ),
+          InfoRow(
+            label: 'Login page URI',
+            value: _client?['login_page_uri']?.toString() ?? _client?['loginPageUri']?.toString() ?? '—',
+            level: DataEmphasisLevel.tertiary,
+          ),
+          if (_client?['grant_types'] is List)
+            InfoRow(
+              label: 'Grant types',
+              value: (_client!['grant_types'] as List).join(', '),
+              level: DataEmphasisLevel.tertiary,
+            ),
+          InfoRow(
+            label: 'Allowed scopes',
+            value: ((_client?['allowed_scopes'] ?? _client?['scopes']) as List?)?.join(', ') ?? '—',
+            level: DataEmphasisLevel.tertiary,
+          ),
+          InfoRow(
+            label: 'Authenticators',
+            value: (_client?['allowed_authenticators'] as List?)?.join(', ') ?? 'Any',
+            level: DataEmphasisLevel.tertiary,
+          ),
+          InfoRow(
+            label: 'Token strategy',
+            value: _client?['token_strategy']?.toString() ?? '—',
+            level: DataEmphasisLevel.secondary,
+          ),
+          InfoRow(
+            label: 'Client secret',
+            value: clientSecretExpiryLabel(context, _client),
+            level: DataEmphasisLevel.tertiary,
+          ),
         ],
       ),
     ),
@@ -216,17 +242,6 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       _ => StatusChip.inactive(label: context.tr('inactive')),
     };
   }
-
-  Widget _infoRow(String label, String value, {DataEmphasisLevel level = DataEmphasisLevel.tertiary}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(width: 120, child: LocalizedText(label, style: const TextStyle(fontWeight: FontWeight.w500))),
-        Expanded(child: Text(value.isEmpty ? '—' : value, style: dataEmphasisStyle(level, Theme.of(context)))),
-      ],
-    ),
-  );
 
   Widget _actionsCard(BuildContext context) => Card(
     child: Padding(

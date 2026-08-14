@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -124,13 +126,12 @@ class _SessionsTabState extends State<SessionsTab> {
     AsyncSnapshot<PortalSessionsResult> snap,
   ) {
     if (snap.connectionState != ConnectionState.done) {
-      return const Center(child: CircularProgressIndicator());
+      return const SkeletonListTile(itemCount: 4);
     }
     if (snap.hasError) {
-      return Center(
-        child: Text(
-          context.tr('Error: {error}', {'error': context.tr('${snap.error}')}),
-        ),
+      return ErrorStateView(
+        message: context.tr('${snap.error}'),
+        onRetry: _reload,
       );
     }
     final result = snap.data;

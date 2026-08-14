@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
@@ -279,7 +280,7 @@ class PortalAuthzRow extends StatelessWidget {
   }
 }
 
-/// 整页加载失败态：danger 图标 + 可重试动作（UI review X4）。
+/// 整页加载失败态：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
 class PortalErrorCard extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
@@ -290,44 +291,10 @@ class PortalErrorCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Center(
-      child: Card(
-        margin: const EdgeInsets.all(24),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 48,
-                color: AppColors.danger,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                context.tr('Failed to load'),
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: Text(context.strings.retry),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Center(
+    child: Card(
+      margin: const EdgeInsets.all(24),
+      child: ErrorStateView(message: message, onRetry: onRetry),
+    ),
+  );
 }

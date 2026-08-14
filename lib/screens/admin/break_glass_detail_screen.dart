@@ -4,7 +4,9 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/info_row.dart';
 import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -144,36 +146,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     if (_isPending) _actionsCard(context),
   ];
 
-  Widget _errorView(BuildContext context) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-        const SizedBox(height: 16),
-        LocalizedText(
-          'Failed to load',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.muted,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton.icon(
-          onPressed: _load,
-          icon: const Icon(Icons.refresh),
-          label: const LocalizedText('Retry'),
-        ),
-      ],
-    ),
-  );
+  /// 加载失败三态之一：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
+  Widget _errorView(BuildContext context) =>
+      ErrorStateView(message: _error!, onRetry: _load);
 
   Widget _infoCard(BuildContext context) => Card(
     child: Padding(
@@ -202,15 +177,18 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             ),
           ),
           const Divider(),
-          _infoRow(
-            'Requested by',
-            _session?['requested_by']?.toString() ?? '—',
+          InfoRow(
+            label: 'Requested by',
+            value: _session?['requested_by']?.toString() ?? '—',
           ),
-          _infoRow('Reason', _session?['reason']?.toString() ?? '—'),
-          _infoRow('Target role', _session?['target_role']?.toString() ?? '—'),
-          _infoRow(
-            'Expires',
-            _session?['expires_at']?.toString() ??
+          InfoRow(label: 'Reason', value: _session?['reason']?.toString() ?? '—'),
+          InfoRow(
+            label: 'Target role',
+            value: _session?['target_role']?.toString() ?? '—',
+          ),
+          InfoRow(
+            label: 'Expires',
+            value: _session?['expires_at']?.toString() ??
                 _session?['expiry']?.toString() ??
                 '—',
           ),
@@ -289,23 +267,6 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             const LocalizedText('No audit entries'),
         ],
       ),
-    ),
-  );
-
-  Widget _infoRow(String label, String value) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 120,
-          child: LocalizedText(
-            label,
-            style: const TextStyle(fontWeight: FontWeight.w500),
-          ),
-        ),
-        Expanded(child: Text(value.isEmpty ? '—' : value)),
-      ],
     ),
   );
 

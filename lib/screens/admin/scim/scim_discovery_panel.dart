@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -86,21 +87,10 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
       );
     }
     if (_error != null && _profile == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: AppColors.danger),
-            const SizedBox(height: 8),
-            Text(_error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
-              label: const LocalizedText('Retry discovery'),
-            ),
-          ],
-        ),
+      return ErrorStateView(
+        message: _error!,
+        onRetry: _load,
+        retryLabel: 'Retry discovery',
       );
     }
     final profile = _profile;
