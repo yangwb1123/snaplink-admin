@@ -3,11 +3,20 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 
 /// Section title row with an optional count pill and trailing action.
+///
+/// 标题为 i18n 键；[count] 非空时右侧渲染计数胶囊，[action] 占据行尾。
 class SectionHeader extends StatelessWidget {
-  final String title; // i18n key
-  final int? count; // null => no badge
-  final Widget? action; // trailing action
-  final DataEmphasisLevel level; // default secondary
+  /// 区块标题（i18n 键）。
+  final String title;
+
+  /// 计数胶囊；null = 不渲染徽章。
+  final int? count;
+
+  /// 行尾动作（如「查看全部」链接）。
+  final Widget? action;
+
+  /// 标题强调级别（默认 secondary）。
+  final DataEmphasisLevel level;
 
   const SectionHeader(
     this.title, {

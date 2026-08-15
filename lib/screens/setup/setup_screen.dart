@@ -234,6 +234,7 @@ class _SetupScreenState extends State<SetupScreen> {
           ],
           TextField(
             controller: _usernameCtrl,
+            autofocus: true,
             autocorrect: false,
             enableSuggestions: false,
             textCapitalization: TextCapitalization.none,
@@ -316,6 +317,7 @@ class _SetupScreenState extends State<SetupScreen> {
         ],
         TextField(
           controller: _appNameCtrl,
+          autofocus: true,
           textInputAction: TextInputAction.next,
           decoration: InputDecoration(
             labelText: strings.applicationName,

@@ -142,8 +142,13 @@ class KeyMetricCard extends StatelessWidget {
 
 /// Wrap of fixed-width [KeyMetricCard]s; flows to rows on narrow screens.
 class MetricStrip extends StatelessWidget {
+  /// 指标卡列表。
   final List<KeyMetricCard> cards;
+
+  /// 每张卡固定宽度（默认 190）。
   final double cardWidth;
+
+  /// 行内/行间间距（默认 12）。
   final double spacing;
 
   const MetricStrip({

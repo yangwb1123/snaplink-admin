@@ -98,7 +98,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'No governed changes have been proposed.': '尚未提出任何受治理变更。',
   'No requests currently have this status.': '当前没有此状态的请求。',
   'New device': '新设备',
-  'New location': '新地点',
+  'New location': '新位置',
   'No optional administration routes are registered on this replica.':
       '此副本未注册可选管理路由。',
   'Operational telemetry is aggregated and may lag live authentication traffic slightly.':
@@ -166,7 +166,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Effect': '效果',
   'Policy': '策略',
   'Token issuance and validation policy configuration.': '令牌签发和验证策略配置。',
-  'Token policies': 'Token 策略',
+  'Token policies': '令牌策略',
   'Token policy management is not enabled.': '令牌策略管理功能未启用。',
   'Token usage telemetry is unavailable or has no data.': '令牌使用遥测不可用或没有数据。',
   'Two-person administrative approvals are not enabled.': '双人管理审批功能未启用。',
@@ -201,7 +201,7 @@ const appAdminFeatureSourceZh = <String, String>{
       '发现提供商能力、核对用户和组，并执行有限范围的批量操作。',
   'Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.':
       '此处列出已记录的 Snaplink 管理路由；运行时清单会标记当前副本报告为活跃的路由。服务器端功能门禁仍为最终依据，写操作会被审计且需要明确确认。',
-  'Documented only': '仅文档契约',
+  'Documented only': '仅文档',
   'Empty, malformed, oversized, recursive, or unsupported bulk requests are rejected before submission.':
       '空、格式错误、过大、递归或不受支持的批量请求会在提交前被拒绝。',
   'Enabled feature surfaces': '已启用的功能界面',
@@ -447,7 +447,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Affected user: {userId}': '受影响用户：{userId}',
   'Confirm for user': '为用户确认',
   'Clear lockout': '清除锁定',
-  'Consent revoked.': '授权已撤销。',
+  'Consent revoked.': '授权同意已撤销。',
   'Remove this application grant for {userId}?': '移除 {userId} 的应用授权？',
   'The user will no longer be able to use this factor.': '用户将无法再使用该验证方式。',
   'Reset recovery codes?': '重置恢复代码？',

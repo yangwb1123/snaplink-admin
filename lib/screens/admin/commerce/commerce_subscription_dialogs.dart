@@ -74,6 +74,7 @@ class _CommerceCreateSubscriptionDialogState
           children: [
             DropdownButtonFormField<String>(
               initialValue: _selected.isEmpty ? null : _selected,
+              autofocus: true,
               decoration: InputDecoration(
                 labelText: 'Plan version'.localized,
                 border: const OutlineInputBorder(),
@@ -182,6 +183,7 @@ class _CommercePlanChangeDialogState extends State<CommercePlanChangeDialog> {
     title: const LocalizedText('Change subscription plan'),
     content: DropdownButtonFormField<String>(
       initialValue: _selected,
+      autofocus: true,
       decoration: InputDecoration(
         labelText: 'New plan version'.localized,
         border: const OutlineInputBorder(),
@@ -240,6 +242,7 @@ class _CommerceStatusDialogState extends State<CommerceStatusDialog> {
     title: const LocalizedText('Transition subscription status'),
     content: DropdownButtonFormField<String>(
       initialValue: _status,
+      autofocus: true,
       decoration: InputDecoration(
         labelText: 'New status'.localized,
         border: const OutlineInputBorder(),

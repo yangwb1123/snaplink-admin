@@ -31,11 +31,18 @@ class TimelineList extends StatelessWidget {
   }
 }
 
-/// 时间线条目。
+/// 时间线条目：状态图标 + 标题 + 可选副标题。
 class TimelineItem {
+  /// 状态图标（语义色编码：成功/危险/警告/中性）。
   final IconData icon;
+
+  /// 圆点/图标语义色；null = 主题 primary。
   final Color? color;
+
+  /// 条目标题（资源/事件名称）。
   final String title;
+
+  /// 副标题（时间/位置等）；null = 不渲染。
   final String? subtitle;
 
   const TimelineItem({

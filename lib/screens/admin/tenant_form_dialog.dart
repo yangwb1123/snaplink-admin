@@ -110,6 +110,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
               TextFormField(
                 controller: _idController,
                 enabled: !_isEdit,
+                autofocus: !_isEdit,
                 decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required' : null,

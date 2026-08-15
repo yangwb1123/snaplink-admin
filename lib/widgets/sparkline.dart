@@ -5,9 +5,16 @@ import 'package:flutter/material.dart';
 ///
 /// 自绘 CustomPaint（无第三方依赖），数据动画（500ms 从左到右生长）。
 class Sparkline extends StatelessWidget {
+  /// 数值序列（至少 2 个点才绘制）。
   final List<num> data;
+
+  /// 折线/面积色；null = 主题 primary。
   final Color? color;
+
+  /// 画布高度（默认 40）。
   final double height;
+
+  /// 折线宽度（默认 2）。
   final double strokeWidth;
 
   const Sparkline({

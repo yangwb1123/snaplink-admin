@@ -7,8 +7,14 @@ import '../screens/admin/admin_route.dart';
 ///
 /// Renders a trail like:  Users → user-abc → Sessions
 /// based on the current URL path components.
+///
+/// 路径层级（分组 → 模块 → 资源 → 子资源）由当前 URL 自动推导，页面只需
+/// 传入超出路由语义的额外片段；模块链接点击回到对应列表页。
 class AdminBreadcrumb extends StatelessWidget {
+  /// 追加在自动路径之后的额外面包屑片段（本地化键）。
   final List<String> trailing;
+
+  /// 覆盖首段模块标签（默认按 URL 模块名映射）；null = 自动推导。
   final String? overrideModule;
 
   const AdminBreadcrumb({

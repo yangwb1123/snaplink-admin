@@ -138,6 +138,8 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
           const SizedBox(height: 8),
           TextField(
             controller: _ctrl,
+            // 类型确认是对话框唯一的输入目的：打开即聚焦，键盘用户无需先 Tab。
+            autofocus: true,
             onChanged: (v) => setState(() => _match = v == widget.confirmText),
             decoration: const InputDecoration(
               border: OutlineInputBorder(

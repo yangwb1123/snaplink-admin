@@ -5,9 +5,16 @@ import 'package:sso_admin/theme/app_colors.dart';
 ///
 /// 用于 0-100 的百分比指标；颜色按分数阈值变化。
 class ProgressRing extends StatelessWidget {
-  final double value; // 0-100
+  /// 百分比数值（0-100，自动 clamp）。
+  final double value;
+
+  /// 环形直径（默认 56）。
   final double size;
+
+  /// 弧线宽度（默认 5）。
   final double strokeWidth;
+
+  /// 中心标签；null = 渲染百分比文本。
   final String? label;
 
   const ProgressRing({

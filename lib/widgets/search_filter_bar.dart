@@ -41,17 +41,40 @@ class SearchFilterBar extends StatefulWidget {
 
   @override
   State<SearchFilterBar> createState() => _SearchFilterBarState();
+
+  /// 聚焦当前可见的搜索框（全局 Ctrl+F 快捷键入口，无副作用）。
+  static void focusActiveSearch() {
+    final node = _SearchFilterBarState._activeSearchFocus;
+    // context 为空 = 节点已 detach，跳过避免请求悬空焦点。
+    if (node == null || node.context == null) return;
+    node.requestFocus();
+  }
 }
 
 class _SearchFilterBarState extends State<SearchFilterBar> {
   late final TextEditingController _searchCtrl =
       widget.controller ?? TextEditingController();
   late final bool _ownsController = widget.controller == null;
+  /// 最近一次挂载的搜索框焦点（全局 Ctrl+F 快捷键定位用）。
+  /// 页面同一时刻只渲染一个列表页 → 静态单例足够；dispose 时若仍指向
+  /// 本节点则清空，避免悬空节点被 requestFocus。
+  static FocusNode? _activeSearchFocus;
+  final FocusNode _searchFocusNode = FocusNode();
   bool _showFilters = false;
   Timer? _debounceTimer;
 
   @override
+  void initState() {
+    super.initState();
+    _activeSearchFocus = _searchFocusNode;
+  }
+
+  @override
   void dispose() {
+    if (identical(_activeSearchFocus, _searchFocusNode)) {
+      _activeSearchFocus = null;
+    }
+    _searchFocusNode.dispose();
     _debounceTimer?.cancel();
     if (_ownsController) _searchCtrl.dispose();
     super.dispose();
@@ -81,6 +104,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
               Expanded(
                 child: TextField(
                   controller: _searchCtrl,
+                  focusNode: _searchFocusNode,
                   textInputAction: TextInputAction.done,
                   decoration: InputDecoration(
                     labelText: widget.labelText == null

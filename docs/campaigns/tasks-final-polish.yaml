@@ -1,0 +1,77 @@
+# 最终交互与质量收尾 — batch 16（键盘导航 / i18n 文案质量 / 组件文档）
+#
+# 全部页面重构与门禁完成后的收尾批次：
+#   1) 键盘导航全站检查（Tab 顺序、焦点圈、快捷键）；
+#   2) i18n 文案质量（术语一致性、zh/en 长度预算、动态插值键）；
+#   3) 组件文档完整化（widgets/README.md 与页面文档引用核对）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-final-polish.yaml \
+#     --mode serial --timeout 1500 --log-file logs/final-polish.log
+
+tasks:
+- prompt: |
+    键盘导航全站检查。步骤：
+    1. 检查 lib/screens/ 与 lib/widgets/ 的键盘可访问性（结合现有
+       代码逐个入口分析）：
+       a. Tab 顺序：表单/对话框/列表页的 Tab 遍历顺序是否合理
+          （先主要控件后次要；下拉/开关可聚焦）；
+       b. 焦点圈：打开/关闭对话框后焦点是否回到触发控件（focus
+          traversal 默认行为核对）；模态对话框 Escape 关闭；
+       c. 快捷键：命令面板（command_palette）与 shortcuts_dialog 的
+          触发与展示一致性；
+       d. 可聚焦控件缺失 focus 指示的抽查（IconButton/InkWell/
+          ChoiceChip——chip 默认有）。
+    2. 修复低风险项（白名单 lib/screens/、lib/widgets/ + lib/i18n/）：
+       - 缺失的 focusNode/autofocus/skipTraversal 补正；
+       - 对话框焦点管理（若现有实现偏离默认，补 autofocus）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/command_palette_commands_test.dart（如存在）
+       test/confirm_dialog_test.dart test/admin_shell_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/polish-keyboard.md（逐入口检查表 +
+       修复清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/polish-keyboard.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/confirm_dialog_test.dart test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    i18n 文案质量审查。步骤：
+    1. 分析 lib/i18n/ 的 EN/ZH 文案（app_strings_source_*.dart 各文件
+       与 app_strings.dart 的合并逻辑）：
+       a. 术语一致性：同一概念（如 revoke/rotate/approve/degraded/
+          pending 等）在不同页面是否用同一译法（抽样 15 组高频词
+          grep 核对）；
+       b. 长度预算：zh 文案长度 vs 对应英文（中文通常更短，检查
+          明显超长导致截断的条目——结合 render_matrix 已知截断点）；
+       c. 动态插值键：{name} 占位符在 EN/ZH 两侧是否一致（扫描
+          args 使用点 vs catalog 键）；
+       d. 重复/近似键：近似重复的英文键（可合并）清单。
+    2. 修复低风险项（只改 lib/i18n/）：术语统一（保持既有测试引用
+       的键不变，只调整译法）、明显超长译文案精简、插值键对齐。
+       不新增依赖。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/i18n_coverage_test.dart test/app_strings_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/polish-i18n.md（术语对照表 + 长度
+       清单 + 插值核对 + 修复清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/polish-i18n.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/app_strings_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    组件文档完整化。步骤：
+    1. 分析 lib/widgets/README.md（如存在）与 lib/widgets/ 下 43 个
+       组件的文档注释现状（/// 覆盖、参数说明、示例）。
+    2. 更新 widgets/README.md 为完整组件清单：分组（数据/列表、
+       状态/反馈、布局/交互、输入/选择）+ 每个组件的职责一句话 +
+       关键参数 + 使用入口页面引用；缺失的组件文档注释补齐（///）。
+       只改 lib/widgets/README.md 与 lib/widgets/ 下组件的文档注释
+       （禁止改组件行为代码）。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/spacing_tokens_gate_test.dart
+       全绿（确认文档改动零行为影响）。
+    4. 输出 docs/ui/pages-per-page/polish-docs.md（README 结构 + 补充
+       清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/polish-docs.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/spacing_tokens_gate_test.dart 2>&1 | grep -qE 'All tests passed!'"

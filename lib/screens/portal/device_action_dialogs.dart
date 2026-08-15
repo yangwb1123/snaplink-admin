@@ -49,6 +49,7 @@ class _DeviceEditDialogState extends State<_DeviceEditDialog> {
           TextField(
             controller: _name,
             maxLength: 120,
+            autofocus: true,
             decoration: InputDecoration(labelText: context.tr('Device name')),
           ),
           const SizedBox(height: 12),

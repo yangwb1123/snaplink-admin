@@ -3,8 +3,13 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Reusable horizontal section selector chip bar.
 class SectionSelector extends StatelessWidget {
+  /// 区块定义列表（图标 + 文案键）。
   final List<SectionDef> sections;
+
+  /// 当前选中区块 id。
   final String current;
+
+  /// 选中回调（参数为区块 id）。
   final void Function(String section) onSelected;
 
   const SectionSelector({
@@ -59,8 +64,13 @@ class SectionSelector extends StatelessWidget {
 
 /// Definition for a section in [SectionSelector].
 class SectionDef {
+  /// 区块唯一标识（选中态与回调入参）。
   final String id;
+
+  /// 区块文案（i18n 键）。
   final String label;
+
+  /// 区块图标。
   final IconData icon;
 
   /// 图标彩色（品牌强调色）；null 时使用默认前景色。

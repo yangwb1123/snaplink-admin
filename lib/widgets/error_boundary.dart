@@ -8,7 +8,10 @@ import 'package:sso_admin/i18n/localized_text.dart';
 /// catches it and displays a fallback UI instead of crashing the entire
 /// page. This prevents a single tab from breaking the entire dashboard.
 class ErrorBoundary extends StatefulWidget {
+  /// 受保护的子树（构建期异常被捕获并显示兜底 UI）。
   final Widget child;
+
+  /// 兜底标题（i18n 键）；null = 默认 'Something went wrong'。
   final String? label;
 
   const ErrorBoundary({super.key, required this.child, this.label});

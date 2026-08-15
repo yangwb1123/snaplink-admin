@@ -120,7 +120,7 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field(_id, 'Plan ID'),
+              _field(_id, 'Plan ID', autofocus: true),
               _field(_version, 'Version', integer: true, minimum: 1),
               _field(_name, 'Plan name'),
               Row(
@@ -185,10 +185,12 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
     String label, {
     bool integer = false,
     int? minimum,
+    bool autofocus = false,
   }) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
     child: TextFormField(
       controller: controller,
+      autofocus: autofocus,
       keyboardType: integer ? TextInputType.number : null,
       decoration: InputDecoration(
         labelText: label.localized,

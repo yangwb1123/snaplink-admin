@@ -67,6 +67,7 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
         children: [
           DropdownButtonFormField<String>(
             initialValue: _mode,
+            autofocus: true,
             isExpanded: true,
             decoration: InputDecoration(labelText: 'Restore mode'.localized),
             items: const [
@@ -248,6 +249,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
             children: [
               TextFormField(
                 controller: _channelCtrl,
+                autofocus: true,
                 decoration: InputDecoration(labelText: 'Channel'.localized),
                 validator: (value) =>
                     value?.trim().isEmpty == true ? 'Required'.localized : null,

@@ -310,6 +310,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                   TextField(
                     controller: _codeCtrl,
                     enabled: !_busy && !_terminal,
+                    autofocus: true,
                     textCapitalization: TextCapitalization.characters,
                     autocorrect: false,
                     enableSuggestions: false,

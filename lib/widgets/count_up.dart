@@ -4,8 +4,13 @@ import 'package:flutter/material.dart';
 ///
 /// 有限动画（600ms），测试 settle 安全。支持整数与一位小数。
 class CountUp extends StatelessWidget {
+  /// 滚动目标数值。
   final num value;
+
+  /// 数字文本样式（缺省主题默认）。
   final TextStyle? style;
+
+  /// 小数位数（默认 0 = 整数）。
   final int fractionDigits;
 
   const CountUp({

@@ -253,6 +253,7 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: row.op,
+                    autofocus: index == 0,
                     decoration: InputDecoration(
                       labelText: 'Operation'.localized,
                     ),

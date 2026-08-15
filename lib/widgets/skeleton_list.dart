@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 
 /// Skeleton loading placeholder for list items.
 /// Shows animated grey rectangles while content is loading.
+///
+/// 主题化骨架底色（onSurface 低 alpha，深浅色模式自适应）；列表与网格
+/// 两种形态，均不可滚动（shrinkWrap），置于数据加载区域原位占位。
 class SkeletonListTile extends StatefulWidget {
+  /// 占位条目数量（默认 5）。
   final int itemCount;
+
+  /// true = 3 列网格形态；false = 列表行形态。
   final bool crossAxis;
 
   const SkeletonListTile({

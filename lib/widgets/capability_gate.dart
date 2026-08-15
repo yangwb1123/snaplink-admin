@@ -9,9 +9,16 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 /// This prevents showing UI elements for features that the connected
 /// backend doesn't support.
 class CapabilityGate extends StatelessWidget {
+  /// 后端能力快照（探测结果）。
   final SnaplinkAdminCapabilities capabilities;
+
+  /// 目标 API 路径前缀（hasAnyPathPrefix 匹配）。
   final String path;
+
+  /// 能力可用时渲染的内容。
   final Widget child;
+
+  /// 能力不可用时渲染的兜底；null = 不渲染任何内容。
   final Widget? fallback;
 
   const CapabilityGate({
@@ -35,10 +42,19 @@ class CapabilityGate extends StatelessWidget {
 
 /// Shows a feature that requires a specific HTTP method + path capability.
 class MethodGate extends StatelessWidget {
+  /// 后端能力快照（探测结果）。
   final SnaplinkAdminCapabilities capabilities;
+
+  /// 要求的具体 HTTP 方法（GET/POST/...）。
   final String method;
+
+  /// 要求的具体 API 路径。
   final String path;
+
+  /// 能力可用时渲染的内容。
   final Widget child;
+
+  /// 能力不可用时渲染的兜底；null = 不渲染任何内容。
   final Widget? fallback;
 
   const MethodGate({

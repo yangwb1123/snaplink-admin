@@ -5,7 +5,10 @@ import 'package:sso_admin/theme/app_colors.dart';
 ///
 /// 颜色由名字 hash 决定（同名字同色），无需后端头像 URL。
 class UserAvatar extends StatelessWidget {
+  /// 用户名（首字母 + 稳定取色依据）。
   final String name;
+
+  /// 头像半径（默认 18）。
   final double radius;
 
   const UserAvatar({super.key, required this.name, this.radius = 18});

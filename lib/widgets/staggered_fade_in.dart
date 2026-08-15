@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 /// 用法：把列表项包在 [StaggeredFadeIn] 里，index 传该项序号。
 /// 有限动画（总时长 ≤ 490ms），测试 settle 安全；首项无延迟。
 class StaggeredFadeIn extends StatelessWidget {
+  /// 列表项序号（决定入场延迟；>8 按 8 封顶）。
   final int index;
+
+  /// 被包装的列表项。
   final Widget child;
 
   const StaggeredFadeIn({super.key, required this.index, required this.child});

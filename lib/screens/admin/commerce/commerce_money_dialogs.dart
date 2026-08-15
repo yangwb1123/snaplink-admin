@@ -187,6 +187,7 @@ Widget _currencyField(TextEditingController controller) => Padding(
   padding: const EdgeInsets.only(bottom: 12),
   child: TextFormField(
     controller: controller,
+    autofocus: true,
     textCapitalization: TextCapitalization.characters,
     decoration: InputDecoration(
       labelText: 'Currency'.localized,

@@ -139,7 +139,7 @@ const appAdminIndirectSourceZh = <String, String>{
   'Account lifecycle': '账户生命周期',
   'Active email-change links': '活跃的邮箱变更链接',
   'Active password-reset links': '活跃的密码重置链接',
-  'Application consents': '应用授权同意',
+  'Application consents': '应用授权',
   'Credential recovery and containment': '凭据恢复与遏制',
   'Second factors': '第二验证因素',
   'No users': '没有用户',

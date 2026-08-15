@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 /// 用 [key] 区分页面：切页时旧页淡出、新页淡入并上移 8dp。
 /// 有限时长（200ms），不依赖循环动画，测试 settle 安全。
 class PageTransition extends StatelessWidget {
+  /// 页面标识 key：变化时触发切换动画（新页淡入上移）。
   final Key pageKey;
+
+  /// 被切换的页面内容。
   final Widget child;
 
   const PageTransition({super.key, required this.pageKey, required this.child});

@@ -104,7 +104,7 @@ const appCommerceSourceZh = <String, String>{
   'Use a three-letter currency code.': '请使用三字母货币代码。',
   'Top-up amount in minor units': '充值金额（最小货币单位）',
   'Create Stripe top-up': '创建 Stripe 充值',
-  'Continue to secure checkout': '继续前往安全结账',
+  'Continue to secure checkout': '继续安全结账',
   'The console creates a pending Stripe order, then opens the separate secure checkout page. Card data, API keys and provider signatures never enter this console.':
       '控制台会创建待处理的 Stripe 订单，然后打开独立的安全结账页。银行卡数据、API 密钥和提供商签名绝不会进入本控制台。',
   'Run administrative renewal?': '执行管理续期？',

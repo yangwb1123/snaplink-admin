@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 ///
 /// 包在按钮外，不改变按钮本身样式。有限动画（90ms），测试 settle 安全。
 class PressableScale extends StatefulWidget {
+  /// 被包装的按钮/可点击控件（不改变其样式）。
   final Widget child;
 
   const PressableScale({super.key, required this.child});

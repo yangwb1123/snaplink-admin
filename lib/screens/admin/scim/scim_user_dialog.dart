@@ -122,6 +122,7 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
                 'User name',
                 required: true,
                 helper: 'Required and unique (case-insensitive)',
+                autofocus: !_editing,
               ),
               _field('displayName', 'Display name'),
             ),
@@ -203,8 +204,10 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
     String label, {
     bool required = false,
     String? helper,
+    bool autofocus = false,
   }) => TextFormField(
     controller: _controllers[key],
+    autofocus: autofocus,
     decoration: InputDecoration(
       labelText: label.localized,
       helperText: helper?.localized,

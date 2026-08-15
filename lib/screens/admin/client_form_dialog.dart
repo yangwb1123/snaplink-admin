@@ -169,6 +169,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
               TextFormField(
                 controller: _idController,
                 enabled: !widget.isEdit,
+                autofocus: !widget.isEdit,
                 decoration: InputDecoration(labelText: 'ID'.localized),
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Required'.localized : null,

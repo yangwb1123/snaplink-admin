@@ -3,11 +3,23 @@ import 'package:sso_admin/widgets/pressable_scale.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 /// Responsive title and primary actions for admin collection pages.
+///
+/// 窄视口（<560）标题与操作区自动换行；默认动作区 = 创建按钮 + 刷新，
+/// 传入 [actions] 时整体替换。标题/subtitle/按钮文案均为 i18n 键。
 class AdminListHeader extends StatelessWidget {
+  /// 页面标题（i18n 键）。
   final String title;
+
+  /// 标题下副标题（i18n 键）；null = 不渲染。
   final String? subtitle;
+
+  /// 创建按钮文案（i18n 键）。
   final String createTooltip;
+
+  /// 创建动作；null = 不渲染创建按钮。
   final VoidCallback? onCreate;
+
+  /// 刷新动作（始终渲染刷新图标）。
   final VoidCallback onRefresh;
 
   /// 额外操作区（替换默认的创建按钮 + 刷新按钮，例如无创建操作的页面）。

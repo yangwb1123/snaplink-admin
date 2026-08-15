@@ -166,7 +166,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             const SizedBox(height: 8),
             LocalizedText('Type {id} and provide an incident reference.', args: {'id': id}),
             const SizedBox(height: 12),
-            TextField(controller: reason, decoration: InputDecoration(labelText: 'Reason / incident reference'.localized)),
+            TextField(controller: reason, autofocus: true, decoration: InputDecoration(labelText: 'Reason / incident reference'.localized)),
             const SizedBox(height: 8),
             TextField(controller: confirm, decoration: InputDecoration(labelText: id)),
           ],

@@ -4,8 +4,13 @@ import 'package:sso_admin/theme/app_colors.dart';
 /// 状态徽章：彩色圆角 chip（状态 = 颜色 + 文字，双表达）。
 /// 替换散落的裸 Text 状态显示——视觉一致 + 可访问（不只靠颜色）。
 class StatusChip extends StatelessWidget {
+  /// 状态文案（i18n 键，工厂默认值为英文目录键）。
   final String label;
+
+  /// 语义色（AppColors/主题色，仅作底色 alpha 混合来源）。
   final Color color;
+
+  /// 状态图标；null = 纯文字徽章。
   final IconData? icon;
 
   const StatusChip({

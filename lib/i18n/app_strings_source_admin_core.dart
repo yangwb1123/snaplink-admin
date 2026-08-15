@@ -28,7 +28,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Expired on {date}': '已于 {date} 到期',
   'Expires in {days} day(s) · {date}': '{days} 天后到期 · {date}',
   'Expires {date}': '到期时间 {date}',
-  'Expiry: {expiry}': '到期：{expiry}',
+  'Expiry: {expiry}': '到期时间：{expiry}',
   'Failed: {e}': '失败：{e}',
   'Ledger entries ({entries_length})': '账本条目（{entries_length}）',
   'Patch {widget_kind_singular} {widget_resourceId}':
@@ -267,8 +267,8 @@ const appAdminCoreSourceZh = <String, String>{
   'This will delete {n} selected users.': '此操作将删除选中的 {n} 个用户。',
   'This will delete {n} selected local users and their password credentials. This cannot be undone.':
       '此操作将删除选中的 {n} 个本地用户及其密码凭据，无法撤销。',
-  'Deleted {n} of {total} users.': '已删除用户：共 {total} 个，成功 {n} 个。',
-  'Deleted {n} of {total} local users.': '已删除本地用户：共 {total} 个，成功 {n} 个。',
+  'Deleted {n} of {total} users.': '已删除 {total} 个用户中的 {n} 个。',
+  'Deleted {n} of {total} local users.': '已删除 {total} 个本地用户中的 {n} 个。',
   'Delete {id}? Sessions, credentials, and dependent records may stop working. This cannot be undone.':
       '删除 {id}？会话、凭据及相关记录可能停止工作，此操作无法撤销。',
   'Deleted': '已删除',
@@ -573,7 +573,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Save menus': '保存菜单',
   'Save menus?': '保存菜单？',
   'SCIM Bulk': 'SCIM 批量操作',
-  'Scope': '范围',
+  'Scope': '权限范围',
   'Snapshots': '快照',
   // Recovery & releases page (recovery_releases_tab.dart / widgets / dialogs)
   'Snapshot exported.': '快照已导出。',

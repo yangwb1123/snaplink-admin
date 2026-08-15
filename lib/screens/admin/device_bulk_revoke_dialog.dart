@@ -154,6 +154,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                   width: 190,
                   child: DropdownButtonFormField<double?>(
                     initialValue: _trustBelow,
+                    autofocus: true,
                     isExpanded: true,
                     decoration: InputDecoration(
                       labelText: 'Trust score below'.localized,

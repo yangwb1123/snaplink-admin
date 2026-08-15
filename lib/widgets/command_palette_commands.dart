@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/screens/admin/admin_module_groups.dart';
 
+/// 命令面板条目：标题 / 路由 / 图标 / 描述，以及从路由派生的模块与动作段。
+///
+/// 静态目录 [commandPaletteItems] 与模块过滤函数
+/// [commandPaletteItemsForModules] 供 [CommandPalette] 渲染搜索结果；
+/// 条目自身不持有行为，激活由调用方按 [path] 路由。
 class CommandPaletteItem {
   final String title;
   final String path;
@@ -286,6 +291,10 @@ const commandPaletteItems = <CommandPaletteItem>[
   ),
 ];
 
+/// 按当前可用模块过滤命令目录，并按导航分组插入组标题行。
+///
+/// 非 admin 命令（如 /settings）固定归 Overview 组；admin 命令按
+/// [adminModuleGroups] 顺序分组，模块不可用时整组隐藏。
 List<CommandPaletteItem> commandPaletteItemsForModules(
   Iterable<String> modules,
 ) {

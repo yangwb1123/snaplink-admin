@@ -3,9 +3,14 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 /// One segment of a [DistributionBar].
 class DistributionSegment {
-  final String label; // i18n key
+  /// 图例文案（i18n 键）。
+  final String label;
+
+  /// 段值（非正数不渲染切片与图例）。
   final int value;
-  final Color color; // AppColors/theme only
+
+  /// 段色（AppColors/主题色）。
+  final Color color;
 
   const DistributionSegment({
     required this.label,

@@ -9,6 +9,7 @@ import 'package:sso_admin/services/connectivity_service.dart';
 /// Place at the top of the widget tree (e.g., in dashboard_screen)
 /// to get a non-intrusive "You are offline" message.
 class OfflineBanner extends StatefulWidget {
+  /// 包在横幅之下的应用内容（离线时横幅置于其顶部）。
   final Widget child;
   const OfflineBanner({super.key, required this.child});
 

@@ -3,6 +3,9 @@ import 'package:sso_admin/i18n/localized_text.dart';
 
 /// Keyboard shortcuts reference dialog.
 /// Shows all available shortcuts grouped by category.
+///
+/// 用法：`ShortcutsDialog.show(context)`（静态入口，由 Ctrl+? 触发）；
+/// 内容为静态目录，无需构造参数。
 class ShortcutsDialog extends StatelessWidget {
   const ShortcutsDialog({super.key});
 
@@ -10,6 +13,7 @@ class ShortcutsDialog extends StatelessWidget {
     _ShortcutGroup('Navigation', [
       ('Ctrl+K', 'Command palette'),
       ('Ctrl+1-9', 'Switch to tab'),
+      ('Ctrl+?', 'Show keyboard shortcuts'),
       ('Escape', 'Close dialog / go back'),
     ]),
     _ShortcutGroup('Actions', [

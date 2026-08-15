@@ -7,6 +7,8 @@ import 'package:sso_admin/i18n/app_strings.dart';
 class PaginationControls extends StatelessWidget {
   /// 当前页号；null = 光标语义（无“Page null”胶囊）。
   final int? page;
+
+  /// 总数（渲染 `{total} total` 徽章）；null = 不渲染。
   final int? total;
 
   /// 非空时替代 `{total} total` 徽章渲染汇总文案（SCIM 语义）。

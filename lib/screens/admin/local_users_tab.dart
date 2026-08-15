@@ -356,6 +356,7 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
     required String label,
     bool enabled = true,
     bool obscure = false,
+    bool autofocus = false,
     TextInputType? keyboard,
     String? Function(String?)? validate,
   }) => Padding(
@@ -363,6 +364,7 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
     child: TextFormField(
       controller: controller,
       enabled: enabled,
+      autofocus: autofocus,
       obscureText: obscure,
       keyboardType: keyboard,
       decoration: InputDecoration(labelText: label.localized),
@@ -379,7 +381,7 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
+            _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, autofocus: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
             _field(controller: _emailCtrl, label: 'Email', keyboard: TextInputType.emailAddress, validate: (v) => _validate(validateSnaplinkLocalEmail, v)),
             _field(controller: _nameCtrl, label: 'Display name'),
             if (!_editing)

@@ -15,14 +15,31 @@ enum TableDensity { comfortable, compact }
 ///
 /// 桌面管理后台的标志性元素——替代手机风格的 ListTile 列表。
 class AdminDataTable extends StatefulWidget {
+  /// 列定义（宽于 640 时表格模式，否则自动降级卡片模式）。
   final List<AdminDataColumn> columns;
+
+  /// 数据行数（行内容经 [rowBuilder] 按需构建）。
   final int itemCount;
+
+  /// 行单元格构建器（每列调用 column.builder）。
   final Widget Function(BuildContext context, int index) rowBuilder;
+
+  /// 当前排序列 id；null = 未排序。
   final String? sortColumn;
+
+  /// 排序方向（升序 = true）。
   final bool sortAscending;
+
+  /// 表头排序回调（传列 id）；null = 禁用排序。
   final ValueChanged<String>? onSort;
+
+  /// 表格最小宽度（与列总宽取大，防表头溢出）。
   final double? minWidth;
+
+  /// 行点击回调；null = 行不可点。
   final void Function(int rowIndex)? onRowTap;
+
+  /// 行长按回调（批量选择入口）；null = 禁用。
   final void Function(int rowIndex)? onRowLongPress;
 
   /// 表格自身是否垂直滚动（页面滚动容器内为 false；Expanded 内为 true）。
@@ -340,11 +357,18 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 }
 
-/// 表格列定义。
+/// 表格列定义：标识 / 文案 / 宽度 / 排序与卡片模式元信息 / 单元格构建器。
 class AdminDataColumn {
+  /// 列唯一标识（排序回调的入参）。
   final String id;
+
+  /// 表头文案；空串 = 无表头（Checkbox/菜单等前导/尾随列）。
   final String label;
+
+  /// 列宽；null = 默认 160。
   final double? width;
+
+  /// 可排序列标记（配合 [AdminDataTable.onSort]）。
   final bool sortable;
 
   /// 卡片模式主字段（缺省自动派生：首个具名列）。

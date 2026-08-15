@@ -156,6 +156,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               TextFormField(
                 controller: _nameCtrl,
                 enabled: !_editing,
+                autofocus: !_editing,
                 decoration: InputDecoration(labelText: 'Policy name'.localized),
                 validator: (value) => value?.trim().isEmpty == true
                     ? context.tr('Required')

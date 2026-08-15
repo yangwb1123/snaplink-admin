@@ -81,6 +81,7 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
             ],
             TextFormField(
               controller: _nameController,
+              autofocus: !_editing,
               decoration: InputDecoration(
                 labelText: 'Display name'.localized,
                 helperText:

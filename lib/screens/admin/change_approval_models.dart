@@ -142,6 +142,7 @@ class _ChangeApprovalProposalDialogState
             children: [
               TextFormField(
                 controller: _typeCtrl,
+                autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'Action type'.localized,
                   helperText: 'Must match an action enabled by the server.'

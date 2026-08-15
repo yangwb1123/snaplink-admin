@@ -6,8 +6,13 @@ import 'package:sso_admin/i18n/localized_text.dart';
 /// options: value -> 已注册的 i18n 文案（LocalizedText 自动翻译）。
 /// 服务端筛选语义由调用方在 filter 参数中组合（page/total 保持正确）。
 class StatusFilterDropdown extends StatelessWidget {
+  /// 当前选中值（options 键）。
   final String value;
+
+  /// 选项表：value -> i18n 文案键（LocalizedText 自动翻译）。
   final Map<String, String> options;
+
+  /// 选中变化回调（服务端筛选语义由调用方组合）。
   final ValueChanged<String> onChanged;
 
   const StatusFilterDropdown({
