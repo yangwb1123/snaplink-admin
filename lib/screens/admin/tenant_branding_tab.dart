@@ -288,10 +288,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(
-            _error!,
-            style: const TextStyle(color: AppColors.danger),
-          ),
+          Text(_error!, style: const TextStyle(color: AppColors.danger)),
         ],
         if (_outcomeUnknown) ...[
           const SizedBox(height: 12),
@@ -313,7 +310,6 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                   decoration: InputDecoration(
                     labelText: 'Brand name'.localized,
                   ),
-                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -323,7 +319,6 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                     labelText: 'Primary color'.localized,
                     hintText: '#2563EB'.localized,
                   ),
-                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -333,7 +328,6 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                     labelText: 'Logo URL'.localized,
                     hintText: 'https://cdn.example.com/logo.svg'.localized,
                   ),
-                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
                 TextField(
@@ -344,13 +338,20 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                     hintText:
                         'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
                   ),
-                  onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 12),
-                TenantBrandingPreview(
-                  brandName: _brandName.text.trim(),
-                  primaryColor: _primaryColor.text.trim(),
-                  logoUrl: _logoUrl.text.trim(),
+                // 预览只依赖这三个控制器：局部监听，不再每次按键整页重建。
+                ListenableBuilder(
+                  listenable: Listenable.merge([
+                    _brandName,
+                    _primaryColor,
+                    _logoUrl,
+                  ]),
+                  builder: (context, _) => TenantBrandingPreview(
+                    brandName: _brandName.text.trim(),
+                    primaryColor: _primaryColor.text.trim(),
+                    logoUrl: _logoUrl.text.trim(),
+                  ),
                 ),
               ],
             ),

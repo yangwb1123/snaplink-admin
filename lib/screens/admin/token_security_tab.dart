@@ -66,12 +66,12 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   SectionDef _def(String id, String label, IconData icon) =>
       SectionDef(id, label, icon, color: _accent);
   List<SectionDef> get _sections => [
-    _def('all', 'All', Icons.dashboard),
+    _def('all', 'All', Icons.dashboard_outlined),
     if (_supports('GET', _paths['portfolio']!)) _def('portfolio', 'Portfolio', Icons.account_balance_wallet),
-    if (_supports('GET', _paths['suspicious']!)) _def('suspicious', 'Anomalies', Icons.warning),
-    if (_supports('GET', _paths['sessions']!)) _def('sessions', 'Sessions', Icons.devices),
+    if (_supports('GET', _paths['suspicious']!)) _def('suspicious', 'Anomalies', Icons.warning_amber_outlined),
+    if (_supports('GET', _paths['sessions']!)) _def('sessions', 'Sessions', Icons.devices_outlined),
     if (_supports('GET', _paths['expiring']!)) _def('expiring', 'Expiring', Icons.timer),
-    if (_supportsTempToken) _def('temp', 'Temp Token', Icons.key),
+    if (_supportsTempToken) _def('temp', 'Temp Token', Icons.key_outlined),
     if (_supportsSingleRevoke || _supportsBulkRevoke || _supportsAdminTokenRevoke)
       _def('revoke', 'Revoke', Icons.remove_circle),
   ];
@@ -299,7 +299,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     AdminDataColumn(id: 'finding', label: 'Finding', cardPrimary: true, builder: (_, i) {
       final f = rows[i], critical = f['severity'] == 'critical';
       return Row(children: [
-        Icon(critical ? Icons.warning_amber : Icons.info_outline, size: 16, color: critical ? AppColors.danger : AppColors.warning),
+        Icon(critical ? Icons.warning_amber_outlined : Icons.info_outline, size: 16, color: critical ? AppColors.danger : AppColors.warning),
         const SizedBox(width: 8),
         Expanded(child: Text('${f['type'] ?? ''} · ${f['subject_id'] ?? ''}', overflow: TextOverflow.ellipsis)),
       ]);

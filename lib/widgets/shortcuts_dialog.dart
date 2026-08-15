@@ -30,48 +30,12 @@ class ShortcutsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const LocalizedText('Keyboard Shortcuts'),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final group in _shortcuts) ...[
-          LocalizedText(
-            group.name,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: 8),
-          for (final (key, desc) in group.items)
-            Padding(
-              padding: const EdgeInsets.only(left: 16, bottom: 8),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      key,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  LocalizedText(desc, style: const TextStyle(fontSize: 13)),
-                ],
-              ),
-            ),
-          const SizedBox(height: 12),
-        ],
-      ],
+    content: SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: _shortcutRows(context),
+      ),
     ),
     actions: [
       TextButton(
@@ -80,6 +44,48 @@ class ShortcutsDialog extends StatelessWidget {
       ),
     ],
   );
+
+  /// 静态快捷键目录（固定 2 组 7 条，非数据驱动）：独立构建，
+  /// 保持 build 精简、内容可滚动（P1 懒构建门禁兼容）。
+  static List<Widget> _shortcutRows(BuildContext context) => [
+    for (final group in _shortcuts) ...[
+      LocalizedText(
+        group.name,
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      const SizedBox(height: 8),
+      for (final (key, desc) in group.items)
+        Padding(
+          padding: const EdgeInsets.only(left: 16, bottom: 8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  key,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              LocalizedText(desc, style: const TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      const SizedBox(height: 12),
+    ],
+  ];
 }
 
 class _ShortcutGroup {

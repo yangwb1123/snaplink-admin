@@ -305,11 +305,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       (group) => group.id == currentGroupId,
     );
     if (selectedGroupIndex < 0) selectedGroupIndex = 0;
+    // R18：System 组 indigo-600 在 dark 仅 2.33:1 → 提亮 indigo-400。
+    final brightness = Theme.of(context).brightness;
     final groupDestinations = [
       for (final group in visibleGroups)
         NavigationRailDestination(
-          icon: Icon(group.icon, color: group.iconColor),
-          selectedIcon: Icon(group.selectedIcon, color: group.iconColor),
+          icon: Icon(group.icon, color: adminGroupIconColorFor(group.id, brightness)),
+          selectedIcon: Icon(
+            group.selectedIcon,
+            color: adminGroupIconColorFor(group.id, brightness),
+          ),
           label: adminGroupLabel(group),
         ),
     ];
@@ -324,7 +329,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           module,
           moduleLabels[module] ?? module,
           dashboardModuleIcon(module, entries),
-          color: adminModuleIconColor(module),
+          color: adminModuleIconColorFor(module, brightness),
         ),
     ];
     return ResponsiveNavigationScaffold(

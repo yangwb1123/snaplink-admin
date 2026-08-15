@@ -100,49 +100,51 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
         Icons.business,
         color: adminModuleIconColor(AdminModuleId.tenants),
       ),
-      title: LocalizedText(_isEdit ? 'Edit tenant' : 'New tenant'),
-      content: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _idController,
-                enabled: !_isEdit,
-                autofocus: !_isEdit,
-                decoration: InputDecoration(labelText: 'ID'.localized),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              TextFormField(
-                controller: _slugController,
-                decoration: InputDecoration(labelText: 'Slug'.localized),
-              ),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: 'Name'.localized),
-              ),
-              if (!_isEdit) ...[
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _status,
-                  decoration: InputDecoration(labelText: 'Status'.localized),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'active',
-                      child: LocalizedText('active'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'suspended',
-                      child: LocalizedText('suspended'),
-                    ),
-                  ],
-                  onChanged: (v) => setState(() => _status = v ?? 'active'),
+      title: LocalizedText(_isEdit ? 'Edit tenant' : 'Create tenant'),
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _idController,
+                  enabled: !_isEdit,
+                  autofocus: !_isEdit,
+                  decoration: InputDecoration(labelText: 'ID'.localized),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-              ],
-              TenantResidencyFields(
+                TextFormField(
+                  controller: _slugController,
+                  decoration: InputDecoration(labelText: 'Slug'.localized),
+                ),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Name'.localized),
+                ),
+                if (!_isEdit) ...[
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: _status,
+                    decoration: InputDecoration(labelText: 'Status'.localized),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'active',
+                        child: LocalizedText('active'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'suspended',
+                        child: LocalizedText('suspended'),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _status = v ?? 'active'),
+                  ),
+                ],
+                TenantResidencyFields(
                 homeRegionController: _homeRegionController,
                 allowedRegionsController: _allowedRegionsController,
                 enforceWrites: _enforceWrites,
@@ -154,6 +156,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
           ),
         ),
       ),
+    ),
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context, false),

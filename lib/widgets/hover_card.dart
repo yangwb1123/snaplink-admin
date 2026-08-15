@@ -35,6 +35,8 @@ class _HoverCardState extends State<HoverCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -44,7 +46,16 @@ class _HoverCardState extends State<HoverCard> {
         margin: widget.margin,
         transform: Matrix4.translationValues(0, _hovered ? -2 : 0, 0),
         child: Card(
-          elevation: _hovered ? widget.hoverElevation : widget.restingElevation,
+          // R18：dark 下阴影不可感知（elevation 0 已禁用），hover 提升
+          // 改用 surface 层级——surfaceContainerHigh 对脚手架背景
+          // ≈1.66:1（静止 surface ≈1.22:1），无阴影同样可感知抬升；
+          // 浅色保持阴影方案不变。
+          elevation: isDark
+              ? 0
+              : (_hovered ? widget.hoverElevation : widget.restingElevation),
+          color: isDark && _hovered
+              ? theme.colorScheme.surfaceContainerHigh
+              : null,
           child: widget.child,
         ),
       ),

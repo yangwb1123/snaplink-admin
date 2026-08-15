@@ -104,7 +104,11 @@ class CommerceWalletPanel extends StatelessWidget {
           wallet!['status'] == 'active'
               ? Icons.account_balance_wallet
               : Icons.lock,
-          color: wallet!['status'] == 'active' ? AppColors.success : AppColors.danger,
+          // 与下方 StatusChip 同色绑定：非 active = suspended/降级 → warning
+          // （danger 仅保留给 failed/revoked，避免同状态双色）。
+          color: wallet!['status'] == 'active'
+              ? AppColors.success
+              : AppColors.warning,
           size: 32,
         ),
         Text(balance, style: Theme.of(context).textTheme.titleMedium),

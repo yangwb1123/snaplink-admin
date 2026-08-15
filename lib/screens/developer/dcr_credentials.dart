@@ -53,7 +53,7 @@ class _SensitiveTokenFieldState extends State<SensitiveTokenField> {
               onPressed: widget.enabled
                   ? () => setState(() => _visible = !_visible)
                   : null,
-              icon: Icon(_visible ? Icons.visibility_off : Icons.visibility, color: widget.enabled ? scheme.primary : null),
+              icon: Icon(_visible ? Icons.visibility_off_outlined : Icons.visibility_outlined, color: widget.enabled ? scheme.primary : null),
             ),
             PopupMenuButton<String>(
               tooltip: context.tr('{label} actions', {

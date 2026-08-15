@@ -93,7 +93,7 @@ class ClientSecretDialog extends StatelessWidget {
                   Expanded(child: SelectableText(secret)),
                   if (copyable)
                     IconButton(
-                      icon: const Icon(Icons.copy),
+                      icon: const Icon(Icons.copy_outlined),
                       tooltip: 'Copy to clipboard'.localized,
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: secret));

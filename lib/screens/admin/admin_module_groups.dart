@@ -28,14 +28,15 @@ class AdminModuleGroup {
   });
 }
 
-/// 导航组图标色板（与登录头/设置页品牌色同一色系）。
+/// 导航组图标色板（与登录头/设置页品牌色同一色系；色值单点定义在
+/// AppColors.group*，此处仅引用，不再手写）。
 const adminGroupIconColors = <String, Color>{
-  'overview': Color(0xFF0EA5E9), // sky
-  'identity': Color(0xFF7C6FF0), // indigo-violet
-  'security': Color(0xFFF43F5E), // rose
-  'tenants': Color(0xFFF59E0B), // amber
-  'developers': Color(0xFF10B981), // emerald
-  'system': Color(0xFF4F46E5), // indigo
+  'overview': AppColors.groupOverview,
+  'identity': AppColors.groupIdentity,
+  'security': AppColors.groupSecurity,
+  'tenants': AppColors.groupTenants,
+  'developers': AppColors.groupDevelopers,
+  'system': AppColors.groupSystem,
 };
 
 /// 组图标色（未知组回退 slate）。
@@ -50,10 +51,27 @@ Color adminModuleIconColor(String module) {
   return adminGroupIconColor(adminGroupForModule(module));
 }
 
+/// 组图标色（亮度感知，R18）：System 组 indigo-600 对深色 surface 仅
+/// 2.33:1（WCAG 非文本 <3），dark 提亮为 indigo-400（4.90:1）；其余组
+/// dark 下均 ≥3（identity 3.75 / security 3.98），保持原色。浅色恒等于
+/// [adminGroupIconColor]（既有测试固定浅色规范）。
+Color adminGroupIconColorFor(String groupId, Brightness brightness) =>
+    brightness == Brightness.dark && groupId == 'system'
+    ? AppColors.groupSystemDark
+    : adminGroupIconColor(groupId);
+
+/// 模块图标色（亮度感知）：未知模块回退中性 slate，已知模块继承所属组
+/// 的亮度感知色。
+Color adminModuleIconColorFor(String module, Brightness brightness) {
+  final known = adminModuleGroups.any((group) => group.modules.contains(module));
+  if (!known) return AppColors.muted;
+  return adminGroupIconColorFor(adminGroupForModule(module), brightness);
+}
+
 const adminModuleGroups = <AdminModuleGroup>[
   AdminModuleGroup(
     id: 'overview',
-    iconColor: Color(0xFF0EA5E9),
+    iconColor: AppColors.groupOverview,
     icon: Icons.dashboard_outlined,
     selectedIcon: Icons.dashboard,
     labelKey: 'Overview',
@@ -61,7 +79,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'identity',
-    iconColor: Color(0xFF7C6FF0),
+    iconColor: AppColors.groupIdentity,
     icon: Icons.people_outline,
     selectedIcon: Icons.people,
     labelKey: 'Identity',
@@ -76,7 +94,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'security',
-    iconColor: Color(0xFFF43F5E),
+    iconColor: AppColors.groupSecurity,
     icon: Icons.shield_outlined,
     selectedIcon: Icons.shield,
     labelKey: 'Security',
@@ -99,7 +117,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'tenants',
-    iconColor: Color(0xFFF59E0B),
+    iconColor: AppColors.groupTenants,
     icon: Icons.business_outlined,
     selectedIcon: Icons.business,
     labelKey: 'Tenants',
@@ -113,7 +131,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'developers',
-    iconColor: Color(0xFF10B981),
+    iconColor: AppColors.groupDevelopers,
     icon: Icons.code_outlined,
     selectedIcon: Icons.code,
     labelKey: 'Developers',
@@ -126,7 +144,7 @@ const adminModuleGroups = <AdminModuleGroup>[
   ),
   AdminModuleGroup(
     id: 'system',
-    iconColor: Color(0xFF4F46E5),
+    iconColor: AppColors.groupSystem,
     icon: Icons.settings_outlined,
     selectedIcon: Icons.settings,
     labelKey: 'System',

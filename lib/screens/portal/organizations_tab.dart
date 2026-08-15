@@ -298,7 +298,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                                       strokeWidth: 2,
                                     ),
                                   )
-                                : const Icon(Icons.login, size: 18),
+                                : const Icon(Icons.login_outlined, size: 18),
                             label: Text(context.tr('Join organization')),
                           ),
                         ),

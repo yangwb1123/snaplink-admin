@@ -21,6 +21,7 @@ class ManagePanel extends StatefulWidget {
   @override
   State<ManagePanel> createState() => ManagePanelState();
 }
+
 class ManagePanelState extends State<ManagePanel> {
   final _clientIdController = TextEditingController();
   final _tokenController = TextEditingController();
@@ -292,17 +293,22 @@ class ManagePanelState extends State<ManagePanel> {
     // SingleChildScrollView + Column (not a lazy ListView): every child is
     // always built, so the save/delete actions below the tall metadata form
     // stay reachable for tests, semantics and keyboard focus.
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const ManageIntro(),
-          const SizedBox(height: 16),
-          _buildCredentialCard(scheme),
-          const SizedBox(height: 16),
-          ..._buildStatusArea(),
-        ],
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 840),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ManageIntro(),
+              const SizedBox(height: 16),
+              _buildCredentialCard(scheme),
+              const SizedBox(height: 16),
+              ..._buildStatusArea(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -340,7 +346,7 @@ class ManagePanelState extends State<ManagePanel> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.download_outlined,
+                          Icons.file_download_outlined,
                           size: 18,
                           color: scheme.onPrimary,
                         ),

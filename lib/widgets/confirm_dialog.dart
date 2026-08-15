@@ -36,6 +36,8 @@ class ConfirmDialog extends StatelessWidget {
   }) async {
     final result = await showDialog<bool>(
       context: context,
+      // 破坏性/类型确认不可 barrier 或 Escape 关闭：必须显式点击按钮。
+      barrierDismissible: !destructive,
       builder: (_) => ConfirmDialog(
         title: title,
         message: message,

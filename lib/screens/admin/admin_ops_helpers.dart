@@ -240,7 +240,7 @@ class AdminOpsHelpers {
             'Response',
             action: TextButton.icon(
               onPressed: onCopy,
-              icon: const Icon(Icons.copy, size: 16),
+              icon: const Icon(Icons.copy_outlined, size: 16),
               label: const LocalizedText('Copy'),
             ),
           ),

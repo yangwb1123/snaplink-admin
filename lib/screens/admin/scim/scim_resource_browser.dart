@@ -320,7 +320,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           ),
           if (_error != null) _errorCard(context),
           if (_loading && page == null)
-            const Expanded(child: SkeletonListTile(itemCount: 6))
+            const Expanded(child: SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150)))
           else if (page != null)
             Expanded(
               child: Column(

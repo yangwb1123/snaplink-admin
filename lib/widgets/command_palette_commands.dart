@@ -268,7 +268,7 @@ const commandPaletteItems = <CommandPaletteItem>[
   CommandPaletteItem(
     'Create New Client',
     '/admin/clients/new',
-    Icons.add_circle,
+    Icons.add,
     'Register a new OIDC client',
   ),
   CommandPaletteItem(

@@ -316,6 +316,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       context,
       title: 'Revoke consent?',
       message: 'Revoke for $clientId?',
+      confirmLabel: 'Revoke',
       destructive: true,
       confirmText: clientId,
     );
@@ -346,6 +347,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       context,
       title: 'Remove MFA factor?',
       message: 'Remove this factor?',
+      confirmLabel: 'Remove',
       destructive: true,
       confirmText: factorId,
     );

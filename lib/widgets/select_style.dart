@@ -52,7 +52,13 @@ ButtonStyle appDropdownEntryStyle(ThemeData theme) => ButtonStyle(
   // 不参与布局 → 选中/未选中条目几何完全一致。
   backgroundColor: WidgetStateProperty.resolveWith(
     (states) => states.contains(WidgetState.focused)
-        ? theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
+        ? theme.brightness == Brightness.dark
+              // R18：dark 下 primaryContainer@0.45 叠深色菜单仅 1.20:1
+              // （选中底不可感知），改用 primary@0.25（≈1.55:1）；选中态
+              // 仍由 2px primary 边框 + 勾选徽标承载（≥3:1）。浅色保持
+              // primaryContainer@0.45（测试固定）。
+              ? theme.colorScheme.primary.withValues(alpha: 0.25)
+              : theme.colorScheme.primaryContainer.withValues(alpha: 0.45)
         : Colors.transparent,
   ),
   overlayColor: WidgetStatePropertyAll(

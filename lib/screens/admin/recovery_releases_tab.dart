@@ -157,6 +157,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       final confirmed = await _confirm(
         'Restore snapshot?',
         'Apply ${draft.mode} restore from $id? Resource families are applied sequentially. Snaplink records every step and final result in a durable operation journal for reconciliation.',
+        confirmLabel: 'Restore snapshot',
         confirmText: id,
       );
       if (!confirmed) return;
@@ -183,6 +184,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         !await _confirm(
           'Delete snapshot?',
           'Delete stored snapshot $id?',
+          confirmLabel: 'Delete snapshot',
           confirmText: id,
         )) {
       return;
@@ -216,9 +218,15 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       'rollback' => 'Rollback frontend and backend to $id? Snapshot restore, traffic pinning, registry updates, and compensations are recorded in a durable operation journal.',
       _ => 'Delete registered release $id?',
     };
+    final confirmLabel = switch (action) {
+      'pin' => 'Pin release',
+      'rollback' => 'Rollback',
+      _ => 'Delete release',
+    };
     if (!await _confirm(
       '${action[0].toUpperCase()}${action.substring(1)} release?',
       message,
+      confirmLabel: confirmLabel,
       confirmText: id,
     )) {
       return;
@@ -238,6 +246,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     if (!await _confirm(
       'Create online backup?',
       'Trigger a consistent online backup of every registered SQLite source?',
+      confirmLabel: 'Create backup',
       confirmText: 'CREATE BACKUP',
     )) {
       return;
@@ -248,8 +257,19 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     );
   }
 
-  Future<bool> _confirm(String title, String message, {String? confirmText}) =>
-      ConfirmDialog.show(context, title: title, message: message, confirmLabel: 'Continue', destructive: true, confirmText: confirmText);
+  Future<bool> _confirm(
+    String title,
+    String message, {
+    String confirmLabel = 'Continue',
+    String? confirmText,
+  }) => ConfirmDialog.show(
+    context,
+    title: title,
+    message: message,
+    confirmLabel: confirmLabel,
+    destructive: true,
+    confirmText: confirmText,
+  );
 
   /// Durable write: surface the journaled operation id/state from the report,
   /// then reload. A failed or unknown result is never replayed — the journal

@@ -36,6 +36,8 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
   Map<String, dynamic>? _chain;
   String? _error;
   bool _loading = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
 
   /// 模块强调色（security 组 rose）：页内图标/按钮统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.tokenExchange);
@@ -58,6 +60,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       setState(() => _error = 'Enter a token ID (jti).');
       return;
     }
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -67,20 +70,20 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       final data = await widget.api.get(
         '$_chainsPrefix${Uri.encodeComponent(jti)}',
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _chain = data;
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = 'Could not load exchange chain.';
           _loading = false;

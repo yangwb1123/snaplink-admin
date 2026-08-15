@@ -83,56 +83,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Semantics(container: true, header: true, child: Text(strings.settings))),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // ── 偏好分组：紧凑 form 行 ──
-          SettingsGroup(
+      appBar: AppBar(
+        title: Semantics(
+          container: true,
+          header: true,
+          child: Text(strings.settings),
+        ),
+      ),
+      body: Center(
+        // 桌面超宽屏：表单行不再贴边拉伸，居中收窄到可读宽度。
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 840),
+          child: ListView(
+            padding: const EdgeInsets.all(16),
             children: [
-              SettingsFormItem(
-                icon: Icons.translate,
-                iconColor: const Color(0xFF0EA5E9), // sky
-                label: strings.language,
-                control: _SettingsReactive(builder: (_) => LanguageDropdown()),
+              // ── 偏好分组：紧凑 form 行 ──
+              SettingsGroup(
+                children: [
+                  SettingsFormItem(
+                    icon: Icons.translate,
+                    iconColor: AppColors.groupOverview, // 导航组色板 sky
+                    label: strings.language,
+                    control: _SettingsReactive(
+                      builder: (_) => LanguageDropdown(),
+                    ),
+                  ),
+                  SettingsFormItem(
+                    icon: Icons.palette_outlined,
+                    iconColor: AppColors.groupIdentity, // 导航组色板 indigo-violet
+                    label: strings.theme,
+                    description: strings.translate(
+                      'Appearance follows the system or your explicit choice.',
+                    ),
+                    control: _SettingsReactive(
+                      builder: (_) => SettingsThemePicker(strings: strings),
+                    ),
+                  ),
+                  SettingsFormItem(
+                    icon: Icons.view_sidebar_outlined,
+                    iconColor: AppColors.groupDevelopers, // 导航组色板 emerald
+                    label: strings.adminNavMode,
+                    description: strings.translate(
+                      'Standard shows Overview, Clients, and Users. Professional '
+                      'shows every module enabled by your server.',
+                    ),
+                    control: _SettingsReactive(
+                      builder: (_) => _AdminNavModeSwitch(),
+                    ),
+                  ),
+                ],
               ),
-              SettingsFormItem(
-                icon: Icons.palette_outlined,
-                iconColor: const Color(0xFF7C6FF0), // indigo-violet
-                label: strings.theme,
-                description: strings.translate(
-                  'Appearance follows the system or your explicit choice.',
+              const SizedBox(height: 16),
+              // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
+              // 用 amber 图标 + 行内表单突出。 ──
+              _buildServiceGroup(strings),
+              // 保存按钮跟随 SSO 行（web 禁用）。
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton(
+                  onPressed: kIsWeb ? null : _saveBaseUrl,
+                  child: Text(strings.save),
                 ),
-                control: _SettingsReactive(
-                  builder: (_) => SettingsThemePicker(strings: strings),
-                ),
-              ),
-              SettingsFormItem(
-                icon: Icons.view_sidebar_outlined,
-                iconColor: const Color(0xFF10B981), // emerald
-                label: strings.adminNavMode,
-                description: strings.translate(
-                  'Standard shows Overview, Clients, and Users. Professional '
-                  'shows every module enabled by your server.',
-                ),
-                control: _SettingsReactive(builder: (_) => _AdminNavModeSwitch()),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
-          // 用 amber 图标 + 行内表单突出。 ──
-          _buildServiceGroup(strings),
-          // 保存按钮跟随 SSO 行（web 禁用）。
-          const SizedBox(height: 12),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FilledButton(
-              onPressed: kIsWeb ? null : _saveBaseUrl,
-              child: Text(strings.save),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -144,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         SettingsFormItem(
           icon: Icons.dns_outlined,
-          iconColor: const Color(0xFFF59E0B), // amber（高风险强调）
+          iconColor: AppColors.groupTenants, // 导航组色板 amber（高风险强调）
           label: strings.ssoBaseUrl,
           description: strings.translate(
             'Server endpoint used for OIDC and API calls. Changing it '
@@ -198,8 +214,7 @@ class _AdminNavModeSwitch extends StatelessWidget {
         Text(strings.adminNavModeProfessional),
         const SizedBox(width: 8),
         Switch(
-          value: AppSettings.instance.adminNavMode ==
-              AdminNavMode.professional,
+          value: AppSettings.instance.adminNavMode == AdminNavMode.professional,
           onChanged: (professional) => AppSettings.instance.adminNavMode =
               professional ? AdminNavMode.professional : AdminNavMode.normal,
         ),

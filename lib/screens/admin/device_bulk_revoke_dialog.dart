@@ -285,7 +285,7 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                   leading: Icon(
                     _estimatedCount == 0
                         ? Icons.verified_outlined
-                        : Icons.warning_amber,
+                        : Icons.warning_amber_outlined,
                   ),
                   title: LocalizedText('Estimated matches: {_estimatedCount}', args: {'_estimatedCount': _estimatedCount}),
                   subtitle: LocalizedText(

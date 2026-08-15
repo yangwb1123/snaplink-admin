@@ -278,7 +278,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
   Widget _createCard(BuildContext context) => Card(
     margin: EdgeInsets.zero,
     child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          LocalizedText('New subscription', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText('Create subscription', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           _field(_urlCtrl, label: 'Webhook URL', hint: 'https://hooks.example.com/events'),
           const SizedBox(height: 12),

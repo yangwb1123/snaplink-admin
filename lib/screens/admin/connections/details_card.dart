@@ -166,7 +166,7 @@ class ConnectionDetailsCard extends StatelessWidget {
               'degraded' => StatusChip(
                 label: 'Degraded',
                 color: AppColors.warning,
-                icon: Icons.warning_amber,
+                icon: Icons.warning_amber_outlined,
               ),
               'unreachable' => StatusChip.unhealthy(),
               _ => StatusChip.inactive(),

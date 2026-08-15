@@ -206,7 +206,7 @@ class AssignmentsCard extends StatelessWidget {
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: mutating || clientId == null ? null : onAssignRoles,
-              icon: const Icon(Icons.person_add_alt_1, size: 18),
+              icon: const Icon(Icons.person_add_outlined, size: 18),
               label: const LocalizedText('Assign roles'),
             ),
             const SizedBox(height: 16),

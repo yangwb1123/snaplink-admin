@@ -43,6 +43,8 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.networkPolicies);
@@ -66,6 +68,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
 
   Future<void> _load() async {
     if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -75,14 +78,14 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
         _basePath,
         onRefresh: _applyRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _applyPolicies(data);
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted && seq == _reqSeq) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 
@@ -217,7 +220,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
           error: _error,
           data: _policies,
           onRetry: _load,
-          useSkeleton: true,
+          useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
           emptyTitle: 'No network policies',
           emptySubtitle: 'Unclassified requests use the deployment defaults.',
           dataBuilder: (policies) => _policiesCard(context, policies),

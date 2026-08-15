@@ -134,50 +134,55 @@ class _ChangeApprovalProposalDialogState
     return AlertDialog(
       icon: Icon(Icons.add_task_outlined, color: accent, size: 28),
       title: const LocalizedText('Propose governed change'),
-      content: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _typeCtrl,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Action type'.localized,
-                  helperText: 'Must match an action enabled by the server.'
-                      .localized,
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _typeCtrl,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Action type'.localized,
+                    helperText: 'Must match an action enabled by the server.'
+                        .localized,
+                  ),
+                  validator: (value) =>
+                      value?.trim().isEmpty == true ? 'Required' : null,
                 ),
-                validator: (value) =>
-                    value?.trim().isEmpty == true ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _reasonCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Business justification / ticket'.localized,
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _reasonCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Business justification / ticket'.localized,
+                  ),
+                  maxLines: 2,
+                  validator: (value) =>
+                      value?.trim().isEmpty == true ? 'Required' : null,
                 ),
-                maxLines: 2,
-                validator: (value) =>
-                    value?.trim().isEmpty == true ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _payloadCtrl,
-                decoration: InputDecoration(labelText: 'Payload JSON'.localized),
-                minLines: 4,
-                maxLines: 8,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                LocalizedText(
-                  _error!,
-                  style: const TextStyle(color: AppColors.danger),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _payloadCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Payload JSON'.localized,
+                  ),
+                  minLines: 4,
+                  maxLines: 8,
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  LocalizedText(
+                    _error!,
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

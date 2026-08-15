@@ -247,6 +247,7 @@ class _PortalScreenState extends State<PortalScreen> {
       _startHostedLogin();
       return;
     }
+    if (!mounted) return;
     setState(() {
       _me = null;
       _tokenCtrl.clear();
@@ -264,6 +265,7 @@ class _PortalScreenState extends State<PortalScreen> {
       _startHostedLogin();
       return;
     }
+    if (!mounted) return;
     setState(() {
       _me = null;
       _navIndex = 0;
@@ -281,6 +283,7 @@ class _PortalScreenState extends State<PortalScreen> {
       _startHostedLogin();
       return;
     }
+    if (!mounted) return;
     setState(() {
       _me = null;
       _navIndex = 0;

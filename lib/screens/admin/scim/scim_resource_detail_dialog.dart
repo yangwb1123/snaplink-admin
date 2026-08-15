@@ -101,7 +101,7 @@ class ScimResourceDetailDialog extends StatelessWidget {
         ),
         OutlinedButton.icon(
           onPressed: () => Navigator.pop(context, ScimDetailAction.patch),
-          icon: const Icon(Icons.edit_note),
+          icon: const Icon(Icons.edit_outlined),
           label: const LocalizedText('Patch'),
         ),
         FilledButton.tonalIcon(

@@ -41,6 +41,8 @@ class _CredentialsTabState extends State<CredentialsTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   bool _showReportForm = false;
   final _typeCtrl = TextEditingController();
   late final void Function() _cancelPopState;
@@ -86,6 +88,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
 
   Future<void> _load() async {
     if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -95,20 +98,20 @@ class _CredentialsTabState extends State<CredentialsTab> {
         _credsPath,
         onRefresh: _applyRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _applyCredentials(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = 'Could not load credentials.';
           _loading = false;

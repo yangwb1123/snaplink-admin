@@ -45,6 +45,8 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   bool _available = true;
   bool _invitationsAvailable = true;
   bool _busy = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   String? _error;
   List<Map<String, dynamic>> _members = const [];
   List<Map<String, dynamic>> _invitations = const [];
@@ -67,6 +69,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   }
 
   Future<void> _load({bool preserveMessage = false}) async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -77,7 +80,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
     });
     try {
       final members = await widget.api.get('$_base/members');
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       if (members.statusCode == 403) {
         setState(() {
           _available = false;
@@ -92,7 +95,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       }
       final roster = organizationRecords(PortalApi.decode(members)['members']);
       final invitations = await widget.api.get('$_base/invitations');
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       if (invitations.statusCode == 403 || invitations.statusCode == 404) {
         setState(() {
           _available = true;
@@ -122,11 +125,11 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         );
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() => _error = 'Could not load organization administration.');
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 

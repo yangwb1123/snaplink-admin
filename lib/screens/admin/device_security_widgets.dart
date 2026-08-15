@@ -127,7 +127,7 @@ class DeviceListPanel extends StatelessWidget {
                         StatusChip(
                           label: 'Suspicious',
                           color: AppColors.warning,
-                          icon: Icons.warning_amber,
+                          icon: Icons.warning_amber_outlined,
                         ),
                     ],
                   );
@@ -305,7 +305,7 @@ class _LoginHistoryTile extends StatelessWidget {
     ];
     return ListTile(
       leading: Icon(
-        success ? Icons.login : Icons.gpp_bad_outlined,
+        success ? Icons.login_outlined : Icons.gpp_bad_outlined,
         color: success ? AppColors.success : AppColors.danger,
       ),
       title: Text(_readableTime(record['time'])),

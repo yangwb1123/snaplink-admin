@@ -325,7 +325,9 @@ class _CommerceTabState extends State<CommerceTab> {
         actions: [
           IconButton(
             onPressed: _catalogLoading || _tenantLoading ? null : _refresh,
-            icon: Icon(Icons.refresh, color: _accent),
+            icon: (_catalogLoading || _tenantLoading)
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(Icons.refresh, color: _accent),
             tooltip: 'Refresh'.localized,
           ),
         ],
@@ -337,7 +339,7 @@ class _CommerceTabState extends State<CommerceTab> {
         ),
       if (_catalogError != null)
         CommerceErrorCard(message: _catalogError!, onRetry: _loadPlans),
-      if (_catalogLoading) const SkeletonListTile(itemCount: 2),
+      if (_catalogLoading) const SkeletonListTile(itemCount: 2, variant: SkeletonVariant.card),
       const SizedBox(height: 12),
       CommercePlansPanel(
         plans: _plans,
@@ -355,7 +357,7 @@ class _CommerceTabState extends State<CommerceTab> {
           message: _tenantError!,
           onRetry: _tenantLoading ? null : _loadTenant,
         ),
-      if (_tenantLoading) const SkeletonListTile(itemCount: 3),
+      if (_tenantLoading) const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card),
       if (_tenantLoaded && !_tenantLoading) ...[
         const SizedBox(height: 12),
         CommerceSubscriptionsPanel(

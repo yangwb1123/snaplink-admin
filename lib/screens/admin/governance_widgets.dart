@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/timeline_list.dart';
 import 'governance_models.dart';
+
 /// Section wrapper used in governance views (title + optional accent icon).
 class GovernanceSection extends StatelessWidget {
   final String title;
@@ -25,9 +26,7 @@ class GovernanceSection extends StatelessWidget {
       children: [
         Row(children: [
           if (icon != null) ...[Icon(icon, size: 18, color: accent), const SizedBox(width: 8)],
-          Flexible(
-            child: LocalizedText(title, style: Theme.of(context).textTheme.titleLarge),
-          ),
+          Flexible(child: LocalizedText(title, style: Theme.of(context).textTheme.titleLarge)),
         ]),
         const SizedBox(height: 8),
         ...children,
@@ -35,6 +34,7 @@ class GovernanceSection extends StatelessWidget {
     ),
   );
 }
+
 /// A card wrapper used in governance views.
 class GovernanceCard extends StatelessWidget {
   final String? title;
@@ -58,6 +58,7 @@ class GovernanceCard extends StatelessWidget {
     ),
   );
 }
+
 /// A card displaying JSON data with a copy button.
 class GovernanceJsonCard extends StatelessWidget {
   final String title;
@@ -73,9 +74,7 @@ class GovernanceJsonCard extends StatelessWidget {
         // 滚动即可；ListView.builder 对单子节点无收益。
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 280),
-          child: SingleChildScrollView(
-            child: SelectableText(jsonText, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
-          ),
+          child: SingleChildScrollView(child: SelectableText(jsonText, style: const TextStyle(fontFamily: 'monospace', fontSize: 12))),
         ),
         Align(
           alignment: Alignment.centerRight,
@@ -86,7 +85,7 @@ class GovernanceJsonCard extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('JSON copied.')));
               }
             },
-            icon: const Icon(Icons.copy, size: 16),
+            icon: const Icon(Icons.copy_outlined, size: 16),
             label: const LocalizedText('Copy JSON'),
           ),
         ),
@@ -94,6 +93,7 @@ class GovernanceJsonCard extends StatelessWidget {
     );
   }
 }
+
 /// Error banner: danger card + dynamic text (API values are never i18n
 /// keys — X10) + retry action (X4).
 class GovernanceErrorBanner extends StatelessWidget {
@@ -113,16 +113,13 @@ class GovernanceErrorBanner extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(child: Text(error, style: const TextStyle(color: AppColors.danger))),
           if (onRetry != null)
-            OutlinedButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh, size: 18),
-              label: const LocalizedText('Retry'),
-            ),
+            OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 18), label: const LocalizedText('Retry')),
         ]),
       ),
     ),
   );
 }
+
 /// A read-only governance source group: per-spec refresh + JSON evidence
 /// cards. Not-enabled state uses the shared EmptyState (X2/X8).
 class GovernanceReadSection extends StatelessWidget {
@@ -148,11 +145,7 @@ class GovernanceReadSection extends StatelessWidget {
           runSpacing: 8,
           children: [
             for (final spec in specs)
-              OutlinedButton.icon(
-                onPressed: loading ? null : () => onRefresh(spec),
-                icon: Icon(spec.icon, size: 18, color: accent),
-                label: LocalizedText('Refresh {spec_title}', args: {'spec_title': spec.title}),
-              ),
+              OutlinedButton.icon(onPressed: loading ? null : () => onRefresh(spec), icon: Icon(spec.icon, size: 18, color: accent), label: LocalizedText('Refresh {spec_title}', args: {'spec_title': spec.title})),
           ],
         ),
       for (final spec in specs)
@@ -161,6 +154,7 @@ class GovernanceReadSection extends StatelessWidget {
     ],
   );
 }
+
 /// Audit investigation panel: query builder + results + facets. The wire
 /// semantics (AuditQuery → toQueryParameters → trio endpoints) live in the
 /// tab; this widget only presents the surface.
@@ -187,30 +181,22 @@ class GovernanceAuditPanel extends StatelessWidget {
           maxLines: 3,
           enabled: !loading,
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-          decoration: InputDecoration(
-            labelText: 'Audit filter JSON'.localized,
-            helperText: 'Example: {"tenant_id":"acme","outcome":"failure","limit":100}'.localized,
-          ),
+          decoration: InputDecoration(labelText: 'Audit filter JSON'.localized, helperText: 'Example: {"tenant_id":"acme","outcome":"failure","limit":100}'.localized),
         ),
         const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: loading ? null : onQuery,
-          icon: const Icon(Icons.manage_search),
-          label: const LocalizedText('Query audit events'),
-        ),
+        FilledButton.icon(onPressed: loading ? null : onQuery, icon: const Icon(Icons.manage_search), label: const LocalizedText('Query audit events')),
         if (result != null) ...[const SizedBox(height: 8), _auditResults(context, result!)],
         if (facets != null) ...[const SizedBox(height: 4), GovernanceJsonCard(title: 'Matching audit facets', data: facets!)],
       ],
     ],
   );
 }
+
 /// Audit event feed: EmptyState for no matches (X8), timeline rows with
 /// semantic outcome colors (X9), API values via Text (X1/X10).
 Widget _auditResults(BuildContext context, Map<String, dynamic> result) {
   final rawEvents = result['events'];
-  final events = rawEvents is List
-      ? rawEvents.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
-      : const <Map<String, dynamic>>[];
+  final events = rawEvents is List ? rawEvents.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const <Map<String, dynamic>>[];
   final count = result['count'] ?? events.length;
   return GovernanceCard(
     children: [
@@ -226,6 +212,7 @@ Widget _auditResults(BuildContext context, Map<String, dynamic> result) {
     ],
   );
 }
+
 TimelineItem _timelineItem(Map<String, dynamic> event) {
   final (icon, color) = _outcomeStyle(event['outcome']?.toString());
   return TimelineItem(
@@ -237,12 +224,13 @@ TimelineItem _timelineItem(Map<String, dynamic> event) {
 }
 
 (IconData, Color) _outcomeStyle(String? outcome) => switch (outcome?.toLowerCase()) {
-  'success' || 'ok' || 'approved' || 'completed' => (Icons.check_circle, AppColors.success),
-  'failure' || 'failed' || 'denied' || 'rejected' || 'error' => (Icons.cancel, AppColors.danger),
+  'success' || 'ok' || 'approved' || 'completed' => (Icons.check_circle_outline, AppColors.success),
+  'failure' || 'failed' || 'denied' || 'rejected' || 'error' => (Icons.cancel_outlined, AppColors.danger),
   'pending' || 'proposed' => (Icons.hourglass_top, AppColors.warning),
-  'degraded' || 'warning' => (Icons.warning_amber, AppColors.warning),
+  'degraded' || 'warning' => (Icons.warning_amber_outlined, AppColors.warning),
   _ => (Icons.help_outline, AppColors.muted),
 };
+
 /// Governed write composer: operation picker + JSON body + exact-phrase
 /// confirmation. Pre-flight validation (ID, JSON, sensitive fields, typed
 /// confirmation, destructive dialog) happens here; the tab owns the wire.
@@ -255,6 +243,7 @@ class GovernanceWritePanel extends StatefulWidget {
   @override
   State<GovernanceWritePanel> createState() => _GovernanceWritePanelState();
 }
+
 class _GovernanceWritePanelState extends State<GovernanceWritePanel> {
   GovernanceWriteOperation _op = governanceWriteOperations.first;
   final _resourceId = TextEditingController();
@@ -276,7 +265,6 @@ class _GovernanceWritePanelState extends State<GovernanceWritePanel> {
   }
   void _onInputChanged() {
     if (_confirm.text.isNotEmpty) _confirm.clear();
-    if (mounted) setState(() {});
   }
   String get _confirmationHint {
     var path = _op.path;
@@ -337,7 +325,7 @@ class _GovernanceWritePanelState extends State<GovernanceWritePanel> {
     if (_op != selected) _op = selected;
     return GovernanceSection(
       title: 'Governed write composer',
-      icon: Icons.edit,
+      icon: Icons.edit_outlined,
       accent: widget.accent,
       children: [
         const LocalizedText('Use this for snapshots, deployments, disaster recovery, retention, and two-person change control.'),
@@ -368,21 +356,24 @@ class _GovernanceWritePanelState extends State<GovernanceWritePanel> {
           decoration: InputDecoration(labelText: 'Request JSON'.localized),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _confirm,
-          enabled: !widget.writing,
-          decoration: InputDecoration(labelText: 'Exact write confirmation'.localized, helperText: _confirmationHint),
+        // 确认提示只依赖输入文本：仅监听这些控制器局部重建。
+        ListenableBuilder(
+          listenable: Listenable.merge([_resourceId, _writeBody]),
+          builder: (context, _) => TextField(
+            controller: _confirm,
+            enabled: !widget.writing,
+            decoration: InputDecoration(labelText: 'Exact write confirmation'.localized, helperText: _confirmationHint),
+          ),
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: widget.writing ? null : _run,
           icon: widget.writing
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.warning_amber),
+              : const Icon(Icons.warning_amber_outlined),
           label: LocalizedText('Run {selected_label}', args: {'selected_label': selected.label}),
         ),
       ],
     );
   }
 }
-

@@ -166,14 +166,14 @@ class TenantOrganizationExportCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(top: 20),
       child: ListTile(
-        leading: Icon(Icons.download_outlined, color: accent),
+        leading: Icon(Icons.file_download_outlined, color: accent),
         title: const LocalizedText('Tenant data export'),
         subtitle: const LocalizedText(
           'Creates Snaplink’s redacted tenant offboarding or migration bundle.',
         ),
         trailing: FilledButton.icon(
           onPressed: mutating ? null : onExport,
-          icon: const Icon(Icons.download, size: 18),
+          icon: const Icon(Icons.file_download_outlined, size: 18),
           label: const LocalizedText('Export'),
         ),
       ),

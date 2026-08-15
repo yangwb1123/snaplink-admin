@@ -265,7 +265,7 @@ class _ClientsTabState extends State<ClientsTab>
                 if (snap.hasError) {
                   return ErrorStateView(message: '${snap.error}', onRetry: _reload);
                 }
-                return const SkeletonListTile(itemCount: 6);
+                return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
               }
               final page = snap.data!;
               final items = [...page.items];

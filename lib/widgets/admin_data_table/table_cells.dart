@@ -107,7 +107,7 @@ class CopyableCell extends StatelessWidget {
             Flexible(child: TableCellText(text, bold: true, maxLines: 1)),
             const SizedBox(width: 4),
             Icon(
-              Icons.copy_rounded,
+              Icons.copy_outlined,
               size: 12,
               color: Theme.of(
                 context,

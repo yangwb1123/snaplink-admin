@@ -203,7 +203,7 @@ TimelineItem _toHistoryItem(Map<String, dynamic> record) {
     if (record['location_is_new'] == true) 'new location',
   ];
   return TimelineItem(
-    icon: success ? Icons.login : Icons.gpp_bad_outlined,
+    icon: success ? Icons.login_outlined : Icons.gpp_bad_outlined,
     color: success ? null : AppColors.danger,
     title: success ? 'Successful login' : 'Failed login',
     subtitle: _join([

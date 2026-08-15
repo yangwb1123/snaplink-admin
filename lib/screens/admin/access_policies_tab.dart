@@ -78,6 +78,8 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   String? _convergenceError;
   bool _loading = false;
   bool _converging = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.accessPolicies);
@@ -99,6 +101,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   }
 
   Future<void> _load() async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -108,16 +111,16 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
         accessPoliciesPath,
         onRefresh: _applyRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _applyPolicies(data);
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted && seq == _reqSeq) setState(() => _error = error.toString());
     } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load access policies.');
+      if (mounted && seq == _reqSeq) setState(() => _error = 'Could not load access policies.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 

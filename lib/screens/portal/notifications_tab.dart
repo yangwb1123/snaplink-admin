@@ -31,6 +31,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
   List<Map<String, dynamic>> _items = const [];
   List<Map<String, dynamic>> _preferences = const [];
   bool _loading = true;
+  bool _loadingMore = false;
   bool _saving = false;
   bool _hasMore = false;
   int _unread = 0;
@@ -54,7 +55,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
         _loading = true;
         _error = null;
       });
-    }
+    } else { setState(() => _loadingMore = true); }
     try {
       final before = more && _items.isNotEmpty
           ? _items.last['id']?.toString()
@@ -79,7 +80,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     } catch (_) {
       if (mounted) setState(() => _error = 'Notifications are not available.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() { _loading = false; _loadingMore = false; });
     }
   }
 
@@ -279,8 +280,10 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   StaggeredFadeIn(index: index, child: _NotificationTile(item: item, onTap: () => _markRead(item))),
                 if (_hasMore)
                   TextButton(
-                    onPressed: () => _load(more: true),
-                    child: Text(context.tr('Load more')),
+                    onPressed: _loadingMore ? null : () => _load(more: true),
+                    child: _loadingMore
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : Text(context.tr('Load more')),
                   ),
               ],
             ],
@@ -379,7 +382,7 @@ String _join(Object? first, Object? second) => [
 /// Severity → (icon, brand color, label key); unknown severities = Notice.
 (IconData, Color, String) _severityStyle(String severity) => switch (severity) {
   'critical' => (Icons.gpp_bad_outlined, AppColors.danger, 'Critical'),
-  'warning' => (Icons.warning_amber_rounded, AppColors.warning, 'Warning'),
+  'warning' => (Icons.warning_amber_outlined, AppColors.warning, 'Warning'),
   _ => (Icons.notifications_outlined, AppColors.accentBlue, 'Notice'),
 };
 String _channelLabel(String value) => value == 'email' ? 'Email' : 'In-app';

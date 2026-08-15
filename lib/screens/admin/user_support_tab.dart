@@ -17,11 +17,7 @@ class UserSupportTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
 
-  const UserSupportTab({
-    super.key,
-    required this.api,
-    required this.capabilities,
-  });
+  const UserSupportTab({super.key, required this.api, required this.capabilities});
 
   @override
   State<UserSupportTab> createState() => _UserSupportTabState();
@@ -67,15 +63,9 @@ class _UserSupportTabState extends State<UserSupportTab> {
   @override
   void initState() {
     super.initState();
-    // 输入即重建：凭据恢复卡的按钮可用态随输入实时刷新。
-    _passwordCtrl.addListener(_onSupportFieldChanged);
-    _emailCtrl.addListener(_onSupportFieldChanged);
   }
-  void _onSupportFieldChanged() => setState(() {});
   @override
   void dispose() {
-    _passwordCtrl.removeListener(_onSupportFieldChanged);
-    _emailCtrl.removeListener(_onSupportFieldChanged);
     _userCtrl.dispose();
     _passwordCtrl.dispose();
     _emailCtrl.dispose();
@@ -100,23 +90,20 @@ class _UserSupportTabState extends State<UserSupportTab> {
       if (_has('users/:id/consents')) ('consents', '/consents'),
       if (_has('users/:id/mfa')) ('mfa', '/mfa'),
       if (_has('users/:id/lifecycle')) ('lifecycle', '/lifecycle'),
-      if (_has('users/:id/password-reset-tokens'))
-        ('passwordReset', '/password-reset-tokens'),
-      if (_has('users/:id/email-change-tokens'))
-        ('emailChange', '/email-change-tokens'),
+      if (_has('users/:id/password-reset-tokens')) ('passwordReset', '/password-reset-tokens'),
+      if (_has('users/:id/email-change-tokens')) ('emailChange', '/email-change-tokens'),
     ];
-    final entries = await Future.wait(spec.map((item) async {
-      try {
-        return (key: item.$1, data: await _get(item.$2), error: null);
-      } catch (error) {
-        return (key: item.$1, data: null, error: error);
-      }
-    }));
+    final entries = await Future.wait(
+      spec.map((item) async {
+        try {
+          return (key: item.$1, data: await _get(item.$2), error: null);
+        } catch (error) {
+          return (key: item.$1, data: null, error: error);
+        }
+      }),
+    );
     if (!mounted) return;
-    final unavailable = entries
-        .where((entry) => entry.error != null)
-        .map((entry) => entry.key)
-        .join(', ');
+    final unavailable = entries.where((entry) => entry.error != null).map((entry) => entry.key).join(', ');
     setState(() {
       _data = {
         for (final entry in entries)
@@ -124,12 +111,11 @@ class _UserSupportTabState extends State<UserSupportTab> {
       };
       _error = unavailable.isEmpty
           ? null
-          : context.tr('Some support data is unavailable: {sources}', {
-              'sources': unavailable,
-            });
+          : context.tr('Some support data is unavailable: {sources}', {'sources': unavailable});
       _loading = false;
     });
   }
+
   /// 危险操作统一走：类型确认弹窗（confirmText = 用户 ID）→ 请求 →
   /// SnackBar → 重载。带 {…} 占位符的文案在调用处先翻译（二次 tr 原样回退）。
   Future<void> _mutate(
@@ -158,9 +144,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
     try {
       await request();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LocalizedText(success ?? 'Operation completed.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(success ?? 'Operation completed.')));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -169,14 +153,13 @@ class _UserSupportTabState extends State<UserSupportTab> {
       if (mounted) setState(() => _mutating = false);
     }
   }
+
   List<Map<String, dynamic>> _list(String key, String valueKey) {
     final values = _data[key]?[valueKey];
     if (values is! List) return const [];
-    return values
-        .whereType<Map>()
-        .map((value) => Map<String, dynamic>.from(value))
-        .toList(growable: false);
+    return values.whereType<Map>().map((value) => Map<String, dynamic>.from(value)).toList(growable: false);
   }
+
   /// 构建“撤销 XXX”危险操作：DELETE 目标路径 + 确认文案模板。
   DangerAction _dangerAction(
     String label,
@@ -211,20 +194,13 @@ class _UserSupportTabState extends State<UserSupportTab> {
           onSubmitted: (_) => _load(),
         ),
         const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.search),
-          label: const LocalizedText('Load account support data'),
-        ),
+        FilledButton.icon(onPressed: _loading ? null : _load, icon: const Icon(Icons.search), label: const LocalizedText('Load account support data')),
         if (_error != null) ...[
           const SizedBox(height: 12),
           ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
         ],
         if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 20),
-            child: SkeletonListTile(itemCount: 3),
-          ),
+          const Padding(padding: EdgeInsets.only(top: 20), child: SkeletonListTile(itemCount: 3)),
         if (_userId == null && !_loading)
           Padding(
             padding: const EdgeInsets.only(top: 16),
@@ -232,16 +208,13 @@ class _UserSupportTabState extends State<UserSupportTab> {
               children: [
                 Icon(Icons.support_agent_outlined, size: 18, color: _accent),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: LocalizedText('Enter a user ID to load support data.'),
-                ),
+                const Expanded(child: LocalizedText('Enter a user ID to load support data.')),
               ],
             ),
           ),
         if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
         if (loaded) ...[
-          if (_has('users/:id/sessions'))
-            SessionsCard(sessions: _list('sessions', 'sessions')),
+          if (_has('users/:id/sessions')) SessionsCard(sessions: _list('sessions', 'sessions')),
           if (_has('users/:id/consents')) _consentsCard(),
           if (_has('users/:id/mfa')) _mfaCard(),
           if (_has('users/:id/lifecycle')) _lifecycleCard(),
@@ -251,12 +224,23 @@ class _UserSupportTabState extends State<UserSupportTab> {
     );
   }
 
-  Widget _header(BuildContext context) => Row(children: [
-    Icon(Icons.support_agent_outlined, color: _accent),
-    const SizedBox(width: 8),
-    Expanded(child: Semantics(container: true, header: true, child: Text(AppStrings.of(context).userSupport, style: Theme.of(context).textTheme.headlineSmall))),
-    IconButton(onPressed: _loading ? null : _load, tooltip: 'Refresh'.localized, icon: const Icon(Icons.refresh)),
-  ]);
+  Widget _header(BuildContext context) => Row(
+    children: [
+      Icon(Icons.support_agent_outlined, color: _accent),
+      const SizedBox(width: 8),
+      Expanded(
+        child: Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            AppStrings.of(context).userSupport,
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+        ),
+      ),
+      IconButton(onPressed: _loading ? null : _load, tooltip: 'Refresh'.localized, icon: const Icon(Icons.refresh)),
+    ],
+  );
 
   Widget _consentsCard() {
     final consents = _list('consents', 'consents');
@@ -305,7 +289,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
       onApply: () => _mutate(
         'Change lifecycle state?',
         'Transition {userId} to {state}?',
-        () => widget.api.post(_userPath('/lifecycle'), {'state': _nextLifecycleState, 'reason': _reasonCtrl.text.trim()}),
+        () => widget.api.post(_userPath('/lifecycle'), {
+          'state': _nextLifecycleState,
+          'reason': _reasonCtrl.text.trim(),
+        }),
         args: {'userId': _userId!, 'state': _nextLifecycleState ?? ''},
       ),
     );
@@ -369,4 +356,3 @@ class _UserSupportTabState extends State<UserSupportTab> {
     );
   }
 }
-

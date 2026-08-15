@@ -41,6 +41,8 @@ class _DomainsTabState extends State<DomainsTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   bool _showForm = false;
   String _searchQuery = '';
   late final void Function() _cancelPopState;
@@ -80,6 +82,7 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   Future<void> _load() async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -89,20 +92,20 @@ class _DomainsTabState extends State<DomainsTab> {
         _path,
         onRefresh: _applyRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _applyDomains(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = 'Could not load domains.';
           _loading = false;
@@ -220,6 +223,7 @@ class _DomainsTabState extends State<DomainsTab> {
               ? null
               : () => AdminRoute.go('domains', action: 'new'),
           onRefresh: _load,
+          refreshing: _loading,
         ),
         if (_error != null) ...[
           ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
@@ -232,7 +236,7 @@ class _DomainsTabState extends State<DomainsTab> {
             'Registered domains',
             count: _filteredDomains.length,
             action: IconButton(
-              icon: Icon(Icons.download, color: _accent),
+              icon: Icon(Icons.file_download_outlined, color: _accent),
               tooltip: 'Export CSV'.localized,
               onPressed: () =>
                   ExportService.exportCsv(_filteredDomains, 'domains.csv'),

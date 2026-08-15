@@ -279,6 +279,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       context,
       title: 'Approve emergency access?',
       message: 'Grant ${_session?['requested_by'] ?? ''} access?',
+      confirmLabel: 'Approve',
       destructive: true,
       confirmText: widget.sessionId,
     );
@@ -310,6 +311,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       context,
       title: 'Revoke emergency access?',
       message: BreakGlassRevocationCopy.confirmation,
+      confirmLabel: 'Revoke',
       destructive: true,
       confirmText: widget.sessionId,
     );

@@ -161,7 +161,7 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
                   _newCodes = null;
                   _message = 'Recovery codes hidden. Keep your saved copy secure.';
                 }),
-                icon: const Icon(Icons.save_alt),
+                icon: const Icon(Icons.save_outlined),
                 label: Text(context.tr('I have saved these codes')),
               ),
             ),

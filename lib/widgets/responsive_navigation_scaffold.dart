@@ -10,6 +10,11 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
   static const double drawerBreakpoint = 720;
   static const double labeledRailBreakpoint = 1180;
 
+  /// 内容区最大宽度：超宽屏（≥1440）下页面不再贴边拉伸，而是居中
+  /// 收窄到该上限（Stripe/Linear 风格的可读行长）。低于该宽度的
+  /// 视口不受影响（约束只收窄，不撑宽）。
+  static const double contentMaxWidth = 1200;
+
   final PreferredSizeWidget appBar;
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
@@ -30,6 +35,14 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      final scheme = Theme.of(context).colorScheme;
+      // R18：dark 下 primary@12% 选中指示块对深色 rail 仅 1.14:1
+      // （不可感知），改用 secondaryContainer（M3 dark 惯例，≈1.6:1）；
+      // 浅色保持品牌色淡底。
+      final indicatorColor =
+          Theme.of(context).brightness == Brightness.dark
+          ? scheme.secondaryContainer
+          : scheme.primary.withValues(alpha: 0.12);
       final useDrawer = constraints.maxWidth < drawerBreakpoint;
       return Scaffold(
         appBar: appBar,
@@ -102,13 +115,20 @@ class ResponsiveNavigationScaffold extends StatelessWidget {
                     unselectedIconTheme: IconThemeData(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
-                    indicatorColor: Theme.of(
-                      context,
-                    ).colorScheme.primary.withValues(alpha: 0.12),
+                    indicatorColor: indicatorColor,
                     destinations: destinations,
                   ),
                   const VerticalDivider(width: 1),
-                  Expanded(child: body),
+                  Expanded(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: contentMaxWidth,
+                        ),
+                        child: body,
+                      ),
+                    ),
+                  ),
                 ],
               ),
       );

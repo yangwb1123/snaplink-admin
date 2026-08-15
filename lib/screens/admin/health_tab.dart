@@ -106,7 +106,7 @@ class _HealthTabState extends State<HealthTab> {
         const SizedBox(height: 12),
         // 三态：loading → 骨架；error → 卡片 + Retry；empty → EmptyState。
         if (_loading && _health == null)
-          const SkeletonListTile(itemCount: 3)
+          const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150))
         else if (_error != null && _health == null)
           _errorCard(context)
         else if (!hasData)

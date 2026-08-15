@@ -63,11 +63,13 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     _queryCtrl.addListener(_invalidateConfirmation);
     _select(_defaultEndpoint());
   }
+
   @override
   void didUpdateWidget(covariant AdminOperationsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_adminEndpoints.contains(_selected)) _select(_defaultEndpoint());
   }
+
   SnaplinkAdminEndpoint? _defaultEndpoint() {
     if (_adminEndpoints.isEmpty) return null;
     return _adminEndpoints.firstWhere(
@@ -75,9 +77,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       orElse: () => _adminEndpoints.first,
     );
   }
+
   void _disposeController(TextEditingController controller) {
     controller.dispose();
   }
+
   @override
   void dispose() {
     _bodyCtrl.dispose();
@@ -86,6 +90,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     _pathCtrls.values.forEach(_disposeController);
     super.dispose();
   }
+
   void _select(SnaplinkAdminEndpoint? endpoint) {
     _pathCtrls.values.forEach(_disposeController);
     _pathCtrls
@@ -103,14 +108,16 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       _error = null;
     });
   }
+
   bool get _isMutation => _selected != null && _selected!.method != 'GET';
   void _invalidateConfirmation() {
     if (_confirmCtrl.text.isNotEmpty) _confirmCtrl.clear();
   }
+
   void _pathChanged() {
     _invalidateConfirmation();
-    if (mounted) setState(() {});
   }
+
   String get _confirmationHint {
     final endpoint = _selected;
     if (endpoint == null) return 'CONFIRM';
@@ -196,8 +203,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       }
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) {
-        final unknown =
-            endpoint.method != 'GET' && AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
+        final unknown = endpoint.method != 'GET' && AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
         setState(() {
           _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
           _error = unknown
@@ -240,6 +246,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       _error = 'Reconciliation acknowledged. Review the endpoint, path, and body before submitting another write.';
     });
   }
+
   @override
   Widget build(BuildContext context) =>
       _adminEndpoints.isEmpty ? _emptyState(context) : _workbench(context);
@@ -250,11 +257,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       const SizedBox(height: 4),
       _header(context),
       const SizedBox(height: 16),
-      const EmptyState(
-        variant: EmptyStateVariant.empty,
-        icon: Icons.terminal_outlined,
-        title: 'No optional administration routes are registered on this replica.',
-      ),
+      const EmptyState(variant: EmptyStateVariant.empty, icon: Icons.terminal_outlined, title: 'No optional administration routes are registered on this replica.'),
     ],
   );
   Widget _workbench(BuildContext context) {
@@ -287,7 +290,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             const SizedBox(height: 12),
             _field(_bodyCtrl, label: 'Request body JSON', maxLines: 8, mono: true),
             const SizedBox(height: 12),
-            _field(_confirmCtrl, label: 'Exact write confirmation', helper: _confirmationHint),
+            // 确认提示只依赖路径参数文本：仅监听这些控制器局部重建。
+            ListenableBuilder(
+              listenable: Listenable.merge(_pathCtrls.values),
+              builder: (context, _) => _field(_confirmCtrl, label: 'Exact write confirmation', helper: _confirmationHint),
+            ),
           ],
           const SizedBox(height: 16),
           _runButton(context),
@@ -306,21 +313,25 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ],
         if (_response != null || _rawResponse != null) ...[
           const SizedBox(height: 16),
-          AdminOpsHelpers.responseCard(
-            context,
-            body: AdminOpsHelpers.responseText(_response, _rawResponse),
-            onCopy: _copyResponse,
-          ),
+          AdminOpsHelpers.responseCard(context, body: AdminOpsHelpers.responseText(_response, _rawResponse), onCopy: _copyResponse),
         ],
       ],
     );
   }
+
   Widget _header(BuildContext context) => Row(
     children: [
       Icon(Icons.terminal_outlined, color: _accent, size: 28),
       const SizedBox(width: 12),
       Expanded(
-        child: Semantics(container: true, header: true, child: Text(AppStrings.of(context).adminOperations, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600))),
+        child: Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            AppStrings.of(context).adminOperations,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
       ),
     ],
   );
@@ -333,10 +344,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         initialValue: _selected,
         isExpanded: true,
         items: _adminEndpoints
-            .map((item) => DropdownMenuItem(
-                  value: item,
-                  child: Text('${item.method} ${item.path}', overflow: TextOverflow.ellipsis),
-                ))
+            .map((item) => DropdownMenuItem(value: item, child: Text('${item.method} ${item.path}', overflow: TextOverflow.ellipsis)))
             .toList(growable: false),
         onChanged: _running ? null : _select,
       ),
@@ -353,16 +361,12 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: LocalizedText(
-            documented
-                ? 'Availability: documented contract; this replica has not advertised the route.'
-                : 'Runtime feature surface: {feature}',
-            args: documented ? null : {'feature': _selected!.feature},
-          ),
+          child: LocalizedText(documented ? 'Availability: documented contract; this replica has not advertised the route.' : 'Runtime feature surface: {feature}', args: documented ? null : {'feature': _selected!.feature}),
         ),
       ],
     );
   }
+
   Widget _runButton(BuildContext context) => FilledButton.icon(
     onPressed: _running || (_isMutation && _mutationOutcomeUnknown) ? null : _run,
     icon: _running
@@ -384,13 +388,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     decoration: InputDecoration(labelText: label.localized, helperText: helper?.localized),
   );
   Future<void> _copyResponse() async {
-    await Clipboard.setData(
-      ClipboardData(text: AdminOpsHelpers.responseText(_response, _rawResponse)),
-    );
+    await Clipboard.setData(ClipboardData(text: AdminOpsHelpers.responseText(_response, _rawResponse)));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Response copied to clipboard.')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Response copied to clipboard.')));
     }
   }
 }

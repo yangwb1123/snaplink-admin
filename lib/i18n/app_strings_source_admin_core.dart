@@ -588,12 +588,17 @@ const appAdminCoreSourceZh = <String, String>{
   '{message} Operation {operationId} is {operationState}.':
       '{message} 操作 {operationId} 的状态为 {operationState}。',
   'Delete snapshot?': '删除快照？',
+  'Delete snapshot': '删除快照',
+  'Restore snapshot': '恢复快照',
   'Create online backup?': '创建在线备份？',
+  'Create backup': '创建备份',
   'Trigger a consistent online backup of every registered SQLite source?':
       '是否触发对每个已注册 SQLite 数据源的一致性在线备份？',
   'Pin release?': '固定发布？',
+  'Pin release': '固定发布',
   'Rollback release?': '回滚发布？',
   'Delete release?': '删除发布？',
+  'Delete release': '删除发布',
   'Set a frontend Git reference or URI': '请设置前端 Git 引用或 URI',
   'Set a backend Git reference or URI': '请设置后端 Git 引用或 URI',
   'Status': '状态',

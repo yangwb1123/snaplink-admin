@@ -44,7 +44,7 @@ class AdminOverviewTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final capabilities = SnaplinkAdminCapabilities(endpoints);
-    final groups = _groupEndpoints(endpoints);
+    final groups = _groupEndpoints(endpoints, Theme.of(context).brightness);
     final documentedOnly = SnaplinkAdminOperationCatalog.endpoints
         .where((endpoint) => !capabilities.has(endpoint.method, endpoint.path))
         .length;
@@ -65,14 +65,7 @@ class AdminOverviewTab extends StatelessWidget {
           running: running,
           documentedOnly: documentedOnly,
           onRefresh: onRefresh,
-          metrics: OverviewMetrics(
-            endpoints: endpoints,
-            featureGroups: capabilities.featureCounts.length,
-            documentedOnly: documentedOnly,
-            commerceAvailable: commerceAvailable,
-            commerceProbeError: commerceProbeError,
-            persona: persona,
-          ),
+          metrics: OverviewMetrics(endpoints: endpoints, featureGroups: capabilities.featureCounts.length, documentedOnly: documentedOnly, commerceAvailable: commerceAvailable, commerceProbeError: commerceProbeError, persona: persona),
         ),
         const SizedBox(height: 12),
         // 三态：error → 警告卡 + Retry；loading → 状态卡 + 骨架；
@@ -87,18 +80,11 @@ class AdminOverviewTab extends StatelessWidget {
             color: AppColors.warning,
             onRetry: onRefresh,
           )
-        else if (endpoints.isEmpty)
-          ...const [
-            _StatusCard(
-              icon: Icons.hourglass_empty,
-              title: 'Loading runtime capabilities',
-              body: 'Contract-backed modules remain discoverable while this replica is queried.',
-              color: AppColors.accentBlue,
-            ),
-            SizedBox(height: 16),
-            SkeletonListTile(itemCount: 3),
-          ]
-        else ...[
+        else if (endpoints.isEmpty) ...const [
+          _StatusCard(icon: Icons.hourglass_empty, title: 'Loading runtime capabilities', body: 'Contract-backed modules remain discoverable while this replica is queried.', color: AppColors.accentBlue),
+          SizedBox(height: 16),
+          SkeletonListTile(itemCount: 3),
+        ] else ...[
           // 异常优先（信息优先级 05）：就绪/风险一句话 + 色编码。
           _StatusCard(
             icon: documentedOnly == 0 ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
@@ -119,8 +105,7 @@ class AdminOverviewTab extends StatelessWidget {
             runSpacing: 8,
             children: [
               // feature 名来自运行时清单（动态值）——verbatim Text（X10）。
-              for (final entry in capabilities.featureCounts.entries)
-                Chip(label: Text('${entry.key} · ${entry.value}')),
+              for (final entry in capabilities.featureCounts.entries) Chip(label: Text('${entry.key} · ${entry.value}')),
             ],
           ),
           const SizedBox(height: 20),
@@ -132,38 +117,38 @@ class AdminOverviewTab extends StatelessWidget {
     );
   }
 
-  Map<String, _EndpointGroup> _groupEndpoints(List<SnaplinkAdminEndpoint> endpoints) {
+  Map<String, _EndpointGroup> _groupEndpoints(List<SnaplinkAdminEndpoint> endpoints, Brightness brightness) {
     final groups = <String, _EndpointGroup>{};
     for (final endpoint in endpoints) {
-      final group = _groupFor(endpoint.path);
+      final group = _groupFor(endpoint.path, brightness);
       groups.putIfAbsent(group.$1, () => _EndpointGroup(group.$2, group.$3)).endpoints.add(endpoint);
     }
     return groups;
   }
 
-  (String, IconData, Color) _groupFor(String path) {
+  (String, IconData, Color) _groupFor(String path, Brightness brightness) {
     if (path.contains('/clients') || path.contains('/register')) {
-      return ('Applications and OAuth', Icons.apps_outlined, adminGroupIconColor('identity'));
+      return ('Applications and OAuth', Icons.apps_outlined, adminGroupIconColorFor('identity', brightness));
     }
     if (path.contains('/users') || path.contains('/local-users') || path.contains('/connections')) {
-      return ('Identity and connections', Icons.people_outline, adminGroupIconColor('identity'));
+      return ('Identity and connections', Icons.people_outline, adminGroupIconColorFor('identity', brightness));
     }
     if (path.contains('/tenants') || path.contains('/domains')) {
-      return ('Tenants and organizations', Icons.business_outlined, adminGroupIconColor('tenants'));
+      return ('Tenants and organizations', Icons.business_outlined, adminGroupIconColorFor('tenants', brightness));
     }
     if (path.contains('/tokens') || path.contains('/sessions') || path.contains('/logout')) {
-      return ('Tokens and sessions', Icons.security_outlined, adminGroupIconColor('security'));
+      return ('Tokens and sessions', Icons.security_outlined, adminGroupIconColorFor('security', brightness));
     }
     if (path.contains('/keys') || path.contains('/credentials') || path.contains('/break-glass')) {
-      return ('Security operations', Icons.key_outlined, adminGroupIconColor('security'));
+      return ('Security operations', Icons.key_outlined, adminGroupIconColorFor('security', brightness));
     }
     if (path.contains('/compliance') || path.contains('/changes') || path.contains('/audit') || path.contains('/policy')) {
-      return ('Governance and compliance', Icons.gavel_outlined, adminGroupIconColor('system'));
+      return ('Governance and compliance', Icons.gavel_outlined, adminGroupIconColorFor('system', brightness));
     }
     if (path.contains('/snapshots') || path.contains('/releases') || path.contains('/backup') || path.contains('/dr/') || path.contains('/health') || path.contains('/config')) {
-      return ('Platform operations', Icons.monitor_heart_outlined, adminGroupIconColor('overview'));
+      return ('Platform operations', Icons.monitor_heart_outlined, adminGroupIconColorFor('overview', brightness));
     }
-    return ('Other exposed APIs', Icons.extension_outlined, adminGroupIconColor('other'));
+    return ('Other exposed APIs', Icons.extension_outlined, adminGroupIconColorFor('other', brightness));
   }
 }
 
@@ -257,41 +242,47 @@ class _StatusCard extends StatelessWidget {
   final Map<String, Object?>? detailArgs;
   final VoidCallback? onRetry;
 
-  const _StatusCard({
-    required this.icon,
-    required this.title,
-    required this.body,
-    required this.color,
-    this.titleArgs,
-    this.detail,
-    this.detailArgs,
-    this.onRetry,
-  });
+  const _StatusCard({required this.icon, required this.title, required this.body, required this.color, this.titleArgs, this.detail, this.detailArgs, this.onRetry});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    return HoverCard(child: Card(child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: color, size: 22)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          LocalizedText(title, args: titleArgs, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          LocalizedText(body, style: textStyle),
-          if (detail != null) ...[
-            const SizedBox(height: 4),
-            LocalizedText(detail!, args: detailArgs, style: textStyle),
-          ],
-        ])),
-        if (onRetry != null) ...[
-          const SizedBox(width: 8),
-          OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 16), label: const LocalizedText('Retry')),
-        ],
-      ]),
-    )));
+    return HoverCard(
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LocalizedText(
+                      title,
+                      args: titleArgs,
+                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 4),
+                    LocalizedText(body, style: textStyle),
+                    if (detail != null) ...[const SizedBox(height: 4), LocalizedText(detail!, args: detailArgs, style: textStyle)],
+                  ],
+                ),
+              ),
+              if (onRetry != null) ...[const SizedBox(width: 8), OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 16), label: const LocalizedText('Retry'))],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -302,11 +293,16 @@ class _PersonaDisclosure extends StatelessWidget {
   const _PersonaDisclosure({required this.persona});
 
   @override
-  Widget build(BuildContext context) => Row(children: [
-    StatusChip.info(label: context.tr('Persona: {persona}', {'persona': context.tr(personaLabelKey(persona))})),
-    const SizedBox(width: 8),
-    Tooltip(message: context.tr('Persona is derived from the server capability inventory, not from your identity.'), child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-  ]);
+  Widget build(BuildContext context) => Row(
+    children: [
+      StatusChip.info(label: context.tr('Persona: {persona}', {'persona': context.tr(personaLabelKey(persona))})),
+      const SizedBox(width: 8),
+      Tooltip(
+        message: context.tr('Persona is derived from the server capability inventory, not from your identity.'),
+        child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+    ],
+  );
 }
 
 /// HTTP 方法色编码徽章（GET 绿 / POST 蓝 / PUT 琥珀 / DELETE 红）。
@@ -327,7 +323,10 @@ class _MethodChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     decoration: BoxDecoration(color: _color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
-    child: Text(method, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color)),
+    child: Text(
+      method,
+      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color),
+    ),
   );
 }
 
@@ -350,10 +349,13 @@ class _HealthRing extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final percent = total == 0 ? 0.0 : healthy * 100.0 / total;
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      ProgressRing(value: percent, size: 76, strokeWidth: 7, label: '${percent.round()}%'),
-      const SizedBox(height: 4),
-      LocalizedText('Runtime health', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-    ]);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ProgressRing(value: percent, size: 76, strokeWidth: 7, label: '${percent.round()}%'),
+        const SizedBox(height: 4),
+        LocalizedText('Runtime health', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+      ],
+    );
   }
 }

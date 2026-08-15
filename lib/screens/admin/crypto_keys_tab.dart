@@ -39,6 +39,8 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   late final void Function() _cancelPopState;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
@@ -75,21 +77,22 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
 
   Future<void> _load() async {
     if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() { _loading = true; _error = null; });
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         _keysPath,
         onRefresh: _applyRefresh,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _applyKeys(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted && seq == _reqSeq) setState(() { _error = e.toString(); _loading = false; });
     } catch (_) {
-      if (mounted) setState(() { _error = 'Could not load crypto keys.'; _loading = false; });
+      if (mounted && seq == _reqSeq) setState(() { _error = 'Could not load crypto keys.'; _loading = false; });
     }
   }
 
@@ -166,6 +169,8 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     final confirm = TextEditingController();
     final result = await showDialog<String>(
       context: context,
+      // 标记密钥受损属破坏性操作：不允许 barrier/Escape 绕过确认。
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         title: const LocalizedText('Mark key as compromised?'),
         content: Column(

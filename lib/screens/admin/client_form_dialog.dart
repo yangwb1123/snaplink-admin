@@ -158,110 +158,113 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
     return AlertDialog(
       title: widget.isEdit
           ? const LocalizedText('Edit client')
-          : const LocalizedText('New client'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextFormField(
-                controller: _idController,
-                enabled: !widget.isEdit,
-                autofocus: !widget.isEdit,
-                decoration: InputDecoration(labelText: 'ID'.localized),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _loginPageUriController,
-                decoration: InputDecoration(
-                  labelText: 'Login page URI (optional)'.localized,
-                  helperText:
-                      'Required for federated OIDC/SAML callbacks. Use HTTPS except for local development.'
-                          .localized,
-                  helperMaxLines: 2,
+          : const LocalizedText('Create client'),
+      content: SizedBox(
+        width: 560,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _idController,
+                  enabled: !widget.isEdit,
+                  autofocus: !widget.isEdit,
+                  decoration: InputDecoration(labelText: 'ID'.localized),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
                 ),
-                validator: _validateLoginPageUri,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _nameController,
-                decoration: InputDecoration(labelText: 'Name'.localized),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _redirectUrisController,
-                decoration: InputDecoration(
-                  labelText: 'Redirect URIs'.localized,
-                  helperText: 'One per line or comma-separated'.localized,
-                ),
-                maxLines: 3,
-                validator: _validateRedirectUris,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _allowedScopesController,
-                decoration: InputDecoration(
-                  labelText: 'Allowed scopes'.localized,
-                  helperText: 'One per line or comma-separated'.localized,
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _allowedAuthenticatorsController,
-                decoration: InputDecoration(
-                  labelText: 'Allowed authenticators'.localized,
-                  helperText:
-                      'One per line or comma-separated. Leave blank to accept any authenticator.'
-                          .localized,
-                  helperMaxLines: 2,
-                ),
-                maxLines: 2,
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _tokenStrategy,
-                decoration: InputDecoration(
-                  labelText: 'Token strategy'.localized,
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'jwt', child: LocalizedText('jwt')),
-                  DropdownMenuItem(
-                    value: 'session',
-                    child: LocalizedText('session'),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _loginPageUriController,
+                  decoration: InputDecoration(
+                    labelText: 'Login page URI (optional)'.localized,
+                    helperText:
+                        'Required for federated OIDC/SAML callbacks. Use HTTPS except for local development.'
+                            .localized,
+                    helperMaxLines: 2,
                   ),
-                ],
-                onChanged: (v) => setState(() => _tokenStrategy = v ?? 'jwt'),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _secretController,
-                decoration: InputDecoration(
-                  labelText: 'Secret (optional)'.localized,
-                  helperText:
-                      ('Leave blank to avoid setting a static secret. This '
-                              'admin contract does not configure PKCE; create '
-                              'public PKCE clients through the Developer Portal '
-                              'or deployment configuration.')
-                          .localized,
-                  helperMaxLines: 4,
+                  validator: _validateLoginPageUri,
                 ),
-                obscureText: true,
-              ),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const LocalizedText('Active'),
-                value: _active,
-                onChanged: (v) => setState(() => _active = v),
-              ),
-            ],
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Name'.localized),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _redirectUrisController,
+                  decoration: InputDecoration(
+                    labelText: 'Redirect URIs'.localized,
+                    helperText: 'One per line or comma-separated'.localized,
+                  ),
+                  maxLines: 3,
+                  validator: _validateRedirectUris,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _allowedScopesController,
+                  decoration: InputDecoration(
+                    labelText: 'Allowed scopes'.localized,
+                    helperText: 'One per line or comma-separated'.localized,
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _allowedAuthenticatorsController,
+                  decoration: InputDecoration(
+                    labelText: 'Allowed authenticators'.localized,
+                    helperText:
+                        'One per line or comma-separated. Leave blank to accept any authenticator.'
+                            .localized,
+                    helperMaxLines: 2,
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _tokenStrategy,
+                  decoration: InputDecoration(
+                    labelText: 'Token strategy'.localized,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'jwt', child: LocalizedText('jwt')),
+                    DropdownMenuItem(
+                      value: 'session',
+                      child: LocalizedText('session'),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _tokenStrategy = v ?? 'jwt'),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _secretController,
+                  decoration: InputDecoration(
+                    labelText: 'Secret (optional)'.localized,
+                    helperText:
+                        ('Leave blank to avoid setting a static secret. This '
+                                'admin contract does not configure PKCE; create '
+                                'public PKCE clients through the Developer Portal '
+                                'or deployment configuration.')
+                            .localized,
+                    helperMaxLines: 4,
+                  ),
+                  obscureText: true,
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const LocalizedText('Active'),
+                  value: _active,
+                  onChanged: (v) => setState(() => _active = v),
+                ),
+              ],
+            ),
           ),
         ),
       ),

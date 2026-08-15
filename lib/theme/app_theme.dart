@@ -17,25 +17,49 @@ abstract final class AppTheme {
 
   static ThemeData dark() => _build(Brightness.dark);
 
+  /// dark 表面抬升步：品牌 slate 表面（textMuted）上叠白色 step。
+  /// 种子色派生的 surfaceContainer* 偏紫且与 slate 表面同亮度
+  /// （scH vs surface ≈1.01，深色下不可感知）；改为 slate 同族白色
+  /// step。scH（菜单底）封顶 white@2%（primary 边框对比 ≥3:1），
+  /// scHH（悬停行/浮层/瓦片）white@10% 承担可感知抬升——阴影由
+  /// surface 层级替代（R18）。
+  static Color _darkLift(double whiteAlpha) => Color.alphaBlend(
+    Colors.white.withValues(alpha: whiteAlpha),
+    AppColors.textMuted,
+  );
+
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final scheme = ColorScheme.fromSeed(
+    final seedScheme = ColorScheme.fromSeed(
       seedColor: _brand,
       brightness: brightness,
       surface: isDark ? AppColors.textMuted : Colors.white,
       primary: isDark ? AppColors.primary : AppColors.primary,
       secondary: isDark ? AppColors.primary : AppColors.primaryDark,
     );
+    final scheme = isDark
+        ? seedScheme.copyWith(
+            surfaceContainerLowest: _darkLift(0.005),
+            surfaceContainerLow: _darkLift(0.01),
+            surfaceContainer: _darkLift(0.015),
+            surfaceContainerHigh: _darkLift(0.02),
+            surfaceContainerHighest: _darkLift(0.10),
+          )
+        : seedScheme;
     final base = ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: isDark
           ? AppColors.textStrong
-          : const Color(0xFFF5F7FA), // 浅灰品牌背景（区别于纯白模板）
+          : AppColors.surfaceSubtle, // 浅灰品牌背景（区别于纯白模板）
     );
     return base.copyWith(
-      hoverColor: scheme.primary.withValues(alpha: 0.06),
+      // dark 下 primary@6% 对深色表面仅 1.06:1（不可感知），改用中性
+      // 白色 step（≈1.28:1，M3 dark hover 惯例）；浅色保持品牌色淡底。
+      hoverColor: isDark
+          ? Colors.white.withValues(alpha: 0.08)
+          : scheme.primary.withValues(alpha: 0.06),
       dialogTheme: DialogThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusCard),

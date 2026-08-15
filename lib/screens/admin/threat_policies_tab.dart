@@ -38,6 +38,8 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   late final void Function() _cancelPopState;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
@@ -96,6 +98,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
 
   Future<void> _load() async {
     if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -103,16 +106,16 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     try {
       final data = await widget.api.get(_path);
       final items = data['policies'] as List? ?? [];
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _policies = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
         _loading = false;
         _handleRoute();
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted && seq == _reqSeq) setState(() { _error = e.toString(); _loading = false; });
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() { _error = 'Could not load threat policies.'; _loading = false; });
       }
     }
@@ -192,7 +195,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
             FilledButton.icon(
               onPressed: () => AdminRoute.go('threat-policies', action: 'new'),
               icon: const Icon(Icons.add, size: 18),
-              label: const LocalizedText('New policy'),
+              label: const LocalizedText('Add policy'),
             ),
             const SizedBox(width: 4),
             IconButton(
@@ -321,7 +324,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           const SizedBox(width: 8),
           Expanded(
             child: LocalizedText(
-              _editing ? 'Edit policy' : 'New policy',
+              _editing ? 'Edit policy' : 'Add policy',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),

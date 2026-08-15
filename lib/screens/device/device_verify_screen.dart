@@ -184,6 +184,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     final strings = AppStrings.of(context);
     return await showDialog<bool>(
           context: context,
+          barrierDismissible: !approve,
           builder: (context) => AlertDialog(
             title: Text(
               approve ? strings.approveDeviceTitle : strings.denyDeviceTitle,
@@ -221,10 +222,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     if (approve && !_hasSafeApprovalPreview) return;
     if (!await _confirm(approve)) return;
     final token = _accessToken();
-    if (token == null || token.isEmpty) {
-      _redirectToLogin();
-      return;
-    }
+    if (token == null || token.isEmpty) return _redirectToLogin();
     setState(() {
       _busy = true;
       _checking = false;
@@ -265,7 +263,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
     final scheme = Theme.of(context).colorScheme;
     if (_ok) {
       if (_codeStatus == 'pending' && !_hasSafeApprovalPreview) {
-        return (Icons.warning_amber_rounded, scheme.onErrorContainer, true);
+        return (Icons.warning_amber_outlined, scheme.onErrorContainer, true);
       }
       return (Icons.check_circle_outline, scheme.primary, false);
     }

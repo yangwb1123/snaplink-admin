@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../i18n/app_strings.dart';
+import '../theme/app_colors.dart';
 import 'select_style.dart';
 
 /// 主题模式下拉（登录头左侧）：与语言下拉同一 DropdownMenu 风格——圆角
@@ -21,18 +22,18 @@ class ThemeDropdown extends StatelessWidget {
   };
 
   /// 浅色界面上的图标色：system indigo 淡紫 / light amber-700（提深保证
-  /// 对浅色菜单卡片 ≥3:1）/ dark indigo-600。
+  /// 对浅色菜单卡片 ≥3:1）/ dark indigo-600（色值 token 见 AppColors）。
   static const _modeAccents = <ThemeMode, Color>{
-    ThemeMode.system: Color(0xFF7C6FF0),
-    ThemeMode.light: Color(0xFFB45309),
-    ThemeMode.dark: Color(0xFF4F46E5),
+    ThemeMode.system: AppColors.themeSystemAccent,
+    ThemeMode.light: AppColors.themeLightAccent,
+    ThemeMode.dark: AppColors.themeDarkAccent,
   };
 
   /// 深色界面上的提亮变体：light 保持 amber-500，dark 提亮到 indigo-400，
   /// 保证对 M3 深色 surfaceContainerHigh ≥3:1（浅色变体仅 ~2.3:1）。
   static const _darkBrightnessAccents = <ThemeMode, Color>{
-    ThemeMode.light: Color(0xFFF59E0B),
-    ThemeMode.dark: Color(0xFF818CF8),
+    ThemeMode.light: AppColors.themeLightAccentBright,
+    ThemeMode.dark: AppColors.themeDarkAccentBright,
   };
 
   /// 当前界面亮度下的主题模式图标色。

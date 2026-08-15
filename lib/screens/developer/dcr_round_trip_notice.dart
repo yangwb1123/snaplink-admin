@@ -44,7 +44,7 @@ class DcrRoundTripNotice extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              safe ? Icons.verified_outlined : Icons.warning_amber_rounded,
+              safe ? Icons.verified_outlined : Icons.warning_amber_outlined,
               color: foreground,
             ),
           ),

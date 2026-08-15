@@ -83,7 +83,7 @@ class InfoRow extends StatelessWidget {
           Expanded(child: Text(displayValue, style: valueStyle)),
           if (copyValue != null)
             IconButton(
-              icon: const Icon(Icons.copy, size: 16),
+              icon: const Icon(Icons.copy_outlined, size: 16),
               tooltip: 'Copy to clipboard'.localized,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,

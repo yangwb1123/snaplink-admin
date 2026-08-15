@@ -84,7 +84,7 @@ class PhysicalDeviceCard extends StatelessWidget {
               StatusChip(
                 label: context.tr('Suspicious'),
                 color: AppColors.warning,
-                icon: Icons.warning_amber,
+                icon: Icons.warning_amber_outlined,
               ),
             ],
           ],

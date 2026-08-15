@@ -191,7 +191,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       ),
       actions: [
         IconButton(
-          icon: Icon(Icons.edit, color: _accent),
+          icon: Icon(Icons.edit_outlined, color: _accent),
           tooltip: 'Edit tenant'.localized,
           onPressed: () => _editTenant(context),
         ),
@@ -311,6 +311,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       context,
       title: 'Remove member?',
       message: context.tr('Remove {userId} from tenant?', {'userId': userId}),
+      confirmLabel: 'Remove',
       destructive: true,
       confirmText: userId,
     );
@@ -355,6 +356,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       context,
       title: 'Revoke invitation?',
       message: context.tr('Revoke this invitation?'),
+      confirmLabel: 'Revoke',
       destructive: true,
       confirmText: email,
     );

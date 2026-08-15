@@ -1,0 +1,116 @@
+# 10 轮推进（第二轮）— R11-R15（状态管理 / 数据获取 / 多断点响应式 / 文案动词 / 图标体系）
+#
+# 每轮一个聚焦主题：逐页分析现有代码 → 低风险修复 → validate 门禁 →
+# 产物文档。串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r11-r15.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r11-r15.log
+
+tasks:
+- prompt: |
+    轮次 R11：逐页状态管理复审。步骤：
+    1. 逐页分析 lib/screens/ 的 State 结构：
+       a. setState 粒度：单次数据更新是否触发整页重建（大页面如
+          dashboard/token-security 的 setState 范围）；
+       b. 状态归属：页面私有状态 vs 应提升到共享（AppSettings/
+          Session）的状态——查找重复的本地"当前语言/主题/模式"副本；
+       c. 无状态化机会：可改 StatelessWidget 的 StatefulWidget（
+          build 内无 setState 的）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 可无状态化的改 StatelessWidget（保持行为）；
+       - 明显的整页重建局部化（若测试可验证等价）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_shell_test.dart test/token_security_tab_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r11-state-review.md（逐页 State 表 +
+       修复清单 + 验证）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r11-state-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/token_security_tab_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R12：数据获取模式统一。步骤：
+    1. 逐页分析数据获取的 UI 编排模式（lib/screens/）：
+       a. FutureBuilder vs 手动 _loading/_data/_error 状态机——统计
+          两种模式的使用比例；
+       b. 模式不一致的页面：同类操作（列表加载/详情加载）用不同模式；
+       c. 竞态防护：快速连续请求的过期响应丢弃（mounted + 请求序号
+          或 token 检查）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 同页同语义操作统一模式（低风险转换，保持行为）；
+       - 竞态防护补齐（mounted 检查缺失处）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r12-data-patterns.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r12-data-patterns.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R13：多断点响应式（平板/桌面）。步骤：
+    1. 在 768×1024（平板）与 1440×900（桌面）视口检查各入口代表页
+       （临时 widget 测试，跑完删除）：
+       a. 平板：AdminDataTable 是否横向滚动而非挤压、设置页 form 行
+          是否仍单行、登录卡片居中；
+       b. 桌面：内容最大宽度是否合理（超宽拉伸）、指标卡网格列数
+          （>3 列）、表格密度。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 平板挤压改滚动/换行；
+       - 桌面超宽拉伸加 maxWidth 约束；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/settings_form_layout_test.dart
+       test/admin_data_table_cards_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r13-breakpoints.md（逐页证据表 +
+       修复清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r13-breakpoints.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/settings_form_layout_test.dart test/admin_data_table_cards_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R14：文案动词一致性。步骤：
+    1. 扫描 lib/i18n/ 与 lib/screens/ 的按钮/操作文案：
+       a. 同义动词混用：Create/Add/New、Delete/Remove/Clear、
+          Save/Apply/Confirm、Revoke/Deactivate 等在不同页面的混用
+          清单；
+       b. 确认对话框动词与触发按钮一致性（"删除"对话框确认按钮应
+          是"删除"而非"确定"）；
+       c. 危险操作动词（撤销/删除/擦除）的确认强度一致性。
+    2. 修复低风险项（只改 lib/i18n/ 译法 + 必要的页面按钮文案键）：
+       - 同义动词统一（保持既有测试引用的键不变，新增统一键并替换
+         使用点）；
+       - 确认按钮动词对齐；
+       - 不新增依赖。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/i18n_coverage_test.dart test/app_strings_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r14-verb-consistency.md（对照表 +
+       修复清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r14-verb-consistency.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/app_strings_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R15：图标体系审查。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的 Icon 使用：
+       a. 同义操作不同图标：删除（delete/delete_outline/close）、编辑
+          （edit/edit_outlined）、刷新（refresh/sync）、添加（add/
+          add_circle）等的混用清单；
+       b. outline vs filled 风格：同一语义的图标风格是否统一（列表/
+          导航用 outline，选中/强调用 filled）；
+       c. 组色覆盖：admin 页图标组色 vs 默认色的不一致抽查。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 同义操作统一图标（保持 tooltip/语义不变）；
+       - outline/filled 风格对齐页面约定；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_shell_test.dart test/admin_icon_colors_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r15-icon-system.md（对照表 + 修复
+       清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r15-icon-system.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/admin_icon_colors_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

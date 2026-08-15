@@ -213,7 +213,7 @@ class ScimQueryBar extends StatelessWidget {
           FilledButton.icon(
             onPressed: busy ? null : onApply,
             icon: const Icon(Icons.manage_search),
-            label: const LocalizedText('Apply'),
+            label: const LocalizedText('Apply filters'),
           ),
         ],
       ),

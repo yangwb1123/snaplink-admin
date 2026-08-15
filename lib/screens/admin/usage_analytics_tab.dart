@@ -184,7 +184,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       ],
       if (_loading) ...[
         const SizedBox(height: 20),
-        const SkeletonListTile(itemCount: 3),
+        const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150)),
       ],
       if (!_loading) ...[
         const SizedBox(height: 12),

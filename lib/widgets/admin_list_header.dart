@@ -22,6 +22,9 @@ class AdminListHeader extends StatelessWidget {
   /// 刷新动作（始终渲染刷新图标）。
   final VoidCallback onRefresh;
 
+  /// 刷新进行中：禁用刷新按钮并显示旋转指示（R19 刷新指示）。
+  final bool refreshing;
+
   /// 额外操作区（替换默认的创建按钮 + 刷新按钮，例如无创建操作的页面）。
   final List<Widget>? actions;
 
@@ -32,6 +35,7 @@ class AdminListHeader extends StatelessWidget {
     this.createTooltip = '',
     this.onCreate,
     required this.onRefresh,
+    this.refreshing = false,
     this.actions,
   });
 
@@ -79,8 +83,14 @@ class AdminListHeader extends StatelessWidget {
               const SizedBox(width: 4),
             ],
             IconButton(
-              onPressed: onRefresh,
-              icon: const Icon(Icons.refresh),
+              onPressed: refreshing ? null : onRefresh,
+              icon: refreshing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
               tooltip: context.strings.refresh,
             ),
           ];

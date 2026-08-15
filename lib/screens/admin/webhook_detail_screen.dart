@@ -345,6 +345,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       context,
       title: 'Delete webhook?',
       message: 'Delete this subscription?',
+      confirmLabel: 'Delete',
       destructive: true,
       confirmText: widget.subId,
     );

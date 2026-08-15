@@ -43,6 +43,8 @@ class _DRModeTabState extends State<DRModeTab> {
   String? _formError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.drMode);
@@ -77,13 +79,14 @@ class _DRModeTabState extends State<DRModeTab> {
 
   Future<void> _load() async {
     if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final data = await widget.api.get(_path);
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       final mode = data['mode']?.toString() ?? 'normal';
       setState(() {
         _status = data.isEmpty ? null : data;
@@ -91,14 +94,14 @@ class _DRModeTabState extends State<DRModeTab> {
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
         });
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = 'Could not load DR mode status.';
           _loading = false;

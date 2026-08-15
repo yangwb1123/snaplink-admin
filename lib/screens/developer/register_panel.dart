@@ -116,8 +116,7 @@ class _RegisterPanelState extends State<RegisterPanel> {
   void _onSubmitted() {
     if (!_submitting &&
         _result == null &&
-        (widget.discovery == null ||
-            widget.discovery!.registrationEnabled)) {
+        (widget.discovery == null || widget.discovery!.registrationEnabled)) {
       _submit();
     }
   }
@@ -140,107 +139,110 @@ class _RegisterPanelState extends State<RegisterPanel> {
     final scheme = Theme.of(context).colorScheme;
     final registrationEnabled =
         widget.discovery == null || widget.discovery!.registrationEnabled;
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Intro: what this panel does, the PKCE S256 stance, and the
-        // one-time display guarantee (RFC 7591 register surface).
-        const _RegisterIntro(),
-        if (!registrationEnabled) ...[
-          const SizedBox(height: 12),
-          _Notice(
-            icon: Icons.warning_amber_rounded,
-            message:
-                'Snaplink discovery does not advertise a registration_endpoint. '
-                'Registration is disabled for this deployment.',
-            warning: true,
-          ),
-        ],
-        const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DcrMetadataForm(
-                  controller: _form,
-                  discovery: widget.discovery,
-                  onChanged: () => setState(() => _error = null),
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 840),
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // Intro: what this panel does, the PKCE S256 stance, and the
+            // one-time display guarantee (RFC 7591 register surface).
+            const _RegisterIntro(),
+            if (!registrationEnabled) ...[
+              const SizedBox(height: 12),
+              _Notice(
+                icon: Icons.warning_amber_outlined,
+                message:
+                    'Snaplink discovery does not advertise a registration_endpoint. '
+                    'Registration is disabled for this deployment.',
+                warning: true,
+              ),
+            ],
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    DcrMetadataForm(
+                      controller: _form,
+                      discovery: widget.discovery,
+                      onChanged: () => setState(() => _error = null),
+                    ),
+                    const SizedBox(height: 16),
+                    SensitiveTokenField(
+                      controller: _iatController,
+                      label: 'Initial Access Token',
+                      hintText: context.tr(
+                        'Leave blank only when open registration is enabled',
+                      ),
+                      enabled:
+                          !_submitting &&
+                          _result == null &&
+                          registrationEnabled,
+                      onSubmitted: (_) => _onSubmitted(),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      context.tr(
+                        'The initial access token is sent once and cleared from this form as soon as registration starts.',
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 16),
+                      Semantics(
+                        liveRegion: true,
+                        child: _ErrorBanner(message: _error!),
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed:
+                          _submitting || _result != null || !registrationEnabled
+                          ? null
+                          : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 18,
+                              width: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(
+                              context.tr(
+                                _result == null
+                                    ? 'Register App'
+                                    : 'Save or erase issued credentials first',
+                              ),
+                            ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-                SensitiveTokenField(
-                  controller: _iatController,
-                  label: 'Initial Access Token',
-                  hintText: context.tr(
-                    'Leave blank only when open registration is enabled',
-                  ),
-                  enabled:
-                      !_submitting &&
-                      _result == null &&
-                      registrationEnabled,
-                  onSubmitted: (_) => _onSubmitted(),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  context.tr(
-                    'The initial access token is sent once and cleared from this form as soon as registration starts.',
-                  ),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 16),
-                  Semantics(
-                    liveRegion: true,
-                    child: _ErrorBanner(message: _error!),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed:
-                      _submitting ||
-                          _result != null ||
-                          !registrationEnabled
-                      ? null
-                      : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(
-                          context.tr(
-                            _result == null
-                                ? 'Register App'
-                                : 'Save or erase issued credentials first',
-                          ),
-                        ),
-                ),
-              ],
+              ),
             ),
-          ),
+            if (_result != null) ...[
+              const SizedBox(height: 16),
+              OneTimeRegistrationCredentials(
+                result: _result!,
+                onManage: _manage,
+                onWipe: _eraseOneTimeResult,
+              ),
+            ],
+            if (_completedClientId != null) ...[
+              const SizedBox(height: 16),
+              _Notice(
+                icon: Icons.check_circle_outline,
+                message:
+                    'One-time credentials for $_completedClientId were erased from '
+                    'the registration result.',
+              ),
+            ],
+          ],
         ),
-        if (_result != null) ...[
-          const SizedBox(height: 16),
-          OneTimeRegistrationCredentials(
-            result: _result!,
-            onManage: _manage,
-            onWipe: _eraseOneTimeResult,
-          ),
-        ],
-        if (_completedClientId != null) ...[
-          const SizedBox(height: 16),
-          _Notice(
-            icon: Icons.check_circle_outline,
-            message:
-                'One-time credentials for $_completedClientId were erased from '
-                'the registration result.',
-          ),
-        ],
-      ],
+      ),
     );
   }
 }

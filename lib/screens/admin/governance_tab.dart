@@ -46,17 +46,17 @@ class _GovernanceTabState extends State<GovernanceTab> {
   String _currentSection = 'all';
   late final void Function() _cancelPopState;
   static final _sections = [
-    SectionDef('all', 'All', Icons.dashboard,
+    SectionDef('all', 'All', Icons.dashboard_outlined,
         color: adminModuleIconColor(AdminModuleId.governance)),
     SectionDef('audit', 'Audit', Icons.search,
         color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('compliance', 'Compliance', Icons.verified,
+    SectionDef('compliance', 'Compliance', Icons.verified_outlined,
         color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('configuration', 'Config', Icons.settings,
+    SectionDef('configuration', 'Config', Icons.settings_outlined,
         color: adminModuleIconColor(AdminModuleId.governance)),
     SectionDef('lifecycle', 'Lifecycle', Icons.swap_vert,
         color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('write', 'Write', Icons.edit,
+    SectionDef('write', 'Write', Icons.edit_outlined,
         color: adminModuleIconColor(AdminModuleId.governance)),
   ];
 

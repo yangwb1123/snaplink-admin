@@ -1,0 +1,110 @@
+# 10 轮推进（第二轮）— R16-R20（颜色语义 / 弹层体验 / 深色深化 / 加载骨架细化 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r16-r20.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r16-r20.log
+
+tasks:
+- prompt: |
+    轮次 R16：颜色语义一致性。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的颜色使用：
+       a. 语义色混用：success（green/emerald 变体）、warning（amber/
+          orange）、danger（red/rose 变体）、info（blue/sky）是否统一
+          到 AppColors/colorScheme 的语义常量；
+       b. 裸色值：非 token 的 Color(0x...) 字面量清单（除组色板与
+          品牌强调色外）；
+       c. 状态与色绑定：StatusChip 工厂色 vs 页面手写颜色。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 手写颜色替换为语义常量（保持视觉值一致或按语义微调）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/dark_mode_test.dart test/status_chip*（如有）
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r16-color-semantics.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r16-color-semantics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dark_mode_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R17：弹层体验一致性。步骤：
+    1. 逐页检查对话框/底部弹层（lib/screens/ 的 Dialog/showDialog/
+       showModalBottomSheet 调用）：
+       a. 尺寸：对话框最大宽度/高度一致性（AlertDialog 默认 vs 自定
+          义宽度）；
+       b. 按钮顺序：确认/取消顺序约定（平台惯例：确认在右）；
+       c. 滚动：内容超长对话框可滚动；
+       d. Escape/barrierDismissible：可取消性一致性（破坏性确认不
+          可 barrier 关闭）；
+       e. 加载态：对话框内提交 loading（按钮 loading + 禁用）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 尺寸/按钮顺序/可取消性对齐约定；
+       - 破坏性确认 barrierDismissible: false；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/confirm_dialog_test.dart test/admin_dialogs_final_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r17-dialog-ux.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r17-dialog-ux.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/confirm_dialog_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R18：深色模式深化。步骤：
+    1. 在 dark 模式下检查（临时 widget 测试，跑完删除）：
+       a. 全部入口代表页的暗色渲染无异常（render_matrix 已覆盖基础，
+          本轮回查交互态：hover 底色、选中态、焦点环在 dark 的可见
+          性）；
+       b. 阴影/抬升：dark 下卡片阴影是否可感知（surfaceContainer
+          层级替代阴影）；
+       c. 品牌强调色在 dark 的对比度复算（组色板/select 强调色）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - dark 下不可见的交互态（hover/选中/焦点）提升对比；
+       - 阴影改 surface 层级（dark）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/dark_mode_test.dart test/dark_pages_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r18-dark-deep.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r18-dark-deep.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dark_mode_test.dart test/dark_pages_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R19：骨架屏与刷新细化。步骤：
+    1. 逐页检查骨架屏与刷新细节：
+       a. 骨架屏形状：SkeletonListTile 参数（itemCount/形状）与真实
+          内容匹配度（列表 vs 卡片 vs 指标）；
+       b. 骨架屏时长：数据加载 <200ms 时骨架闪屏问题（延迟显示骨架
+          或直接内容）；
+       c. 刷新指示：刷新按钮 loading 态（图标旋转/禁用）；
+       d. 分页加载：paginated_list 的加载更多指示。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 骨架形状与内容匹配（指标页用卡片骨架）；
+       - 快速加载防闪（可选：延迟 150ms 显示骨架）；
+       - 刷新/分页指示补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_shell_test.dart test/paginated_list*（如有）
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r19-skeleton-refresh.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r19-skeleton-refresh.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R20：综合终检（第二轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R11-R19 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 检查无残留临时文件（test/zz_*、test/idget* 等）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r20-final-audit-2.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r20-final-audit-2.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

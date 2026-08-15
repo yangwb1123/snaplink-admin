@@ -197,7 +197,7 @@ class _OverviewTabState extends State<OverviewTab> {
         ),
         Expanded(
           child: _loading
-              ? const SkeletonListTile(itemCount: 4)
+              ? const SkeletonListTile(itemCount: 4, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150))
               : _loadError != null
               ? PortalErrorCard(message: _loadError!, onRetry: _load)
               : _buildContent(context),

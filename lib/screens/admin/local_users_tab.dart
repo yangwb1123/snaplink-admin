@@ -36,7 +36,6 @@ class _LocalUsersTabState extends State<LocalUsersTab>
   String? _error;
   int _page = 1, _total = 0;
   bool _loading = false, _mutating = false;
-
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('local-users');
   bool get _available =>
@@ -179,10 +178,11 @@ class _LocalUsersTabState extends State<LocalUsersTab>
           onRefresh: _load,
           actions: [
             FilledButton.icon(onPressed: _mutating ? null : _openForm,
-                icon: const Icon(Icons.person_add_alt_1), label: const LocalizedText('Create local user')),
+                icon: const Icon(Icons.person_add_outlined), label: const LocalizedText('Create local user')),
             const SizedBox(width: 4),
             IconButton(onPressed: _loading || _mutating ? null : () { clearSelection(); _load(); },
-                tooltip: 'Refresh'.localized, icon: Icon(Icons.refresh, color: _accent)),
+                tooltip: 'Refresh'.localized,
+                icon: _loading || _mutating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(Icons.refresh, color: _accent)),
           ],
         ),
         if (selecting) ...[
@@ -191,8 +191,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         ],
         Expanded(
           child: AsyncView<List<Map<String, dynamic>>>(
-            loading: _loading, error: _error, data: _users, onRetry: _load,
-            useSkeleton: true,
+            loading: _loading, error: _error, data: _users, onRetry: _load, useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
             emptyTitle: 'No local users',
             emptySubtitle: 'Create the first password-authenticated account.',
             dataBuilder: _dataTable,
@@ -339,10 +338,8 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
   }
 
   /// 校验消息本地化：validator 返回目录键 → 渲染时按当前 locale 翻译。
-  String? _validate(String? Function(String?) rule, String? value) {
-    final message = rule(value);
-    return message == null ? null : context.tr(message);
-  }
+  String? _validate(String? Function(String?) rule, String? value) =>
+      rule(value) == null ? null : context.tr(rule(value)!);
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
@@ -376,19 +373,22 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: LocalizedText(_editing ? 'Edit local user' : 'Create local user'),
-    content: Form(
-      key: _formKey,
-      autovalidateMode: AutovalidateMode.onUserInteraction,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, autofocus: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
-            _field(controller: _emailCtrl, label: 'Email', keyboard: TextInputType.emailAddress, validate: (v) => _validate(validateSnaplinkLocalEmail, v)),
-            _field(controller: _nameCtrl, label: 'Display name'),
-            if (!_editing)
-              _field(controller: _passwordCtrl, label: 'Initial password', obscure: true, validate: (v) => _validate(validateSnaplinkInitialPassword, v)),
-          ],
+    content: SizedBox(
+      width: 560,
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, autofocus: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
+              _field(controller: _emailCtrl, label: 'Email', keyboard: TextInputType.emailAddress, validate: (v) => _validate(validateSnaplinkLocalEmail, v)),
+              _field(controller: _nameCtrl, label: 'Display name'),
+              if (!_editing)
+                _field(controller: _passwordCtrl, label: 'Initial password', obscure: true, validate: (v) => _validate(validateSnaplinkInitialPassword, v)),
+            ],
+          ),
         ),
       ),
     ),

@@ -71,7 +71,7 @@ class ConsentView extends StatelessWidget {
                 summary.parseError ?? ConsentRequestSummary.consentSummaryError,
               ),
             }),
-            Icons.warning_amber_rounded,
+            Icons.warning_amber_outlined,
             color: theme.colorScheme.onErrorContainer,
             contained: true,
           ),

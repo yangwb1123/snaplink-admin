@@ -3,7 +3,6 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/async_view.dart';
-import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import '../oidc_login/trusted_device_token.dart';
@@ -27,14 +26,39 @@ class SessionsTab extends StatefulWidget {
 }
 
 class _SessionsTabState extends State<SessionsTab> {
-  late Future<PortalSessionsResult> _future = _load();
+  PortalSessionsResult? _result;
+  String? _error;
+  bool _loading = true;
   bool _revokingAll = false;
 
-  Future<PortalSessionsResult> _load() => loadPortalSessions(widget.api);
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  void _reload() => setState(() {
-    _future = _load();
-  });
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await loadPortalSessions(widget.api);
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = '$e';
+        _loading = false;
+      });
+    }
+  }
+
+  void _reload() => _load();
 
   Future<void> _revoke(String id) async {
     if (id.isEmpty || !await _confirmSessionRevoke(id)) return;
@@ -57,9 +81,7 @@ class _SessionsTabState extends State<SessionsTab> {
 
   Future<void> _revokeOthers() async {
     final preservesCurrentSession = widget.api.currentSessionId != null;
-    if (!await _confirmBulkRevoke(preservesCurrentSession)) {
-      return;
-    }
+    if (!await _confirmBulkRevoke(preservesCurrentSession)) return;
     setState(() => _revokingAll = true);
     try {
       final response = await widget.api.deleteWithQuery(
@@ -91,6 +113,7 @@ class _SessionsTabState extends State<SessionsTab> {
     final isCurrentSession = id == widget.api.currentSessionId;
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(
           context.tr(
@@ -120,30 +143,17 @@ class _SessionsTabState extends State<SessionsTab> {
     return confirmed == true;
   }
 
-  /// Renders the FutureBuilder result tree; keeps the loading/error/empty
-  /// branches out of the build() expression to limit control-flow depth.
-  Widget _buildSessionList(
-    BuildContext context,
-    AsyncSnapshot<PortalSessionsResult> snap,
-  ) {
-    if (snap.connectionState != ConnectionState.done) {
-      return const SkeletonListTile(itemCount: 4);
-    }
-    if (snap.hasError) {
-      return ErrorStateView(
-        message: context.tr('${snap.error}'),
-        onRetry: _reload,
-      );
-    }
-    final result = snap.data;
-    final items = result?.sessions ?? const [];
+  /// Renders the loaded session tree; three-state orchestration lives in
+  /// [_load] + AsyncView, matching every sibling portal tab.
+  Widget _buildSessionList(BuildContext context, PortalSessionsResult result) {
+    final items = result.sessions;
     if (items.isEmpty) {
       return const Center(child: EmptyHint('No active sessions.'));
     }
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
-        if (result?.usedLegacyEndpoint == true)
+        if (result.usedLegacyEndpoint)
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(
@@ -168,6 +178,7 @@ class _SessionsTabState extends State<SessionsTab> {
   Future<bool> _confirmBulkRevoke(bool preservesCurrentSession) async {
     final confirmed = await showDialog<bool>(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(
           context.tr(
@@ -269,9 +280,13 @@ class _SessionsTabState extends State<SessionsTab> {
           ),
         ),
         Expanded(
-          child: FutureBuilder<PortalSessionsResult>(
-            future: _future,
-            builder: (context, snap) => _buildSessionList(context, snap),
+          child: AsyncView<PortalSessionsResult>(
+            loading: _loading,
+            error: _error,
+            data: _result,
+            onRetry: _reload,
+            useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
+            dataBuilder: (result) => _buildSessionList(context, result),
           ),
         ),
       ],

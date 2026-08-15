@@ -263,7 +263,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         runSpacing: 8,
         children: [
           if (_exportable)
-            OutlinedButton.icon(onPressed: _busy ? null : _export, icon: const Icon(Icons.download_outlined), label: const LocalizedText('Download export')),
+            OutlinedButton.icon(onPressed: _busy ? null : _export, icon: const Icon(Icons.file_download_outlined), label: const LocalizedText('Download export')),
           if (_erasable)
             OutlinedButton.icon(onPressed: _busy ? null : _previewErase, icon: const Icon(Icons.fact_check_outlined), label: const LocalizedText('Preview erasure')),
           if (_erasable)

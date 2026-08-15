@@ -46,6 +46,8 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   String? _actionError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   late final void Function() _cancelPopState;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
@@ -82,6 +84,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   }
 
   Future<void> _load() async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _loadError = null;
@@ -94,7 +97,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
           data['items'] ??
           data['break_glass'] ??
           [];
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _sessions = (items as List)
             .map((e) => Map<String, dynamic>.from(e as Map))
@@ -102,7 +105,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _loadError = e is SnaplinkAdminApiError
             ? e.toString()

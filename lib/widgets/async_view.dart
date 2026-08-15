@@ -44,6 +44,9 @@ class AsyncView<T> extends StatelessWidget {
   /// true = 列表页加载态用骨架屏（[SkeletonListTile]）替代加载圈。
   final bool useSkeleton;
 
+  /// 骨架延迟显示时长（快速加载防闪）；默认零 = 立即显示。
+  final Duration skeletonDelay;
+
   const AsyncView({
     super.key,
     required this.loading,
@@ -57,13 +60,14 @@ class AsyncView<T> extends StatelessWidget {
     this.onEmptyAction,
     required this.dataBuilder,
     this.useSkeleton = false,
+    this.skeletonDelay = Duration.zero,
   });
 
   @override
   Widget build(BuildContext context) {
     if (loading) {
       if (useSkeleton) {
-        return const SkeletonListTile(itemCount: 5);
+        return SkeletonListTile(itemCount: 5, delay: skeletonDelay);
       }
       return const Center(
         child: Padding(

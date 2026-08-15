@@ -104,42 +104,45 @@ class _UserFormDialogState extends State<UserFormDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: LocalizedText(_isEditing ? 'Edit User' : 'New User'),
-      content: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _idController,
-                enabled: !_isEditing,
-                autofocus: !_isEditing,
-                decoration: InputDecoration(labelText: 'ID'.localized),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _externalIdController,
-                decoration: InputDecoration(labelText: 'External ID'.localized),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _providerController,
-                decoration: InputDecoration(labelText: 'Provider'.localized),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _attributesController,
-                decoration: InputDecoration(
-                  labelText: 'Attributes (one key=value per line)'.localized,
-                  alignLabelWithHint: true,
+      title: LocalizedText(_isEditing ? 'Edit User' : 'Create user'),
+      content: SizedBox(
+        width: 560,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _idController,
+                  enabled: !_isEditing,
+                  autofocus: !_isEditing,
+                  decoration: InputDecoration(labelText: 'ID'.localized),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                maxLines: 4,
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _externalIdController,
+                  decoration: InputDecoration(labelText: 'External ID'.localized),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _providerController,
+                  decoration: InputDecoration(labelText: 'Provider'.localized),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _attributesController,
+                  decoration: InputDecoration(
+                    labelText: 'Attributes (one key=value per line)'.localized,
+                    alignLabelWithHint: true,
+                  ),
+                  maxLines: 4,
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -50,6 +50,8 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   List<Map<String, dynamic>> _invitations = const [];
   String? _loadError; // 加载错误 → 带 Retry 的横幅（X4）
   String? _actionError; // 校验/提交错误 → 表单内联提示
+  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
+  int _reqSeq = 0;
   bool _loading = false;
   bool _mutating = false;
   String _memberRole = 'member';
@@ -103,6 +105,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       setState(() => _actionError = 'Enter a tenant ID first.');
       return;
     }
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _loadError = null;
@@ -124,19 +127,19 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       final invitations = _supportsInvitations
           ? _maps(results[resultIndex]['invitations'])
           : const <Map<String, dynamic>>[];
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _members = members;
         _invitations = invitations;
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _loadError = error.toString());
+      if (mounted && seq == _reqSeq) setState(() => _loadError = error.toString());
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() => _loadError = 'Could not load organization data.');
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 
@@ -172,6 +175,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
           context.tr('Remove {userId} from this organization?', {
             'userId': userId,
           }),
+          confirmLabel: 'Remove',
           confirmText: userId,
         )) {
       return;
@@ -209,6 +213,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
           context.tr('Revoke every pending invitation for {email}?', {
             'email': email,
           }),
+          confirmLabel: 'Revoke',
           confirmText: email,
         )) {
       return;
@@ -271,11 +276,13 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   Future<bool> _confirm(
     String title,
     String message, {
+    String confirmLabel = 'Confirm',
     String? confirmText,
   }) async => ConfirmDialog.show(
     context,
     title: title,
     message: message,
+    confirmLabel: confirmLabel,
     destructive: true,
     confirmText: confirmText,
   );

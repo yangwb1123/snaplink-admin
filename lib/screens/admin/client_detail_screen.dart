@@ -103,7 +103,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.edit, color: _accent),
+            icon: Icon(Icons.edit_outlined, color: _accent),
             tooltip: 'Edit client'.localized,
             onPressed: () => _editClient(context),
           ),
@@ -301,6 +301,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       title: 'Rotate client secret?',
       message:
           'The current secret remains valid for 24 hours. Update all integrations before that overlap window closes.',
+      confirmLabel: 'Rotate secret',
       destructive: true,
       confirmText: widget.clientId,
     );
@@ -333,6 +334,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       context,
       title: '${action[0].toUpperCase()}${action.substring(1)} client?',
       message: '${action[0].toUpperCase()}${action.substring(1)} this client?',
+      confirmLabel: '${action[0].toUpperCase()}${action.substring(1)}',
       destructive: true,
       confirmText: widget.clientId,
     );

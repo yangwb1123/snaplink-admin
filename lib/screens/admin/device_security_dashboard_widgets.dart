@@ -187,7 +187,7 @@ class DeviceFleetFilters extends StatelessWidget {
           ),
           TextButton(
             onPressed: loading ? null : onClear,
-            child: const LocalizedText('Clear'),
+            child: const LocalizedText('Clear filter'),
           ),
         ],
       ),
@@ -264,7 +264,7 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
               for (final event in events)
                 ListTile(
                   leading: const Icon(
-                    Icons.warning_amber,
+                    Icons.warning_amber_outlined,
                     color: AppColors.danger,
                   ),
                   title: event['device_name']?.toString().isNotEmpty == true

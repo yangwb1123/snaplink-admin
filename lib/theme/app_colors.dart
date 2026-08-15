@@ -38,4 +38,30 @@ abstract final class AppColors {
   static const Color pink = Color(0xFFDB2777);
   /// 辅助（indigo 淡色）
   static const Color primaryTint = Color(0xFFC7D2FE);
+
+  /// 导航组图标色板（admin_module_groups 一级导航 / 设置页品牌色同族）。
+  /// 单点定义：组 map、组 const 列表与设置页图标共用，避免同色值三处手写。
+  static const Color groupOverview = Color(0xFF0EA5E9); // sky
+  static const Color groupIdentity = Color(0xFF7C6FF0); // indigo-violet
+  static const Color groupSecurity = Color(0xFFF43F5E); // rose
+  static const Color groupTenants = Color(0xFFF59E0B); // amber
+  static const Color groupDevelopers = Color(0xFF10B981); // emerald
+  static const Color groupSystem = Color(0xFF4F46E5); // indigo
+
+  /// System 组图标色 dark 提亮变体（indigo-400）：indigo-600 对深色
+  /// surface 仅 2.33:1（WCAG 非文本 <3），dark 下经
+  /// `adminGroupIconColorFor` 切换为本色（4.90:1）。浅色保持 indigo-600
+  /// （对白底 6.3:1）。
+  static const Color groupSystemDark = Color(0xFF818CF8);
+
+  /// 主题模式图标强调色（theme_selector；品牌强调色，刻意不随 colorScheme
+  /// 派生）。浅/深界面各一套，值按既有视觉保持不变。
+  static const Color themeSystemAccent = Color(0xFF7C6FF0); // = groupIdentity
+  static const Color themeLightAccent = Color(0xFFB45309); // amber-700
+  static const Color themeDarkAccent = Color(0xFF4F46E5); // = groupSystem
+  static const Color themeLightAccentBright = Color(0xFFF59E0B); // = groupTenants
+  static const Color themeDarkAccentBright = Color(0xFF818CF8); // indigo-400
+
+  /// 浅色脚手架背景（品牌浅灰，区别于纯白模板）。
+  static const Color surfaceSubtle = Color(0xFFF5F7FA);
 }

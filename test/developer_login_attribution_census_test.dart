@@ -117,9 +117,9 @@ void main() {
     test('Clause C — the 5 DCR-wire key sites, exactly '
         '(quoted-literal site pin)', () {
       const pinned = <String, List<int>>{
-        'lib/screens/developer/register_panel.dart': [107, 126],
+        'lib/screens/developer/register_panel.dart': [107, 125],
         'lib/screens/developer/dcr_credentials.dart': [185],
-        'lib/screens/developer/manage_panel.dart': [55],
+        'lib/screens/developer/manage_panel.dart': [56],
         'lib/screens/developer/dcr_models.dart': [67],
       };
       final actual = <String, List<int>>{};

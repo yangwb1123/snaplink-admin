@@ -333,7 +333,7 @@ class _TenantsTabState extends State<TenantsTab>
     future: _future,
     builder: (context, snap) {
       if (snap.connectionState != ConnectionState.done) {
-        return const SkeletonListTile(itemCount: 6);
+        return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
       }
       if (snap.hasError) {
         return ErrorStateView(message: '${snap.error}', onRetry: _reload);

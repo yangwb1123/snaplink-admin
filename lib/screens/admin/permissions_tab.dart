@@ -158,6 +158,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
         editing ? 'Update role {code} for {client}?' : 'Create role {code} for {client}?',
         {'code': role.code, 'client': cid},
       ),
+      confirmLabel: editing ? 'Update' : 'Create',
     )) {
       return;
     }
@@ -175,6 +176,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (!await _confirm(
       context.tr('Delete role?'),
       context.tr('Delete {code} from {client}? This cannot be undone.', {'code': code, 'client': cid}),
+      confirmLabel: 'Delete',
       destructive: true,
       confirmText: code,
     )) {
@@ -201,6 +203,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (!await _confirm(
       context.tr('Assign roles?'),
       context.tr('Assign {roles} to {user}?', {'roles': codes.join(', '), 'user': uid}),
+      confirmLabel: 'Assign',
     )) {
       return;
     }
@@ -219,6 +222,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (!await _confirm(
       context.tr('Unassign user?'),
       context.tr('Remove all role assignments for {user}?', {'user': uid}),
+      confirmLabel: 'Unassign',
       destructive: true,
       confirmText: uid,
     )) {
@@ -238,6 +242,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
       if (!await _confirm(
         context.tr('Save menus?'),
         context.tr('Update navigation tree?'),
+        confirmLabel: 'Save',
       )) {
         return;
       }
@@ -246,20 +251,21 @@ class _PermissionsTabState extends State<PermissionsTab> {
         'Navigation tree updated.',
       );
     } on FormatException {
-      setState(() => _error = 'Invalid JSON in menus field.');
+      if (mounted) setState(() => _error = 'Invalid JSON in menus field.');
     }
   }
 
   Future<bool> _confirm(
     String title,
     String msg, {
+    String confirmLabel = 'Confirm',
     bool destructive = false,
     String? confirmText,
   }) async => await ConfirmDialog.show(
     context,
     title: title,
     message: msg,
-    confirmLabel: destructive ? 'Delete' : 'Confirm',
+    confirmLabel: confirmLabel,
     destructive: destructive,
     confirmText: confirmText,
   );

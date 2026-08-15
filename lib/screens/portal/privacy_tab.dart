@@ -300,7 +300,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
             ),
             icon: _eraseBusy
                 ? _spinner(theme.colorScheme.onPrimary)
-                : const Icon(Icons.delete_outline, size: 18),
+                : const Icon(Icons.delete_forever_outlined, size: 18),
             label: Text(context.tr('Permanently delete my account')),
           ),
         ),

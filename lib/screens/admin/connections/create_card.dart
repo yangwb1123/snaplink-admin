@@ -43,7 +43,7 @@ class ConnectionCreateCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.add_link, size: 20, color: _accent),
+              Icon(Icons.add, size: 20, color: _accent),
               const SizedBox(width: 8),
               Expanded(
                 child: LocalizedText(
