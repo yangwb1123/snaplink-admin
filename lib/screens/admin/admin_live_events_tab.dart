@@ -183,6 +183,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
         context: context,
         builder: (context) => AlertDialog(
           title: LocalizedText('Audit event {id}', args: {'id': id}),
+          // 评估为无需 lazy：单个 SelectableText（完整审计记录），固定内容。
           content: SingleChildScrollView(
             child: SelectableText(
               const JsonEncoder.withIndent('  ').convert(detail),
@@ -243,11 +244,11 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     onRetry: _reconnectWanted ? null : _connect,
   );
 
-  /// Loading / empty / live feed states.
-  List<Widget> _feed() {
-    if (_events.isNotEmpty) {
-      return _events.map(_eventRow).toList(growable: false);
-    }
+  /// Loading / empty states for the feed. Event rows are deliberately not
+  /// built here: [build] renders them lazily through [ListView.builder] so a
+  /// rebuild on each incoming SSE event only mounts the visible rows instead
+  /// of rebuilding the whole retained feed (bounded at 50).
+  List<Widget> _feedTail() {
     if (_connecting) return const [SkeletonListTile(itemCount: 4)];
     return const [
       EmptyState(variant: EmptyStateVariant.empty, title: 'No events received yet.'),
@@ -279,106 +280,115 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        AdminBreadcrumb(),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Icon(Icons.sensors_outlined, color: _accent),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                AppStrings.of(context).liveActivity,
-                style: theme.textTheme.headlineSmall,
-              ),
+    // Fixed header block; the data-driven feed rows below are rendered lazily
+    // by ListView.builder so each incoming SSE event (which triggers a
+    // rebuild) rebuilds only the visible rows instead of the full retained
+    // feed. Scroll semantics and the bounded 50-event retention are unchanged.
+    final header = <Widget>[
+      AdminBreadcrumb(),
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          Icon(Icons.sensors_outlined, color: _accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              AppStrings.of(context).liveActivity,
+              style: theme.textTheme.headlineSmall,
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        LocalizedText(
-          _advertised
-              ? 'The replica advertises the event broker. The feed shows only Snaplink\'s redacted event summaries; select an item to request its full audit record.'
-              : 'The documented event broker is not listed by this replica\'s inventory. You can connect when the route is mounted; otherwise use audit queries.',
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            SizedBox(
-              width: 280,
-              child: TextField(
-                controller: _typesCtrl,
-                enabled: !_connecting && !_connected,
-                decoration: InputDecoration(
-                  labelText: 'Event types'.localized,
-                  helperText:
-                      'Comma-separated; empty includes all types.'.localized,
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 280,
-              child: TextField(
-                controller: _tenantCtrl,
-                enabled: !_connecting && !_connected,
-                decoration: InputDecoration(
-                  labelText: 'Tenant ID (optional)'.localized,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: _connecting || _connected ? null : _connect,
-              icon: const Icon(Icons.play_arrow),
-              label: LocalizedText(_connecting ? 'Connecting…' : 'Connect'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _connected || _connecting ? _disconnect : null,
-              icon: const Icon(Icons.stop),
-              label: const LocalizedText('Disconnect'),
-            ),
-            TextButton(
-              onPressed: _events.isEmpty
-                  ? null
-                  : () => setState(() => _events.clear()),
-              child: const LocalizedText('Clear feed'),
-            ),
-          ],
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          _errorCard(),
+          ),
         ],
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            _connectionChip(),
-            if (_connected) ...[
-              const SizedBox(width: 8),
-              LocalizedText(
-                'Connected · latest {count} events are retained locally.',
-                args: {'count': _maximumEvents},
-                style: theme.textTheme.titleSmall,
+      ),
+      const SizedBox(height: 8),
+      LocalizedText(
+        _advertised
+            ? 'The replica advertises the event broker. The feed shows only Snaplink\'s redacted event summaries; select an item to request its full audit record.'
+            : 'The documented event broker is not listed by this replica\'s inventory. You can connect when the route is mounted; otherwise use audit queries.',
+      ),
+      const SizedBox(height: 16),
+      Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        children: [
+          SizedBox(
+            width: 280,
+            child: TextField(
+              controller: _typesCtrl,
+              enabled: !_connecting && !_connected,
+              decoration: InputDecoration(
+                labelText: 'Event types'.localized,
+                helperText:
+                    'Comma-separated; empty includes all types.'.localized,
               ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 16),
-        SectionHeader(
-          'Live event feed',
-          count: _events.isEmpty ? null : _events.length,
-        ),
-        const SizedBox(height: 8),
-        ..._feed(),
-      ],
+            ),
+          ),
+          SizedBox(
+            width: 280,
+            child: TextField(
+              controller: _tenantCtrl,
+              enabled: !_connecting && !_connected,
+              decoration: InputDecoration(
+                labelText: 'Tenant ID (optional)'.localized,
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      Wrap(
+        spacing: 8,
+        children: [
+          FilledButton.icon(
+            onPressed: _connecting || _connected ? null : _connect,
+            icon: const Icon(Icons.play_arrow),
+            label: LocalizedText(_connecting ? 'Connecting…' : 'Connect'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _connected || _connecting ? _disconnect : null,
+            icon: const Icon(Icons.stop),
+            label: const LocalizedText('Disconnect'),
+          ),
+          TextButton(
+            onPressed: _events.isEmpty
+                ? null
+                : () => setState(() => _events.clear()),
+            child: const LocalizedText('Clear feed'),
+          ),
+        ],
+      ),
+      if (_error != null) ...[const SizedBox(height: 12), _errorCard()],
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          _connectionChip(),
+          if (_connected) ...[const SizedBox(height: 8), LocalizedText(
+            'Connected · latest {count} events are retained locally.',
+            args: {'count': _maximumEvents},
+            style: theme.textTheme.titleSmall,
+          )],
+        ],
+      ),
+      const SizedBox(height: 16),
+      SectionHeader(
+        'Live event feed',
+        count: _events.isEmpty ? null : _events.length,
+      ),
+      const SizedBox(height: 8),
+    ];
+    // Loading / empty tails are a handful of widgets and stay eager; the
+    // event rows are the lazy part.
+    final tail = _events.isNotEmpty ? const <Widget>[] : _feedTail();
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount:
+          header.length + (_events.isNotEmpty ? _events.length : tail.length),
+      itemBuilder: (context, index) {
+        if (index < header.length) return header[index];
+        if (_events.isNotEmpty) {
+          return _eventRow(_events[index - header.length]);
+        }
+        return tail[index - header.length];
+      },
     );
   }
 }

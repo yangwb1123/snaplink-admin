@@ -1,67 +1,31 @@
 import 'package:flutter/material.dart';
 import '../../app_settings.dart';
 import '../../i18n/app_strings.dart';
-import '../../i18n/localized_text.dart';
-import 'admin_route.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
-import 'package:sso_admin/widgets/brand_logo.dart';
-import 'package:sso_admin/widgets/page_transition.dart';
-import 'admin_module_groups.dart';
-import 'package:sso_admin/widgets/section_selector.dart';
-import 'package:sso_admin/widgets/offline_banner.dart';
-import 'package:sso_admin/widgets/error_boundary.dart';
-import 'package:sso_admin/services/shortcut_service.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
+import 'package:sso_admin/services/shortcut_service.dart';
+import 'package:sso_admin/widgets/brand_logo.dart';
 import 'package:sso_admin/widgets/command_palette.dart';
+import 'package:sso_admin/widgets/offline_banner.dart';
+import 'package:sso_admin/widgets/page_transition.dart';
 import 'package:sso_admin/widgets/responsive_navigation_scaffold.dart';
+import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/shortcuts_dialog.dart';
-import 'admin_overview_tab.dart';
-import 'admin_live_events_tab.dart';
-import 'admin_operations_tab.dart';
-import 'client_detail_screen.dart';
-import 'clients_tab.dart';
-import 'connection_detail_screen.dart';
-import 'connections_tab.dart';
-import 'audit_log_tab.dart';
-import 'health_tab.dart';
-import 'governance_tab.dart';
-import 'permission_detail_screen.dart';
-import 'permissions_tab.dart';
-import 'snaplink_admin_api.dart';
-import 'tenant_organizations_tab.dart';
-import 'token_security_tab.dart';
-import 'access_policies_tab.dart';
-import 'authz_check_tab.dart';
-import 'break_glass_detail_screen.dart';
-import 'break_glass_tab.dart';
-import 'credentials_tab.dart';
-import 'crypto_keys_tab.dart';
-import 'domains_tab.dart';
-import 'dr_mode_tab.dart';
-import 'device_security_tab.dart';
-import 'threat_policies_tab.dart';
-import 'token_exchange_tab.dart';
-import 'token_policies_tab.dart';
-import 'webhooks_tab.dart';
-import 'user_detail_screen.dart';
-import 'user_support_tab.dart';
-import 'users_tab.dart';
-import 'webhook_detail_screen.dart';
-import 'tenant_detail_screen.dart';
-import 'tenants_tab.dart';
+import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
-import 'change_approvals_tab.dart';
-import 'local_users_tab.dart';
-import 'network_policies_tab.dart';
-import 'recovery_releases_tab.dart';
-import 'privacy_compliance_tab.dart';
-import 'usage_analytics_tab.dart';
-import 'scim/scim_directory_tab.dart';
-import 'commerce/commerce_tab.dart';
+import 'admin_overview_tab.dart';
+import 'admin_route.dart';
+import 'audit_log_tab.dart';
+import 'clients_tab.dart';
 import 'commerce/commerce_api.dart';
+import 'dashboard_navigation_entries.dart';
+import 'dashboard_page_resolution.dart';
+import 'snaplink_admin_api.dart';
+import 'tenants_tab.dart';
+import 'users_tab.dart';
 
 class DashboardScreen extends StatefulWidget {
   final SSOAdminClient client;
@@ -217,374 +181,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return OfflineBanner(child: _buildBody(context, strings));
   }
 
-  Map<String, String> _moduleLabels(
-    List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
-  ) => {
-    for (final entry in entries)
-      entry.module: _labelOf(entry.destination.label),
-  };
-
-  String _labelOf(Widget label) {
-    if (label is Text) return label.data ?? '';
-    if (label is LocalizedText) return label.data;
-    return '';
-  }
-
-  IconData _iconOf(
-    String module,
-    List<AdminNavigationEntry<NavigationRailDestination, Widget>> entries,
-  ) {
-    for (final entry in entries) {
-      if (entry.module != module) continue;
-      final icon = entry.destination.icon;
-      if (icon is Icon) return icon.icon ?? Icons.circle_outlined;
-    }
-    return Icons.circle_outlined;
-  }
-
   Widget _buildBody(BuildContext context, AppStrings strings) {
-    final navigation = AdminNavigationCapabilities(_endpoints);
+    // Capability gating + locale-sensitive navigation entries (rail
+    // destinations and page widgets) are constructed in one pure pass;
+    // the mode filter and operator persona run below on the resulting list.
+    final navigation = buildDashboardNavigationEntries(
+      client: widget.client,
+      api: _api,
+      endpoints: _endpoints,
+      capabilitiesError: _capabilitiesError,
+      onRefresh: _refreshCapabilities,
+      strings: strings,
+      commerceAvailable: _commerceAvailable,
+      commerceProbeError: _commerceProbeError,
+    );
+    final entries = navigation.entries;
     final capabilities = navigation.capabilities;
-    final entries = <AdminNavigationEntry<NavigationRailDestination, Widget>>[
-      AdminNavigationEntry(
-        module: AdminModuleId.overview,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.dashboard_outlined),
-          selectedIcon: const Icon(Icons.dashboard),
-          label: Text(strings.overview),
-        ),
-        page: AdminOverviewTab(
-          endpoints: _endpoints,
-          loadError: _capabilitiesError,
-          onRefresh: _refreshCapabilities,
-        ),
-      ),
-      AdminNavigationEntry(
-        module: AdminModuleId.clients,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.apps),
-          label: Text(strings.clients),
-        ),
-        page: ClientsTab(client: widget.client),
-      ),
-      AdminNavigationEntry(
-        module: AdminModuleId.users,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.people),
-          label: Text(strings.users),
-        ),
-        page: UsersTab(client: widget.client),
-      ),
-      if (navigation.supportsLocalUsers)
-        AdminNavigationEntry(
-          module: AdminModuleId.localUsers,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.password_outlined),
-            selectedIcon: const Icon(Icons.password),
-            label: Text(strings.localUsers),
-          ),
-          page: LocalUsersTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsScimDirectory)
-        AdminNavigationEntry(
-          module: AdminModuleId.scimDirectory,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.account_tree_outlined),
-            selectedIcon: const Icon(Icons.account_tree),
-            label: Text(strings.scimDirectory),
-          ),
-          page: ScimDirectoryTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsPermissions)
-        AdminNavigationEntry(
-          module: AdminModuleId.permissions,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.admin_panel_settings_outlined),
-            selectedIcon: const Icon(Icons.admin_panel_settings),
-            label: Text(strings.permissions),
-          ),
-          page: PermissionsTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsConnections)
-        AdminNavigationEntry(
-          module: AdminModuleId.connections,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.hub_outlined),
-            selectedIcon: const Icon(Icons.hub),
-            label: Text(strings.connections),
-          ),
-          page: ConnectionsTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsUserSupport)
-        AdminNavigationEntry(
-          module: AdminModuleId.userSupport,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.support_agent_outlined),
-            selectedIcon: const Icon(Icons.support_agent),
-            label: Text(strings.userSupport),
-          ),
-          page: UserSupportTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsDeviceSecurity)
-        AdminNavigationEntry(
-          module: AdminModuleId.deviceSecurity,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.devices_other_outlined),
-            selectedIcon: const Icon(Icons.devices_other),
-            label: Text(strings.deviceSecurity),
-          ),
-          page: DeviceSecurityTab(api: _api),
-        ),
-      AdminNavigationEntry(
-        module: AdminModuleId.liveActivity,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.sensors_outlined),
-          selectedIcon: const Icon(Icons.sensors),
-          label: Text(strings.liveActivity),
-        ),
-        page: AdminLiveEventsTab(api: _api, endpoints: _endpoints),
-      ),
-      AdminNavigationEntry(
-        module: AdminModuleId.tokenSecurity,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.shield_outlined),
-          selectedIcon: const Icon(Icons.shield),
-          label: Text(strings.tokenSecurity),
-        ),
-        page: TokenSecurityTab(api: _api, capabilities: capabilities),
-      ),
-      if (navigation.supportsUsageAnalytics)
-        AdminNavigationEntry(
-          module: AdminModuleId.usageAnalytics,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.insights_outlined),
-            selectedIcon: const Icon(Icons.insights),
-            label: Text(strings.usageInsights),
-          ),
-          page: UsageAnalyticsTab(api: _api, capabilities: capabilities),
-        ),
-      AdminNavigationEntry(
-        module: AdminModuleId.tenants,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.business),
-          label: Text(strings.tenants),
-        ),
-        page: TenantsTab(client: widget.client),
-      ),
-      if (_commerceAvailable)
-        AdminNavigationEntry(
-          module: AdminModuleId.commerce,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.payments_outlined),
-            selectedIcon: const Icon(Icons.payments),
-            label: const LocalizedText('Subscriptions & Billing'),
-          ),
-          page: CommerceTab(api: _api, availabilityError: _commerceProbeError),
-        ),
-      if (navigation.supportsOrganizations)
-        AdminNavigationEntry(
-          module: AdminModuleId.organizations,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.groups_outlined),
-            selectedIcon: const Icon(Icons.groups),
-            label: Text(strings.organizations),
-          ),
-          page: TenantOrganizationsTab(api: _api, capabilities: capabilities),
-        ),
-      AdminNavigationEntry(
-        module: AdminModuleId.operations,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.terminal_outlined),
-          selectedIcon: const Icon(Icons.terminal),
-          label: Text(strings.operations),
-        ),
-        page: AdminOperationsTab(api: _api, endpoints: _endpoints),
-      ),
-      if (navigation.supportsCryptoKeys)
-        AdminNavigationEntry(
-          module: AdminModuleId.cryptoKeys,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.vpn_key_outlined),
-            selectedIcon: const Icon(Icons.vpn_key),
-            label: Text(strings.cryptoKeys),
-          ),
-          page: CryptoKeysTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsCredentials)
-        AdminNavigationEntry(
-          module: AdminModuleId.credentials,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.verified_user_outlined),
-            selectedIcon: const Icon(Icons.verified_user),
-            label: Text(strings.credentials),
-          ),
-          page: CredentialsTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsTokenPolicies)
-        AdminNavigationEntry(
-          module: AdminModuleId.tokenPolicies,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.policy_outlined),
-            selectedIcon: const Icon(Icons.policy),
-            label: Text(strings.tokenPolicies),
-          ),
-          page: TokenPoliciesTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsTokenExchange)
-        AdminNavigationEntry(
-          module: AdminModuleId.tokenExchange,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.swap_horiz_outlined),
-            selectedIcon: const Icon(Icons.swap_horiz),
-            label: Text(strings.tokenExchange),
-          ),
-          page: TokenExchangeTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsAuthzChecks)
-        AdminNavigationEntry(
-          module: AdminModuleId.authzChecks,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.verified_outlined),
-            selectedIcon: const Icon(Icons.verified),
-            label: Text(strings.authzChecks),
-          ),
-          page: AuthzCheckTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsDomains)
-        AdminNavigationEntry(
-          module: AdminModuleId.domains,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.language_outlined),
-            selectedIcon: const Icon(Icons.language),
-            label: Text(strings.domains),
-          ),
-          page: DomainsTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsNetworkPolicies)
-        AdminNavigationEntry(
-          module: AdminModuleId.networkPolicies,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.lan_outlined),
-            selectedIcon: const Icon(Icons.lan),
-            label: Text(strings.networkPolicies),
-          ),
-          page: NetworkPoliciesTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsAccessPolicies)
-        AdminNavigationEntry(
-          module: AdminModuleId.accessPolicies,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.verified_user_outlined),
-            selectedIcon: const Icon(Icons.verified_user),
-            label: Text(strings.accessPolicies),
-          ),
-          page: AccessPoliciesTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsDrMode)
-        AdminNavigationEntry(
-          module: AdminModuleId.drMode,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.monitor_heart_outlined),
-            selectedIcon: const Icon(Icons.monitor_heart),
-            label: Text(strings.drMode),
-          ),
-          page: DRModeTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsThreatPolicies)
-        AdminNavigationEntry(
-          module: AdminModuleId.threatPolicies,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.warning_amber_outlined),
-            selectedIcon: const Icon(Icons.warning_amber),
-            label: Text(strings.threatPolicies),
-          ),
-          page: ThreatPoliciesTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsWebhooks)
-        AdminNavigationEntry(
-          module: AdminModuleId.webhooks,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.webhook_outlined),
-            selectedIcon: const Icon(Icons.webhook),
-            label: Text(strings.webhooks),
-          ),
-          page: WebhooksTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsEmergencyAccess)
-        AdminNavigationEntry(
-          module: AdminModuleId.emergencyAccess,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.emergency_outlined),
-            selectedIcon: const Icon(Icons.emergency),
-            label: Text(strings.emergencyAccess),
-          ),
-          page: BreakGlassTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsChangeApprovals)
-        AdminNavigationEntry(
-          module: AdminModuleId.changeApprovals,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.approval_outlined),
-            selectedIcon: const Icon(Icons.approval),
-            label: Text(strings.changeApprovals),
-          ),
-          page: ChangeApprovalsTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsRecoveryReleases)
-        AdminNavigationEntry(
-          module: AdminModuleId.recoveryReleases,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.settings_backup_restore_outlined),
-            selectedIcon: const Icon(Icons.settings_backup_restore),
-            label: Text(strings.recoveryReleases),
-          ),
-          page: RecoveryReleasesTab(api: _api, capabilities: capabilities),
-        ),
-      if (navigation.supportsPrivacyCompliance)
-        AdminNavigationEntry(
-          module: AdminModuleId.privacyCompliance,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.privacy_tip_outlined),
-            selectedIcon: const Icon(Icons.privacy_tip),
-            label: Text(strings.privacyRetention),
-          ),
-          page: PrivacyComplianceTab(api: _api, capabilities: capabilities),
-        ),
-      AdminNavigationEntry(
-        module: AdminModuleId.governance,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.verified_user_outlined),
-          selectedIcon: const Icon(Icons.verified_user),
-          label: Text(strings.governance),
-        ),
-        page: GovernanceTab(api: _api, capabilities: capabilities),
-      ),
-      if (navigation.supportsAuditLog)
-        AdminNavigationEntry(
-          module: AdminModuleId.auditLog,
-          destination: NavigationRailDestination(
-            icon: const Icon(Icons.receipt_long_outlined),
-            selectedIcon: const Icon(Icons.receipt_long),
-            label: Text(strings.auditLog),
-          ),
-          page: AuditLogTab(api: _api, capabilities: capabilities),
-        ),
-      AdminNavigationEntry(
-        module: AdminModuleId.health,
-        destination: NavigationRailDestination(
-          icon: const Icon(Icons.monitor_heart_outlined),
-          selectedIcon: const Icon(Icons.monitor_heart),
-          label: Text(strings.health),
-        ),
-        page: HealthTab(api: _api),
-      ),
-    ];
-    _visibleModules = adminNavigationModules(entries);
     // Admin navigation mode (settings): normal shows only the core trio;
     // professional shows EVERY capability-enabled module and submenu.
     // Capability gating above runs FIRST — a capability-gated-off module is absent from entries and
     // therefore invisible in both modes. entries itself is never mutated,
     // so deep links and page resolution stay intact.
+    _visibleModules = adminNavigationModules(entries);
     _visibleModules = AdminHotModules.visibleForMode(
       _visibleModules,
       AppSettings.instance.adminNavMode,
@@ -596,8 +214,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       enabledModules: _visibleModules.toSet(),
       commerceAvailable: _commerceProbeError == null,
     );
-    // The wave-1 entries were constructed above with their default
-    // (general) persona; rebind them in place now that the persona exists
+    // The wave-1 entries were constructed with their default (general)
+    // persona; rebind them in place now that the persona exists
     // (module/destination preserved — rail order and nav pins untouched).
     void rebindPersona(
       String module,
@@ -639,64 +257,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
       AdminModuleId.auditLog,
       (p) => AuditLogTab(api: _api, capabilities: capabilities, persona: p),
     );
-    Widget page;
-    final route = _currentRoute;
-    final rid = route.resourceId;
-    if (rid.isNotEmpty) {
-      final detail = <String, WidgetBuilder>{
-        AdminModuleId.users: (_) => UserDetailScreen(
-          api: _api,
-          client: widget.client,
-          userId: rid,
-          capabilities: capabilities,
-        ),
-        AdminModuleId.clients: (_) => ClientDetailScreen(
-          api: _api,
-          client: widget.client,
-          clientId: rid,
-          persona: persona,
-        ),
-        AdminModuleId.tenants: (_) => TenantDetailScreen(
-          api: _api,
-          client: widget.client,
-          tenantId: rid,
-          capabilities: capabilities,
-          persona: persona,
-        ),
-        AdminModuleId.connections: (_) => ConnectionDetailScreen(
-          api: _api,
-          client: widget.client,
-          connectionId: rid,
-        ),
-        AdminModuleId.emergencyAccess: (_) =>
-            BreakGlassDetailScreen(api: _api, sessionId: rid),
-        AdminModuleId.permissions: (_) => PermissionDetailScreen(
-          api: _api,
-          client: widget.client,
-          clientId: rid,
-        ),
-        AdminModuleId.webhooks: (_) =>
-            WebhookDetailScreen(api: _api, client: widget.client, subId: rid),
-      };
-      final builder = detail[route.module];
-      if (builder != null) {
-        page = ErrorBoundary(
-          key: ValueKey(route.detailIdentity),
-          child: builder(context),
-        );
-      } else {
-        page = ErrorBoundary(
-          child:
-              entries[adminNavigationIndexForModule(entries, _selectedModule)]
-                  .page,
-        );
-      }
-    } else {
-      page = ErrorBoundary(
-        child: entries[adminNavigationIndexForModule(entries, _selectedModule)]
-            .page,
-      );
-    }
+    final page = resolveDashboardPage(
+      route: _currentRoute,
+      entries: entries,
+      selectedModule: _selectedModule,
+      api: _api,
+      client: widget.client,
+      capabilities: capabilities,
+      persona: persona,
+    );
     // 一级导航 = 分组（≤6）；组内模块用壳层 SectionSelector 切换。
     final visibleGroups = [
       for (final group in adminModuleGroups)
@@ -719,13 +288,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       visibleGroups[selectedGroupIndex],
       _visibleModules,
     );
-    final moduleLabels = _moduleLabels(entries);
+    final moduleLabels = dashboardModuleLabels(entries);
     final sectionDefs = [
       for (final module in groupModules)
         SectionDef(
           module,
           moduleLabels[module] ?? module,
-          _iconOf(module, entries),
+          dashboardModuleIcon(module, entries),
           color: adminModuleIconColor(module),
         ),
     ];

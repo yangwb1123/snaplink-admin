@@ -69,6 +69,8 @@ class GovernanceJsonCard extends StatelessWidget {
     return GovernanceCard(
       title: title,
       children: [
+        // 评估为无需 lazy：单个 SelectableText（非条目列表），maxHeight 280 内
+        // 滚动即可；ListView.builder 对单子节点无收益。
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 280),
           child: SingleChildScrollView(

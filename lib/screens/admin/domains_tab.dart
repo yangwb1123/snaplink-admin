@@ -239,59 +239,7 @@ class _DomainsTabState extends State<DomainsTab> {
             title: _searchQuery.isEmpty ? 'No domains registered.' : null,
           )
         else if (_filteredDomains.isNotEmpty)
-          AdminDataTable(
-            minWidth: 720,
-            density: TableDensity.compact,
-            columns: [
-              AdminDataColumn(
-                id: 'hostname',
-                label: 'Hostname',
-                width: 260,
-                cardPrimary: true,
-                builder: (_, i) => TableCellText(
-                  _filteredDomains[i]['hostname']?.toString() ?? '',
-                  level: DataEmphasisLevel.primary,
-                ),
-              ),
-              AdminDataColumn(
-                id: 'id',
-                label: 'ID',
-                cardDetail: true,
-                builder: (_, i) => TableCellText(
-                  _filteredDomains[i]['id']?.toString() ?? '',
-                  muted: true,
-                ),
-              ),
-              AdminDataColumn(
-                id: 'verified',
-                label: 'Status',
-                builder: (_, i) {
-                  final verified = _filteredDomains[i]['verified'] == true;
-                  return verified
-                      ? StatusChip.active(label: context.tr('Verified'))
-                      : StatusChip.pending(label: context.tr('Pending'));
-                },
-              ),
-              AdminDataColumn(
-                id: 'actions',
-                label: '',
-                width: 110,
-                builder: (_, i) {
-                  final hostname =
-                      _filteredDomains[i]['hostname']?.toString() ?? '';
-                  return TextButton(
-                    onPressed: _mutating ? null : () => _delete(hostname),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.danger,
-                    ),
-                    child: const LocalizedText('Delete'),
-                  );
-                },
-              ),
-            ],
-            itemCount: _filteredDomains.length,
-            rowBuilder: (_, _) => const SizedBox.shrink(),
-          ),
+          _buildTable(context),
         if (!_showForm)
           Padding(
             padding: const EdgeInsets.only(top: 12),
@@ -302,6 +250,62 @@ class _DomainsTabState extends State<DomainsTab> {
             ),
           ),
       ],
+    );
+  }
+
+  /// 域名表格：四列（hostname/id/状态/删除）。
+  Widget _buildTable(BuildContext context) {
+    return AdminDataTable(
+      minWidth: 720,
+      density: TableDensity.compact,
+      columns: [
+        AdminDataColumn(
+          id: 'hostname',
+          label: 'Hostname',
+          width: 260,
+          cardPrimary: true,
+          builder: (_, i) => TableCellText(
+            _filteredDomains[i]['hostname']?.toString() ?? '',
+            level: DataEmphasisLevel.primary,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'id',
+          label: 'ID',
+          cardDetail: true,
+          builder: (_, i) => TableCellText(
+            _filteredDomains[i]['id']?.toString() ?? '',
+            muted: true,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'verified',
+          label: 'Status',
+          builder: (_, i) {
+            final verified = _filteredDomains[i]['verified'] == true;
+            return verified
+                ? StatusChip.active(label: context.tr('Verified'))
+                : StatusChip.pending(label: context.tr('Pending'));
+          },
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 110,
+          builder: (_, i) {
+            final hostname = _filteredDomains[i]['hostname']?.toString() ?? '';
+            return TextButton(
+              onPressed: _mutating ? null : () => _delete(hostname),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.danger,
+              ),
+              child: const LocalizedText('Delete'),
+            );
+          },
+        ),
+      ],
+      itemCount: _filteredDomains.length,
+      rowBuilder: (_, _) => const SizedBox.shrink(),
     );
   }
 

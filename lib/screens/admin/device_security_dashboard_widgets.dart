@@ -373,6 +373,9 @@ class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
             )
           : _result == null
           ? const Center(child: CircularProgressIndicator())
+          // 评估为无需 lazy：对话框固定 520 高，可见登录记录约 8 条；
+          // LoginHistoryPanel 同时在页面上下文（user_device_security_panel）
+          // 使用，改 ListView 需 shrinkWrap 或双语境重构，收益不抵风险。
           : SingleChildScrollView(
               child: LoginHistoryPanel(records: loginHistoryFrom(_result)),
             ),

@@ -127,6 +127,8 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
             ? device['device_name'].toString()
             : context.tr('Device details'),
       ),
+      // 评估为无需 lazy：详情/活动/活跃会话三类区块均为小条目数（活跃会话
+      // 天然个位数），且处于对话框内无界高度滚动容器，lazy 需 shrinkWrap。
       content: SizedBox(
         width: 680,
         child: SingleChildScrollView(

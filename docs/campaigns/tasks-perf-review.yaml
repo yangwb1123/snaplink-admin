@@ -1,0 +1,78 @@
+# 渲染性能优化 — batch 15（rebuild 粒度 / 每帧分配 / 懒构建门禁）
+#
+# 页面重构、门禁、渲染矩阵均完成后，本轮做性能维度：
+#   1) rebuild 粒度与每帧分配审查（逐页分析 build 方法）；
+#   2) 数据驱动滚动区 lazy 化评估（SingleChildScrollView 25 处逐一定性）；
+#   3) 性能门禁固化（懒构建 + 大 build 方法静态门禁防回归）。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-perf-review.yaml \
+#     --mode serial --timeout 1500 --log-file logs/perf-review.log
+
+tasks:
+- prompt: |
+    逐页 rebuild 粒度与每帧分配审查。步骤：
+    1. 逐页分析 lib/screens/ 的 build 方法（先列文件清单再逐个读）：
+       a. 每帧分配：build 内新建的 const 可替换对象（TextStyle/EdgeInsets/
+          BoxDecoration/Widget 子树的 const 缺失）；
+       b. rebuild 范围：页面级 ListenableBuilder/AnimatedBuilder 包住
+          大树的点（settings_screen 整页、dashboard 等），评估能否
+          局部化——只做**低风险**局部化（不影响测试语义与行为），
+          高风险点记录不修改并注明原因；
+       c. 大 build 方法（>80 行）列出，评估拆分（低风险拆分，保持
+          行为）。
+    2. 实施修复（白名单 lib/screens/、lib/widgets/ + lib/i18n/）：
+       - const/static 提升（dart fix 风格的低风险替换）；
+       - 局部化 ListenableBuilder（若测试可验证等价）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/settings_screen_test.dart test/admin_shell_test.dart
+       test/portal_screens_test.dart test/render_matrix_smoke_test.dart
+       全绿。
+    4. 输出 docs/ui/pages-per-page/perf-rebuild.md（逐页分析表：
+       每帧分配/rebuild 范围/大方法 → 处置+证据+验证）。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/perf-rebuild.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/settings_screen_test.dart test/admin_shell_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    数据驱动滚动区 lazy 化评估。步骤：
+    1. 逐个检查 lib/screens/ 下 25 处 SingleChildScrollView（已列于
+       perf-review 文档）：区分两类——
+       a. 对话框/表单/详情（固定少量内容）：懒构建收益小，保持；
+       b. 数据驱动列表（live_events 事件流、device dashboard 设备列、
+          governance_widgets 区块、developer manage_panel 等）：
+          评估改 ListView.builder/separated 的收益与风险。
+    2. 实施改造（白名单同上）：对数据驱动且条目数可能较大的滚动区
+       改 lazy 构建（保持滚动语义、无 shrinkWrap 破坏）；固定内容
+       保持并注明"评估为无需 lazy"。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_live_events_detail_read_test.dart（如存在）
+       test/admin_shell_test.dart test/dcr_widgets_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/perf-lazy.md（25 处逐一定性表：
+       位置/类型/处置/证据）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/perf-lazy.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/dcr_widgets_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    性能门禁固化。步骤：
+    1. 新增 test/perf_gates_test.dart（@TestOn('vm')，静态扫描
+       lib/screens/ 与 lib/widgets/）：
+       a. 懒构建门禁：数据驱动列表禁止用 SingleChildScrollView +
+          Column(children: [for/map...]) 模式构建大列表（允许固定
+          内容/对话框/表格包装豁免，登记豁免清单 + stale 检测）；
+       b. 大 build 方法门禁：build 方法体 >100 行警告级（输出不
+          fail，报告中列出，未来收紧）；
+       c. const 门禁（宽松）：可 const 的构造未 const 抽样告警
+          （静态启发式，仅报告不 fail）。
+    2. 只新增 test/ 文件；若扫描发现现有违规，记录到报告不修改
+       （产品代码已在前序批次优化，预期 0 或极少违规）。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/perf_gates_test.dart test/spacing_tokens_gate_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/perf-gates.md（门禁设计 + 扫描结果
+       + 豁免清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/perf-gates.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/perf_gates_test.dart test/spacing_tokens_gate_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

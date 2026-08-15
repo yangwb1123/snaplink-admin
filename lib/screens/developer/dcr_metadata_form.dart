@@ -76,6 +76,19 @@ class DcrMetadataForm extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildApplicationSection(context),
+        _buildOAuthSection(context, grantOptions, authOptions),
+        _buildPolicySection(context),
+        _buildExpertSection(context),
+      ],
+    );
+  }
+
+  /// Application 段：名称、重定向、scopes。
+  Widget _buildApplicationSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         _sectionTitle(context, Icons.apps, 'Application'),
         TextField(
           controller: controller.clientName,
@@ -106,6 +119,19 @@ class DcrMetadataForm extends StatelessWidget {
                 : null,
           ),
         ),
+      ],
+    );
+  }
+
+  /// OAuth protocol 段：grant/response types、认证方式、token 策略、PKCE。
+  Widget _buildOAuthSection(
+    BuildContext context,
+    List<String> grantOptions,
+    List<String> authOptions,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const SizedBox(height: 24),
         _sectionTitle(context, Icons.lock_outline, 'OAuth protocol'),
         Text(
@@ -185,7 +211,9 @@ class DcrMetadataForm extends StatelessWidget {
           key: ValueKey('strategy-${controller.tokenStrategy}'),
           isExpanded: true,
           initialValue: controller.tokenStrategy,
-          decoration: InputDecoration(labelText: context.tr('Token strategy')),
+          decoration: InputDecoration(
+            labelText: context.tr('Token strategy'),
+          ),
           items: const [
             DropdownMenuItem(value: 'jwt', child: Text('jwt')),
             DropdownMenuItem(value: 'session', child: Text('session')),
@@ -217,6 +245,15 @@ class DcrMetadataForm extends StatelessWidget {
                   onChanged();
                 },
         ),
+      ],
+    );
+  }
+
+  /// Application policy 段：登出重定向、认证器、资源、联系人、租户。
+  Widget _buildPolicySection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const SizedBox(height: 16),
         _sectionTitle(context, Icons.policy_outlined, 'Application policy'),
         _lineField(
@@ -238,7 +275,10 @@ class DcrMetadataForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _lineField(controller.contacts, context.tr('Contacts (one per line)')),
+        _lineField(
+          controller.contacts,
+          context.tr('Contacts (one per line)'),
+        ),
         const SizedBox(height: 16),
         TextField(
           controller: controller.tenantId,
@@ -259,6 +299,15 @@ class DcrMetadataForm extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  /// Expert JSON 段：附加元数据原始字段。
+  Widget _buildExpertSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         const SizedBox(height: 24),
         _sectionTitle(context, Icons.code, 'Expert JSON'),
         TextField(

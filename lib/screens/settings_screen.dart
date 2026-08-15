@@ -83,100 +83,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final strings = AppStrings.of(context);
     return Scaffold(
       appBar: AppBar(title: Text(strings.settings)),
-      body: ListenableBuilder(
-        listenable: AppSettings.instance,
-        builder: (context, _) => ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // ── 偏好分组：紧凑 form 行 ──
-            SettingsGroup(
-              children: [
-                SettingsFormItem(
-                  icon: Icons.translate,
-                  iconColor: const Color(0xFF0EA5E9), // sky
-                  label: strings.language,
-                  control: const LanguageDropdown(),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // ── 偏好分组：紧凑 form 行 ──
+          SettingsGroup(
+            children: [
+              SettingsFormItem(
+                icon: Icons.translate,
+                iconColor: const Color(0xFF0EA5E9), // sky
+                label: strings.language,
+                control: _SettingsReactive(builder: (_) => LanguageDropdown()),
+              ),
+              SettingsFormItem(
+                icon: Icons.palette_outlined,
+                iconColor: const Color(0xFF7C6FF0), // indigo-violet
+                label: strings.theme,
+                description: strings.translate(
+                  'Appearance follows the system or your explicit choice.',
                 ),
-                SettingsFormItem(
-                  icon: Icons.palette_outlined,
-                  iconColor: const Color(0xFF7C6FF0), // indigo-violet
-                  label: strings.theme,
-                  description: strings.translate(
-                    'Appearance follows the system or your explicit choice.',
-                  ),
-                  control: SettingsThemePicker(strings: strings),
+                control: _SettingsReactive(
+                  builder: (_) => SettingsThemePicker(strings: strings),
                 ),
-                SettingsFormItem(
-                  icon: Icons.view_sidebar_outlined,
-                  iconColor: const Color(0xFF10B981), // emerald
-                  label: strings.adminNavMode,
-                  description: strings.translate(
-                    'Standard shows Overview, Clients, and Users. Professional '
-                    'shows every module enabled by your server.',
-                  ),
-                  control: _AdminNavModeSwitch(),
+              ),
+              SettingsFormItem(
+                icon: Icons.view_sidebar_outlined,
+                iconColor: const Color(0xFF10B981), // emerald
+                label: strings.adminNavMode,
+                description: strings.translate(
+                  'Standard shows Overview, Clients, and Users. Professional '
+                  'shows every module enabled by your server.',
                 ),
-              ],
+                control: _SettingsReactive(builder: (_) => _AdminNavModeSwitch()),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
+          // 用 amber 图标 + 行内表单突出。 ──
+          _buildServiceGroup(strings),
+          // 保存按钮跟随 SSO 行（web 禁用）。
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: kIsWeb ? null : _saveBaseUrl,
+              child: Text(strings.save),
             ),
-            const SizedBox(height: 16),
-            // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
-            // 用 amber 图标 + 行内表单突出。 ──
-            SettingsGroup(
-              children: [
-                SettingsFormItem(
-                  icon: Icons.dns_outlined,
-                  iconColor: const Color(0xFFF59E0B), // amber（高风险强调）
-                  label: strings.ssoBaseUrl,
-                  description: strings.translate(
-                    'Server endpoint used for OIDC and API calls. Changing it '
-                    'discards the current session.',
-                  ),
-                  control: SizedBox(
-                    width: 320,
-                    child: Form(
-                      key: _baseUrlFormKey,
-                      child: TextFormField(
-                        controller: _baseUrlController,
-                        enabled: !kIsWeb,
-                        keyboardType: TextInputType.url,
-                        autovalidateMode: AutovalidateMode.onUserInteraction,
-                        decoration: InputDecoration(
-                          helperText: strings.ssoBaseUrlHint,
-                        ),
-                        validator: _validateBaseUrl,
-                      ),
-                    ),
-                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 服务分组：SSO 基址（换源会丢弃会话）与只读时区展示。
+  /// 拆出后 build 只负责偏好分组与页面骨架。
+  Widget _buildServiceGroup(AppStrings strings) {
+    return SettingsGroup(
+      children: [
+        SettingsFormItem(
+          icon: Icons.dns_outlined,
+          iconColor: const Color(0xFFF59E0B), // amber（高风险强调）
+          label: strings.ssoBaseUrl,
+          description: strings.translate(
+            'Server endpoint used for OIDC and API calls. Changing it '
+            'discards the current session.',
+          ),
+          control: SizedBox(
+            width: 320,
+            child: Form(
+              key: _baseUrlFormKey,
+              child: TextFormField(
+                controller: _baseUrlController,
+                enabled: !kIsWeb,
+                keyboardType: TextInputType.url,
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                decoration: InputDecoration(
+                  helperText: strings.ssoBaseUrlHint,
                 ),
-                SettingsFormItem(
-                  icon: Icons.schedule_outlined,
-                  iconColor: const Color(0xFF64748B), // slate
-                  label: strings.timezone,
-                  description: strings.translate(
-                    'Current local timezone of this device.',
-                  ),
-                  control: Text(DateTime.now().timeZoneName),
-                ),
-              ],
-            ),
-            // 保存按钮跟随 SSO 行（web 禁用）。
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: kIsWeb ? null : _saveBaseUrl,
-                child: Text(strings.save),
+                validator: _validateBaseUrl,
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        SettingsFormItem(
+          icon: Icons.schedule_outlined,
+          iconColor: const Color(0xFF64748B), // slate
+          label: strings.timezone,
+          description: strings.translate(
+            'Current local timezone of this device.',
+          ),
+          control: Text(DateTime.now().timeZoneName),
+        ),
+      ],
     );
   }
 }
 
 /// 管理导航模式：Switch（开启 = 专业模式，显示全部能力模块）。
 class _AdminNavModeSwitch extends StatelessWidget {
+  const _AdminNavModeSwitch();
+
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
@@ -194,4 +201,23 @@ class _AdminNavModeSwitch extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 让子控件在 [AppSettings] 变化时单独重建——只有真正读取设置值的控件
+/// （语言/主题/导航模式）订阅，静态行（SSO 表单、时区、保存按钮）不再
+/// 因任何设置变更整页重建。
+///
+/// child 经 [WidgetBuilder] 在 builder 内新建：直接传入 child 字段会让
+/// ListenableBuilder 每次通知后返回同一个 widget 实例，命中 Flutter 的
+/// identical 快速路径导致子树不重建（T11 回归点）。
+class _SettingsReactive extends StatelessWidget {
+  const _SettingsReactive({required this.builder});
+
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: AppSettings.instance,
+    builder: (context, _) => builder(context),
+  );
 }
