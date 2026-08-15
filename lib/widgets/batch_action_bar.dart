@@ -52,11 +52,22 @@ class BatchActionBar extends StatelessWidget {
     final accentColor = accent ?? theme.colorScheme.primary;
 
     // 栏内容（计数 + 动作 + 退出选择）构建一次，宽/窄屏共用。
+    // 进行中（isLoading）：按钮与退出禁用 + 行内进度指示（复用 'Running' key）。
     final leading = [
-      Icon(Icons.checklist, size: 20, color: accentColor),
+      if (isLoading) ...[
+        const SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        const SizedBox(width: 8),
+      ] else
+        Icon(Icons.checklist, size: 20, color: accentColor),
       const SizedBox(width: 8),
       Text(
-        context.tr('{count} selected', {'count': selectedCount}),
+        isLoading
+            ? context.tr('Running')
+            : context.tr('{count} selected', {'count': selectedCount}),
         style: theme.textTheme.titleSmall,
       ),
     ];

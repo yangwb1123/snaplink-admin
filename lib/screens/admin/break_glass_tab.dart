@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -151,10 +152,8 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       if (!mounted) return;
       _targetCtrl.clear();
       _reasonCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Break-glass session created.')),
-      );
-      if (mounted) AdminRoute.go('emergency-access');
+      showAppSnackBar(context, content: LocalizedText('Break-glass session created.'));
+      if (mounted) AdminRoute.back('emergency-access');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _actionError = e.toString());
@@ -184,9 +183,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     try {
       await widget.api.post('$_basePath/${Uri.encodeComponent(id)}/approve');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Break-glass approved.')),
-      );
+      showAppSnackBar(context, content: LocalizedText('Break-glass approved.'));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _actionError = e.toString());
@@ -214,11 +211,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         '$_basePath/${Uri.encodeComponent(id)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(BreakGlassRevocationCopy.result(response)),
-        ),
-      );
+      showAppSnackBar(context, content: LocalizedText(BreakGlassRevocationCopy.result(response)));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _actionError = e.toString());
@@ -329,6 +322,18 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const LocalizedText(
+            'Requests are time-bound and reason-required; every request and session is recorded.',
+          ),
+        ),
+        const SizedBox(height: 12),
         BreakGlassRequestCard(
           targetController: _targetCtrl,
           reasonController: _reasonCtrl,

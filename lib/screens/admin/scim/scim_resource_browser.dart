@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
@@ -256,9 +257,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     try {
       await operation();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
       await _load(startIndex: resetToFirst ? 1 : _page?.startIndex);
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));

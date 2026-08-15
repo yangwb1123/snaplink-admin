@@ -3,6 +3,8 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/info_row.dart';
 import 'package:sso_admin/widgets/section_header.dart';
@@ -111,7 +113,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       leading: IconButton(
         tooltip: 'Back'.localized,
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => AdminRoute.go('emergency-access'),
+        onPressed: () => AdminRoute.back('emergency-access'),
       ),
     ),
     body: _loading
@@ -176,8 +178,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
           LocalizedText(
             'ID: {id}',
             args: {'id': widget.sessionId},
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            style: dataEmphasisStyle(
+              DataEmphasisLevel.secondary,
+              Theme.of(context),
             ),
           ),
           const Divider(),
@@ -239,7 +242,11 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
                   icon: const Icon(Icons.close),
                   label: const LocalizedText('Reject'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.danger,
+                    // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                    foregroundColor: AppColors.semanticFor(
+                      Theme.of(context).brightness,
+                      AppColors.danger,
+                    ),
                   ),
                 ),
               ),
@@ -291,15 +298,11 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
         {},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Approved')));
+      showAppSnackBar(context, content: LocalizedText('Approved'));
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -322,17 +325,11 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
         '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(BreakGlassRevocationCopy.result(response)),
-        ),
-      );
+      showAppSnackBar(context, content: LocalizedText(BreakGlassRevocationCopy.result(response)));
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

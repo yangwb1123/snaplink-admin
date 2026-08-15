@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -87,7 +88,7 @@ class DeviceListPanel extends StatelessWidget {
                 id: 'avatar',
                 label: '',
                 width: 56,
-                builder: (_, i) => _deviceAvatar(devices[i]),
+                builder: (_, i) => _deviceAvatar(context, devices[i]),
               ),
               AdminDataColumn(
                 id: 'device',
@@ -153,13 +154,18 @@ class DeviceListPanel extends StatelessWidget {
     ),
   );
 
-  Widget _deviceAvatar(DeviceJson device) {
+  Widget _deviceAvatar(BuildContext context, DeviceJson device) {
     final suspicious = device['suspicious'] == true;
     return CircleAvatar(
       backgroundColor: suspicious
           ? AppColors.danger.withValues(alpha: 0.12)
           : AppColors.accentBlue.withValues(alpha: 0.12),
-      foregroundColor: suspicious ? AppColors.danger : AppColors.accentBlue,
+      // R29：dark 下提亮（danger 2.26 / accentBlue 2.83 → 5.29-5.75 ≥AA
+      // 非文本），浅色恒等。
+      foregroundColor: AppColors.semanticFor(
+        Theme.of(context).brightness,
+        suspicious ? AppColors.danger : AppColors.accentBlue,
+      ),
       child: Icon(_deviceIcon(device['type']?.toString()), size: 18),
     );
   }
@@ -207,11 +213,18 @@ class DeviceListPanel extends StatelessWidget {
             ),
           ),
         if (onRevoke != null)
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'revoke',
             child: ListTile(
-              leading: Icon(Icons.phonelink_erase, color: AppColors.danger),
-              title: LocalizedText('Revoke device'),
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              leading: Icon(
+                Icons.phonelink_erase,
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
+              title: const LocalizedText('Revoke device'),
               contentPadding: EdgeInsets.zero,
             ),
           ),
@@ -336,7 +349,7 @@ class _TrustChip extends StatelessWidget {
     final score = deviceTrustScore(device);
     final label = device['trust_label']?.toString().trim().isNotEmpty == true
         ? device['trust_label'].toString()
-        : '${(score * 100).round()}%';
+        : formatPercent(score * 100);
     final color = score < 0.3
         ? AppColors.danger
         : score < 0.6
@@ -355,9 +368,4 @@ IconData _deviceIcon(String? type) => switch (type) {
   _ => Icons.devices_other,
 };
 
-String _readableTime(Object? value) {
-  final text = value?.toString() ?? '';
-  final parsed = DateTime.tryParse(text);
-  return parsed?.toLocal().toString().split('.').first ??
-      (text.isEmpty ? 'Unknown time' : text);
-}
+String _readableTime(Object? value) => formatLocalTime(value);

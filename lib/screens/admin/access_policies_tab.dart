@@ -235,7 +235,8 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
             child: EmptyState(
               compact: true,
               title: 'No access policies',
-              subtitle: 'No access policies configured for this server.',
+              subtitle:
+                  'Policies are configured server-side; this page applies them to active sessions.',
             ),
           ),
         if (!_loading && _error == null && _policies.isNotEmpty)

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
+import 'package:sso_admin/widgets/tight_dropdown.dart';
 
 /// 租户筛选行：搜索 + 状态筛选 + 排序 + 每页条数（纯受控组件）。
 ///
 /// 从 tenants_tab 拆出：状态（控制器/筛选值/排序/条数）与刷新回调由页面
 /// 持有，本组件只负责渲染与回调转发，保持原 API 契约与 i18n 语义不变。
+/// R29：排序/条数下拉改用 [TightDropdownButton]（字体缩放下不溢出）。
 class TenantsFilterBar extends StatelessWidget {
   final TextEditingController controller;
   final String statusFilter;
@@ -72,27 +74,17 @@ class TenantsFilterBar extends StatelessWidget {
             },
             onChanged: onStatusChanged,
           ),
-          DropdownButton<String>(
+          TightDropdownButton<String>(
             value: orderBy,
-            items: [
-              for (final (value, label) in _orderOptions)
-                DropdownMenuItem(value: value, child: LocalizedText(label)),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              onOrderChanged(value);
-            },
+            options: [for (final (value, label) in _orderOptions) (value, label)],
+            maxWidth: 240,
+            onChanged: onOrderChanged,
           ),
-          DropdownButton<int>(
+          TightDropdownButton<int>(
             value: pageSize,
-            items: [
-              for (final (size, label) in _sizeOptions)
-                DropdownMenuItem(value: size, child: LocalizedText(label)),
-            ],
-            onChanged: (value) {
-              if (value == null) return;
-              onPageSizeChanged(value);
-            },
+            options: [for (final (size, label) in _sizeOptions) (size, label)],
+            maxWidth: 160,
+            onChanged: onPageSizeChanged,
           ),
         ],
       ),

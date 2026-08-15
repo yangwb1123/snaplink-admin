@@ -1,3 +1,5 @@
+import 'package:sso_admin/widgets/format_helpers.dart';
+
 /// Normalizes the tenant-metering wire shape across Snaplink versions.
 ///
 /// Current Snaplink source returns `metering.TenantUsage` directly. That Go
@@ -48,7 +50,7 @@ String formatUsageMetricSummary(Map<dynamic, dynamic> tenant) {
   ];
   return fields
       .where((field) => tenant[field.$1] != null)
-      .map((field) => '${tenant[field.$1]} ${field.$2}')
+      .map((field) => '${formatCount(tenant[field.$1])} ${field.$2}')
       .join(' · ');
 }
 

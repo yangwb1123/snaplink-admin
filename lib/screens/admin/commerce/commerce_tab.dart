@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import '../admin_module_groups.dart';
@@ -17,9 +18,9 @@ import 'commerce_models.dart';
 import 'commerce_money_dialogs.dart';
 import 'commerce_panels.dart';
 import 'commerce_plan_dialog.dart';
+import 'commerce_selector.dart';
 import 'commerce_subscription_dialogs.dart';
 import 'commerce_wallet_panel.dart';
-
 part 'commerce_checkout_flow.dart';
 
 class CommerceTab extends StatefulWidget {
@@ -303,7 +304,7 @@ class _CommerceTabState extends State<CommerceTab> {
     try {
       await action();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
       if (reloadPlans) await _loadPlans();
       if (_tenantLoaded) await _loadTenant();
     } catch (error) {

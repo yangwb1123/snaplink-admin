@@ -5,11 +5,11 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
-import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -120,12 +120,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       final retirement =
           (response['key'] as Map?)?['retirement_status']?.toString() ??
           'not reported';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      showAppSnackBar(
+        context,
         content: LocalizedText(
           'Key marked as compromised. Source retirement: {retirement}.',
           args: {'retirement': retirement},
         ),
-      ));
+      );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -150,12 +151,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       if (!mounted) return;
       final keyClass = response['key_class']?.toString() ?? 'unknown';
       final rollout = response['rollout_state']?.toString() ?? 'unknown';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      showAppSnackBar(
+        context,
         content: LocalizedText(
           'Rotation completed for {keyClass}. Rollout: {rollout}.',
           args: {'keyClass': keyClass, 'rollout': rollout},
         ),
-      ));
+      );
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -247,9 +249,15 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             child: SkeletonListTile(itemCount: 3),
           ),
         if (!_loading && _error == null && _keys.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: EmptyState(compact: true, title: 'No keys found.'),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: EmptyState(
+              compact: true,
+              title: 'No keys found.',
+              subtitle:
+                  'Signing keys are generated server-side; rotate from the header to start a new generation.'
+                      .localized,
+            ),
           ),
         if (!_loading && _error == null && _keys.isNotEmpty)
           _keysCard(context),
@@ -279,7 +287,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
               columns: [
                 AdminDataColumn(
                   id: 'id', label: 'Key ID'.localized, width: 200, cardPrimary: true,
-                  builder: (_, i) => TableCellText(_value(i, ['id', 'kid']), level: DataEmphasisLevel.primary),
+                  builder: (_, i) => CopyableCell(text: _value(i, ['id', 'kid']), contextProvider: () => context),
                 ),
                 AdminDataColumn(
                   id: 'keyClass', label: 'Key class'.localized, cardDetail: true,
@@ -307,7 +315,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
                     }
                     return TextButton(
                       onPressed: _mutating ? null : () => _compromise(id),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.semanticFor(
+                          Theme.of(context).brightness,
+                          AppColors.danger,
+                        ),
+                      ),
                       child: const LocalizedText('Compromise'),
                     );
                   },

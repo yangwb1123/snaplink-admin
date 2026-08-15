@@ -8,6 +8,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
@@ -233,9 +234,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
           : await widget.api.delete(path, body);
       if (!mounted) return null;
       setState(() => _data['lastWrite'] = _safe(result));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LocalizedText('{op} completed.', args: {'op': label})),
-      );
+      showAppSnackBar(context, content: LocalizedText('{op} completed.', args: {'op': label}));
       await _refresh();
       return null;
     } on SnaplinkAdminApiError catch (error) {

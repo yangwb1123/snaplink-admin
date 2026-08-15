@@ -3,6 +3,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/section_header.dart';
@@ -291,13 +292,9 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
           recoveryRecord(report['operation'])?['state']?.toString() ??
           'recorded';
       final tracked = operationId != null && operationId.isNotEmpty;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: tracked
+      showAppSnackBar(context, content: tracked
               ? LocalizedText('{message} Operation {operationId} is {operationState}.', args: {'message': context.tr(success), 'operationId': operationId, 'operationState': operationState})
-              : LocalizedText(success),
-        ),
-      );
+              : LocalizedText(success));
       await _load();
       return true;
     } on SnaplinkAdminApiError catch (error) {

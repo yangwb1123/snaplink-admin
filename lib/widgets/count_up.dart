@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'format_helpers.dart';
 
 /// 数字滚动动画（count-up）：统计卡数值从 0 滚动到目标值（Stripe 质感）。
 ///
@@ -27,7 +28,9 @@ class CountUp extends StatelessWidget {
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutQuart,
       builder: (context, animated, _) => Text(
-        animated.toStringAsFixed(fractionDigits),
+        fractionDigits == 0
+            ? formatCount(animated)
+            : animated.toStringAsFixed(fractionDigits),
         style: style,
       ),
     );

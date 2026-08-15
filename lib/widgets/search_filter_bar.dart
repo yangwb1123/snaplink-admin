@@ -55,6 +55,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
   late final TextEditingController _searchCtrl =
       widget.controller ?? TextEditingController();
   late final bool _ownsController = widget.controller == null;
+
   /// 最近一次挂载的搜索框焦点（全局 Ctrl+F 快捷键定位用）。
   /// 页面同一时刻只渲染一个列表页 → 静态单例足够；dispose 时若仍指向
   /// 本节点则清空，避免悬空节点被 requestFocus。
@@ -81,6 +82,8 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
   }
 
   void _onSearchChanged(String value) {
+    // 清除按钮可见性跟随文本即时更新（不等待防抖窗口）。
+    setState(() {});
     if (!widget.debounce) {
       widget.onSearchChanged(value);
       return;
@@ -89,6 +92,16 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       widget.onSearchChanged(value);
     });
+  }
+
+  /// 清除按钮：取消挂起防抖 → 清空文本 → 同步提交空查询（与 Enter 提交
+  /// 同语义，见 [onSubmitted]），随后把焦点还给搜索框便于继续输入。
+  void _clearSearch() {
+    _debounceTimer?.cancel();
+    _searchCtrl.clear();
+    widget.onSearchChanged('');
+    widget.onSubmitted?.call('');
+    _searchFocusNode.requestFocus();
   }
 
   @override
@@ -114,6 +127,15 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                         ? context.tr(widget.hintText)
                         : null,
                     prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _searchCtrl.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.close, size: 18),
+                            tooltip: context.tr('Clear filter'),
+                            onPressed: _clearSearch,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                          ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),

@@ -112,7 +112,13 @@ class ConsentsCard extends StatelessWidget {
               width: 100,
               builder: (c, i) => TextButton(
                 onPressed: mutating ? null : () => onRevoke(consents[i]['client_id']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.semanticFor(
+                    Theme.of(c).brightness,
+                    AppColors.danger,
+                  ),
+                ),
                 child: const LocalizedText('Revoke'),
               ),
             ),
@@ -165,7 +171,13 @@ class MfaFactorsCard extends StatelessWidget {
               width: 110,
               builder: (c, i) => TextButton(
                 onPressed: mutating ? null : () => onRemove(factors[i]['id']?.toString() ?? ''),
-                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.semanticFor(
+                    Theme.of(c).brightness,
+                    AppColors.danger,
+                  ),
+                ),
                 child: const LocalizedText('Remove'),
               ),
             ),
@@ -198,6 +210,8 @@ class LifecycleCard extends StatelessWidget {
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
         initialValue: allowed.contains(nextState) ? nextState : null,
+        // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+        isExpanded: true,
         decoration: InputDecoration(labelText: 'Transition to'.localized),
         items: allowed.map((state) => DropdownMenuItem(value: state, child: Text(state))).toList(growable: false),
         onChanged: mutating ? null : onStateChanged,
@@ -325,10 +339,18 @@ class DangerAction {
   const DangerAction({required this.label, required this.confirmTitle, required this.confirmMessage, this.icon = Icons.warning_amber_outlined, required this.onConfirmed});
 
   Widget build(BuildContext context) {
+    // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+    final danger = AppColors.semanticFor(
+      Theme.of(context).brightness,
+      AppColors.danger,
+    );
     return OutlinedButton.icon(
       onPressed: onConfirmed,
       icon: Icon(icon, size: 18),
-      style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: danger,
+        side: BorderSide(color: danger),
+      ),
       label: LocalizedText(label),
     );
   }

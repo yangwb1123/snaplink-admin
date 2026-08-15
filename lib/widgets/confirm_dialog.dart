@@ -223,9 +223,18 @@ class DangerActionTile extends StatelessWidget {
             },
       icon: Icon(icon),
       label: Text(context.tr(label)),
+      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.danger,
-        side: const BorderSide(color: AppColors.danger),
+        foregroundColor: AppColors.semanticFor(
+          Theme.of(context).brightness,
+          AppColors.danger,
+        ),
+        side: BorderSide(
+          color: AppColors.semanticFor(
+            Theme.of(context).brightness,
+            AppColors.danger,
+          ),
+        ),
       ),
     );
   }

@@ -19,8 +19,11 @@ class SettingsThemePicker extends StatelessWidget {
       (ThemeMode.light, Icons.light_mode, strings.themeLight),
       (ThemeMode.dark, Icons.dark_mode, strings.themeDark),
     ];
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // R29 字体缩放：瓦片行改 Wrap——1.5x/2.0x 下三枚瓦片同排放不下时
+    // 自然换行（原 Row 溢出 73-163px），1x 桌面仍单行不变。
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
       children: [
         for (final (index, mode) in modes.indexed) ...[
           SettingsThemeOptionTile(

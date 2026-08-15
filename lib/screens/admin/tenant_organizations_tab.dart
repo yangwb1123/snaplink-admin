@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'org_members_card.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -237,11 +238,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       );
       if (!mounted) return;
       downloadTenantExport(export, tenantId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: LocalizedText('Tenant export download started.'),
-        ),
-      );
+      showAppSnackBar(context, content: LocalizedText('Tenant export download started.'));
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _actionError = error.toString());
     } finally {
@@ -262,9 +259,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       await request();
       clear?.clear();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _actionError = error.toString());
@@ -336,7 +331,13 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
           const SizedBox(height: 12),
           LocalizedText(
             _actionError!,
-            style: const TextStyle(color: AppColors.danger),
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            style: TextStyle(
+              color: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
+            ),
           ),
         ],
         if (_loadError != null) ...[

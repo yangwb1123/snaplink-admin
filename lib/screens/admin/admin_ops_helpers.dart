@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
@@ -151,11 +152,7 @@ class AdminOpsHelpers {
       export,
       fallbackFilename: 'snaplink-subject-export.json',
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: LocalizedText('Subject export downloaded without previewing it.'),
-      ),
-    );
+    showAppSnackBar(context, content: LocalizedText('Subject export downloaded without previewing it.'));
   }
 
   /// 响应文本：JSON（缩进）或原始文档；供面板与复制共用。

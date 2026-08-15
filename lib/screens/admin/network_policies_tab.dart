@@ -7,6 +7,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
@@ -175,9 +176,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
     try {
       await operation();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -223,6 +222,8 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
           useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
           emptyTitle: 'No network policies',
           emptySubtitle: 'Unclassified requests use the deployment defaults.',
+          emptyActionLabel: 'Add policy',
+          onEmptyAction: _edit,
           dataBuilder: (policies) => _policiesCard(context, policies),
         ),
         _classifierCard(context),

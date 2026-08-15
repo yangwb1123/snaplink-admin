@@ -323,12 +323,14 @@ class RecoveryReleasesCard extends StatelessWidget {
               subtitle: Text(releaseSummary(current!)),
             ),
           if (releases.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
               child: EmptyState(
                 variant: EmptyStateVariant.empty,
                 title: 'No registered releases.',
                 compact: true,
+                actionLabel: canRegister ? 'Register release' : null,
+                onAction: canRegister ? onRegister : null,
               ),
             ),
           if (releases.isNotEmpty)

@@ -6,7 +6,10 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/info_row.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -95,7 +98,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       leading: IconButton(
         tooltip: 'Back'.localized,
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => AdminRoute.go('connections'),
+        onPressed: () => AdminRoute.back('connections'),
       ),
     ),
     body: _loading
@@ -179,6 +182,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             label: 'Client ID',
             value: _conn?['client_id']?.toString() ?? '—',
             labelWidth: 100,
+            level: DataEmphasisLevel.secondary,
           ),
           InfoRow(
             label: 'Issuer',
@@ -228,7 +232,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
           const SizedBox(height: 8),
           InfoRow(
             label: 'Last checked',
-            value: _health?['last_checked']?.toString() ?? '—',
+            value: formatServerTime(_health?['last_checked']),
             labelWidth: 100,
           ),
           InfoRow(
@@ -272,19 +276,18 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       if (!mounted) return;
       final h = result as Map<String, dynamic>?;
       setState(() => _health = h);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            h?['healthy'] == true ? 'Connection healthy' : 'Probe failed',
-          ),
-        ),
+      final healthy = h?['healthy'] == true;
+      showAppSnackBar(
+        context,
+        content: LocalizedText(healthy ? 'Connection healthy' : 'Probe failed'),
+        kind: healthy ? AppSnackBarKind.success : AppSnackBarKind.error,
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: LocalizedText('Error: {detail}', args: {'detail': e}),
-          ),
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Error: {detail}', args: {'detail': e}),
+          kind: AppSnackBarKind.error,
         );
       }
     }

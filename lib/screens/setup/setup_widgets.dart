@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 import '../../i18n/app_strings.dart';
 import '../../widgets/pressable_scale.dart';
@@ -263,9 +264,7 @@ class SetupCredentialValue extends StatelessWidget {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(AppStrings.of(context).copiedLabel(label))));
+    showAppSnackBar(context, content: Text(AppStrings.of(context).copiedLabel(label)));
   }
 
   @override

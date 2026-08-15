@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -84,9 +85,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       if (mounted) Navigator.pop(context, true);
     } on SSOError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})));
+        showAppSnackBar(context, content: LocalizedText('Failed: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -120,7 +119,11 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
                 ),
                 TextFormField(
                   controller: _slugController,
-                  decoration: InputDecoration(labelText: 'Slug'.localized),
+                  decoration: InputDecoration(
+                    labelText: 'Slug'.localized,
+                    helperText: 'URL-safe identifier; immutable after creation.'
+                        .localized,
+                  ),
                 ),
                 TextFormField(
                   controller: _nameController,

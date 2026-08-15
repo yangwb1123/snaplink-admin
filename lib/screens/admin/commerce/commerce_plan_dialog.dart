@@ -161,7 +161,13 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     _error!,
-                    style: const TextStyle(color: AppColors.danger),
+                    // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                    style: TextStyle(
+                      color: AppColors.semanticFor(
+                        Theme.of(context).brightness,
+                        AppColors.danger,
+                      ),
+                    ),
                   ),
                 ),
             ],

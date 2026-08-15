@@ -295,3 +295,33 @@ class PortalErrorCard extends StatelessWidget {
     ),
   );
 }
+
+/// Brand-tinted rounded icon container for card leading glyphs.
+class PortalLeadingIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  const PortalLeadingIcon({super.key, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, size: 19, color: color),
+    );
+  }
+}
+
+/// Small in-button busy indicator, tinted to sit on the button surface.
+Widget portalSpinner(Color color) => SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        valueColor: AlwaysStoppedAnimation(color),
+      ),
+    );

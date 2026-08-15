@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 
 /// 表格内通用单元格文本。
@@ -85,20 +86,16 @@ class CopyableCell extends StatelessWidget {
       child: InkWell(
         onTap: () async {
           await Clipboard.setData(ClipboardData(text: text));
-          final messenger = ScaffoldMessenger.maybeOf(contextProvider());
-          if (messenger != null) {
-            messenger.showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppStrings.of(
-                    contextProvider(),
-                  ).translate('Copied to clipboard'),
-                ),
-                duration: const Duration(seconds: 1),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          }
+          if (ScaffoldMessenger.maybeOf(contextProvider()) == null) return;
+          showAppSnackBar(
+            contextProvider(),
+            content: Text(
+              AppStrings.of(
+                contextProvider(),
+              ).translate('Copied to clipboard'),
+            ),
+            duration: const Duration(seconds: 1),
+          );
         },
         borderRadius: BorderRadius.circular(8),
         child: Row(

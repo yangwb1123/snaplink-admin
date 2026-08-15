@@ -173,20 +173,20 @@ class _PanelState extends State<DistributedClusterPanel> {
     ],
   );
 
-  Widget _readyzWrap(Map<dynamic, dynamic> checks) => Wrap(
+  Widget _readyzWrap(BuildContext context, Map<dynamic, dynamic> checks) => Wrap(
     spacing: 6,
     runSpacing: 6,
     children: [
       for (final name in _distributedReadyzChecks)
-        _statusChip(name, checks[name]?.toString()),
+        _statusChip(context, name, checks[name]?.toString()),
     ],
   );
 
-  Widget _modulesWrap(Map<dynamic, dynamic> modules) => Wrap(
+  Widget _modulesWrap(BuildContext context, Map<dynamic, dynamic> modules) => Wrap(
     spacing: 8,
     runSpacing: 8,
     children: [
-      for (final e in modules.entries) _statusChip(e.key, e.value?.toString()),
+      for (final e in modules.entries) _statusChip(context, e.key, e.value?.toString()),
     ],
   );
 
@@ -263,12 +263,12 @@ class _PanelState extends State<DistributedClusterPanel> {
                   _t('Distributed control plane (etcd bus / key registry)'),
                 ),
                 const SizedBox(height: 8),
-                _readyzWrap(checks),
+                _readyzWrap(context, checks),
                 if (modules.isNotEmpty) ...[
                   const Divider(),
                   _row(_t('Backend Modules'), '${modules.length} module(s)'),
                   const SizedBox(height: 8),
-                  _modulesWrap(modules),
+                  _modulesWrap(context, modules),
                 ],
               ],
             ),
@@ -372,13 +372,18 @@ class _PanelState extends State<DistributedClusterPanel> {
     );
   }
 
-  Widget _statusChip(String name, String? value) {
+  Widget _statusChip(BuildContext context, String name, String? value) {
     final ok = value == 'ok';
+    // R29：dark 下 danger 提亮（2.26→5.29:1 ≥AA 非文本），浅色恒等。
+    final danger = AppColors.semanticFor(
+      Theme.of(context).brightness,
+      AppColors.danger,
+    );
     return Chip(
       avatar: Icon(
         ok ? Icons.check_circle : Icons.error,
         size: 16,
-        color: ok ? AppColors.success : AppColors.danger,
+        color: ok ? AppColors.success : danger,
       ),
       label: Text(name),
       visualDensity: VisualDensity.compact,

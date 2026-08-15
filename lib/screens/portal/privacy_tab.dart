@@ -196,7 +196,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _LeadingIcon(icon: Icons.file_download_outlined, color: accent),
+            PortalLeadingIcon(icon: Icons.file_download_outlined, color: accent),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -216,7 +216,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
           child: FilledButton.icon(
             onPressed: _export,
             icon: _exportBusy
-                ? _spinner(theme.colorScheme.onPrimary)
+                ? portalSpinner(theme.colorScheme.onPrimary)
                 : const Icon(Icons.file_download_outlined, size: 18),
             label: Text(context.tr('Export my data')),
           ),
@@ -239,9 +239,13 @@ class _PrivacyTabState extends State<PrivacyTab> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _LeadingIcon(
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            PortalLeadingIcon(
               icon: Icons.delete_forever_outlined,
-              color: AppColors.danger,
+              color: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -265,7 +269,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
               foregroundColor: AppColors.danger,
             ),
             icon: _previewBusy
-                ? _spinner(AppColors.danger)
+                ? portalSpinner(AppColors.danger)
                 : const Icon(Icons.visibility_outlined, size: 18),
             label: Text(context.tr('Preview deletion (dry run)')),
           ),
@@ -299,7 +303,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
               backgroundColor: AppColors.danger,
             ),
             icon: _eraseBusy
-                ? _spinner(theme.colorScheme.onPrimary)
+                ? portalSpinner(theme.colorScheme.onPrimary)
                 : const Icon(Icons.delete_forever_outlined, size: 18),
             label: Text(context.tr('Permanently delete my account')),
           ),
@@ -322,7 +326,15 @@ class _PrivacyTabState extends State<PrivacyTab> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, size: 16, color: AppColors.danger),
+          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+          Icon(
+            Icons.info_outline,
+            size: 16,
+            color: AppColors.semanticFor(
+              Theme.of(context).brightness,
+              AppColors.danger,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -330,7 +342,10 @@ class _PrivacyTabState extends State<PrivacyTab> {
                 'summary': _previewSummary!,
               }),
               style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.danger,
+                color: AppColors.semanticFor(
+                  theme.brightness,
+                  AppColors.danger,
+                ),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -363,32 +378,3 @@ class _PrivacyTabState extends State<PrivacyTab> {
   }
 }
 
-/// Brand-tinted rounded icon container for card leading glyphs.
-class _LeadingIcon extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  const _LeadingIcon({required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, size: 19, color: color),
-    );
-  }
-}
-
-/// Small in-button busy indicator, tinted to sit on the button surface.
-Widget _spinner(Color color) => SizedBox(
-      width: 16,
-      height: 16,
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        valueColor: AlwaysStoppedAnimation(color),
-      ),
-    );

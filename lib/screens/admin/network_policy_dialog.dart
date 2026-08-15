@@ -188,7 +188,10 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               TextFormField(
                 controller: _priorityCtrl,
                 keyboardType: TextInputType.number,
-                decoration: InputDecoration(labelText: 'Priority'.localized),
+                decoration: InputDecoration(
+                  labelText: 'Priority'.localized,
+                  helperText: 'Lower values are evaluated first.'.localized,
+                ),
                 validator: (value) => int.tryParse(value?.trim() ?? '') == null
                     ? context.tr('Enter an integer')
                     : null,
@@ -222,13 +225,20 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
                 style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 decoration: InputDecoration(
                   labelText: 'Metadata JSON'.localized,
+                  helperText: 'Must be a JSON object.'.localized,
                 ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 LocalizedText(
                   _error!,
-                  style: const TextStyle(color: AppColors.danger),
+                  // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                  style: TextStyle(
+                    color: AppColors.semanticFor(
+                      Theme.of(context).brightness,
+                      AppColors.danger,
+                    ),
+                  ),
                 ),
               ],
             ],

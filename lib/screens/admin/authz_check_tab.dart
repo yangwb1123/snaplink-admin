@@ -295,12 +295,18 @@ class _CheckCard extends StatelessWidget {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+          const Icon(Icons.error_outline, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: LocalizedText(
               message,
-              style: const TextStyle(color: AppColors.danger),
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           ),
           TextButton(

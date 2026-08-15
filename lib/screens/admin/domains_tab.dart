@@ -9,6 +9,7 @@ import 'package:sso_admin/services/event_bus.dart';
 import 'package:sso_admin/services/export_service.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
@@ -140,9 +141,7 @@ class _DomainsTabState extends State<DomainsTab> {
       await widget.api.post(_path, {'hostname': host});
       if (!mounted) return;
       _hostCtrl.clear();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Domain added.')));
+      showAppSnackBar(context, content: LocalizedText('Domain added.'));
       if (mounted) AdminRoute.go('domains');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -195,9 +194,7 @@ class _DomainsTabState extends State<DomainsTab> {
     try {
       await widget.api.delete('$_path/${Uri.encodeComponent(hostname)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Domain deleted.')));
+      showAppSnackBar(context, content: LocalizedText('Domain deleted.'));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -298,9 +295,9 @@ class _DomainsTabState extends State<DomainsTab> {
           id: 'id',
           label: 'ID',
           cardDetail: true,
-          builder: (_, i) => TableCellText(
-            _filteredDomains[i]['id']?.toString() ?? '',
-            muted: true,
+          builder: (_, i) => CopyableCell(
+            text: _filteredDomains[i]['id']?.toString() ?? '',
+            contextProvider: () => context,
           ),
         ),
         AdminDataColumn(
@@ -322,7 +319,11 @@ class _DomainsTabState extends State<DomainsTab> {
             return TextButton(
               onPressed: _mutating ? null : () => _delete(hostname),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.danger,
+                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                foregroundColor: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
               ),
               child: const LocalizedText('Delete'),
             );

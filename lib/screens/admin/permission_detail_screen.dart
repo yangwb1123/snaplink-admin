@@ -103,7 +103,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
         leading: IconButton(
           tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => AdminRoute.go('permissions'),
+          onPressed: () => AdminRoute.back('permissions'),
         ),
       ),
       body: _loading

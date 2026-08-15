@@ -6,6 +6,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
@@ -390,7 +391,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   Future<void> _copyResponse() async {
     await Clipboard.setData(ClipboardData(text: AdminOpsHelpers.responseText(_response, _rawResponse)));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Response copied to clipboard.')));
+      showAppSnackBar(context, content: LocalizedText('Response copied to clipboard.'));
     }
   }
 }

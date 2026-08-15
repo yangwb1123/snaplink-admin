@@ -112,9 +112,15 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
             onChanged: (value) => setState(() => _advanceBootstrap = value),
           ),
           if (_mode == 'replace')
-            const LocalizedText(
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            LocalizedText(
               'Replace mode removes operator-managed state before seeding the snapshot. The server requires the snapshot ID as confirmation.',
-              style: TextStyle(color: AppColors.danger),
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           if (!_dryRun)
             const LocalizedText(

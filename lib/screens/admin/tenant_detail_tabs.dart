@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
@@ -159,9 +160,9 @@ class TenantInvitationsTab extends StatelessWidget {
           label: 'EXPIRES',
           width: 200,
           builder: (context, i) => TableCellText(
-            rows[i]['expires_at']?.toString() ??
-                rows[i]['expiry']?.toString() ??
-                '—',
+            formatServerTime(
+              rows[i]['expires_at'] ?? rows[i]['expiry'],
+            ),
             muted: true,
           ),
         ),
@@ -282,7 +283,7 @@ class TenantUsageTab extends StatelessWidget {
                       id: 'value',
                       label: 'VALUE',
                       builder: (context, i) => TableCellText(
-                        usage[_keys[i]]?.toString() ?? '—',
+                        formatCount(usage[_keys[i]]),
                         muted: true,
                       ),
                     ),

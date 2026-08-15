@@ -1,0 +1,107 @@
+# 10 轮推进（第三轮）— R26-R30（通知反馈 / 数字格式 / 帮助引导 / 可访问性深化 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r26-r30.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r26-r30.log
+
+tasks:
+- prompt: |
+    轮次 R26：通知与反馈体系。步骤：
+    1. 扫描 lib/screens/ 的 SnackBar/ScaffoldMessenger 使用：
+       a. 成功/错误反馈：写操作后的 SnackBar 一致性（成功提示样式/
+          错误提示样式/时长）；
+       b. 内联 vs SnackBar：错误是内联展示还是 SnackBar——同类操作
+          的一致性；
+       c. 重复 SnackBar：快速操作时是否堆积（hideCurrentSnackBar）；
+       d. 无障碍：SnackBar 语义标签。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 反馈样式统一（成功/错误用色与图标约定）；
+       - 重复提示防堆积；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/settings_screen_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r26-feedback-system.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r26-feedback-system.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/settings_screen_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R27：数字与时间格式化。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的数字/时间展示：
+       a. 数字格式：大数（设备数/用量/金额）是否千分位（toString vs
+          千分位格式化）——不一致清单；
+       b. 时间格式：日期时间展示格式一致性（ISO 原样 vs 本地化格式
+          vs 相对时间）；'—' 占位使用；
+       c. 百分比/小数：比率展示精度一致性；
+       d. 格式化工具：是否集中（如 helpers）还是各页手写。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 千分位格式化统一（提取共享 helper，低风险替换）；
+       - 时间格式统一（保持时区语义：服务器时间原样 vs 本地化标注）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r27-formatting.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r27-formatting.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R28：帮助与引导。步骤：
+    1. 分析各页面的帮助与引导机制：
+       a. 表单辅助文本：InputDecoration helperText 覆盖（哪些表单
+          缺关键字段说明）；
+       b. Tooltip 帮助：图标按钮 tooltip 完整性（R9 已查，回查新增）；
+       c. 空态引导：空态是否带"如何开始"指引（创建入口）；
+       d. 首次使用：复杂页面（commerce/SCIM/break-glass）是否有简短
+          说明块。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 关键表单字段补 helperText（复用现有 key 或新增 EN/ZH）；
+       - 空态引导动作补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_dialogs_final_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r28-help-guidance.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r28-help-guidance.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_dialogs_final_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R29：可访问性深化（字体缩放/色盲安全）。步骤：
+    1. 检查（临时 widget 测试 + 静态分析，跑完删除）：
+       a. 字体缩放：textScaleFactor 1.5/2.0 下代表页布局（溢出/截断
+          ——登录、设置、表格页、对话框）；
+       b. 色盲安全：红绿组合（成功/危险状态并排处）是否除颜色外有
+          图标/文字辅助（StatusChip 有图标吗）；
+       c. 对比度：链接色/次要文本在亮暗模式对比度抽查。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 字体缩放溢出修复（maxLines/ellipsis/滚动）；
+       - 红绿状态补图标/文字（StatusChip 图标化）；
+       - 对比度不足调整；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/login_header_layout_test.dart test/settings_form_layout_test.dart
+       test/render_matrix_smoke_test.dart test/dark_mode_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r29-a11y-deep.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r29-a11y-deep.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_header_layout_test.dart test/settings_form_layout_test.dart test/render_matrix_smoke_test.dart test/dark_mode_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R30：综合终检（第三轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R21-R29 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 残留检查（test/zz_*、idget*、0 字节、临时文件）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r30-final-audit-3.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r30-final-audit-3.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

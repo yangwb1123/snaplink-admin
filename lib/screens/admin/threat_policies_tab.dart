@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
@@ -137,11 +138,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       final pathName = _editing && _editId != null ? _editId! : name;
       await widget.api.put('$_path/${Uri.encodeComponent(pathName)}', body);
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
-        SnackBar(content: LocalizedText(_editing ? 'Policy updated.' : 'Policy created.')),
-      );
+      showAppSnackBar(context, content: LocalizedText(_editing ? 'Policy updated.' : 'Policy created.'));
       if (mounted) AdminRoute.go('threat-policies');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -165,9 +162,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     try {
       await widget.api.delete('$_path/${Uri.encodeComponent(id)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Policy deleted.')));
+      showAppSnackBar(context, content: LocalizedText('Policy deleted.'));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -213,9 +208,14 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
             child: SkeletonListTile(itemCount: 3),
           ),
         if (!_loading && _error == null && _policies.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: EmptyState(compact: true, title: 'No threat policies configured.'),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: EmptyState(
+              compact: true,
+              title: 'No threat policies configured.',
+              actionLabel: 'Add policy',
+              onAction: () => AdminRoute.go('threat-policies', action: 'new'),
+            ),
           ),
         if (!_loading && _error == null && _policies.isNotEmpty)
           _policiesCard(context),
@@ -273,9 +273,9 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                 AdminDataColumn(
                   id: 'id',
                   label: 'ID'.localized,
-                  builder: (_, i) => TableCellText(
-                    policies[i]['id']?.toString() ?? '',
-                    muted: true,
+                  builder: (_, i) => CopyableCell(
+                    text: policies[i]['id']?.toString() ?? '',
+                    contextProvider: () => context,
                   ),
                 ),
                 AdminDataColumn(
@@ -294,7 +294,11 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                         ? null
                         : () => _delete(policies[i]['name']?.toString() ?? ''),
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.danger,
+                      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                      foregroundColor: AppColors.semanticFor(
+                        Theme.of(context).brightness,
+                        AppColors.danger,
+                      ),
                     ),
                     child: const LocalizedText('Delete'),
                   ),
@@ -363,7 +367,13 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           padding: const EdgeInsets.only(top: 8),
           child: LocalizedText(
             _error!,
-            style: const TextStyle(color: AppColors.danger),
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            style: TextStyle(
+              color: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
+            ),
           ),
         ),
     ],

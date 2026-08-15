@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 typedef DeviceAction = void Function(Map<String, dynamic> device);
@@ -48,7 +49,7 @@ class PhysicalDeviceCard extends StatelessWidget {
         device['last_ip'].toString(),
       if (device['last_seen_at']?.toString().isNotEmpty == true)
         context.tr('last seen {time}', {
-          'time': _shortTime(device['last_seen_at']),
+          'time': formatServerTime(device['last_seen_at']),
         }),
     ];
     return Card(
@@ -180,12 +181,6 @@ String _score(BuildContext context, Map<String, dynamic> device) {
   final value = device['trust_score'];
   if (value is num) return value.toStringAsFixed(2);
   return context.tr('Unknown');
-}
-
-String _shortTime(Object? value) {
-  final text = value?.toString() ?? '';
-  if (text.length <= 19) return text;
-  return text.substring(0, 19).replaceFirst('T', ' ');
 }
 
 IconData _deviceIcon(String? type) => switch (type) {

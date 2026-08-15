@@ -70,7 +70,10 @@ class AdminBreadcrumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final route = AdminRoute.fromUri(Uri.base);
+    // 当前路由取自 BrowserNavigation（web 与 document URL 同步；native
+    // 壳跟踪内存路由）。不用 Uri.base：native 下它恒为应用 bundle 地址，
+    // 导航后不更新，包屑会停留在初始空路由。
+    final route = AdminRoute.current();
     final theme = Theme.of(context);
     final crumbs = <Widget>[];
 
@@ -93,7 +96,7 @@ class AdminBreadcrumb extends StatelessWidget {
       crumbs.add(_separator(context));
     }
 
-    // Module link
+    // Module link（overrideModule 仅重命名本层级，不替换分组层）。
     if (route.module.isNotEmpty) {
       crumbs.add(
         TextButton(
@@ -105,7 +108,7 @@ class AdminBreadcrumb extends StatelessWidget {
             foregroundColor: theme.colorScheme.primary,
           ),
           child: LocalizedText(
-            _moduleLabel(route.module),
+            overrideModule ?? _moduleLabel(route.module),
             style: const TextStyle(fontSize: 13),
           ),
         ),
@@ -148,23 +151,6 @@ class AdminBreadcrumb extends StatelessWidget {
     for (final t in trailing) {
       crumbs.add(_separator(context));
       crumbs.add(_crumb(context, t, null, localized: true));
-    }
-
-    // Override module label
-    if (overrideModule != null && crumbs.isNotEmpty) {
-      crumbs[0] = TextButton(
-        onPressed: () => AdminRoute.go(route.module),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          foregroundColor: theme.colorScheme.primary,
-        ),
-        child: LocalizedText(
-          overrideModule!,
-          style: const TextStyle(fontSize: 13),
-        ),
-      );
     }
 
     return Padding(

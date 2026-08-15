@@ -248,6 +248,9 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final textStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    // R29：dark 下语义色提亮（accentBlue 2.83 / danger 2.26 → 5.29-5.75
+    // ≥AA 非文本），浅色恒等。
+    final effective = AppColors.semanticFor(theme.brightness, color);
     return HoverCard(
       child: Card(
         child: Padding(
@@ -258,8 +261,11 @@ class _StatusCard extends StatelessWidget {
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
-                child: Icon(icon, color: color, size: 22),
+                decoration: BoxDecoration(
+                  color: effective.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: effective, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -320,14 +326,26 @@ class _MethodChip extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: _color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
-    child: Text(
-      method,
-      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color),
-    ),
-  );
+  Widget build(BuildContext context) {
+    // R29：dark 下语义色提亮（danger 2.26 / accentBlue 2.83 / success
+    // 3.88 → 5.29-7.61 ≥AA 正文），浅色恒等。
+    final color = AppColors.semanticFor(Theme.of(context).brightness, _color);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        method,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
+    );
+  }
 }
 
 class _EndpointGroup {

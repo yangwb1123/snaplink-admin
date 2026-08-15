@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -53,6 +54,15 @@ class UserDetailHeader extends StatelessWidget {
               ],
             ),
           ),
+          // 状态徽章：仅在 API 返回 status 字段时展示（active/其他），与
+          // client/tenant/connection 详情头部同一位置约定（状态在头部右上）。
+          if (user?['status'] case final status?)
+            Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: status == 'active'
+                  ? StatusChip.active(label: context.tr('active'))
+                  : StatusChip.inactive(label: status),
+            ),
         ],
       ),
     ),
@@ -205,7 +215,13 @@ class UserConsentsView extends StatelessWidget {
             onPressed: mutating
                 ? null
                 : () => onRevoke(consents[i]['client_id']?.toString() ?? ''),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            style: TextButton.styleFrom(
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              foregroundColor: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
+            ),
             child: const LocalizedText('Revoke'),
           ),
         ),
@@ -274,7 +290,13 @@ class UserMfaView extends StatelessWidget {
             onPressed: mutating
                 ? null
                 : () => onRemove(factors[i]['id']?.toString() ?? ''),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            style: TextButton.styleFrom(
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              foregroundColor: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
+            ),
             child: const LocalizedText('Remove'),
           ),
         ),

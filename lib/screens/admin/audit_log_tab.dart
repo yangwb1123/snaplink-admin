@@ -11,9 +11,11 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -69,7 +71,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
   bool _notEnabled = false;
   int _generation = 0; // stale-response guard (FM-4)
   String _outcomeFilter = 'ALL'; // 'ALL' | 'success' | 'failure'
-  String _sortColumn = 'time';
+  String? _sortColumn = 'time';
   bool _sortAscending = false;
 
   @override
@@ -146,7 +148,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
             row.id.toLowerCase().contains(query),
       );
     }
-    _displayed = [...filtered]..sort(_compareRows);
+    final sorted = [...filtered];
+    if (_sortColumn != null) sorted.sort(_compareRows);
+    _displayed = _sortAscending ? sorted : sorted.reversed.toList();
   }
 
   int _compareRows(AuditEventRow a, AuditEventRow b) {
@@ -165,18 +169,21 @@ class _AuditLogTabState extends State<AuditLogTab> {
     }
   }
 
+  /// 列头排序三态：升序 → 降序 → 无（清除后保持服务端原始顺序）。
   void _onSort(String column) {
     setState(() {
-      final same = _sortColumn == column;
-      _sortColumn = column;
-      _sortAscending = same ? !_sortAscending : true;
+      if (_sortColumn == column && _sortAscending) {
+        _sortAscending = false;
+      } else {
+        _sortColumn = _sortColumn == column ? null : column; // 三态：第三次清排序
+        _sortAscending = true;
+      }
       _applyFilter();
     });
   }
 
   /// Export the filtered view as CSV (clipboard, cross-platform). Cells are
-  /// always-quoted; CR/LF normalized, quotes doubled, and OWASP formula-
-  /// injection prefixes (= + - @ tab CR + unicode lookalikes) defused (sec).
+  /// always-quoted; CR/LF normalized; OWASP formula-injection prefixes defused.
   Future<void> _exportCsv() async {
     final sb = StringBuffer(
       'timestamp,type,outcome,id,actor_id,client_id,tenant_id\n',
@@ -190,14 +197,10 @@ class _AuditLogTabState extends State<AuditLogTab> {
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
+      showAppSnackBar(context, content: LocalizedText(
             'Exported {n} entries as CSV to clipboard',
-            args: {'n': _displayed.length},
-          ),
-        ),
-      );
+            args: {'n': formatCount(_displayed.length)},
+          ));
     }
   }
 
@@ -253,7 +256,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
   List<Widget> _actions(BuildContext context) {
     final ringCount = _logService.count;
     return [
-      LocalizedText('{count} entries', args: {'count': _rows.length}),
+      LocalizedText('{count} entries', args: {'count': formatCount(_rows.length)}),
       if (_errorRate() > 0)
         StatusChip(
           label: context.tr('{n}% errors', {'n': _errorRate().round()}),
@@ -372,8 +375,8 @@ class _AuditLogTabState extends State<AuditLogTab> {
                 AdminDataColumn(id: 'time', label: 'TIME', width: 180, sortable: true, builder: (c, i) => TableCellText(_formatTime(_displayed[i].timestamp), muted: true)),
                 AdminDataColumn(id: 'type', label: 'EVENT', width: 220, sortable: true, builder: (c, i) => TableCellText(_displayed[i].type, bold: true)),
                 AdminDataColumn(id: 'outcome', label: 'OUTCOME', width: 160, sortable: true, builder: (c, i) => _outcomeCell(_displayed[i])),
-                AdminDataColumn(id: 'actor', label: 'ACTOR', width: 140, builder: (c, i) => TableCellText(_displayed[i].actorId.isEmpty ? '-' : _displayed[i].actorId)),
-                AdminDataColumn(id: 'tenant', label: 'TENANT', width: 140, builder: (c, i) => TableCellText(_displayed[i].tenantId.isEmpty ? '-' : _displayed[i].tenantId)),
+                AdminDataColumn(id: 'actor', label: 'ACTOR', width: 140, builder: (c, i) => _displayed[i].actorId.isEmpty ? const TableCellText('-') : CopyableCell(text: _displayed[i].actorId, contextProvider: () => c)),
+                AdminDataColumn(id: 'tenant', label: 'TENANT', width: 140, builder: (c, i) => _displayed[i].tenantId.isEmpty ? const TableCellText('-') : CopyableCell(text: _displayed[i].tenantId, contextProvider: () => c)),
               ],
               itemCount: _displayed.length,
               rowBuilder: (context, i) => const SizedBox.shrink(),

@@ -4,12 +4,15 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'device_bulk_revoke_dialog.dart';
+import 'device_security_activity_dialog.dart';
 import 'device_security_dashboard_widgets.dart';
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
@@ -242,9 +245,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       final result = await request();
       if (!mounted) return;
       final (key, args) = message(result);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(key, args: args)));
+      showAppSnackBar(context, content: LocalizedText(key, args: args));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -311,8 +312,8 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
               ? 'All devices ({total} total)'
               : 'Filtered devices ({shown} of {total})',
           titleArgs: _query.isEmpty
-              ? {'total': _fleetTotal}
-              : {'shown': _devices.length, 'total': _fleetTotal},
+              ? {'total': formatCount(_fleetTotal)}
+              : {'shown': formatCount(_devices.length), 'total': formatCount(_fleetTotal)},
           devices: _devices,
           actionsEnabled: !_mutating,
           onActivity: _showActivity,

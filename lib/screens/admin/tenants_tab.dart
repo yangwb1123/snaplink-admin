@@ -6,7 +6,9 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/batch_feedback.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
@@ -46,7 +48,7 @@ class _TenantsTabState extends State<TenantsTab>
   var _statusFilter = 'all';
   final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
-  String? _busyId;
+  String? _busyId; // 行级/批量状态切换进行中：非空即禁用（批量用 '' 哨兵）。
   var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
@@ -82,7 +84,7 @@ class _TenantsTabState extends State<TenantsTab>
     } catch (e) {
       debugPrint('tenants_tab edit error: $e');
     }
-    if (mounted) AdminRoute.go('tenants');
+    if (mounted) AdminRoute.back('tenants');
   }
 
   @override
@@ -141,23 +143,20 @@ class _TenantsTabState extends State<TenantsTab>
     if (ids.isEmpty) return;
     final suspending = next == 'suspended';
     final n = ids.length;
-    final confirmed = await ConfirmDialog.show(
-      context,
+    final confirmed = await ConfirmDialog.show(context,
       title: suspending
           ? context.tr('Suspend {n} tenants?', {'n': n})
           : context.tr('Activate {n} tenants?', {'n': n}),
-      message: context.tr(
-        suspending
-            ? 'This will suspend {n} selected tenants in one operation.'
-            : 'This will activate {n} selected tenants in one operation.',
-        {'n': n},
-      ),
+      message: suspending
+          ? context.tr('This will suspend {n} selected tenants in one operation.', {'n': n})
+          : context.tr('This will activate {n} selected tenants in one operation.', {'n': n}),
       confirmLabel: suspending
           ? context.tr('Suspend tenants')
           : context.tr('Activate tenants'),
       destructive: suspending,
     );
     if (!confirmed) return;
+    setState(() => _busyId = '');
     final results = await Future.wait(
       ids.map((id) async {
         try {
@@ -169,6 +168,7 @@ class _TenantsTabState extends State<TenantsTab>
       }),
     );
     if (!mounted) return;
+    setState(() => _busyId = null);
     final failures = results.whereType<String>().toList();
     final ok = results.length - failures.length;
     clearSelection();
@@ -182,7 +182,7 @@ class _TenantsTabState extends State<TenantsTab>
           : 'Activate: {ok} succeeded, {failed} failed. {detail}',
       {'ok': ok, 'total': n, 'failed': failures.length, 'detail': failures.take(3).join('; ')},
     );
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    showBatchResultSnackBar(context, message: message, failures: failures);
     _reload();
   }
 
@@ -190,6 +190,7 @@ class _TenantsTabState extends State<TenantsTab>
   Widget _batchBar() => TenantsBatchBar(
     selectedCount: selected.length,
     accent: _accent,
+    isLoading: _busyId != null,
     onSuspend: () => _batchSetStatus('suspended'),
     onActivate: () => _batchSetStatus('active'),
     onClearSelection: clearSelection,
@@ -225,14 +226,12 @@ class _TenantsTabState extends State<TenantsTab>
                 TenantLifecycleCopy.result(context.tr(successCopy), response),
               )
             : const LocalizedText('Tenant activated.');
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: content));
+        showAppSnackBar(context, content: content);
       }
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Failed: {e}', args: {'e': e})),
-        );
+        showAppSnackBar(context, content: LocalizedText('Failed: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
@@ -277,7 +276,7 @@ class _TenantsTabState extends State<TenantsTab>
     );
     if (saved == true) {
       _reload();
-      if (mounted) AdminRoute.go('tenants');
+      if (mounted) AdminRoute.back('tenants');
     }
   }
 
@@ -359,15 +358,14 @@ class _TenantsTabState extends State<TenantsTab>
       );
       return LayoutBuilder(
         builder: (context, constraints) {
-          final short = constraints.maxHeight < 380;
+          // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长）——文本放大时提前切整页滚动。
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          final short = constraints.maxHeight < 380 * scale;
           final content = Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               metrics,
-              if (short)
-                SizedBox(height: 280, child: list)
-              else
-                Expanded(child: list),
+              if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
               pagination,
             ],
           );

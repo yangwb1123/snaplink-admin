@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 /// Create/edit form for an [AdminClient]. Pass [existing] to edit; omit to create.
 class ClientFormDialog extends StatefulWidget {
@@ -147,9 +148,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
     } on SSOError catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
     }
   }
 
@@ -173,7 +172,10 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                   controller: _idController,
                   enabled: !widget.isEdit,
                   autofocus: !widget.isEdit,
-                  decoration: InputDecoration(labelText: 'ID'.localized),
+                  decoration: InputDecoration(
+                    labelText: 'ID'.localized,
+                    helperText: 'Immutable after creation.'.localized,
+                  ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
                 ),
@@ -230,6 +232,8 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
                   initialValue: _tokenStrategy,
+                  // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+                  isExpanded: true,
                   decoration: InputDecoration(
                     labelText: 'Token strategy'.localized,
                   ),

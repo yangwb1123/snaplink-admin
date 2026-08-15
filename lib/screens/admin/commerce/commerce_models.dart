@@ -1,3 +1,5 @@
+import 'package:sso_admin/widgets/format_helpers.dart';
+
 Map<String, dynamic>? commerceRecord(Map<String, dynamic> payload, String key) {
   final value = payload[key];
   if (value is! Map) return null;
@@ -19,7 +21,7 @@ List<Map<String, dynamic>> commerceRecords(
 String commerceMinorUnits(Map<String, dynamic>? money) {
   if (money == null) return '—';
   final currency = money['currency']?.toString() ?? '';
-  final amount = money['minor_units']?.toString() ?? '0';
+  final amount = formatCount(money['minor_units'], fallback: '0');
   return '$currency $amount minor units'.trim();
 }
 
@@ -28,7 +30,7 @@ String commerceGrant(Object? value) {
   if (value['unlimited'] == true) return 'Unlimited';
   final hard = value['hard'] ?? 0;
   final soft = value['soft'] ?? 0;
-  return 'Hard $hard · soft $soft';
+  return 'Hard ${formatCount(hard)} · soft ${formatCount(soft)}';
 }
 
 bool commerceSubscriptionIsLive(Map<String, dynamic> subscription) => const {

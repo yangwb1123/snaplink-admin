@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 
 /// 详情页统一信息行（label + value 两列）。
@@ -91,11 +92,10 @@ class InfoRow extends StatelessWidget {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: copyValue!));
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: LocalizedText('Copied to clipboard'),
-                    duration: Duration(seconds: 1),
-                  ),
+                showAppSnackBar(
+                  context,
+                  content: const LocalizedText('Copied to clipboard'),
+                  duration: const Duration(seconds: 1),
                 );
               },
             ),

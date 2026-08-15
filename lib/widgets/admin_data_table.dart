@@ -12,9 +12,7 @@ export 'admin_data_table/table_cells.dart' show TableCellText, CopyableCell;
 enum TableDensity { comfortable, compact }
 
 /// 管理后台数据表格（Stripe/Supabase 风格）：列对齐、点击表头排序、斑马纹、
-/// 行 hover（150ms 一次性底色过渡）、窄视口横向滚动；行/卡按序号交错入场。
-///
-/// 桌面管理后台的标志性元素——替代手机风格的 ListTile 列表。
+/// 行 hover、窄视口横向滚动；行/卡按序号交错入场（桌面后台标志性元素）。
 class AdminDataTable extends StatefulWidget {
   /// 列定义（宽于 640 时表格模式，否则自动降级卡片模式）。
   final List<AdminDataColumn> columns;
@@ -72,8 +70,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
   int? _hoveredRow;
 
   /// 列渲染宽度：显式 width 优先；空 label 列（复选框/操作列）保底 56，
-  /// 保证窄列下交互控件（icon button / popup menu）不被裁剪，且该列始终
-  /// 计入表格总宽 → 横向滚动一定可达（R6-a 操作列可达性）。
+  /// 保证窄列下交互控件不被裁剪且计入总宽（R6-a 操作列可达性）。
   double _columnWidth(AdminDataColumn c) =>
       math.max(c.width ?? 160, c.label.isEmpty ? 56 : 0);
 
@@ -82,8 +79,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
     final theme = Theme.of(context);
     final columnSum = widget.columns.fold<double>(0, (sum, c) => sum + _columnWidth(c)) +
         64;
-    // minWidth 小于列总宽时取列总宽：header/data Row 在 tight 宽度下会
-    // 溢出（表头 Row 溢出即此 bug 的渲染症状）。
+    // minWidth 小于列总宽时取列总宽：header/data Row 在 tight 宽度下会溢出。
     final tableWidth = math.max(widget.minWidth ?? 0, columnSum);
 
     // 卡片模式：父级可用宽度 < 640 且宽度有界（无界宽度 = 横向滚动容器内
@@ -101,8 +97,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
             clipBehavior: Clip.antiAlias,
             child: widget.scrollable
                 ? SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: _table(theme, tableWidth),
+                    scrollDirection: Axis.vertical, child: _table(theme, tableWidth),
                   )
                 : _table(theme, tableWidth),
           );
@@ -163,14 +158,14 @@ class _AdminDataTableState extends State<AdminDataTable> {
     ];
     if (widget.scrollable) {
       return SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Column(children: cards),
+        scrollDirection: Axis.vertical, child: Column(children: cards),
       );
     }
     return Column(children: cards);
   }
 
-  /// 排序条：可排序列 → ChoiceChip（仅 onSort != null 时渲染）。
+  /// 排序条：可排序列 → ChoiceChip（仅 onSort != null 时渲染）；选中列
+  /// 追加方向箭头，与表头排序指示同源（升/降/无三态）。
   Widget _sortBar(ThemeData theme) {
     final sortable = widget.columns
         .where((c) => c.sortable && widget.onSort != null)
@@ -183,7 +178,11 @@ class _AdminDataTableState extends State<AdminDataTable> {
         children: [
           for (final column in sortable) ...[
             ChoiceChip(
-              label: Text(column.label, style: const TextStyle(fontSize: 12)),
+              label: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(column.label, style: const TextStyle(fontSize: 12)),
+                if (widget.sortColumn == column.id)
+                  Icon(widget.sortAscending ? Icons.arrow_upward : Icons.arrow_downward, size: 12),
+              ]),
               selected: widget.sortColumn == column.id,
               onSelected: (_) => widget.onSort!(column.id),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,

@@ -199,6 +199,13 @@ class AdminRoute {
     BrowserNavigation.pushState(path);
   }
 
+  /// In-app back: pop one product-history entry when one exists (returns
+  /// to the page the user came from, no duplicate history entries); for a
+  /// deep link with no previous entry, fall back to [module]'s list page.
+  static void back(String module) {
+    if (!BrowserNavigation.back()) go(module);
+  }
+
   @override
   String toString() =>
       'AdminRoute($module, $resourceId, $action, $subresource, $subaction)';

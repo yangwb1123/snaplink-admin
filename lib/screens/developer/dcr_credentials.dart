@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 
 class SensitiveTokenField extends StatefulWidget {
@@ -150,13 +151,9 @@ Future<void> copyDcrValue(
   if (value.isEmpty) return;
   await Clipboard.setData(ClipboardData(text: value));
   if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(
+  showAppSnackBar(context, content: Text(
         context.tr('{label} copied.', {'label': context.tr(label)}),
-      ),
-    ),
-  );
+      ));
 }
 
 class OneTimeRegistrationCredentials extends StatefulWidget {

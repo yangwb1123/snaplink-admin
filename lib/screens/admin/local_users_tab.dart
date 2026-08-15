@@ -5,8 +5,10 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/batch_feedback.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -35,7 +37,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
   List<Map<String, dynamic>> _users = const [];
   String? _error;
   int _page = 1, _total = 0;
-  bool _loading = false, _mutating = false;
+  bool _loading = false, _mutating = false; // 含批量删除进行中（禁按钮 + 进度）。
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('local-users');
   bool get _available =>
@@ -83,9 +85,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         await widget.api.put('$_basePath/${Uri.encodeComponent(id)}', draft.updateBody);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: LocalizedText(existing == null ? 'Local user created.' : 'Local user updated.'),
-      ));
+      showAppSnackBar(context, content: LocalizedText(existing == null ? 'Local user created.' : 'Local user updated.'));
       await _load(page: existing == null ? 1 : _page);
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -94,18 +94,18 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     }
   }
 
-  /// 批量删除：确认影响数量 → 并行执行 → 明细报告（i18n 键 + args）。
+  /// 批量删除：确认 → 并行执行 → 明细报告；进行中 _mutating 禁按钮（防重复提交）。
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
-    final confirmed = await ConfirmDialog.show(
-      context,
+    final confirmed = await ConfirmDialog.show(context,
       title: context.tr('Delete {n} local users?', {'n': ids.length}),
       message: context.tr('This will delete {n} selected local users and their password credentials. This cannot be undone.', {'n': ids.length}),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
+    setState(() => _mutating = true);
     final results = await Future.wait(ids.map((id) async {
       try {
         await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
@@ -114,19 +114,18 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         return '$id: $e';
       }
     }));
+    if (!mounted) return;
+    setState(() => _mutating = false);
     final failures = results.whereType<String>().toList();
     final ok = ids.length - failures.length;
-    if (!mounted) return;
     clearSelection();
     final message = failures.isEmpty
         ? context.tr('Deleted {n} of {total} local users.', {'n': ok, 'total': ids.length})
-        : context.tr('{action}: {n} succeeded, {failed} failed. {details}',
-            {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+    showBatchResultSnackBar(context, message: message, failures: failures);
     await _load();
   }
 
-  /// 批量操作栏：已选数量 + 批量删除 + 退出选择（共享 BatchActionBar）。
   Widget _batchBar(BuildContext context) => BatchActionBar(
     selectedCount: selected.length, accent: _accent, isLoading: _mutating,
     actions: [BatchAction(label: 'Delete', icon: Icons.delete_outline, destructive: true, onPressed: _batchDelete)],
@@ -150,7 +149,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     try {
       await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Local user deleted.')));
+      showAppSnackBar(context, content: LocalizedText('Local user deleted.'));
       final nextPage = _users.length == 1 && _page > 1 ? _page - 1 : _page;
       await _load(page: nextPage);
     } on SnaplinkAdminApiError catch (error) {

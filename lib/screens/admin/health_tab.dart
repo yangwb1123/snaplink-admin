@@ -5,8 +5,10 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
@@ -271,7 +273,7 @@ class _HealthTabState extends State<HealthTab> {
         _row('Version', h['version']?.toString() ?? '—', localized: true),
         _row('Issuer', h['issuer']?.toString() ?? '—', localized: true),
         _row('Revision', revisionShort, localized: true),
-        _row('Build Time', h['vcs_time']?.toString() ?? '—', localized: true),
+        _row('Build Time', formatServerTime(h['vcs_time']), localized: true),
       ],
     );
   }
@@ -316,9 +318,7 @@ class _HealthTabState extends State<HealthTab> {
             label: const LocalizedText('Refresh Cache'),
             onPressed: () {
               widget.api.clearCache();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: LocalizedText('Cache cleared')),
-              );
+              showAppSnackBar(context, content: LocalizedText('Cache cleared'));
             },
           ),
           ActionChip(

@@ -6,6 +6,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/screens/admin/admin_ops_helpers.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/timeline_list.dart';
@@ -82,7 +83,7 @@ class GovernanceJsonCard extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('JSON copied.')));
+                showAppSnackBar(context, content: LocalizedText('JSON copied.'));
               }
             },
             icon: const Icon(Icons.copy_outlined, size: 16),
@@ -109,9 +110,27 @@ class GovernanceErrorBanner extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(children: [
-          const Icon(Icons.error_outline, color: AppColors.danger, size: 20),
+          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+          Icon(
+            Icons.error_outline,
+            color: AppColors.semanticFor(
+              Theme.of(context).brightness,
+              AppColors.danger,
+            ),
+            size: 20,
+          ),
           const SizedBox(width: 8),
-          Expanded(child: Text(error, style: const TextStyle(color: AppColors.danger))),
+          Expanded(
+            child: Text(
+              error,
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
+            ),
+          ),
           if (onRetry != null)
             OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 18), label: const LocalizedText('Retry')),
         ]),

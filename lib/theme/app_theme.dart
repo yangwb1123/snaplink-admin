@@ -34,7 +34,9 @@ abstract final class AppTheme {
       seedColor: _brand,
       brightness: brightness,
       surface: isDark ? AppColors.textMuted : Colors.white,
-      primary: isDark ? AppColors.primary : AppColors.primary,
+      // R29：dark primary 用 indigo-400 提亮变体（3.27→4.90:1，正文 AA）；
+      // 链接色/TextButton/选中导航/聚焦描边全站受益，浅色不变。
+      primary: isDark ? AppColors.primaryOnDark : AppColors.primary,
       secondary: isDark ? AppColors.primary : AppColors.primaryDark,
     );
     final scheme = isDark

@@ -68,6 +68,8 @@ class OrgMembersCard extends StatelessWidget {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: memberRole,
+              // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+              isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Organization role'.localized,
               ),
@@ -147,7 +149,13 @@ class OrgMembersCard extends StatelessWidget {
                       members[i]['userId']?.toString() ??
                       '',
                 ),
-          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.semanticFor(
+              Theme.of(context).brightness,
+              AppColors.danger,
+            ),
+          ),
           child: const LocalizedText('Remove'),
         ),
       ),

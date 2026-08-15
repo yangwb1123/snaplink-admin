@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
@@ -43,10 +45,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
     _load();
   }
 
-  void _snack(String key) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(context.tr(key))));
+  void _snack(String key, {AppSnackBarKind kind = AppSnackBarKind.success}) {
+    showAppSnackBar(context, content: Text(context.tr(key)), kind: kind);
   }
 
   Future<void> _load({bool more = false}) async {
@@ -160,7 +160,10 @@ class _NotificationsTabState extends State<NotificationsTab> {
       _unread = remaining < 0 ? 0 : remaining;
     });
     widget.onChanged?.call();
-    if (failed) _snack('Some notifications could not be marked as read.');
+    if (failed) {
+      _snack('Some notifications could not be marked as read.',
+          kind: AppSnackBarKind.error);
+    }
   }
 
   Future<List<Map<String, dynamic>>> _allUnread() async {
@@ -209,10 +212,10 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
     if (mounted) {
       _snack(
-        ok
-            ? 'Notification preferences saved.'
-            : 'Could not save notification preferences.',
-      );
+          ok
+              ? 'Notification preferences saved.'
+              : 'Could not save notification preferences.',
+          kind: ok ? AppSnackBarKind.success : AppSnackBarKind.error);
       setState(() => _saving = false);
     }
   }
@@ -233,7 +236,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   Text(
                     context.tr(
                       '{count} unread security and account notifications.',
-                      {'count': _unread},
+                      {'count': formatCount(_unread)},
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -362,7 +365,7 @@ class _NotificationTile extends StatelessWidget {
         item['title']?.toString() ?? context.tr('Security notification'),
         style: TextStyle(fontWeight: unread ? FontWeight.w700 : null),
       ),
-      subtitle: Text(_join(item['body'], item['created_at'])),
+      subtitle: Text(_join(item['body'], item['created_at'] == null ? null : formatServerTime(item['created_at']))),
       trailing: StatusChip(label: context.tr(label), color: color, icon: icon),
     );
   }
@@ -374,10 +377,9 @@ List<Map<String, dynamic>> _objects(Object? value) => value is List
           .map((item) => Map<String, dynamic>.from(item))
           .toList()
     : <Map<String, dynamic>>[];
-String _join(Object? first, Object? second) => [
-  first,
-  second,
-].where((v) => v != null && v.toString().isNotEmpty).join(' · ');
+String _join(Object? first, Object? second) => [first, second]
+    .where((v) => v?.toString().isNotEmpty == true)
+    .join(' · ');
 
 /// Severity → (icon, brand color, label key); unknown severities = Notice.
 (IconData, Color, String) _severityStyle(String severity) => switch (severity) {

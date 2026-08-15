@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'device_security_models.dart';
-import 'device_security_widgets.dart';
 
 class DeviceStatsCards extends StatelessWidget {
   final Map<String, dynamic> stats;
@@ -66,11 +65,16 @@ class DeviceStatsCards extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: riskyFraction > 0.2
-                      ? AppColors.danger
-                      : riskyFraction > 0.05
-                      ? AppColors.warning
-                      : AppColors.success,
+                  // R29：dark 下语义色提亮（danger 2.26 / success 3.88
+                  // → 5.29-7.61 ≥AA 正文），浅色恒等。
+                  color: AppColors.semanticFor(
+                    Theme.of(context).brightness,
+                    riskyFraction > 0.2
+                        ? AppColors.danger
+                        : riskyFraction > 0.05
+                        ? AppColors.warning
+                        : AppColors.success,
+                  ),
                 ),
               ),
             ],
@@ -250,7 +254,7 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
       title: const LocalizedText('Security activity'),
       subtitle: LocalizedText(
         '{count} devices currently require attention',
-        args: {'count': events.length},
+        args: {'count': formatCount(events.length)},
       ),
       children: events.isEmpty
           ? const [
@@ -263,9 +267,13 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
           : [
               for (final event in events)
                 ListTile(
-                  leading: const Icon(
+                  leading: Icon(
                     Icons.warning_amber_outlined,
-                    color: AppColors.danger,
+                    // R29：dark 下提亮（2.26→5.29:1 ≥AA 非文本），浅色恒等。
+                    color: AppColors.semanticFor(
+                      Theme.of(context).brightness,
+                      AppColors.danger,
+                    ),
                   ),
                   title: event['device_name']?.toString().isNotEmpty == true
                       ? Text(event['device_name'].toString())
@@ -275,7 +283,7 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
                         ),
                   subtitle: Text(
                     'User ${event['user_id'] ?? '—'} · Trust '
-                    '${event['trust_score'] ?? '—'} · ${event['time'] ?? ''}',
+                    '${formatDecimal(event['trust_score'])} · ${formatServerTime(event['time'])}',
                   ),
                   trailing: TextButton(
                     onPressed: () => onInvestigate(event),
@@ -287,104 +295,5 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
   );
 }
 
-/// 单设备活动调查对话框：loading/error（含重试）/数据三态。
-class DeviceActivityDialog extends StatefulWidget {
-  final SnaplinkAdminApi api;
-  final DeviceJson device;
+/// 单设备活动调查对话框已拆至 device_security_activity_dialog.dart。
 
-  const DeviceActivityDialog({
-    super.key,
-    required this.api,
-    required this.device,
-  });
-
-  static Future<void> show(
-    BuildContext context, {
-    required SnaplinkAdminApi api,
-    required DeviceJson device,
-  }) => showDialog<void>(
-    context: context,
-    builder: (_) => DeviceActivityDialog(api: api, device: device),
-  );
-
-  @override
-  State<DeviceActivityDialog> createState() => _DeviceActivityDialogState();
-}
-
-class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
-  Map<String, dynamic>? _result;
-  Object? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _error = null;
-      _result = null;
-    });
-    try {
-      final id = deviceId(widget.device);
-      if (id.isEmpty) {
-        throw StateError('The activity event has no device identifier.');
-      }
-      final result = await widget.api.get(DeviceSecurityPaths.activity(id));
-      if (mounted) setState(() => _result = result);
-    } catch (error) {
-      if (mounted) setState(() => _error = error);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const LocalizedText('Device activity'),
-    content: SizedBox(
-      width: 720,
-      height: 520,
-      child: _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 40,
-                    color: AppColors.danger,
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      '$_error',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const LocalizedText('Retry'),
-                  ),
-                ],
-              ),
-            )
-          : _result == null
-          ? const Center(child: CircularProgressIndicator())
-          // 评估为无需 lazy：对话框固定 520 高，可见登录记录约 8 条；
-          // LoginHistoryPanel 同时在页面上下文（user_device_security_panel）
-          // 使用，改 ListView 需 shrinkWrap 或双语境重构，收益不抵风险。
-          : SingleChildScrollView(
-              child: LoginHistoryPanel(records: loginHistoryFrom(_result)),
-            ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const LocalizedText('Close'),
-      ),
-    ],
-  );
-}

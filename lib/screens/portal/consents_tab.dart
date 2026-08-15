@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -103,19 +104,11 @@ class _ConsentsTabState extends State<ConsentsTab> {
         setState(() => _notice = 'Application access revoked.');
         await _load(preserveNotice: true);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.tr('Could not revoke application access.')),
-          ),
-        );
+        showAppSnackBar(context, content: Text(context.tr('Could not revoke application access.')), kind: AppSnackBarKind.error);
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(context.tr('Could not revoke application access.')),
-          ),
-        );
+        showAppSnackBar(context, content: Text(context.tr('Could not revoke application access.')), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _revokingClientId = null);

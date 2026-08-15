@@ -86,6 +86,9 @@ class BreakGlassRequestCard extends StatelessWidget {
             decoration: InputDecoration(
               labelText: 'Target user ID'.localized,
               hintText: 'user@example.com'.localized,
+              helperText:
+                  'An existing user account; the request targets this identity.'
+                      .localized,
             ),
           ),
           const SizedBox(height: 12),
@@ -95,12 +98,17 @@ class BreakGlassRequestCard extends StatelessWidget {
             decoration: InputDecoration(
               labelText: 'Reason (ticket/incident ref)'.localized,
               hintText: 'INC-12345'.localized,
+              helperText:
+                  'Ticket or incident reference; required for traceability.'
+                      .localized,
             ),
             maxLines: 2,
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
             initialValue: scope,
+            // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+            isExpanded: true,
             decoration: InputDecoration(labelText: 'Scope'.localized),
             items: const [
               DropdownMenuItem(
@@ -125,6 +133,9 @@ class BreakGlassRequestCard extends StatelessWidget {
             enabled: !mutating,
             decoration: InputDecoration(
               labelText: 'TTL (seconds, default 900)'.localized,
+              helperText:
+                  'Session lifetime in seconds; the server enforces the maximum.'
+                      .localized,
             ),
             onChanged: onTtlChanged,
           ),
@@ -152,7 +163,13 @@ class BreakGlassRequestCard extends StatelessWidget {
             const SizedBox(height: 12),
             LocalizedText(
               formError!,
-              style: const TextStyle(color: AppColors.danger),
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           ],
         ],
@@ -283,7 +300,11 @@ class BreakGlassSessionsList extends StatelessWidget {
                       TextButton(
                         onPressed: mutating ? null : () => onRevoke(id),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.danger,
+                          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                          foregroundColor: AppColors.semanticFor(
+                            Theme.of(context).brightness,
+                            AppColors.danger,
+                          ),
                         ),
                         child: const LocalizedText('Revoke'),
                       ),

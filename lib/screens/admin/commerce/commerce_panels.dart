@@ -2,89 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import '../admin_module_groups.dart';
 import '../admin_navigation.dart';
 
 import 'commerce_models.dart';
-
-class CommerceTenantSelector extends StatelessWidget {
-  final TextEditingController tenant;
-  final TextEditingController currency;
-  final bool enabled;
-  final VoidCallback onLoad;
-
-  const CommerceTenantSelector({
-    super.key,
-    required this.tenant,
-    required this.currency,
-    required this.enabled,
-    required this.onLoad,
-  });
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 320,
-            child: TextField(
-              controller: tenant,
-              decoration: InputDecoration(labelText: 'Tenant ID'.localized),
-            ),
-          ),
-          SizedBox(
-            width: 140,
-            child: TextField(
-              controller: currency,
-              textCapitalization: TextCapitalization.characters,
-              decoration: InputDecoration(labelText: 'Currency'.localized),
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: enabled ? onLoad : null,
-            icon: Icon(Icons.search, color: adminModuleIconColor(AdminModuleId.commerce)),
-            label: const LocalizedText('Load tenant commerce'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class CommerceErrorCard extends StatelessWidget {
-  final String message;
-  final VoidCallback? onRetry;
-
-  const CommerceErrorCard({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) => Card(
-    color: Theme.of(context).colorScheme.errorContainer,
-    child: ListTile(
-      leading: const Icon(Icons.error_outline),
-      title: const LocalizedText('Commerce service error'),
-      subtitle: Text(message),
-      trailing: onRetry == null
-          ? null
-          : IconButton(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Retry'.localized,
-            ),
-    ),
-  );
-}
 
 class CommercePlansPanel extends StatelessWidget {
   final List<Map<String, dynamic>> plans;
@@ -117,9 +41,11 @@ class CommercePlansPanel extends StatelessWidget {
           ),
           const Divider(),
           if (plans.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: EmptyState(compact: true, title: 'No plan versions are available.'),
+            EmptyState(
+              compact: true,
+              title: 'No plan versions are available.',
+              actionLabel: 'Publish plan version',
+              onAction: onPublish,
             )
           else
             ...plans.map((plan) => _planTile(context, plan)),
@@ -195,9 +121,11 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             ),
           ),
           if (subscriptions.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: EmptyState(compact: true, title: 'This tenant has no subscriptions.'),
+            EmptyState(
+              compact: true,
+              title: 'This tenant has no subscriptions.',
+              actionLabel: 'Create subscription',
+              onAction: onCreate,
             )
           else
             ...subscriptions.map(
@@ -218,7 +146,7 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
     final title =
         '${subscription['status'] ?? 'unknown'} · ${plan['id'] ?? '—'} v${plan['version'] ?? '—'}';
     final period =
-        'Period: ${subscription['current_period_start'] ?? '—'} → ${subscription['current_period_end'] ?? '—'}';
+        'Period: ${formatServerTime(subscription['current_period_start'])} → ${formatServerTime(subscription['current_period_end'])}';
     final provider =
         'Provider reference: ${subscription['provider'] ?? '—'} / ${subscription['provider_subscription_id'] ?? '—'}';
     return Card.outlined(
@@ -317,7 +245,7 @@ class CommerceEntitlementPanel extends StatelessWidget {
           color: entitlement!['active'] == true ? AppColors.success : AppColors.warning,
         ),
         Text(summary, style: Theme.of(context).textTheme.titleMedium),
-        LocalizedText('Expires: {time}', args: {'time': entitlement!['expires_at'] ?? '—'}),
+        LocalizedText('Expires: {time}', args: {'time': formatServerTime(entitlement!['expires_at'])}),
       ],
     );
   }
@@ -373,18 +301,25 @@ class CommerceEntitlementPanel extends StatelessWidget {
               contentPadding: EdgeInsets.zero,
               title: Text(entry.key),
               subtitle: Text(commerceGrant(entry.value)),
-              trailing: _grantIcon(entry.value),
+              trailing: _grantIcon(context, entry.value),
             ),
           ),
       ],
     );
   }
 
-  Widget _grantIcon(Object? value) {
+  Widget _grantIcon(BuildContext context, Object? value) {
     final grant = _map(value);
     if (grant['unlimited'] == true) return const Icon(Icons.all_inclusive);
     if (grant['hard'] == 0) {
-      return const Icon(Icons.block, color: AppColors.danger);
+      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+      return Icon(
+        Icons.block,
+        color: AppColors.semanticFor(
+          Theme.of(context).brightness,
+          AppColors.danger,
+        ),
+      );
     }
     return const Icon(Icons.speed_outlined);
   }

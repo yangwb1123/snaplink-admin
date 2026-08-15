@@ -84,6 +84,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _currentRoute = nextRoute;
       _selectedModule = nextRoute.module;
+      // 浏览器前进/后退切换模块时同步“组内最后访问”记忆，切组回来
+      // 仍落在实际最后访问的模块（与点击 chip 的行为一致）。
+      if (nextRoute.module.isNotEmpty) {
+        _groupLastModule[adminGroupForModule(nextRoute.module)] =
+            nextRoute.module;
+      }
     });
   }
 

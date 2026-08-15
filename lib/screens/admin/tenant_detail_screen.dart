@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/services/operator_persona.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/widgets/async_view.dart';
@@ -168,8 +169,14 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   }
 
   void _snack(String message, [Map<String, Object?>? args]) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: LocalizedText(message, args: args)),
+    showAppSnackBar(context, content: LocalizedText(message, args: args));
+  }
+
+  void _snackError(String message, [Map<String, Object?>? args]) {
+    showAppSnackBar(
+      context,
+      content: LocalizedText(message, args: args),
+      kind: AppSnackBarKind.error,
     );
   }
 
@@ -187,7 +194,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         tooltip: 'Back'.localized,
-        onPressed: () => AdminRoute.go('tenants'),
+        onPressed: () => AdminRoute.back('tenants'),
       ),
       actions: [
         IconButton(
@@ -322,7 +329,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       _snack('Removed {userId}', {'userId': userId});
       _load();
     } catch (e) {
-      if (mounted) _snack('{e}', {'e': e});
+      if (mounted) _snackError('{e}', {'e': e});
     }
   }
 
@@ -346,7 +353,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       _snack('Invitation resent');
       await _load();
     } catch (error) {
-      if (mounted) _snack('Resend failed: {error}', {'error': error});
+      if (mounted) _snackError('Resend failed: {error}', {'error': error});
     }
   }
 
@@ -367,7 +374,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
       _snack('Invitation revoked');
       _load();
     } catch (error) {
-      if (mounted) _snack('Revoke failed: {error}', {'error': error});
+      if (mounted) _snackError('Revoke failed: {error}', {'error': error});
     }
   }
 

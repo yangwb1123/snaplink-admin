@@ -252,6 +252,8 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                  // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+                  isExpanded: true,
                     initialValue: row.op,
                     autofocus: index == 0,
                     decoration: InputDecoration(

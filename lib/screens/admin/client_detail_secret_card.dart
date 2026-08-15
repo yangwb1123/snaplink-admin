@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 /// Blocking one-time-secret dialog (barrier + back button locked until the
 /// user acknowledges). Shared by the detail screen and the list-tab rotate
@@ -98,11 +99,7 @@ class ClientSecretDialog extends StatelessWidget {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: secret));
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: LocalizedText('Copied to clipboard'),
-                            ),
-                          );
+                          showAppSnackBar(context, content: LocalizedText('Copied to clipboard'));
                         }
                       },
                     ),

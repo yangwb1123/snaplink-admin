@@ -5,6 +5,7 @@ import '../i18n/app_strings.dart';
 import '../services/browser_navigation.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
+import '../widgets/app_snackbar.dart';
 import '../widgets/language_selector.dart';
 import '../theme/app_colors.dart';
 import 'settings/settings_form_layout.dart';
@@ -74,9 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       BrowserNavigation.replaceLocation('/login/');
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(AppStrings.of(context).saved)));
+    showAppSnackBar(context, content: Text(AppStrings.of(context).saved));
   }
 
   @override
@@ -208,11 +207,14 @@ class _AdminNavModeSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    // R29 字体缩放：标签+Switch 改 Wrap——1.5x/2.0x 下同排放不下时
+    // Switch 换行（原 Row 溢出 20px），1x 桌面仍单行不变。
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(strings.adminNavModeProfessional),
-        const SizedBox(width: 8),
         Switch(
           value: AppSettings.instance.adminNavMode == AdminNavMode.professional,
           onChanged: (professional) => AppSettings.instance.adminNavMode =

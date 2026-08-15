@@ -1,0 +1,114 @@
+# 10 轮推进（第三轮）— R21-R25（路由过渡 / 表格交互 / 搜索筛选 / 详情 IA / 批量反馈）
+#
+# 每轮一个聚焦主题：逐页分析现有代码 → 低风险修复 → validate 门禁 →
+# 产物文档。串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r21-r25.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r21-r25.log
+
+tasks:
+- prompt: |
+    轮次 R21：路由过渡与导航体验。步骤：
+    1. 分析 lib/screens/admin/ 的路由与导航体验：
+       a. 模块切换过渡：dashboard 的 SectionSelector/rail 切换是否
+          有过渡（PageTransition 使用范围）；
+       b. 深链直达：/admin/<module>/<id> 深链的页面状态（详情页
+          返回是否回到原模块）；
+       c. 面包屑（AdminBreadcrumb）：详情页面包屑层级与点击行为；
+       d. 浏览器前进/后退：路由状态与浏览历史的同步。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失过渡的模块切换补 PageTransition（若页面已有则核对）；
+       - 面包屑层级/点击目标修正；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_route_test.dart test/admin_navigation_test.dart
+       test/admin_shell_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r21-navigation-ux.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r21-navigation-ux.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_route_test.dart test/admin_navigation_test.dart test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R22：表格高级交互。步骤：
+    1. 分析 lib/widgets/admin_data_table.dart 与使用页的表格交互：
+       a. 排序指示：可排序列的表头排序箭头/状态（点击循环 升序→降序
+          →无）；
+       b. 密度切换：density 参数的使用范围（哪些表格用了紧凑/默认）；
+       c. 单元格复制：CopyableCell 使用一致性（ID/密钥类字段）；
+       d. 行选择与批量联动；
+       e. 空表头（无列时）处理。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 排序指示补齐/统一（若缺失）；
+       - CopyableCell 覆盖缺口（ID 类字段）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r22-table-interactions.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r22-table-interactions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R23：搜索与筛选体验。步骤：
+    1. 分析 lib/widgets/search_filter_bar.dart 与使用页：
+       a. 搜索防抖：输入即时请求 vs 防抖（>250ms）——缺少防抖的
+          页面清单；
+       b. 筛选组合：search + status + 其他筛选的叠加语义；
+       c. 空结果引导：过滤无结果时是否提示清除筛选（EmptyState 带
+          动作）；
+       d. 搜索框清除按钮与焦点。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失防抖的搜索补 debounce（保持请求语义）；
+       - 空结果"清除筛选"动作补齐（复用现有 i18n key）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r23-search-filter.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r23-search-filter.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R24：详情页信息架构。步骤：
+    1. 分析详情页的信息架构（client/tenant/user/connection/webhook/
+       break-glass/device 等详情页）：
+       a. 区块组织：标题/摘要/主信息/状态/操作 的层级一致性；
+       b. 主次信息：关键字段（ID/状态/时间）是否突出（data_emphasis/
+          status_chip），次要信息是否折叠；
+       c. 操作位置：主操作（编辑/删除）在 AppBar 还是区块内——一致
+          性；
+       d. 详情页 tab（tenant_detail_tabs 等）的 tab 划分合理性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 主操作位置统一（AppBar 或区块内择一约定）；
+       - 关键字段突出度补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r24-detail-ia.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r24-detail-ia.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R25：批量操作反馈。步骤：
+    1. 分析批量操作流程（BatchActionBar 使用页：clients 审批/拒绝、
+       users/tenants 删除、devices 撤销、tokens 撤销）：
+       a. 结果反馈：批量完成后是否展示逐项结果（成功数/失败数/失败
+          明细）；
+       b. 部分失败：multi-status 的展示（失败项展开查看）；
+       c. 完成后状态：选择清除、列表刷新、错误汇总；
+       d. 进行中：批量执行的进度指示（禁用按钮 + 进度）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 逐项结果汇总展示（成功/失败计数 + 失败明细入口）——复用
+         既有 i18n key 或新增 EN/ZH；
+       - 完成刷新/选择清除一致性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_dialogs_final_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r25-batch-feedback.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r25-batch-feedback.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -7,7 +7,9 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/batch_feedback.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -37,9 +39,9 @@ class _UsersTabState extends State<UsersTab>
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
   var _pageSize = 100, _orderBy = 'id';
-  String _sortColumn = 'user';
+  String? _sortColumn = 'user';
   bool _sortAscending = true;
-  String? _busyId;
+  String? _busyId; // 行级/批量删除进行中：非空即禁用（批量用 '' 哨兵）。
   late final void Function() _cancelPopState;
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('users');
@@ -81,7 +83,7 @@ class _UsersTabState extends State<UsersTab>
     } catch (e) {
       debugPrint('users_tab edit error: $e');
     }
-    if (mounted) AdminRoute.go('users');
+    if (mounted) AdminRoute.back('users');
   }
   Future<SSOAdminListPage> _loadPage() async => _lastPage =
       await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
@@ -117,7 +119,7 @@ class _UsersTabState extends State<UsersTab>
     });
   }
 
-  /// 列头排序 → 服务端 orderBy（与排序下拉保持同步）。
+  /// 列头排序 → 服务端 orderBy（与排序下拉保持同步）；点击三态。
   void _onSort(String column) {
     final field = switch (column) {
       'user' => 'id',
@@ -126,13 +128,16 @@ class _UsersTabState extends State<UsersTab>
     };
     if (field == null) return;
     setState(() {
-      if (_sortColumn == column) {
-        _sortAscending = !_sortAscending;
-      } else {
+      if (_sortColumn != column) {
         _sortColumn = column;
         _sortAscending = true;
+      } else if (_sortAscending) {
+        _sortAscending = false;
+      } else {
+        _sortColumn = null; // 三态：清排序，orderBy 回默认 id（下拉保持有效）
+        _sortAscending = true;
       }
-      _orderBy = (_sortAscending ? '' : '-') + field;
+      _orderBy = (_sortAscending ? '' : '-') + (_sortColumn ?? 'id');
     });
     _reload();
   }
@@ -143,10 +148,10 @@ class _UsersTabState extends State<UsersTab>
       builder: (context) => UserFormDialog(client: widget.client, existing: existing),
     );
     if (changed != null) _reload();
-    if (mounted) AdminRoute.go('users');
+    if (mounted) AdminRoute.back('users');
   }
 
-  /// 批量删除：确认影响数量 → 并行执行 → 明细报告（i18n 键 + args）。
+  /// 批量删除：确认 → 并行执行 → 明细报告；进行中用 _busyId 哨兵禁用按钮。
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
@@ -158,6 +163,7 @@ class _UsersTabState extends State<UsersTab>
       destructive: true,
     );
     if (!confirmed) return;
+    setState(() => _busyId = '');
     final results = await Future.wait(ids.map((id) async {
       try {
         await widget.client.deleteUser(id);
@@ -166,15 +172,15 @@ class _UsersTabState extends State<UsersTab>
         return '$id: $e';
       }
     }));
+    if (!mounted) return;
+    setState(() => _busyId = null);
     final failures = results.whereType<String>().toList();
     final ok = ids.length - failures.length;
-    if (!mounted) return;
     clearSelection();
     final message = failures.isEmpty
         ? context.tr('Deleted {n} of {total} users.', {'n': ok, 'total': ids.length})
-        : context.tr('{action}: {n} succeeded, {failed} failed. {details}',
-            {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+    showBatchResultSnackBar(context, message: message, failures: failures);
     _reload();
   }
 
@@ -196,7 +202,7 @@ class _UsersTabState extends State<UsersTab>
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -283,28 +289,25 @@ class _UsersTabState extends State<UsersTab>
     ),
   );
 
-
-
   Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
     final filtered = _filterCtrl.text.isNotEmpty;
     // 空态变体：无筛选 → empty（创建引导）；有筛选 → noMatch（文案被测试钉死）。
-    final list = items.isEmpty
-        ? EmptyState(
+    final list = items.isEmpty ? EmptyState(
             variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
             icon: filtered ? null : Icons.person,
             title: 'No users',
             subtitle: 'No users match the current filter.',
             actionLabel: filtered ? 'Clear filter' : 'Create user',
             actionIcon: filtered ? Icons.filter_alt_off : null,
-            onAction: filtered
-                ? _clearFilter
-                : () => AdminRoute.go('users', action: 'new'),
+            onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
           )
         : _dataTable(items);
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
     return LayoutBuilder(
       builder: (context, constraints) {
-        final short = constraints.maxHeight < 380;
+        // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长）——文本放大时提前切整页滚动。
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final short = constraints.maxHeight < 380 * scale;
         final content = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -346,7 +349,7 @@ class _UsersTabState extends State<UsersTab>
             children: [
               UserAvatar(name: uid(i), radius: 14),
               const SizedBox(width: 8),
-              Flexible(child: TableCellText(uid(i), bold: true, maxLines: 1)),
+              Flexible(child: CopyableCell(text: uid(i), contextProvider: () => context, enabled: !selecting)),
             ],
           ),
         ),

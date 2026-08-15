@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -122,15 +123,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       leading: IconButton(
         tooltip: 'Back'.localized,
         icon: const Icon(Icons.arrow_back),
-        onPressed: () => AdminRoute.go('webhooks'),
+        onPressed: () => AdminRoute.back('webhooks'),
       ),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.delete_outline),
-          tooltip: 'Delete subscription'.localized,
-          onPressed: _mutating ? null : () => _delete(context),
-        ),
-      ],
     ),
     body: _loading
         ? const Padding(
@@ -165,6 +159,18 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                         onToggle: () => setState(() => _showDeadLetters = !_showDeadLetters),
                         onReplay: _replay,
                         onReplayAll: _replayAll,
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          onPressed: _mutating ? null : () => _delete(context),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Theme.of(context).colorScheme.error,
+                          ),
+                          icon: const Icon(Icons.delete_outline),
+                          label: const LocalizedText('Delete subscription'),
+                        ),
                       ),
                     ],
                   ),
@@ -228,19 +234,18 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       await _load();
       if (!mounted) return;
       final cleanupComplete = response['cleanup_status'] == 'complete';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            cleanupComplete
-                ? 'Delivery sent and dead-letter cleanup completed.'
-                : 'Delivery succeeded; cleanup remains pending. Retrying this '
-                      'entry is cleanup-only and cannot redeliver it.',
-          ),
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          cleanupComplete
+              ? 'Delivery sent and dead-letter cleanup completed.'
+              : 'Delivery succeeded; cleanup remains pending. Retrying this '
+                    'entry is cleanup-only and cannot redeliver it.',
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -283,8 +288,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
         } catch (_) {
           return (delivered: 0, cleanupPending: 0, failed: 1);
         }
-      }),
-    );
+      }));
     var delivered = 0;
     var cleanupPending = 0;
     var failed = 0;
@@ -302,22 +306,21 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
           .map((item) => item['id']?.toString() ?? '')
           .where(ids.contains)
           .length;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            cleanupPending > 0
-                ? '{delivered} deliveries succeeded; cleanup is pending for '
-                      '{pending}. Retrying those entries is cleanup-only and '
-                      'cannot redeliver them.'
-                : failed == 0
-                ? 'All {delivered} deliveries were sent and cleaned up.'
-                : '{delivered} deliveries were sent; {failed} failed.',
-            args: {
-              'delivered': delivered,
-              'pending': cleanupPending,
-              'failed': failed,
-            },
-          ),
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          cleanupPending > 0
+              ? '{delivered} deliveries succeeded; cleanup is pending for '
+                    '{pending}. Retrying those entries is cleanup-only and '
+                    'cannot redeliver them.'
+              : failed == 0
+              ? 'All {delivered} deliveries were sent and cleaned up.'
+              : '{delivered} deliveries were sent; {failed} failed.',
+          args: {
+            'delivered': delivered,
+            'pending': cleanupPending,
+            'failed': failed,
+          },
         ),
       );
       if (failed > 0 || cleanupPending > 0 || remainingQueued > 0) {
@@ -357,14 +360,12 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       );
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Deleted')));
-      AdminRoute.go('webhooks');
+      showAppSnackBar(context, content: LocalizedText('Deleted'));
+      AdminRoute.back('webhooks');
     } catch (e) {
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

@@ -8,7 +8,9 @@ import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/batch_action_bar.dart';
+import 'package:sso_admin/widgets/batch_feedback.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -16,6 +18,7 @@ import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/tight_dropdown.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'admin_module_groups.dart';
@@ -38,9 +41,11 @@ class _ClientsTabState extends State<ClientsTab>
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
   var _pageSize = 100, _orderBy = 'id';
-  String _sortColumn = 'id';
+  String? _sortColumn = 'id';
   bool _sortAscending = true;
   var _expiringOnly = false, _statusFilter = 'all';
+  /// 批量执行进行中：禁用批量栏按钮并显示进度（防止重复提交）。
+  bool _batchBusy = false;
   late final void Function() _cancelPopState;
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('clients');
@@ -78,7 +83,7 @@ class _ClientsTabState extends State<ClientsTab>
     } catch (e) {
       debugPrint('clients_tab edit error: $e');
     }
-    if (mounted) AdminRoute.go('clients');
+    if (mounted) AdminRoute.back('clients');
   }
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
@@ -97,17 +102,20 @@ class _ClientsTabState extends State<ClientsTab>
       filter: query,
     );
   }
-  /// 列头排序 → 服务端 orderBy（避免只排当前页）；status 列不可排。
+  /// 列头排序 → 服务端 orderBy（避免只排当前页）；status 列不可排；点击三态。
   void _onSort(String column) {
     if (column == 'status') return;
     setState(() {
-      if (_sortColumn == column) {
-        _sortAscending = !_sortAscending;
-      } else {
+      if (_sortColumn != column) {
         _sortColumn = column;
         _sortAscending = true;
+      } else if (_sortAscending) {
+        _sortAscending = false;
+      } else {
+        _sortColumn = null; // 三态：清排序，orderBy 回默认 id（下拉保持有效）
+        _sortAscending = true;
       }
-      _orderBy = (_sortAscending ? '' : '-') + column;
+      _orderBy = (_sortAscending ? '' : '-') + (_sortColumn ?? 'id');
     });
     _reload();
   }
@@ -124,7 +132,7 @@ class _ClientsTabState extends State<ClientsTab>
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText('Exported {n} clients as CSV to clipboard', args: {'n': items.length})));
+    showAppSnackBar(context, content: LocalizedText('Exported {n} clients as CSV to clipboard', args: {'n': items.length}));
   }
   String _csvCell(String value) {
     var cell = value.replaceAll('"', '""');
@@ -164,7 +172,7 @@ class _ClientsTabState extends State<ClientsTab>
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
     final changed = await showDialog<bool>(context: context, builder: (_) => ClientFormDialog(client: widget.client, existing: existing));
     if (changed == true) _reload();
-    if (mounted) AdminRoute.go('clients');
+    if (mounted) AdminRoute.back('clients');
   }
   static const _copy = <String, (String, String, String, String?)>{
     'approve': ('Approve client?', 'Approve {clientId} for use on this authorization server?', 'Approve', 'Client {id} approved.'),
@@ -185,11 +193,11 @@ class _ClientsTabState extends State<ClientsTab>
         _ => widget.client.deleteClient(id),
       };
       if (!mounted) return;
-      if (snack != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(snack, args: {'id': id})));
+      if (snack != null) showAppSnackBar(context, content: LocalizedText(snack, args: {'id': id}));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
     }
   }
   Future<void> _rotateSecret(Map<String, dynamic> c) async {
@@ -201,46 +209,53 @@ class _ClientsTabState extends State<ClientsTab>
       if (!mounted) return;
       final secret = rotation['secret']?.toString() ?? '';
       if (secret.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('The secret was rotated, but its one-time value was not returned.')));
+        showAppSnackBar(context, content: LocalizedText('The secret was rotated, but its one-time value was not returned.'), kind: AppSnackBarKind.error);
         return;
       }
       await showRotatedClientSecret(context, secret, expiryLabel: clientSecretExpiryLabel(context, rotation));
       _reload(); // 轮换已落库：SECRET 列过期时间需要按服务端最新值重绘。
     } on SSOError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
     }
   }
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
+  /// 进行中 [_batchBusy] 禁用动作按钮；部分失败时 SnackBar 提供明细入口。
   Future<void> _runBatch(String action, Future<void> Function(String) run) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final approve = action == 'Approve';
     final confirmed = await ConfirmDialog.show(context, title: context.tr(approve ? 'Approve {n} clients?' : 'Reject {n} clients?', {'n': ids.length}), message: context.tr(approve ? 'This will approve {n} selected clients in one operation.' : 'This will reject {n} selected clients in one operation.', {'n': ids.length}), confirmLabel: action);
     if (!confirmed) return;
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await run(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
-    final failures = results.whereType<String>().toList();
-    final ok = ids.length - failures.length;
-    if (!mounted) return;
-    clearSelection();
-    final message = failures.isEmpty
-        ? context.tr('{action} completed for {n} of {total} clients.', {'action': action, 'n': ok, 'total': ids.length})
-        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': action, 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-    _reload();
+    setState(() => _batchBusy = true);
+    try {
+      final results = await Future.wait(ids.map((id) async {
+        try {
+          await run(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }));
+      final failures = results.whereType<String>().toList();
+      final ok = ids.length - failures.length;
+      if (!mounted) return;
+      clearSelection();
+      final message = failures.isEmpty
+          ? context.tr('{action} completed for {n} of {total} clients.', {'action': action, 'n': ok, 'total': ids.length})
+          : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': action, 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+      showBatchResultSnackBar(context, message: message, failures: failures);
+      _reload();
+    } finally {
+      if (mounted) setState(() => _batchBusy = false);
+    }
   }
   /// 批量操作栏：已选数量 + Approve/Reject 双动作 + 退出选择（共享组件，
   /// 图标用身份组强调色；确认弹窗语义保留在 [_runBatch]）。
   Widget _batchBar(BuildContext context) => BatchActionBar(
     selectedCount: selected.length,
     accent: _accent,
+    isLoading: _batchBusy,
     actions: [
       BatchAction(label: 'Approve', icon: Icons.check_circle_outline, onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id))),
       BatchAction(label: 'Reject', icon: Icons.cancel_outlined, onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id))),
@@ -276,21 +291,27 @@ class _ClientsTabState extends State<ClientsTab>
       ],
     );
   }
-  /// 带刷新语义的通用下拉（排序/每页条数共用）。
-  Widget _menu<T>(T value, List<DropdownMenuItem<T>> items, ValueChanged<T> onPicked) => DropdownButton<T>(value: value, items: items, onChanged: (v) {
-    if (v == null) return;
-    setState(() => onPicked(v));
-    _reload();
-  });
+  /// 带刷新语义的通用下拉（排序/每页条数共用）。R29：改用
+  /// [TightDropdownButton]——字体缩放（1.5x/2.0x）下宽度封顶 + 标签
+  /// 省略号，不再横向溢出（原 DropdownButton 在有界 Wrap 内溢出）。
+  Widget _menu<T>(T value, List<(T, String)> options, ValueChanged<T> onPicked) => TightDropdownButton<T>(
+    value: value,
+    options: options,
+    maxWidth: 240,
+    onChanged: (v) {
+      setState(() => onPicked(v));
+      _reload();
+    },
+  );
   Widget _filterBar(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
       SizedBox(width: 280, child: SearchFilterBar(labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false, onSearchChanged: (_) {}, onSubmitted: (_) => _reload())),
       _menu<String>(_orderBy, const [
-        DropdownMenuItem(value: 'id', child: LocalizedText('ID ascending')),
-        DropdownMenuItem(value: '-id', child: LocalizedText('ID descending')),
-        DropdownMenuItem(value: 'name', child: LocalizedText('Name ascending')),
-        DropdownMenuItem(value: '-name', child: LocalizedText('Name descending')),
+        ('id', 'ID ascending'),
+        ('-id', 'ID descending'),
+        ('name', 'Name ascending'),
+        ('-name', 'Name descending'),
       ], (v) => _orderBy = v),
       IconButton(
         tooltip: 'Export CSV'.localized,
@@ -302,9 +323,9 @@ class _ClientsTabState extends State<ClientsTab>
         _reload();
       }),
       _menu<int>(_pageSize, const [
-        DropdownMenuItem(value: 25, child: LocalizedText('25 per page')),
-        DropdownMenuItem(value: 100, child: LocalizedText('100 per page')),
-        DropdownMenuItem(value: 250, child: LocalizedText('250 per page')),
+        (25, '25 per page'),
+        (100, '100 per page'),
+        (250, '250 per page'),
       ], (v) => _pageSize = v),
       FilterChip(label: const LocalizedText('Expiring within 30 days'), selected: _expiringOnly, onSelected: (value) {
         _expiringOnly = value;
@@ -334,7 +355,10 @@ class _ClientsTabState extends State<ClientsTab>
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
     return LayoutBuilder(
       builder: (context, constraints) {
-        final short = constraints.maxHeight < 380;
+        // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长，固定 380
+        // 会在窄高容器溢出）——文本放大时提前切到整页滚动，不截断不溢出。
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final short = constraints.maxHeight < 380 * scale;
         final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
           metrics,

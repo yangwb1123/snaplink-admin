@@ -469,4 +469,39 @@ void main() {
       expect(notifications, 1);
     });
   });
+
+  group('back navigation (R21)', () {
+    test('falls back to the module list when no history exists', () {
+      BrowserNavigation.resetForTest();
+      // Deep-link first entry: nothing to pop → module list.
+      AdminRoute.back('users');
+      expect(BrowserNavigation.currentUri.path, '/admin/users');
+    });
+
+    test('pops one entry for list → detail → back, no duplicate push', () {
+      BrowserNavigation.resetForTest();
+      AdminRoute.go('clients');
+      AdminRoute.go('clients', resourceId: 'client-1');
+      expect(BrowserNavigation.currentUri.path, '/admin/clients/client-1');
+
+      AdminRoute.back('clients');
+      expect(BrowserNavigation.currentUri.path, '/admin/clients');
+      expect(AdminRoute.current().isList, isTrue);
+
+      // The initial non-product base (file://) is skipped: the second back
+      // falls back to the module list instead of leaving the app.
+      AdminRoute.back('clients');
+      expect(BrowserNavigation.currentUri.path, '/admin/clients');
+    });
+
+    test('replaceState does not grow the back stack', () {
+      BrowserNavigation.resetForTest();
+      AdminRoute.go('clients');
+      // replaceState swaps the current entry in place — no extra back step.
+      BrowserNavigation.replaceState('/admin/clients/client-1');
+      AdminRoute.back('clients');
+      // Only the non-product base precedes it → module-list fallback.
+      expect(BrowserNavigation.currentUri.path, '/admin/clients');
+    });
+  });
 }

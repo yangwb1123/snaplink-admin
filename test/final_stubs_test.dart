@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:sso_admin/api/portal_api.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_organizations_tab.dart';
+import 'package:sso_admin/screens/admin/admin_route.dart';
 import 'package:sso_admin/screens/portal/portal_export_download.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/screens/oidc_login/trusted_device_token.dart';
@@ -43,6 +44,43 @@ void main() {
       // Without a matching module route the breadcrumb renders the trailing
       // segments or a fallback without throwing.
       expect(find.byType(AdminBreadcrumb), findsOneWidget);
+    });
+
+    testWidgets('derives the trail from the in-memory route (R21)', (
+      tester,
+    ) async {
+      BrowserNavigation.resetForTest();
+      AdminRoute.go(
+        'clients',
+        resourceId: 'client-abc',
+        subresource: 'sessions',
+      );
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: AdminBreadcrumb())),
+      );
+      // Group → module → resource → sub-resource, all from the current URL.
+      expect(find.text('Identity'), findsOneWidget);
+      expect(find.text('Clients'), findsOneWidget);
+      expect(find.text('client-abc'), findsOneWidget);
+      expect(find.text('Sessions'), findsOneWidget);
+    });
+
+    testWidgets('overrideModule relabels only the module crumb (R21)', (
+      tester,
+    ) async {
+      BrowserNavigation.resetForTest();
+      AdminRoute.go('scim-directory');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AdminBreadcrumb(overrideModule: 'SCIM Directory'),
+          ),
+        ),
+      );
+      // Group level is preserved and the module crumb is relabeled — the
+      // old behavior replaced the group crumb and duplicated the module.
+      expect(find.text('Identity'), findsOneWidget);
+      expect(find.text('SCIM Directory'), findsOneWidget);
     });
   });
 

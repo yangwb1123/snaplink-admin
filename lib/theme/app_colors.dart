@@ -27,6 +27,39 @@ abstract final class AppColors {
   static const Color dangerDark = Color(0xFF7F1D1D);
   static const Color dangerTint = Color(0xFFFECACA);
 
+  /// SnackBar 错误图标（浅色模式）：snackbar 底为深色 inverseSurface，
+  /// danger-700 对比仅 2.03:1（WCAG 非文本 <3），red-400 达 4.74:1；
+  /// 深色模式底为浅色，改用 dangerDark（7.76:1）。见 app_snackbar.dart。
+  /// 值 = dangerBright（R29 深色前景提亮变体，两处共用同一红色）。
+  static const Color dangerOnInverse = Color(0xFFF87171);
+
+  /// 深色模式语义前景提亮变体（R29 对比度修复）：danger/success/
+  /// accentBlue/warning 原色对深色 surface（textMuted）对比不足
+  /// （2.26-3.88:1，WCAG 正文 <4.5 / 非文本 <3），dark 下文字与图标用
+  /// 400 级亮变体（5.29-8.76:1 ≥AA）；浅色模式恒等于原色（视觉不变）。
+  /// 由 [semanticFor] 按亮度选择。
+  static const Color dangerBright = Color(0xFFF87171); // red-400
+  static const Color successBright = Color(0xFF34D399); // emerald-400
+  static const Color accentBlueBright = Color(0xFF60A5FA); // blue-400
+  static const Color warningBright = Color(0xFFFBBF24); // amber-400
+
+  /// 深色模式品牌主色（indigo-400，= groupSystemDark）：indigo-600 对深色
+  /// surface 仅 3.27:1（正文 <4.5），400 级达 4.90:1。app_theme dark 的
+  /// primary 使用本值；浅色恒为 [primary]。
+  static const Color primaryOnDark = Color(0xFF818CF8);
+
+  /// 语义前景亮度感知（R29）：浅色恒等原色；深色返回同族 400 提亮变体
+  /// （文字 ≥4.5、非文本 ≥3）。未知颜色（中性/自定义/组色板）原样返回。
+  static Color semanticFor(Brightness brightness, Color light) {
+    if (brightness == Brightness.light) return light;
+    if (light == danger) return dangerBright;
+    if (light == success) return successBright;
+    if (light == accentBlue) return accentBlueBright;
+    if (light == warning) return warningBright;
+    if (light == primary) return primaryOnDark;
+    return light;
+  }
+
   /// 警告（amber）
   static const Color warning = Color(0xFFD97706);
 

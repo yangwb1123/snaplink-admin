@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/widgets/info_row.dart';
@@ -99,7 +100,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
-          onPressed: () => AdminRoute.go('clients'),
+          onPressed: () => AdminRoute.back('clients'),
         ),
         actions: [
           IconButton(
@@ -262,7 +263,16 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
               if (_client?['status'] == 'pending')
                 _actionButton(icon: Icons.check_circle_outline, label: 'Approve', color: AppColors.success, primary: true, onPressed: () => _doAction('approve')),
               if (_client?['status'] == 'pending')
-                _actionButton(icon: Icons.cancel_outlined, label: 'Reject', color: AppColors.danger, onPressed: () => _doAction('reject')),
+                _actionButton(
+                  icon: Icons.cancel_outlined,
+                  label: 'Reject',
+                  // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                  color: AppColors.semanticFor(
+                    Theme.of(context).brightness,
+                    AppColors.danger,
+                  ),
+                  onPressed: () => _doAction('reject'),
+                ),
               _actionButton(icon: Icons.key, label: 'Rotate Secret', color: AppColors.warning, primary: true, onPressed: () => _rotateSecret(context)),
             ],
           ),
@@ -319,11 +329,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       } else {
         await showClientDetailSecret(context, newSecret, expiresAt: clientSecretExpiryUnix(rotation));
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Secret rotated.')));
+        showAppSnackBar(context, content: LocalizedText('Secret rotated.'));
       }
     } catch (e) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
+      showAppSnackBar(context, content: LocalizedText('Error: {detail}', args: {'detail': e}), kind: AppSnackBarKind.error);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -343,11 +353,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     try {
       await widget.api.post('/api/v1/admin/clients/${Uri.encodeComponent(widget.clientId)}/$action', {});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText('Client {action}ed', args: {'action': action})));
+      showAppSnackBar(context, content: LocalizedText('Client {action}ed', args: {'action': action}));
       _load();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText('Error: {detail}', args: {'detail': e})));
+      showAppSnackBar(context, content: LocalizedText('Error: {detail}', args: {'detail': e}), kind: AppSnackBarKind.error);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

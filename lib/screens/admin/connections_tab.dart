@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'connections/connection_contract.dart';
@@ -296,9 +297,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     try {
       await request();
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
       await afterSuccess();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) _fail(error.toString(), retry: _loadSelected);

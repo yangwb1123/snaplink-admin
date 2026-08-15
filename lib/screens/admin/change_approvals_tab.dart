@@ -7,6 +7,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -164,9 +165,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     try {
       await operation();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: LocalizedText(success)),
-      );
+      showAppSnackBar(context, content: LocalizedText(success));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -324,7 +323,13 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             const SizedBox(height: 8),
             Text(
               change['failure_note'].toString(),
-              style: const TextStyle(color: AppColors.danger),
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           ],
           const SizedBox(height: 12),

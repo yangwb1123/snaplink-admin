@@ -39,7 +39,14 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
     final matches = _confirmation.text == widget.clientId;
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      icon: const Icon(Icons.delete_forever_outlined, color: AppColors.danger),
+      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+      icon: Icon(
+        Icons.delete_forever_outlined,
+        color: AppColors.semanticFor(
+          Theme.of(context).brightness,
+          AppColors.danger,
+        ),
+      ),
       title: Text(context.tr('Delete app permanently?')),
       content: SingleChildScrollView(
         child: Column(

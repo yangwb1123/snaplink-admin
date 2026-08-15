@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 
 /// Clears one brute-force lockout key without conflating it with a user ID.
@@ -56,9 +57,7 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       });
       if (!mounted) return;
       _identifierController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Account lockout cleared.')),
-      );
+      showAppSnackBar(context, content: LocalizedText('Account lockout cleared.'));
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -108,7 +107,13 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
             const SizedBox(height: 8),
             LocalizedText(
               _error!,
-              style: const TextStyle(color: AppColors.danger),
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           ],
         ],

@@ -6,15 +6,13 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_preview.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
-/// Safe editor for Snaplink's tenant branding contract.
-///
-/// Branding is an independently versioned tenant resource. Every mutation
-/// sends the last server version as If-Match so concurrent edits fail with
-/// 412 instead of overwriting one another or unrelated tenant settings.
+/// Safe editor for Snaplink's tenant branding contract; mutations send the
+/// last server version as If-Match so concurrent edits fail with 412.
 class TenantBrandingTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final String tenantId;
@@ -45,9 +43,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   String? _unknownOperation;
   int? _unknownStatus;
   String? _version;
-
   String get _encodedTenant => Uri.encodeQueryComponent(widget.tenantId);
-
   @override
   void initState() {
     super.initState();
@@ -120,8 +116,8 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   Future<void> _reconcileUnknownOutcome(String operation, {int? status}) async {
     if (!mounted) return;
     setState(() {
-      // Freeze this exact draft before the read. A failed reconciliation
-      // must never leave an ambiguous mutation ready to replay.
+      // Freeze this draft before the read; a failed reconciliation must
+      // never leave an ambiguous mutation ready to replay.
       _outcomeUnknown = true;
       _unknownOperation = operation;
       _unknownStatus = status;
@@ -192,9 +188,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         body: {'branding': branding},
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('Tenant branding saved.')),
-      );
+      showAppSnackBar(context, content: LocalizedText('Tenant branding saved.'));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (error.status == 412) {
@@ -288,7 +282,13 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(_error!, style: const TextStyle(color: AppColors.danger)),
+          Text(
+            _error!,
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            style: TextStyle(
+              color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger),
+            ),
+          ),
         ],
         if (_outcomeUnknown) ...[
           const SizedBox(height: 12),
@@ -335,8 +335,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                   enabled: !_saving && !_outcomeUnknown,
                   decoration: InputDecoration(
                     labelText: 'Languages'.localized,
-                    hintText:
-                        'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
+                    hintText: 'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
                   ),
                 ),
                 const SizedBox(height: 12),

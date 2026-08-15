@@ -3,13 +3,39 @@ import 'package:flutter/widgets.dart';
 import 'app_navigator.dart';
 
 Uri _currentUri = Uri.base;
+
+/// Same-document navigation history recorded by [pushState].
+///
+/// Native shells own the real browser history, so this in-memory stack is
+/// the source a back() replays. The initial [_currentUri] (bundle/base
+/// URL) is never a product route and is skipped by [back].
+final List<Uri> _history = <Uri>[];
+
 final _locationListeners = <void Function()>{};
 
 Uri currentUri() => _currentUri;
 
-void pushState(String path) => _setSameDocumentLocation(path);
+void pushState(String path) {
+  _history.add(_currentUri);
+  _setSameDocumentLocation(path);
+}
 
 void replaceState(String path) => _setSameDocumentLocation(path);
+
+bool back() {
+  while (_history.isNotEmpty) {
+    final previous = _history.removeLast();
+    // The untouched initial base (file:// bundle URL, test host) is not a
+    // product route; keep popping so back never lands outside the app.
+    if (previous.scheme != 'file' &&
+        previous.path.isNotEmpty &&
+        previous.path != '/') {
+      _setSameDocumentLocation(previous.toString());
+      return true;
+    }
+  }
+  return false;
+}
 
 void assignLocation(String path) => _replaceRoute(path);
 
@@ -47,6 +73,7 @@ void _replaceRoute(String location) {
 /// Clears in-memory location state so widget tests start from a clean URL.
 void resetForTest() {
   _currentUri = Uri.base;
+  _history.clear();
   _locationListeners.clear();
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 /// Cursor-based pagination controls shared across admin list tabs.
 /// Replaces duplicated _PaginationControls, _UserPaginationControls,
@@ -84,7 +85,7 @@ class PaginationControls extends StatelessWidget {
             : total == null
             ? null
             : Text(
-                context.tr('{total} total', {'total': total}),
+                context.tr('{total} total', {'total': formatCount(total)}),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

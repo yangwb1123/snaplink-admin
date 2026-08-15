@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 /// One segment of a [DistributionBar].
 class DistributionSegment {
@@ -108,7 +109,7 @@ class DistributionBar extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${context.tr(segment.label)} · ${segment.value}',
+                      '${context.tr(segment.label)} · ${formatCount(segment.value)}',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                         fontWeight: segment.label == emphasizedLabel

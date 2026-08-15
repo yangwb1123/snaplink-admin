@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import '../admin_module_groups.dart';
@@ -94,7 +95,7 @@ class CommerceWalletPanel extends StatelessWidget {
   Widget _walletSummary(BuildContext context) {
     final statusLabel = wallet!['status']?.toString() ?? 'unknown';
     final balance =
-        '${wallet!['currency'] ?? currency} ${wallet!['balance_minor'] ?? 0} minor units';
+        '${wallet!['currency'] ?? currency} ${formatCount(wallet!['balance_minor'] ?? 0)} minor units';
     return Wrap(
       spacing: 16,
       runSpacing: 8,
@@ -136,7 +137,7 @@ class CommerceWalletPanel extends StatelessWidget {
         width: 240,
         cardPrimary: true,
         builder: (context, i) => TableCellText(
-          '${entries[i]['kind'] ?? 'unknown'} · ${entries[i]['amount_minor'] ?? 0} minor units',
+          '${entries[i]['kind'] ?? 'unknown'} · ${formatCount(entries[i]['amount_minor'] ?? 0)} minor units',
           bold: true,
         ),
       ),
@@ -146,7 +147,7 @@ class CommerceWalletPanel extends StatelessWidget {
         width: 340,
         cardDetail: true,
         builder: (context, i) => TableCellText(
-          'Balance ${entries[i]['balance_after'] ?? '—'} · ${entries[i]['reference'] ?? '—'} · ${entries[i]['occurred_at'] ?? '—'}',
+          'Balance ${formatCount(entries[i]['balance_after'])} · ${entries[i]['reference'] ?? '—'} · ${formatServerTime(entries[i]['occurred_at'])}',
           muted: true,
           maxLines: 2,
         ),
@@ -230,7 +231,7 @@ class CommerceWalletPanel extends StatelessWidget {
                     style: Theme.of(context).textTheme.titleMedium,
                     args: {
                       'currency': order['currency'] ?? '',
-                      'amount': order['amount_minor'] ?? 0,
+                      'amount': formatCount(order['amount_minor'] ?? 0),
                     },
                   ),
                 ),
@@ -288,7 +289,7 @@ class CommerceWalletPanel extends StatelessWidget {
               width: 260,
               cardPrimary: true,
               builder: (context, i) => TableCellText(
-                '${events[i]['type'] ?? 'unknown'} · ${events[i]['amount_minor'] ?? 0} minor units',
+                '${events[i]['type'] ?? 'unknown'} · ${formatCount(events[i]['amount_minor'] ?? 0)} minor units',
                 bold: true,
               ),
             ),
@@ -298,7 +299,7 @@ class CommerceWalletPanel extends StatelessWidget {
               width: 300,
               cardDetail: true,
               builder: (context, i) => TableCellText(
-                '${events[i]['id'] ?? '—'} · ${events[i]['occurred_at'] ?? '—'}',
+                '${events[i]['id'] ?? '—'} · ${formatServerTime(events[i]['occurred_at'])}',
                 muted: true,
                 maxLines: 2,
               ),

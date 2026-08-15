@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/info_row.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
@@ -56,6 +57,13 @@ class WebhookInfoCard extends StatelessWidget {
                       'URL: {url}',
                       args: {'url': _displayUrl(subscription?['url'])},
                     ),
+                    LocalizedText(
+                      'ID: {id}',
+                      args: {'id': subscriptionId},
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -68,12 +76,12 @@ class WebhookInfoCard extends StatelessWidget {
           const Divider(),
           InfoRow(
             label: 'Created',
-            value: subscription?['created_at']?.toString() ?? '—',
+            value: formatServerTime(subscription?['created_at']),
             labelWidth: 80,
           ),
           InfoRow(
             label: 'Updated',
-            value: subscription?['updated_at']?.toString() ?? '—',
+            value: formatServerTime(subscription?['updated_at']),
             labelWidth: 80,
           ),
         ],

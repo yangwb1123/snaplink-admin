@@ -13,6 +13,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -305,11 +306,11 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
               return Row(mainAxisSize: MainAxisSize.min, children: [
                 if (peak) StatusChip(label: 'Peak', color: AppColors.danger, icon: Icons.local_fire_department),
                 const SizedBox(width: 8),
-                Text('$count'),
+                Text(formatCount(count)),
               ]);
             }),
           ]),
-          if (buckets.length > 50) Text('${buckets.length - 50} additional buckets omitted.'),
+          if (buckets.length > 50) Text('${formatCount(buckets.length - 50)} additional buckets omitted.'),
         ],
       ],
       icon: Icons.electric_bolt_outlined,

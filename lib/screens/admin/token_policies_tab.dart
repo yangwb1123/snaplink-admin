@@ -107,12 +107,15 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
             child: SkeletonListTile(itemCount: 3),
           ),
         if (!_loading && _policies.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
             child: EmptyState(
               compact: true,
               variant: EmptyStateVariant.empty,
               title: 'No token policies configured.',
+              subtitle:
+                  'Token policies are managed server-side; this page reflects the active policy set.'
+                      .localized,
             ),
           ),
         if (!_loading && _policies.isNotEmpty) _policiesCard(context),

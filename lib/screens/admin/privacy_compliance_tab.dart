@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -82,13 +83,9 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         fallbackFilename: 'snaplink-subject-$subject-export.json',
       );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: LocalizedText(
+        showAppSnackBar(context, content: LocalizedText(
               'Encrypted transport complete; export downloaded.',
-            ),
-          ),
-        );
+            ));
       }
     });
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/count_up.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/hover_card.dart';
 import 'package:sso_admin/widgets/sparkline.dart';
 
@@ -50,6 +51,16 @@ class KeyMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // R29：深色模式图标/涨跌色用同族 400 提亮变体（danger 2.26→5.29、
+    // accentBlue 2.83→5.75）；浅色恒等原色（既有测试锁定浅色规范）。
+    final effective = AppColors.semanticFor(
+      theme.brightness,
+      color,
+    );
+    final dangerColor = AppColors.semanticFor(
+      theme.brightness,
+      AppColors.danger,
+    );
     final showDelta = delta != null;
     final showSparkline = sparkline != null && sparkline!.isNotEmpty;
     return HoverCard(
@@ -66,10 +77,10 @@ class KeyMetricCard extends StatelessWidget {
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
+                        color: effective.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Icon(icon, size: 20, color: color),
+                      child: Icon(icon, size: 20, color: effective),
                     ),
                     const Spacer(),
                   ],
@@ -82,14 +93,14 @@ class KeyMetricCard extends StatelessWidget {
                               ? Icons.arrow_downward
                               : Icons.arrow_upward,
                           size: 14,
-                          color: delta! < 0 ? AppColors.danger : color,
+                          color: delta! < 0 ? dangerColor : effective,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          '${delta! < 0 ? '' : '+'}${delta!.toStringAsFixed(0)}%',
+                          '${delta! < 0 ? '' : '+'}${formatPercent(delta!)}',
                           style: theme.textTheme.bodySmall?.copyWith(
                             fontWeight: FontWeight.w700,
-                            color: delta! < 0 ? AppColors.danger : color,
+                            color: delta! < 0 ? dangerColor : effective,
                           ),
                         ),
                       ],
@@ -130,7 +141,7 @@ class KeyMetricCard extends StatelessWidget {
               ],
               if (showSparkline) ...[
                 const SizedBox(height: 8),
-                Sparkline(data: sparkline!, color: color, height: 28),
+                Sparkline(data: sparkline!, color: effective, height: 28),
               ],
             ],
           ),

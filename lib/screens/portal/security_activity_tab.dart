@@ -3,6 +3,7 @@ import 'package:sso_admin/widgets/timeline_list.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
@@ -186,7 +187,7 @@ TimelineItem _toTimelineItem(Map<String, dynamic> event) {
     color: risky ? AppColors.warning : null,
     title: _eventTitle(type),
     subtitle: _join([
-      event['time'],
+      formatServerTime(event['time']),
       event['detail'],
       event['location'],
       event['ip'],
@@ -207,7 +208,7 @@ TimelineItem _toHistoryItem(Map<String, dynamic> record) {
     color: success ? null : AppColors.danger,
     title: success ? 'Successful login' : 'Failed login',
     subtitle: _join([
-      record['time'],
+      formatServerTime(record['time']),
       record['device'],
       ...flags,
     ]),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 /// Create/edit form for an [AdminUser]. Reused for both flows: [existing]
 /// null means create (the id field is editable and required); non-null means
@@ -95,9 +96,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
     } on SSOError catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
     }
   }
 
@@ -125,7 +124,12 @@ class _UserFormDialogState extends State<UserFormDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _externalIdController,
-                  decoration: InputDecoration(labelText: 'External ID'.localized),
+                  decoration: InputDecoration(
+                    labelText: 'External ID'.localized,
+                    helperText:
+                        'Optional; mirrors the subject identifier from your identity provider.'
+                            .localized,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -137,6 +141,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                   controller: _attributesController,
                   decoration: InputDecoration(
                     labelText: 'Attributes (one key=value per line)'.localized,
+                    helperText: 'Optional; free-form key=value map.'.localized,
                     alignLabelWithHint: true,
                   ),
                   maxLines: 4,

@@ -51,38 +51,63 @@ class SettingsFormItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, size: 20, color: iconColor),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (description != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    description!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ],
+    final labelCol = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (description != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            description!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 16),
-          control,
         ],
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // R29 字体缩放：1.5x/2.0x 下控件（下拉/输入框/开关）与标签同排
+          // 放不下（原 Row 溢出 6.8-211px）。窄容器或大字号时改为上下
+          // 堆叠——控件独占一行、标签完整换行，不截断不溢出。
+          // 1x 桌面（≥520）与测试视口（800×600）保持原 Row 布局不变。
+          final scale = MediaQuery.textScalerOf(context).scale(1);
+          final stacked = constraints.maxWidth < 520 * scale;
+          if (stacked) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 20, color: iconColor),
+                    const SizedBox(width: 12),
+                    Expanded(child: labelCol),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                control,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, size: 20, color: iconColor),
+              const SizedBox(width: 12),
+              Expanded(child: labelCol),
+              const SizedBox(width: 16),
+              control,
+            ],
+          );
+        },
       ),
     );
   }

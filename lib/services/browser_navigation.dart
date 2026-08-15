@@ -17,6 +17,15 @@ abstract final class BrowserNavigation {
   /// Replaces the current in-app history entry without reloading the page.
   static void replaceState(String path) => platform.replaceState(path);
 
+  /// Steps one entry back in the product history when one exists.
+  ///
+  /// Web forwards to the browser's `history.back()` (the popstate listener
+  /// re-syncs the route); native shells replay the in-memory stack recorded
+  /// by [pushState]. Returns false when there is no previous product page —
+  /// callers then fall back to an explicit destination (deep-link first
+  /// entry case).
+  static bool back() => platform.back();
+
   static void assignLocation(String path) => platform.assignLocation(path);
 
   /// Navigates to an absolute external HTTPS URL only when a real browser

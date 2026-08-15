@@ -6,6 +6,7 @@ import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/distribution_bar.dart';
@@ -23,6 +24,7 @@ class WebhooksTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
   const WebhooksTab({super.key, required this.api, required this.capabilities});
+
   @override
   State<WebhooksTab> createState() => _WebhooksTabState();
 }
@@ -73,47 +75,39 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   Future<void> _load() async {
-        setState(() {
-          _loading = true;
-          _error = null;
-        });
-        try {
-          final results = await Future.wait([
-            if (_hasSubscriptions)
-              widget.api.getStaleWhileRevalidate(
-                _subsPath, onRefresh: _applySubsRefresh),
-            if (_hasDeadLetters)
-              widget.api.getStaleWhileRevalidate(
-                _deadPath, onRefresh: _applyDeadRefresh),
-          ]);
-          if (!mounted) return;
-          var idx = 0;
-          setState(() {
-            if (_hasSubscriptions) _subscriptions = _maps(results[idx++]['subscriptions']);
-            if (_hasDeadLetters) _deadLetters = _maps(results[idx]['deadletters'] ?? results[idx]['messages']);
-            _loading = false;
-          });
-        } on SnaplinkAdminApiError catch (e) {
-          _fail(e.toString());
-        } catch (_) {
-          _fail('Could not load webhooks.');
-        }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final results = await Future.wait([
+        if (_hasSubscriptions) widget.api.getStaleWhileRevalidate(_subsPath, onRefresh: _applySubsRefresh),
+        if (_hasDeadLetters) widget.api.getStaleWhileRevalidate(_deadPath, onRefresh: _applyDeadRefresh),
+      ]);
+      if (!mounted) return;
+      var idx = 0;
+      setState(() {
+        if (_hasSubscriptions) _subscriptions = _maps(results[idx++]['subscriptions']);
+        if (_hasDeadLetters) _deadLetters = _maps(results[idx]['deadletters'] ?? results[idx]['messages']);
+        _loading = false;
+      });
+    } on SnaplinkAdminApiError catch (e) {
+      _fail(e.toString());
+    } catch (_) {
+      _fail('Could not load webhooks.');
+    }
   }
 
   void _applySubsRefresh(Map<String, dynamic> fresh) {
     if (mounted) setState(() => _subscriptions = _maps(fresh['subscriptions']));
   }
+
   void _applyDeadRefresh(Map<String, dynamic> fresh) {
-    if (mounted) {
-      setState(
-        () => _deadLetters = _maps(fresh['deadletters'] ?? fresh['messages']),
-      );
-    }
+    if (mounted) setState(() => _deadLetters = _maps(fresh['deadletters'] ?? fresh['messages']));
   }
 
   /// API 列表 → 强类型 Map 列表（空/缺省为 []）。
-  List<Map<String, dynamic>> _maps(Object? raw) =>
-      [for (final e in raw as List? ?? const []) Map<String, dynamic>.from(e as Map)];
+  List<Map<String, dynamic>> _maps(Object? raw) => [for (final e in raw as List? ?? const []) Map<String, dynamic>.from(e as Map)];
 
   void _fail(String message) {
     if (!mounted) return;
@@ -128,10 +122,11 @@ class _WebhooksTabState extends State<WebhooksTab> {
     setState(() {
       _mutating = true;
       _error = null;
-    });    try {
+    });
+    try {
       await run();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(success)));
+      showAppSnackBar(context, content: LocalizedText(success));
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -150,7 +145,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
       _error = null;
     });
     try {
-      final events = _eventsCtrl.text.trim().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();      await widget.api.post(_subsPath, {
+      final events = _eventsCtrl.text.trim().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      await widget.api.post(_subsPath, {
         'url': url,
         if (events.isNotEmpty) 'event_types': events,
         if (_secretCtrl.text.trim().isNotEmpty) 'secret': _secretCtrl.text.trim(),
@@ -160,7 +156,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       _urlCtrl.clear();
       _eventsCtrl.clear();
       _secretCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: LocalizedText('Webhook subscription created.')));
+      showAppSnackBar(context, content: LocalizedText('Webhook subscription created.'));
       if (mounted) AdminRoute.go('webhooks');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -193,16 +189,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       await _load();
       if (!mounted) return;
       final cleanupComplete = response['cleanup_status'] == 'complete';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: LocalizedText(
-            cleanupComplete
-                ? 'Delivery sent and dead-letter cleanup completed.'
-                : 'Delivery succeeded; cleanup remains pending. Retrying this '
-                      'entry is cleanup-only and cannot redeliver it.',
-          ),
-        ),
-      );
+      showAppSnackBar(context, content: LocalizedText(cleanupComplete ? 'Delivery sent and dead-letter cleanup completed.' : 'Delivery succeeded; cleanup remains pending. Retrying this entry is cleanup-only and cannot redeliver it.'));
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -258,26 +245,27 @@ class _WebhooksTabState extends State<WebhooksTab> {
                 Semantics(container: true, header: true, child: Text(AppStrings.of(context).webhooks, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
                 const SizedBox(height: 4),
                 LocalizedText('Manage event notification webhook subscriptions and dead letters.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                const SizedBox(height: 12),
+                IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'.localized),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'.localized),
         ],
       ),
     );
   }
 
   /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）；错误文本动态 Text（X10）。
-  Widget _errorCard(BuildContext context) => ErrorStateCard(
-    message: _error!,
-    onRetry: _load,
-    retryEnabled: !_loading,
-  );
+  Widget _errorCard(BuildContext context) =>
+      ErrorStateCard(message: _error!, onRetry: _load, retryEnabled: !_loading);
 
   Widget _createCard(BuildContext context) => Card(
     margin: EdgeInsets.zero,
-    child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           LocalizedText('Create subscription', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           _field(_urlCtrl, label: 'Webhook URL', hint: 'https://hooks.example.com/events'),
@@ -286,12 +274,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
           const SizedBox(height: 12),
           _field(_secretCtrl, label: 'Signing secret (optional)', obscure: true),
           const SizedBox(height: 12),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const LocalizedText('Active'),
-            value: _active,
-            onChanged: (v) => setState(() => _active = v),
-          ),
+          SwitchListTile(contentPadding: EdgeInsets.zero, title: const LocalizedText('Active'), value: _active, onChanged: (v) => setState(() => _active = v)),
           FilledButton(onPressed: () => AdminRoute.go('webhooks', action: 'new'), child: const LocalizedText('Create subscription')),
         ],
       ),
@@ -319,15 +302,24 @@ class _WebhooksTabState extends State<WebhooksTab> {
     final fraction = total == 0 ? 0.0 : active / total;
     return Padding(
       padding: const EdgeInsets.only(top: 12, bottom: 4),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          LocalizedText('Subscriptions health', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          Text('$active of $total active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fraction >= 0.7 ? AppColors.success : fraction >= 0.4 ? AppColors.warning : AppColors.danger)),
-        ]),
-        const SizedBox(height: 4),
-        DistributionBar(segments: [DistributionSegment(label: 'Active', value: active, color: AppColors.success), DistributionSegment(label: 'Inactive', value: total - active, color: AppColors.muted)], showLegend: false),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            LocalizedText('Subscriptions health', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Text('$active of $total active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fraction >= 0.7 ? AppColors.success : fraction >= 0.4 ? AppColors.warning : AppColors.danger)),
+          ]),
+          const SizedBox(height: 4),
+          DistributionBar(
+            segments: [
+              DistributionSegment(label: 'Active', value: active, color: AppColors.success),
+              DistributionSegment(label: 'Inactive', value: total - active, color: AppColors.muted),
+            ],
+            showLegend: false,
+          ),
+        ],
+      ),
     );
   }
 
@@ -362,7 +354,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
     return _section(
       'Subscriptions',
       visible,
-      const EmptyState(variant: EmptyStateVariant.empty, title: 'No subscriptions.', compact: true),
+      _statusFilter == 'all'
+          ? const EmptyState(variant: EmptyStateVariant.empty, title: 'No subscriptions.', compact: true)
+          : EmptyState(variant: EmptyStateVariant.noMatch, compact: true, actionLabel: 'Clear filter', actionIcon: Icons.filter_alt_off, onAction: () => setState(() => _statusFilter = 'all')),
       Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         _subscriptionsHealth(context),
         const SizedBox(height: 8),
@@ -387,7 +381,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     _table(
       [
         AdminDataColumn(id: 'event', label: 'EVENT', width: 220, cardPrimary: true, builder: (context, i) => TableCellText(_deadLetters[i]['event_type']?.toString() ?? _deadLetters[i]['type']?.toString() ?? 'Unknown', bold: true)),
-        AdminDataColumn(id: 'id', label: 'ID', width: 140, builder: (context, i) => TableCellText(_deadLetters[i]['id']?.toString() ?? '', muted: true)),
+        AdminDataColumn(id: 'id', label: 'ID', width: 140, builder: (context, i) { final id = _deadLetters[i]['id']?.toString() ?? ''; return id.isEmpty ? const TableCellText('') : CopyableCell(text: id, contextProvider: () => context); }),
         AdminDataColumn(id: 'error', label: 'ERROR', width: 280, builder: (context, i) => TableCellText(_deadLetters[i]['error']?.toString() ?? '', muted: true, maxLines: 2)),
         AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(onPressed: _mutating ? null : () => _replay(_deadLetters[i]['id']?.toString() ?? ''), child: const LocalizedText('Replay'))),
       ],

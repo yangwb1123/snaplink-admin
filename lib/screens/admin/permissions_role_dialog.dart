@@ -120,6 +120,7 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
                   autofocus: !_editing,
                   decoration: InputDecoration(
                     labelText: 'Role code'.localized,
+                    helperText: 'Immutable after creation.'.localized,
                   ),
                   validator: (value) => value == null || value.trim().isEmpty
                       ? context.tr('Required')

@@ -16,6 +16,15 @@ void replaceState(String path) {
   _dispatchLocationChange();
 }
 
+bool back() {
+  // No previous entry (deep link opened in a fresh tab): report false so
+  // callers fall back to an explicit destination. history.back() with a
+  // single entry is a no-op, so this guard also avoids a dead tap.
+  if (web.window.history.length <= 1) return false;
+  web.window.history.back();
+  return true;
+}
+
 void assignLocation(String path) {
   web.window.location.href = path;
 }

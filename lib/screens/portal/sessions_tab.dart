@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
-import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
+import 'package:sso_admin/widgets/session_list_rows.dart';
 
 /// Active session list + per-session revoke + "sign out of other devices".
 /// Ports the "Active sessions" card / loadSessions() in app.js.
@@ -73,8 +74,10 @@ class _SessionsTabState extends State<SessionsTab> {
     if (r.statusCode >= 200 && r.statusCode < 300) {
       _reload();
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.tr('Could not revoke this session.'))),
+      showAppSnackBar(
+        context,
+        content: Text(context.tr('Could not revoke this session.')),
+        kind: AppSnackBarKind.error,
       );
     }
   }
@@ -99,9 +102,7 @@ class _SessionsTabState extends State<SessionsTab> {
           return;
         }
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.tr('Could not revoke sessions.'))),
-        );
+        showAppSnackBar(context, content: Text(context.tr('Could not revoke sessions.')), kind: AppSnackBarKind.error);
       }
       _reload();
     } finally {
@@ -163,7 +164,7 @@ class _SessionsTabState extends State<SessionsTab> {
             ),
           ),
         ...items.indexed.expand(
-          (entry) => _sessionSections(
+          (entry) => sessionSections(
             context,
             entry.$2,
             entry.$1 < items.length - 1,
@@ -259,14 +260,27 @@ class _SessionsTabState extends State<SessionsTab> {
                             width: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.logout, color: AppColors.danger),
+                        : Icon(
+                            Icons.logout,
+                            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                            color: AppColors.semanticFor(
+                              Theme.of(context).brightness,
+                              AppColors.danger,
+                            ),
+                          ),
                     label: Text(
                       context.tr(
                         widget.api.currentSessionId == null
                             ? 'Sign out everywhere'
                             : 'Sign out of other devices',
                       ),
-                      style: const TextStyle(color: AppColors.danger),
+                      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                      style: TextStyle(
+                        color: AppColors.semanticFor(
+                          Theme.of(context).brightness,
+                          AppColors.danger,
+                        ),
+                      ),
                     ),
                   ),
                   IconButton(
@@ -294,106 +308,3 @@ class _SessionsTabState extends State<SessionsTab> {
   }
 }
 
-String _shortDate(Object? v) {
-  final s = v.toString();
-  return s.length < 10 ? s : s.substring(0, 10);
-}
-
-/// Renders one session entry plus its divider; keeps the per-item
-/// conditionals out of the ListView builder tree. Entry wrapped in
-/// [StaggeredFadeIn] for the list entrance animation (R7 convention).
-List<Widget> _sessionSections(
-  BuildContext context,
-  dynamic s,
-  bool isLast,
-  Future<void> Function(String) onRevoke,
-  int index,
-) => [
-  StaggeredFadeIn(index: index, child: _sessionTile(context, s, onRevoke)),
-  if (!isLast) const Divider(height: 1),
-];
-
-/// Renders a single session row with its UA-derived meta lines.
-Widget _sessionTile(
-  BuildContext context,
-  dynamic s,
-  Future<void> Function(String) onRevoke,
-) {
-  final id = s['id']?.toString() ?? '';
-  final metaParts = <String>[];
-  if (s['created_at'] != null) {
-    metaParts.add(
-      context.tr('since {date}', {'date': _shortDate(s['created_at'])}),
-    );
-  }
-  if (s['expires_at'] != null) {
-    metaParts.add(
-      context.tr('expires {date}', {'date': _shortDate(s['expires_at'])}),
-    );
-  }
-  final devParts = <String>[];
-  if (s['ip'] != null) {
-    devParts.add(s['ip'].toString());
-  }
-  if (s['user_agent'] != null) {
-    devParts.add(_deviceHint(context, s['user_agent'].toString()));
-  }
-  if (s['device_name']?.toString().isNotEmpty == true) {
-    devParts.add(s['device_name'].toString());
-  }
-  final posture = <String>[
-    if (s['device_platform']?.toString().isNotEmpty == true)
-      s['device_platform'].toString(),
-    if (s['device_browser']?.toString().isNotEmpty == true)
-      s['device_browser'].toString(),
-    if (s['trust_label']?.toString().isNotEmpty == true)
-      context.tr('trust {value}', {'value': s['trust_label']}),
-  ];
-  return ListTile(
-    title: Text(id),
-    subtitle: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (final part in [metaParts, devParts, posture])
-          if (part.isNotEmpty) Text(part.join(' · ')),
-      ],
-    ),
-    isThreeLine: metaParts.isNotEmpty && devParts.isNotEmpty,
-    trailing: TextButton(
-      onPressed: () => onRevoke(id),
-      style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-      child: Text(context.tr('Revoke')),
-    ),
-  );
-}
-
-/// Reduces a raw User-Agent to a friendly "Browser on OS" label, ported
-/// verbatim (same regexes/precedence) from app.js's deviceHint().
-String _deviceHint(BuildContext context, String ua) {
-  final browser = ua.contains('Edg/')
-      ? 'Edge'
-      : ua.contains('Chrome/')
-      ? 'Chrome'
-      : ua.contains('Firefox/')
-      ? 'Firefox'
-      : ua.contains('Safari/')
-      ? 'Safari'
-      : '';
-  final os = ua.contains('Windows')
-      ? 'Windows'
-      : ua.contains('Mac OS X') || ua.contains('Macintosh')
-      ? 'macOS'
-      : ua.contains('Android')
-      ? 'Android'
-      : ua.contains('iPhone') || ua.contains('iPad') || ua.contains('iOS')
-      ? 'iOS'
-      : ua.contains('Linux')
-      ? 'Linux'
-      : '';
-  if (browser.isNotEmpty && os.isNotEmpty) {
-    return context.tr('{browser} on {os}', {'browser': browser, 'os': os});
-  }
-  if (browser.isNotEmpty) return browser;
-  if (os.isNotEmpty) return os;
-  return ua.length > 40 ? '${ua.substring(0, 40)}…' : ua;
-}

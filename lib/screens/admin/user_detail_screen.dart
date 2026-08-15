@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
@@ -183,7 +184,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,
-          onPressed: () => AdminRoute.go('users'),
+          onPressed: () => AdminRoute.back('users'),
         ),
       ),
       body: _loading
@@ -269,7 +270,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
           UserLifecycleView(
             lifecycle: _lifecycle ?? const {},
             showBackButton: _user != null,
-            onBack: () => AdminRoute.go('users'),
+            onBack: () => AdminRoute.back('users'),
           ),
         );
       case 'device-security':
@@ -327,15 +328,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/consents/${Uri.encodeComponent(clientId)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: LocalizedText('Consent revoked')));
+      showAppSnackBar(context, content: LocalizedText('Consent revoked'));
       _load();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: LocalizedText('Error: {e}', args: {'e': e})),
-        );
+        showAppSnackBar(context, content: LocalizedText('Error: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -358,17 +355,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
         '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa/${Uri.encodeComponent(factorId)}',
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: LocalizedText('MFA factor removed')),
-      );
+      showAppSnackBar(context, content: LocalizedText('MFA factor removed'));
       _load();
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: LocalizedText('Error: {error}', args: {'error': error}),
-          ),
-        );
+        showAppSnackBar(context, content: LocalizedText('Error: {error}', args: {'error': error}), kind: AppSnackBarKind.error);
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

@@ -5,6 +5,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -275,7 +276,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
     try {
       await fn();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(okMsg)));
+      showAppSnackBar(context, content: LocalizedText(okMsg));
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -374,10 +375,20 @@ class _PermissionsTabState extends State<PermissionsTab> {
     ),
     child: Row(
       children: [
-        const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
+        Icon(Icons.error_outline, size: 18, color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger)),
         const SizedBox(width: 8),
-        Expanded(child: Text(context.tr(_error!), style: const TextStyle(color: AppColors.danger))),
-        TextButton(
+        Expanded(
+          child: Text(
+            context.tr(_error!),
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            style: TextStyle(
+              color: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
+            ),
+          ),
+        ),        TextButton(
           onPressed: _clientId == null ? null : _load,
           child: const LocalizedText('Retry'),
         ),

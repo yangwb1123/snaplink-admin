@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
@@ -129,7 +130,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     try {
       await request();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(message)));
+      showAppSnackBar(context, content: LocalizedText(message));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -186,7 +187,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       await widget.api.post(_singleRevokePath, {_revokeKind: value});
       if (!mounted) return;
       _revokeTokenCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: LocalizedText(_revokeKind == 'token' ? 'Token revoked.' : 'Session revoked.')));
+      showAppSnackBar(context, content: LocalizedText(_revokeKind == 'token' ? 'Token revoked.' : 'Session revoked.'));
     } on SnaplinkAdminApiError catch (e) { if (mounted) setState(() => _error = e.toString()); }
     finally {
       if (_revokeKind == 'token') _revokeTokenCtrl.clear();
@@ -317,7 +318,13 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         Expanded(child: TableCellText(t['label']?.toString() ?? t['id']?.toString() ?? '', level: DataEmphasisLevel.primary)),
         if (_supportsAdminTokenRevoke) TextButton(
           onPressed: _mutating ? null : () => _revokeAdminToken(t['id']?.toString() ?? ''),
-          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          style: TextButton.styleFrom(
+            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+            foregroundColor: AppColors.semanticFor(
+              Theme.of(context).brightness,
+              AppColors.danger,
+            ),
+          ),
           child: const LocalizedText('Revoke'),
         ),
       ]);
@@ -346,7 +353,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     const SizedBox(height: 12),
     TextField(key: const Key('bulk-revoke-client'), controller: _clientCtrl, decoration: InputDecoration(labelText: 'Client ID (optional)'.localized)),
     const SizedBox(height: 12),
-    OutlinedButton(key: const Key('bulk-revoke-submit'), onPressed: _mutating ? null : _bulkRevoke, style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)), child: const LocalizedText('Bulk revoke refresh tokens')),
+    OutlinedButton(key: const Key('bulk-revoke-submit'), onPressed: _mutating ? null : _bulkRevoke, style: OutlinedButton.styleFrom(foregroundColor: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger), side: BorderSide(color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger))), child: const LocalizedText('Bulk revoke refresh tokens')),
   ]);
   Widget _tempTokenCard() => _card('Create temporary token', Icons.key_outlined, [
     TextField(key: const Key('temp-token-user-id'), controller: _createUserCtrl, decoration: InputDecoration(labelText: 'User ID'.localized)),
@@ -370,7 +377,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     const SizedBox(height: 12),
     TextField(key: const Key('single-revoke-value'), controller: _revokeTokenCtrl, obscureText: _revokeKind == 'token', enableSuggestions: false, autocorrect: false, decoration: InputDecoration(labelText: (_revokeKind == 'token' ? 'Raw token' : 'Session ID').localized)),
     const SizedBox(height: 12),
-    OutlinedButton(key: const Key('single-revoke-submit'), onPressed: _mutating ? null : _revokeToken, style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: const BorderSide(color: AppColors.danger)), child: const LocalizedText('Revoke token')),
+    OutlinedButton(key: const Key('single-revoke-submit'), onPressed: _mutating ? null : _revokeToken, style: OutlinedButton.styleFrom(foregroundColor: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger), side: BorderSide(color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger))), child: const LocalizedText('Revoke token')),
   ]);
 
   /// 安全摘要（异常优先）：可疑/临期计数大数字，第一时间看到风险量级。

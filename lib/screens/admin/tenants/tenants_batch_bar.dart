@@ -12,6 +12,9 @@ class TenantsBatchBar extends StatelessWidget {
   final VoidCallback onActivate;
   final VoidCallback onClearSelection;
 
+  /// 批量执行进行中：禁用动作按钮并显示进度（透传给 BatchActionBar）。
+  final bool isLoading;
+
   const TenantsBatchBar({
     super.key,
     required this.selectedCount,
@@ -19,6 +22,7 @@ class TenantsBatchBar extends StatelessWidget {
     required this.onSuspend,
     required this.onActivate,
     required this.onClearSelection,
+    this.isLoading = false,
   });
 
   @override
@@ -26,6 +30,7 @@ class TenantsBatchBar extends StatelessWidget {
     return BatchActionBar(
       selectedCount: selectedCount,
       accent: accent,
+      isLoading: isLoading,
       actions: [
         BatchAction(
           label: 'Suspend',

@@ -281,10 +281,9 @@ class ScimResourceTable extends StatelessWidget {
           id: 'id',
           label: 'ID',
           width: 240,
-          builder: (context, index) => TableCellText(
-            resources[index]['id']?.toString() ?? '',
-            muted: true,
-            maxLines: 1,
+          builder: (context, index) => CopyableCell(
+            text: resources[index]['id']?.toString() ?? '',
+            contextProvider: () => context,
           ),
         ),
         if (isUser)

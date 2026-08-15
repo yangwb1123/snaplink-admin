@@ -86,9 +86,10 @@ class StatusChip extends StatelessWidget {
     final onColor = background.computeLuminance() > 0.5
         ? Colors.black87
         : Colors.white;
-    // 图标点缀色：深色下用语义色 50% 叠表面提亮，保证非文本对比度。
+    // 图标点缀色：深色下用同族 400 提亮变体（R29，danger/warning 原色
+    // 2.26-2.83:1 <3 非文本门限，提亮后 5.29-8.76:1 ≥AA）；浅色保持原色。
     final accent = isDark
-        ? Color.alphaBlend(color.withValues(alpha: 0.5), scheme.surface)
+        ? AppColors.semanticFor(Brightness.dark, color)
         : color;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),

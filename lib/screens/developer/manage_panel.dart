@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
 
 import 'dcr_credentials.dart';
 import 'dcr_delete_dialog.dart';
@@ -150,7 +151,7 @@ class ManagePanelState extends State<ManagePanel> {
     try {
       metadata = _form.metadata();
     } on FormatException catch (error) {
-      _showMessage(error.message);
+      _showMessage(error.message, error: true);
       return;
     }
     final validation = validateDcrMetadata(
@@ -159,7 +160,7 @@ class ManagePanelState extends State<ManagePanel> {
       registration: false,
     );
     if (!validation.isValid) {
-      _showMessage(validation.message);
+      _showMessage(validation.message, error: true);
       return;
     }
 
@@ -211,6 +212,7 @@ class ManagePanelState extends State<ManagePanel> {
               ? 'Save was not confirmed (HTTP ${error.status}). Retry without '
                     'reloading credentials.'
               : '$error',
+          error: true,
         );
       }
     } catch (_) {
@@ -218,6 +220,7 @@ class ManagePanelState extends State<ManagePanel> {
         _showMessage(
           'Save was not confirmed because Snaplink could not be reached. '
           'Retry; the credentials were not classified as invalid.',
+          error: true,
         );
       }
     } finally {
@@ -263,6 +266,7 @@ class ManagePanelState extends State<ManagePanel> {
               ? 'Delete was not confirmed (HTTP ${error.status}). Retry; '
                     'the credentials remain loaded.'
               : 'Snaplink rejected the delete request: $error',
+          error: true,
         );
       }
     } catch (_) {
@@ -270,6 +274,7 @@ class ManagePanelState extends State<ManagePanel> {
         _showMessage(
           'Delete was not confirmed because Snaplink could not be reached. '
           'Retry; the credentials were not classified as invalid.',
+          error: true,
         );
       }
     } finally {
@@ -277,10 +282,9 @@ class ManagePanelState extends State<ManagePanel> {
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(context.tr(message))));
+  void _showMessage(String message, {bool error = false}) {
+    showAppSnackBar(context, content: Text(context.tr(message)),
+        kind: error ? AppSnackBarKind.error : AppSnackBarKind.success);
   }
 
   void _loadIfIdle() {
