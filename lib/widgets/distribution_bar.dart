@@ -103,7 +103,7 @@ class DistributionBar extends StatelessWidget {
                       height: 8,
                       decoration: BoxDecoration(
                         color: segment.color,
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     const SizedBox(width: 4),

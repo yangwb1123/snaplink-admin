@@ -79,8 +79,12 @@ class _WebhooksTabState extends State<WebhooksTab> {
         });
         try {
           final results = await Future.wait([
-            if (_hasSubscriptions) widget.api.get(_subsPath),
-            if (_hasDeadLetters) widget.api.get(_deadPath),
+            if (_hasSubscriptions)
+              widget.api.getStaleWhileRevalidate(
+                _subsPath, onRefresh: _applySubsRefresh),
+            if (_hasDeadLetters)
+              widget.api.getStaleWhileRevalidate(
+                _deadPath, onRefresh: _applyDeadRefresh),
           ]);
           if (!mounted) return;
           var idx = 0;
@@ -94,6 +98,17 @@ class _WebhooksTabState extends State<WebhooksTab> {
         } catch (_) {
           _fail('Could not load webhooks.');
         }
+  }
+
+  void _applySubsRefresh(Map<String, dynamic> fresh) {
+    if (mounted) setState(() => _subscriptions = _maps(fresh['subscriptions']));
+  }
+  void _applyDeadRefresh(Map<String, dynamic> fresh) {
+    if (mounted) {
+      setState(
+        () => _deadLetters = _maps(fresh['deadletters'] ?? fresh['messages']),
+      );
+    }
   }
 
   /// API 列表 → 强类型 Map 列表（空/缺省为 []）。
@@ -240,7 +255,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(AppStrings.of(context).webhooks, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+                Semantics(container: true, header: true, child: Text(AppStrings.of(context).webhooks, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
                 const SizedBox(height: 4),
                 LocalizedText('Manage event notification webhook subscriptions and dead letters.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
               ],

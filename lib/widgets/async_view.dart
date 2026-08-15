@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'empty_state.dart';
+import 'skeleton_list.dart';
 
 /// Unified three-state widget for async data loading.
 ///
@@ -40,6 +41,9 @@ class AsyncView<T> extends StatelessWidget {
   final VoidCallback? onEmptyAction;
   final Widget Function(T data) dataBuilder;
 
+  /// true = 列表页加载态用骨架屏（[SkeletonListTile]）替代加载圈。
+  final bool useSkeleton;
+
   const AsyncView({
     super.key,
     required this.loading,
@@ -52,11 +56,15 @@ class AsyncView<T> extends StatelessWidget {
     this.emptyActionLabel,
     this.onEmptyAction,
     required this.dataBuilder,
+    this.useSkeleton = false,
   });
 
   @override
   Widget build(BuildContext context) {
     if (loading) {
+      if (useSkeleton) {
+        return const SkeletonListTile(itemCount: 5);
+      }
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(32),

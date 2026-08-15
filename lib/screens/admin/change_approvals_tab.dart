@@ -13,6 +13,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -77,20 +78,33 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       _error = null;
     });
     try {
-      final data = await widget.api.get(_basePath, forceRefresh: true);
-      final values = data['changes'] as List? ?? const [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        _basePath,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
       setState(() {
-        _changes = values
-            .whereType<Map>()
-            .map(normalizeChangeApproval)
-            .toList(growable: false);
+        _applyChanges(data);
       });
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyChanges(Map<String, dynamic> data) {
+    final values = data['changes'] as List? ?? const [];
+    _changes = values
+        .whereType<Map>()
+        .map(normalizeChangeApproval)
+        .toList(growable: false);
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyChanges(fresh));
   }
 
   Future<void> _propose() async {
@@ -205,10 +219,18 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             padding: const EdgeInsets.only(top: 12),
             child: EmptyState(
               compact: true,
+              variant: _status == ChangeStatus.all
+                  ? EmptyStateVariant.empty
+                  : EmptyStateVariant.noMatch,
               title: 'No change requests',
               subtitle: _status == ChangeStatus.all
                   ? 'No governed changes have been proposed.'
                   : 'No requests currently have this status.',
+              actionLabel: _status == ChangeStatus.all ? null : 'Clear filter',
+              actionIcon: Icons.filter_alt_off,
+              onAction: _status == ChangeStatus.all
+                  ? null
+                  : () => setState(() => _status = ChangeStatus.all),
             ),
           ),
         if (!_loading && _error == null && _visible.isNotEmpty)
@@ -252,7 +274,8 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
           child: SectionHeader('Change requests', count: changes.length),
         ),
         const SizedBox(height: 4),
-        for (final change in changes) _changeCard(context, change),
+        for (final (index, change) in changes.indexed)
+          StaggeredFadeIn(index: index, child: _changeCard(context, change)),
       ],
     );
   }

@@ -122,6 +122,13 @@ class _AuditLogTabState extends State<AuditLogTab> {
     }
   }
 
+  /// 空态“清除筛选”：清空搜索与 outcome 筛选后刷新（过滤无结果场景）。
+  void _clearFilters() {
+    _searchCtrl.clear();
+    _outcomeFilter = 'ALL';
+    _refresh();
+  }
+
   void _applyFilter() {
     final query = _searchCtrl.text.trim().toLowerCase();
     Iterable<AuditEventRow> filtered = _rows;
@@ -280,7 +287,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(context.tr('Audit Log'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+            Semantics(container: true, header: true, child: Text(context.tr('Audit Log'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
             const SizedBox(height: 4),
             Text(context.tr('All authentication and administrative events recorded by the server.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ]),
@@ -304,7 +311,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
 
   @override
   Widget build(BuildContext context) {
-    final showEmpty = _rows.isEmpty && !_loading && _error == null && !_notEnabled;
+    // 空态语义：筛选后无可见行（含搜索/outcome 过滤排空）也算“无结果”。
+    final showEmpty =
+        _displayed.isEmpty && !_loading && _error == null && !_notEnabled;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -323,21 +332,16 @@ class _AuditLogTabState extends State<AuditLogTab> {
         else ...[
           AuditMetrics(rows: _rows, persona: widget.persona),
           const SizedBox(height: 8),
-          Row(children: [
+          Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
             SizedBox(
               width: 300,
               // 必须同步刷新（AC-1.6/F5）：无 debounce。
               child: SearchFilterBar(debounce: false, hintText: 'Search...'.localized, controller: _searchCtrl, onSearchChanged: (_) => _refresh()),
             ),
-            const SizedBox(width: 12),
-            StatusFilterDropdown(
-              value: _outcomeFilter,
-              options: const {'ALL': 'All', 'success': 'success', 'failure': 'failure'},
-              onChanged: (v) {
-                setState(() => _outcomeFilter = v);
-                _refresh();
-              },
-            ),
+            StatusFilterDropdown(value: _outcomeFilter, options: const {'ALL': 'All', 'success': 'success', 'failure': 'failure'}, onChanged: (v) {
+              setState(() => _outcomeFilter = v);
+              _refresh();
+            }),
           ]),
           const SizedBox(height: 16),
           SectionHeader('Recent events', count: _rows.length),
@@ -345,7 +349,18 @@ class _AuditLogTabState extends State<AuditLogTab> {
           if (_loading)
             const SkeletonListTile(itemCount: 4)
           else if (showEmpty)
-            const EmptyState(variant: EmptyStateVariant.empty, title: 'No audit events returned by the server yet.')
+            _searchCtrl.text.trim().isNotEmpty || _outcomeFilter != 'ALL'
+                ? EmptyState(
+                    variant: EmptyStateVariant.noMatch,
+                    title: 'No matching events.',
+                    actionLabel: 'Clear filter',
+                    actionIcon: Icons.filter_alt_off,
+                    onAction: _clearFilters,
+                  )
+                : const EmptyState(
+                    variant: EmptyStateVariant.empty,
+                    title: 'No audit events returned by the server yet.',
+                  )
           else
             AdminDataTable(
               density: TableDensity.compact,

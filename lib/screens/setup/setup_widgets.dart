@@ -122,7 +122,7 @@ class SetupLogo extends StatelessWidget {
     width: 44,
     height: 44,
     decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(8),
       gradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -153,7 +153,7 @@ class SetupStepDots extends StatelessWidget {
       height: 4,
       decoration: BoxDecoration(
         color: on ? AppColors.primary : Theme.of(context).colorScheme.outline,
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(8),
       ),
     );
     return Semantics(
@@ -177,7 +177,7 @@ class SetupOptionalTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: AppColors.primaryTint, borderRadius: BorderRadius.circular(6)),
+    decoration: BoxDecoration(color: AppColors.primaryTint, borderRadius: BorderRadius.circular(8)),
     child: Text(
       label,
       style: const TextStyle(
@@ -240,7 +240,7 @@ class SetupInlineNotice extends StatelessWidget {
     final box = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(9)),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
       child: notice,
     );
     return liveRegion ? Semantics(liveRegion: true, child: box) : box;
@@ -293,7 +293,7 @@ class SetupCredentialValue extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surfaceContainerHighest,
           border: Border.all(color: Theme.of(context).colorScheme.outline),
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: SelectableText(value, style: const TextStyle(fontFamily: 'monospace')),
       ),
@@ -339,7 +339,7 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
       children: [
         const Icon(Icons.check_circle_outline, size: 72, color: AppColors.success),
         const SizedBox(height: 16),
-        Text(strings.setupComplete, style: Theme.of(context).textTheme.headlineMedium),
+        Semantics(container: true, header: true, child: Text(strings.setupComplete, style: Theme.of(context).textTheme.headlineMedium)),
         const SizedBox(height: 8),
         Text(strings.setupCompleteDescription),
         if (widget.adminUsername != null) ...[

@@ -162,6 +162,7 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

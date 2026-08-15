@@ -71,20 +71,33 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
       _error = null;
     });
     try {
-      final data = await widget.api.get(_basePath, forceRefresh: true);
-      final values = data['policies'] as List? ?? const [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        _basePath,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
       setState(() {
-        _policies = values
-            .whereType<Map>()
-            .map((item) => Map<String, dynamic>.from(item))
-            .toList(growable: false);
+        _applyPolicies(data);
       });
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyPolicies(Map<String, dynamic> data) {
+    final values = data['policies'] as List? ?? const [];
+    _policies = values
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList(growable: false);
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyPolicies(fresh));
   }
 
   Future<void> _edit([Map<String, dynamic>? existing]) async {
@@ -204,6 +217,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
           error: _error,
           data: _policies,
           onRetry: _load,
+          useSkeleton: true,
           emptyTitle: 'No network policies',
           emptySubtitle: 'Unclassified requests use the deployment defaults.',
           dataBuilder: (policies) => _policiesCard(context, policies),

@@ -13,6 +13,10 @@ class EmptyState extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
+  /// Action-button leading icon; defaults to [Icons.add] (historical).
+  /// "Clear filter" / "Retry" actions pass a semantic glyph instead.
+  final IconData? actionIcon;
+
   /// Visual variant; `empty` == the historical default (copy preserved).
   final EmptyStateVariant variant;
 
@@ -26,6 +30,7 @@ class EmptyState extends StatelessWidget {
     this.subtitle,
     this.actionLabel,
     this.onAction,
+    this.actionIcon,
     this.variant = EmptyStateVariant.empty,
     this.compact = false,
   });
@@ -101,7 +106,7 @@ class EmptyState extends StatelessWidget {
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: onAction,
-                icon: const Icon(Icons.add, size: 18),
+                icon: Icon(actionIcon ?? Icons.add, size: 18),
                 label: Text(context.tr(actionLabel!)),
               ),
             ],

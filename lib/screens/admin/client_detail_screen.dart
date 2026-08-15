@@ -91,7 +91,11 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('Client: {id}', args: {'id': widget.clientId}),
+        title: Semantics(
+          container: true,
+          header: true,
+          child: LocalizedText('Client: {id}', args: {'id': widget.clientId}),
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: 'Back'.localized,

@@ -4,6 +4,7 @@ library;
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 
 /// 性能门禁（perf gates）固化：静态扫描 lib/screens/（递归）与
@@ -29,8 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// 文档记录当前基线）。
 void main() {
   group('P1 懒构建门禁（严格）', () {
-    test('数据驱动列表不得用 SingleChildScrollView + Column + for/map 全量构建',
-        () {
+    test('数据驱动列表不得用 SingleChildScrollView + Column + for/map 全量构建', () {
       final violations = <String>[];
       final matchedExemptions = <String>{};
       for (final path in _scannedFiles()) {
@@ -41,25 +41,30 @@ void main() {
             matchedExemptions.add(hit.key);
             continue;
           }
-          violations.add('$path:${hit.line} （方法 ${hit.method}）: '
-              'SingleChildScrollView + Column + children: [for/map]');
+          violations.add(
+            '$path:${hit.line} （方法 ${hit.method}）: '
+            'SingleChildScrollView + Column + children: [for/map]',
+          );
         }
       }
       expect(
         violations,
         isEmpty,
-        reason: '数据驱动列表必须懒构建（ListView.builder）；固定内容/对话框/'
+        reason:
+            '数据驱动列表必须懒构建（ListView.builder）；固定内容/对话框/'
             '表格包装请登记到 _lazyExemptions 并更新质量门禁报告：\n'
             '${violations.join('\n')}',
       );
-      final stale = _lazyExemptions.keys
-          .where((key) => !matchedExemptions.contains(key))
-          .toList()
-        ..sort();
+      final stale =
+          _lazyExemptions.keys
+              .where((key) => !matchedExemptions.contains(key))
+              .toList()
+            ..sort();
       expect(
         stale,
         isEmpty,
-        reason: '以下懒构建豁免条目已失配（模式已消除或文件改动），请从 '
+        reason:
+            '以下懒构建豁免条目已失配（模式已消除或文件改动），请从 '
             '_lazyExemptions 移除：\n${stale.join('\n')}',
       );
     });
@@ -76,9 +81,7 @@ void main() {
           totalBuilds++;
           maxBody = math.max(maxBody, method.body);
           if (method.body > _buildBodyWarningLines) {
-            findings.add(
-              (path: path, line: method.line, body: method.body),
-            );
+            findings.add((path: path, line: method.line, body: method.body));
           }
         }
       }
@@ -87,11 +90,11 @@ void main() {
       _printReport(
         '[P2] build 方法体 > $_buildBodyWarningLines 行（警告级，报告不失败）',
         '共扫描 $totalBuilds 个 block-bodied build 方法，最大方法体 $maxBody 行；'
-        '关注 ${findings.length} 处',
+            '关注 ${findings.length} 处',
       );
       for (final f in findings) {
         // ignore: avoid_print
-        print('  ${f.path}:${f.line}  body=${f.body} 行');
+        debugPrint('  ${f.path}:${f.line}  body=${f.body} 行');
       }
       // 反例段：列出 81-100 行的临界区，便于观察未来收紧的影响面。
       final near = <({String path, int line, int body})>[];
@@ -104,11 +107,13 @@ void main() {
         }
       }
       near.sort((a, b) => b.body.compareTo(a.body));
-      _printReport('[P2] 临界区（81-$_buildBodyWarningLines 行，收紧预警）',
-          '${near.length} 处');
+      _printReport(
+        '[P2] 临界区（81-$_buildBodyWarningLines 行，收紧预警）',
+        '${near.length} 处',
+      );
       for (final f in near.take(10)) {
         // ignore: avoid_print
-        print('  ${f.path}:${f.line}  body=${f.body} 行');
+        debugPrint('  ${f.path}:${f.line}  body=${f.body} 行');
       }
       // 扫描健康性：文件集非空（防扫描静默失效）。
       expect(_scannedFiles(), isNotEmpty, reason: '扫描文件集不能为空');
@@ -118,7 +123,8 @@ void main() {
 
   group('P3 const 启发式（宽松，报告不失败）', () {
     test('可 const 的单行字面量构造未写 const：抽样告警（不失败）', () {
-      final findings = <({String path, int line, String kind, String literal})>[];
+      final findings =
+          <({String path, int line, String kind, String literal})>[];
       for (final path in _scannedFiles()) {
         final source = File(path).readAsStringSync();
         for (final entry in _constCandidates.entries) {
@@ -139,16 +145,18 @@ void main() {
       _printReport(
         '[P3] const 启发式抽样告警（宽松，报告不失败）',
         '共 ${findings.length} 处可 const 构造（6 类启发式，仅单行全字面量参数，'
-        '非穷尽；const 集合内已传导 const 的上下文可能误报）',
+            '非穷尽；const 集合内已传导 const 的上下文可能误报）',
       );
       final byKind = <String, int>{};
       for (final f in findings) {
         byKind[f.kind] = (byKind[f.kind] ?? 0) + 1;
         // ignore: avoid_print
-        print('  ${f.path}:${f.line}  ${f.kind}  ${f.literal}');
+        debugPrint('  ${f.path}:${f.line}  ${f.kind}  ${f.literal}');
       }
       // ignore: avoid_print
-      print('  [按类别] ${byKind.entries.map((e) => '${e.key}: ${e.value}').join('；')}');
+      debugPrint(
+        '  [按类别] ${byKind.entries.map((e) => '${e.key}: ${e.value}').join('；')}',
+      );
       expect(_scannedFiles(), isNotEmpty, reason: '扫描文件集不能为空');
     });
   });
@@ -250,8 +258,10 @@ class _Z extends StatelessWidget {
       );
       // 非 const 上下文：不得误判。
       expect(
-        _inConstContext('Padding(padding: EdgeInsets.all(16))',
-            'Padding(padding: '.length),
+        _inConstContext(
+          'Padding(padding: EdgeInsets.all(16))',
+          'Padding(padding: '.length,
+        ),
         isFalse,
         reason: '无 const 祖先不得误判',
       );
@@ -313,9 +323,11 @@ List<({int line, String method, String key})> _lazyPatternHits(
   for (final match in _singleScrollView.allMatches(source)) {
     final lineNo = _lineOf(source, match.start);
     final windowLines = <String>[
-      for (var i = lineNo - 1;
-          i < math.min(lineNo - 1 + _lazyWindowLines, lines.length);
-          i++)
+      for (
+        var i = lineNo - 1;
+        i < math.min(lineNo - 1 + _lazyWindowLines, lines.length);
+        i++
+      )
         lines[i],
     ].join('\n');
     final columnMatch = _columnConstructor.firstMatch(windowLines);
@@ -434,16 +446,12 @@ final _constCandidates = <String, RegExp>{
     r'SizedBox\(\s*((?:width|height):\s*\d+(?:\.\d+)?'
     r'(?:\s*,\s*(?:width|height):\s*\d+(?:\.\d+)?)?)\s*\)',
   ),
-  'Text(单字符串字面量)': RegExp(
-    r'''Text\(\s*["'](?:[^"']|\\["'])*["']\s*\)''',
-  ),
+  'Text(单字符串字面量)': RegExp(r'''Text\(\s*["'](?:[^"']|\\["'])*["']\s*\)'''),
   'Icon(Icons.x 无参)': RegExp(
     r'Icon\(\s*Icons\.[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)?\s*\)',
   ),
   'Divider() 空参': RegExp(r'Divider\(\s*\)'),
-  'SizedBox.shrink/expand()': RegExp(
-    r'SizedBox\.(?:shrink|expand)\(\s*\)',
-  ),
+  'SizedBox.shrink/expand()': RegExp(r'SizedBox\.(?:shrink|expand)\(\s*\)'),
 };
 
 /// 该调用是否已被 `const` 前缀（跳过空白与 `([,{;`），或是否嵌在更长
@@ -529,8 +537,7 @@ bool _tokenBeforeIsConst(String source, int openerIndex) {
     i--;
   }
   // 兼容展开前缀：`...const [` 的令牌是 `...const`。
-  final token1 =
-      source.substring(i + 1, end).replaceFirst(RegExp(r'^\.+'), '');
+  final token1 = source.substring(i + 1, end).replaceFirst(RegExp(r'^\.+'), '');
   if (token1 == 'const') return true;
   // token2：构造名/键名之后的令牌。
   while (i >= 0 && source[i].trim().isEmpty) {
@@ -541,8 +548,7 @@ bool _tokenBeforeIsConst(String source, int openerIndex) {
   while (i >= 0 && RegExp(r'[A-Za-z0-9_.]').hasMatch(source[i])) {
     i--;
   }
-  final token2 =
-      source.substring(i + 1, end).replaceFirst(RegExp(r'^\.+'), '');
+  final token2 = source.substring(i + 1, end).replaceFirst(RegExp(r'^\.+'), '');
   return token2 == 'const';
 }
 
@@ -590,5 +596,5 @@ int _lineOf(String source, int offset) =>
 
 void _printReport(String title, String summary) {
   // ignore: avoid_print
-  print('\n$title\n  $summary');
+  debugPrint('\n$title\n  $summary');
 }

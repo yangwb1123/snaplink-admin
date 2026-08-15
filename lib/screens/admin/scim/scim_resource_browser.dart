@@ -223,11 +223,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = context.tr('Could not load resource details.'),
-        );
-      }
+      if (mounted) setState(() => _error = context.tr('Could not load resource details.'));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -267,11 +263,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) {
-        setState(
-          () => _error = context.tr('The SCIM operation failed.'),
-        );
-      }
+      if (mounted) setState(() => _error = context.tr('The SCIM operation failed.'));
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -336,10 +328,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
                   if (_loading) const LinearProgressIndicator(),
                   Expanded(
                     child: page.resources.isEmpty
-                        ? const EmptyState(
-                            variant: EmptyStateVariant.empty,
-                            title: 'No resources match this query.',
-                          )
+                        ? _emptyState()
                         : ScimResourceTable(
                             kind: widget.kind,
                             resources: page.resources,
@@ -376,6 +365,24 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
         ],
       ),
     );
+  }
+
+  /// 查询空态：有查询 → noMatch + 清除筛选；无查询 → 空数据。
+  Widget _emptyState() {
+    final querying = _filterController.text.trim().isNotEmpty;
+    return EmptyState(
+      variant: querying ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+      title: querying ? 'No resources match this query.' : 'No resources found.',
+      actionLabel: querying ? 'Clear filter' : null,
+      actionIcon: Icons.filter_alt_off,
+      onAction: querying ? _clearFilter : null,
+    );
+  }
+
+  /// 空态“清除筛选”：清空查询框并重新加载。
+  void _clearFilter() {
+    _filterController.clear();
+    _load();
   }
 
   /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。

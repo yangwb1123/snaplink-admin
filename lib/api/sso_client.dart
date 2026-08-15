@@ -14,8 +14,16 @@ class SSOError implements Exception {
   SSOError(this.status, this.error, this.errorDescription);
 
   @override
-  String toString() =>
-      errorDescription ?? error ?? 'SSO request failed with status $status';
+  String toString() {
+    if (errorDescription != null) return errorDescription!;
+    if (error != null) return error!;
+    // Same 401/403 convention as the admin API error: a bare 403 is a
+    // permission denial on a still-valid session, never a session expiry.
+    if (status == 403) {
+      return 'This session is not authorized for this operation (403).';
+    }
+    return 'SSO request failed with status $status';
+  }
 }
 
 /// A cursor page returned by Snaplink's administrative list endpoints.

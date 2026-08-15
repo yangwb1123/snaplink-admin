@@ -161,10 +161,16 @@ class TenantRowActions extends StatelessWidget {
 }
 
 /// 租户空态：无数据 vs 筛选无匹配两种变体（图标/文案/动作与拆分前一致）。
+/// 筛选无匹配时提供“清除筛选”动作（[onClearFilter]）。
 class TenantsEmptyState extends StatelessWidget {
   final bool filtering;
+  final VoidCallback? onClearFilter;
 
-  const TenantsEmptyState({super.key, required this.filtering});
+  const TenantsEmptyState({
+    super.key,
+    required this.filtering,
+    this.onClearFilter,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -172,9 +178,12 @@ class TenantsEmptyState extends StatelessWidget {
       variant: filtering ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
       icon: filtering ? null : Icons.business,
       title: 'No tenants',
-      subtitle: 'No tenants match the current filter.',
-      actionLabel: 'Create tenant',
-      onAction: () => AdminRoute.go('tenants', action: 'new'),
+      subtitle: filtering ? 'No tenants match the current filter.' : null,
+      actionLabel: filtering ? 'Clear filter' : 'Create tenant',
+      actionIcon: filtering ? Icons.filter_alt_off : null,
+      onAction: filtering
+          ? onClearFilter
+          : () => AdminRoute.go('tenants', action: 'new'),
     );
   }
 }

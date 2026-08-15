@@ -169,7 +169,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
         children: [
           Icon(Icons.insights_outlined, color: _accent),
           const SizedBox(width: 8),
-          Semantics(container: true, header: true, child: LocalizedText('Usage and session insights', style: Theme.of(context).textTheme.headlineSmall)),
+          LocalizedText('Usage and session insights', style: Theme.of(context).textTheme.headlineSmall),
           const Spacer(),
           IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'.localized),
         ],

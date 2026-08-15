@@ -178,13 +178,18 @@ class _OverviewTabState extends State<OverviewTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Text(
-                context.strings.overview,
-                style: Theme.of(context).textTheme.headlineSmall,
+              Semantics(
+                container: true,
+                header: true,
+                child: Text(
+                  context.strings.overview,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
               ),
               const Spacer(),
               IconButton(
                 onPressed: _loading ? null : _load,
+                tooltip: context.strings.refresh,
                 icon: const Icon(Icons.refresh),
               ),
             ],

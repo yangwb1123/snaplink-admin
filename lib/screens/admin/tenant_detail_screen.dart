@@ -176,9 +176,13 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText(
-        'Tenant: {widget_tenantId}',
-        args: {'widget_tenantId': widget.tenantId},
+      title: Semantics(
+        container: true,
+        header: true,
+        child: LocalizedText(
+          'Tenant: {widget_tenantId}',
+          args: {'widget_tenantId': widget.tenantId},
+        ),
       ),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),

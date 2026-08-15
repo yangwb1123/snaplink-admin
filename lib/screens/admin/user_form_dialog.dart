@@ -107,6 +107,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
       title: LocalizedText(_isEditing ? 'Edit User' : 'New User'),
       content: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

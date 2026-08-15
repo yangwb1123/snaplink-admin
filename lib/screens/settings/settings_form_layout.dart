@@ -10,7 +10,6 @@ class SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -22,7 +21,6 @@ class SettingsGroup extends StatelessWidget {
                 Divider(
                   height: 1,
                   indent: 32, // 对齐 label 起点（icon 20 + gap 12）
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
                 ),
               child,
             ],

@@ -76,7 +76,10 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   // 副标语 + 安全徽章：价值主张与信任信号。
                   _trustSignal(context),
                   const SizedBox(height: 20),
-                  _buildView(),
+                  // 页面过渡：登录视图切换（login/forgot/reset/signup/mfa/
+                  // consent/success）与 admin/portal 壳层同一 PageTransition
+                  // 约定（200ms fade + 轻上滑，R7）。
+                  PageTransition(pageKey: ValueKey(_view), child: _buildView()),
                   const SizedBox(height: 12),
                   // 页脚：品牌署名。
                   Text(

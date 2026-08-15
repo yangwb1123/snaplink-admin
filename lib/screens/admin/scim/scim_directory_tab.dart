@@ -63,9 +63,13 @@ class ScimDirectoryTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      LocalizedText(
-                        'SCIM 2.0 Directory',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                      Semantics(
+                        container: true,
+                        header: true,
+                        child: LocalizedText(
+                          'SCIM 2.0 Directory',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       const LocalizedText(

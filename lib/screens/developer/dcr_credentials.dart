@@ -216,6 +216,7 @@ class _OneTimeRegistrationCredentialsState
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Semantics(
+              container: true,
               header: true,
               liveRegion: true,
               child: Row(

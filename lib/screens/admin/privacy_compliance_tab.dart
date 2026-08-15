@@ -192,9 +192,13 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         children: [
           Icon(Icons.privacy_tip_outlined, color: _accent),
           const SizedBox(width: 8),
-          LocalizedText(
-            'Privacy and retention',
-            style: Theme.of(context).textTheme.headlineSmall,
+          Semantics(
+            container: true,
+            header: true,
+            child: LocalizedText(
+              'Privacy and retention',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
           ),
         ],
       ),

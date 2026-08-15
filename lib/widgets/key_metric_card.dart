@@ -67,7 +67,7 @@ class KeyMetricCard extends StatelessWidget {
                       height: 36,
                       decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(icon, size: 20, color: color),
                     ),

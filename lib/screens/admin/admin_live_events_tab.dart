@@ -292,9 +292,13 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
           Icon(Icons.sensors_outlined, color: _accent),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(
-              AppStrings.of(context).liveActivity,
-              style: theme.textTheme.headlineSmall,
+            child: Semantics(
+              container: true,
+              header: true,
+              child: Text(
+                AppStrings.of(context).liveActivity,
+                style: theme.textTheme.headlineSmall,
+              ),
             ),
           ),
         ],

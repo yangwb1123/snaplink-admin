@@ -97,7 +97,7 @@ class NotificationBell extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.danger,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     unreadCount > 99 ? '99+' : '$unreadCount',

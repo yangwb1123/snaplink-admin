@@ -26,7 +26,7 @@ class UserDetailHeader extends StatelessWidget {
             height: 56,
             decoration: BoxDecoration(
               color: _userAccent().withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(Icons.person, size: 32, color: _userAccent()),
           ),

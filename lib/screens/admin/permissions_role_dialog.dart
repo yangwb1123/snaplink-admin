@@ -110,6 +110,7 @@ class _PermissionsRoleDialogState extends State<PermissionsRoleDialog> {
         child: SingleChildScrollView(
           child: Form(
             key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

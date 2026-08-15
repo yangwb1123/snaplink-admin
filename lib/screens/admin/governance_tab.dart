@@ -109,7 +109,6 @@ class _GovernanceTabState extends State<GovernanceTab> {
   }
 
   Future<void> _refresh() async {
-    widget.api.skipCache();
     final reads = governanceReadSpecs
         .where((spec) => _has('GET', spec.path))
         .toList(growable: false);
@@ -124,7 +123,14 @@ class _GovernanceTabState extends State<GovernanceTab> {
           try {
             return (
               key: spec.key,
-              data: await widget.api.get(spec.path),
+              data: await widget.api.getStaleWhileRevalidate(
+                spec.path,
+                onRefresh: (fresh) {
+                  if (mounted) {
+                    setState(() => _data[spec.key] = _safe(fresh));
+                  }
+                },
+              ),
               error: '',
             );
           } on SnaplinkAdminApiError catch (error) {
@@ -160,7 +166,12 @@ class _GovernanceTabState extends State<GovernanceTab> {
       _error = null;
     });
     try {
-      final response = await widget.api.get(spec.path);
+      final response = await widget.api.getStaleWhileRevalidate(
+        spec.path,
+        onRefresh: (fresh) {
+          if (mounted) setState(() => _data[spec.key] = _safe(fresh));
+        },
+      );
       if (mounted) setState(() => _data[spec.key] = _safe(response));
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -263,11 +274,15 @@ class _GovernanceTabState extends State<GovernanceTab> {
                 Icon(Icons.admin_panel_settings_outlined, color: _accent),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    AppStrings.of(context).governanceOperations,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  child: Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
+                      AppStrings.of(context).governanceOperations,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 const Spacer(),

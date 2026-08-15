@@ -92,12 +92,23 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     super.dispose();
   }
   Future<void> _load() async {
-    widget.api.skipCache();
     setState(() { _loading = true; _error = null; });
     final results = await Future.wait(
       _paths.entries.where((e) => _supports('GET', e.value)).map((e) async {
-        try { return (key: e.key, data: await widget.api.get(e.value), error: null); }
-        catch (error) { return (key: e.key, data: null, error: error); }
+        try {
+          return (
+            key: e.key,
+            data: await widget.api.getStaleWhileRevalidate(
+              e.value,
+              onRefresh: (fresh) {
+                if (mounted) setState(() => _data[e.key] = fresh);
+              },
+            ),
+            error: null,
+          );
+        } catch (error) {
+          return (key: e.key, data: null, error: error);
+        }
       }),
     );
     if (!mounted) return;
@@ -203,9 +214,9 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const AdminBreadcrumb(),
           Row(children: [
-            Text(AppStrings.of(context).tokenSessionSecurity, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+            Semantics(container: true, header: true, child: Text(AppStrings.of(context).tokenSessionSecurity, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
             const Spacer(),
-            IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+            IconButton(onPressed: _loading ? null : _load, tooltip: context.strings.refresh, icon: const Icon(Icons.refresh)),
           ]),
           const SizedBox(height: 4),
           LocalizedText(

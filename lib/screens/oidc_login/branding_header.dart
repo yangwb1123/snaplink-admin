@@ -45,6 +45,7 @@ class BrandingHeader extends StatelessWidget {
         ],
         Expanded(
           child: Semantics(
+            container: true,
             // 品牌名作为页面级标题，屏幕阅读器可跳转定位。
             header: true,
             child: Text(

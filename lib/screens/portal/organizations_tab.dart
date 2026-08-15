@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'organization_admin_tab.dart';
 import 'portal_api.dart';
@@ -210,13 +211,14 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
                       context.strings.organizations,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
-                      ),
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3),
                     ),
+                  ),
                     const SizedBox(height: 4),
                     Text(
                       context.tr('Teams and organizations you belong to.'),
@@ -269,7 +271,8 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                       PortalCard(
                         title: 'Your organizations',
                         children: [
-                          for (final org in _orgs) _orgRow(org),
+                          for (final (index, org) in _orgs.indexed)
+                            StaggeredFadeIn(index: index, child: _orgRow(org)),
                         ],
                       ),
                     PortalCard(
@@ -327,7 +330,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
             height: 32,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               canManage

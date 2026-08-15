@@ -99,7 +99,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
-        title: Text(strings.developerPortal),
+        title: Semantics(container: true, header: true, child: Text(strings.developerPortal)),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

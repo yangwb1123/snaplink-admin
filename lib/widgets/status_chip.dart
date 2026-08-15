@@ -111,12 +111,18 @@ class StatusChip extends StatelessWidget {
               Icon(icon, size: 12, color: accent),
               const SizedBox(width: 4),
             ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: onColor,
+            // 窄约束（375px 手机视口 Wrap 行）下省略号收敛，不溢出；
+            // 无约束时自然宽度渲染，桌面像素不变（R6-c 筛选/页头换行）。
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: onColor,
+                ),
               ),
             ),
           ],

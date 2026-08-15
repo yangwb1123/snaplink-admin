@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -227,10 +228,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    context.tr('Notifications'),
-                    style: theme.textTheme.headlineSmall,
-                  ),
+                  Semantics(container: true, header: true, child: Text(context.tr('Notifications'), style: theme.textTheme.headlineSmall)),
                   Text(
                     context.tr(
                       '{count} unread security and account notifications.',
@@ -277,8 +275,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
                   title: 'You have no notifications.',
                 )
               else ...[
-                for (final item in _items)
-                  _NotificationTile(item: item, onTap: () => _markRead(item)),
+                for (final (index, item) in _items.indexed)
+                  StaggeredFadeIn(index: index, child: _NotificationTile(item: item, onTap: () => _markRead(item))),
                 if (_hasMore)
                   TextButton(
                     onPressed: () => _load(more: true),

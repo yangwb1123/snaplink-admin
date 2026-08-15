@@ -254,7 +254,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
   Widget _header(BuildContext context) => Row(children: [
     Icon(Icons.support_agent_outlined, color: _accent),
     const SizedBox(width: 8),
-    Expanded(child: Text(AppStrings.of(context).userSupport, style: Theme.of(context).textTheme.headlineSmall)),
+    Expanded(child: Semantics(container: true, header: true, child: Text(AppStrings.of(context).userSupport, style: Theme.of(context).textTheme.headlineSmall))),
     IconButton(onPressed: _loading ? null : _load, tooltip: 'Refresh'.localized, icon: const Icon(Icons.refresh)),
   ]);
 

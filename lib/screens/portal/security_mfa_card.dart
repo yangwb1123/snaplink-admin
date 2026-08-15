@@ -238,7 +238,7 @@ class _SecretBox extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
         ),

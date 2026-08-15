@@ -243,6 +243,7 @@ class _ReleaseDialogState extends State<ReleaseDialog> {
       width: 620,
       child: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

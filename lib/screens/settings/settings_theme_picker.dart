@@ -77,7 +77,7 @@ class _SettingsThemeOptionTileState extends State<SettingsThemeOptionTile> {
         child: InkWell(
           onTap: widget.onTap,
           onFocusChange: (focused) => setState(() => _focused = focused),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             curve: Curves.easeOut,
@@ -86,7 +86,7 @@ class _SettingsThemeOptionTileState extends State<SettingsThemeOptionTile> {
               color: widget.selected
                   ? colorScheme.primaryContainer
                   : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: widget.selected || _focused
                     ? colorScheme.primary

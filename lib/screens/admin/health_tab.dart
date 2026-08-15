@@ -157,11 +157,15 @@ class _HealthTabState extends State<HealthTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                LocalizedText(
-                  'System Health',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
+                Semantics(
+                  container: true,
+                  header: true,
+                  child: LocalizedText(
+                    'System Health',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),

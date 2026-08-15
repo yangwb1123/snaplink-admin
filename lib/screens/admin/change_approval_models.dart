@@ -136,6 +136,7 @@ class _ChangeApprovalProposalDialogState
       title: const LocalizedText('Propose governed change'),
       content: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

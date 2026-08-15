@@ -42,11 +42,15 @@ class AdminListHeader extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          context.tr(title),
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            context.tr(title),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
           ),
         ),
         if (subtitle != null) ...[

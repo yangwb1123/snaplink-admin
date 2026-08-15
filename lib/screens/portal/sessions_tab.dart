@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -152,13 +153,13 @@ class _SessionsTabState extends State<SessionsTab> {
             ),
           ),
         ...items.indexed.expand(
-          (entry) =>
-              _sessionSections(
-                context,
-                entry.$2,
-                entry.$1 < items.length - 1,
-                _revoke,
-              ),
+          (entry) => _sessionSections(
+            context,
+            entry.$2,
+            entry.$1 < items.length - 1,
+            _revoke,
+            entry.$1,
+          ),
         ),
       ],
     );
@@ -217,11 +218,15 @@ class _SessionsTabState extends State<SessionsTab> {
             spacing: 12,
             runSpacing: 8,
             children: [
-              Text(
-                context.tr('Active sessions'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.3,
+              Semantics(
+                container: true,
+                header: true,
+                child: Text(
+                  context.tr('Active sessions'),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
@@ -280,14 +285,16 @@ String _shortDate(Object? v) {
 }
 
 /// Renders one session entry plus its divider; keeps the per-item
-/// conditionals out of the ListView builder tree.
+/// conditionals out of the ListView builder tree. Entry wrapped in
+/// [StaggeredFadeIn] for the list entrance animation (R7 convention).
 List<Widget> _sessionSections(
   BuildContext context,
   dynamic s,
   bool isLast,
   Future<void> Function(String) onRevoke,
+  int index,
 ) => [
-  _sessionTile(context, s, onRevoke),
+  StaggeredFadeIn(index: index, child: _sessionTile(context, s, onRevoke)),
   if (!isLast) const Divider(height: 1),
 ];
 

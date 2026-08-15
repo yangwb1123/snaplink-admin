@@ -84,9 +84,13 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText(
-        'Connection: {widget_connectionId}',
-        args: {'widget_connectionId': widget.connectionId},
+      title: Semantics(
+        container: true,
+        header: true,
+        child: LocalizedText(
+          'Connection: {widget_connectionId}',
+          args: {'widget_connectionId': widget.connectionId},
+        ),
       ),
       leading: IconButton(
         tooltip: 'Back'.localized,
@@ -315,7 +319,7 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
                 const JsonEncoder.withIndent('  ').convert(

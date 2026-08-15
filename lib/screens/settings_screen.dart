@@ -6,6 +6,7 @@ import '../services/browser_navigation.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
 import '../widgets/language_selector.dart';
+import '../theme/app_colors.dart';
 import 'settings/settings_form_layout.dart';
 import 'settings/settings_theme_picker.dart';
 
@@ -82,7 +83,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text(strings.settings)),
+      appBar: AppBar(title: Semantics(container: true, header: true, child: Text(strings.settings))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -153,22 +154,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: 320,
             child: Form(
               key: _baseUrlFormKey,
-              child: TextFormField(
-                controller: _baseUrlController,
-                enabled: !kIsWeb,
-                keyboardType: TextInputType.url,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                decoration: InputDecoration(
-                  helperText: strings.ssoBaseUrlHint,
+              // 行内 label 不可见时仍需为字段命名（屏幕阅读器）。
+              child: Semantics(
+                label: strings.ssoBaseUrl,
+                child: TextFormField(
+                  controller: _baseUrlController,
+                  enabled: !kIsWeb,
+                  keyboardType: TextInputType.url,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  decoration: InputDecoration(
+                    helperText: strings.ssoBaseUrlHint,
+                  ),
+                  validator: _validateBaseUrl,
                 ),
-                validator: _validateBaseUrl,
               ),
             ),
           ),
         ),
         SettingsFormItem(
           icon: Icons.schedule_outlined,
-          iconColor: const Color(0xFF64748B), // slate
+          iconColor: AppColors.muted, // slate
           label: strings.timezone,
           description: strings.translate(
             'Current local timezone of this device.',

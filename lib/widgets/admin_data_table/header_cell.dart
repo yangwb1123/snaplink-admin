@@ -7,6 +7,10 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 /// 主文件不 re-export 本类，不构成公开 API。
 class AdminDataTableHeaderCell extends StatelessWidget {
   final AdminDataColumn column;
+
+  /// 实际渲染宽度（主文件按空 label 列保底后传入；null = column.width ?? 160）。
+  final double? width;
+
   final bool sorted;
   final bool ascending;
   final bool sortable;
@@ -16,6 +20,7 @@ class AdminDataTableHeaderCell extends StatelessWidget {
   const AdminDataTableHeaderCell({
     super.key,
     required this.column,
+    this.width,
     required this.sorted,
     required this.ascending,
     required this.sortable,
@@ -37,7 +42,7 @@ class AdminDataTableHeaderCell extends StatelessWidget {
     );
     final headerPadding = density == TableDensity.compact ? 6.0 : 10.0;
     return SizedBox(
-      width: column.width ?? 160,
+      width: width ?? column.width ?? 160,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: headerPadding),
         child: sortable

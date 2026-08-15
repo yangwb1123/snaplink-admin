@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'admin_navigation.dart';
 
 /// 导航分组：一级 NavigationRail 只显示组（≤8），组内模块用页面内
@@ -39,13 +40,13 @@ const adminGroupIconColors = <String, Color>{
 
 /// 组图标色（未知组回退 slate）。
 Color adminGroupIconColor(String groupId) =>
-    adminGroupIconColors[groupId] ?? const Color(0xFF64748B);
+    adminGroupIconColors[groupId] ?? AppColors.muted;
 
 /// 模块图标色：继承所属组的颜色，保证子菜单与一级导航同组同色。
 /// 未知模块回退中性 slate（不冒充任何组）。
 Color adminModuleIconColor(String module) {
   final known = adminModuleGroups.any((group) => group.modules.contains(module));
-  if (!known) return const Color(0xFF64748B);
+  if (!known) return AppColors.muted;
   return adminGroupIconColor(adminGroupForModule(module));
 }
 

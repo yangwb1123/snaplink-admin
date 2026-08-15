@@ -151,6 +151,38 @@ class SnaplinkAdminApi {
     }
   }
 
+  /// 缓存先渲染 + 后台刷新（stale-while-revalidate）读取。
+  ///
+  /// DataCache 语义不变（TTL/去重/失效规则与 [get] 完全一致），仅调整编排：
+  /// 1. 缓存命中时立即返回缓存载荷 —— 调用方先渲染缓存行，不再每次进入都
+  ///    空白加载；
+  /// 2. 命中后仍在后台强制刷新，[onRefresh] 收到新载荷（失败静默，保留已
+  ///    渲染的缓存行）；
+  /// 3. 缓存未命中时仅一次网络请求（不重复拉取）。
+  Future<Map<String, dynamic>> getStaleWhileRevalidate(
+    String path, {
+    void Function(Map<String, dynamic> data)? onRefresh,
+  }) async {
+    final wasCached = _cache.get('GET', path) != null;
+    final data = await get(path);
+    if (wasCached && onRefresh != null) {
+      unawaited(_refreshStale(path, onRefresh));
+    }
+    return data;
+  }
+
+  /// 后台刷新载体：失败静默（调用方已渲染缓存行，不弹错误、不打断页面）。
+  Future<void> _refreshStale(
+    String path,
+    void Function(Map<String, dynamic> data) onRefresh,
+  ) async {
+    try {
+      onRefresh(await get(path, forceRefresh: true));
+    } catch (_) {
+      // 后台刷新失败：保留已渲染的缓存行，静默。
+    }
+  }
+
   /// Reads the opt-in embedded API documentation page without attempting to
   /// coerce its `text/html` response into JSON.
   Future<String> getText(String path, {Map<String, String>? query}) async {

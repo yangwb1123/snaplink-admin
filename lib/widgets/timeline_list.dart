@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'staggered_fade_in.dart';
 
 /// 时间线列表（审计/活动流）：圆点 + 竖线连接 + 内容。
 ///
 /// 每项：[leading] 状态图标、[title]、[subtitle]（时间/位置等）。
 /// 语义色编码状态（成功/危险/警告/中性），竖线淡色贯穿。
+/// 入场动画：每项按序号交错 fade-in（R7 约定）。
 class TimelineList extends StatelessWidget {
   final List<TimelineItem> items;
 
@@ -15,17 +17,27 @@ class TimelineList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var index = 0; index < items.length; index++) ...[
-          _TimelineRow(item: items[index], isLast: index == items.length - 1),
-          if (index < items.length - 1)
-            Container(
-              // 竖线居中于 30px 圆点中心（x=15），与点对齐。
-              margin: const EdgeInsets.only(left: 14),
-              width: 2,
-              height: 12,
-              color: scheme.outlineVariant.withValues(alpha: 0.5),
+        for (var index = 0; index < items.length; index++)
+          StaggeredFadeIn(
+            index: index,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _TimelineRow(
+                  item: items[index],
+                  isLast: index == items.length - 1,
+                ),
+                if (index < items.length - 1)
+                  Container(
+                    // 竖线居中于 30px 圆点中心（x=15），与点对齐。
+                    margin: const EdgeInsets.only(left: 14),
+                    width: 2,
+                    height: 12,
+                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                  ),
+              ],
             ),
-        ],
+          ),
       ],
     );
   }

@@ -31,9 +31,13 @@ class SectionHeader extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Row(
       children: [
-        Text(
-          context.tr(title),
-          style: dataEmphasisStyle(level, Theme.of(context)),
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            context.tr(title),
+            style: dataEmphasisStyle(level, Theme.of(context)),
+          ),
         ),
         if (count != null) ...[
           const SizedBox(width: 8),

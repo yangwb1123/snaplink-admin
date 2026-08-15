@@ -116,6 +116,7 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
       width: 680,
       child: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

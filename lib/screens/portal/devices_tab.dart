@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'device_action_dialogs.dart';
 import 'device_center_widgets.dart';
@@ -218,9 +219,13 @@ class _DevicesTabState extends State<DevicesTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.strings.devices,
-                      style: Theme.of(context).textTheme.headlineSmall,
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        context.strings.devices,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -256,19 +261,22 @@ class _DevicesTabState extends State<DevicesTab> {
                         title: 'No physical devices have been recorded.',
                       )
                     else
-                      for (final device in _devices)
-                        PhysicalDeviceCard(
-                          device: device,
-                          busy: _busy,
-                          onDetails: (value) => DeviceDetailDialog.show(
-                            context,
-                            api: widget.api,
-                            device: value,
+                      for (final (index, device) in _devices.indexed)
+                        StaggeredFadeIn(
+                          index: index,
+                          child: PhysicalDeviceCard(
+                            device: device,
+                            busy: _busy,
+                            onDetails: (value) => DeviceDetailDialog.show(
+                              context,
+                              api: widget.api,
+                              device: value,
+                            ),
+                            onEdit: _edit,
+                            onTrust: _trust,
+                            onLost: _reportLost,
+                            onDelete: _delete,
                           ),
-                          onEdit: _edit,
-                          onTrust: _trust,
-                          onLost: _reportLost,
-                          onDelete: _delete,
                         ),
                   ],
                 ),

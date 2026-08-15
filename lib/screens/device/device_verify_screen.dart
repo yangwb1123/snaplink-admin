@@ -300,9 +300,13 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    strings.authorizeDevice,
-                    style: theme.textTheme.titleLarge,
+                  Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
+                      strings.authorizeDevice,
+                      style: theme.textTheme.titleLarge,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(strings.deviceCodeInstruction),

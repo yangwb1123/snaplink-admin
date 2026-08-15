@@ -55,12 +55,16 @@ class OrganizationAdminHeader extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(
-            context.tr('Manage {tenantId}', {'tenantId': tenantId}),
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-            overflow: TextOverflow.ellipsis,
+          child: Semantics(
+            container: true,
+            header: true,
+            child: Text(
+              context.tr('Manage {tenantId}', {'tenantId': tenantId}),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ),
         IconButton(
@@ -181,7 +185,7 @@ class OrganizationInvitationCards extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.mail_outline, size: 17, color: accent),
           ),

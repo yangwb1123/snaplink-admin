@@ -60,7 +60,16 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     String path,
   ) async {
     try {
-      return (key, await widget.api.get(path, forceRefresh: true), null);
+      return (
+        key,
+        await widget.api.getStaleWhileRevalidate(
+          path,
+          onRefresh: (fresh) {
+            if (mounted) setState(() => _applySection(key, fresh));
+          },
+        ),
+        null,
+      );
     } on SnaplinkAdminApiError catch (error) {
       final state = error.status == 404 || error.status == 501
           ? 'not enabled on this replica'
@@ -68,6 +77,17 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       return (key, null, '$key: $state');
     } catch (_) {
       return (key, null, '$key: failed to load');
+    }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后原位更新（R2）。
+  void _applySection(String key, Map<String, dynamic> data) {
+    switch (key) {
+      case 'Snapshots': _snapshots = recoveryRecords(data['items']); break;
+      case 'Releases': _releases = recoveryRecords(data['items']); break;
+      case 'Current release': _currentRelease = recoveryRecord(data['release']); break;
+      case 'DR status': _drStatus = data; break;
+      case 'Operations': _operations = recoveryRecords(data['operations']); break;
     }
   }
 
@@ -104,13 +124,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
             continue;
           }
           final data = result.$2!;
-          switch (result.$1) {
-            case 'Snapshots': _snapshots = recoveryRecords(data['items']); break;
-            case 'Releases': _releases = recoveryRecords(data['items']); break;
-            case 'Current release': _currentRelease = recoveryRecord(data['release']); break;
-            case 'DR status': _drStatus = data; break;
-            case 'Operations': _operations = recoveryRecords(data['operations']); break;
-          }
+          _applySection(result.$1, data);
         }
         _error = errors.isEmpty ? null : errors.join('\n');
       });
@@ -329,7 +343,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(context.tr('Recovery and releases'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3)),
+            Semantics(container: true, header: true, child: Text(context.tr('Recovery and releases'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
             const SizedBox(height: 4),
             Text(context.tr('Manage encrypted state snapshots and coordinated frontend/backend release pins.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
           ]),

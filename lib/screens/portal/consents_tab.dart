@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -142,7 +143,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
             height: 32,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.apps_outlined, size: 17, color: accent),
           ),
@@ -212,11 +213,15 @@ class _ConsentsTabState extends State<ConsentsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.tr('Connected applications'),
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        context.tr('Connected applications'),
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -262,8 +267,11 @@ class _ConsentsTabState extends State<ConsentsTab> {
                       PortalCard(
                         title: 'Authorized applications',
                         children: [
-                          for (final consent in _consents)
-                            _consentRow(context, consent),
+                          for (final (index, consent) in _consents.indexed)
+                            StaggeredFadeIn(
+                              index: index,
+                              child: _consentRow(context, consent),
+                            ),
                         ],
                       ),
                   ],

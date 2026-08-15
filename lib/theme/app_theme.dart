@@ -36,6 +36,11 @@ abstract final class AppTheme {
     );
     return base.copyWith(
       hoverColor: scheme.primary.withValues(alpha: 0.06),
+      dialogTheme: DialogThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusCard),
+        ),
+      ),
       cardTheme: CardThemeData(
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),

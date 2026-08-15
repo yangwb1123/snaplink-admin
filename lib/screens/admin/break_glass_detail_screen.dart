@@ -100,9 +100,13 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText(
-        'Emergency Access: {widget_sessionId}',
-        args: {'widget_sessionId': widget.sessionId},
+      title: Semantics(
+        container: true,
+        header: true,
+        child: LocalizedText(
+          'Emergency Access: {widget_sessionId}',
+          args: {'widget_sessionId': widget.sessionId},
+        ),
       ),
       leading: IconButton(
         tooltip: 'Back'.localized,

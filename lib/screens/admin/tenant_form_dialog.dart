@@ -103,6 +103,7 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       title: LocalizedText(_isEdit ? 'Edit tenant' : 'New tenant'),
       content: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

@@ -85,7 +85,11 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(strings.signIn, style: theme.textTheme.titleLarge),
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(strings.signIn, style: theme.textTheme.titleLarge),
+          ),
           const SizedBox(height: 20),
           if (builtinProviders.length > 1)
             DropdownButtonFormField<String>(

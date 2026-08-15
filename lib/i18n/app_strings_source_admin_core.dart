@@ -143,6 +143,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Debug records: {n} entries': '调试记录：共 {n} 条',
   'Debug records': '本地调试记录',
   'Clear selection': '清除选择',
+  'Clear filter': '清除筛选',
   'Click to copy': '点击复制',
   'Exported {n} entries as CSV to clipboard': '已将 {n} 条记录以 CSV 导出到剪贴板',
   '{start}–{end} of {total}': '第 {start}–{end} 条，共 {total} 条',
@@ -390,6 +391,7 @@ const appAdminCoreSourceZh = <String, String>{
   'No registered factors.': '没有已注册的验证因素。',
   'No registered releases.': '没有已注册的发布版本。',
   'No resource schemas advertised.': '未声明资源架构。',
+  'No resources found.': '未找到资源。',
   'No roles defined': '未定义角色',
   'No roles loaded.': '未加载角色。',
   '{n} permissions': '{n} 个权限',
@@ -715,4 +717,8 @@ const appAdminCoreSourceZh = <String, String>{
   'Tenant ID and invitation email are required.': '租户 ID 和邀请邮箱为必填项。',
   'Membership saved.': '成员已保存。',
   'Invitation sent.': '邀请已发送。',
+
+  // --- 错误恢复一致性（R4）：403 保留登录态并提示无权限（非会话过期）---
+  'This session is not authorized for this operation (403).':
+      '此会话无权执行此操作 (403)。',
 };

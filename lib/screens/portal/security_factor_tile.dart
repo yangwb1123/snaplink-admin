@@ -39,7 +39,7 @@ class SecurityFactorTile extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(_methodIcon(method), size: 18, color: accent),
       ),

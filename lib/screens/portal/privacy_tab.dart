@@ -172,13 +172,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          context.tr('Data and privacy'),
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
-          ),
-        ),
+        Semantics(container: true, header: true, child: Text(context.tr('Data and privacy'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
         const SizedBox(height: 4),
         Text(
           context.tr(
@@ -322,7 +316,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.danger.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.danger.withValues(alpha: 0.25)),
       ),
       child: Row(
@@ -382,7 +376,7 @@ class _LeadingIcon extends StatelessWidget {
       height: 36,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(icon, size: 19, color: color),
     );

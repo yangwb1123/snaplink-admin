@@ -56,7 +56,7 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
                 widget.clientId,

@@ -181,7 +181,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
             FilledButton.icon(onPressed: _mutating ? null : _openForm,
                 icon: const Icon(Icons.person_add_alt_1), label: const LocalizedText('Create local user')),
             const SizedBox(width: 4),
-            IconButton(onPressed: _loading || _mutating ? null : _load,
+            IconButton(onPressed: _loading || _mutating ? null : () { clearSelection(); _load(); },
                 tooltip: 'Refresh'.localized, icon: Icon(Icons.refresh, color: _accent)),
           ],
         ),
@@ -192,6 +192,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         Expanded(
           child: AsyncView<List<Map<String, dynamic>>>(
             loading: _loading, error: _error, data: _users, onRetry: _load,
+            useSkeleton: true,
             emptyTitle: 'No local users',
             emptySubtitle: 'Create the first password-authenticated account.',
             dataBuilder: _dataTable,
@@ -377,6 +378,7 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
     title: LocalizedText(_editing ? 'Edit local user' : 'Create local user'),
     content: Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

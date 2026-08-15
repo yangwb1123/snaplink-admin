@@ -1,0 +1,108 @@
+# 10 轮推进 — R6-R10（移动操作可达 / 动效一致性 / 表单体验 / Web 语义 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r6-r10.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r6-r10.log
+
+tasks:
+- prompt: |
+    轮次 R6：移动端操作可达性。步骤：
+    1. 在 375px 视口检查数据密集页的操作可达性（临时 widget 测试，
+       跑完删除）：
+       a. AdminDataTable 的操作列（编辑/删除/撤销按钮）在窄屏是否
+          可通过横向滚动到达；
+       b. 批量操作栏（BatchActionBar）在窄屏是否换行不溢出；
+       c. 筛选栏（search_filter_bar + status_filter_dropdown）窄屏
+          布局；
+       d. 详情页操作按钮（AppBar actions）窄屏可见性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 操作列 minWidth 保证可滚动到达；
+       - 批量栏/筛选栏窄屏换行；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_shell_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r6-mobile-actions.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r6-mobile-actions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R7：动效一致性。步骤：
+    1. 逐页检查动效使用的一致性：
+       a. 页面过渡：page_transition 的入口（登录/portal/admin 壳层）
+          是否统一；
+       b. 列表入场动画：staggered_fade_in 的使用范围（哪些页面用了、
+          哪些数据列表没有但应该用）；
+       c. 数字动画：count_up 用于指标卡（key_metric_card）的一致性；
+       d. hover 反馈：可点击卡片/行的 hover 底色统一（150ms 一次性
+          过渡约定）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 数据列表入场动画缺失的补 staggered_fade_in（若页面已有
+         骨架屏则叠加合理）；
+       - 指标数字用 count_up（若缺失）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_shell_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r7-animations.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r7-animations.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R8：表单体验一致性。步骤：
+    1. 逐页检查表单行为（lib/screens/ 的对话框/页面表单）：
+       a. 校验时机：autovalidateMode（onUserInteraction vs disabled）
+          一致性；
+       b. 错误定位：校验失败后是否聚焦/滚动到首个错误字段；
+       c. 提交防重：提交中按钮 loading + 禁用；
+       d. 取消/关闭：对话框取消是否清空草稿。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - autovalidateMode 统一 onUserInteraction（表单类）；
+       - 提交防重补齐（若缺失）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/client_form_dialog_test.dart（如存在）test/admin_dialogs_final_test.dart
+       test/settings_screen_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r8-form-ux.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r8-form-ux.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_dialogs_final_test.dart test/settings_screen_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R9：Web 语义结构。步骤：
+    1. 检查 Flutter Web 的语义输出质量（lib/screens/ 与 lib/widgets/
+       静态分析 + 关键页临时测试验证 Semantics 树，跑完删除）：
+       a. 标题层级：页面主标题是否用 Semantics(heading: true)（或
+          Text 自动）；AppBar title 语义；
+       b. 列表语义：列表/网格是否有语义容器（SemanticsList）；
+       c. 图标按钮：纯图标按钮的 tooltip/semanticsLabel 完整性抽查；
+       d. 表单语义：labelText 与语义关联。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失 heading 语义的页面主标题补 Semantics(heading: true)；
+       - 缺失 tooltip 的图标按钮补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/language_selector_test.dart test/theme_picker_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r9-web-semantics.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r9-web-semantics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/language_selector_test.dart test/theme_picker_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R10：综合终检。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁测试（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）；
+       b. 逐页产物核对：docs/ui/pages-per-page/ 的 76+ 份产物与当前
+          代码状态一致（抽查 10 份的修复是否仍在）；
+       c. 运行 python3 cli.py harness 确认 0 FAIL；
+       d. 全量 flutter test + browser 关键测试。
+    2. 修复发现的任何问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r10-final-audit.md（全量门禁结果 +
+       抽查表 + 总结论：全站 UI 质量状态）。
+       VALIDATE 命令会跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r10-final-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

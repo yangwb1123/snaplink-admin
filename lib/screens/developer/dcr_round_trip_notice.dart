@@ -41,7 +41,7 @@ class DcrRoundTripNotice extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: foreground.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               safe ? Icons.verified_outlined : Icons.warning_amber_rounded,
@@ -134,7 +134,7 @@ class ManageIntro extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: scheme.primary.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(Icons.manage_accounts_outlined, color: scheme.primary),
           ),

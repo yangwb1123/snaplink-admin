@@ -300,7 +300,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall),
+                  Semantics(container: true, header: true, child: Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall)),
                   const SizedBox(height: 4),
                   LocalizedText(
                     'Client-scoped roles, assignments and navigation menus.',
@@ -309,6 +309,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
                 ],
               ),
             ),
+            IconButton(onPressed: _clientId == null || _loading ? null : _load, icon: Icon(Icons.refresh, color: accent), tooltip: context.strings.refresh),
           ],
         ),
         const SizedBox(height: 16),

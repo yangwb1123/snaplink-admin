@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -142,7 +143,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
             height: 32,
             decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(_providerIcon(provider), size: 17, color: accent),
           ),
@@ -198,11 +199,15 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.strings.linkedIdentities,
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: -0.3,
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        context.strings.linkedIdentities,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -257,8 +262,11 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                       PortalCard(
                         title: 'External sign-in methods',
                         children: [
-                          for (final identity in _identities)
-                            _identityRow(context, identity),
+                          for (final (index, identity) in _identities.indexed)
+                            StaggeredFadeIn(
+                              index: index,
+                              child: _identityRow(context, identity),
+                            ),
                         ],
                       ),
                   ],

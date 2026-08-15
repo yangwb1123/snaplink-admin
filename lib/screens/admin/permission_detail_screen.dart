@@ -93,9 +93,13 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     final accent = adminModuleIconColor('permissions');
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText('Permissions: {widget_clientId}', args: {
-          'widget_clientId': widget.clientId,
-        }),
+        title: Semantics(
+          container: true,
+          header: true,
+          child: LocalizedText('Permissions: {widget_clientId}', args: {
+            'widget_clientId': widget.clientId,
+          }),
+        ),
         leading: IconButton(
           tooltip: 'Back'.localized,
           icon: const Icon(Icons.arrow_back),

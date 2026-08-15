@@ -86,20 +86,18 @@ class _CredentialsTabState extends State<CredentialsTab> {
 
   Future<void> _load() async {
     if (!_available) return;
-    widget.api.skipCache();
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final data = await widget.api.get(_credsPath);
-      final items =
-          data['credentials'] as List? ?? data['items'] as List? ?? [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        _credsPath,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
       setState(() {
-        _credentials = items
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        _applyCredentials(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
@@ -117,6 +115,19 @@ class _CredentialsTabState extends State<CredentialsTab> {
         });
       }
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyCredentials(Map<String, dynamic> data) {
+    final items = data['credentials'] as List? ?? data['items'] as List? ?? [];
+    _credentials = items
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList();
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyCredentials(fresh));
   }
 
   Future<void> _reportCompromise() async {

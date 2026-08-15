@@ -86,10 +86,20 @@ class _UsersTabState extends State<UsersTab>
   Future<SSOAdminListPage> _loadPage() async => _lastPage =
       await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
 
-  void _reload() => setState(() {
-    resetPagination();
-    _future = _loadPage();
-  });
+  /// 刷新语义（R5）：保留筛选、清除选择、重置分页。
+  void _reload() {
+    clearSelection();
+    setState(() {
+      resetPagination();
+      _future = _loadPage();
+    });
+  }
+
+  /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
+  void _clearFilter() {
+    _filterCtrl.clear();
+    _reload();
+  }
 
   void _goPrevious() {
     if (!canGoBack) return;
@@ -284,8 +294,11 @@ class _UsersTabState extends State<UsersTab>
             icon: filtered ? null : Icons.person,
             title: 'No users',
             subtitle: 'No users match the current filter.',
-            actionLabel: filtered ? null : 'Create user',
-            onAction: filtered ? null : () => AdminRoute.go('users', action: 'new'),
+            actionLabel: filtered ? 'Clear filter' : 'Create user',
+            actionIcon: filtered ? Icons.filter_alt_off : null,
+            onAction: filtered
+                ? _clearFilter
+                : () => AdminRoute.go('users', action: 'new'),
           )
         : _dataTable(items);
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));

@@ -68,9 +68,13 @@ class MfaView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          strings.verifyIdentity,
-          style: theme.textTheme.titleLarge,
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            strings.verifyIdentity,
+            style: theme.textTheme.titleLarge,
+          ),
         ),
         const SizedBox(height: 16),
         Wrap(

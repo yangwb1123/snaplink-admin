@@ -23,36 +23,57 @@ void main() {
     for (final path in _scannedFiles()) {
       final source = File(path).readAsStringSync();
       for (final match in _edgeInsets.allMatches(source)) {
-        _checkNumbers(path, source, match.start, match.group(0)!, violations,
-            matchedExemptions);
+        _checkNumbers(
+          path,
+          source,
+          match.start,
+          match.group(0)!,
+          violations,
+          matchedExemptions,
+        );
       }
       for (final pattern in _sizedBoxes) {
         for (final match in pattern.allMatches(source)) {
-          _checkNumbers(path, source, match.start, match.group(0)!, violations,
-              matchedExemptions);
+          _checkNumbers(
+            path,
+            source,
+            match.start,
+            match.group(0)!,
+            violations,
+            matchedExemptions,
+          );
         }
       }
       for (final match in _leadingWidth.allMatches(source)) {
-        _checkNumbers(path, source, match.start, match.group(0)!, violations,
-            matchedExemptions);
+        _checkNumbers(
+          path,
+          source,
+          match.start,
+          match.group(0)!,
+          violations,
+          matchedExemptions,
+        );
       }
     }
     expect(
       violations,
       isEmpty,
-      reason: '非 token 间距（4-64 集之外；若是几何/固有宽度，请登记到 '
+      reason:
+          '非 token 间距（4-64 集之外；若是几何/固有宽度，请登记到 '
           '_spacingExemptions 并更新质量门禁报告）：\n'
           '${violations.join('\n')}',
     );
 
-    final stale = _spacingExemptions.keys
-        .where((key) => !matchedExemptions.contains(key))
-        .toList()
-      ..sort();
+    final stale =
+        _spacingExemptions.keys
+            .where((key) => !matchedExemptions.contains(key))
+            .toList()
+          ..sort();
     expect(
       stale,
       isEmpty,
-      reason: '以下豁免条目已失配（值已被 token 化或文件改动），请从 '
+      reason:
+          '以下豁免条目已失配（值已被 token 化或文件改动），请从 '
           '_spacingExemptions 移除：\n${stale.join('\n')}',
     );
   });
@@ -77,9 +98,14 @@ const _spacingExemptions = <String, String>{
       'NavigationRail 标准宽度（logo 与 rail 图标中心对齐线）',
   'lib/screens/portal/notification_bell.dart|EdgeInsets.symmetric(horizontal:4,vertical:1)':
       '通知角标几何：贴合 16px 高度文本的紧凑角标',
+  'lib/widgets/admin_data_table.dart|EdgeInsets.symmetric(horizontal:12,vertical:widget.density==TableDensity.compact?5.0:10.0)':
+      '表格密度体系固有行内边距（设计 §2.3 / T-DEN-01..03：compact 5、'
+      'comfortable 10），组件密度规格非通用布局间距，density 测试锁定该值',
 };
 
-final _edgeInsets = RegExp(r'EdgeInsets\.(?:symmetric|all|only|fromLTRB)\([^)]*\)');
+final _edgeInsets = RegExp(
+  r'EdgeInsets\.(?:symmetric|all|only|fromLTRB)\([^)]*\)',
+);
 
 /// lib/widgets/ 公共组件（顶层）+ lib/screens/ 页面文件（递归）。
 List<String> _scannedFiles() => <String>[

@@ -238,11 +238,7 @@ class AccountFlowResultView extends StatelessWidget {
       children: [
         Icon(icon, size: 44, color: theme.colorScheme.primary),
         const SizedBox(height: 16),
-        Text(
-          context.tr(title),
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleLarge,
-        ),
+        Semantics(container: true, header: true, child: Text(context.tr(title), textAlign: TextAlign.center, style: theme.textTheme.titleLarge)),
         const SizedBox(height: 12),
         Text(
           context.tr(message),
@@ -297,9 +293,10 @@ class _AccountFlowLayout extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            context.tr(title),
-            style: Theme.of(context).textTheme.titleLarge,
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(context.tr(title), style: Theme.of(context).textTheme.titleLarge),
           ),
           const SizedBox(height: 8),
           Text(

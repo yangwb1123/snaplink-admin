@@ -1,0 +1,106 @@
+# 10 轮推进 — R1-R5（视觉一致性 / 加载体验 / 空态深化 / 错误恢复 / 刷新语义）
+#
+# 每轮一个聚焦主题：逐页分析现有代码 → 低风险修复 → validate 门禁 →
+# 产物文档。串行执行（--mode serial），每轮独立 validate，失败即停由
+# operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r1-r5.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r1-r5.log
+
+tasks:
+- prompt: |
+    轮次 R1：视觉一致性细查。步骤：
+    1. 逐页抽查 lib/screens/ 与 lib/widgets/ 的视觉细节一致性：
+       a. 圆角：卡片/按钮/对话框/输入框的圆角值是否统一（8/12 为主，
+          找出离群值如 6/10/14/16）；
+       b. 颜色偏差：同语义用色是否一致（danger 用 AppColors.danger 而
+          非 Colors.red 变体；primary 用 colorScheme 而非硬编码）；
+       c. 分隔线/边框：Divider 颜色与高度一致性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：离群圆角对齐 8/12、
+       颜色统一到 colorScheme/AppColors；保持行为与既有测试；
+       不新增依赖；文件 ≤400 行；
+       禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/dark_mode_test.dart
+       test/spacing_tokens_gate_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r1-visual-consistency.md（抽样表 +
+       修复清单 + 验证）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r1-visual-consistency.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/dark_mode_test.dart test/spacing_tokens_gate_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R2：加载体验与数据缓存协调。步骤：
+    1. 分析列表页的加载路径（clients/users/tenants/domains/webhooks/
+       audit-log 等）：加载时是否展示骨架（SkeletonListTile）、数据
+       缓存（DataCache）是否在加载前先渲染缓存内容（先缓存后刷新）；
+       找出"每次进入都空白加载"的页面。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缓存先渲染：有 DataCache 的读取路径，加载中先展示缓存行再
+         刷新（保持 DataCache 语义与失效规则不变）；
+       - 无缓存页面：确认骨架屏已用（缺失则补）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/data_cache_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r2-loading-cache.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r2-loading-cache.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/data_cache_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R3：空态深化。步骤：
+    1. 逐页检查 EmptyState 使用（lib/screens/ 全部数据区域）：空态
+       文案是否与上下文匹配（过滤器无结果 vs 无数据 vs 未启用）、
+       是否带操作按钮（清除筛选/去创建）、图标变体是否合理。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 空态文案与场景匹配（复用现有 i18n key，必要时新增 EN/ZH）；
+       - 过滤无结果时提供"清除筛选"动作；
+       - 未启用（notEnabled）与空数据区分；
+       - 保持行为；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/empty_state_test.dart（如存在）test/admin_secondary_tabs_test.dart
+       test/portal_screens_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r3-empty-states.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r3-empty-states.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R4：错误恢复一致性。步骤：
+    1. 逐页检查错误态后的状态处理：
+       a. 重试后是否清除旧错误（setState 重置 error）；
+       b. 401 与 403 处理一致性（401 结束会话、403 保留登录态并提示
+          无权限——检查各页是否遵循）；
+       c. 错误后表单状态（输入保留 vs 清空）一致性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 重试路径清 error（若缺失）；
+       - 403 提示与 401 处理对齐项目约定；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_operations_unknown_outcome_test.dart
+       test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart
+       全绿。
+    4. 输出 docs/ui/pages-per-page/r4-error-recovery.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r4-error-recovery.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_operations_unknown_outcome_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R5：刷新语义一致性。步骤：
+    1. 逐页检查数据刷新入口（lib/screens/admin/ 列表页）：
+       a. 手动刷新按钮存在性（列表页应有刷新动作）；
+       b. 刷新是否清除选择/筛选（合理保留 vs 合理清除）；
+       c. 写操作成功后是否刷新列表（成功写后失效缓存 + 重拉）；
+       d. 刷新期间 UI 状态（禁用刷新按钮防重入 vs 允许）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失刷新入口的列表页补刷新动作（图标+tooltip）；
+       - 刷新语义统一（保留筛选、清除选择）；
+       - 写后刷新一致性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r5-refresh-semantics.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r5-refresh-semantics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

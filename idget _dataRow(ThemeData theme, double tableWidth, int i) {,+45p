@@ -11,8 +11,8 @@ export 'admin_data_table/table_cells.dart' show TableCellText, CopyableCell;
 /// never fonts (11/13 fixed). Default `comfortable` = today's pixels exactly.
 enum TableDensity { comfortable, compact }
 
-/// 管理后台数据表格（Stripe/Supabase 风格）：列对齐、点击表头排序、斑马纹、
-/// 行 hover（150ms 一次性底色过渡）、窄视口横向滚动；行/卡按序号交错入场。
+/// 管理后台数据表格（Stripe/Supabase 风格）：
+/// 列对齐、点击表头排序、斑马纹、行 hover、窄视口横向滚动。
 ///
 /// 桌面管理后台的标志性元素——替代手机风格的 ListTile 列表。
 class AdminDataTable extends StatefulWidget {
@@ -158,6 +158,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
   Widget _cards(ThemeData theme) {
     final cards = <Widget>[
       _sortBar(theme),
+      // 列表入场动画：每张数据卡按序号交错 fade-in（与表格行一致）。
       for (var i = 0; i < widget.itemCount; i++)
         StaggeredFadeIn(index: i, child: _dataCard(theme, i)),
     ];
@@ -210,7 +211,10 @@ class _AdminDataTableState extends State<AdminDataTable> {
             ? null
             : () => widget.onRowLongPress!(i),
         borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(duration: const Duration(milliseconds: 150),
+        child: AnimatedContainer(
+          // hover 底色：150ms 一次性颜色过渡（R7 约定），无连续动画。
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOutCubic,
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -287,7 +291,9 @@ class _AdminDataTableState extends State<AdminDataTable> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 表头。
             _headerRow(theme, tableWidth),
+            // 数据行（斑马纹 + hover + 行点击）。
             for (var i = 0; i < widget.itemCount; i++)
               _dataRow(theme, tableWidth, i),
           ],
@@ -322,7 +328,11 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   Widget _dataRow(ThemeData theme, double tableWidth, int i) {
-    return StaggeredFadeIn(index: i, child: MouseRegion(
+    final rowPadding = widget.density == TableDensity.compact ? 5.0 : 10.0;
+    // 列表入场动画：行按序号交错 fade-in + 上移（R7 约定）。
+    return StaggeredFadeIn(
+      index: i,
+      child: MouseRegion(
       onEnter: (_) => setState(() => _hoveredRow = i),
       onExit: (_) => setState(() => _hoveredRow = null),
       child: SizedBox(
@@ -332,7 +342,10 @@ class _AdminDataTableState extends State<AdminDataTable> {
           onLongPress: widget.onRowLongPress == null
               ? null
               : () => widget.onRowLongPress!(i),
-          child: AnimatedContainer(duration: const Duration(milliseconds: 150),
+          child: AnimatedContainer(
+            // hover 底色：150ms 一次性颜色过渡（R7 约定），斑马纹不变。
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOutCubic,
             color: _hoveredRow == i
                 ? theme.colorScheme.primary.withValues(alpha: 0.05)
                 : i.isEven
@@ -348,9 +361,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: widget.density == TableDensity.compact
-                            ? 5.0
-                            : 10.0,
+                        vertical: rowPadding,
                       ),
                       child: column.builder(context, i),
                     ),
@@ -360,7 +371,6 @@ class _AdminDataTableState extends State<AdminDataTable> {
           ),
         ),
       ),
-    ),
     );
   }
 }

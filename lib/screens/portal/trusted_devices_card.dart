@@ -261,7 +261,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
                 height: 36,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.devices_outlined, size: 18, color: accent),
               ),
@@ -290,6 +290,7 @@ class _TrustedDevicesCardState extends State<TrustedDevicesCard> {
             icon: Icons.cloud_off_outlined,
             title: _message ?? 'Could not load trusted devices.',
             actionLabel: 'Retry',
+            actionIcon: Icons.refresh,
             onAction: _load,
           )
         else if (_message == null)

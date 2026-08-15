@@ -111,9 +111,13 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: LocalizedText(
-        'Webhook: {widget_subId}',
-        args: {'widget_subId': widget.subId},
+      title: Semantics(
+        container: true,
+        header: true,
+        child: LocalizedText(
+          'Webhook: {widget_subId}',
+          args: {'widget_subId': widget.subId},
+        ),
       ),
       leading: IconButton(
         tooltip: 'Back'.localized,

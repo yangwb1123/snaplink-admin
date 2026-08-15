@@ -53,7 +53,7 @@ class EmptyHint extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
         context.tr(text),
-        style: TextStyle(color: Colors.grey.shade500),
+        style: TextStyle(color: AppColors.muted),
       ),
     );
   }
@@ -125,9 +125,6 @@ class PortalCard extends StatelessWidget {
               const SizedBox(height: 12),
               Divider(
                 height: 1,
-                color: Theme.of(
-                  context,
-                ).colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
               const SizedBox(height: 16),
               ...children,

@@ -78,11 +78,29 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   }) async {
     try {
       final value = query == null || query.isEmpty
-          ? await widget.api.get(path, forceRefresh: true)
+          ? await widget.api.getStaleWhileRevalidate(
+              path,
+              onRefresh: (fresh) {
+                if (mounted) setState(() => _applyResult(key, fresh));
+              },
+            )
           : await widget.api.get(path, query: query);
       return (key, value, null);
     } catch (error) {
       return (key, null, error);
+    }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后原位更新（R2）。
+  void _applyResult(String key, Map<String, dynamic> data) {
+    switch (key) {
+      case 'devices':
+        _devices = deviceListFrom(data);
+        _fleetTotal = (data['total'] as num?)?.toInt() ?? _devices.length;
+      case 'stats':
+        _stats = data;
+      case 'events':
+        _securityEvents = loginHistoryFrom(data, key: 'events');
     }
   }
 
@@ -105,15 +123,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
           failures.add('${result.$1}: ${result.$3}');
           continue;
         }
-        switch (result.$1) {
-          case 'devices':
-            _devices = deviceListFrom(data);
-            _fleetTotal = (data['total'] as num?)?.toInt() ?? _devices.length;
-          case 'stats':
-            _stats = data;
-          case 'events':
-            _securityEvents = loginHistoryFrom(data, key: 'events');
-        }
+        _applyResult(result.$1, data);
       }
       _error = failures.isEmpty
           ? null

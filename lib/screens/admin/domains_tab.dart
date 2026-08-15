@@ -35,6 +35,7 @@ class DomainsTab extends StatefulWidget {
 class _DomainsTabState extends State<DomainsTab> {
   static const _path = '/api/v1/admin/domains';
   final _hostCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _domains = const [];
   List<Map<String, dynamic>> _filteredDomains = const [];
   String? _error;
@@ -69,6 +70,7 @@ class _DomainsTabState extends State<DomainsTab> {
     _cancelPopState();
     _sub.cancel();
     _hostCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -78,21 +80,18 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   Future<void> _load() async {
-    widget.api.skipCache();
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final data = await widget.api.get(_path);
-      final items = data['domains'] as List? ?? [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        _path,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
-      final domains = items
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
       setState(() {
-        _domains = domains;
-        _filterDomains();
+        _applyDomains(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
@@ -110,6 +109,18 @@ class _DomainsTabState extends State<DomainsTab> {
         });
       }
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyDomains(Map<String, dynamic> data) {
+    final items = data['domains'] as List? ?? [];
+    _domains = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    _filterDomains();
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyDomains(fresh));
   }
 
   Future<void> _create() async {
@@ -156,6 +167,12 @@ class _DomainsTabState extends State<DomainsTab> {
   void _onSearchChanged(String query) {
     setState(() => _searchQuery = query);
     _filterDomains();
+  }
+
+  /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
+  void _clearSearch() {
+    _searchCtrl.clear();
+    _onSearchChanged('');
   }
 
   Future<void> _delete(String hostname) async {
@@ -224,6 +241,7 @@ class _DomainsTabState extends State<DomainsTab> {
           const SizedBox(height: 8),
           SearchFilterBar(
             hintText: 'Search domains...'.localized,
+            controller: _searchCtrl,
             onSearchChanged: _onSearchChanged,
             onRefresh: _load,
           ),
@@ -237,6 +255,9 @@ class _DomainsTabState extends State<DomainsTab> {
                 ? EmptyStateVariant.empty
                 : EmptyStateVariant.noMatch,
             title: _searchQuery.isEmpty ? 'No domains registered.' : null,
+            actionLabel: _searchQuery.isEmpty ? null : 'Clear filter',
+            actionIcon: Icons.filter_alt_off,
+            onAction: _searchQuery.isEmpty ? null : _clearSearch,
           )
         else if (_filteredDomains.isNotEmpty)
           _buildTable(context),

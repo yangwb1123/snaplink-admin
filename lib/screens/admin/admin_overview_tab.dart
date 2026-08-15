@@ -181,7 +181,7 @@ class _Hero extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -196,7 +196,7 @@ class _Hero extends StatelessWidget {
             Icon(Icons.dashboard_outlined, color: adminModuleIconColor(AdminModuleId.overview), size: 28),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(AppStrings.of(context).platformOverview, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+              Semantics(container: true, header: true, child: Text(AppStrings.of(context).platformOverview, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700))),
               const SizedBox(height: 4),
               const LocalizedText('Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.', style: TextStyle(fontSize: 13)),
             ])),
@@ -235,7 +235,7 @@ class _GroupCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final group = entry.value;
     return Card(child: ExpansionTile(
-      leading: Container(width: 36, height: 36, decoration: BoxDecoration(color: group.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)), child: Icon(group.icon, size: 20, color: group.color)),
+      leading: Container(width: 36, height: 36, decoration: BoxDecoration(color: group.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)), child: Icon(group.icon, size: 20, color: group.color)),
       title: LocalizedText(entry.key),
       subtitle: LocalizedText('{count} live endpoints', args: {'count': group.endpoints.length}),
       children: [
@@ -275,7 +275,7 @@ class _StatusCard extends StatelessWidget {
     return HoverCard(child: Card(child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Container(width: 40, height: 40, decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 22)),
+        Container(width: 40, height: 40, decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: color, size: 22)),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           LocalizedText(title, args: titleArgs, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -326,7 +326,7 @@ class _MethodChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: _color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
+    decoration: BoxDecoration(color: _color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
     child: Text(method, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _color)),
   );
 }

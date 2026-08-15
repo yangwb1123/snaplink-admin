@@ -50,46 +50,64 @@ class BatchActionBar extends StatelessWidget {
     if (selectedCount == 0) return const SizedBox.shrink();
     final theme = Theme.of(context);
     final accentColor = accent ?? theme.colorScheme.primary;
+
+    // 栏内容（计数 + 动作 + 退出选择）构建一次，宽/窄屏共用。
+    final leading = [
+      Icon(Icons.checklist, size: 20, color: accentColor),
+      const SizedBox(width: 8),
+      Text(
+        context.tr('{count} selected', {'count': selectedCount}),
+        style: theme.textTheme.titleSmall,
+      ),
+    ];
+    final trailing = [
+      for (final action in actions) ...[
+        TextButton.icon(
+          onPressed: isLoading ? null : action.onPressed,
+          icon: Icon(
+            action.icon,
+            size: 18,
+            color: action.destructive
+                ? theme.colorScheme.error
+                : accentColor,
+          ),
+          label: Text(context.tr(action.label)),
+          style: action.destructive
+              ? TextButton.styleFrom(
+                  foregroundColor: theme.colorScheme.error,
+                )
+              : null,
+        ),
+        const SizedBox(width: 4),
+      ],
+      IconButton(
+        tooltip: 'Clear selection'.localized,
+        icon: const Icon(Icons.close, size: 18),
+        onPressed: isLoading ? null : onClearSelection,
+      ),
+    ];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: theme.colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.checklist, size: 20, color: accentColor),
-          const SizedBox(width: 8),
-          Text(
-            context.tr('{count} selected', {'count': selectedCount}),
-            style: theme.textTheme.titleSmall,
-          ),
-          const Spacer(),
-          for (final action in actions) ...[
-            TextButton.icon(
-              onPressed: isLoading ? null : action.onPressed,
-              icon: Icon(
-                action.icon,
-                size: 18,
-                color: action.destructive
-                    ? theme.colorScheme.error
-                    : accentColor,
-              ),
-              label: Text(context.tr(action.label)),
-              style: action.destructive
-                  ? TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                    )
-                  : null,
-            ),
-            const SizedBox(width: 4),
-          ],
-          IconButton(
-            tooltip: 'Clear selection'.localized,
-            icon: const Icon(Icons.close, size: 18),
-            onPressed: isLoading ? null : onClearSelection,
-          ),
-        ],
+      // 窄屏（375px 手机视口）换行不溢出；宽屏保持原有 Spacer 右对齐。
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 480) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [...leading, ...trailing],
+            );
+          }
+          return Row(
+            children: [...leading, const Spacer(), ...trailing],
+          );
+        },
       ),
     );
   }

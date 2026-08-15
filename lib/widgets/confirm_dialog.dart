@@ -136,16 +136,22 @@ class _TypeToConfirmDialogState extends State<_TypeToConfirmDialog> {
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _ctrl,
-            // 类型确认是对话框唯一的输入目的：打开即聚焦，键盘用户无需先 Tab。
-            autofocus: true,
-            onChanged: (v) => setState(() => _match = v == widget.confirmText),
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(8)),
+          // 语义标签与上方可见提示一致（不重复渲染文本，只命名字段）。
+          Semantics(
+            label: context.tr('Type "{value}" to confirm:', {
+              'value': widget.confirmText,
+            }),
+            child: TextField(
+              controller: _ctrl,
+              // 类型确认是对话框唯一的输入目的：打开即聚焦，键盘用户无需先 Tab。
+              autofocus: true,
+              onChanged: (v) => setState(() => _match = v == widget.confirmText),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                ),
+                isDense: true,
               ),
-              isDense: true,
             ),
           ),
         ],

@@ -172,9 +172,13 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: LocalizedText(
-          'User: {widget_userId}',
-          args: {'widget_userId': widget.userId},
+        title: Semantics(
+          container: true,
+          header: true,
+          child: LocalizedText(
+            'User: {widget_userId}',
+            args: {'widget_userId': widget.userId},
+          ),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),

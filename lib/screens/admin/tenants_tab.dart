@@ -99,6 +99,7 @@ class _TenantsTabState extends State<TenantsTab>
         : '${text.isEmpty ? '' : '$text and '}status:$_statusFilter';
   }
 
+  void _clearFilter() { _filterCtrl.clear(); _statusFilter = 'all'; _reload(); }
   Future<SSOAdminListPage> _loadPage() => widget.client.listTenants(
     pageToken: _pageTokens[_pageIndex],
     pageSize: _pageSize,
@@ -106,13 +107,14 @@ class _TenantsTabState extends State<TenantsTab>
     filter: _filterQuery,
   );
 
-  void _reload() => setState(() {
-    _pageTokens
-      ..clear()
-      ..add(null);
-    _pageIndex = 0;
-    _future = _loadPage();
-  });
+  void _reload() {
+    clearSelection();
+    setState(() {
+      _pageTokens..clear()..add(null);
+      _pageIndex = 0;
+      _future = _loadPage();
+    });
+  }
 
   void _goPrevious() {
     if (_pageIndex == 0) return;
@@ -314,15 +316,15 @@ class _TenantsTabState extends State<TenantsTab>
     pageSize: _pageSize,
     onSearchSubmitted: _reload,
     onStatusChanged: (value) {
-      setState(() => _statusFilter = value);
+      _statusFilter = value;
       _reload();
     },
     onOrderChanged: (value) {
-      setState(() => _orderBy = value);
+      _orderBy = value;
       _reload();
     },
     onPageSizeChanged: (value) {
-      setState(() => _pageSize = value);
+      _pageSize = value;
       _reload();
     },
   );
@@ -345,7 +347,7 @@ class _TenantsTabState extends State<TenantsTab>
       );
       final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
       final list = items.isEmpty
-          ? TenantsEmptyState(filtering: filtered)
+          ? TenantsEmptyState(filtering: filtered, onClearFilter: _clearFilter)
           : _tenantTable(items);
       final pagination = PaginationControls(
         page: _pageIndex + 1,

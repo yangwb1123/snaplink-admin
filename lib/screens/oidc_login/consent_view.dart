@@ -265,7 +265,7 @@ class _AuthorizationDetailCard extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: SelectableText(
                 json,

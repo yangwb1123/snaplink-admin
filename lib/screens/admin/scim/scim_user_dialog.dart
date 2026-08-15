@@ -107,6 +107,7 @@ class _ScimUserDialogState extends State<ScimUserDialog> {
       height: MediaQuery.sizeOf(context).height * .68,
       child: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: ListView(
           children: [
             if (_editing)

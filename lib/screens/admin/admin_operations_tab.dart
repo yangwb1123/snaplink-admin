@@ -320,10 +320,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       Icon(Icons.terminal_outlined, color: _accent, size: 28),
       const SizedBox(width: 12),
       Expanded(
-        child: Text(
-          AppStrings.of(context).adminOperations,
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
-        ),
+        child: Semantics(container: true, header: true, child: Text(AppStrings.of(context).adminOperations, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600))),
       ),
     ],
   );

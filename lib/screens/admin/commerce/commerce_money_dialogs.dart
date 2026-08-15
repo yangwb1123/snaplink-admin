@@ -57,6 +57,7 @@ class _CommerceWalletAdjustmentDialogState
     onSubmit: _submit,
     child: Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -127,6 +128,7 @@ class _CommerceTopUpDialogState extends State<CommerceTopUpDialog> {
     onSubmit: _submit,
     child: Form(
       key: _formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

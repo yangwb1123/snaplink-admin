@@ -131,10 +131,22 @@ class _ClientsTabState extends State<ClientsTab>
     if (cell.startsWith(RegExp(r'[=+\-@]'))) cell = "'$cell";
     return '"$cell"';
   }
-  void _reload() => setState(() {
-    resetPagination();
-    _future = _loadPage();
-  });
+  /// 刷新语义（R5）：保留筛选、清除选择、重置分页。
+  void _reload() {
+    clearSelection();
+    setState(() {
+      resetPagination();
+      _future = _loadPage();
+    });
+  }
+
+  /// 空态“清除筛选”：清空搜索、状态与临期筛选后重载（过滤无结果场景）。
+  void _clearFilter() {
+    _filterCtrl.clear();
+    _statusFilter = 'all';
+    _expiringOnly = false;
+    _reload();
+  }
   void _goPrevious() {
     if (!canGoBack) return;
     setState(() {
@@ -193,6 +205,7 @@ class _ClientsTabState extends State<ClientsTab>
         return;
       }
       await showRotatedClientSecret(context, secret, expiryLabel: clientSecretExpiryLabel(context, rotation));
+      _reload(); // 轮换已落库：SECRET 列过期时间需要按服务端最新值重绘。
     } on SSOError catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -301,15 +314,21 @@ class _ClientsTabState extends State<ClientsTab>
   );
 
   Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
-    final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
+    final filtered =
+        _filterCtrl.text.isNotEmpty ||
+        _statusFilter != 'all' ||
+        _expiringOnly;
     final list = items.isEmpty
         ? EmptyState(
             variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
             icon: filtered ? null : Icons.apps,
             title: 'No clients',
             subtitle: filtered ? 'No clients match the current filter.' : 'Create your first client to get started.',
-            actionLabel: filtered ? null : 'Create client',
-            onAction: filtered ? null : () => AdminRoute.go('clients', action: 'new'),
+            actionLabel: filtered ? 'Clear filter' : 'Create client',
+            actionIcon: filtered ? Icons.filter_alt_off : null,
+            onAction: filtered
+                ? _clearFilter
+                : () => AdminRoute.go('clients', action: 'new'),
           )
         : _dataTable(items);
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));

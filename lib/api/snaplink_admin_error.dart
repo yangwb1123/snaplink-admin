@@ -41,7 +41,18 @@ class SnaplinkAdminApiError implements Exception {
   }
 
   @override
-  String toString() => description ?? code ?? 'Admin request failed ($status).';
+  String toString() {
+    if (description != null) return description!;
+    if (code != null) return code!;
+    // Platform convention: a 403 proves the bearer is valid but under-scoped
+    // (or outside the tenant boundary), so the console keeps the session and
+    // shows a permission denial instead of treating it like an expired
+    // session (401 ends the session; 403 never does).
+    if (status == 403) {
+      return 'This session is not authorized for this operation (403).';
+    }
+    return 'Admin request failed ($status).';
+  }
 }
 
 /// Decodes only JSON objects and deliberately discards proxy error pages.

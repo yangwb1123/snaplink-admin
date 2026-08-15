@@ -242,11 +242,15 @@ class _SecurityTabState extends State<SecurityTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          context.strings.security,
-          style: theme.textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.3,
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            context.strings.security,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
           ),
         ),
         const SizedBox(height: 4),

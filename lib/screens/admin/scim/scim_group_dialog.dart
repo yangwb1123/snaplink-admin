@@ -66,6 +66,7 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
       width: 560,
       child: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

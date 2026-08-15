@@ -104,14 +104,13 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
       _error = null;
     });
     try {
-      final data = await widget.api.get(accessPoliciesPath, forceRefresh: true);
-      final items = data['policies'] as List? ?? [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        accessPoliciesPath,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
       setState(() {
-        _policies = items
-            .whereType<Map>()
-            .map(Map<String, dynamic>.from)
-            .toList(growable: false);
+        _applyPolicies(data);
       });
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -120,6 +119,20 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyPolicies(Map<String, dynamic> data) {
+    final items = data['policies'] as List? ?? [];
+    _policies = items
+        .whereType<Map>()
+        .map(Map<String, dynamic>.from)
+        .toList(growable: false);
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyPolicies(fresh));
   }
 
   Future<void> _converge() async {

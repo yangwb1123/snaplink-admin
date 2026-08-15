@@ -102,7 +102,7 @@ class _SkeletonListTileState extends State<SkeletonListTile>
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: block(factor: 0.35),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -111,7 +111,7 @@ class _SkeletonListTileState extends State<SkeletonListTile>
                       width: 200,
                       decoration: BoxDecoration(
                         color: block(factor: 0.245),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                     ),
                   ],

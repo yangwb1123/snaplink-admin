@@ -77,11 +77,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     if (!_available) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final data = await widget.api.get(_keysPath);
-      final items = data['keys'] as List? ?? [];
+      final data = await widget.api.getStaleWhileRevalidate(
+        _keysPath,
+        onRefresh: _applyRefresh,
+      );
       if (!mounted) return;
       setState(() {
-        _keys = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _applyKeys(data);
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
@@ -89,6 +91,17 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     } catch (_) {
       if (mounted) setState(() { _error = 'Could not load crypto keys.'; _loading = false; });
     }
+  }
+
+  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
+  void _applyKeys(Map<String, dynamic> data) {
+    final items = data['keys'] as List? ?? [];
+    _keys = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+  }
+
+  void _applyRefresh(Map<String, dynamic> fresh) {
+    if (!mounted) return;
+    setState(() => _applyKeys(fresh));
   }
 
   Future<void> _compromise(String id) async {
