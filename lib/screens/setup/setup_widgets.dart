@@ -338,7 +338,8 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
       children: [
         const Icon(Icons.check_circle_outline, size: 72, color: AppColors.success),
         const SizedBox(height: 16),
-        Semantics(container: true, header: true, child: Text(strings.setupComplete, style: Theme.of(context).textTheme.headlineMedium)),
+        // R36：与其他 setup 面板标题（titleLarge）同层，消除全库唯一 headlineMedium 离群。
+        Semantics(container: true, header: true, child: Text(strings.setupComplete, style: Theme.of(context).textTheme.titleLarge)),
         const SizedBox(height: 8),
         Text(strings.setupCompleteDescription),
         if (widget.adminUsername != null) ...[

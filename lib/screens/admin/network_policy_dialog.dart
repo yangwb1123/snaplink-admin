@@ -199,6 +199,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _baseUrlCtrl,
+                keyboardType: TextInputType.url,
                 decoration: InputDecoration(
                   labelText: 'Advertised base URL'.localized,
                 ),
@@ -206,6 +207,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _jwksUrlCtrl,
+                keyboardType: TextInputType.url,
                 decoration: InputDecoration(
                   labelText: 'Advertised JWKS URL'.localized,
                 ),
@@ -213,6 +215,7 @@ class _NetworkPolicyDialogState extends State<NetworkPolicyDialog> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _logoutUrlCtrl,
+                keyboardType: TextInputType.url,
                 decoration: InputDecoration(
                   labelText: 'Advertised logout URL'.localized,
                 ),

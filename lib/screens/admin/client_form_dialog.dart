@@ -230,21 +230,24 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                   maxLines: 2,
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _tokenStrategy,
-                  // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Token strategy'.localized,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'jwt', child: LocalizedText('jwt')),
-                    DropdownMenuItem(
+                // R31：2 项短枚举 → SegmentedButton（替代 Token strategy 下拉）。
+                LocalizedText(
+                  'Token strategy',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'jwt', label: LocalizedText('jwt')),
+                    ButtonSegment(
                       value: 'session',
-                      child: LocalizedText('session'),
+                      label: LocalizedText('session'),
                     ),
                   ],
-                  onChanged: (v) => setState(() => _tokenStrategy = v ?? 'jwt'),
+                  selected: {_tokenStrategy},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (selection) =>
+                      setState(() => _tokenStrategy = selection.first),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(

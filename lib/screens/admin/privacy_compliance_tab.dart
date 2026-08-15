@@ -83,9 +83,12 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         fallbackFilename: 'snaplink-subject-$subject-export.json',
       );
       if (mounted) {
-        showAppSnackBar(context, content: LocalizedText(
-              'Encrypted transport complete; export downloaded.',
-            ));
+        showAppSnackBar(
+          context,
+          content: LocalizedText(
+            'Encrypted transport complete; export downloaded.',
+          ),
+        );
       }
     });
   }
@@ -192,22 +195,14 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
           Semantics(
             container: true,
             header: true,
-            child: LocalizedText(
-              'Privacy and retention',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
+            child: LocalizedText('Privacy and retention', style: Theme.of(context).textTheme.headlineSmall),
           ),
         ],
       ),
       const SizedBox(height: 4),
-      const LocalizedText(
-        'Execute data-subject requests with preview-first controls and keep '
-        'sensitive exports out of the console display.',
-      ),
-      if (_error != null) ...[
-        const SizedBox(height: 12),
-        _errorCard(context),
-      ],
+      const LocalizedText('Execute data-subject requests with preview-first controls and keep '
+          'sensitive exports out of the console display.'),
+      if (_error != null) ...[const SizedBox(height: 12), _errorCard(context)],
       if (_busy) ...[
         const SizedBox(height: 12),
         const LinearProgressIndicator(),
@@ -260,11 +255,24 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         runSpacing: 8,
         children: [
           if (_exportable)
-            OutlinedButton.icon(onPressed: _busy ? null : _export, icon: const Icon(Icons.file_download_outlined), label: const LocalizedText('Download export')),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _export,
+              icon: const Icon(Icons.file_download_outlined),
+              label: const LocalizedText('Download export'),
+            ),
           if (_erasable)
-            OutlinedButton.icon(onPressed: _busy ? null : _previewErase, icon: const Icon(Icons.fact_check_outlined), label: const LocalizedText('Preview erasure')),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _previewErase,
+              icon: const Icon(Icons.fact_check_outlined),
+              label: const LocalizedText('Preview erasure'),
+            ),
           if (_erasable)
-            FilledButton.icon(onPressed: _busy || _erasurePreview == null ? null : _commitErase, style: FilledButton.styleFrom(backgroundColor: AppColors.danger), icon: const Icon(Icons.person_remove_outlined), label: const LocalizedText('Commit erasure')),
+            FilledButton.icon(
+              onPressed: _busy || _erasurePreview == null ? null : _commitErase,
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
+              icon: const Icon(Icons.person_remove_outlined),
+              label: const LocalizedText('Commit erasure'),
+            ),
         ],
       ),
       if (_erasurePreview != null) ...[
@@ -314,27 +322,32 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
     String subtitle,
     List<Widget> children, {
     IconData? icon,
-  }) =>
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+  }) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  if (icon != null) ...[Icon(icon, size: 18, color: _accent), const SizedBox(width: 8)],
-                  LocalizedText(title, style: Theme.of(context).textTheme.titleMedium),
-                ],
+              if (icon != null) ...[
+                Icon(icon, size: 18, color: _accent),
+                const SizedBox(width: 8),
+              ],
+              LocalizedText(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 4),
-              LocalizedText(subtitle),
-              const Divider(),
-              ...children,
             ],
           ),
-        ),
-      );
+          const SizedBox(height: 4),
+          LocalizedText(subtitle),
+          const Divider(),
+          ...children,
+        ],
+      ),
+    ),
+  );
 
   /// 结果卡：报告标题 + 结果状态徽章；API 字段用 Text 渲染（X1/X10）。
   Widget _reportCard(String title, Map<String, dynamic> report) {
@@ -354,11 +367,13 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
           children: [
             Row(
               children: [
-                LocalizedText(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），状态徽章仍贴右。
+                Expanded(
+                  child: LocalizedText(
+                    title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 ),
-                const Spacer(),
                 if (ok)
                   StatusChip(
                     label: 'Success'.localized,
@@ -370,10 +385,12 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
               ],
             ),
             for (final entry in report.entries)
-              if (entry.key != 'errors')
-                Text('${entry.key}: ${entry.value}'),
+              if (entry.key != 'errors') Text('${entry.key}: ${entry.value}'),
             if (errors.isNotEmpty)
-              LocalizedText('errors: {list}', args: {'list': errors.join(' · ')}),
+              LocalizedText(
+                'errors: {list}',
+                args: {'list': errors.join(' · ')},
+              ),
           ],
         ),
       ),

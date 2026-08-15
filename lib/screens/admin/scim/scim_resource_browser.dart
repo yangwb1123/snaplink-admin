@@ -224,7 +224,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) setState(() => _error = context.tr('Could not load resource details.'));
+      if (mounted) {
+        setState(() => _error = context.tr('Could not load resource details.'));
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -262,7 +264,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = _errorMessage(error));
     } catch (_) {
-      if (mounted) setState(() => _error = context.tr('The SCIM operation failed.'));
+      if (mounted) {
+        setState(() => _error = context.tr('The SCIM operation failed.'));
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -281,13 +285,12 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
         children: [
           Row(
             children: [
-              LocalizedText(
-                widget.kind == ScimResourceKind.users
+              // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），操作区仍贴右。
+              Expanded(
+                child: LocalizedText(widget.kind == ScimResourceKind.users
                     ? 'SCIM Users'
-                    : 'SCIM Groups',
-                style: Theme.of(context).textTheme.titleLarge,
+                    : 'SCIM Groups', style: Theme.of(context).textTheme.titleLarge),
               ),
-              const Spacer(),
               IconButton(
                 onPressed: _loading || _mutating ? null : _load,
                 icon: Icon(Icons.refresh, color: _accent),
@@ -319,7 +322,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           ),
           if (_error != null) _errorCard(context),
           if (_loading && page == null)
-            const Expanded(child: SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150)))
+            const Expanded(
+              child: SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150)),
+            )
           else if (page != null)
             Expanded(
               child: Column(
@@ -385,14 +390,10 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   }
 
   /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。
-  Widget _errorCard(BuildContext context) => ErrorStateCard(
-    message: _error!,
-    onRetry: _load,
-    retryEnabled: !_loading,
-  );
+  Widget _errorCard(BuildContext context) =>
+      ErrorStateCard(message: _error!, onRetry: _load, retryEnabled: !_loading);
 
   String _errorMessage(SnaplinkAdminApiError error) => context.tr(
-    'SCIM request failed ({status}): {error}',
-    {'status': '${error.status}', 'error': error.toString()},
-  );
+      'SCIM request failed ({status}): {error}',
+      {'status': '${error.status}', 'error': error.toString()});
 }

@@ -29,11 +29,14 @@ class TimelineList extends StatelessWidget {
                 ),
                 if (index < items.length - 1)
                   Container(
-                    // 竖线居中于 30px 圆点中心（x=15），与点对齐。
-                    margin: const EdgeInsets.only(left: 14),
-                    width: 2,
-                    height: 12,
-                    color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    // 竖线在 30px 圆点轨道内居中（2px 线居中于 x=15），与点对齐。
+                    width: 30,
+                    alignment: Alignment.center,
+                    child: Container(
+                      width: 2,
+                      height: 12,
+                      color: scheme.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
               ],
             ),

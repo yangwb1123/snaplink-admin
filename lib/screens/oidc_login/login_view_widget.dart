@@ -134,7 +134,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
             child: FilledButton(
               onPressed: widget.loading ? null : widget.onSubmit,
               child: widget.loading
-                  ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
                   : Text(
                       widget.usesFederatedProvider
                           ? selected.effectiveButtonLabel
@@ -193,12 +193,14 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       ),
     );
   }
+
   LoginProviderDescriptor _descriptorFor(String id) {
     for (final item in widget.providers) {
       if (item.id == id) return item;
     }
     return LoginProviderDescriptor.fromWire(id);
   }
+
   Widget _passwordForm(AppStrings strings) => Column(
     children: [
       _field(controller: widget.userCtrl, label: strings.username, hints: const [AutofillHints.username], next: true),
@@ -221,6 +223,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       ),
     ],
   );
+
   Widget _codeForm(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isPhone = widget.provider == 'phone';
@@ -273,6 +276,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       ],
     );
   }
+
   Widget _totpForm(AppStrings strings) => Column(
     children: [
       _field(controller: widget.userCtrl, label: strings.username, hints: const [AutofillHints.username], next: true),

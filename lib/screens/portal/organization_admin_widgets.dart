@@ -119,20 +119,25 @@ class OrganizationInvitationCards extends StatelessWidget {
             decoration: InputDecoration(labelText: context.tr('Email address')),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: role,
-            decoration: InputDecoration(
-              labelText: context.tr('Organization role'),
-            ),
-            items: roles
-                .map(
-                  (value) => DropdownMenuItem(
-                    value: value,
-                    child: Text(context.tr(value)),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: busy ? null : _onRoleChanged,
+          // R31：3 项短枚举 → SegmentedButton（替代 Organization role 下拉）。
+          Text(
+            context.tr('Organization role'),
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: [
+              for (final value in roles)
+                ButtonSegment(
+                  value: value,
+                  label: Text(context.tr(value)),
+                ),
+            ],
+            selected: {role},
+            showSelectedIcon: false,
+            onSelectionChanged: busy
+                ? null
+                : (selection) => _onRoleChanged(selection.first),
           ),
           const SizedBox(height: 12),
           Align(

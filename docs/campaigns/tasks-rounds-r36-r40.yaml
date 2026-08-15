@@ -1,0 +1,111 @@
+# 10 轮推进（第四轮）— R36-R40（文本/输入/状态展示/弹层导航/综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r36-r40.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r36-r40.log
+
+tasks:
+- prompt: |
+    轮次 R36：文本与排版合理性。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的文本使用：
+       a. Text vs Text.rich：富文本场景用多个 Text 拼 Row（应
+          Text.rich/TextSpan）的；
+       b. 样式层级：headline/title/body/label 样式使用一致性（页面
+          标题用 bodyLarge 而非 headlineSmall 等）；
+       c. SelectableText：需可复制的文本未用；
+       d. 省略：长文本 maxLines+ellipsis 缺失处；
+       e. 本地化文本：LocalizedText vs Text 混用（i18n 门禁已查，
+          回查新增）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 富文本合并 Text.rich（保持显示）；
+       - 样式层级修正（保持字号视觉近似或按层级）；
+       - 长文本省略补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/admin_shell_test.dart
+       test/i18n_coverage_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r36-typography.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r36-typography.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/admin_shell_test.dart test/i18n_coverage_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R37：输入控件合理性。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的输入控件使用：
+       a. TextField vs TextFormField：需要校验的字段用裸 TextField
+          （无 validator）；
+       b. 键盘类型：数字字段 TextInputType.number、URL url、邮箱
+          emailAddress 缺失处；
+       c. 输入格式化：金额/代码类字段无 inputFormatters；
+       d. 自动完成：autofillHints 覆盖（登录/表单关键字段）；
+       e. 禁用/只读：enabled/readOnly 语义。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 校验字段转 TextFormField（保持校验逻辑）；
+       - 键盘类型/格式化补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_dialogs_final_test.dart test/settings_screen_test.dart
+       test/oidc_challenge_flow_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r37-inputs.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r37-inputs.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_dialogs_final_test.dart test/settings_screen_test.dart test/oidc_challenge_flow_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R38：状态展示控件合理性。步骤：
+    1. 扫描状态展示（lib/screens/ 与 lib/widgets/）：
+       a. 进度：数据加载应骨架的用 CircularProgressIndicator 处（
+          R2/R19 已查，回查新增）；
+       b. 徽章：应 StatusChip 的状态用裸 Text/Container 手画处；
+       c. 空态：应 EmptyState 的手写空态；
+       d. 错误：应 AsyncView/ErrorCard 的手写错误块；
+       e. 数据强调：关键数字应 data_emphasis/指标卡的裸文本。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 手写状态→共享组件（保持显示语义）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/three_state_gate_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r38-state-widgets.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r38-state-widgets.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/three_state_gate_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R39：弹层与导航控件合理性。步骤：
+    1. 扫描弹层与导航控件（lib/screens/ 与 lib/widgets/）：
+       a. Dialog vs BottomSheet：移动端应 Sheet 的用 Dialog 处（当前
+          主要为 Dialog——核对是否有移动端不适用的宽对话框）；
+       b. PopupMenuButton vs 内联菜单：操作过多用 PopupMenu 的合理
+          性；
+       c. TabBar/PageView vs 手动切换：详情页 tab 实现方式一致性；
+       d. Drawer vs NavigationRail：移动端抽屉（响应式壳层检查）；
+       e. Tooltip/help 弹层使用。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 移动端宽对话框响应式（maxWidth 约束/滚动）；
+       - 弹层选择修正（低风险处）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/admin_dialogs_final_test.dart
+       test/admin_shell_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r39-overlays-nav.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r39-overlays-nav.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/admin_dialogs_final_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R40：综合终检（第四轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R31-R39 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 残留检查（test/zz_*、idget*、0 字节、临时文件）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r40-final-audit-4.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r40-final-audit-4.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

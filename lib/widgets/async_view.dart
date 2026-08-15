@@ -233,7 +233,7 @@ class ErrorStateCard extends StatelessWidget {
                   context.tr(title!),
                   style: messageStyle.copyWith(fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 messageWidget,
               ],
             ),

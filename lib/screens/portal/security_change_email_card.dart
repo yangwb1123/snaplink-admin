@@ -46,6 +46,12 @@ class SecurityChangeEmailCard extends StatelessWidget {
         const SizedBox(height: 16),
         TextField(
           controller: newEmailCtrl,
+          enabled: !emailBusy,
+          autocorrect: false,
+          enableSuggestions: false,
+          textCapitalization: TextCapitalization.none,
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const [AutofillHints.email],
           decoration: InputDecoration(
             labelText: context.tr('New email'),
             prefixIcon: const Icon(Icons.mail_outline),
@@ -70,6 +76,12 @@ class SecurityChangeEmailCard extends StatelessWidget {
           const SizedBox(height: 16),
           TextField(
             controller: emailTokenCtrl,
+            enabled: !emailBusy,
+            autocorrect: false,
+            enableSuggestions: false,
+            textCapitalization: TextCapitalization.none,
+            keyboardType: TextInputType.number,
+            autofillHints: const [AutofillHints.oneTimeCode],
             decoration: InputDecoration(
               labelText: context.strings.verificationCode,
               prefixIcon: const Icon(Icons.verified_outlined),

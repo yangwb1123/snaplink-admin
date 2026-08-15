@@ -60,30 +60,33 @@ class OrgMembersCard extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: memberUserController,
+              keyboardType: TextInputType.emailAddress,
               decoration: InputDecoration(
                 labelText: 'User ID'.localized,
                 hintText: 'user@example.com'.localized,
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: memberRole,
-              // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Organization role'.localized,
-              ),
-              items: const [
-                DropdownMenuItem(
+            // R31：3 项短枚举 → SegmentedButton（替代 Organization role 下拉）。
+            LocalizedText(
+              'Organization role',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
                   value: 'member',
-                  child: LocalizedText('Member'),
+                  label: LocalizedText('Member'),
                 ),
-                DropdownMenuItem(value: 'admin', child: LocalizedText('Admin')),
-                DropdownMenuItem(value: 'guest', child: LocalizedText('Guest')),
+                ButtonSegment(value: 'admin', label: LocalizedText('Admin')),
+                ButtonSegment(value: 'guest', label: LocalizedText('Guest')),
               ],
-              onChanged: mutating
+              selected: {memberRole},
+              showSelectedIcon: false,
+              onSelectionChanged: mutating
                   ? null
-                  : (v) => onRoleChanged(v ?? memberRole),
+                  : (selection) => onRoleChanged(selection.first),
             ),
             const SizedBox(height: 12),
             FilledButton.icon(

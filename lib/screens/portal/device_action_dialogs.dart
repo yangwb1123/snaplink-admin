@@ -43,26 +43,29 @@ class _DeviceEditDialogState extends State<_DeviceEditDialog> {
     title: Text(context.tr('Edit device')),
     content: SizedBox(
       width: 440,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextField(
-            controller: _name,
-            maxLength: 120,
-            autofocus: true,
-            decoration: InputDecoration(labelText: context.tr('Device name')),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _notes,
-            maxLength: 500,
-            maxLines: 3,
-            decoration: InputDecoration(
-              labelText: context.tr('Private notes'),
-              hintText: context.tr('For example: work laptop'),
+      // R39：窄屏（手机 + 键盘）下表单可纵向滚动，避免被非滚动对话框裁切。
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _name,
+              maxLength: 120,
+              autofocus: true,
+              decoration: InputDecoration(labelText: context.tr('Device name')),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _notes,
+              maxLength: 500,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: context.tr('Private notes'),
+                hintText: context.tr('For example: work laptop'),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
     actions: [

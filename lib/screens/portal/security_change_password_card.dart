@@ -31,6 +31,13 @@ class SecurityChangePasswordCard extends StatelessWidget {
       TextField(
         controller: curPwCtrl,
         obscureText: true,
+        enabled: !pwBusy,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        // 无 currentPassword 常量：当前密码沿用 password 提示（平台
+        // current-password 语义由引擎映射）。
+        autofillHints: const [AutofillHints.password],
         decoration: InputDecoration(
           labelText: context.tr('Current password'),
           prefixIcon: const Icon(Icons.lock_outline),
@@ -40,6 +47,11 @@ class SecurityChangePasswordCard extends StatelessWidget {
       TextField(
         controller: newPwCtrl,
         obscureText: true,
+        enabled: !pwBusy,
+        autocorrect: false,
+        enableSuggestions: false,
+        textCapitalization: TextCapitalization.none,
+        autofillHints: const [AutofillHints.newPassword],
         decoration: InputDecoration(
           labelText: context.tr('New password'),
           prefixIcon: const Icon(Icons.password_outlined),

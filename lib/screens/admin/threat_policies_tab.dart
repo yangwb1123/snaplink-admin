@@ -35,10 +35,12 @@ class ThreatPoliciesTab extends StatefulWidget {
 
 class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   static const _path = '/api/v1/admin/threat-policies';
+  final _formKey = GlobalKey<FormState>();
   List<Map<String, dynamic>> _policies = const [];
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   late final void Function() _cancelPopState;
@@ -82,7 +84,9 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         _nameCtrl.text = existing['name']?.toString() ?? '';
         _descCtrl.text = existing['description']?.toString() ?? '';
         _rulesCtrl.text =
-            existing['rules']?.toString() ?? existing['config']?.toString() ?? '';
+            existing['rules']?.toString() ??
+            existing['config']?.toString() ??
+            '';
       }
     }
     if (mounted) setState(() {});
@@ -109,25 +113,32 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       final items = data['policies'] as List? ?? [];
       if (!mounted || seq != _reqSeq) return;
       setState(() {
-        _policies = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        _policies = items
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
         _loading = false;
         _handleRoute();
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted && seq == _reqSeq) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted && seq == _reqSeq) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted && seq == _reqSeq) {
-        setState(() { _error = 'Could not load threat policies.'; _loading = false; });
+        setState(() {
+          _error = 'Could not load threat policies.';
+          _loading = false;
+        });
       }
     }
   }
 
   Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final name = _nameCtrl.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Enter a policy name.');
-      return;
-    }
     final body = {
       'name': name,
       'description': _descCtrl.text.trim(),
@@ -138,7 +149,12 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       final pathName = _editing && _editId != null ? _editId! : name;
       await widget.api.put('$_path/${Uri.encodeComponent(pathName)}', body);
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(_editing ? 'Policy updated.' : 'Policy created.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          _editing ? 'Policy updated.' : 'Policy created.',
+        ),
+      );
       if (mounted) AdminRoute.go('threat-policies');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -201,7 +217,11 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
           ],
         ),
         if (!_loading && _error != null)
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
+          ErrorStateCard(
+            message: _error!,
+            onRetry: _load,
+            margin: EdgeInsets.zero,
+          ),
         if (_loading)
           const Padding(
             padding: EdgeInsets.only(top: 16),
@@ -255,28 +275,18 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                   label: 'Policy'.localized,
                   width: 220,
                   cardPrimary: true,
-                  builder: (_, i) => TableCellText(
-                    policies[i]['name']?.toString() ?? '',
-                    level: DataEmphasisLevel.primary,
-                  ),
+                  builder: (_, i) => TableCellText(policies[i]['name']?.toString() ?? '', level: DataEmphasisLevel.primary),
                 ),
                 AdminDataColumn(
                   id: 'description',
                   label: 'Description'.localized,
                   cardDetail: true,
-                  builder: (_, i) => TableCellText(
-                    policies[i]['description']?.toString() ?? '',
-                    muted: true,
-                    maxLines: 2,
-                  ),
+                  builder: (_, i) => TableCellText(policies[i]['description']?.toString() ?? '', muted: true, maxLines: 2),
                 ),
                 AdminDataColumn(
                   id: 'id',
                   label: 'ID'.localized,
-                  builder: (_, i) => CopyableCell(
-                    text: policies[i]['id']?.toString() ?? '',
-                    contextProvider: () => context,
-                  ),
+                  builder: (_, i) => CopyableCell(text: policies[i]['id']?.toString() ?? '', contextProvider: () => context),
                 ),
                 AdminDataColumn(
                   id: 'status',
@@ -306,11 +316,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
               ],
               itemCount: policies.length,
               rowBuilder: (_, _) => const SizedBox.shrink(),
-              onRowTap: (i) => AdminRoute.go(
-                'threat-policies',
-                resourceId: policies[i]['name']?.toString() ?? '',
-                action: 'edit',
-              ),
+              onRowTap: (i) => AdminRoute.go('threat-policies', resourceId: policies[i]['name']?.toString() ?? '', action: 'edit'),
             ),
           ],
         ),
@@ -318,65 +324,74 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
     );
   }
 
-  Widget _buildForm(BuildContext context) => ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      const AdminBreadcrumb(),
-      Row(
-        children: [
-          Icon(Icons.shield_outlined, size: 22, color: _accent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: LocalizedText(
-              _editing ? 'Edit policy' : 'Add policy',
-              style: Theme.of(context).textTheme.headlineSmall,
+  Widget _buildForm(BuildContext context) => Form(
+    key: _formKey,
+    autovalidateMode: AutovalidateMode.onUserInteraction,
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AdminBreadcrumb(),
+        Row(
+          children: [
+            Icon(Icons.shield_outlined, size: 22, color: _accent),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LocalizedText(
+                _editing ? 'Edit policy' : 'Add policy',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
             ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      TextField(controller: _nameCtrl, decoration: InputDecoration(labelText: 'Name'.localized)),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _descCtrl,
-        decoration: InputDecoration(labelText: 'Description'.localized),
-        maxLines: 2,
-      ),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _rulesCtrl,
-        decoration: InputDecoration(labelText: 'Rules / Config'.localized),
-        maxLines: 4,
-      ),
-      const SizedBox(height: 16),
-      OverflowBar(
-        children: [
-          OutlinedButton(
-            onPressed: () => AdminRoute.go('threat-policies'),
-            child: const LocalizedText('Cancel'),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: _mutating ? null : _save,
-            child: LocalizedText(_editing ? 'Update' : 'Create'),
-          ),
-        ],
-      ),
-      if (_error != null)
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: LocalizedText(
-            _error!,
-            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-            style: TextStyle(
-              color: AppColors.semanticFor(
-                Theme.of(context).brightness,
-                AppColors.danger,
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: _nameCtrl,
+          decoration: InputDecoration(labelText: 'Name'.localized),
+          validator: (value) => value?.trim().isEmpty == true
+              ? 'Enter a policy name.'.localized
+              : null,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _descCtrl,
+          decoration: InputDecoration(labelText: 'Description'.localized),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _rulesCtrl,
+          decoration: InputDecoration(labelText: 'Rules / Config'.localized),
+          maxLines: 4,
+        ),
+        const SizedBox(height: 16),
+        OverflowBar(
+          children: [
+            OutlinedButton(
+              onPressed: () => AdminRoute.go('threat-policies'),
+              child: const LocalizedText('Cancel'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _mutating ? null : _save,
+              child: LocalizedText(_editing ? 'Update' : 'Create'),
+            ),
+          ],
+        ),
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: LocalizedText(
+              _error!,
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
               ),
             ),
           ),
-        ),
-    ],
+      ],
+    ),
   );
 }
-

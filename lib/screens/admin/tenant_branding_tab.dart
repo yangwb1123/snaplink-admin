@@ -324,6 +324,7 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                 TextField(
                   controller: _logoUrl,
                   enabled: !_saving && !_outcomeUnknown,
+                  keyboardType: TextInputType.url,
                   decoration: InputDecoration(
                     labelText: 'Logo URL'.localized,
                     hintText: 'https://cdn.example.com/logo.svg'.localized,

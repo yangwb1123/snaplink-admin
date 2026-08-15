@@ -48,6 +48,14 @@ abstract final class AppColors {
   /// primary 使用本值；浅色恒为 [primary]。
   static const Color primaryOnDark = Color(0xFF818CF8);
 
+  /// 破坏性 OutlinedButton 样式（R32 按钮体系）：前景与边框统一危险色，
+  /// dark 下经 [semanticFor] 提亮；避免各处重复手写两段 color/side。
+  static ButtonStyle dangerOutlinedStyle(BuildContext context) =>
+      OutlinedButton.styleFrom(
+        foregroundColor: semanticFor(Theme.of(context).brightness, danger),
+        side: BorderSide(color: semanticFor(Theme.of(context).brightness, danger)),
+      );
+
   /// 语义前景亮度感知（R29）：浅色恒等原色；深色返回同族 400 提亮变体
   /// （文字 ≥4.5、非文本 ≥3）。未知颜色（中性/自定义/组色板）原样返回。
   static Color semanticFor(Brightness brightness, Color light) {

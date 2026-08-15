@@ -183,6 +183,9 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
             value: _conn?['client_id']?.toString() ?? '—',
             labelWidth: 100,
             level: DataEmphasisLevel.secondary,
+            // R36：激活 InfoRow 内置复制按钮（与表格 CopyableCell / DCR
+            // CopyableDcrValue 同数据同能力）；client_id 缺失时隐藏按钮。
+            copyValue: _conn?['client_id']?.toString(),
           ),
           InfoRow(
             label: 'Issuer',

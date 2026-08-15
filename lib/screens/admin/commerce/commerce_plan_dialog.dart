@@ -124,13 +124,11 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
               _field(_id, 'Plan ID', autofocus: true),
               _field(_version, 'Version', integer: true, minimum: 1),
               _field(_name, 'Plan name'),
-              Row(
-                children: [
-                  Expanded(child: _dropdownStatus()),
-                  const SizedBox(width: 12),
-                  Expanded(child: _dropdownInterval()),
-                ],
-              ),
+              // R31：2/3 项短枚举 → SegmentedButton（替代 Plan status /
+              // Billing interval 下拉）。
+              _statusField(),
+              const SizedBox(height: 12),
+              _intervalField(),
               Row(
                 children: [
                   Expanded(child: _field(_currency, 'Currency')),
@@ -230,27 +228,53 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
     ),
   );
 
-  Widget _dropdownStatus() => DropdownButtonFormField<String>(
-    initialValue: _status,
-    decoration: InputDecoration(
-      labelText: 'Plan status'.localized,
-      border: const OutlineInputBorder(),
-    ),
-    items: const ['active', 'retired']
-        .map((value) => DropdownMenuItem(value: value, child: Text(value)))
-        .toList(growable: false),
-    onChanged: (value) => setState(() => _status = value ?? _status),
+  Widget _statusField() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      LocalizedText(
+        'Plan status',
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      const SizedBox(height: 8),
+      SegmentedButton<String>(
+        segments: const ['active', 'retired']
+            .map(
+              (value) => ButtonSegment(
+                value: value,
+                label: Text(value),
+              ),
+            )
+            .toList(growable: false),
+        selected: {_status},
+        showSelectedIcon: false,
+        onSelectionChanged: (selection) =>
+            setState(() => _status = selection.first),
+      ),
+    ],
   );
 
-  Widget _dropdownInterval() => DropdownButtonFormField<String>(
-    initialValue: _interval,
-    decoration: InputDecoration(
-      labelText: 'Billing interval'.localized,
-      border: const OutlineInputBorder(),
-    ),
-    items: const ['none', 'month', 'year']
-        .map((value) => DropdownMenuItem(value: value, child: Text(value)))
-        .toList(growable: false),
-    onChanged: (value) => setState(() => _interval = value ?? _interval),
+  Widget _intervalField() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      LocalizedText(
+        'Billing interval',
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      const SizedBox(height: 8),
+      SegmentedButton<String>(
+        segments: const ['none', 'month', 'year']
+            .map(
+              (value) => ButtonSegment(
+                value: value,
+                label: Text(value),
+              ),
+            )
+            .toList(growable: false),
+        selected: {_interval},
+        showSelectedIcon: false,
+        onSelectionChanged: (selection) =>
+            setState(() => _interval = selection.first),
+      ),
+    ],
   );
 }

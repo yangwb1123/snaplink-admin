@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 
@@ -277,6 +278,7 @@ class _OneTimeRegistrationCredentialsState
             ],
             OutlinedButton.icon(
               onPressed: _confirmed ? widget.onWipe : null,
+              style: AppColors.dangerOutlinedStyle(context),
               icon: const Icon(Icons.delete_sweep_outlined, size: 18),
               label: Text(context.tr('Done and Erase')),
             ),
@@ -387,6 +389,7 @@ class _RotatedRegistrationTokenDialogState
                     Navigator.of(context).pop();
                   }
                 : null,
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             icon: const Icon(Icons.arrow_forward, size: 18),
             label: Text(context.tr('Continue and Erase Display')),
           ),

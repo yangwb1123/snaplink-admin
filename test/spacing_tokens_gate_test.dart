@@ -90,8 +90,6 @@ final _tokens = <double>{4, 8, 12, 16, 20, 24, 32, 40, 48, 64};
 const _spacingExemptions = <String, String>{
   'lib/widgets/theme_selector.dart|leadingWidth:26':
       '下拉图标几何：彩色图标 18 + 间距 8（源码注释同款说明）',
-  'lib/widgets/timeline_list.dart|EdgeInsets.only(left:14)':
-      'timeline 竖线居中于 30px 圆点中心（x=15），几何耦合',
   'lib/screens/admin/dashboard_screen.dart|leadingWidth:80':
       'NavigationRail 标准宽度（logo 与 rail 图标中心对齐线）',
   'lib/screens/portal/portal_screen_shell.dart|leadingWidth:80':

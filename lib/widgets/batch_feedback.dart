@@ -57,7 +57,7 @@ Future<void> showBatchFailureDialog(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.only(top: 4),
                     child: Icon(
                       Icons.error_outline,
                       size: 16,

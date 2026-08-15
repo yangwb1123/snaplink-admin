@@ -67,44 +67,47 @@ class _ScimGroupDialogState extends State<ScimGroupDialog> {
       child: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_editing) ...[
-              LocalizedText(
-                'PUT replaces the display name and reconciles membership to '
-                'exactly this list. Role and membership persistence is not a '
-                'cross-store transaction; reconcile after a partial failure.',
-                style: Theme.of(context).textTheme.bodySmall,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_editing) ...[
+                LocalizedText(
+                  'PUT replaces the display name and reconciles membership to '
+                  'exactly this list. Role and membership persistence is not a '
+                  'cross-store transaction; reconcile after a partial failure.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextFormField(
+                controller: _nameController,
+                autofocus: !_editing,
+                decoration: InputDecoration(
+                  labelText: 'Display name'.localized,
+                  helperText: 'Required. The server assigns the immutable ID.'
+                      .localized,
+                ),
+                validator: (value) =>
+                    value == null || value.trim().isEmpty ? 'Required' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _membersController,
+                minLines: 4,
+                maxLines: 10,
+                decoration: InputDecoration(
+                  labelText: 'Member user IDs'.localized,
+                  helperText:
+                      'One per line or comma-separated; duplicates drop.'
+                          .localized,
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+              ),
             ],
-            TextFormField(
-              controller: _nameController,
-              autofocus: !_editing,
-              decoration: InputDecoration(
-                labelText: 'Display name'.localized,
-                helperText:
-                    'Required. The server assigns the immutable ID.'.localized,
-              ),
-              validator: (value) =>
-                  value == null || value.trim().isEmpty ? 'Required' : null,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _membersController,
-              minLines: 4,
-              maxLines: 10,
-              decoration: InputDecoration(
-                labelText: 'Member user IDs'.localized,
-                helperText: 'One per line or comma-separated; duplicates drop.'
-                    .localized,
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     ),

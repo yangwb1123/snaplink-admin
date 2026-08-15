@@ -131,20 +131,27 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
                 ),
                 if (!_isEdit) ...[
                   const SizedBox(height: 8),
-                  DropdownButtonFormField<String>(
-                    initialValue: _status,
-                    decoration: InputDecoration(labelText: 'Status'.localized),
-                    items: const [
-                      DropdownMenuItem(
+                  // R31：2 项短枚举 → SegmentedButton（替代 Status 下拉）。
+                  LocalizedText(
+                    'Status',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(
                         value: 'active',
-                        child: LocalizedText('active'),
+                        label: LocalizedText('active'),
                       ),
-                      DropdownMenuItem(
+                      ButtonSegment(
                         value: 'suspended',
-                        child: LocalizedText('suspended'),
+                        label: LocalizedText('suspended'),
                       ),
                     ],
-                    onChanged: (v) => setState(() => _status = v ?? 'active'),
+                    selected: {_status},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (selection) =>
+                        setState(() => _status = selection.first),
                   ),
                 ],
                 TenantResidencyFields(

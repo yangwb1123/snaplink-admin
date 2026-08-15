@@ -193,14 +193,27 @@ class _OrganizationRolePicker extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => DropdownButtonFormField<String>(
-    initialValue: value,
-    decoration: InputDecoration(labelText: 'Organization role'.localized),
-    items: const [
-      DropdownMenuItem(value: 'member', child: LocalizedText('Member')),
-      DropdownMenuItem(value: 'admin', child: LocalizedText('Admin')),
-      DropdownMenuItem(value: 'guest', child: LocalizedText('Guest')),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // R31：3 项短枚举 → SegmentedButton（替代 Organization role 下拉）。
+      LocalizedText(
+        'Organization role',
+        style: Theme.of(context).textTheme.labelLarge,
+      ),
+      const SizedBox(height: 8),
+      SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(value: 'member', label: LocalizedText('Member')),
+          ButtonSegment(value: 'admin', label: LocalizedText('Admin')),
+          ButtonSegment(value: 'guest', label: LocalizedText('Guest')),
+        ],
+        selected: {value},
+        showSelectedIcon: false,
+        onSelectionChanged: enabled
+            ? (selection) => onChanged(selection.first)
+            : null,
+      ),
     ],
-    onChanged: enabled ? (next) => onChanged(next ?? value) : null,
   );
 }

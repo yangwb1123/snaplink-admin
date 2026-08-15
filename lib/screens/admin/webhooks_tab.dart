@@ -75,10 +75,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       final results = await Future.wait([
         if (_hasSubscriptions) widget.api.getStaleWhileRevalidate(_subsPath, onRefresh: _applySubsRefresh),
@@ -107,7 +104,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   /// API 列表 → 强类型 Map 列表（空/缺省为 []）。
-  List<Map<String, dynamic>> _maps(Object? raw) => [for (final e in raw as List? ?? const []) Map<String, dynamic>.from(e as Map)];
+  List<Map<String, dynamic>> _maps(Object? raw) => [
+    for (final e in raw as List? ?? const []) Map<String, dynamic>.from(e as Map),
+  ];
 
   void _fail(String message) {
     if (!mounted) return;
@@ -119,10 +118,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
 
   /// 变更操作壳：mutating + snackbar + 错误回写（delete 共用）。
   Future<void> _mutate(String success, Future<void> Function() run) async {
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+    setState(() { _mutating = true; _error = null; });
     try {
       await run();
       if (!mounted) return;
@@ -140,18 +136,11 @@ class _WebhooksTabState extends State<WebhooksTab> {
       setState(() => _error = 'URL is required.');
       return;
     }
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+    setState(() { _mutating = true; _error = null; });
     try {
       final events = _eventsCtrl.text.trim().split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      await widget.api.post(_subsPath, {
-        'url': url,
-        if (events.isNotEmpty) 'event_types': events,
-        if (_secretCtrl.text.trim().isNotEmpty) 'secret': _secretCtrl.text.trim(),
-        'active': _active,
-      });
+      await widget.api.post(_subsPath,
+          {'url': url, if (events.isNotEmpty) 'event_types': events, if (_secretCtrl.text.trim().isNotEmpty) 'secret': _secretCtrl.text.trim(), 'active': _active});
       if (!mounted) return;
       _urlCtrl.clear();
       _eventsCtrl.clear();
@@ -168,7 +157,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   Future<void> _delete(String id) async {
-    final confirmed = await ConfirmDialog.show(context, title: 'Delete subscription?', message: 'Delete webhook subscription $id?', confirmLabel: 'Delete', destructive: true, confirmText: id);
+    final confirmed = await ConfirmDialog.show(context, title: 'Delete subscription?',
+        message: 'Delete webhook subscription $id?', confirmLabel: 'Delete', destructive: true, confirmText: id);
     if (!confirmed) return;
     await _mutate('Subscription deleted.', () async {
       await widget.api.delete('$_subsPath/${Uri.encodeComponent(id)}');
@@ -177,19 +167,20 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   Future<void> _replay(String id) async {
-    final confirmed = await ConfirmDialog.show(context, title: 'Replay dead letter?', message: 'Replay this failed delivery?', confirmLabel: 'Replay', destructive: true, confirmText: id);
+    final confirmed = await ConfirmDialog.show(context, title: 'Replay dead letter?',
+        message: 'Replay this failed delivery?', confirmLabel: 'Replay', destructive: true, confirmText: id);
     if (!confirmed) return;
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+    setState(() { _mutating = true; _error = null; });
     try {
       final response = await widget.api.post('$_deadPath/${Uri.encodeComponent(id)}/replay');
       if (!mounted) return;
       await _load();
       if (!mounted) return;
       final cleanupComplete = response['cleanup_status'] == 'complete';
-      showAppSnackBar(context, content: LocalizedText(cleanupComplete ? 'Delivery sent and dead-letter cleanup completed.' : 'Delivery succeeded; cleanup remains pending. Retrying this entry is cleanup-only and cannot redeliver it.'));
+      showAppSnackBar(context,
+          content: LocalizedText(cleanupComplete
+              ? 'Delivery sent and dead-letter cleanup completed.'
+              : 'Delivery succeeded; cleanup remains pending. Retrying this entry is cleanup-only and cannot redeliver it.'));
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -200,7 +191,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
   @override
   Widget build(BuildContext context) {
     if (!_hasSubscriptions && !_hasDeadLetters) {
-      return const EmptyState(variant: EmptyStateVariant.notEnabled, title: 'Webhook management is not enabled on this replica.');
+      return const EmptyState(variant: EmptyStateVariant.notEnabled,
+          title: 'Webhook management is not enabled on this replica.');
     }
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -242,9 +234,12 @@ class _WebhooksTabState extends State<WebhooksTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Semantics(container: true, header: true, child: Text(AppStrings.of(context).webhooks, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
+                Semantics(container: true, header: true,
+                    child: Text(AppStrings.of(context).webhooks,
+                        style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
                 const SizedBox(height: 4),
-                LocalizedText('Manage event notification webhook subscriptions and dead letters.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                LocalizedText('Manage event notification webhook subscriptions and dead letters.',
+                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                 const SizedBox(height: 12),
                 IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'.localized),
               ],
@@ -281,7 +276,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
     ),
   );
 
-  Widget _field(TextEditingController controller, {required String label, String? hint, bool obscure = false}) => TextField(
+  Widget _field(TextEditingController controller,
+      {required String label, String? hint, bool obscure = false}) => TextField(
     controller: controller,
     obscureText: obscure,
     decoration: InputDecoration(labelText: label.localized, hintText: hint?.localized),
@@ -306,8 +302,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            LocalizedText('Subscriptions health', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600)),
-            const Spacer(),
+            // R33：标签 Expanded（窄屏/字号缩放换行而非溢出），计数仍贴右。
+            Expanded(child: LocalizedText('Subscriptions health', style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600))),
             Text('$active of $total active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: fraction >= 0.7 ? AppColors.success : fraction >= 0.4 ? AppColors.warning : AppColors.danger)),
           ]),
           const SizedBox(height: 4),
@@ -324,7 +320,8 @@ class _WebhooksTabState extends State<WebhooksTab> {
   }
 
   /// 表格壳：紧凑密度 + 行点击（两表共用）。
-  AdminDataTable _table(List<AdminDataColumn> columns, int count, {void Function(int)? onRowTap}) => AdminDataTable(
+  AdminDataTable _table(List<AdminDataColumn> columns, int count,
+          {void Function(int)? onRowTap}) => AdminDataTable(
     density: TableDensity.compact,
     minWidth: 560,
     columns: columns,
@@ -351,26 +348,28 @@ class _WebhooksTabState extends State<WebhooksTab> {
 
   Widget _subscriptionsCard(BuildContext context) {
     final visible = _visibleSubscriptions;
-    return _section(
-      'Subscriptions',
-      visible,
+    return _section('Subscriptions', visible,
       _statusFilter == 'all'
           ? const EmptyState(variant: EmptyStateVariant.empty, title: 'No subscriptions.', compact: true)
-          : EmptyState(variant: EmptyStateVariant.noMatch, compact: true, actionLabel: 'Clear filter', actionIcon: Icons.filter_alt_off, onAction: () => setState(() => _statusFilter = 'all')),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        _subscriptionsHealth(context),
-        const SizedBox(height: 8),
-        _table(
-          [
+          : EmptyState(variant: EmptyStateVariant.noMatch, compact: true, actionLabel: 'Clear filter',
+              actionIcon: Icons.filter_alt_off, onAction: () => setState(() => _statusFilter = 'all')),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _subscriptionsHealth(context),
+          const SizedBox(height: 8),
+          _table([
             AdminDataColumn(id: 'status', label: 'STATUS', width: 170, builder: (context, i) => _statusChip(visible[i])),
             AdminDataColumn(id: 'url', label: 'URL', width: 240, cardPrimary: true, builder: (context, i) => TableCellText(visible[i]['url']?.toString() ?? '', bold: true)),
             AdminDataColumn(id: 'events', label: 'ID · EVENTS', width: 300, builder: (context, i) => TableCellText('${visible[i]['id'] ?? ''} · events: ${(visible[i]['event_types'] as List?)?.join(', ') ?? 'all'}', muted: true)),
-            AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(onPressed: _mutating ? null : () => _delete(visible[i]['id']?.toString() ?? ''), style: TextButton.styleFrom(foregroundColor: AppColors.danger), child: const LocalizedText('Delete'))),
-          ],
-          visible.length,
-          onRowTap: (i) => AdminRoute.go('webhooks', resourceId: visible[i]['id']?.toString() ?? ''),
-        ),
-      ]),
+            AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(
+                onPressed: _mutating ? null : () => _delete(visible[i]['id']?.toString() ?? ''),
+                style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                child: const LocalizedText('Delete'))),
+          ], visible.length,
+              onRowTap: (i) => AdminRoute.go('webhooks', resourceId: visible[i]['id']?.toString() ?? '')),
+        ],
+      ),
     );
   }
 
@@ -378,14 +377,18 @@ class _WebhooksTabState extends State<WebhooksTab> {
     'Dead letters',
     _deadLetters,
     const EmptyState(variant: EmptyStateVariant.empty, title: 'No dead letters.', compact: true),
-    _table(
-      [
-        AdminDataColumn(id: 'event', label: 'EVENT', width: 220, cardPrimary: true, builder: (context, i) => TableCellText(_deadLetters[i]['event_type']?.toString() ?? _deadLetters[i]['type']?.toString() ?? 'Unknown', bold: true)),
-        AdminDataColumn(id: 'id', label: 'ID', width: 140, builder: (context, i) { final id = _deadLetters[i]['id']?.toString() ?? ''; return id.isEmpty ? const TableCellText('') : CopyableCell(text: id, contextProvider: () => context); }),
-        AdminDataColumn(id: 'error', label: 'ERROR', width: 280, builder: (context, i) => TableCellText(_deadLetters[i]['error']?.toString() ?? '', muted: true, maxLines: 2)),
-        AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(onPressed: _mutating ? null : () => _replay(_deadLetters[i]['id']?.toString() ?? ''), child: const LocalizedText('Replay'))),
-      ],
-      _deadLetters.length,
-    ),
+    _table([
+      AdminDataColumn(id: 'event', label: 'EVENT', width: 220, cardPrimary: true, builder: (context, i) => TableCellText(
+          _deadLetters[i]['event_type']?.toString() ?? _deadLetters[i]['type']?.toString() ?? 'Unknown', bold: true)),
+      AdminDataColumn(id: 'id', label: 'ID', width: 140, builder: (context, i) {
+        final id = _deadLetters[i]['id']?.toString() ?? '';
+        return id.isEmpty ? const TableCellText('') : CopyableCell(text: id, contextProvider: () => context);
+      }),
+      AdminDataColumn(id: 'error', label: 'ERROR', width: 280, builder: (context, i) => TableCellText(
+          _deadLetters[i]['error']?.toString() ?? '', muted: true, maxLines: 2)),
+      AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(
+          onPressed: _mutating ? null : () => _replay(_deadLetters[i]['id']?.toString() ?? ''),
+          child: const LocalizedText('Replay'))),
+    ], _deadLetters.length),
   );
 }

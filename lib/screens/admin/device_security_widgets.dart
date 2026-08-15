@@ -49,12 +49,14 @@ class DeviceListPanel extends StatelessWidget {
                 color: adminModuleIconColor(AdminModuleId.deviceSecurity),
               ),
               const SizedBox(width: 8),
-              LocalizedText(
-                title,
-                args: titleArgs,
-                style: Theme.of(context).textTheme.titleMedium,
+              // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），计数胶囊仍贴右。
+              Expanded(
+                child: LocalizedText(
+                  title,
+                  args: titleArgs,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -107,7 +109,9 @@ class DeviceListPanel extends StatelessWidget {
                 builder: (_, i) {
                   final details = _deviceDetails(devices[i]);
                   return TableCellText(
-                    details.isEmpty ? 'No activity metadata' : details.join(' · '),
+                    details.isEmpty
+                        ? 'No activity metadata'
+                        : details.join(' · '),
                     muted: true,
                     maxLines: 2,
                   );
@@ -235,8 +239,8 @@ class DeviceListPanel extends StatelessWidget {
 
 String _deviceName(DeviceJson device) =>
     device['device_name']?.toString().trim().isNotEmpty == true
-        ? device['device_name'].toString()
-        : '${device['platform'] ?? 'Unknown'} ${device['type'] ?? 'device'}';
+    ? device['device_name'].toString()
+    : '${device['platform'] ?? 'Unknown'} ${device['type'] ?? 'device'}';
 
 List<String> _deviceDetails(DeviceJson device) => [
   if (device['user_id']?.toString().isNotEmpty == true)

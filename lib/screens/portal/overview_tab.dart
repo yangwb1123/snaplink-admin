@@ -178,15 +178,17 @@ class _OverviewTabState extends State<OverviewTab> {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              Semantics(
-                container: true,
-                header: true,
-                child: Text(
-                  context.strings.overview,
-                  style: Theme.of(context).textTheme.headlineSmall,
+              // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），刷新仍贴右。
+              Expanded(
+                child: Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    context.strings.overview,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
                 ),
               ),
-              const Spacer(),
               IconButton(
                 onPressed: _loading ? null : _load,
                 tooltip: context.strings.refresh,
@@ -197,7 +199,11 @@ class _OverviewTabState extends State<OverviewTab> {
         ),
         Expanded(
           child: _loading
-              ? const SkeletonListTile(itemCount: 4, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150))
+              ? const SkeletonListTile(
+                  itemCount: 4,
+                  variant: SkeletonVariant.card,
+                  delay: Duration(milliseconds: 150),
+                )
               : _loadError != null
               ? PortalErrorCard(message: _loadError!, onRetry: _load)
               : _buildContent(context),

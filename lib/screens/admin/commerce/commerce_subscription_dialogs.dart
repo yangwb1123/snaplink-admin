@@ -63,59 +63,65 @@ class _CommerceCreateSubscriptionDialogState
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const LocalizedText('Create tenant subscription'),
-    content: SizedBox(
-      width: 520,
-      child: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _selected.isEmpty ? null : _selected,
-              autofocus: true,
-              decoration: InputDecoration(
-                labelText: 'Plan version'.localized,
-                border: const OutlineInputBorder(),
-              ),
-              items: _activePlans
-                  .map(
-                    (plan) => DropdownMenuItem(
-                      value: _planKey(plan),
-                      child: Text(commercePlanLabel(plan)),
-                    ),
-                  )
-                  .toList(growable: false),
-              validator: (value) => value == null ? 'Required'.localized : null,
-              onChanged: (value) => setState(() => _selected = value ?? ''),
+  Widget build(BuildContext context) {
+    final planItems = _activePlans
+        .map(
+          (plan) => DropdownMenuItem(
+            value: _planKey(plan),
+            child: Text(commercePlanLabel(plan)),
+          ),
+        )
+        .toList(growable: false);
+    return AlertDialog(
+      title: const LocalizedText('Create tenant subscription'),
+      content: SizedBox(
+        width: 520,
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: _selected.isEmpty ? null : _selected,
+                  autofocus: true,
+                  decoration: InputDecoration(
+                    labelText: 'Plan version'.localized,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: planItems,
+                  validator: (value) =>
+                      value == null ? 'Required'.localized : null,
+                  onChanged: (value) => setState(() => _selected = value ?? ''),
+                ),
+                const SizedBox(height: 12),
+                _field(_trialEnd, 'Trial end (optional RFC3339)'),
+                _field(_provider, 'Provider identifier (optional)'),
+                _field(_providerID, 'Provider subscription ID (optional)'),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: LocalizedText(
+                    'Provider identifiers are references only. Never enter provider secrets or payment credentials.',
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            _field(_trialEnd, 'Trial end (optional RFC3339)'),
-            _field(_provider, 'Provider identifier (optional)'),
-            _field(_providerID, 'Provider subscription ID (optional)'),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: LocalizedText(
-                'Provider identifiers are references only. Never enter provider secrets or payment credentials.',
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const LocalizedText('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _activePlans.isEmpty ? null : _submit,
-        child: const LocalizedText('Create subscription'),
-      ),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const LocalizedText('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _activePlans.isEmpty ? null : _submit,
+          child: const LocalizedText('Create subscription'),
+        ),
+      ],
+    );
+  }
 
   Widget _field(TextEditingController controller, String label) => Padding(
     padding: const EdgeInsets.only(bottom: 12),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'commerce_models.dart';
@@ -160,7 +161,9 @@ class _MoneyDialogFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: LocalizedText(title),
-    content: SizedBox(width: 520, child: child),
+    // R39：表单在窄屏（手机 + 键盘）可整体纵向滚动，不再被 AlertDialog
+    // 非滚动内容区裁切。
+    content: SizedBox(width: 520, child: SingleChildScrollView(child: child)),
     actions: [
       TextButton(
         onPressed: () => Navigator.pop(context),
@@ -212,6 +215,12 @@ Widget _integerField(
   child: TextFormField(
     controller: controller,
     keyboardType: TextInputType.numberWithOptions(signed: allowNegative),
+    inputFormatters: [
+      if (allowNegative)
+        FilteringTextInputFormatter.allow(RegExp(r'^-?\d*$'))
+      else
+        FilteringTextInputFormatter.digitsOnly,
+    ],
     decoration: InputDecoration(
       labelText: label.localized,
       border: const OutlineInputBorder(),

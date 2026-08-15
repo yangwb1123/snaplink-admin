@@ -175,12 +175,14 @@ class WebhookDeadLetterSection extends StatelessWidget {
             onTap: onToggle,
             child: Row(
               children: [
-                LocalizedText(
-                  'Dead Letters ({count})',
-                  args: {'count': deadLetters.length},
-                  style: Theme.of(context).textTheme.titleMedium,
+                // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），展开指示仍贴右。
+                Expanded(
+                  child: LocalizedText(
+                    'Dead Letters ({count})',
+                    args: {'count': deadLetters.length},
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-                const Spacer(),
                 Icon(
                   expanded ? Icons.expand_less : Icons.expand_more,
                   color: adminModuleIconColor(AdminModuleId.webhooks),
@@ -256,5 +258,3 @@ class WebhookDeadLetterSection extends StatelessWidget {
     ),
   );
 }
-
-

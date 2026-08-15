@@ -194,6 +194,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             label: 'Client ID',
             value: _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId,
             level: DataEmphasisLevel.secondary,
+            // R36：激活 InfoRow 内置复制按钮（与表格 CopyableCell / DCR
+            // CopyableDcrValue 同数据同能力）。
+            copyValue: _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId,
           ),
           InfoRow(
             label: 'Redirect URIs',

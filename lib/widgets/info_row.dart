@@ -72,7 +72,7 @@ class InfoRow extends StatelessWidget {
               size: 16,
               color: iconColor ?? colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
           ],
           SizedBox(
             width: labelWidth,

@@ -35,6 +35,7 @@ class DomainsTab extends StatefulWidget {
 
 class _DomainsTabState extends State<DomainsTab> {
   static const _path = '/api/v1/admin/domains';
+  final _formKey = GlobalKey<FormState>();
   final _hostCtrl = TextEditingController();
   final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _domains = const [];
@@ -42,6 +43,7 @@ class _DomainsTabState extends State<DomainsTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   bool _showForm = false;
@@ -128,11 +130,8 @@ class _DomainsTabState extends State<DomainsTab> {
   }
 
   Future<void> _create() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final host = _hostCtrl.text.trim();
-    if (host.isEmpty) {
-      setState(() => _error = 'Enter a hostname.');
-      return;
-    }
     setState(() {
       _mutating = true;
       _error = null;
@@ -223,7 +222,11 @@ class _DomainsTabState extends State<DomainsTab> {
           refreshing: _loading,
         ),
         if (_error != null) ...[
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
+          ErrorStateCard(
+            message: _error!,
+            onRetry: _load,
+            margin: EdgeInsets.zero,
+          ),
           const SizedBox(height: 12),
         ],
         if (_showForm) _buildForm(context),
@@ -339,44 +342,50 @@ class _DomainsTabState extends State<DomainsTab> {
     margin: const EdgeInsets.only(top: 8),
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.language, size: 20, color: _accent),
-              const SizedBox(width: 8),
-              LocalizedText(
-                'Add domain',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _hostCtrl,
-            decoration: InputDecoration(
-              labelText: 'Hostname'.localized,
-              hintText: 'example.com'.localized,
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.language, size: 20, color: _accent),
+                const SizedBox(width: 8),
+                LocalizedText(
+                  'Add domain',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          OverflowBar(
-            children: [
-              OutlinedButton(
-                onPressed: () => AdminRoute.go('domains'),
-                child: const LocalizedText('Cancel'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _hostCtrl,
+              decoration: InputDecoration(
+                labelText: 'Hostname'.localized,
+                hintText: 'example.com'.localized,
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _mutating ? null : _create,
-                child: const LocalizedText('Add domain'),
-              ),
-            ],
-          ),
-        ],
+              validator: (value) => value?.trim().isEmpty == true
+                  ? 'Enter a hostname.'.localized
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            OverflowBar(
+              children: [
+                OutlinedButton(
+                  onPressed: () => AdminRoute.go('domains'),
+                  child: const LocalizedText('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _mutating ? null : _create,
+                  child: const LocalizedText('Add domain'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
   );
 }
-

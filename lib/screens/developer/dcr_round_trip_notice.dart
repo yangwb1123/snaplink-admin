@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'dcr_form_controller.dart';
 import 'dcr_metadata_form.dart';
@@ -327,7 +328,8 @@ class ManageStatusArea extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 32),
         child: Column(
           children: [
-            const CircularProgressIndicator(),
+            // R38：数据加载统一骨架（与列表页一致），保留 loading 文案语义。
+            const SkeletonListTile(itemCount: 2),
             const SizedBox(height: 12),
             Text(
               context.tr('Loading app…'),

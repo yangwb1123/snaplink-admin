@@ -52,13 +52,15 @@ class DeviceStatsCards extends StatelessWidget {
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
             children: [
-              LocalizedText(
-                'Fleet trust distribution',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+              // R33：标签 Expanded（窄屏/字号缩放换行而非溢出），占比仍贴右。
+              Expanded(
+                child: LocalizedText(
+                  'Fleet trust distribution',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                ),
               ),
-              const Spacer(),
               LocalizedText(
                 '{percent}% suspicious',
                 args: {'percent': (riskyFraction * 100).round()},
@@ -296,4 +298,3 @@ class DeviceSecurityActivityPanel extends StatelessWidget {
 }
 
 /// 单设备活动调查对话框已拆至 device_security_activity_dialog.dart。
-

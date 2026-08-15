@@ -29,34 +29,48 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    // R33 窄屏/字号缩放下标题不再溢出：标题 + 计数胶囊作为整体置于
+    // Expanded（自然宽度不变，桌面逐像素保持）；Spacer 仍把动作推右。
     return Row(
       children: [
-        Semantics(
-          container: true,
-          header: true,
-          child: Text(
-            context.tr(title),
-            style: dataEmphasisStyle(level, Theme.of(context)),
+        Expanded(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    context.tr(title),
+                    style: dataEmphasisStyle(level, Theme.of(context)),
+                  ),
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
-        if (count != null) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '$count',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
         const Spacer(),
         ?action,
       ],

@@ -1,0 +1,119 @@
+# 10 轮推进（第四轮）— R31-R35（选择器/按钮/布局/容器/手势——UI 元素使用合理性）
+#
+# 每轮一个聚焦主题：逐页分析 UI 元素使用是否合理（控件选择与 Widget
+# 语义的正确性）→ 低风险修复 → validate 门禁 → 产物文档。
+# 串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r31-r35.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r31-r35.log
+
+tasks:
+- prompt: |
+    轮次 R31：选择器控件合理性。步骤：
+    1. 逐页扫描 lib/screens/ 与 lib/widgets/ 的选择类控件使用：
+       a. 单选：2-3 项单选是否用了 Dropdown 而应 SegmentedButton/
+          Radio（紧凑场景）；多选项是否误用 Dropdown；
+       b. 开关：二选一是否用了 Switch（合理）vs Checkbox（应确认
+          而非开关的）；
+       c. 列表选择：长列表单选 Dropdown 合理（保持）；短枚举
+          SegmentedButton 合理（保持）——找出不合理互换；
+       d. 禁用态：选择器禁用语义一致性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 不合理互换修正（保持数据绑定与测试语义）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/settings_screen_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r31-selectors.md（逐页对照表 +
+       修复清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r31-selectors.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/settings_screen_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R32：按钮体系合理性。步骤：
+    1. 逐页扫描按钮使用（lib/screens/ 与 lib/widgets/）：
+       a. 主/次/三级分层：页面主操作用 FilledButton（合理）、次操作
+          OutlinedButton、三级 TextButton——找出层级颠倒（主操作用
+          TextButton、次要操作用 FilledButton）；
+       b. 危险操作：删除/撤销/擦除类按钮是否用危险色（AppColors.
+          danger / error 色）而非 primary；
+       c. 图标按钮：纯图标 IconButton 的 tooltip（回查）；应带文字的
+          用 IconButton 的；
+       d. 按钮尺寸/密度一致性（紧凑场景）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 层级颠倒修正（保持行为）；
+       - 危险操作着色；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_dialogs_final_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r32-buttons.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r32-buttons.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R33：布局 Widget 合理性。步骤：
+    1. 扫描 lib/screens/ 与 lib/widgets/ 的布局 Widget 使用：
+       a. Row 溢出：固定内容 Row 在窄屏溢出处（本应 Wrap/Expanded）；
+       b. Flexible vs Expanded：误用（Expanded 应 Flexible 的、或
+          Flexible 应 Expanded 的）；
+       c. Column 大列表：应 ListView 的 Column（懒构建——性能门禁
+          已查，回查新增）；
+       d. Stack 定位：Positioned 溢出/裁剪问题；
+       e. SizedBox 尺寸魔法：固定尺寸（宽/高）应自适应处。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - Row→Wrap/Expanded 修正（保持行为）；
+       - Flexible/Expanded 误用修正；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/login_header_layout_test.dart
+       test/admin_shell_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r33-layout-widgets.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r33-layout-widgets.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/login_header_layout_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R34：容器与卡片合理性。步骤：
+    1. 扫描容器类 Widget 使用（lib/screens/ 与 lib/widgets/）：
+       a. Card vs Container：应 Card（有语义/阴影/圆角约定）的用
+          Container + BoxDecoration 手画；
+       b. Material/InkWell 组合：需要水波纹的容器是否缺 Material；
+       c. 圆角/阴影：容器圆角 8/12 约定一致性（回查离群）；
+       d. DecoratedBox/BoxDecoration 直接使用 vs 语义容器。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 应 Card 的 Container 替换（保持视觉近似或按约定）；
+       - 缺 Material 的水波纹补齐（InkWell 场景）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_shell_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r34-containers.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r34-containers.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R35：手势与反馈合理性。步骤：
+    1. 扫描手势处理（lib/screens/ 与 lib/widgets/）：
+       a. GestureDetector vs InkWell/InkResponse：应带水波纹与焦点
+          语义的可点击区用 GestureDetector（丢 Material 反馈）；
+       b. onTap 无障碍：GestureDetector 无语义的（应 Semantics 包
+          裹）；
+       c. 长按/双击：非标准手势使用（应避免处）；
+       d. hover 反馈：可点击卡片 hover 底色一致性（150ms 约定）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - GestureDetector→InkWell（有 Material 祖先场景）；
+       - 可点击区补 Semantics(button)；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/theme_picker_test.dart test/admin_shell_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r35-gestures.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r35-gestures.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/theme_picker_test.dart test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

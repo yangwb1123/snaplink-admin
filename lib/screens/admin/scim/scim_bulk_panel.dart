@@ -178,10 +178,10 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
                   'before acknowledging and sending another request.',
                   {'status': '${error.status}'},
                 )
-              : context.tr(
-                  'Bulk was rejected ({status}): {error}',
-                  {'status': '${error.status}', 'error': error.toString()},
-                );
+              : context.tr('Bulk was rejected ({status}): {error}', {
+                  'status': '${error.status}',
+                  'error': error.toString(),
+                });
         }
       });
     } catch (_) {
@@ -230,23 +230,13 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
       children: [
         Row(
           children: [
-            LocalizedText(
-              'SCIM Bulk',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const Spacer(),
+            // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），操作区仍贴右。
+            Expanded(child: LocalizedText('SCIM Bulk', style: Theme.of(context).textTheme.titleLarge)),
             if (_loadingProfile)
-              const SizedBox.square(
-                dimension: 20,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
+              const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed:
-                  _submitting ||
-                      _loadingProfile ||
-                      !supported ||
-                      _outcomeUnknown
+              onPressed: _submitting || _loadingProfile || !supported || _outcomeUnknown
                   ? null
                   : _loadTemplate,
               icon: const Icon(Icons.description_outlined),
@@ -259,18 +249,14 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           'Bounded expert mode · max {maxOperations} operations · '
           'max {maxPayload}. POST operations require bulkId; targets are '
           'limited to /Users and /Groups.',
-          args: {
-            'maxOperations': '$_maxOperations',
-            'maxPayload': formatScimBytes(_maxPayload),
-          },
+          args: {'maxOperations': '$_maxOperations', 'maxPayload': formatScimBytes(_maxPayload)},
         ),
         const SizedBox(height: 12),
         _NoticeCard(
           background: Theme.of(context).colorScheme.secondaryContainer,
           icon: Icons.security_outlined,
           title: 'Validate before execution',
-          subtitle:
-              'Empty, malformed, oversized, recursive, or unsupported '
+          subtitle: 'Empty, malformed, oversized, recursive, or unsupported '
               'requests cannot be sent. Keep credentials and secrets out of '
               'the editor; the server returns per-operation status.',
         ),
@@ -294,8 +280,14 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            ScimMetric(label: 'Operations', value: '${preview?.operationCount ?? 0}'),
-            ScimMetric(label: 'Payload', value: formatScimBytes(preview?.payloadBytes ?? 0)),
+            ScimMetric(
+              label: 'Operations',
+              value: '${preview?.operationCount ?? 0}',
+            ),
+            ScimMetric(
+              label: 'Payload',
+              value: formatScimBytes(preview?.payloadBytes ?? 0),
+            ),
             for (final entry in (preview?.methodCounts ?? const {}).entries)
               ScimMetric(label: entry.key, value: '${entry.value}'),
             FilledButton.icon(
@@ -315,15 +307,21 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
         if (!supported && !_loadingProfile && _error == null)
           const Padding(
             padding: EdgeInsets.only(top: 12),
-            child: LocalizedText('This service provider does not advertise Bulk.'),
+            child: LocalizedText(
+              'This service provider does not advertise Bulk.',
+            ),
           ),
         if (_outcomeUnknown)
           _NoticeCard(
             icon: Icons.sync_problem_outlined,
             title: 'Previous bulk outcome is unknown',
-            subtitle: 'The retained request is locked until server state has '
+            subtitle:
+                'The retained request is locked until server state has '
                 'been reconciled.',
-            trailing: TextButton(onPressed: _acknowledgeReconciliation, child: const LocalizedText('I reconciled server state')),
+            trailing: TextButton(
+              onPressed: _acknowledgeReconciliation,
+              child: const LocalizedText('I reconciled server state'),
+            ),
           ),
         if (_error != null)
           _NoticeCard(
@@ -343,9 +341,7 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
             tilePadding: EdgeInsets.zero,
             initiallyExpanded: true,
             title: const LocalizedText('Bulk response'),
-            subtitle: const LocalizedText(
-              'Per-operation status; overall HTTP is 200',
-            ),
+            subtitle: const LocalizedText('Per-operation status; overall HTTP is 200'),
             children: [
               Container(
                 width: double.infinity,

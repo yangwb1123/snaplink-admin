@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
@@ -31,7 +32,7 @@ abstract final class BreakGlassRevocationCopy {
 
 /// 新建 break-glass 请求的表单卡：组色图标 + SectionHeader，校验/提交错误
 /// 内联展示（formError 与加载错误职责分离）。
-class BreakGlassRequestCard extends StatelessWidget {
+class BreakGlassRequestCard extends StatefulWidget {
   final TextEditingController targetController;
   final TextEditingController reasonController;
   final String scope;
@@ -65,11 +66,34 @@ class BreakGlassRequestCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Card(
+  State<BreakGlassRequestCard> createState() => _BreakGlassRequestCardState();
+}
+
+class _BreakGlassRequestCardState extends State<BreakGlassRequestCard> {
+  final _formKey = GlobalKey<FormState>();
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    widget.onCreate();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final targetController = widget.targetController;
+    final reasonController = widget.reasonController;
+    final scope = widget.scope;
+    final requireApproval = widget.requireApproval;
+    final mutating = widget.mutating;
+    final accent = widget.accent;
+    final formError = widget.formError;
+    return Card(
     margin: EdgeInsets.zero,
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -80,7 +104,7 @@ class BreakGlassRequestCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          TextField(
+          TextFormField(
             controller: targetController,
             enabled: !mutating,
             decoration: InputDecoration(
@@ -90,9 +114,12 @@ class BreakGlassRequestCard extends StatelessWidget {
                   'An existing user account; the request targets this identity.'
                       .localized,
             ),
+            validator: (value) => targetController.text.trim().isEmpty
+                ? 'Target user and reason are required.'.localized
+                : null,
           ),
           const SizedBox(height: 12),
-          TextField(
+          TextFormField(
             controller: reasonController,
             enabled: !mutating,
             decoration: InputDecoration(
@@ -103,8 +130,16 @@ class BreakGlassRequestCard extends StatelessWidget {
                       .localized,
             ),
             maxLines: 2,
+            validator: (value) =>
+                targetController.text.trim().isNotEmpty &&
+                    reasonController.text.trim().isEmpty
+                ? 'Target user and reason are required.'.localized
+                : null,
           ),
           const SizedBox(height: 12),
+          // R31：保持 Dropdown——Scope 三段标签（Impersonate 等）与下方
+          // 授权列表的动作文案同词，SegmentedButton 常显会让既有测试的
+          // find.text 语义歧义（且 grant 动作本身已是可见选择点）。
           DropdownButtonFormField<String>(
             initialValue: scope,
             // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
@@ -126,30 +161,34 @@ class BreakGlassRequestCard extends StatelessWidget {
             ],
             onChanged: mutating
                 ? null
-                : (value) => onScopeChanged(value ?? 'readonly'),
+                : (value) => widget.onScopeChanged(value ?? 'readonly'),
           ),
           const SizedBox(height: 12),
           TextField(
             enabled: !mutating,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             decoration: InputDecoration(
               labelText: 'TTL (seconds, default 900)'.localized,
               helperText:
                   'Session lifetime in seconds; the server enforces the maximum.'
                       .localized,
             ),
-            onChanged: onTtlChanged,
+            onChanged: widget.onTtlChanged,
           ),
-          CheckboxListTile(
+          // R31：二选一设置 → SwitchListTile（原 Checkbox 是开关语义，
+          // Checkbox 应留给确认/多选场景）。
+          SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const LocalizedText('Require approval'),
             value: requireApproval,
             onChanged: mutating
                 ? null
-                : (value) => onRequireApprovalChanged(value ?? false),
+                : widget.onRequireApprovalChanged,
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: mutating ? null : onCreate,
+            onPressed: mutating ? null : _submit,
             icon: mutating
                 ? const SizedBox(
                     height: 16,
@@ -159,10 +198,10 @@ class BreakGlassRequestCard extends StatelessWidget {
                 : const Icon(Icons.add, size: 18),
             label: const LocalizedText('Create break-glass request'),
           ),
-          if (formError != null) ...[
+          if (formError != null) ...[  
             const SizedBox(height: 12),
             LocalizedText(
-              formError!,
+              formError,
               // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
               style: TextStyle(
                 color: AppColors.semanticFor(
@@ -173,9 +212,11 @@ class BreakGlassRequestCard extends StatelessWidget {
             ),
           ],
         ],
+        ),
       ),
     ),
-  );
+    );
+  }
 }
 
 /// 会话列表：SectionHeader（计数 + 组色刷新）+ loading/empty/table 三态，

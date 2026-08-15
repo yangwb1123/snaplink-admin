@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
@@ -64,38 +65,12 @@ class _DeviceActivityDialogState extends State<DeviceActivityDialog> {
       width: 720,
       height: 520,
       child: _error != null
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                  Icon(
-                    Icons.error_outline,
-                    size: 40,
-                    color: AppColors.semanticFor(
-                      Theme.of(context).brightness,
-                      AppColors.danger,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Text(
-                      '$_error',
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh, size: 18),
-                    label: const LocalizedText('Retry'),
-                  ),
-                ],
-              ),
-            )
+          // R38：错误态统一 ErrorStateView（图标 + 标题 + 明细 + 重试），
+          // 替代手写 icon/text/retry 模板；重试语义不变。
+          ? ErrorStateView(message: '$_error', onRetry: _load)
           : _result == null
-          ? const Center(child: CircularProgressIndicator())
+          // R38：数据加载统一骨架（登录历史列表行形态），替代加载圈。
+          ? const SkeletonListTile(itemCount: 3)
           // 评估为无需 lazy：对话框固定 520 高，可见登录记录约 8 条；
           // LoginHistoryPanel 同时在页面上下文（user_device_security_panel）
           // 使用，改 ListView 需 shrinkWrap 或双语境重构，收益不抵风险。

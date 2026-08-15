@@ -207,20 +207,20 @@ class DcrMetadataForm extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 16),
-        DropdownButtonFormField<String>(
+        // R31：2 项短枚举 → SegmentedButton（替代 Token strategy 下拉）。
+        Text(context.tr('Token strategy'), style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
           key: ValueKey('strategy-${controller.tokenStrategy}'),
-          isExpanded: true,
-          initialValue: controller.tokenStrategy,
-          decoration: InputDecoration(
-            labelText: context.tr('Token strategy'),
-          ),
-          items: const [
-            DropdownMenuItem(value: 'jwt', child: Text('jwt')),
-            DropdownMenuItem(value: 'session', child: Text('session')),
+          segments: const [
+            ButtonSegment(value: 'jwt', label: Text('jwt')),
+            ButtonSegment(value: 'session', label: Text('session')),
           ],
-          onChanged: (value) {
-            if (value == null) return;
-            controller.tokenStrategy = value;
+          selected: {controller.tokenStrategy},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) {
+            if (selection.isEmpty) return;
+            controller.tokenStrategy = selection.first;
             onChanged();
           },
         ),

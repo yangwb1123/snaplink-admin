@@ -45,6 +45,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   bool _showReportForm = false;
+  final _formKey = GlobalKey<FormState>();
   final _typeCtrl = TextEditingController();
   late final void Function() _cancelPopState;
 
@@ -135,12 +136,8 @@ class _CredentialsTabState extends State<CredentialsTab> {
   }
 
   Future<void> _reportCompromise() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final type = _typeCtrl.text.trim();
-    // 泄露处理语义：凭据类型必填（门禁在提交前强制，测试依赖此文案）。
-    if (type.isEmpty) {
-      setState(() => _error = 'Enter a credential type.');
-      return;
-    }
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Report compromise?',
@@ -305,52 +302,59 @@ class _CredentialsTabState extends State<CredentialsTab> {
     margin: const EdgeInsets.only(top: 12),
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.warning_amber_outlined, size: 20, color: _accent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: LocalizedText(
-                  'Report credential compromise',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.warning_amber_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LocalizedText(
+                    'Report credential compromise',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          const LocalizedText(
-            'Report a credential type as compromised to trigger rotation and '
-            'containment across services.',
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _typeCtrl,
-            decoration: InputDecoration(
-              labelText: 'Credential type'.localized,
-              hintText: 'client_secret, signing_key, etc.'.localized,
+              ],
             ),
-          ),
-          const SizedBox(height: 12),
-          OverflowBar(
-            children: [
-              OutlinedButton(
-                onPressed: () => AdminRoute.go('credentials'),
-                child: const LocalizedText('Cancel'),
+            const SizedBox(height: 8),
+            const LocalizedText(
+              'Report a credential type as compromised to trigger rotation and '
+              'containment across services.',
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _typeCtrl,
+              decoration: InputDecoration(
+                labelText: 'Credential type'.localized,
+                hintText: 'client_secret, signing_key, etc.'.localized,
               ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _mutating ? null : _reportCompromise,
-                child: const LocalizedText('Report compromise'),
-              ),
-            ],
-          ),
-        ],
+              validator: (value) => value?.trim().isEmpty == true
+                  ? 'Enter a credential type.'.localized
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            OverflowBar(
+              children: [
+                OutlinedButton(
+                  onPressed: () => AdminRoute.go('credentials'),
+                  child: const LocalizedText('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: _mutating ? null : _reportCompromise,
+                  child: const LocalizedText('Report compromise'),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     ),
   );

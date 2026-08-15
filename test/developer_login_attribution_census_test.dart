@@ -118,7 +118,7 @@ void main() {
         '(quoted-literal site pin)', () {
       const pinned = <String, List<int>>{
         'lib/screens/developer/register_panel.dart': [107, 125],
-        'lib/screens/developer/dcr_credentials.dart': [182],
+        'lib/screens/developer/dcr_credentials.dart': [183],
         'lib/screens/developer/manage_panel.dart': [57],
         'lib/screens/developer/dcr_models.dart': [67],
       };

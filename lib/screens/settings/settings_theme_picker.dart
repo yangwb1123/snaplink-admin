@@ -77,56 +77,63 @@ class _SettingsThemeOptionTileState extends State<SettingsThemeOptionTile> {
       triggerMode: TooltipTriggerMode.manual,
       child: Semantics(
         selected: widget.selected,
-        child: InkWell(
-          onTap: widget.onTap,
-          onFocusChange: (focused) => setState(() => _focused = focused),
-          borderRadius: BorderRadius.circular(8),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: widget.selected
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: widget.selected || _focused
-                    ? colorScheme.primary
-                    : colorScheme.outlineVariant.withValues(alpha: 0.5),
-                width: 2,
-              ),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          decoration: BoxDecoration(
+            color: widget.selected
+                ? colorScheme.primaryContainer
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: widget.selected || _focused
+                  ? colorScheme.primary
+                  : colorScheme.outlineVariant.withValues(alpha: 0.5),
+              width: 2,
             ),
-            child: Stack(
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(widget.icon, size: 20, color: widget.iconColor),
-                    const SizedBox(height: 4),
-                    Text(
-                      widget.caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.selected
-                            ? colorScheme.primary
-                            : colorScheme.onSurfaceVariant,
+          ),
+          // R34：瓦片自身着色会盖住外圈 Material 的墨迹（波纹画在背景之下），
+          // 内层透明 Material 让 InkWell 波纹画在瓦片底色之上并按 8 圆角裁剪；
+          // 动画/焦点/语义不变（theme_picker_test 全绿）。
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onTap,
+              onFocusChange: (focused) => setState(() => _focused = focused),
+              child: Stack(
+                children: [
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(widget.icon, size: 20, color: widget.iconColor),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: widget.selected
+                              ? colorScheme.primary
+                              : colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (widget.selected)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Icon(
+                        Icons.check_circle,
+                        size: 14,
+                        color: colorScheme.primary,
                       ),
                     ),
-                  ],
-                ),
-                if (widget.selected)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Icon(
-                      Icons.check_circle,
-                      size: 14,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

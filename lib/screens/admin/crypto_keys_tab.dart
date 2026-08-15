@@ -199,6 +199,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
           ListenableBuilder(
             listenable: Listenable.merge([reason, confirm]),
             builder: (_, _) => FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
               onPressed: reason.text.trim().isNotEmpty && confirm.text.trim() == id
                   ? () => Navigator.pop(dialogContext, reason.text.trim())
                   : null,

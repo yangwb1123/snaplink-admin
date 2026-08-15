@@ -58,77 +58,82 @@ class _SnapshotRestoreDialogState extends State<SnapshotRestoreDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: LocalizedText('Restore snapshot {widget_snapshotId}', args: {'widget_snapshotId': widget.snapshotId}),
+    title: LocalizedText(
+      'Restore snapshot {widget_snapshotId}',
+      args: {'widget_snapshotId': widget.snapshotId},
+    ),
     content: SizedBox(
       width: 520,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          DropdownButtonFormField<String>(
-            initialValue: _mode,
-            autofocus: true,
-            isExpanded: true,
-            decoration: InputDecoration(labelText: 'Restore mode'.localized),
-            items: const [
-              DropdownMenuItem(
-                value: 'merge',
-                child: LocalizedText('Merge — insert missing records only'),
-              ),
-              DropdownMenuItem(
-                value: 'overwrite',
-                child: LocalizedText('Overwrite — upsert snapshot records'),
-              ),
-              DropdownMenuItem(
-                value: 'replace',
-                child: LocalizedText('Replace — wipe and seed managed state'),
-              ),
-            ],
-            onChanged: (value) => setState(() => _mode = value!),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _excludeCtrl,
-            decoration: InputDecoration(
-              labelText: 'Excluded resource categories'.localized,
-              helperText: 'Optional, one per line.'.localized,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            DropdownButtonFormField<String>(
+              initialValue: _mode,
+              autofocus: true,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: 'Restore mode'.localized),
+              items: const [
+                DropdownMenuItem(
+                  value: 'merge',
+                  child: LocalizedText('Merge — insert missing records only'),
+                ),
+                DropdownMenuItem(
+                  value: 'overwrite',
+                  child: LocalizedText('Overwrite — upsert snapshot records'),
+                ),
+                DropdownMenuItem(
+                  value: 'replace',
+                  child: LocalizedText('Replace — wipe and seed managed state'),
+                ),
+              ],
+              onChanged: (value) => setState(() => _mode = value!),
             ),
-            minLines: 2,
-            maxLines: 4,
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const LocalizedText('Dry run'),
-            subtitle: const LocalizedText(
-              'Calculate changes without persisting them.',
+            const SizedBox(height: 12),
+            TextField(
+              controller: _excludeCtrl,
+              decoration: InputDecoration(
+                labelText: 'Excluded resource categories'.localized,
+                helperText: 'Optional, one per line.'.localized,
+              ),
+              minLines: 2,
+              maxLines: 4,
             ),
-            value: _dryRun,
-            onChanged: (value) => setState(() => _dryRun = value),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const LocalizedText('Advance bootstrap high-water mark'),
-            value: _advanceBootstrap,
-            onChanged: (value) => setState(() => _advanceBootstrap = value),
-          ),
-          if (_mode == 'replace')
-            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-            LocalizedText(
-              'Replace mode removes operator-managed state before seeding the snapshot. The server requires the snapshot ID as confirmation.',
-              style: TextStyle(
-                color: AppColors.semanticFor(
-                  Theme.of(context).brightness,
-                  AppColors.danger,
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const LocalizedText('Dry run'),
+              subtitle: const LocalizedText(
+                'Calculate changes without persisting them.',
+              ),
+              value: _dryRun,
+              onChanged: (value) => setState(() => _dryRun = value),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const LocalizedText('Advance bootstrap high-water mark'),
+              value: _advanceBootstrap,
+              onChanged: (value) => setState(() => _advanceBootstrap = value),
+            ),
+            if (_mode == 'replace')
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              LocalizedText(
+                'Replace mode removes operator-managed state before seeding the snapshot. The server requires the snapshot ID as confirmation.',
+                style: TextStyle(
+                  color: AppColors.semanticFor(
+                    Theme.of(context).brightness,
+                    AppColors.danger,
+                  ),
                 ),
               ),
-            ),
-          if (!_dryRun)
-            const LocalizedText(
-              'A successful dry run with the same snapshot, mode, exclusions, '
-              'and bootstrap setting is required before commit.',
-              style: TextStyle(color: AppColors.warning),
-            ),
-        ],
+            if (!_dryRun)
+              const LocalizedText(
+                'A successful dry run with the same snapshot, mode, exclusions, '
+                'and bootstrap setting is required before commit.',
+                style: TextStyle(color: AppColors.warning),
+              ),
+          ],
+        ),
       ),
     ),
     actions: [

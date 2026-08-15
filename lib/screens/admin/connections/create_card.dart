@@ -68,16 +68,17 @@ class ConnectionCreateCard extends StatelessWidget {
             decoration: InputDecoration(labelText: 'Tenant ID'.localized),
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            initialValue: type,
-            decoration: InputDecoration(labelText: 'Protocol'.localized),
-            items: const [
-              DropdownMenuItem(value: 'oidc', child: LocalizedText('OIDC')),
-              DropdownMenuItem(value: 'saml', child: LocalizedText('SAML')),
+          // R31：2 项短枚举 → SegmentedButton（紧凑表单，替代 Protocol 下拉）。
+          SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'oidc', label: LocalizedText('OIDC')),
+              ButtonSegment(value: 'saml', label: LocalizedText('SAML')),
             ],
-            onChanged: mutating
+            selected: {type},
+            showSelectedIcon: false,
+            onSelectionChanged: mutating
                 ? null
-                : (value) => onTypeChanged(value ?? type),
+                : (selection) => onTypeChanged(selection.first),
           ),
           const SizedBox(height: 12),
           TextField(

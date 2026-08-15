@@ -155,7 +155,13 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: LocalizedText('Patch {widget_kind_singular} {widget_resourceId}', args: {'widget_kind_singular': widget.kind.singular, 'widget_resourceId': widget.resourceId}),
+    title: LocalizedText(
+      'Patch {widget_kind_singular} {widget_resourceId}',
+      args: {
+        'widget_kind_singular': widget.kind.singular,
+        'widget_resourceId': widget.resourceId,
+      },
+    ),
     content: SizedBox(
       width: 700,
       height: MediaQuery.sizeOf(context).height * .62,
@@ -235,11 +241,13 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
           children: [
             Row(
               children: [
-                LocalizedText(
-                  'Operation ${index + 1}',
-                  style: Theme.of(context).textTheme.titleSmall,
+                // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），删除钮仍贴右。
+                Expanded(
+                  child: LocalizedText(
+                    'Operation ${index + 1}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   onPressed: _rows.length > 1 ? () => _removeRow(index) : null,
                   icon: const Icon(Icons.remove_circle_outline),
@@ -252,8 +260,8 @@ class _ScimPatchDialogState extends State<ScimPatchDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                  // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
-                  isExpanded: true,
+                    // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
+                    isExpanded: true,
                     initialValue: row.op,
                     autofocus: index == 0,
                     decoration: InputDecoration(
