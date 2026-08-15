@@ -286,7 +286,14 @@ class _AuditLogTabState extends State<AuditLogTab> {
           ]),
         ),
         const SizedBox(width: 12),
-        Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: _actions(context)),
+        Flexible(
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: _actions(context),
+          ),
+        ),
       ]),
     );
   }

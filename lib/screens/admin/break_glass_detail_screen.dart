@@ -173,7 +173,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             'ID: {id}',
             args: {'id': widget.sessionId},
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.textSubtle,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
           const Divider(),

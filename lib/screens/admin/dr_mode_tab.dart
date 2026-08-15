@@ -239,7 +239,9 @@ class _DRModeTabState extends State<DRModeTab> {
             const SizedBox(height: 4),
             LocalizedText(
               _modeDescription(mode),
-              style: const TextStyle(color: AppColors.textSubtle),
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const Divider(height: 28),
             DropdownButtonFormField<String>(
@@ -261,9 +263,9 @@ class _DRModeTabState extends State<DRModeTab> {
             const SizedBox(height: 12),
             LocalizedText(
               _modeDescription(_selectedMode),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textSubtle,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),

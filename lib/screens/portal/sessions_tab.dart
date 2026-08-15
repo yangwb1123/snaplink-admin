@@ -225,9 +225,12 @@ class _SessionsTabState extends State<SessionsTab> {
                 ),
               ),
               const SizedBox(height: 4),
-              const LocalizedText(
+              LocalizedText(
                 'Browser and device sessions currently signed in with your account.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               OverflowBar(
                 spacing: 4,

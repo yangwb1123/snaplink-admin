@@ -25,7 +25,9 @@ class GovernanceSection extends StatelessWidget {
       children: [
         Row(children: [
           if (icon != null) ...[Icon(icon, size: 18, color: accent), const SizedBox(width: 8)],
-          LocalizedText(title, style: Theme.of(context).textTheme.titleLarge),
+          Flexible(
+            child: LocalizedText(title, style: Theme.of(context).textTheme.titleLarge),
+          ),
         ]),
         const SizedBox(height: 8),
         ...children,

@@ -135,15 +135,15 @@ Widget appHeaderDropdownSuffixIcon(
 }) =>
     ExcludeSemantics(
       child: IconButton(
-        icon: const Icon(
+        icon: Icon(
           Icons.arrow_drop_down,
           size: headerDropdownArrowSize,
-          color: Color(0xFF616161),
+          color: theme.colorScheme.onSurfaceVariant,
         ),
-        selectedIcon: const Icon(
+        selectedIcon: Icon(
           Icons.arrow_drop_up,
           size: headerDropdownArrowSize,
-          color: Color(0xFF616161),
+          color: theme.colorScheme.onSurfaceVariant,
         ),
         isSelected: controller.isOpen,
         onPressed: enabled

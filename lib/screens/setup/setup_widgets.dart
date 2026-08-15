@@ -25,9 +25,7 @@ class SetupNoticePanel extends StatelessWidget {
     children: [
       const SetupLogo(),
       const SizedBox(height: 12),
-      Text(title,
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center),
+      Text(title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
       const SizedBox(height: 16),
       notice,
       for (final action in actions) ...[const SizedBox(height: 12), PressableScale(child: action)],
@@ -49,17 +47,15 @@ class SetupLoadingPanel extends StatelessWidget {
       children: [
         const SetupLogo(),
         const SizedBox(height: 16),
-        const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
         const SizedBox(height: 16),
-        Text(strings.setup, style: theme.textTheme.titleLarge,
-            textAlign: TextAlign.center),
+        Text(strings.setup, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
         const SizedBox(height: 8),
-        Text(strings.checkingSystemStatus,
-            style: theme.textTheme.bodySmall, textAlign: TextAlign.center),
+        Text(
+          strings.checkingSystemStatus,
+          style: theme.textTheme.bodySmall,
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
@@ -80,9 +76,7 @@ class SetupAlreadyInitializedPanel extends StatelessWidget {
         variant: SetupNoticeVariant.success,
         text: strings.alreadyInitialized,
       ),
-      actions: [
-        FilledButton(onPressed: onContinue, child: Text(strings.goToAdminConsole)),
-      ],
+      actions: [FilledButton(onPressed: onContinue, child: Text(strings.goToAdminConsole))],
     );
   }
 }
@@ -112,10 +106,7 @@ class SetupUnavailablePanel extends StatelessWidget {
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(strings.retry),
         ),
-        FilledButton(
-          onPressed: onContinue,
-          child: Text(strings.goToAdminConsole),
-        ),
+        FilledButton(onPressed: onContinue, child: Text(strings.goToAdminConsole)),
       ],
     );
   }
@@ -128,16 +119,21 @@ class SetupLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 44, height: 44,
+    width: 44,
+    height: 44,
     decoration: BoxDecoration(
       borderRadius: BorderRadius.circular(10),
       gradient: const LinearGradient(
-        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
         colors: [AppColors.primary, AppColors.violet],
       ),
       boxShadow: [
-        BoxShadow(color: AppColors.primary.withValues(alpha: 0.35),
-            blurRadius: 8, offset: const Offset(0, 2)),
+        BoxShadow(
+          color: AppColors.primary.withValues(alpha: 0.35),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
       ],
     ),
     child: const Icon(Icons.vpn_key, color: Colors.white, size: 24),
@@ -153,20 +149,20 @@ class SetupStepDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget dot(bool on) => Container(
-        width: 34,
-        height: 4,
-        decoration: BoxDecoration(
-          color: on ? AppColors.primary : AppColors.textSubtle,
-          borderRadius: BorderRadius.circular(3),
-        ));
+      width: 34,
+      height: 4,
+      decoration: BoxDecoration(
+        color: on ? AppColors.primary : Theme.of(context).colorScheme.outline,
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
     return Semantics(
       label: AppStrings.of(context).stepOf(activeCount, 2),
       child: ExcludeSemantics(
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          dot(activeCount >= 1),
-          const SizedBox(width: 8),
-          dot(activeCount >= 2),
-        ]),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [dot(activeCount >= 1), const SizedBox(width: 8), dot(activeCount >= 2)],
+        ),
       ),
     );
   }
@@ -181,15 +177,15 @@ class SetupOptionalTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(
-      color: AppColors.primaryTint,
-      borderRadius: BorderRadius.circular(6),
+    decoration: BoxDecoration(color: AppColors.primaryTint, borderRadius: BorderRadius.circular(6)),
+    child: Text(
+      label,
+      style: const TextStyle(
+        color: AppColors.primaryDark,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      ),
     ),
-    child: Text(label,
-        style: const TextStyle(
-            color: AppColors.primaryDark,
-            fontSize: 11,
-            fontWeight: FontWeight.w600)),
   );
 }
 
@@ -234,20 +230,17 @@ class SetupInlineNotice extends StatelessWidget {
         Icon(icon, size: 18, color: iconColor),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(color: foreground)),
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foreground),
+          ),
         ),
       ],
     );
     final box = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(9),
-      ),
+      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(9)),
       child: notice,
     );
     return liveRegion ? Semantics(liveRegion: true, child: box) : box;
@@ -270,9 +263,9 @@ class SetupCredentialValue extends StatelessWidget {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppStrings.of(context).copiedLabel(label))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(AppStrings.of(context).copiedLabel(label))));
   }
 
   @override
@@ -282,14 +275,15 @@ class SetupCredentialValue extends StatelessWidget {
       Row(
         children: [
           Expanded(
-            child: Text(shownOnce ? AppStrings.of(context).shownOnce(label) : label,
-                style: Theme.of(context).textTheme.labelLarge),
+            child: Text(
+              shownOnce ? AppStrings.of(context).shownOnce(label) : label,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
           ),
           IconButton(
             tooltip: AppStrings.of(context).copyLabel(label),
             onPressed: () => _copy(context),
-            icon: const Icon(Icons.copy_outlined,
-                size: 19, color: AppColors.primary),
+            icon: const Icon(Icons.copy_outlined, size: 19, color: AppColors.primary),
           ),
         ],
       ),
@@ -297,12 +291,11 @@ class SetupCredentialValue extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.textStrong,
-          border: Border.all(color: AppColors.textSubtle),
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          border: Border.all(color: Theme.of(context).colorScheme.outline),
           borderRadius: BorderRadius.circular(9),
         ),
-        child: SelectableText(value,
-            style: const TextStyle(fontFamily: 'monospace')),
+        child: SelectableText(value, style: const TextStyle(fontFamily: 'monospace')),
       ),
     ],
   );
@@ -344,16 +337,15 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.check_circle_outline,
-            size: 72, color: AppColors.success),
+        const Icon(Icons.check_circle_outline, size: 72, color: AppColors.success),
         const SizedBox(height: 16),
-        Text(strings.setupComplete,
-            style: Theme.of(context).textTheme.headlineMedium),
+        Text(strings.setupComplete, style: Theme.of(context).textTheme.headlineMedium),
         const SizedBox(height: 8),
         Text(strings.setupCompleteDescription),
-        if (widget.adminUsername != null) ...[const SizedBox(height: 8),
-          SetupCredentialValue(label: strings.administratorUsername,
-              value: widget.adminUsername!),],
+        if (widget.adminUsername != null) ...[
+          const SizedBox(height: 8),
+          SetupCredentialValue(label: strings.administratorUsername, value: widget.adminUsername!),
+        ],
         if (widget.applicationRequestedButMissing) ...[
           const SizedBox(height: 12),
           SetupInlineNotice(text: strings.setupApplicationMissing),
@@ -363,19 +355,28 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
               child: OutlinedButton.icon(
                 onPressed: widget.busy ? null : widget.onRetryApplication,
                 icon: widget.busy
-                    ? const SizedBox(height: 18, width: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.refresh, size: 18),
                 label: Text(strings.retryApplicationCreation),
               ),
             ),
           ],
         ],
-        if (widget.clientId != null) ...[const SizedBox(height: 8),
-          SetupCredentialValue(label: strings.clientId, value: widget.clientId!),],
-        if (widget.clientSecret != null) ...[const SizedBox(height: 8),
-          SetupCredentialValue(label: strings.clientSecret,
-              value: widget.clientSecret!, shownOnce: true),
+        if (widget.clientId != null) ...[
+          const SizedBox(height: 8),
+          SetupCredentialValue(label: strings.clientId, value: widget.clientId!),
+        ],
+        if (widget.clientSecret != null) ...[
+          const SizedBox(height: 8),
+          SetupCredentialValue(
+            label: strings.clientSecret,
+            value: widget.clientSecret!,
+            shownOnce: true,
+          ),
           CheckboxListTile(
             contentPadding: EdgeInsets.zero,
             value: _savedSecret,
@@ -387,9 +388,7 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
         const SizedBox(height: 32),
         PressableScale(
           child: FilledButton(
-            onPressed: widget.clientSecret == null || _savedSecret
-                ? widget.onDone
-                : null,
+            onPressed: widget.clientSecret == null || _savedSecret ? widget.onDone : null,
             child: Text(strings.goToAdminConsole),
           ),
         ),

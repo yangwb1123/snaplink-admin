@@ -1,0 +1,85 @@
+# 逐页渲染矩阵体检 — batch 14（light/dark × en/zh 组合渲染）
+#
+# 逐页重构与门禁完成后，本批对全部页面做渲染矩阵体检：每个页面在
+# {light, dark} × {en, zh} 四组合下渲染，检查 RenderFlex overflow /
+# 异常 / 截断；修复发现的问题；最后把体检固化为常驻回归测试。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-render-matrix.yaml \
+#     --mode serial --timeout 1500 --log-file logs/render-matrix.log
+
+tasks:
+- prompt: |
+    admin 页面渲染矩阵体检。步骤：
+    1. 写临时体检测试（test/zz_render_admin_*，跑完删除）：对 admin 的
+       主要页面（clients/users/local-users/scim-directory/permissions/
+       connections/domains/device-security/token-security/tenants/
+       webhooks/governance/audit-log/health/overview 等 15+ 个 tab 页面）
+       在 {light, dark} × {en, zh} 四组合下渲染：
+       - 用 MockClient 的 SnaplinkAdminApi（空数据路由，参考现有测试
+         _adminApi 模式）避免网络依赖；
+       - 每个组合 tester.takeException() 检查 RenderFlex overflow 与
+         渲染异常；
+       - 记录逐页证据（页面/组合/异常信息）。
+    2. 分析并修复发现的问题（只改 lib/screens/admin/、lib/widgets/、
+       lib/theme/、lib/i18n/，白名单）：
+       - dark 下硬编码浅色/深色导致的不可读 → colorScheme 派生；
+       - zh 文案溢出/截断 → Flexible/ellipsis/换行；
+       - overflow → 收缩/换行。
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login（本任务
+         只涉及 admin，仍注意）。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/dark_mode_test.dart test/dark_pages_test.dart
+       test/admin_secondary_tabs_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/matrix-admin.md（逐页证据表 + 修复
+       清单 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/matrix-admin.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/dark_mode_test.dart test/dark_pages_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    其他入口渲染矩阵体检。步骤：
+    1. 写临时体检测试（test/zz_render_entries_*，跑完删除）：对
+       /portal/（overview/devices/security/consents/organizations/
+       notifications/privacy/sessions）、/developer/（register/manage）、
+       /login/（表单/Consent/MFA/账户流）、/device/verify、/setup/
+       的代表性页面，在 {light, dark} × {en, zh} 四组合下渲染：
+       - portal/developer 用 MockClient 的对应 API；login 用
+         OidcLoginApi MockClient（404/空数据）；
+       - takeException 检查 overflow/异常；
+       - 记录逐页证据。
+    2. 分析并修复发现的问题（白名单 lib/screens/portal/、
+       lib/screens/developer/、lib/screens/oidc_login/、
+       lib/screens/device/、lib/screens/setup/、lib/widgets/、
+       lib/theme/、lib/i18n/）：
+       - dark 硬编码颜色、zh 溢出、overflow 同任务 1 标准；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login 模块
+         （含注释与修复说明）。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/portal_screens_test.dart test/dcr_widgets_test.dart
+       test/oidc_challenge_flow_test.dart test/setup_screen_test.dart
+       全绿。
+    4. 输出 docs/ui/pages-per-page/matrix-entries.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/matrix-entries.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/portal_screens_test.dart test/dcr_widgets_test.dart test/oidc_challenge_flow_test.dart test/setup_screen_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    渲染矩阵固化回归测试。步骤：
+    1. 将体检固化为常驻测试 test/render_matrix_smoke_test.dart：
+       - 从每个入口选 2-3 个代表性页面（admin: clients/tenants/
+         governance；portal: overview/security；developer: register；
+         login: 表单；device: verify；setup: screen）；
+       - 在 {light, dark} × {en, zh} 四组合下渲染，断言
+         tester.takeException() == null（无 overflow/异常）；
+       - 用 MockClient 空数据路由，保持测试快速（每个组合只 pump
+         一次 settle）；测试总时长 < 60s。
+    2. 测试只新增 test/ 文件；若发现产品代码需要小修（如某个页面在
+       dark/zh 下暴露新问题），可修 lib/（白名单同上，禁止 'audit'
+       字样进入 portal/developer/oidc_login）。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/dark_mode_test.dart
+       test/dark_pages_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/matrix-gate.md（测试设计 + 覆盖
+       矩阵 + 验证结果）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/matrix-gate.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/dark_mode_test.dart test/dark_pages_test.dart 2>&1 | grep -qE 'All tests passed!'"

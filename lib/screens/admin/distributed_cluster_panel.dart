@@ -289,9 +289,13 @@ class _PanelState extends State<DistributedClusterPanel> {
                       color: adminModuleIconColor(AdminModuleId.health),
                     ),
                     const SizedBox(width: 8),
-                    LocalizedText(
-                      'Cluster Self-Test',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Flexible(
+                      child: LocalizedText(
+                        'Cluster Self-Test',
+                        style: Theme.of(context).textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     const Spacer(),
                     FilledButton.icon(

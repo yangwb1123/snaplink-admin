@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -196,7 +195,10 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
           Flexible(
             child: Text(
               priority,
-              style: const TextStyle(fontSize: 12, color: AppColors.textSubtle),
+              style: TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],

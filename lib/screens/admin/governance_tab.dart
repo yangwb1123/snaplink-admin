@@ -262,9 +262,13 @@ class _GovernanceTabState extends State<GovernanceTab> {
               children: [
                 Icon(Icons.admin_panel_settings_outlined, color: _accent),
                 const SizedBox(width: 8),
-                Text(
-                  AppStrings.of(context).governanceOperations,
-                  style: Theme.of(context).textTheme.headlineSmall,
+                Expanded(
+                  child: Text(
+                    AppStrings.of(context).governanceOperations,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 const Spacer(),
                 IconButton(

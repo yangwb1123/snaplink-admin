@@ -111,9 +111,12 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
               ),
                 ),
         const SizedBox(height: 4),
-        const LocalizedText(
+        LocalizedText(
           'Recent sign-in and security events on your account.',
-          style: TextStyle(fontSize: 12, color: AppColors.textSubtle),
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
                 const SizedBox(height: 4),
                 Text(

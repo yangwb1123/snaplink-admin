@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -284,10 +283,14 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
 class _ChainConnector extends StatelessWidget {
   const _ChainConnector();
   @override
-  Widget build(BuildContext context) => const Center(
+  Widget build(BuildContext context) => Center(
     child: Padding(
-      padding: EdgeInsets.symmetric(vertical: 4),
-      child: Icon(Icons.arrow_downward, size: 14, color: AppColors.textSubtle),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Icon(
+        Icons.arrow_downward,
+        size: 14,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
     ),
   );
 }
