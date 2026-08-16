@@ -4,19 +4,43 @@ import 'package:flutter/material.dart';
 ///
 /// The compact padding keeps form controls usable on narrow phones while the
 /// scroll view prevents the software keyboard or large text from clipping the
-/// final action.
+/// final action. Visual style is injectable through optional parameters (the
+/// login shell passes its Sentry-style card, login-redesign §2); the defaults
+/// preserve the app theme for setup/device consumers.
 class ResponsiveEntryCard extends StatelessWidget {
   final Widget child;
   final double maxWidth;
+
+  /// 卡片圆角（覆盖主题值；null = 主题 cardTheme 圆角）。
+  final BorderRadius? borderRadius;
+
+  /// 卡片 1px 边框（null = 无边框，保持主题默认）。
+  final BorderSide? borderSide;
+
+  /// 卡片表面色（null = 主题 cardTheme 表面色）。
+  final Color? surfaceColor;
+
+  /// 卡片抬升（null = 主题 cardTheme 抬升）。
+  final double? elevation;
 
   const ResponsiveEntryCard({
     super.key,
     required this.child,
     this.maxWidth = 440,
+    this.borderRadius,
+    this.borderSide,
+    this.surfaceColor,
+    this.elevation,
   });
 
   @override
   Widget build(BuildContext context) {
+    final cardTheme = Theme.of(context).cardTheme;
+    final radius =
+        borderRadius ??
+        ((cardTheme.shape is RoundedRectangleBorder)
+            ? (cardTheme.shape! as RoundedRectangleBorder).borderRadius
+            : BorderRadius.circular(12));
     return SafeArea(
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -46,6 +70,12 @@ class ResponsiveEntryCard extends StatelessWidget {
                       ),
                     ),
                     child: Card(
+                      elevation: elevation ?? cardTheme.elevation ?? 1,
+                      color: surfaceColor ?? cardTheme.color,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: radius,
+                        side: borderSide ?? BorderSide.none,
+                      ),
                       child: Padding(
                         padding: EdgeInsets.all(inner),
                         child: child,

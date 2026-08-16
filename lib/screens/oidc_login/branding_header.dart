@@ -25,8 +25,9 @@ class BrandingHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 未指定品牌色时回退主题前景色，亮/暗主题均可读。
-    final nameColor = brandColor ?? theme.colorScheme.onSurface;
+    // 未指定品牌色时回退品牌主色（login-redesign §3 品牌紫强调）；
+    // dark 下 primary 自动提亮（indigo-400），亮/暗主题均可读。
+    final nameColor = brandColor ?? theme.colorScheme.primary;
     return Row(
       children: [
         if (brandLogoUrl != null) ...[

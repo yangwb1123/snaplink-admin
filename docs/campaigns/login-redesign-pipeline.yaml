@@ -1,0 +1,131 @@
+# 登录页视觉重设计 — Apple 官网背景 + Sentry 风格
+#
+# 目标：
+#   1) 背景：Apple 官网式的柔和大幅渐变 + 光晕氛围（紫/蓝双色径向
+#      光斑、微妙噪点/发光、整体沉浸感），替换/增强现有 orbit/shield
+#      几何装饰；
+#   2) UI 风格：Sentry 风格——现代深色卡片（细 1px 边框、圆角 12-16、
+#      surfaceContainer 层级）、品牌紫强调、清晰排版层级、留白。
+#
+# 安全约束（保持测试语义与行为）：
+#   - TextField autofillHints、'Sign in' 按钮、主题/语言下拉几何、
+#     焦点可见、语义排除（装饰不拦截交互/不进语义树）；
+#   - 亮/暗模式均良好（render_matrix 四组合检查）；
+#   - 禁止 'audit' 字样进入 oidc_login 模块（AC-2 守卫）。
+#
+# 白名单：
+#   lib/screens/oidc_login/login_backdrop.dart
+#   lib/screens/oidc_login/oidc_login_view_flow.dart
+#   lib/screens/oidc_login/branding_header.dart
+#   lib/screens/oidc_login/login_view_widget.dart
+#   lib/screens/oidc_login/consent_view.dart
+#   lib/screens/oidc_login/mfa_view.dart
+#   lib/screens/oidc_login/account_flow_views.dart
+#   lib/widgets/responsive_entry_card.dart
+#   lib/theme/app_theme.dart
+#   lib/theme/app_colors.dart
+#   lib/i18n/（仅新增 EN/ZH key 时）
+#   test/login_header_layout_test.dart、test/login_backdrop_test.dart
+#   （仅在需要时调整断言，保持语义）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/login-redesign-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/login-redesign.log
+git_commit: false
+decision_log: docs/ui/login-redesign/DECISIONS.md
+archive_dir: docs/ui/login-redesign/archive
+
+stages:
+  - name: design
+    from_prompt: |
+      你是登录页视觉设计师。为 snaplink-console 的 /login 页面产出
+      具体设计方案（不改代码）。
+
+      ## 现状分析（先读代码）
+      - lib/screens/oidc_login/login_backdrop.dart：CustomPainter 几何
+        装饰（orbit rings + shield + nodes + 虚线环，按 Brightness 配色，
+        中央 ±230px 排除带）。
+      - lib/screens/oidc_login/oidc_login_view_flow.dart：登录壳层
+        （品牌区/登录头 Wrap/装饰背景 Positioned.fill/ResponsiveEntryCard）。
+      - lib/widgets/responsive_entry_card.dart：440px 登录卡（Card +
+        TweenAnimationBuilder 入场）。
+      - lib/theme/app_theme.dart + app_colors.dart：品牌 indigo
+        （primary #6366F1），ColorScheme.fromSeed。
+      - login_view_widget/consent_view/mfa_view/account_flow_views：
+        表单/同意/MFA/账户流视图。
+
+      ## 参考风格（描述性，不照搬资产）
+      - Apple 官网背景：大幅柔和渐变（深色氛围下紫/蓝/黑融合）、
+        弥散光晕（大半径径向渐变光斑）、极简、留白、无几何噪点；
+      - Sentry UI：深色卡片 + 1px 细边框（surface 层级）、品牌紫
+        （purple 系）强调、圆角 12-16、清晰排版层级、克制的阴影。
+
+      ## 设计方案要求（具体到可实施）
+      1. 背景：新背景实现方案（保留 RepaintBoundary+IgnorePointer+
+         ExcludeSemantics 与按亮度换色；可用渐变容器 + 多层光斑替代
+         或增强 CustomPainter——给出选型与理由；光斑数量/位置/半径/
+         透明度/颜色的具体数值；中央排除带是否保留；暗/亮两套配色
+         具体色值）。
+      2. 卡片：Sentry 风格卡片（圆角/边框色/背景色/阴影（暗色用
+         surface 层级）/入场动画是否保留）——具体值。
+      3. 品牌区：登录头/品牌区排版（对齐/间距/品牌紫应用）。
+      4. 表单：输入框/按钮/链接在 Sentry 风格下的调整（聚焦边框、
+         主按钮品牌紫渐变或纯色——给出选型）。
+      5. 主题：是否需要主题级调整（app_colors/app_theme 新增常量或
+         微调 brand 色）——最小改动方案。
+      6. 暗/亮策略：两模式配色表。
+      7. 测试约束：列出必须保持的测试语义（autofillHints、Sign in、
+         下拉几何、焦点、语义排除）与可能需微调的断言。
+      输出 docs/ui/login-redesign/design.md。
+    output: docs/ui/login-redesign/design.md
+
+  - name: implement
+    from_outputs: design
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/login-redesign-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_header_layout_test.dart test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart test/native_shell_test.dart test/consent_view_test.dart test/render_matrix_smoke_test.dart 2>&1 | tee /tmp/login-redesign-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          按设计方案实施登录页视觉重设计。STRICT RULES：
+          - ONLY touch the whitelisted files in the pipeline header。
+          - 背景：实现 Apple 式大渐变 + 光晕（保持装饰三原则：
+            IgnorePointer / ExcludeSemantics / 按亮度换色；不拦截
+            交互、不进语义树）。
+          - 卡片：Sentry 风格（圆角/1px 边框/暗色 surface 层级）。
+          - 表单/按钮/品牌区：按设计调整（保持 TextField
+            autofillHints、'Sign in' 按钮文本、下拉几何、焦点可见）。
+          - 暗/亮两套配色均良好；不新增依赖；文件 ≤400 行。
+          - 保持行为与测试语义：现有登录测试（challenge flow /
+            native shell / consent / login header / render matrix）
+            必须全绿——测试失败说明破坏了语义，不得为通过而改测试
+            语义（仅允许调整纯视觉断言如背景 widget 类型）。
+          - 禁止 'audit' 字样进入 oidc_login 模块（含注释）。
+          - NEVER run git commands; do not commit。
+          运行验证命令直到全绿。输出变更报告：设计落实映射
+          （design 小节 → 改动文件/符号）、色值表、验证结果。
+          {input_content}
+        output: docs/ui/login-redesign/changes.md
+        timeout: 1800
+
+  - name: acceptance
+    from_outputs:
+      - design
+      - implement
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          验证登录页重设计（repository evidence）：
+          - 背景为 Apple 式渐变+光晕（代码证据：渐变/光斑实现）；
+          - 卡片 Sentry 风格（圆角/边框/surface 层级）；
+          - 品牌紫强调应用；
+          - 装饰三原则保持（IgnorePointer/ExcludeSemantics/亮度换色）；
+          - TextField autofillHints、'Sign in'、下拉几何、焦点可见
+            未回归（相关测试绿）；
+          - 亮/暗两模式渲染矩阵绿；
+          - 只改了白名单文件（git status 检查）；
+          - flutter analyze 0 errors。
+          Final line MUST be:
+          VERDICT: PASS - <why the redesign is complete and safe>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/login-redesign/acceptance.md

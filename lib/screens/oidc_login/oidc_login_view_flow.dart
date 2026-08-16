@@ -13,7 +13,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             end: Alignment.bottomCenter,
             colors: [
               (dark ? AppColors.primaryDark : AppColors.primary).withValues(
-                alpha: dark ? 0.45 : 0.6,
+                alpha: dark ? 0.45 : 0.16,
               ),
               theme.scaffoldBackgroundColor,
             ],
@@ -39,11 +39,19 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                 color: AppColors.accentBlue.withValues(alpha: dark ? 0.08 : 0.18),
               ),
             ),
-            // 装饰性背景场景（orbit/shield/nodes）——纯装饰，不拦截、无语义。
+            // 装饰性背景场景（Apple 式弥散光晕）——纯装饰，不拦截、无语义。
             Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
             ResponsiveEntryCard(
               // 登录头需要容纳主题 + 语言两个自适应下拉并排，默认 440 过窄。
               maxWidth: 520,
+              // Sentry 风格登录卡（login-redesign §2）：圆角 16 / 1px 边框 / dark textMuted 底。
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: dark ? Colors.white12 : AppColors.textSubtle.withValues(alpha: 0.14),
+                width: 1,
+              ),
+              surfaceColor: dark ? AppColors.textMuted : Colors.white,
+              elevation: dark ? 0 : 1,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,8 +124,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   }
 
   /// 默认品牌区：产品徽标 + 名称 + 副标题（无租户品牌配置时展示）。
-  /// 徽标与 Portal/Admin 壳层头部共用 `BrandLogo`（品牌渐变/阴影/图标
-  /// 单一实现，R65）；仅配置品牌色（无名称/logo）时用它着染产品名。
+  /// 与壳层头部共用 `BrandLogo`（单一实现，R65）；仅配置品牌色时用它着染产品名。
   Widget _defaultBranding(BuildContext context, {Color? brandColor}) {
     final theme = Theme.of(context);
     return Row(
@@ -132,7 +139,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                 context.tr('snaplink console'),
                 style: theme.textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: brandColor ?? theme.colorScheme.onSurface,
+                  color: brandColor ?? theme.colorScheme.primary,
                 ),
               ),
               const SizedBox(height: 4),
@@ -295,8 +302,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
 
 /// 壳层三态（loading / empty / success）统一状态块：spinner 或品牌主色
 /// 图标 + 标题 + 可选副标题，居中展示。part 文件无法新增 import，组件
-/// 文件内自足（对齐 login_view 的 _InlineNotice 先例）；error 态由各
-/// 视图内联 liveRegion 提示呈现，语义不变。
+/// 文件内自足；error 态由各视图内联 liveRegion 提示呈现，语义不变。
 class _ShellStatus extends StatelessWidget {
   final IconData? icon;
   final bool spinner;
