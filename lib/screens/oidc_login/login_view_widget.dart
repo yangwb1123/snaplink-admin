@@ -6,6 +6,8 @@ import 'package:sso_admin/widgets/status_chip.dart';
 
 import '../../i18n/app_strings.dart';
 import '../../services/product_api_origin.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_theme.dart';
 import 'hosted_login_models.dart';
 
 part 'login_view_widget_subwidgets.dart';
@@ -85,23 +87,20 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(
-            container: true,
-            header: true,
-            child: Text(strings.signIn, style: theme.textTheme.titleLarge),
-          ),
+          Semantics(container: true, header: true, child: Text(strings.signIn, style: theme.textTheme.titleLarge)),
           const SizedBox(height: 20),
           if (builtinProviders.length > 1)
             DropdownButtonFormField<String>(
               initialValue: selectedBuiltin ? widget.provider : null,
               hint: Text(strings.provider),
               items: [
-                for (final item in builtinProviders)
-                  DropdownMenuItem(value: item.id, child: Text(item.displayName)),
+                for (final item in builtinProviders) DropdownMenuItem(value: item.id, child: Text(item.displayName)),
               ],
-              onChanged: widget.loading ? null : (value) {
-                if (value != null) widget.onProviderChanged(value);
-              },
+              onChanged: widget.loading
+                  ? null
+                  : (value) {
+                      if (value != null) widget.onProviderChanged(value);
+                    },
               decoration: InputDecoration(labelText: strings.provider),
             ),
           if (widget.signupConfirmed != null)
@@ -125,7 +124,9 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
               context.tr(widget.error!),
               Icons.error_outline,
               top: 16,
-              color: Theme.of(context).colorScheme.onErrorContainer,
+              // Sentry 错误横幅（login-redesign-2 §3）：显式 danger 常量前景
+              // （亮 dangerDark / 暗 dangerTint），底维持 M3 errorContainer。
+              color: Theme.of(context).brightness == Brightness.dark ? AppColors.dangerTint : AppColors.dangerDark,
               contained: true,
               live: true,
             ),
@@ -149,14 +150,18 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(child: TextButton(
-                  onPressed: widget.loading ? null : widget.onForgotPassword,
-                  child: Text(strings.forgotPassword, overflow: TextOverflow.ellipsis),
-                )),
-                Flexible(child: TextButton(
-                  onPressed: widget.loading ? null : widget.onSignUp,
-                  child: Text(strings.signUp, overflow: TextOverflow.ellipsis),
-                )),
+                Flexible(
+                  child: TextButton(
+                    onPressed: widget.loading ? null : widget.onForgotPassword,
+                    child: Text(strings.forgotPassword, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+                Flexible(
+                  child: TextButton(
+                    onPressed: widget.loading ? null : widget.onSignUp,
+                    child: Text(strings.signUp, overflow: TextOverflow.ellipsis),
+                  ),
+                ),
               ],
             ),
             Align(
@@ -170,14 +175,16 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
           ],
           if (federatedProviders.isNotEmpty) ...[
             const SizedBox(height: 20),
-            Row(children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(strings.orDivider, style: theme.textTheme.bodySmall),
-              ),
-              const Expanded(child: Divider()),
-            ]),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(strings.orDivider, style: theme.textTheme.bodySmall),
+                ),
+                const Expanded(child: Divider()),
+              ],
+            ),
             const SizedBox(height: 16),
             for (final item in federatedProviders)
               Padding(
@@ -244,11 +251,13 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
             onPressed: widget.loading || widget.magicLinkToken != null ? null : widget.onSendCode,
             child: widget.loading
                 ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(context.tr(
-                    isMagicLink
-                        ? (widget.codeSent ? 'Resend link' : 'Send link')
-                        : (widget.codeSent ? 'Resend code' : 'Send code'),
-                  )),
+                : Text(
+                    context.tr(
+                      isMagicLink
+                          ? (widget.codeSent ? 'Resend link' : 'Send link')
+                          : (widget.codeSent ? 'Resend code' : 'Send code'),
+                    ),
+                  ),
           ),
         ),
         if (widget.codeMessage != null) ...[
@@ -292,6 +301,8 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
   );
 
   /// 统一登录表单字段：autofillHints/键盘/提交语义集中一处，loading 时禁用。
+  /// filled 变体（login-redesign-2 §3）：`AppTheme.loginInputDecoration` 经
+  /// `applyDefaults` 只合并进本字段（零泄漏到头部下拉），外包 `_FocusGlow`。
   Widget _field({
     required TextEditingController controller,
     required String label,
@@ -302,19 +313,24 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
     bool obscure = false,
     Widget? suffix,
     VoidCallback? onSubmit,
-  }) => TextField(
-    controller: controller,
-    focusNode: focusNode,
-    enabled: !widget.loading,
-    autocorrect: false,
-    enableSuggestions: false,
-    textCapitalization: TextCapitalization.none,
-    keyboardType: keyboard,
-    autofillHints: hints,
-    textInputAction: next ? TextInputAction.next : TextInputAction.done,
-    obscureText: obscure,
-    decoration: InputDecoration(labelText: label, suffixIcon: suffix),
-    onSubmitted: onSubmit == null ? null : (_) => onSubmit(),
+  }) => _FocusGlow(
+    child: TextField(
+      controller: controller,
+      focusNode: focusNode,
+      enabled: !widget.loading,
+      autocorrect: false,
+      enableSuggestions: false,
+      textCapitalization: TextCapitalization.none,
+      keyboardType: keyboard,
+      autofillHints: hints,
+      textInputAction: next ? TextInputAction.next : TextInputAction.done,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        suffixIcon: suffix,
+      ).applyDefaults(AppTheme.loginInputDecoration(Theme.of(context).brightness)),
+      onSubmitted: onSubmit == null ? null : (_) => onSubmit(),
+    ),
   );
 
   /// 表单内联提示的简洁入口：品牌/语义色图标 + 文案（默认品牌主色）。
@@ -334,8 +350,42 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       contained: contained,
       liveRegion: live,
     );
-    final margin = EdgeInsets.only(top: top ?? 0)
-        .add(EdgeInsets.symmetric(vertical: vertical ?? 0));
+    final margin = EdgeInsets.only(top: top ?? 0).add(EdgeInsets.symmetric(vertical: vertical ?? 0));
     return margin == EdgeInsets.zero ? notice : Padding(padding: margin, child: notice);
+  }
+}
+
+/// 输入框聚焦发光（login-redesign-2 §3）：本 SDK `OutlineInputBorder` 无
+/// shadow 参数，用包装器在聚焦时叠加品牌紫柔和光晕（与壳层 `_HoverTint`
+/// 同模式：外层 Focus 观察子级焦点，150ms 一次性颜色过渡）。
+class _FocusGlow extends StatefulWidget {
+  final Widget child;
+
+  const _FocusGlow({required this.child});
+
+  @override
+  State<_FocusGlow> createState() => _FocusGlowState();
+}
+
+class _FocusGlowState extends State<_FocusGlow> {
+  bool _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Focus(
+      canRequestFocus: false,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: _focused
+              ? [BoxShadow(color: primary.withValues(alpha: 0.30), blurRadius: 14, spreadRadius: 0.5)]
+              : const [],
+        ),
+        child: widget.child,
+      ),
+    );
   }
 }

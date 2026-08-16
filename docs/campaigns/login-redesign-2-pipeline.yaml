@@ -1,0 +1,122 @@
+# 登录页视觉深化（第二轮）— 极光背景 + 玻璃拟态卡片 + Sentry 表单细节
+#
+# 基于 login-redesign（已落地：4 光斑背景 + Sentry 卡片参数 + 品牌紫）。
+# 本轮深化：
+#   1) 极光背景：更多层次（大半径主光斑 + 顶部微光 + 底部渐隐收尾），
+#      Apple 暗色发布氛围；亮色更清新；
+#   2) 玻璃拟态卡片：半透明卡片 + BackdropFilter blur（现代 SaaS/Sentry
+#      风格），1px 边框保留；
+#   3) Sentry 表单细节：输入框 filled 变体 + 聚焦品牌紫描边、错误横幅
+#      样式、logo 发光容器。
+#
+# 安全约束（保持测试语义与行为）：
+#   - FilledButton 'Sign in' 契约、TextField autofillHints、下拉几何
+#     （44px/20×20 箭头）、焦点可见、语义排除；
+#   - 亮/暗均良好（render_matrix）；装饰层不拦截交互/不进语义树；
+#   - BackdropFilter 仅用于卡片区域（有界），不用于全屏装饰（性能）；
+#   - 禁止 'audit' 字样进入 oidc_login 模块（AC-2 守卫）。
+#
+# 白名单：
+#   lib/screens/oidc_login/login_backdrop.dart
+#   lib/screens/oidc_login/oidc_login_view_flow.dart
+#   lib/screens/oidc_login/branding_header.dart
+#   lib/screens/oidc_login/login_view_widget.dart
+#   lib/screens/oidc_login/oidc_challenge_flow.dart（错误横幅样式）
+#   lib/widgets/responsive_entry_card.dart
+#   lib/theme/app_theme.dart、lib/theme/app_colors.dart
+#   lib/i18n/（仅新增 EN/ZH key 时）
+#   test/login_header_layout_test.dart、test/login_backdrop_test.dart
+#   （仅在需要时调整纯视觉断言）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/login-redesign-2-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/login-redesign-2.log
+git_commit: false
+decision_log: docs/ui/login-redesign-2/DECISIONS.md
+archive_dir: docs/ui/login-redesign-2/archive
+
+stages:
+  - name: design
+    from_prompt: |
+      你是登录页视觉设计师。基于已落地的 login-redesign（读
+      lib/screens/oidc_login/login_backdrop.dart 当前 4 光斑实现与
+      lib/widgets/responsive_entry_card.dart 的参数化卡片），产出
+      第二轮深化设计方案（不改代码）。
+
+      ## 深化方向
+      1. 极光背景：评估当前 4 光斑的视觉层次，设计增强方案——
+         a. 层次：超大主光斑（800-900px，中央偏上，α 更低）+ 现有
+            4 角光斑 + 顶部微光带（细长渐变）+ 底部渐隐（暗色收尾）；
+         b. 亮色模式：更清新（更高 α 但更浅的色阶）；
+         c. 是否保留无 Ticker 约束（建议保留，装饰零动画）。
+      2. 玻璃拟态卡片：卡片半透明（dark 0.75 / light 0.85 alpha）+
+         BackdropFilter（blur 20-28，卡片区域有界）+ 1px 边框保留 +
+         圆角 16——评估测试环境（widget test）与 web 渲染的可行性
+         （BackdropFilter 在无 GPU 测试环境的降级）；给出具体参数与
+         fallback（若 blur 不可行则仅半透明）。
+      3. Sentry 表单细节：
+         a. 输入框：filled 变体（浅填充 surfaceContainerHighest@0.5，
+            无边框或 1px，聚焦品牌紫描边 1.6 + 轻微发光）——给出
+            InputDecorationTheme 具体值；保持 autofillHints；
+         b. 错误横幅：Sentry 式（danger 浅底 + 红字 + 圆角）当前实现
+            核对与微调；
+         c. logo 发光容器：品牌区 logo 圆角容器加品牌紫光晕（shadow
+            或渐变边框）。
+      4. 配色表：暗/亮两套（光斑层次/卡片 alpha/输入框填充/错误色）。
+      5. 测试红线：列出必须保持的测试语义 + 可能需微调的纯视觉断言
+         （如 backdrop 内部结构、卡片 alpha）。
+      输出 docs/ui/login-redesign-2/design.md。
+    output: docs/ui/login-redesign-2/design.md
+
+  - name: implement
+    from_outputs: design
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | tee /tmp/login-r2-analyze.txt | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_header_layout_test.dart test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart test/native_shell_test.dart test/consent_view_test.dart test/render_matrix_smoke_test.dart 2>&1 | tee /tmp/login-r2-test.txt | grep -qE 'All tests passed!'"
+    tasks:
+      - prompt: |
+          按设计方案实施登录页第二轮视觉深化。STRICT RULES：
+          - ONLY touch the whitelisted files in the pipeline header。
+          - 背景：极光层次增强（保留装饰三原则：IgnorePointer /
+            ExcludeSemantics / 按亮度换色；零 Ticker/动画）。
+          - 卡片：玻璃拟态（半透明 + BackdropFilter 有界 blur，若设计
+            给出 fallback 则按其实施）；1px 边框与圆角 16 保留。
+          - 表单：输入框 filled 变体（保持 autofillHints/键盘类型/
+            校验语义）；错误横幅 Sentry 样式；logo 发光容器。
+          - 暗/亮两套配色均良好；不新增依赖；文件 ≤400 行。
+          - 保持行为与测试语义：login header / challenge flow /
+            native shell / consent / render matrix 必须全绿——测试失败
+            说明破坏语义，不得为通过而改测试语义（仅允许调整纯视觉
+            断言如 backdrop 结构/卡片 alpha）。
+          - BackdropFilter 仅限卡片区域，不得用于全屏。
+          - 禁止 'audit' 字样进入 oidc_login 模块（含注释）。
+          - NEVER run git commands; do not commit。
+          运行验证命令直到全绿。输出变更报告：设计落实映射 + 色值表 +
+          验证结果。
+          {input_content}
+        output: docs/ui/login-redesign-2/changes.md
+        timeout: 1800
+
+  - name: acceptance
+    from_outputs:
+      - design
+      - implement
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          验证登录页第二轮深化（repository evidence）：
+          - 极光背景层次（光斑/微光/渐隐实现证据）；
+          - 玻璃拟态卡片（半透明 + BackdropFilter 有界 blur，或设计
+            的 fallback）；
+          - 输入框 filled 变体 + 聚焦品牌紫描边（autofillHints 未变）；
+          - 错误横幅/logo 发光；
+          - 装饰三原则 + 零动画保持；
+          - 相关测试全绿（login header/challenge/native/consent/
+            render matrix）；
+          - 只改了白名单文件（git status 检查）；
+          - flutter analyze 0 errors。
+          Final line MUST be:
+          VERDICT: PASS - <why the redesign-2 is complete and safe>
+          or VERDICT: FAIL - <blocking issues>.
+          {input_content}
+        output: docs/ui/login-redesign-2/acceptance.md

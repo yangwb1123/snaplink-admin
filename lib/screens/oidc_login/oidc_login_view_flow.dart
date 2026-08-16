@@ -5,16 +5,13 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
     return Scaffold(
-      // 品牌化背景：柔和的品牌色渐变（产品感），深色/浅色各自适配。
       body: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              (dark ? AppColors.primaryDark : AppColors.primary).withValues(
-                alpha: dark ? 0.45 : 0.16,
-              ),
+              (dark ? AppColors.primaryDark : AppColors.primary).withValues(alpha: dark ? 0.45 : 0.16),
               theme.scaffoldBackgroundColor,
             ],
           ),
@@ -27,30 +24,28 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               right: -60,
               child: _GlowOrb(
                 size: 220,
-                color: (dark ? AppColors.primary : AppColors.primaryTint)
-                    .withValues(alpha: dark ? 0.10 : 0.35),
+                color: (dark ? AppColors.primary : AppColors.primaryTint).withValues(alpha: dark ? 0.10 : 0.35),
               ),
             ),
             Positioned(
               bottom: -100,
               left: -70,
-              child: _GlowOrb(
-                size: 260,
-                color: AppColors.accentBlue.withValues(alpha: dark ? 0.08 : 0.18),
-              ),
+              child: _GlowOrb(size: 260, color: AppColors.accentBlue.withValues(alpha: dark ? 0.08 : 0.18)),
             ),
-            // 装饰性背景场景（Apple 式弥散光晕）——纯装饰，不拦截、无语义。
+            // 装饰性极光背景（login-redesign-2）——纯装饰，不拦截、无语义。
             Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
             ResponsiveEntryCard(
               // 登录头需要容纳主题 + 语言两个自适应下拉并排，默认 440 过窄。
               maxWidth: 520,
-              // Sentry 风格登录卡（login-redesign §2）：圆角 16 / 1px 边框 / dark textMuted 底。
+              // Sentry 玻璃拟态卡（login-redesign-2 §2）：半透明表面 + 有界 blur，
+              // 1px 边框与圆角 16 保留（kLoginCardBlur 开关）。
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
                 color: dark ? Colors.white12 : AppColors.textSubtle.withValues(alpha: 0.14),
                 width: 1,
               ),
-              surfaceColor: dark ? AppColors.textMuted : Colors.white,
+              surfaceColor: dark ? AppColors.textMuted.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.85),
+              backdropBlur: kLoginCardBlur ? (dark ? 24 : 20) : null,
               elevation: dark ? 0 : 1,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -75,9 +70,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // 品牌区：租户配置优先，缺省时展示产品默认品牌。
-                  // 仅配置品牌色（无名称/logo）时仍落入缺省品牌区，但产品名
-                  // 用租户色着染（与 BrandingHeader 的名称着色规则一致）。
+                  // 品牌区：租户配置优先；仅配置品牌色时落缺省品牌区并着染产品名。
                   if (_brandName != null || _brandLogoUrl != null)
                     BrandingHeader(brandLogoUrl: _brandLogoUrl, brandName: _brandName, brandColor: _brandColor)
                   else
@@ -86,12 +79,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   // 副标语 + 安全徽章：价值主张与信任信号。
                   _trustSignal(context),
                   const SizedBox(height: 20),
-                  // 页面过渡：登录视图切换（login/forgot/reset/signup/mfa/
-                  // consent/success）与 admin/portal 壳层同一 PageTransition
-                  // 约定（200ms fade + 轻上滑，R7）。
+                  // 页面过渡：与 admin/portal 壳层同一 PageTransition 约定（200ms fade + 上滑）。
                   PageTransition(pageKey: ValueKey(_view), child: _buildView()),
                   const SizedBox(height: 12),
-                  // 页脚：品牌署名。
                   Text(
                     context.tr('© {year} snaplink · secure identity platform', {'year': '2026'}),
                     textAlign: TextAlign.center,
@@ -123,13 +113,21 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     );
   }
 
-  /// 默认品牌区：产品徽标 + 名称 + 副标题（无租户品牌配置时展示）。
-  /// 与壳层头部共用 `BrandLogo`（单一实现，R65）；仅配置品牌色时用它着染产品名。
+  /// 默认品牌区：产品徽标 + 名称 + 副标题；共用 BrandLogo（R65），品牌色可着染产品名。
   Widget _defaultBranding(BuildContext context, {Color? brandColor}) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        const BrandLogo(size: 48, iconSize: 28, radius: 12),
+        // logo 发光容器：品牌紫光晕放大品牌块（BrandLogo 自带内阴影）。
+        DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.32), blurRadius: 18, spreadRadius: 1),
+            ],
+          ),
+          child: const BrandLogo(size: 48, iconSize: 28, radius: 12),
+        ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -156,7 +154,6 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
 
   Widget _buildView() {
     if (_checkingFederatedReturn) {
-      // loading 态：挂载期检查联邦返回。
       return _ShellStatus(spinner: true, title: context.tr('Checking for a pending federated sign-in…'));
     }
     switch (_view) {
@@ -220,14 +217,12 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       case _View.consent:
         return _consentView();
       case _View.success:
-        // success 态：登录完成，结果图标 + 文案。
         return _ShellStatus(icon: Icons.check_circle_outline, title: AppStrings.of(context).signedIn);
     }
   }
 
   Widget _loginView() {
     if (_providerDiscoveryComplete && _providers.isEmpty) {
-      // empty 态：无可用登录方式（error 由各视图内联 liveRegion 提示呈现）。
       return _ShellStatus(
         icon: Icons.person_off_outlined,
         title: context.tr('No sign-in methods are available for this application.'),
@@ -300,9 +295,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   );
 }
 
-/// 壳层三态（loading / empty / success）统一状态块：spinner 或品牌主色
-/// 图标 + 标题 + 可选副标题，居中展示。part 文件无法新增 import，组件
-/// 文件内自足；error 态由各视图内联 liveRegion 提示呈现，语义不变。
+/// 壳层三态（loading/empty/success）统一状态块；error 态由各视图内联 liveRegion 呈现。
 class _ShellStatus extends StatelessWidget {
   final IconData? icon;
   final bool spinner;
@@ -324,10 +317,18 @@ class _ShellStatus extends StatelessWidget {
           else
             Icon(icon, size: 44, color: theme.colorScheme.primary),
           const SizedBox(height: 16),
-          Text(title, textAlign: TextAlign.center, style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface)),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 8),
-            Text(subtitle!, textAlign: TextAlign.center, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            ),
           ],
         ],
       ),
@@ -355,8 +356,7 @@ class _GlowOrb extends StatelessWidget {
   );
 }
 
-/// 悬停/键盘焦点底色：一次性 ≤150ms 颜色过渡，禁止连续动画。焦点态（如
-/// Tab 到下拉箭头）与悬停态共用同一底色，保证键盘用户有可见反馈。
+/// 悬停/键盘焦点底色：一次性 ≤150ms 颜色过渡；焦点与悬停共用同底，保证键盘反馈。
 class _HoverTint extends StatefulWidget {
   final Widget child;
 
@@ -386,9 +386,7 @@ class _HoverTintState extends State<_HoverTint> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
-            color: _active
-                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
-                : Colors.transparent,
+            color: _active ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6) : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: widget.child,

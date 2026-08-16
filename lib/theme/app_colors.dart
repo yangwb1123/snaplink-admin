@@ -50,11 +50,10 @@ abstract final class AppColors {
 
   /// 破坏性 OutlinedButton 样式（R32 按钮体系）：前景与边框统一危险色，
   /// dark 下经 [semanticFor] 提亮；避免各处重复手写两段 color/side。
-  static ButtonStyle dangerOutlinedStyle(BuildContext context) =>
-      OutlinedButton.styleFrom(
-        foregroundColor: semanticFor(Theme.of(context).brightness, danger),
-        side: BorderSide(color: semanticFor(Theme.of(context).brightness, danger)),
-      );
+  static ButtonStyle dangerOutlinedStyle(BuildContext context) => OutlinedButton.styleFrom(
+    foregroundColor: semanticFor(Theme.of(context).brightness, danger),
+    side: BorderSide(color: semanticFor(Theme.of(context).brightness, danger)),
+  );
 
   /// 语义前景亮度感知（R29）：浅色恒等原色；深色返回同族 400 提亮变体
   /// （文字 ≥4.5、非文本 ≥3）。未知颜色（中性/自定义/组色板）原样返回。
@@ -73,10 +72,15 @@ abstract final class AppColors {
 
   /// 中性灰（inactive 等）——slate-500：对白底点缀对比 ≥3（WCAG 非文本）
   static const Color muted = Color(0xFF64748B);
+
   /// 头像/标签辅助色（UserAvatar 调色板）
   static const Color violet = Color(0xFF7C3AED);
+
+  /// 装饰紫淡色（violet-200，login-redesign-2 极光背景亮色更浅色阶）。
+  static const Color violetTint = Color(0xFFDDD6FE);
   static const Color cyan = Color(0xFF0891B2);
   static const Color pink = Color(0xFFDB2777);
+
   /// 辅助（indigo 淡色）
   static const Color primaryTint = Color(0xFFC7D2FE);
 

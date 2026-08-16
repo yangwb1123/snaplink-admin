@@ -11,12 +11,7 @@ class BrandingHeader extends StatelessWidget {
   final String? brandName;
   final Color? brandColor;
 
-  const BrandingHeader({
-    super.key,
-    this.brandLogoUrl,
-    this.brandName,
-    this.brandColor,
-  });
+  const BrandingHeader({super.key, this.brandLogoUrl, this.brandName, this.brandColor});
 
   /// logo 尺寸 / 与名称间距（登录卡 440px 内紧凑布局）。
   static const double _logoSize = 40;
@@ -31,16 +26,24 @@ class BrandingHeader extends StatelessWidget {
     return Row(
       children: [
         if (brandLogoUrl != null) ...[
-          Image.network(
-            brandLogoUrl!,
-            width: _logoSize,
-            height: _logoSize,
-            fit: BoxFit.contain,
-            excludeFromSemantics: brandName != null,
-            semanticLabel: brandName == null
-                ? context.tr('Organization logo')
-                : null,
-            errorBuilder: (_, _, _) => const SizedBox.shrink(),
+          // logo 发光容器（login-redesign-2 §3）：品牌紫光晕，凸显品牌块；
+          // 纯装饰不影响语义（名称存在时 logo 语义排除逻辑不变）。
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.30), blurRadius: 16, spreadRadius: 1),
+              ],
+            ),
+            child: Image.network(
+              brandLogoUrl!,
+              width: _logoSize,
+              height: _logoSize,
+              fit: BoxFit.contain,
+              excludeFromSemantics: brandName != null,
+              semanticLabel: brandName == null ? context.tr('Organization logo') : null,
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            ),
           ),
           const SizedBox(width: _logoGap),
         ],
@@ -53,10 +56,7 @@ class BrandingHeader extends StatelessWidget {
               brandName ?? '',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: nameColor,
-                fontWeight: FontWeight.w700,
-              ),
+              style: theme.textTheme.titleLarge?.copyWith(color: nameColor, fontWeight: FontWeight.w700),
             ),
           ),
         ),

@@ -23,10 +23,35 @@ abstract final class AppTheme {
   /// step。scH（菜单底）封顶 white@2%（primary 边框对比 ≥3:1），
   /// scHH（悬停行/浮层/瓦片）white@10% 承担可感知抬升——阴影由
   /// surface 层级替代（R18）。
-  static Color _darkLift(double whiteAlpha) => Color.alphaBlend(
-    Colors.white.withValues(alpha: whiteAlpha),
-    AppColors.textMuted,
-  );
+  static Color _darkLift(double whiteAlpha) =>
+      Color.alphaBlend(Colors.white.withValues(alpha: whiteAlpha), AppColors.textMuted);
+
+  /// 登录表单输入框 filled 变体（login-redesign-2 §3）：浅填充（等效
+  /// surfaceContainerHighest@0.5：亮色 slate@4% / 暗色 white@6%）+ 1px
+  /// 弱边框，聚焦品牌紫 1.6 描边（发光由登录视图 `_FocusGlow` 包装器
+  /// 提供，本 SDK OutlineInputBorder 无 shadow 参数）。仅经
+  /// `InputDecoration.applyDefaults` 合并进登录 `_field`——零泄漏到头部
+  /// 下拉（保住其 focusedBorder 1.5 断言）。
+  static InputDecorationTheme loginInputDecoration(Brightness brightness) {
+    final isDark = brightness == Brightness.dark;
+    return InputDecorationTheme(
+      filled: true,
+      fillColor: isDark ? Colors.white.withValues(alpha: 0.06) : AppColors.textStrong.withValues(alpha: 0.04),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusControl),
+        borderSide: BorderSide(color: isDark ? Colors.white24 : AppColors.textSubtle.withValues(alpha: 0.25)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusControl),
+        borderSide: BorderSide(color: isDark ? Colors.white24 : AppColors.textSubtle.withValues(alpha: 0.25)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(radiusControl),
+        borderSide: BorderSide(color: AppColors.semanticFor(brightness, AppColors.primary), width: 1.6),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
+  }
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
@@ -52,27 +77,17 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark
-          ? AppColors.textStrong
-          : AppColors.surfaceSubtle, // 浅灰品牌背景（区别于纯白模板）
+      scaffoldBackgroundColor: isDark ? AppColors.textStrong : AppColors.surfaceSubtle, // 浅灰品牌背景（区别于纯白模板）
     );
     return base.copyWith(
       // dark 下 primary@6% 对深色表面仅 1.06:1（不可感知），改用中性
       // 白色 step（≈1.28:1，M3 dark hover 惯例）；浅色保持品牌色淡底。
-      hoverColor: isDark
-          ? Colors.white.withValues(alpha: 0.08)
-          : scheme.primary.withValues(alpha: 0.06),
-      dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusCard),
-        ),
-      ),
+      hoverColor: isDark ? Colors.white.withValues(alpha: 0.08) : scheme.primary.withValues(alpha: 0.06),
+      dialogTheme: DialogThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard))),
       cardTheme: CardThemeData(
         elevation: isDark ? 0 : 1,
         shadowColor: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusCard),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusCard)),
         clipBehavior: Clip.antiAlias,
       ),
       appBarTheme: AppBarTheme(
@@ -88,24 +103,14 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark
-            ? AppColors.textStrong.withValues(alpha: 0.6)
-            : Colors.white,
+        fillColor: isDark ? AppColors.textStrong.withValues(alpha: 0.6) : Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: BorderSide(
-            color: isDark
-                ? Colors.white24
-                : AppColors.textSubtle.withValues(alpha: 0.3),
-          ),
+          borderSide: BorderSide(color: isDark ? Colors.white24 : AppColors.textSubtle.withValues(alpha: 0.3)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
-          borderSide: BorderSide(
-            color: isDark
-                ? Colors.white24
-                : AppColors.textSubtle.withValues(alpha: 0.3),
-          ),
+          borderSide: BorderSide(color: isDark ? Colors.white24 : AppColors.textSubtle.withValues(alpha: 0.3)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusControl),
@@ -116,57 +121,39 @@ abstract final class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(48, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusControl),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl)),
           textStyle: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(48, 40),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusControl),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl)),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusControl),
-          ),
-        ),
+        style: TextButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusControl))),
       ),
       dividerTheme: DividerThemeData(
-        color: isDark
-            ? Colors.white12
-            : AppColors.textSubtle.withValues(alpha: 0.2),
+        color: isDark ? Colors.white12 : AppColors.textSubtle.withValues(alpha: 0.2),
         thickness: 1,
       ),
       chipTheme: base.chipTheme.copyWith(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         side: BorderSide.none,
         labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       ),
       listTileTheme: ListTileThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         iconColor: scheme.primary,
         selectedColor: scheme.primary,
       ),
       navigationRailTheme: const NavigationRailThemeData(
-        indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-        ),
+        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
       ),
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         contentTextStyle: const TextStyle(fontWeight: FontWeight.w500),
       ),
