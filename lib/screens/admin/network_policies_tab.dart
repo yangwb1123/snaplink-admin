@@ -12,6 +12,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 
 import 'admin_module_groups.dart';
@@ -190,7 +191,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -228,7 +229,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
         ),
         _classifierCard(context),
       ],
-    );
+    ));
   }
 
   /// 策略列表卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
@@ -281,6 +282,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
                 AdminDataColumn(
                   id: 'cidrs',
                   label: 'CIDRs'.localized,
+                  width: 240, // R52：多值列表列加宽（描述类宽列）。
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
                     (policies[i]['cidrs'] as List? ?? const []).join(', '),
@@ -291,6 +293,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
                 AdminDataColumn(
                   id: 'hosts',
                   label: 'Hosts'.localized,
+                  width: 200, // R52：多值列表列加宽（描述类宽列）。
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
                     (policies[i]['hostnames'] as List? ?? const []).join(

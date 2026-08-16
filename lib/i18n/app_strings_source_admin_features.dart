@@ -375,6 +375,7 @@ const appAdminFeatureSourceZh = <String, String>{
   'Generic governance payloads are retained in reports and approval records. Do not include passwords, tokens, or private keys.':
       '通用治理载荷会保留在报告和审批记录中。请勿包含密码、令牌或私钥。',
   'No devices match the current filters.': '没有设备匹配当前筛选条件。',
+  'No devices have been recorded.': '尚未记录任何设备。',
   'Reconcile the previous write against authoritative server state before authorizing another mutation.':
       '授权其他写操作前，请根据权威服务器状态核对上一次写操作。',
   'Reconcile Users and Groups before authorizing another bulk request.':

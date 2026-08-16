@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 
 import 'portal_api.dart';
 import 'portal_security_contract.dart';
@@ -95,7 +96,7 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _loadAll, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       Row(
@@ -175,7 +176,7 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
         ],
       ),
     ],
-  );
+  ));
 }
 
 /// 事件 → 时间线条目（语义色编码：新设备/新位置 = 警告）。

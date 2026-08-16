@@ -12,6 +12,7 @@ import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -171,7 +172,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -214,7 +215,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
         if (!_loading && _error == null && _credentials.isNotEmpty)
           _credentialsCard(context),
       ],
-    );
+    ));
   }
 
   /// 凭据库存卡：组色钥匙图标 + SectionHeader（计数）+ AdminDataTable(compact)。
@@ -261,6 +262,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
                 AdminDataColumn(
                   id: 'status',
                   label: 'Status'.localized,
+                  cardDetail: true, // R52：凭据状态（active/compromised/expired）卡片必备。
                   builder: (_, i) =>
                       _statusChip(context, _value(i, ['status'])),
                 ),

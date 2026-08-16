@@ -7,6 +7,7 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_module_groups.dart';
 
@@ -153,7 +154,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
         title: 'Authorization check tools are not enabled on this replica.',
       );
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _refresh, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -200,7 +201,7 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
             onCheck: _checkWasm,
           ),
       ],
-    );
+    ));
   }
 }
 

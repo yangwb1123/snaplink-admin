@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -393,7 +394,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
       ),
       Expanded(
-        child: ListView(
+        child: PullToRefresh(onRefresh: _load, child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null)
@@ -430,7 +431,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
               if (_shows('revoke') && _supportsSingleRevoke) _revokeTokenCard(),
             ],
           ],
-        ),
+        )),
       ),
     ],
   );

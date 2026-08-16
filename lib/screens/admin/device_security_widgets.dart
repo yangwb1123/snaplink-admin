@@ -18,6 +18,10 @@ class DeviceListPanel extends StatelessWidget {
   final Map<String, Object?>? titleArgs;
   final List<DeviceJson> devices;
   final String emptyMessage;
+
+  /// 筛选进行中（true 时无结果空态用 noMatch 变体 + “清除筛选”动作）。
+  final bool filtering;
+  final VoidCallback? onClearFilter;
   final DeviceAction? onActivity;
   final DeviceAction? onResetTrust;
   final DeviceAction? onRevoke;
@@ -29,6 +33,8 @@ class DeviceListPanel extends StatelessWidget {
     this.titleArgs,
     required this.devices,
     this.emptyMessage = 'No devices match the current filters.',
+    this.filtering = false,
+    this.onClearFilter,
     this.onActivity,
     this.onResetTrust,
     this.onRevoke,
@@ -79,8 +85,14 @@ class DeviceListPanel extends StatelessWidget {
         if (devices.isEmpty)
           EmptyState(
             icon: Icons.devices_other_outlined,
+            variant: filtering
+                ? EmptyStateVariant.noMatch
+                : EmptyStateVariant.empty,
             title: 'No devices',
-            subtitle: emptyMessage,
+            subtitle: filtering ? null : emptyMessage,
+            actionLabel: filtering ? 'Clear filter' : null,
+            actionIcon: filtering ? Icons.filter_alt_off : null,
+            onAction: filtering ? onClearFilter : null,
           )
         else
           AdminDataTable(

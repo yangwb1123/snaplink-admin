@@ -7,6 +7,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -291,7 +292,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
   Widget build(BuildContext context) {
     final clientId = _clientId;
     final accent = adminModuleIconColor('permissions');
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -364,7 +365,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
           ],
         ],
       ],
-    );
+    ));
   }
 
   Widget _errorBanner(BuildContext context) => Container(

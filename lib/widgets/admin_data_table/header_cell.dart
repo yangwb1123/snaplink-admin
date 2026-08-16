@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 
 /// 表头单元：排序箭头（↑/↓/unfold_more）+ 密度内边距。
@@ -41,6 +42,21 @@ class AdminDataTableHeaderCell extends StatelessWidget {
       ),
     );
     final headerPadding = density == TableDensity.compact ? 6.0 : 10.0;
+    // R58：列头语义——非排序列直接 header 标志；排序列把 header 标志 + 排序
+    // 方向（经图标语义标签并入按钮节点，"USER, Ascending"）收敛进表头按钮，
+    // 屏幕阅读器朗读列名与排序状态。视觉零变化。
+    final sortIcon = Icon(
+      sorted
+          ? (ascending ? Icons.arrow_upward : Icons.arrow_downward)
+          : Icons.unfold_more,
+      size: 12,
+      semanticLabel: sorted
+          ? context.tr(ascending ? 'Ascending' : 'Descending')
+          : null,
+      color: sorted
+          ? theme.colorScheme.primary
+          : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+    );
     return SizedBox(
       width: width ?? column.width ?? 160,
       child: Padding(
@@ -49,40 +65,31 @@ class AdminDataTableHeaderCell extends StatelessWidget {
             ? InkWell(
                 onTap: onTap,
                 borderRadius: BorderRadius.circular(8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        column.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: theme.colorScheme.onSurfaceVariant,
+                child: Semantics(
+                  header: true,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          column.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      sorted
-                          ? (ascending
-                                ? Icons.arrow_upward
-                                : Icons.arrow_downward)
-                          : Icons.unfold_more,
-                      size: 12,
-                      color: sorted
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      sortIcon,
+                    ],
+                  ),
                 ),
               )
-            : label,
+            : Semantics(header: true, child: label),
       ),
     );
   }

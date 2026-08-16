@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_module_groups.dart';
@@ -305,7 +306,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         title: 'Break-glass access is not enabled on this replica.',
       );
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -364,7 +365,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
             onRevoke: _revoke,
           ),
       ],
-    );
+    ));
   }
 }
 

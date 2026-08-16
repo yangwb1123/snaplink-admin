@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
@@ -33,8 +34,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
   List<Map<String, dynamic>> _items = const [];
   List<Map<String, dynamic>> _preferences = const [];
   bool _loading = true;
-  bool _loadingMore = false;
-  bool _saving = false;
+  bool _loadingMore = false, _saving = false;
   bool _hasMore = false;
   int _unread = 0;
   String? _error;
@@ -223,7 +223,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Row(
@@ -329,7 +329,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
             ),
         ],
       ],
-    );
+    ));
   }
 }
 

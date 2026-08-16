@@ -11,6 +11,7 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -37,8 +38,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   static const _rotatePath = '/api/v1/admin/keys/rotate';
   List<Map<String, dynamic>> _keys = const [];
   String? _error;
-  bool _loading = false;
-  bool _mutating = false;
+  bool _loading = false, _mutating = false;
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   late final void Function() _cancelPopState;
@@ -218,7 +218,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   Widget build(BuildContext context) {
     if (!_available) return const EmptyState(variant: EmptyStateVariant.notEnabled, title: 'Crypto key management is not enabled on this replica.');
     final rotating = AdminRoute.current().subresource == 'rotate';
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -263,7 +263,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
         if (!_loading && _error == null && _keys.isNotEmpty)
           _keysCard(context),
       ],
-    );
+    ));
   }
 
   /// 密钥列表卡：组色密钥图标 + SectionHeader（计数）+ AdminDataTable(compact)。

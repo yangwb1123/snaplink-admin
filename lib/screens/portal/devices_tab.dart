@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'device_action_dialogs.dart';
@@ -250,7 +251,7 @@ class _DevicesTabState extends State<DevicesTab> {
               ? const SkeletonListTile(itemCount: 4)
               : _error != null
               ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
-              : ListView.builder(
+              : PullToRefresh(onRefresh: _load, child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   itemCount: 1 + (_devices.isEmpty ? 1 : _devices.length),
                   itemBuilder: (context, index) {
@@ -283,7 +284,7 @@ class _DevicesTabState extends State<DevicesTab> {
                       ),
                     );
                   },
-                ),
+                )),
         ),
       ],
     );

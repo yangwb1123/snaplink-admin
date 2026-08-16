@@ -1,0 +1,113 @@
+# 10 轮推进（第六轮）— R51-R55（卡片联动 / 列配置 / 行反馈 / 组合状态 / 移动性能）
+#
+# 主题延续：移动端数据渲染（表格 vs 卡片）+ list/分页/筛选组件深化。
+# 串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r51-r55.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r51-r55.log
+
+tasks:
+- prompt: |
+    轮次 R51：卡片模式联动深化。步骤：
+    1. 检查 AdminDataTable 卡片模式的联动能力（lib/widgets/
+       admin_data_table/ 与使用页）：
+       a. 排序：卡片模式下的排序入口（表头不可点场景——是否提供
+          排序菜单/按钮）；
+       b. 筛选：卡片模式与筛选栏的联动；
+       c. 批量：卡片模式的全选/选择框位置与可达性；
+       d. 语义：卡片列表的 Semantics（每卡片一行语义）；
+       e. 密度：卡片模式密度。
+    2. 修复低风险项（白名单 lib/widgets/admin_data_table/、
+       lib/screens/admin/ + lib/i18n/）：
+       - 卡片模式缺失联动补齐（保持表格模式不变）；
+       - 语义补全；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart
+       test/admin_workflows_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r51-card-linkage.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r51-card-linkage.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart test/admin_workflows_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R52：表格列配置逐页核对。步骤：
+    1. 逐页核对 AdminDataTable 的列配置（使用页清单）：
+       a. 必要列：每页列是否过多（>6 列桌面挤）——冗余列收进详情
+          或省略；
+       b. 列顺序：重要列（ID/名称/状态）在前；
+       c. 列宽：固定宽 vs 弹性分配合理性（ID 窄、描述宽）；
+       d. 列头：可排序列声明（sortable）与服务端排序接线；
+       e. 卡片主字段：cardPrimary 列选择是否反映业务主字段。
+    2. 修复低风险项（白名单 lib/screens/admin/ + lib/i18n/）：
+       - 列增删/顺序/宽度修正（保持数据完整：移除的列信息在详情
+         可达）；
+       - cardPrimary 修正；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_data_table_cards_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r52-column-config.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r52-column-config.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R53：行操作反馈深化。步骤：
+    1. 逐页检查列表行操作后的反馈（lib/screens/）：
+       a. 行操作成功：删除/撤销/切换状态后的反馈（SnackBar/内联
+          提示）与列表刷新；
+       b. 行操作失败：错误提示 + 行状态还原；
+       c. 操作中：行内操作按钮 loading/禁用（防重入）；
+       d. 乐观更新 vs 服务端确认：一致性约定。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 反馈/刷新/防重入补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r53-row-feedback.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r53-row-feedback.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R54：分页/筛选/排序组合状态。步骤：
+    1. 逐页检查分页+筛选+排序的组合状态机（lib/screens/ 有这三者的
+       列表页）：
+       a. 状态保持：切换筛选/排序时是否回第一页（正确）还是保留
+          页码（错误）；
+       b. 组合请求：筛选+排序+分页参数是否同时发送（无丢失）；
+       c. 结果计数：筛选后的总数/页码更新；
+       d. 快速切换：筛选连续变化时的竞态（过期响应丢弃）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 筛选/排序变化回第一页；
+       - 竞态防护；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r54-combined-state.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r54-combined-state.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R55：移动端列表性能。步骤：
+    1. 检查移动端（卡片模式）列表性能（临时 widget 测试，跑完删除）：
+       a. 卡片构建成本：卡片模式每卡 widget 数/复杂度（>80 卡片行
+          的构建时间）；
+       b. 懒构建：卡片模式是否 builder（perf 门禁回查）；
+       c. 图片/图标：卡片中的图标/图片加载；
+       d. 滚动性能：长列表滚动帧（200 卡滚动测试）；
+       e. 选中态重建：批量选择时整列重建 vs 局部。
+    2. 修复低风险项（白名单 lib/widgets/admin_data_table/、
+       lib/screens/admin/ + lib/i18n/）：
+       - 卡片构建优化（const/局部重建）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/perf_gates_test.dart test/admin_data_table_cards_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r55-mobile-perf.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r55-mobile-perf.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/perf_gates_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

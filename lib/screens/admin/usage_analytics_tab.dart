@@ -14,6 +14,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -166,7 +167,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
@@ -199,7 +200,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
       const SizedBox(height: 12),
       _subjectInspector(context),
     ],
-  );
+  ));
 
   Widget _filters(BuildContext context) => Card(
     child: Padding(
@@ -308,7 +309,7 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
                 bold: peak, color: peak ? AppColors.danger : null);
           }),
           AdminDataColumn(id: 'detail', label: 'ENDPOINT · MINUTE', width: 280, cardDetail: true, builder: (context, i) => TableCellText('${rows[i]['endpoint'] ?? ''} · ${rows[i]['minute'] ?? ''}', muted: true, maxLines: 2)),
-          AdminDataColumn(id: 'count', label: 'COUNT', width: 140, builder: (context, i) {
+          AdminDataColumn(id: 'count', label: 'COUNT', width: 140, cardDetail: true, builder: (context, i) {
             final count = (rows[i]['count'] as num?) ?? 0;
             final peak = i < 3 && count > 0;
             return Row(mainAxisSize: MainAxisSize.min, children: [

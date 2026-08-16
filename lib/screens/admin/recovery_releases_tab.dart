@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/section_header.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'admin_module_groups.dart';
@@ -325,7 +326,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
@@ -348,7 +349,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         _reportCard(context),
       ],
     ],
-  );
+  ));
 
   /// 页头：图标按模块组色上色（X7）；标题/副标题走 i18n 字面量。
   Widget _header(BuildContext context) {

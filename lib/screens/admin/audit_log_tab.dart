@@ -16,6 +16,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -317,7 +318,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
     // 空态语义：筛选后无可见行（含搜索/outcome 过滤排空）也算“无结果”。
     final showEmpty =
         _displayed.isEmpty && !_loading && _error == null && !_notEnabled;
-    return ListView(
+    return PullToRefresh(onRefresh: _refresh, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -383,7 +384,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
             ),
         ],
       ],
-    );
+    ));
   }
 
   // Relative labels only — date fallback and '--' stay verbatim.

@@ -290,6 +290,7 @@ class BreakGlassSessionsList extends StatelessWidget {
             AdminDataColumn(
               id: 'status',
               label: 'Status',
+              cardDetail: true, // R52：会话状态是卡片最重要细节（原先被漏）。
               builder: (_, i) => _sessionStatusChip(
                 sessions[i]['status']?.toString() ?? 'unknown',
               ),
@@ -297,6 +298,7 @@ class BreakGlassSessionsList extends StatelessWidget {
             AdminDataColumn(
               id: 'details',
               label: 'Details',
+              width: 260, // R52：多段明细（原因/发起人/范围/ID）两行省略，260 才不挤。
               cardDetail: true,
               builder: (_, i) {
                 final session = sessions[i];

@@ -1,3 +1,5 @@
+import 'dart:ui' show SemanticsRole;
+
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import '../admin_data_table.dart';
@@ -12,16 +14,18 @@ import '../staggered_fade_in.dart';
 /// StatusChip 前缀、密度内边距）。主文件不 re-export 本类，不构成公开
 /// API。
 ///
-/// R41 深化：CopyableCell 在卡片保留复制能力（样式切卡片样式）；文本细节
-/// 保留原 maxLines 省略号（长值不撑高卡片）；StatusChip 等非文本细节带
-/// label 前缀；density 影响卡片内边距（R48 对齐设计 §2.3：compact 12→10，
-/// comfortable 与既有像素完全一致）。
+/// R41 深化：CopyableCell 保留复制；文本细节保留省略号；非文本细节带
+/// label 前缀；density 只影响内边距（R48 §2.3：compact 12→10）。
 class AdminDataTableCards {
   const AdminDataTableCards._();
 
   /// 卡片行列表：排序条 + 逐卡渲染（StaggeredFadeIn 交错入场）。
-  static List<Widget> rows(AdminDataTable table, ThemeData theme) => [
-    sortBar(table, theme),
+  static List<Widget> rows(
+    BuildContext context,
+    AdminDataTable table,
+    ThemeData theme,
+  ) => [
+    sortBar(context, table, theme),
     for (var i = 0; i < table.itemCount; i++)
       StaggeredFadeIn(
         index: i,
@@ -29,9 +33,12 @@ class AdminDataTableCards {
       ),
   ];
 
-  /// 排序条：可排序列 → ChoiceChip（仅 onSort != null 时渲染）；选中列
-  /// 追加方向箭头，与表头排序指示同源（升/降/无三态）。
-  static Widget sortBar(AdminDataTable table, ThemeData theme) {
+  /// 排序条：可排序列 → ChoiceChip；选中列追加方向箭头（升/降/无三态）。
+  static Widget sortBar(
+    BuildContext context,
+    AdminDataTable table,
+    ThemeData theme,
+  ) {
     final sortable = table.columns
         .where((c) => c.sortable && table.onSort != null)
         .toList();
@@ -53,6 +60,10 @@ class AdminDataTableCards {
                           ? Icons.arrow_upward
                           : Icons.arrow_downward,
                       size: 12,
+                      // R58：方向经语义标签并入 chip label（视觉零变化）。
+                      semanticLabel: context.tr(
+                        table.sortAscending ? 'Ascending' : 'Descending',
+                      ),
                     ),
                 ],
               ),
@@ -92,124 +103,128 @@ class _AdminDataTableCardState extends State<AdminDataTableCard> {
   AdminDataTable get table => widget.table;
   bool _hovered = false;
 
-  /// 具名列：label 非空的列（主字段/细节字段的候选）。
-  List<AdminDataColumn> get _namedColumns =>
-      table.columns.where((c) => c.label.isNotEmpty).toList();
-
-  /// 主字段：首个 `cardPrimary` 列，缺省 = 首个具名列。
-  AdminDataColumn? get _cardPrimaryColumn {
-    for (final column in table.columns) {
-      if (column.cardPrimary) return column;
-    }
-    final named = _namedColumns;
-    return named.isEmpty ? null : named.first;
-  }
-
-  /// 细节字段：`cardDetail` 列，缺省 = 主字段之后的 2 个具名列。
-  List<AdminDataColumn> get _cardDetailColumns {
-    final flagged = table.columns.where((c) => c.cardDetail).toList();
-    if (flagged.isNotEmpty) return flagged;
-    final named = _namedColumns;
-    if (named.isEmpty) return const [];
-    final primary = _cardPrimaryColumn;
-    if (primary == null) return const [];
-    return named.skip(named.indexOf(primary) + 1).take(2).toList();
-  }
-
-  /// 前导列（Checkbox/Avatar 等）：首个空 label 列原样复用。
-  AdminDataColumn? get _cardLeading {
-    for (final column in table.columns) {
-      if (column.label.isEmpty) return column;
-    }
-    return null;
-  }
-
-  /// 尾随列（PopupMenuButton/操作按钮等）：末尾空 label 列原样复用。
-  AdminDataColumn? get _cardTrailing {
-    AdminDataColumn? trailing;
-    for (final column in table.columns) {
-      if (column.label.isEmpty) trailing = column;
-    }
-    return trailing;
-  }
-
   @override
   Widget build(BuildContext context) {
     final i = widget.index;
     final theme = widget.theme;
-    final leading = _cardLeading;
-    var trailing = _cardTrailing;
+    // R55：列派生每次 build 只遍历列定义一次（此前 5 个 getter ~8 次）；
+    // 规则与 R41 一致（主 = cardPrimary/首个具名；细节 = cardDetail/主后 2；
+    // 前导/尾随 = 空 label 列首/尾）。
+    final plan = _CardColumnPlan.of(table.columns);
+    final leading = plan.leading;
+    var trailing = plan.trailing;
     if (identical(leading, trailing)) trailing = null;
-    final primary = _cardPrimaryColumn;
-    final details = _cardDetailColumns;
+    final primary = plan.primary;
+    final details = plan.details;
     final compact = table.density == TableDensity.compact;
-    // 设计 §2.3 / T-DEN-01..03：密度仅压间距不缩字体——compact 卡片内边距
-    // 12→10、卡间距 8→6（半阶密度值，不在 8pt token 集内；以具名变量表达
-    // 满足 ai-dev-gates spacing 门禁，值域由 density 语义钉死，不随 token 化）。
+    // 设计 §2.3 / T-DEN-01..03：密度仅压间距不缩字体（compact 内边距
+    // 12→10、卡间距 8→6；值域由 density 语义钉死）。
     final double cardGap = compact ? 6 : 8;
     final double cardPad = compact ? 10 : 12;
-    // R49：仅可交互行显示 hover 高亮（无点击/长按的只读行不显示，避免
-    // 虚假 affordance；卡片 chevron 保持既有测试语义，不随行交互性变化）。
+    // R49：仅可交互行显示 hover 高亮（只读行不显示，避免虚假 affordance）。
     final interactive = table.onRowTap != null || table.onRowLongPress != null;
-    return MouseRegion(
-      onEnter: (_) {
-        if (!interactive) return;
-        setState(() => _hovered = true);
-      },
-      onExit: (_) => setState(() => _hovered = false),
-      child: InkWell(
-        onTap: table.onRowTap == null ? null : () => table.onRowTap!(i),
-        onLongPress: table.onRowLongPress == null
-            ? null
-            : () => table.onRowLongPress!(i),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          margin: EdgeInsets.only(bottom: cardGap),
-          padding: EdgeInsets.all(cardPad),
-          decoration: BoxDecoration(
-            color: _hovered
-                ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : null,
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+    // R55：可见单元格只构建一次（语义 label 与渲染共用 builder 产物）。
+    final primaryBuilt = primary == null ? null : primary.builder(context, i);
+    final detailBuilt = <Widget>[
+      for (final column in details) column.builder(context, i),
+    ];
+    // R51：行级语义——container 单节点承载行 label（与可视文本同源）；
+    // 文本 ExcludeSemantics 防重复朗读，交互控件独立可达。
+    final label = _semanticsLabel(
+      primary,
+      details,
+      i,
+      primaryBuilt: primaryBuilt,
+      detailBuilt: detailBuilt,
+    );
+    return Semantics(
+      container: true,
+      role: SemanticsRole.listItem,
+      label: label,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (!interactive) return;
+          setState(() => _hovered = true);
+        },
+        onExit: (_) => setState(() => _hovered = false),
+        child: InkWell(
+          onTap: table.onRowTap == null ? null : () => table.onRowTap!(i),
+          onLongPress: table.onRowLongPress == null
+              ? null
+              : () => table.onRowLongPress!(i),
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            margin: EdgeInsets.only(bottom: cardGap),
+            padding: EdgeInsets.all(cardPad),
+            decoration: BoxDecoration(
+              color: _hovered
+                  ? theme.colorScheme.primary.withValues(alpha: 0.05)
+                  : null,
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+              ),
+              borderRadius: BorderRadius.circular(12),
             ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              if (leading != null) leading.builder(context, i),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (primary != null) _cardCell(primary, i, primary: true),
-                    for (final column in details) _cardCell(column, i),
-                  ],
+            child: Row(
+              children: [
+                if (leading != null) leading.builder(context, i),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (primaryBuilt != null)
+                        _cardCell(primary!, primaryBuilt, i, primary: true),
+                      for (var k = 0; k < details.length; k++)
+                        _cardCell(details[k], detailBuilt[k], i),
+                    ],
+                  ),
                 ),
-              ),
-              if (trailing != null) trailing.builder(context, i),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
+                if (trailing != null) trailing.builder(context, i),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  /// 卡片单元格（R41）：
-  /// - 可提取文本 → 主字段 titleSmall w600 / 细节 bodySmall + `label: value`，
-  ///   保留原 maxLines 省略号（长值不撑高卡片）；
-  /// - CopyableCell → 保留复制能力（样式切卡片样式）；
-  /// - StatusChip 等其余 → 细节带 label 前缀原样复用 builder 产物。
-  Widget _cardCell(AdminDataColumn column, int i, {bool primary = false}) {
+  /// R51 行级语义标签（主字段 + 细节 "label: value"；无文本列跳过，全空
+  /// 返回 null）。R55：接收已构建单元格，不二次构建。
+  String? _semanticsLabel(
+    AdminDataColumn? primary,
+    List<AdminDataColumn> details,
+    int i, {
+    required Widget? primaryBuilt,
+    required List<Widget> detailBuilt,
+  }) {
+    final parts = <String>[];
+    if (primary != null && primaryBuilt != null) {
+      final value = _cellValue(primaryBuilt);
+      if (value != null) parts.add(value);
+    }
+    for (var k = 0; k < details.length; k++) {
+      final value = _cellValue(detailBuilt[k]);
+      if (value != null) parts.add('${details[k].label}: $value');
+    }
+    return parts.isEmpty ? null : parts.join(', ');
+  }
+
+  /// 卡片单元格（R41；R55 接收已构建产物）：可提取文本 → 主 titleSmall
+  /// w600 / 细节 bodySmall + label；CopyableCell 保留复制；其余原样复用。
+  Widget _cardCell(
+    AdminDataColumn column,
+    Widget built,
+    int i, {
+    bool primary = false,
+  }) {
     final theme = widget.theme;
-    final built = column.builder(context, i);
     if (built is CopyableCell) {
       return _copyableCardCell(built, column, theme, primary: primary);
     }
@@ -218,23 +233,30 @@ class _AdminDataTableCardState extends State<AdminDataTableCard> {
       if (primary) return built;
       return Row(
         children: [
-          Text('${column.label}: ', style: _detailLabelStyle(theme)),
+          ExcludeSemantics(
+            excluding: true,
+            child: Text('${column.label}: ', style: _detailLabelStyle(theme)),
+          ),
           Flexible(child: built),
         ],
       );
     }
     final maxLines = _cellMaxLines(built);
-    return Text(
-      primary ? value : '${column.label}: $value',
-      maxLines: maxLines,
-      overflow: maxLines == null ? null : TextOverflow.ellipsis,
-      style: primary ? _primaryStyle(theme) : _detailStyle(theme),
+    // R51：文本内容收敛进卡片行级语义 label，防重复朗读（find.text 不受
+    // ExcludeSemantics 影响，既有卡片文本断言保持不变）。
+    return ExcludeSemantics(
+      excluding: true,
+      child: Text(
+        primary ? value : '${column.label}: $value',
+        maxLines: maxLines,
+        overflow: maxLines == null ? null : TextOverflow.ellipsis,
+        style: primary ? _primaryStyle(theme) : _detailStyle(theme),
+      ),
     );
   }
 
-  /// 可复制单元格在卡片模式：文本不拦截 tap（落到卡片 InkWell，整卡可点，
-  /// 保持行点击语义——非选择模式导航、选择模式切换选择）；复制收敛到独立
-  /// 小图标（tooltip 可达，R45）。选择模式（enabled=false）只渲染纯文本。
+  /// 可复制单元格在卡片模式：文本不拦截 tap（整卡可点，R45 复制收敛到
+  /// 小图标）；enabled=false（选择模式）只渲染纯文本。
   Widget _copyableCardCell(
     CopyableCell built,
     AdminDataColumn column,
@@ -242,18 +264,25 @@ class _AdminDataTableCardState extends State<AdminDataTableCard> {
     required bool primary,
   }) {
     final style = primary ? _primaryStyle(theme) : _detailStyle(theme);
-    final text = primary
-        ? Text(
-            built.text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
+    // R51：文本收敛进行级语义 label（复制图标独立可达）。
+    final Widget text = primary
+        ? ExcludeSemantics(
+            excluding: true,
+            child: Text(
+              built.text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           )
-        : Text(
-            '${column.label}: ${built.text}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
+        : ExcludeSemantics(
+            excluding: true,
+            child: Text(
+              '${column.label}: ${built.text}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
           );
     if (!built.enabled) {
       if (primary) return text;
@@ -314,5 +343,58 @@ class _AdminDataTableCardState extends State<AdminDataTableCard> {
     if (widget is Text) return widget.maxLines;
     if (widget is TableCellText) return widget.maxLines;
     return null;
+  }
+}
+
+/// R55：卡片列派生集中计算（单次遍历）。规则与 R41 一致：主 = cardPrimary
+/// 或首个具名；细节 = cardDetail 或主后 2 个具名；前导/尾随 = 空 label
+/// 列首/尾。此前 5 个 getter 各自遍历（~8 次 O(columns)），集中后一次。
+class _CardColumnPlan {
+  final AdminDataColumn? primary;
+  final List<AdminDataColumn> details;
+  final AdminDataColumn? leading;
+  final AdminDataColumn? trailing;
+
+  const _CardColumnPlan._({
+    this.primary,
+    required this.details,
+    this.leading,
+    this.trailing,
+  });
+
+  static _CardColumnPlan of(List<AdminDataColumn> columns) {
+    final named = <AdminDataColumn>[
+      for (final column in columns)
+        if (column.label.isNotEmpty) column,
+    ];
+    AdminDataColumn? primary;
+    for (final column in columns) {
+      if (column.cardPrimary) {
+        primary = column;
+        break;
+      }
+    }
+    primary ??= named.isEmpty ? null : named.first;
+    final flagged = <AdminDataColumn>[
+      for (final column in columns)
+        if (column.cardDetail) column,
+    ];
+    final details = flagged.isNotEmpty || primary == null || named.isEmpty
+        ? flagged
+        : named.skip(named.indexOf(primary) + 1).take(2).toList();
+    AdminDataColumn? leading;
+    AdminDataColumn? trailing;
+    for (final column in columns) {
+      if (column.label.isEmpty) {
+        leading ??= column;
+        trailing = column;
+      }
+    }
+    return _CardColumnPlan._(
+      primary: primary,
+      details: details,
+      leading: leading,
+      trailing: trailing,
+    );
   }
 }

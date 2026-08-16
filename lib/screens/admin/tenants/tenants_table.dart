@@ -60,7 +60,8 @@ class TenantsTable extends StatelessWidget {
           id: 'name',
           label: 'TENANT',
           width: 240,
-          sortable: true,
+          // R52：排序走筛选行下拉（orderBy 服务端排序），表头不接 onSort——
+          // 不再声明 sortable，避免可排序列声明与服务端接线不一致。
           builder: (context, i) => TableCellText(
             items[i]['name']?.toString() ?? items[i]['id']?.toString() ?? '?',
             bold: true,
@@ -78,7 +79,6 @@ class TenantsTable extends StatelessWidget {
           id: 'status',
           label: 'STATUS',
           width: 190,
-          sortable: true,
           builder: (context, i) {
             final status = items[i]['status']?.toString() ?? 'active';
             return status == 'suspended'

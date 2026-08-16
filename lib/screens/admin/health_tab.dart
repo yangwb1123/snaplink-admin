@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
@@ -98,7 +99,7 @@ class _HealthTabState extends State<HealthTab> {
         _health?.isNotEmpty == true ||
         _storageHealth?.isNotEmpty == true ||
         _federationHealth?.isNotEmpty == true;
-    return ListView(
+    return PullToRefresh(onRefresh: _refresh, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -146,7 +147,7 @@ class _HealthTabState extends State<HealthTab> {
         const SizedBox(height: 12),
         _actionsCard(context),
       ],
-    );
+    ));
   }
 
   /// 页头：模块组色图标 + 标题 + 副标题 + 刷新（X7）。

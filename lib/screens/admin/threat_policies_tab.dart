@@ -12,6 +12,7 @@ import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -38,8 +39,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
   final _formKey = GlobalKey<FormState>();
   List<Map<String, dynamic>> _policies = const [];
   String? _error;
-  bool _loading = false;
-  bool _mutating = false;
+  bool _loading = false, _mutating = false;
 
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
@@ -193,7 +193,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     if (_creating || _editing) return _buildForm(context);
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -240,7 +240,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
         if (!_loading && _error == null && _policies.isNotEmpty)
           _policiesCard(context),
       ],
-    );
+    ));
   }
 
   /// 策略列表卡：组色盾牌图标 + SectionHeader（计数）+ AdminDataTable(compact)。
@@ -280,17 +280,20 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                 AdminDataColumn(
                   id: 'description',
                   label: 'Description'.localized,
+                  width: 260, // R52：两行描述列 260 才合理（ID 窄、描述宽）。
                   cardDetail: true,
                   builder: (_, i) => TableCellText(policies[i]['description']?.toString() ?? '', muted: true, maxLines: 2),
                 ),
                 AdminDataColumn(
                   id: 'id',
                   label: 'ID'.localized,
+                  width: 150,
                   builder: (_, i) => CopyableCell(text: policies[i]['id']?.toString() ?? '', contextProvider: () => context),
                 ),
                 AdminDataColumn(
                   id: 'status',
                   label: 'Status'.localized,
+                  cardDetail: true, // R52：启用/禁用状态卡片必备（原先被漏）。
                   builder: (_, i) => policies[i]['enabled'] == true
                       ? StatusChip.active(label: 'Enabled')
                       : StatusChip.inactive(label: 'Disabled'),

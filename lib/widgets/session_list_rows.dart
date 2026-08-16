@@ -19,11 +19,13 @@ List<Widget> sessionSections(
 ];
 
 /// Renders a single session row with its UA-derived meta lines.
+/// [busy] 置位时行尾换成 spinner（撤销进行中，防重入）。
 Widget sessionTile(
   BuildContext context,
   dynamic s,
-  Future<void> Function(String) onRevoke,
-) {
+  Future<void> Function(String) onRevoke, {
+  bool busy = false,
+}) {
   final id = s['id']?.toString() ?? '';
   final metaParts = <String>[];
   if (s['created_at'] != null) {
@@ -64,11 +66,17 @@ Widget sessionTile(
       ],
     ),
     isThreeLine: metaParts.isNotEmpty && devParts.isNotEmpty,
-    trailing: TextButton(
-      onPressed: () => onRevoke(id),
-      style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-      child: Text(context.tr('Revoke')),
-    ),
+    trailing: busy
+        ? const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        : TextButton(
+            onPressed: () => onRevoke(id),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: Text(context.tr('Revoke')),
+          ),
   );
 }
 

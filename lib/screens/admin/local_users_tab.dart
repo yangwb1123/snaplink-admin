@@ -13,6 +13,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
 import 'admin_module_groups.dart';
 import 'local_user_validation.dart';
@@ -31,8 +32,7 @@ class LocalUsersTab extends StatefulWidget {
 
 class _LocalUsersTabState extends State<LocalUsersTab>
     with BatchSelection<LocalUsersTab> {
-  static const _basePath = '/api/v1/admin/local-users';
-  static const _pageSize = 25;
+  static const _basePath = '/api/v1/admin/local-users', _pageSize = 25;
 
   List<Map<String, dynamic>> _users = const [];
   String? _error;
@@ -192,9 +192,9 @@ class _LocalUsersTabState extends State<LocalUsersTab>
             loading: _loading, error: _error, data: _users, onRetry: _load, useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
             emptyTitle: _page > 1 ? 'No data on this page' : 'No local users',
             emptySubtitle: _page > 1 ? 'The data may have changed since you last loaded this page.' : 'Create the first password-authenticated account.',
-            emptyActionLabel: _page > 1 ? 'Back to first page' : null,
-            onEmptyAction: _page > 1 ? () => _load(page: 1) : null,
-            dataBuilder: _dataTable,
+            emptyActionLabel: _page > 1 ? 'Back to first page' : 'Create local user',
+            onEmptyAction: _page > 1 ? () => _load(page: 1) : _openForm,
+            dataBuilder: (users) => PullToRefresh(onRefresh: _load, child: _dataTable(users)),
           ),
         ),
         if (_total > _pageSize)

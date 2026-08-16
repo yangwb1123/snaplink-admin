@@ -11,6 +11,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/distribution_bar.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -194,7 +195,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
       return const EmptyState(variant: EmptyStateVariant.notEnabled,
           title: 'Webhook management is not enabled on this replica.');
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -217,7 +218,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
         ],
         if (_hasDeadLetters) _deadLettersCard(context),
       ],
-    );
+    ));
   }
 
   /// 页头：模块组色图标 + 标题 + 副标题 + 刷新（X7）。
@@ -359,8 +360,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
           _subscriptionsHealth(context),
           const SizedBox(height: 8),
           _table([
-            AdminDataColumn(id: 'status', label: 'STATUS', width: 170, cardDetail: true, builder: (context, i) => _statusChip(visible[i])),
+            // R52：URL 为订阅业务主字段，置于首位（状态/ID·事件随其后）。
             AdminDataColumn(id: 'url', label: 'URL', width: 240, cardPrimary: true, builder: (context, i) => TableCellText(visible[i]['url']?.toString() ?? '', bold: true)),
+            AdminDataColumn(id: 'status', label: 'STATUS', width: 170, cardDetail: true, builder: (context, i) => _statusChip(visible[i])),
             AdminDataColumn(id: 'events', label: 'ID · EVENTS', width: 300, cardDetail: true, builder: (context, i) => TableCellText('${visible[i]['id'] ?? ''} · events: ${(visible[i]['event_types'] as List?)?.join(', ') ?? 'all'}', muted: true)),
             AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(
                 onPressed: _mutating ? null : () => _delete(visible[i]['id']?.toString() ?? ''),
@@ -380,11 +382,11 @@ class _WebhooksTabState extends State<WebhooksTab> {
     _table([
       AdminDataColumn(id: 'event', label: 'EVENT', width: 220, cardPrimary: true, builder: (context, i) => TableCellText(
           _deadLetters[i]['event_type']?.toString() ?? _deadLetters[i]['type']?.toString() ?? 'Unknown', bold: true)),
-      AdminDataColumn(id: 'id', label: 'ID', width: 140, builder: (context, i) {
+      AdminDataColumn(id: 'id', label: 'ID', width: 140, cardDetail: true, builder: (context, i) {
         final id = _deadLetters[i]['id']?.toString() ?? '';
         return id.isEmpty ? const TableCellText('') : CopyableCell(text: id, contextProvider: () => context);
       }),
-      AdminDataColumn(id: 'error', label: 'ERROR', width: 280, builder: (context, i) => TableCellText(
+      AdminDataColumn(id: 'error', label: 'ERROR', width: 280, cardDetail: true, builder: (context, i) => TableCellText(
           _deadLetters[i]['error']?.toString() ?? '', muted: true, maxLines: 2)),
       AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(
           onPressed: _mutating ? null : () => _replay(_deadLetters[i]['id']?.toString() ?? ''),

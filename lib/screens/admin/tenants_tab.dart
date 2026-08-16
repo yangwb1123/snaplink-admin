@@ -12,6 +12,7 @@ import 'package:sso_admin/widgets/batch_feedback.dart';
 import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -48,6 +49,7 @@ class _TenantsTabState extends State<TenantsTab>
   var _statusFilter = 'all';
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
+  int _reqSeq = 0; // 过期响应丢弃：仅最新加载写入 _lastPage（R54）。
   String? _busyId; // 行级/批量状态切换进行中：非空即禁用（批量用 '' 哨兵）。
   var _pageSize = 100;
   var _orderBy = 'id';
@@ -103,34 +105,33 @@ class _TenantsTabState extends State<TenantsTab>
   }
 
   void _clearFilter() { _filterCtrl.clear(); _statusFilter = 'all'; _reload(); }
-  Future<SSOAdminListPage> _loadPage() async =>
-      _lastPage = await widget.client.listTenants(
-        pageToken: currentPageToken,
-        pageSize: _pageSize,
-        orderBy: _orderBy,
-        filter: _filterQuery,
-      );
+  Future<SSOAdminListPage> _loadPage() async {
+    final seq = ++_reqSeq;
+    final page = await widget.client.listTenants(
+      pageToken: currentPageToken,
+      pageSize: _pageSize,
+      orderBy: _orderBy,
+      filter: _filterQuery,
+    );
+    if (seq == _reqSeq) _lastPage = page;
+    return page;
+  }
 
-  void _reload() {
+  Future<void> _reload() {
     clearSelection();
     setState(() {
       resetPagination();
       _future = _loadPage();
     });
+    return _future;
   }
   void _goPrevious() {
-    if (!canGoBack) return;
-    setState(() {
-      goPrevious();
-      _future = _loadPage();
-    });
+    if (canGoBack) setState(() { goPrevious(); _future = _loadPage(); });
   }
   void _goNext(SSOAdminListPage page) {
-    if (page.nextPageToken == null) return;
-    setState(() {
-      goNext(page.nextPageToken, page: page);
-      _future = _loadPage();
-    });
+    if (page.nextPageToken != null) {
+      setState(() { goNext(page.nextPageToken, page: page); _future = _loadPage(); });
+    }
   }
 
   /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
@@ -370,7 +371,7 @@ class _TenantsTabState extends State<TenantsTab>
               pagination,
             ],
           );
-          return short ? SingleChildScrollView(child: content) : content;
+          return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
         },
       );
     },

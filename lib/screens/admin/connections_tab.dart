@@ -7,6 +7,7 @@ import 'connections_widgets.dart';
 import 'snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'admin_route.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -335,7 +336,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
             'Identity connection management is not enabled on this Snaplink replica.',
       );
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _loadConnections, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         ConnectionWorkspaceHeader(
@@ -393,6 +394,6 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
             onVerifyDomain: (domain) => _verifyDomain(id, domain),
           ),
       ],
-    );
+    ));
   }
 }

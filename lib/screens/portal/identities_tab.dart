@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'portal_api.dart';
@@ -246,7 +247,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                   message: context.tr(_error!),
                   onRetry: _load,
                 )
-              : ListView(
+              : PullToRefresh(onRefresh: _load, child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   children: [
                     MessageBanner(_notice, ok: true),
@@ -270,7 +271,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                         ],
                       ),
                   ],
-                ),
+                )),
         ),
       ],
     );

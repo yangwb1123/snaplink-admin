@@ -1,0 +1,102 @@
+# 10 轮推进（第六轮）— R56-R60（下拉刷新 / 空态引导 / 表格可访问性 / 视图切换 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r56-r60.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r56-r60.log
+
+tasks:
+- prompt: |
+    轮次 R56：移动端下拉刷新。步骤：
+    1. 检查列表页的刷新方式（lib/screens/）：
+       a. 移动端：数据列表页是否有 RefreshIndicator（下拉刷新）——
+          缺失清单；
+       b. 桌面：桌面刷新按钮与下拉刷新的共存（不应冲突）；
+       c. 刷新语义：下拉刷新是否保留筛选/分页状态；
+       d. 刷新中：指示与防重入。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 移动端数据列表补 RefreshIndicator（包裹可滚动区，保持
+          onRefresh 语义与现有刷新逻辑复用）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart
+       test/admin_workflows_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r56-pull-refresh.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r56-pull-refresh.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart test/admin_workflows_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R57：列表空态引导。步骤：
+    1. 逐页检查数据列表的空态引导（lib/screens/）：
+       a. 首屏无数据：空态是否带"创建/配置"引导动作（有写权限的
+          页面）；
+       b. 过滤无结果：是否带"清除筛选"（R3 已查，回查新增）；
+       c. 空态图标/文案与资源类型匹配；
+       d. 只读页空态：无创建动作时是否仅提示。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 空态引导动作补齐（复用现有 key/新增 EN/ZH）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r57-empty-guidance.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r57-empty-guidance.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R58：表格可访问性。步骤：
+    1. 检查表格/列表的语义（lib/widgets/admin_data_table/ 与使用页，
+       临时语义测试验证，跑完删除）：
+       a. 表格语义：数据行是否作为列表语义（SemanticsList 或逐行
+          button）；
+       b. 列头：表头单元格语义（header）；
+       c. 排序状态：排序列的语义（sorted/ascending）；
+       d. 选择：行选择的语义（selected/checkbox）；
+       e. 键盘：表格的键盘导航（方向键/Enter）。
+    2. 修复低风险项（白名单 lib/widgets/admin_data_table/ + lib/i18n/）：
+       - 表格/卡片语义补齐（保持视觉不变）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/language_selector_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r58-table-a11y.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r58-table-a11y.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/language_selector_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R59：列表/表格视图切换评估。步骤：
+    1. 评估数据密集页是否需要用户可切换的视图（列表/表格/卡片）：
+       a. 现状：AdminDataTable 按宽度自动表格↔卡片——是否足够（
+          评估结论）；
+       b. 用户偏好：是否需要手动切换（评估：当前自动模式合理，
+          不建议加切换——除非有明确证据）；
+       c. 若评估需要切换：设计最小实现（设置持久化 + 切换控件）；
+         若不需要：记录结论与理由。
+    2. 按评估结果实施（白名单 lib/ + lib/i18n/）：
+       - 若实现切换：默认保持自动模式，切换持久化（AppSettings）；
+       - 若不加：仅输出结论文档；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r59-view-toggle.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r59-view-toggle.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R60：综合终检（第六轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R51-R59 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 残留检查（test/zz_*、idget*、0 字节、临时文件）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r60-final-audit-6.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r60-final-audit-6.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

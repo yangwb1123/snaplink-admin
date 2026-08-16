@@ -6,6 +6,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -182,7 +183,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
   @override
   Widget build(BuildContext context) {
     final loaded = _userId != null && !_loading;
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -222,7 +223,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
           _credentialRecoveryCard(),
         ],
       ],
-    );
+    ));
   }
 
   Widget _header(BuildContext context) => Row(

@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/material.dart';
 import 'admin_data_table/card_mode.dart';
@@ -77,8 +78,8 @@ class _AdminDataTableState extends State<AdminDataTable> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final columnSum = widget.columns.fold<double>(0, (sum, c) => sum + _columnWidth(c)) +
-        64;
+    final columnSum =
+        widget.columns.fold<double>(0, (sum, c) => sum + _columnWidth(c)) + 64;
     // minWidth 小于列总宽时取列总宽：header/data Row 在 tight 宽度下会溢出。
     final tableWidth = math.max(widget.minWidth ?? 0, columnSum);
 
@@ -111,16 +112,32 @@ class _AdminDataTableState extends State<AdminDataTable> {
   // AdminDataTableCard），保持主文件 ≤400 行。
 
   Widget _cards(ThemeData theme) {
+    // R55：rows() 已返回新列表，无需再复制一遍（省一次逐项拷贝）。
+    // R58：排序条与数据卡分离——数据卡收敛进 list 语义（listItem 由单卡
+    // 渲染持有），排序条与焦点组共用同一 FocusTraversalGroup（方向键在
+    // 卡内导航，不逃逸到页面其他焦点）。视觉零变化。
+    final rowWidgets = AdminDataTableCards.rows(context, widget, theme);
+    final sortBar = rowWidgets.isEmpty
+        ? const SizedBox.shrink()
+        : rowWidgets.first;
     final cards = <Widget>[
-      for (final row in AdminDataTableCards.rows(widget, theme)) row,
+      for (var i = 1; i < rowWidgets.length; i++) rowWidgets[i],
     ];
+    final list = FocusTraversalGroup(
+      child: Column(
+        children: [
+          sortBar,
+          Semantics(
+            role: SemanticsRole.list,
+            child: Column(children: cards),
+          ),
+        ],
+      ),
+    );
     if (widget.scrollable) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.vertical,
-        child: Column(children: cards),
-      );
+      return SingleChildScrollView(scrollDirection: Axis.vertical, child: list);
     }
-    return Column(children: cards);
+    return list;
   }
 
   Widget _table(ThemeData theme, double tableWidth) {
@@ -128,13 +145,26 @@ class _AdminDataTableState extends State<AdminDataTable> {
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
         constraints: BoxConstraints(minWidth: tableWidth),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _headerRow(theme, tableWidth),
-            for (var i = 0; i < widget.itemCount; i++)
-              _dataRow(theme, tableWidth, i),
-          ],
+        // R58：表格语义——数据行收敛进 list（行内逐项 listItem 由
+        // _dataRow 持有）；表头不参与列表语义。FocusTraversalGroup 把
+        // 表头排序按钮与数据行按钮收敛进同一焦点域（方向键在表格内
+        // 导航，Enter 激活行）。视觉零变化。
+        child: FocusTraversalGroup(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _headerRow(theme, tableWidth),
+              Semantics(
+                role: SemanticsRole.list,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < widget.itemCount; i++)
+                      _dataRow(theme, tableWidth, i),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -176,48 +206,56 @@ class _AdminDataTableState extends State<AdminDataTable> {
     // 保持中性底色，避免“可点”的虚假 affordance（行操作约定 a/d）。
     final interactive =
         widget.onRowTap != null || widget.onRowLongPress != null;
-    return StaggeredFadeIn(index: i, child: MouseRegion(
-      onEnter: (_) {
-        if (!interactive) return;
-        setState(() => _hoveredRow = i);
-      },
-      onExit: (_) => setState(() => _hoveredRow = null),
-      child: SizedBox(
-        width: tableWidth,
-        child: InkWell(
-          onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(i),
-          onLongPress: widget.onRowLongPress == null
-              ? null
-              : () => widget.onRowLongPress!(i),
-          child: AnimatedContainer(duration: const Duration(milliseconds: 150),
-            color: interactive && _hoveredRow == i
-                ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : i.isEven
-                ? null
-                : theme.colorScheme.surfaceContainerHighest.withValues(
-                    alpha: 0.3,
-                  ),
-            child: Row(
-              children: [
-                for (final column in widget.columns)
-                  SizedBox(
-                    width: _columnWidth(column),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: widget.density == TableDensity.compact
-                            ? 5.0
-                            : 10.0,
+    // R58：行收敛进 list 语义（listItem）——屏幕阅读器按“列表项”逐行
+    // 朗读；交互行内部 InkWell 按钮节点保留（tap/Enter 可达）。
+    return Semantics(
+      role: SemanticsRole.listItem,
+      child: StaggeredFadeIn(
+        index: i,
+        child: MouseRegion(
+          onEnter: (_) {
+            if (!interactive) return;
+            setState(() => _hoveredRow = i);
+          },
+          onExit: (_) => setState(() => _hoveredRow = null),
+          child: SizedBox(
+            width: tableWidth,
+            child: InkWell(
+              onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(i),
+              onLongPress: widget.onRowLongPress == null
+                  ? null
+                  : () => widget.onRowLongPress!(i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                color: interactive && _hoveredRow == i
+                    ? theme.colorScheme.primary.withValues(alpha: 0.05)
+                    : i.isEven
+                    ? null
+                    : theme.colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.3,
                       ),
-                      child: column.builder(context, i),
-                    ),
-                  ),
-              ],
+                child: Row(
+                  children: [
+                    for (final column in widget.columns)
+                      SizedBox(
+                        width: _columnWidth(column),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: widget.density == TableDensity.compact
+                                ? 5.0
+                                : 10.0,
+                          ),
+                          child: column.builder(context, i),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ),
     );
   }
 }
@@ -254,4 +292,3 @@ class AdminDataColumn {
     required this.builder,
   });
 }
-

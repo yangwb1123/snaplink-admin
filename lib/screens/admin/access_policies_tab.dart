@@ -8,6 +8,7 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -181,7 +182,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   @override
   Widget build(BuildContext context) {
     if (!_available) return const EmptyState(variant: EmptyStateVariant.notEnabled);
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -242,7 +243,7 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
         if (!_loading && _error == null && _policies.isNotEmpty)
           _policiesCard(context),
       ],
-    );
+    ));
   }
 
   /// 策略列表卡：组色图标 + SectionHeader + AdminDataTable(compact)。
@@ -326,8 +327,11 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
                 ),
                 AdminDataColumn(
                   id: 'status',
-                  label: '',
+                  // R52：原先空表头中置列——补 'Flags' 表头并进卡片细节
+                  // （dry_run/disabled 标志一目了然）。
+                  label: 'Flags'.localized,
                   width: 170,
+                  cardDetail: true,
                   builder: (_, i) => _statusFlags(policies[i]),
                 ),
               ],

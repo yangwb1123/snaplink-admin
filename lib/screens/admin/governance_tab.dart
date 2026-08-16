@@ -10,6 +10,7 @@ import 'package:sso_admin/services/sensitive_data.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -302,7 +303,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
         ),
       ),
       Expanded(
-        child: ListView(
+        child: PullToRefresh(onRefresh: _refresh, child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             if (_error != null)
@@ -325,7 +326,7 @@ class _GovernanceTabState extends State<GovernanceTab> {
             if (_data.containsKey('lastWrite'))
               GovernanceJsonCard(title: 'Last write response', data: _data['lastWrite']!),
           ],
-        ),
+        )),
       ),
     ],
   );

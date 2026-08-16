@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'portal_api.dart';
@@ -290,7 +291,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       OrganizationAdminHeader(
@@ -336,7 +337,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       ],
       MessageBanner(_message, ok: _ok),
     ],
-  );
+  ));
 
   Widget _memberRow(Map<String, dynamic> member) => MemberRowTile(
     member: member,

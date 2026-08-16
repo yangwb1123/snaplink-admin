@@ -14,6 +14,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -38,6 +39,7 @@ class _UsersTabState extends State<UsersTab>
   final _filterCtrl = TextEditingController();
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
+  int _reqSeq = 0; // 过期响应丢弃：仅最新加载写入 _lastPage（R54）。
   var _pageSize = 100, _orderBy = 'id';
   String? _sortColumn = 'user';
   bool _sortAscending = true;
@@ -85,34 +87,30 @@ class _UsersTabState extends State<UsersTab>
     }
     if (mounted) AdminRoute.back('users');
   }
-  Future<SSOAdminListPage> _loadPage() async => _lastPage =
-      await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
-  /// 刷新语义（R5）：保留筛选、清除选择、重置分页。
-  void _reload() {
+  Future<SSOAdminListPage> _loadPage() async {
+    final seq = ++_reqSeq;
+    final page = await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
+    if (seq == _reqSeq) _lastPage = page;
+    return page;
+  }
+  /// 刷新语义（R5）：保留筛选、清除选择、重置分页；返回加载 Future 供下拉刷新指示器（R56）。
+  Future<void> _reload() {
     clearSelection();
     setState(() {
       resetPagination();
       _future = _loadPage();
     });
+    return _future;
   }
   /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
-  void _clearFilter() {
-    _filterCtrl.clear();
-    _reload();
-  }
+  void _clearFilter() { _filterCtrl.clear(); _reload(); }
   void _goPrevious() {
-    if (!canGoBack) return;
-    setState(() {
-      goPrevious();
-      _future = _loadPage();
-    });
+    if (canGoBack) setState(() { goPrevious(); _future = _loadPage(); });
   }
   void _goNext(SSOAdminListPage page) {
-    if (page.nextPageToken == null) return;
-    setState(() {
-      goNext(page.nextPageToken, page: page);
-      _future = _loadPage();
-    });
+    if (page.nextPageToken != null) {
+      setState(() { goNext(page.nextPageToken, page: page); _future = _loadPage(); });
+    }
   }
   /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
   void _retryPage() => setState(() => _future = _loadPage());
@@ -140,10 +138,7 @@ class _UsersTabState extends State<UsersTab>
   }
 
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
-    final changed = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (context) => UserFormDialog(client: widget.client, existing: existing),
-    );
+    final changed = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => UserFormDialog(client: widget.client, existing: existing));
     if (changed != null) _reload();
     if (mounted) AdminRoute.back('users');
   }
@@ -196,6 +191,7 @@ class _UsersTabState extends State<UsersTab>
     setState(() => _busyId = id);
     try {
       await widget.client.deleteUser(id);
+      if (mounted) showAppSnackBar(context, content: LocalizedText('User deleted.'));
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
@@ -253,7 +249,7 @@ class _UsersTabState extends State<UsersTab>
     icon: Icon(Icons.arrow_drop_down, color: _accent),
     onChanged: (v) {
       if (v == null) return;
-      setState(() => onPicked(v));
+      onPicked(v);
       _reload();
     },
   );
@@ -276,7 +272,11 @@ class _UsersTabState extends State<UsersTab>
           DropdownMenuItem(value: '-provider', child: LocalizedText('Provider descending')),
           DropdownMenuItem(value: 'created_at', child: LocalizedText('Created ascending')),
           DropdownMenuItem(value: '-created_at', child: LocalizedText('Created descending')),
-        ], (v) => _orderBy = v),
+        ], (v) {
+          _orderBy = v;
+          _sortAscending = !v.startsWith('-');
+          _sortColumn = v.endsWith('provider') ? 'provider' : v.endsWith('id') ? 'user' : null;
+        }),
         _menu<int>(_pageSize, const [
           DropdownMenuItem(value: 25, child: LocalizedText('25 per page')),
           DropdownMenuItem(value: 100, child: LocalizedText('100 per page')),
@@ -316,7 +316,7 @@ class _UsersTabState extends State<UsersTab>
             pagination,
           ],
         );
-        return short ? SingleChildScrollView(child: content) : content;
+        return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
       },
     );
   }

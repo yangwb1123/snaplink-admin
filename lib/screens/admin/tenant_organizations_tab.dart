@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'org_members_card.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'tenant_export_download.dart';
 import 'tenant_organization_cards.dart';
@@ -291,7 +292,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
             'Organization management is not enabled on this Snaplink replica.',
       );
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -368,7 +369,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
             onExport: _exportTenant,
           ),
       ],
-    );
+    ));
   }
 
   Widget _membersCard(BuildContext context) => OrgMembersCard(

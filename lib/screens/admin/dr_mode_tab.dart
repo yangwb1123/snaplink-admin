@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -168,7 +169,7 @@ class _DRModeTabState extends State<DRModeTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -203,7 +204,7 @@ class _DRModeTabState extends State<DRModeTab> {
         if (!_loading && _error == null && _status != null)
           _statusCard(context),
       ],
-    );
+    ));
   }
 
   /// 状态卡：组色图标 + SectionHeader（当前模式 chip）+ 目标模式选择表单。

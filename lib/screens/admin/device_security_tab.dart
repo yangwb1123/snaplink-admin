@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
 
 import 'device_bulk_revoke_dialog.dart';
@@ -255,7 +256,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
@@ -315,6 +316,11 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
               ? {'total': formatCount(_fleetTotal)}
               : {'shown': formatCount(_devices.length), 'total': formatCount(_fleetTotal)},
           devices: _devices,
+          filtering: _query.isNotEmpty,
+          onClearFilter: _clearFilters,
+          emptyMessage: _query.isEmpty
+              ? 'No devices have been recorded.'
+              : 'No devices match the current filters.',
           actionsEnabled: !_mutating,
           onActivity: _showActivity,
           onResetTrust: _resetTrust,
@@ -327,6 +333,6 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
         ),
       ],
     ],
-  );
+  ));
 }
 

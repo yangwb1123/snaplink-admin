@@ -8,6 +8,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import '../admin_module_groups.dart';
 import '../admin_navigation.dart';
@@ -46,8 +47,7 @@ class CommerceTab extends StatefulWidget {
 }
 
 class _CommerceTabState extends State<CommerceTab> {
-  final _tenant = TextEditingController();
-  final _currency = TextEditingController(text: 'USD');
+  final _tenant = TextEditingController(), _currency = TextEditingController(text: 'USD');
   late final CommerceAdminApi _commerce = CommerceAdminApi(widget.api);
 
   List<Map<String, dynamic>> _plans = const [];
@@ -315,7 +315,7 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => PullToRefresh(onRefresh: _refresh, child: ListView(
     padding: const EdgeInsets.all(16),
     children: [
       const AdminBreadcrumb(),
@@ -388,7 +388,7 @@ class _CommerceTabState extends State<CommerceTab> {
         ),
       ],
     ],
-  );
+  ));
 
   Future<void> _refresh() async {
     await _loadPlans();

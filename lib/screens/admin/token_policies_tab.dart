@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -84,7 +85,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -120,7 +121,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
           ),
         if (!_loading && _policies.isNotEmpty) _policiesCard(context),
       ],
-    );
+    ));
   }
 
   /// 策略卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
@@ -161,11 +162,13 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
                 AdminDataColumn(
                   id: 'effect',
                   label: 'Effect'.localized,
+                  cardDetail: true, // R52：allow/deny 效果卡片必备（原先被漏）。
                   builder: (_, i) => _effectCell(rows[i]),
                 ),
                 AdminDataColumn(
                   id: 'description',
                   label: 'Description'.localized,
+                  width: 260, // R52：两行描述列 260 才合理（ID 窄、描述宽）。
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
                     rows[i]['description']?.toString() ?? '',

@@ -12,6 +12,7 @@ import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
@@ -182,7 +183,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         title: 'Two-person administrative approvals are not enabled.',
       );
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -238,7 +239,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         if (!_loading && _error == null && _visible.isNotEmpty)
           _changeList(context),
       ],
-    );
+    ));
   }
 
   /// 状态过滤：常量状态值走 i18n 键（all/pending/approved/applied/rejected/failed）。

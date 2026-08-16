@@ -16,6 +16,7 @@ import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -207,7 +208,7 @@ class _DomainsTabState extends State<DomainsTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return ListView(
+    return PullToRefresh(onRefresh: _load, child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         const AdminBreadcrumb(),
@@ -277,7 +278,7 @@ class _DomainsTabState extends State<DomainsTab> {
             ),
           ),
       ],
-    );
+    ));
   }
 
   /// 域名表格：四列（hostname/id/状态/删除）。

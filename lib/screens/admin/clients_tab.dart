@@ -15,6 +15,7 @@ import 'package:sso_admin/widgets/batch_selection.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -40,12 +41,13 @@ class _ClientsTabState extends State<ClientsTab>
   final _filterCtrl = TextEditingController();
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
+  int _reqSeq = 0; // 过期响应丢弃：仅最新加载写入 _lastPage（R54）。
   var _pageSize = 100, _orderBy = 'id';
   String? _sortColumn = 'id';
   bool _sortAscending = true;
   var _expiringOnly = false, _statusFilter = 'all';
-  /// 批量执行进行中：禁用批量栏按钮并显示进度（防止重复提交）。
-  bool _batchBusy = false;
+  /// 行内/批量变更进行中：禁行菜单 + 批量栏按钮（防止重复提交，R53）。
+  bool _busy = false;
   late final void Function() _cancelPopState;
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('clients');
@@ -86,6 +88,7 @@ class _ClientsTabState extends State<ClientsTab>
     if (mounted) AdminRoute.back('clients');
   }
   Future<SSOAdminListPage> _loadPage() async {
+    final seq = ++_reqSeq;
     if (_expiringOnly) {
       // 临期列表是内存整页（无游标分页）：search/status 叠加为 AND 客户端
       // 过滤、orderBy 客户端排序——与普通模式服务端语义对齐，不再静默丢弃（R44）。
@@ -113,11 +116,13 @@ class _ClientsTabState extends State<ClientsTab>
         );
         if (desc) items = items.reversed.toList();
       }
-      return _lastPage = SSOAdminListPage(
+      final page = SSOAdminListPage(
         items: items,
         nextPageToken: null,
         totalSize: items.length,
       );
+      if (seq == _reqSeq) _lastPage = page;
+      return page;
     }
     final text = _filterCtrl.text.trim();
     final query = _statusFilter == 'all'
@@ -125,12 +130,14 @@ class _ClientsTabState extends State<ClientsTab>
         : text.isEmpty
         ? 'active:${_statusFilter == 'active'}'
         : '$text and active:${_statusFilter == 'active'}';
-    return _lastPage = await widget.client.listClients(
+    final page = await widget.client.listClients(
       pageToken: currentPageToken,
       pageSize: _pageSize,
       orderBy: _orderBy,
       filter: query,
     );
+    if (seq == _reqSeq) _lastPage = page;
+    return page;
   }
   /// 列头排序 → 服务端 orderBy（避免只排当前页）；status 列不可排；点击三态。
   void _onSort(String column) {
@@ -169,13 +176,14 @@ class _ClientsTabState extends State<ClientsTab>
     if (cell.startsWith(RegExp(r'[=+\-@]'))) cell = "'$cell";
     return '"$cell"';
   }
-  /// 刷新语义（R5）：保留筛选、清除选择、重置分页。
-  void _reload() {
+  /// 刷新语义（R5）：保留筛选、清除选择、重置分页；返回加载 Future 供下拉刷新指示器（R56）。
+  Future<void> _reload() {
     clearSelection();
     setState(() {
       resetPagination();
       _future = _loadPage();
     });
+    return _future;
   }
 
   /// 空态“清除筛选”：清空搜索、状态与临期筛选后重载（过滤无结果场景）。
@@ -214,15 +222,18 @@ class _ClientsTabState extends State<ClientsTab>
   static const _copy = <String, (String, String, String, String?)>{
     'approve': ('Approve client?', 'Approve {clientId} for use on this authorization server?', 'Approve', 'Client {id} approved.'),
     'reject': ('Reject client?', 'Reject the pending client registration for {clientId}?', 'Reject', 'Client {id} rejected.'),
-    'delete': ('Delete client?', 'Delete {clientId} permanently? Existing tokens and integrations may stop working.', 'Delete permanently', null),
+    'delete': ('Delete client?', 'Delete {clientId} permanently? Existing tokens and integrations may stop working.', 'Delete permanently', 'Client {id} deleted.'),
   };
   /// 单客户端动作公共骨架：确认（破坏性需输入 ID）→ 调用 → 报告 → 刷新。
+  /// 进行中 [_busy] 禁行全部行菜单（防重入，与批量一致）。
   Future<void> _clientAction(Map<String, dynamic> c, String kind) async {
     final id = c['id']?.toString() ?? '';
+    if (id.isEmpty || _busy) return;
     final (titleKey, msgKey, confirm, snack) = _copy[kind]!;
     final destructive = kind != 'approve';
     final confirmed = await ConfirmDialog.show(context, title: context.tr(titleKey), message: context.tr(msgKey, {'clientId': id}), confirmLabel: confirm, destructive: destructive, confirmText: destructive ? id : null);
     if (!confirmed) return;
+    setState(() => _busy = true);
     try {
       await switch (kind) {
         'approve' => widget.client.approveClient(id),
@@ -235,12 +246,16 @@ class _ClientsTabState extends State<ClientsTab>
     } on SSOError catch (e) {
       if (!mounted) return;
       showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
   Future<void> _rotateSecret(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
+    if (id.isEmpty || _busy) return;
     final confirmed = await ConfirmDialog.show(context, title: context.tr('Rotate client secret?'), message: context.tr('The current secret for {clientId} remains valid for 24 hours. Update every integration with the new one-time value before that window closes.', {'clientId': id}), confirmLabel: 'Rotate secret', destructive: true, confirmText: id);
     if (!confirmed) return;
+    setState(() => _busy = true);
     try {
       final rotation = await widget.client.rotateClientSecretWithPolicy(id);
       if (!mounted) return;
@@ -254,17 +269,19 @@ class _ClientsTabState extends State<ClientsTab>
     } on SSOError catch (e) {
       if (!mounted) return;
       showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
-  /// 进行中 [_batchBusy] 禁用动作按钮；部分失败时 SnackBar 提供明细入口。
+  /// 进行中 [_busy] 禁用动作按钮；部分失败时 SnackBar 提供明细入口。
   Future<void> _runBatch(String action, Future<void> Function(String) run) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final approve = action == 'Approve';
     final confirmed = await ConfirmDialog.show(context, title: context.tr(approve ? 'Approve {n} clients?' : 'Reject {n} clients?', {'n': ids.length}), message: context.tr(approve ? 'This will approve {n} selected clients in one operation.' : 'This will reject {n} selected clients in one operation.', {'n': ids.length}), confirmLabel: action);
     if (!confirmed) return;
-    setState(() => _batchBusy = true);
+    setState(() => _busy = true);
     try {
       final results = await Future.wait(ids.map((id) async {
         try {
@@ -284,7 +301,7 @@ class _ClientsTabState extends State<ClientsTab>
       showBatchResultSnackBar(context, message: message, failures: failures);
       _reload();
     } finally {
-      if (mounted) setState(() => _batchBusy = false);
+      if (mounted) setState(() => _busy = false);
     }
   }
   /// 批量操作栏：已选数量 + Approve/Reject 双动作 + 退出选择（共享组件，
@@ -292,7 +309,7 @@ class _ClientsTabState extends State<ClientsTab>
   Widget _batchBar(BuildContext context) => BatchActionBar(
     selectedCount: selected.length,
     accent: _accent,
-    isLoading: _batchBusy,
+    isLoading: _busy,
     actions: [
       BatchAction(label: 'Approve', icon: Icons.check_circle_outline, onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id))),
       BatchAction(label: 'Reject', icon: Icons.cancel_outlined, onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id))),
@@ -349,7 +366,11 @@ class _ClientsTabState extends State<ClientsTab>
         ('-id', 'ID descending'),
         ('name', 'Name ascending'),
         ('-name', 'Name descending'),
-      ], (v) => _orderBy = v),
+      ], (v) {
+        _orderBy = v;
+        _sortAscending = !v.startsWith('-');
+        _sortColumn = v.endsWith('name') ? 'name' : 'id';
+      }),
       IconButton(
         tooltip: 'Export CSV'.localized,
         icon: Icon(Icons.file_download_outlined, color: _accent),
@@ -404,7 +425,7 @@ class _ClientsTabState extends State<ClientsTab>
           if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
           pagination,
         ]);
-        return short ? SingleChildScrollView(child: content) : content;
+        return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
       },
     );
   }
@@ -430,11 +451,13 @@ class _ClientsTabState extends State<ClientsTab>
         AdminDataColumn(id: 'id', label: 'CLIENT ID', width: 190, sortable: true, builder: (context, i) => CopyableCell(text: cid(i), contextProvider: () => context, enabled: !selecting)),
         AdminDataColumn(id: 'name', label: 'NAME', width: 180, sortable: true, builder: (context, i) => TableCellText(items[i]['name']?.toString() ?? '', bold: true, maxLines: 2)),
         AdminDataColumn(id: 'status', label: 'STATUS', width: 160, builder: (context, i) => items[i]['active'] == true ? StatusChip.active() : StatusChip.inactive()),
-        AdminDataColumn(id: 'strategy', label: 'TOKEN', width: 110, builder: (context, i) => TableCellText(items[i]['tokenStrategy']?.toString() ?? items[i]['token_strategy']?.toString() ?? '', muted: true)),
+        // R52：TOKEN（token_strategy）列为冗余——客户端详情页已展示
+        // 'Token strategy'（client_detail_screen.dart），列表收进 6 列内。
         AdminDataColumn(id: 'expiry', label: 'SECRET', width: 170, builder: (context, i) => TableCellText(clientSecretExpiryLabel(context, items[i]), muted: true)),
         AdminDataColumn(id: 'actions', label: '', width: 60, builder: (context, i) {
           final c = items[i];
           return PopupMenuButton<String>(
+            enabled: !_busy,
             onSelected: (value) => switch (value) {
               'edit' => AdminRoute.go('clients', action: 'edit', resourceId: c['id']?.toString() ?? ''),
               'rotate' => _rotateSecret(c),

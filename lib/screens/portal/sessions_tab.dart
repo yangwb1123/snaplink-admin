@@ -11,6 +11,7 @@ import 'portal_api.dart';
 import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 import 'package:sso_admin/widgets/session_list_rows.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 
 /// Active session list + per-session revoke + "sign out of other devices".
 /// Ports the "Active sessions" card / loadSessions() in app.js.
@@ -32,6 +33,7 @@ class _SessionsTabState extends State<SessionsTab> {
   String? _error;
   bool _loading = true;
   bool _revokingAll = false;
+  String? _revokingId; // 单会话撤销进行中：行内 spinner + 禁行（防重入）。
 
   @override
   void initState() {
@@ -63,23 +65,32 @@ class _SessionsTabState extends State<SessionsTab> {
   void _reload() => _load();
 
   Future<void> _revoke(String id) async {
-    if (id.isEmpty || !await _confirmSessionRevoke(id)) return;
-    final r = await widget.api.delete(PortalSecurityPaths.legacySession(id));
-    if (r.statusCode >= 200 &&
-        r.statusCode < 300 &&
-        id == widget.api.currentSessionId) {
-      widget.api.signOut();
-      widget.onCurrentSessionRevoked();
-      return;
-    }
-    if (r.statusCode >= 200 && r.statusCode < 300) {
-      _reload();
-    } else if (mounted) {
-      showAppSnackBar(
-        context,
-        content: Text(context.tr('Could not revoke this session.')),
-        kind: AppSnackBarKind.error,
-      );
+    if (id.isEmpty || _revokingId != null) return;
+    if (!await _confirmSessionRevoke(id)) return;
+    setState(() => _revokingId = id);
+    try {
+      final r = await widget.api.delete(PortalSecurityPaths.legacySession(id));
+      if (r.statusCode >= 200 &&
+          r.statusCode < 300 &&
+          id == widget.api.currentSessionId) {
+        widget.api.signOut();
+        widget.onCurrentSessionRevoked();
+        return;
+      }
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        if (mounted) {
+          showAppSnackBar(context, content: Text(context.tr('Session revoked.')));
+        }
+        _reload();
+      } else if (mounted) {
+        showAppSnackBar(
+          context,
+          content: Text(context.tr('Could not revoke this session.')),
+          kind: AppSnackBarKind.error,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _revokingId = null);
     }
   }
 
@@ -181,9 +192,15 @@ class _SessionsTabState extends State<SessionsTab> {
         final isDivider = k.isOdd;
         final session = items[sessionIndex];
         if (isDivider) return const Divider(height: 1);
+        final revokingId = _revokingId;
         return StaggeredFadeIn(
           index: sessionIndex,
-          child: sessionTile(context, session, _revoke),
+          child: sessionTile(
+            context,
+            session,
+            _revoke,
+            busy: revokingId != null && revokingId == session['id']?.toString(),
+          ),
         );
       },
     );
@@ -313,7 +330,7 @@ class _SessionsTabState extends State<SessionsTab> {
             data: _result,
             onRetry: _reload,
             useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
-            dataBuilder: (result) => _buildSessionList(context, result),
+            dataBuilder: (result) => PullToRefresh(onRefresh: _load, child: _buildSessionList(context, result)),
           ),
         ),
       ],

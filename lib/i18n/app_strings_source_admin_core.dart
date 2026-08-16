@@ -91,6 +91,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Subscriptions health': '订阅健康',
   'Snapshots, releases, and change approvals': '快照、发布与变更审批',
   'Client {id} approved.': '客户端 {id} 已批准。',
+  'Client {id} deleted.': '客户端 {id} 已删除。',
   'Client {id} rejected.': '客户端 {id} 已拒绝。',
 
   'All authentication and administrative events recorded by the server.':
@@ -636,6 +637,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Update navigation tree?': '更新导航树？',
   'Update role?': '更新角色？',
   'Update role {code} for {client}?': '为 {client} 更新角色 {code}？',
+  'User deleted.': '用户已删除。',
   'User role assignments': '用户角色分配',
   'User unassigned.': '用户已取消分配。',
   'active': '活跃',
@@ -668,6 +670,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Unhealthy': '不健康',
   'Disabled': '已禁用',
   'Enabled': '已启用',
+  'Flags': '标志',
   ' · disabled': ' · 已禁用',
   'List connections': '列出连接',
   'Loading…': '正在加载…',
