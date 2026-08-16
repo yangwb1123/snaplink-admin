@@ -250,35 +250,39 @@ class _DevicesTabState extends State<DevicesTab> {
               ? const SkeletonListTile(itemCount: 4)
               : _error != null
               ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
-              : ListView(
+              : ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    MessageBanner(_notice, ok: true),
-                    if (_devices.isEmpty)
-                      const EmptyState(
+                  itemCount: 1 + (_devices.isEmpty ? 1 : _devices.length),
+                  itemBuilder: (context, index) {
+                    // 首行横幅（或空态）；设备卡按需构建（懒列表，R47）。
+                    if (index == 0) {
+                      return MessageBanner(_notice, ok: true);
+                    }
+                    if (_devices.isEmpty) {
+                      return const EmptyState(
                         compact: true,
                         icon: Icons.devices_other_outlined,
                         title: 'No physical devices have been recorded.',
-                      )
-                    else
-                      for (final (index, device) in _devices.indexed)
-                        StaggeredFadeIn(
-                          index: index,
-                          child: PhysicalDeviceCard(
-                            device: device,
-                            busy: _busy,
-                            onDetails: (value) => DeviceDetailDialog.show(
-                              context,
-                              api: widget.api,
-                              device: value,
-                            ),
-                            onEdit: _edit,
-                            onTrust: _trust,
-                            onLost: _reportLost,
-                            onDelete: _delete,
-                          ),
+                      );
+                    }
+                    final device = _devices[index - 1];
+                    return StaggeredFadeIn(
+                      index: index - 1,
+                      child: PhysicalDeviceCard(
+                        device: device,
+                        busy: _busy,
+                        onDetails: (value) => DeviceDetailDialog.show(
+                          context,
+                          api: widget.api,
+                          device: value,
                         ),
-                  ],
+                        onEdit: _edit,
+                        onTrust: _trust,
+                        onLost: _reportLost,
+                        onDelete: _delete,
+                      ),
+                    );
+                  },
                 ),
         ),
       ],

@@ -40,7 +40,6 @@ class TenantsTable extends StatelessWidget {
     return AdminDataTable(
       scrollable: true,
       minWidth: 760,
-      density: TableDensity.compact,
       onRowTap: onRowTap,
       onRowLongPress: onRowLongPress,
       columns: [

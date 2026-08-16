@@ -25,6 +25,10 @@ class LanguageDropdown extends StatefulWidget {
 class _LanguageDropdownState extends State<LanguageDropdown> {
   late final TextEditingController _controller;
 
+  /// 菜单项数超过该阈值时启用菜单内搜索（品牌 languages 配置理论上可列出
+  /// 数百种语言；>100 项无搜索不可用，R47 数据量上限）。
+  static const _searchThreshold = 100;
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +61,8 @@ class _LanguageDropdownState extends State<LanguageDropdown> {
       initialSelection: current,
       enabled: widget.enabled,
       requestFocusOnTap: false,
-      enableFilter: false,
+      // >100 项时启用菜单内搜索（逐字符过滤菜单项）；小集合保持现状。
+      enableFilter: options.length > _searchThreshold,
       // 宽度贴合最长菜单项文字（无界布局下 intrinsic 计算不可靠）。
       width: appHeaderDropdownWidth(
         context: context,

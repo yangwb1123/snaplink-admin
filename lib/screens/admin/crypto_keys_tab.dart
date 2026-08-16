@@ -303,7 +303,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
                   builder: (_, i) => TableCellText(_value(i, ['created_at', 'createdAt']), muted: true, maxLines: 2),
                 ),
                 AdminDataColumn(
-                  id: 'status', label: 'Status'.localized,
+                  id: 'status', label: 'Status'.localized, cardDetail: true,
                   builder: (_, i) => _statusChip(context, _value(i, ['status'])),
                 ),
                 AdminDataColumn(

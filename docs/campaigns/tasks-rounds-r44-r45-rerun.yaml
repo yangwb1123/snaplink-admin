@@ -1,0 +1,48 @@
+# R44/R45 重跑（provider 连接错误后）
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r44-r45-rerun.yaml \
+#   --mode serial --timeout 1500 --log-file logs/rounds-r44-r45-rerun.log
+
+tasks:
+- prompt: |
+    轮次 R44：筛选组件使用核对。步骤：
+    1. 分析 lib/widgets/search_filter_bar.dart 与
+       status_filter_dropdown.dart 及使用页：
+       a. 防抖：SearchFilterBar debounce 参数（false 同步）使用页的
+          合理性——大列表应防抖；
+       b. 组合：search + status 筛选叠加语义（AND）；
+       c. 清除：筛选清除按钮与空结果联动；
+       d. 键盘：Enter 提交 vs 实时搜索的使用场景；
+       e. 排序联动：排序与筛选同时存在的列表。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 大列表搜索补 debounce（保持请求语义）；
+       - 筛选组合/清除一致性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r44-filters.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r44-filters.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R45：移动端列表交互。步骤：
+    1. 在 375px 视口检查列表/表格卡片模式下的交互（临时 widget
+       测试，跑完删除）：
+       a. 批量选择：卡片模式的选择框/全选可达性；
+       b. 行点击：卡片点击进详情的可达面积（整卡可点 vs 小按钮）；
+       c. 操作入口：行内操作在移动端是否收进溢出菜单或详情页；
+       d. 刷新：列表页刷新按钮移动端位置；
+       e. 排序/筛选：移动端排序入口（表头不可点场景）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 卡片整卡可点（保持行点击语义）；
+       - 操作收进详情/菜单（保持可达）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart
+       test/admin_workflows_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r45-mobile-list-ux.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r45-mobile-list-ux.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart test/admin_workflows_test.dart 2>&1 | grep -qE 'All tests passed!'"

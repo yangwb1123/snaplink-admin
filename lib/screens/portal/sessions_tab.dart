@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
+import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
@@ -146,33 +147,45 @@ class _SessionsTabState extends State<SessionsTab> {
 
   /// Renders the loaded session tree; three-state orchestration lives in
   /// [_load] + AsyncView, matching every sibling portal tab.
+  ///
+  /// R47：会话行按需构建——展平为 ListView.builder（可选 legacy 横幅 +
+  /// 每会话 1 行 + 非尾行分隔线），不再一次性 expand 全量行。
   Widget _buildSessionList(BuildContext context, PortalSessionsResult result) {
     final items = result.sessions;
     if (items.isEmpty) {
       return const Center(child: EmptyHint('No active sessions.'));
     }
-    return ListView(
+    // 展平映射：可选横幅占 1 位；每个会话占 1 行 +（非尾行）1 分隔线。
+    final headerSlots = result.usedLegacyEndpoint ? 1 : 0;
+    final rowsPerSession = 2;
+    final totalRows = headerSlots + items.length * rowsPerSession - 1;
+    return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        if (result.usedLegacyEndpoint)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Text(
-              context.tr(
-                'Device enrichment is not enabled; showing legacy session metadata.',
+      itemCount: totalRows,
+      itemBuilder: (context, index) {
+        var k = index;
+        if (result.usedLegacyEndpoint) {
+          if (k == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                context.tr(
+                  'Device enrichment is not enabled; showing legacy session metadata.',
+                ),
               ),
-            ),
-          ),
-        ...items.indexed.expand(
-          (entry) => sessionSections(
-            context,
-            entry.$2,
-            entry.$1 < items.length - 1,
-            _revoke,
-            entry.$1,
-          ),
-        ),
-      ],
+            );
+          }
+          k--;
+        }
+        final sessionIndex = k ~/ rowsPerSession;
+        final isDivider = k.isOdd;
+        final session = items[sessionIndex];
+        if (isDivider) return const Divider(height: 1);
+        return StaggeredFadeIn(
+          index: sessionIndex,
+          child: sessionTile(context, session, _revoke),
+        );
+      },
     );
   }
 

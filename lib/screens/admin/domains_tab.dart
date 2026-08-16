@@ -246,6 +246,8 @@ class _DomainsTabState extends State<DomainsTab> {
           SearchFilterBar(
             hintText: 'Search domains...'.localized,
             controller: _searchCtrl,
+            // 本地内存过滤（无请求）：同步即时响应，无需 300ms 防抖（R44）。
+            debounce: false,
             onSearchChanged: _onSearchChanged,
             onRefresh: _load,
           ),
@@ -305,7 +307,7 @@ class _DomainsTabState extends State<DomainsTab> {
         ),
         AdminDataColumn(
           id: 'verified',
-          label: 'Status',
+          label: 'Status', cardDetail: true,
           builder: (_, i) {
             final verified = _filteredDomains[i]['verified'] == true;
             return verified

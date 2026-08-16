@@ -359,9 +359,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
           _subscriptionsHealth(context),
           const SizedBox(height: 8),
           _table([
-            AdminDataColumn(id: 'status', label: 'STATUS', width: 170, builder: (context, i) => _statusChip(visible[i])),
+            AdminDataColumn(id: 'status', label: 'STATUS', width: 170, cardDetail: true, builder: (context, i) => _statusChip(visible[i])),
             AdminDataColumn(id: 'url', label: 'URL', width: 240, cardPrimary: true, builder: (context, i) => TableCellText(visible[i]['url']?.toString() ?? '', bold: true)),
-            AdminDataColumn(id: 'events', label: 'ID · EVENTS', width: 300, builder: (context, i) => TableCellText('${visible[i]['id'] ?? ''} · events: ${(visible[i]['event_types'] as List?)?.join(', ') ?? 'all'}', muted: true)),
+            AdminDataColumn(id: 'events', label: 'ID · EVENTS', width: 300, cardDetail: true, builder: (context, i) => TableCellText('${visible[i]['id'] ?? ''} · events: ${(visible[i]['event_types'] as List?)?.join(', ') ?? 'all'}', muted: true)),
             AdminDataColumn(id: 'actions', label: '', width: 90, builder: (context, i) => TextButton(
                 onPressed: _mutating ? null : () => _delete(visible[i]['id']?.toString() ?? ''),
                 style: TextButton.styleFrom(foregroundColor: AppColors.danger),

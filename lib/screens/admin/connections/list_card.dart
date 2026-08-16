@@ -128,7 +128,7 @@ class ConnectionsListCard extends StatelessWidget {
                 ),
                 AdminDataColumn(
                   id: 'status',
-                  label: 'Status',
+                  label: 'Status', cardDetail: true,
                   builder: (_, i) => connections[i]['enabled'] == false
                       ? StatusChip.inactive(label: 'Disabled')
                       : StatusChip.active(label: 'Enabled'),

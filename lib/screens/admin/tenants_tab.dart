@@ -43,19 +43,21 @@ class TenantsTab extends StatefulWidget {
 }
 
 class _TenantsTabState extends State<TenantsTab>
-    with BatchSelection<TenantsTab> {
+    with BatchSelection<TenantsTab>, PaginatedListMixin<TenantsTab> {
   final _filterCtrl = TextEditingController();
   var _statusFilter = 'all';
-  final _pageTokens = <String?>[null];
   late Future<SSOAdminListPage> _future;
+  SSOAdminListPage? _lastPage;
   String? _busyId; // 行级/批量状态切换进行中：非空即禁用（批量用 '' 哨兵）。
-  var _pageIndex = 0;
   var _pageSize = 100;
   var _orderBy = 'id';
   late final void Function() _cancelPopState;
 
   /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.tenants);
+
+  @override
+  bool? get canGoNext => _lastPage?.nextPageToken != null;
 
   @override
   void initState() {
@@ -93,7 +95,6 @@ class _TenantsTabState extends State<TenantsTab>
     _filterCtrl.dispose();
     super.dispose();
   }
-
   String get _filterQuery {
     final text = _filterCtrl.text.trim();
     return _statusFilter == 'all'
@@ -102,40 +103,38 @@ class _TenantsTabState extends State<TenantsTab>
   }
 
   void _clearFilter() { _filterCtrl.clear(); _statusFilter = 'all'; _reload(); }
-  Future<SSOAdminListPage> _loadPage() => widget.client.listTenants(
-    pageToken: _pageTokens[_pageIndex],
-    pageSize: _pageSize,
-    orderBy: _orderBy,
-    filter: _filterQuery,
-  );
+  Future<SSOAdminListPage> _loadPage() async =>
+      _lastPage = await widget.client.listTenants(
+        pageToken: currentPageToken,
+        pageSize: _pageSize,
+        orderBy: _orderBy,
+        filter: _filterQuery,
+      );
 
   void _reload() {
     clearSelection();
     setState(() {
-      _pageTokens..clear()..add(null);
-      _pageIndex = 0;
+      resetPagination();
       _future = _loadPage();
     });
   }
-
   void _goPrevious() {
-    if (_pageIndex == 0) return;
+    if (!canGoBack) return;
     setState(() {
-      _pageIndex--;
+      goPrevious();
+      _future = _loadPage();
+    });
+  }
+  void _goNext(SSOAdminListPage page) {
+    if (page.nextPageToken == null) return;
+    setState(() {
+      goNext(page.nextPageToken, page: page);
       _future = _loadPage();
     });
   }
 
-  void _goNext(SSOAdminListPage page) {
-    final next = page.nextPageToken;
-    if (next == null) return;
-    setState(() {
-      _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
-      _pageTokens.add(next);
-      _pageIndex++;
-      _future = _loadPage();
-    });
-  }
+  /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
+  void _retryPage() => setState(() => _future = _loadPage());
 
   /// 批量切换选中租户状态（suspend 或 activate）；逐项汇总失败明细。
   Future<void> _batchSetStatus(String next) async {
@@ -335,7 +334,7 @@ class _TenantsTabState extends State<TenantsTab>
         return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
       }
       if (snap.hasError) {
-        return ErrorStateView(message: '${snap.error}', onRetry: _reload);
+        return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
       }
       final page = snap.data!;
       final items = page.items;
@@ -346,12 +345,14 @@ class _TenantsTabState extends State<TenantsTab>
       );
       final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
       final list = items.isEmpty
-          ? TenantsEmptyState(filtering: filtered, onClearFilter: _clearFilter)
+          ? onFirstPage
+                ? TenantsEmptyState(filtering: filtered, onClearFilter: _clearFilter)
+                : EmptyPageState(onBackToFirst: _reload)
           : _tenantTable(items);
       final pagination = PaginationControls(
-        page: _pageIndex + 1,
+        page: currentPage,
         total: page.totalSize,
-        canGoBack: _pageIndex > 0,
+        canGoBack: canGoBack,
         canGoNext: page.nextPageToken != null,
         onPrevious: _goPrevious,
         onNext: () => _goNext(page),

@@ -376,6 +376,10 @@ const appAdminCoreSourceZh = <String, String>{
   'No consents granted': '未授予授权同意',
   'No credentials found.': '未找到凭据。',
   'No data available': '没有可用数据',
+  'No data on this page': '此页没有数据',
+  'The data may have changed since you last loaded this page.':
+      '数据可能在你上次加载此页后发生了变化。',
+  'Back to first page': '返回第一页',
   'No DR mode status available.': '暂无灾难恢复模式状态。',
   'No dead letters': '没有死信',
   'No dead letters.': '没有死信。',

@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -10,7 +9,6 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
-
 import '../admin_module_groups.dart';
 import 'scim_browser_widgets.dart';
 import 'scim_group_dialog.dart';
@@ -18,17 +16,13 @@ import 'scim_models.dart';
 import 'scim_patch_dialog.dart';
 import 'scim_resource_detail_dialog.dart';
 import 'scim_user_dialog.dart';
-
 class ScimResourceBrowser extends StatefulWidget {
   final SnaplinkAdminApi api;
   final ScimResourceKind kind;
-
   const ScimResourceBrowser({super.key, required this.api, required this.kind});
-
   @override
   State<ScimResourceBrowser> createState() => _ScimResourceBrowserState();
 }
-
 class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   final _filterController = TextEditingController();
   final _startIndexController = TextEditingController(text: '1');
@@ -40,24 +34,21 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   bool _mutating = false;
   bool _unavailable = false;
   String? _error;
-
+  /// 上次已应用的查询签名；筛选/排序/条数变化时 Apply 清空分页回第一页（R46）。
+  (String, int, String, bool)? _lastQuery;
   String get _path => widget.kind.path;
-
   Color get _accent => adminModuleIconColor('scim-directory');
-
   @override
   void initState() {
     super.initState();
     _load();
   }
-
   @override
   void dispose() {
     _filterController.dispose();
     _startIndexController.dispose();
     super.dispose();
   }
-
   Future<void> _load({int? startIndex}) async {
     final parsedStart =
         startIndex ?? int.tryParse(_startIndexController.text.trim()) ?? 1;
@@ -101,7 +92,14 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
       if (mounted) setState(() => _loading = false);
     }
   }
-
+  /// Apply 语义：查询签名（筛选/条数/排序）变化 → 回 startIndex=1；
+  /// 仅页码变化时保留原位（R46 三态联动）。
+  void _applyQuery() {
+    final sig = (_filterController.text.trim(), _count, _sortBy, _descending);
+    final changed = sig != _lastQuery;
+    _lastQuery = sig;
+    _load(startIndex: changed ? 1 : null);
+  }
   Future<void> _create() async {
     final body = await _showResourceForm();
     if (body == null || !mounted) return;
@@ -318,7 +316,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
             onCountChanged: (value) => setState(() => _count = value),
             onSortChanged: (value) => setState(() => _sortBy = value),
             onDescendingChanged: (value) => setState(() => _descending = value),
-            onApply: _load,
+            onApply: _applyQuery,
           ),
           if (_error != null) _errorCard(context),
           if (_loading && page == null)
@@ -374,6 +372,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   /// 查询空态：有查询 → noMatch + 清除筛选；无查询 → 空数据。
   Widget _emptyState() {
     final querying = _filterController.text.trim().isNotEmpty;
+    if ((_page?.startIndex ?? 1) > 1) {
+      return EmptyPageState(onBackToFirst: () => _load(startIndex: 1));
+    }
     return EmptyState(
       variant: querying ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
       title: querying ? 'No resources match this query.' : 'No resources found.',

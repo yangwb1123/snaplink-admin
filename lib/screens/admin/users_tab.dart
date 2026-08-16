@@ -87,7 +87,6 @@ class _UsersTabState extends State<UsersTab>
   }
   Future<SSOAdminListPage> _loadPage() async => _lastPage =
       await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
-
   /// 刷新语义（R5）：保留筛选、清除选择、重置分页。
   void _reload() {
     clearSelection();
@@ -96,13 +95,11 @@ class _UsersTabState extends State<UsersTab>
       _future = _loadPage();
     });
   }
-
   /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
   void _clearFilter() {
     _filterCtrl.clear();
     _reload();
   }
-
   void _goPrevious() {
     if (!canGoBack) return;
     setState(() {
@@ -110,15 +107,15 @@ class _UsersTabState extends State<UsersTab>
       _future = _loadPage();
     });
   }
-
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken == null) return;
     setState(() {
-      goNext(page.nextPageToken);
+      goNext(page.nextPageToken, page: page);
       _future = _loadPage();
     });
   }
-
+  /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
+  void _retryPage() => setState(() => _future = _loadPage());
   /// 列头排序 → 服务端 orderBy（与排序下拉保持同步）；点击三态。
   void _onSort(String column) {
     final field = switch (column) {
@@ -236,7 +233,7 @@ class _UsersTabState extends State<UsersTab>
           builder: (context, snap) {
             if (!snap.hasData) {
               if (snap.hasError) {
-                return ErrorStateView(message: '${snap.error}', onRetry: _reload);
+                return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
               }
               return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
             }
@@ -291,16 +288,19 @@ class _UsersTabState extends State<UsersTab>
 
   Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
     final filtered = _filterCtrl.text.isNotEmpty;
-    // 空态变体：无筛选 → empty（创建引导）；有筛选 → noMatch（文案被测试钉死）。
-    final list = items.isEmpty ? EmptyState(
-            variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-            icon: filtered ? null : Icons.person,
-            title: 'No users',
-            subtitle: 'No users match the current filter.',
-            actionLabel: filtered ? 'Clear filter' : 'Create user',
-            actionIcon: filtered ? Icons.filter_alt_off : null,
-            onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
-          )
+    // 空态：第一页 → empty/noMatch（文案被测试钉死）；非首页 → 空页提示。
+    final list = items.isEmpty
+        ? onFirstPage
+              ? EmptyState(
+                  variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+                  icon: filtered ? null : Icons.person,
+                  title: 'No users',
+                  subtitle: 'No users match the current filter.',
+                  actionLabel: filtered ? 'Clear filter' : 'Create user',
+                  actionIcon: filtered ? Icons.filter_alt_off : null,
+                  onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
+                )
+              : EmptyPageState(onBackToFirst: _reload)
         : _dataTable(items);
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
     return LayoutBuilder(

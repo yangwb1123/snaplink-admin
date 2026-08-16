@@ -1,0 +1,121 @@
+# 10 轮推进（第五轮）— R41-R45（表格卡片模式 / 渲染形态核对 / 分页 / 筛选 / 移动列表交互）
+#
+# 聚焦：移动端数据渲染（表格 vs 卡片）、list/分页/筛选组件正确使用。
+# AdminDataTable 已有 640px 自动卡片模式——本轮验证并深化。
+# 串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r41-r45.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r41-r45.log
+
+tasks:
+- prompt: |
+    轮次 R41：表格卡片模式验证与深化。步骤：
+    1. 验证 AdminDataTable 的 640px 自动卡片模式（lib/widgets/
+       admin_data_table.dart 的卡片分支）：
+       a. 卡片字段选择：cardPrimary/cardDetail 列在卡片中的展示是否
+          合理（主字段突出、详情字段齐全、ID/密钥可复制）；
+       b. 卡片操作：操作列在卡片模式的可达性（点击行进详情 vs 卡片
+          内操作按钮）；
+       c. 状态徽章：StatusChip 在卡片中的展示；
+       d. 排序/密度：卡片模式的排序指示与密度。
+    2. 修复低风险项（白名单 lib/widgets/admin_data_table.dart、
+       lib/screens/admin/ 使用页 + lib/i18n/）：
+       - 卡片模式字段缺失/不合理处修正（保持表格模式像素不变）；
+       - 卡片操作可达性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r41-table-card-mode.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r41-table-card-mode.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R42：数据渲染形态逐页核对。步骤：
+    1. 逐页核对 lib/screens/ 的数据渲染形态（对照数据类型）：
+       a. 关系型数据（多列/可排序/可批量）→ AdminDataTable（核对
+          使用页）；
+       b. 轻量数据（少数字段/线性浏览）→ ListView/卡片列表（核对
+          是否误用表格）；
+       c. 汇总数据 → 指标卡/分布条（核对是否误用表格）；
+       d. 明细数据 → 详情页区块（核对）；
+       e. 找出形态与数据不匹配的页面。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 形态不匹配处调整（表格→列表或反之，保持信息完整性）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r42-render-forms.md（逐页形态表 +
+       修复清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r42-render-forms.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R43：分页组件使用核对。步骤：
+    1. 分析 lib/widgets/paginated_list.dart 与使用页：
+       a. 覆盖：数据量大的列表（clients/users/tenants/audit/domains/
+          webhooks 等）是否有分页——未分页清单；
+       b. 分页语义：PaginatedList 是页码还是加载更多；与服务端分页
+          （page/limit）的接线；
+       c. 分页状态：页码切换时滚动位置/筛选保留；
+       d. 空页/末页：空结果与无更多数据的展示。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 数据量大且未分页的列表补 PaginatedList（若有服务端分页
+         契约）；
+       - 分页切换状态保留；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r43-pagination.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r43-pagination.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R44：筛选组件使用核对。步骤：
+    1. 分析 lib/widgets/search_filter_bar.dart 与
+       status_filter_dropdown.dart 及使用页：
+       a. 防抖：SearchFilterBar debounce 参数（false 同步）使用页的
+          合理性——大列表应防抖；
+       b. 组合：search + status 筛选叠加语义（AND）；
+       c. 清除：筛选清除按钮与空结果联动；
+       d. 键盘：Enter 提交 vs 实时搜索的使用场景；
+       e. 排序联动：排序与筛选同时存在的列表。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 大列表搜索补 debounce（保持请求语义）；
+       - 筛选组合/清除一致性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r44-filters.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r44-filters.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R45：移动端列表交互。步骤：
+    1. 在 375px 视口检查列表/表格卡片模式下的交互（临时 widget
+       测试，跑完删除）：
+       a. 批量选择：卡片模式的选择框/全选可达性；
+       b. 行点击：卡片点击进详情的可达面积（整卡可点 vs 小按钮）；
+       c. 操作入口：行内操作在移动端是否收进溢出菜单或详情页；
+       d. 刷新：列表页刷新按钮移动端位置；
+       e. 排序/筛选：移动端排序入口（表头不可点场景）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 卡片整卡可点（保持行点击语义）；
+       - 操作收进详情/菜单（保持可达）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart
+       test/admin_workflows_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r45-mobile-list-ux.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r45-mobile-list-ux.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart test/admin_workflows_test.dart 2>&1 | grep -qE 'All tests passed!'"

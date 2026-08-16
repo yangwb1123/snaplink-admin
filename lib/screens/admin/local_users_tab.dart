@@ -93,7 +93,6 @@ class _LocalUsersTabState extends State<LocalUsersTab>
       if (mounted) setState(() => _mutating = false);
     }
   }
-
   /// 批量删除：确认 → 并行执行 → 明细报告；进行中 _mutating 禁按钮（防重复提交）。
   Future<void> _batchDelete() async {
     final ids = selected.toList();
@@ -118,12 +117,13 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     setState(() => _mutating = false);
     final failures = results.whereType<String>().toList();
     final ok = ids.length - failures.length;
+    final pageEmptied = _users.isNotEmpty && ok == _users.length && _page > 1;
     clearSelection();
     final message = failures.isEmpty
         ? context.tr('Deleted {n} of {total} local users.', {'n': ok, 'total': ids.length})
         : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
     showBatchResultSnackBar(context, message: message, failures: failures);
-    await _load();
+    await _load(page: pageEmptied ? _page - 1 : _page); // 空页回退（对齐单删语义）
   }
 
   Widget _batchBar(BuildContext context) => BatchActionBar(
@@ -158,7 +158,6 @@ class _LocalUsersTabState extends State<LocalUsersTab>
       if (mounted) setState(() => _mutating = false);
     }
   }
-
   @override
   Widget build(BuildContext context) {
     if (!_available) {
@@ -191,8 +190,10 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         Expanded(
           child: AsyncView<List<Map<String, dynamic>>>(
             loading: _loading, error: _error, data: _users, onRetry: _load, useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
-            emptyTitle: 'No local users',
-            emptySubtitle: 'Create the first password-authenticated account.',
+            emptyTitle: _page > 1 ? 'No data on this page' : 'No local users',
+            emptySubtitle: _page > 1 ? 'The data may have changed since you last loaded this page.' : 'Create the first password-authenticated account.',
+            emptyActionLabel: _page > 1 ? 'Back to first page' : null,
+            onEmptyAction: _page > 1 ? () => _load(page: 1) : null,
             dataBuilder: _dataTable,
           ),
         ),

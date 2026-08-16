@@ -1,0 +1,105 @@
+# 10 轮推进（第五轮）— R46-R50（列表三态分页 / 大数据上限 / 密度 / 行操作约定 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r46-r50.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r46-r50.log
+
+tasks:
+- prompt: |
+    轮次 R46：列表三态与分页交互。步骤：
+    1. 逐页检查列表/分页的交互状态：
+       a. 分页加载失败：下一页加载失败的重试/提示；
+       b. 空页：某页无数据（非首页）的展示（回到首页/提示）；
+       c. 加载更多：加载更多进行中指示（底部 spinner）与防重入；
+       d. 三态联动：筛选变化时清空分页回第一页。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 分页失败/空页处理补齐；
+       - 筛选变化回第一页；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r46-pagination-states.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r46-pagination-states.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R47：大数据量上限核对。步骤：
+    1. 逐页检查数据量边界：
+       a. 懒构建：所有数据列表用 ListView.builder/separated（回查
+          perf 门禁覆盖外的新列表）；
+       b. 单页上限：服务端分页 limit 的页面接线（page_size/limit
+          参数一致）；
+       c. 事件流有界：live_events 保留上限（50）核对；
+       d. 下拉选项：Dropdown 大数据（>100 项）的搜索支持。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 新列表懒构建补齐；
+       - limit 接线一致；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/perf_gates_test.dart test/admin_secondary_tabs_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r47-data-limits.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r47-data-limits.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/perf_gates_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R48：数据密度体验。步骤：
+    1. 逐页检查数据密度（TableDensity comfortable/compact）：
+       a. 密度使用：哪些表格用了 compact（密集数据）、哪些用默认
+          ——与数据类型匹配性；
+       b. 桌面/移动密度：移动端卡片模式密度是否合理（不拥挤）；
+       c. 密度切换：是否需要用户可调密度（当前无全局切换——评估
+          是否要加，若加保持默认不变）；
+       d. 行高：列表/卡片行高一致性。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 密度与数据匹配修正（保持默认像素不变）；
+       - 移动端密度微调；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart
+       test/admin_secondary_tabs_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r48-density.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r48-density.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart test/admin_secondary_tabs_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R49：行操作约定。步骤：
+    1. 逐页核对列表行操作的交互约定：
+       a. 行点击：哪些列表整行可点进详情、哪些不可点（应可点的
+          清单）；
+       b. 行内操作 vs 详情页操作：行内放哪些操作（高频/轻量）、
+          哪些收进详情页（破坏性/低频）——一致性约定；
+       c. 溢出菜单：操作 >2 个时是否用 PopupMenu；
+       d. 禁用行：不可操作行的禁用态。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 行点击补齐/移除（保持一致）；
+       - 操作分层约定落地；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r49-row-actions.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r49-row-actions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R50：综合终检（第五轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R41-R49 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 残留检查（test/zz_*、idget*、0 字节、临时文件）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r50-final-audit-5.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r50-final-audit-5.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

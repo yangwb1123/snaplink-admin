@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
 
 /// Cursor-based pagination controls shared across admin list tabs.
@@ -114,6 +115,25 @@ class PaginationControls extends StatelessWidget {
   );
 }
 
+/// 非首页空页：游标/页码已越过数据尾（数据在浏览期间收缩/变更）。
+/// 提示回到第一页，避免把“此页无数据”误读为“列表为空”（R46）。
+class EmptyPageState extends StatelessWidget {
+  final VoidCallback onBackToFirst;
+
+  const EmptyPageState({super.key, required this.onBackToFirst});
+
+  @override
+  Widget build(BuildContext context) => EmptyState(
+    variant: EmptyStateVariant.noMatch,
+    icon: Icons.first_page,
+    title: 'No data on this page',
+    subtitle: 'The data may have changed since you last loaded this page.',
+    actionLabel: 'Back to first page',
+    actionIcon: Icons.first_page,
+    onAction: onBackToFirst,
+  );
+}
+
 /// Mixin for cursor-paginated admin list tabs.
 /// Provides shared pagination state management for list screens
 /// that use SSOAdminClient's cursor-based pagination.
@@ -123,6 +143,9 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
 
   bool get canGoBack => _pageIndex > 0;
   bool? get canGoNext; // null until we know
+
+  /// 是否停留在第一页：空态据此区分“列表为空”与“非首页无数据”。
+  bool get onFirstPage => _pageIndex == 0;
 
   int get currentPage => _pageIndex + 1;
 
@@ -140,8 +163,14 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
     });
   }
 
-  void goNext(String? nextPageToken) {
+  /// 记录上一帧已推进的页对象：同帧双触发（连点 Next）只推进一次，
+  /// 页面重新加载后对象变化即自然失效（防重入，R46）。
+  Object? _lastAdvancedPage;
+
+  void goNext(String? nextPageToken, {Object? page}) {
     if (nextPageToken == null) return;
+    if (identical(_lastAdvancedPage, page)) return; // 防重入
+    _lastAdvancedPage = page;
     setState(() {
       _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
       _pageTokens.add(nextPageToken);

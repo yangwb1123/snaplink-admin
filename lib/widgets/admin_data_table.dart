@@ -1,8 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'admin_data_table/card_mode.dart';
 import 'admin_data_table/header_cell.dart';
-import 'admin_data_table/table_cells.dart';
 import 'staggered_fade_in.dart';
 
 export 'admin_data_table/table_cells.dart' show TableCellText, CopyableCell;
@@ -95,11 +95,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
               borderRadius: BorderRadius.circular(12),
             ),
             clipBehavior: Clip.antiAlias,
-            child: widget.scrollable
-                ? SingleChildScrollView(
-                    scrollDirection: Axis.vertical, child: _table(theme, tableWidth),
-                  )
-                : _table(theme, tableWidth),
+            child: _table(theme, tableWidth),
           );
         }
         return _cards(theme);
@@ -108,178 +104,27 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   // ---- 卡片模式（窄视口） ----
-
-  /// 具名列：label 非空的列（主字段/细节字段的候选）。
-  List<AdminDataColumn> get _namedColumns =>
-      widget.columns.where((c) => c.label.isNotEmpty).toList();
-
-  /// 主字段：首个 `cardPrimary` 列，缺省 = 首个具名列。
-  AdminDataColumn? get _cardPrimaryColumn {
-    for (final column in widget.columns) {
-      if (column.cardPrimary) return column;
-    }
-    final named = _namedColumns;
-    return named.isEmpty ? null : named.first;
-  }
-
-  /// 细节字段：`cardDetail` 列，缺省 = 主字段之后的 2 个具名列。
-  List<AdminDataColumn> get _cardDetailColumns {
-    final flagged = widget.columns.where((c) => c.cardDetail).toList();
-    if (flagged.isNotEmpty) return flagged;
-    final named = _namedColumns;
-    if (named.isEmpty) return const [];
-    final primary = _cardPrimaryColumn;
-    if (primary == null) return const [];
-    return named.skip(named.indexOf(primary) + 1).take(2).toList();
-  }
-
-  /// 前导列（Checkbox 等）：首个空 label 列原样复用。
-  AdminDataColumn? get _cardLeading {
-    for (final column in widget.columns) {
-      if (column.label.isEmpty) return column;
-    }
-    return null;
-  }
-
-  /// 尾随列（PopupMenuButton 等）：末尾空 label 列原样复用。
-  AdminDataColumn? get _cardTrailing {
-    AdminDataColumn? trailing;
-    for (final column in widget.columns) {
-      if (column.label.isEmpty) trailing = column;
-    }
-    return trailing;
-  }
+  // 列表结构（排序条 + 数据卡行）在此组装（perf_gates _lazyExemptions
+  // 登记：卡片数受分页 itemCount 约束，有界）；单卡渲染（主/细节字段
+  // 派生、CopyableCell 复制保留、StatusChip 前缀、密度内边距）在
+  // admin_data_table/card_mode.dart（AdminDataTableCards.rows +
+  // AdminDataTableCard），保持主文件 ≤400 行。
 
   Widget _cards(ThemeData theme) {
     final cards = <Widget>[
-      _sortBar(theme),
-      for (var i = 0; i < widget.itemCount; i++)
-        StaggeredFadeIn(index: i, child: _dataCard(theme, i)),
+      for (final row in AdminDataTableCards.rows(widget, theme)) row,
     ];
     if (widget.scrollable) {
       return SingleChildScrollView(
-        scrollDirection: Axis.vertical, child: Column(children: cards),
+        scrollDirection: Axis.vertical,
+        child: Column(children: cards),
       );
     }
     return Column(children: cards);
   }
 
-  /// 排序条：可排序列 → ChoiceChip（仅 onSort != null 时渲染）；选中列
-  /// 追加方向箭头，与表头排序指示同源（升/降/无三态）。
-  Widget _sortBar(ThemeData theme) {
-    final sortable = widget.columns
-        .where((c) => c.sortable && widget.onSort != null)
-        .toList();
-    if (sortable.isEmpty) return const SizedBox.shrink();
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          for (final column in sortable) ...[
-            ChoiceChip(
-              label: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(column.label, style: const TextStyle(fontSize: 12)),
-                if (widget.sortColumn == column.id)
-                  Icon(widget.sortAscending ? Icons.arrow_upward : Icons.arrow_downward, size: 12),
-              ]),
-              selected: widget.sortColumn == column.id,
-              onSelected: (_) => widget.onSort!(column.id),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _dataCard(ThemeData theme, int i) {
-    final leading = _cardLeading;
-    var trailing = _cardTrailing;
-    if (identical(leading, trailing)) trailing = null;
-    final primary = _cardPrimaryColumn;
-    final details = _cardDetailColumns;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hoveredRow = i),
-      onExit: (_) => setState(() => _hoveredRow = null),
-      child: InkWell(
-        onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(i),
-        onLongPress: widget.onRowLongPress == null
-            ? null
-            : () => widget.onRowLongPress!(i),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _hoveredRow == i
-                ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                : null,
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              if (leading != null) leading.builder(context, i),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (primary != null) _cardCell(primary, i, primary: true),
-                    for (final column in details) _cardCell(column, i),
-                  ],
-                ),
-              ),
-              if (trailing != null) trailing.builder(context, i),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 卡片单元格：可提取文本的单元格渲染为指定样式的 Text
-  /// （主字段 titleSmall w600；细节字段 bodySmall + `label: value`），
-  /// 其余（StatusChip 等）原样复用 builder 产物。
-  Widget _cardCell(AdminDataColumn column, int i, {bool primary = false}) {
-    final theme = Theme.of(context);
-    final built = column.builder(context, i);
-    final value = _cellValue(built);
-    if (value == null) return built;
-    if (primary) {
-      return Text(
-        value,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      );
-    }
-    return Text(
-      '${column.label}: $value',
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-    );
-  }
-
-  static String? _cellValue(Widget widget) {
-    if (widget is Text) return widget.data;
-    if (widget is TableCellText) return widget.text;
-    if (widget is CopyableCell) return widget.text;
-    return null;
-  }
-
   Widget _table(ThemeData theme, double tableWidth) {
-    return SingleChildScrollView(
+    final horizontal = SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
         constraints: BoxConstraints(minWidth: tableWidth),
@@ -292,6 +137,12 @@ class _AdminDataTableState extends State<AdminDataTable> {
           ],
         ),
       ),
+    );
+    // scrollable 时表格自滚（固定高容器内纵向滚动）；否则由页面滚动承载。
+    if (!widget.scrollable) return horizontal;
+    return SingleChildScrollView(
+      scrollDirection: Axis.vertical,
+      child: horizontal,
     );
   }
 
@@ -321,8 +172,15 @@ class _AdminDataTableState extends State<AdminDataTable> {
   }
 
   Widget _dataRow(ThemeData theme, double tableWidth, int i) {
+    // R49：仅可交互行（有点击/长按回调）显示 hover 高亮——只读/禁用行
+    // 保持中性底色，避免“可点”的虚假 affordance（行操作约定 a/d）。
+    final interactive =
+        widget.onRowTap != null || widget.onRowLongPress != null;
     return StaggeredFadeIn(index: i, child: MouseRegion(
-      onEnter: (_) => setState(() => _hoveredRow = i),
+      onEnter: (_) {
+        if (!interactive) return;
+        setState(() => _hoveredRow = i);
+      },
       onExit: (_) => setState(() => _hoveredRow = null),
       child: SizedBox(
         width: tableWidth,
@@ -332,7 +190,7 @@ class _AdminDataTableState extends State<AdminDataTable> {
               ? null
               : () => widget.onRowLongPress!(i),
           child: AnimatedContainer(duration: const Duration(milliseconds: 150),
-            color: _hoveredRow == i
+            color: interactive && _hoveredRow == i
                 ? theme.colorScheme.primary.withValues(alpha: 0.05)
                 : i.isEven
                 ? null

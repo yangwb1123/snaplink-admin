@@ -4,11 +4,13 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/info_row.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
 /// 租户详情各子资源 tab（成员/邀请/用量/品牌）。成员与邀请用
-/// AdminDataTable（compact），用量为 METRIC/VALUE 两列表，三态齐全。
+/// AdminDataTable（compact）；用量是租户粒度的汇总键值对，属明细区块，
+/// 用 InfoRow 逐行呈现（R42：不误用表格），三态齐全。
 class TenantMembersTab extends StatelessWidget {
   final List<dynamic> members;
   final String? error;
@@ -229,6 +231,15 @@ class TenantUsageTab extends StatelessWidget {
     'mfa_challenges',
   ];
 
+  /// 指标字段（logins/tokens/active…）走千分位计数；period/period_start
+  /// 等元数据原样展示；缺失回退 '—'（信息完整性优先于裸 formatCount）。
+  static String _usageValue(Map<String, dynamic> usage, String key) {
+    final raw = usage[key];
+    if (raw == null) return '—';
+    final n = raw is num ? raw : num.tryParse('$raw');
+    return n == null ? raw.toString() : formatCount(n);
+  }
+
   @override
   Widget build(BuildContext context) => ListView(
     padding: const EdgeInsets.all(16),
@@ -266,31 +277,12 @@ class TenantUsageTab extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                AdminDataTable(
-                  density: TableDensity.compact,
-                  minWidth: 420,
-                  columns: [
-                    AdminDataColumn(
-                      id: 'metric',
-                      label: 'METRIC',
-                      width: 200,
-                      builder: (context, i) => TableCellText(
-                        _labels[i],
-                        bold: true,
-                      ),
-                    ),
-                    AdminDataColumn(
-                      id: 'value',
-                      label: 'VALUE',
-                      builder: (context, i) => TableCellText(
-                        formatCount(usage[_keys[i]]),
-                        muted: true,
-                      ),
-                    ),
-                  ],
-                  itemCount: _labels.length,
-                  rowBuilder: (context, i) => const SizedBox.shrink(),
-                ),
+                for (var i = 0; i < _labels.length; i++)
+                  InfoRow(
+                    label: _labels[i],
+                    value: _usageValue(usage, _keys[i]),
+                    labelWidth: 150,
+                  ),
               ],
             ),
           ),

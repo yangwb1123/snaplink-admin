@@ -87,14 +87,44 @@ class _ClientsTabState extends State<ClientsTab>
   }
   Future<SSOAdminListPage> _loadPage() async {
     if (_expiringOnly) {
-      final items = await widget.client.listExpiringClients();
-      return _lastPage = SSOAdminListPage(items: items, nextPageToken: null, totalSize: items.length);
+      // 临期列表是内存整页（无游标分页）：search/status 叠加为 AND 客户端
+      // 过滤、orderBy 客户端排序——与普通模式服务端语义对齐，不再静默丢弃（R44）。
+      var items = await widget.client.listExpiringClients();
+      final text = _filterCtrl.text.trim().toLowerCase();
+      if (text.isNotEmpty) {
+        items = items
+            .where(
+              (c) =>
+                  (c['id']?.toString() ?? '').toLowerCase().contains(text) ||
+                  (c['name']?.toString() ?? '').toLowerCase().contains(text),
+            )
+            .toList();
+      }
+      if (_statusFilter != 'all') {
+        final active = _statusFilter == 'active';
+        items = items.where((c) => (c['active'] == true) == active).toList();
+      }
+      if (_orderBy != 'id') {
+        final desc = _orderBy.startsWith('-');
+        final key = desc ? _orderBy.substring(1) : _orderBy;
+        items.sort(
+          (a, b) =>
+              (a[key]?.toString() ?? '').compareTo(b[key]?.toString() ?? ''),
+        );
+        if (desc) items = items.reversed.toList();
+      }
+      return _lastPage = SSOAdminListPage(
+        items: items,
+        nextPageToken: null,
+        totalSize: items.length,
+      );
     }
+    final text = _filterCtrl.text.trim();
     final query = _statusFilter == 'all'
-        ? _filterCtrl.text
-        : _filterCtrl.text.trim().isEmpty
+        ? text
+        : text.isEmpty
         ? 'active:${_statusFilter == 'active'}'
-        : '${_filterCtrl.text.trim()} and active:${_statusFilter == 'active'}';
+        : '$text and active:${_statusFilter == 'active'}';
     return _lastPage = await widget.client.listClients(
       pageToken: currentPageToken,
       pageSize: _pageSize,
@@ -165,7 +195,14 @@ class _ClientsTabState extends State<ClientsTab>
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken == null) return;
     setState(() {
-      goNext(page.nextPageToken);
+      goNext(page.nextPageToken, page: page);
+      _future = _loadPage();
+    });
+  }
+
+  /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页，R46）。
+  void _retryPage() {
+    setState(() {
       _future = _loadPage();
     });
   }
@@ -278,7 +315,7 @@ class _ClientsTabState extends State<ClientsTab>
             builder: (context, snap) {
               if (!snap.hasData) {
                 if (snap.hasError) {
-                  return ErrorStateView(message: '${snap.error}', onRetry: _reload);
+                  return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
                 }
                 return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
               }
@@ -340,17 +377,19 @@ class _ClientsTabState extends State<ClientsTab>
         _statusFilter != 'all' ||
         _expiringOnly;
     final list = items.isEmpty
-        ? EmptyState(
-            variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-            icon: filtered ? null : Icons.apps,
-            title: 'No clients',
-            subtitle: filtered ? 'No clients match the current filter.' : 'Create your first client to get started.',
-            actionLabel: filtered ? 'Clear filter' : 'Create client',
-            actionIcon: filtered ? Icons.filter_alt_off : null,
-            onAction: filtered
-                ? _clearFilter
-                : () => AdminRoute.go('clients', action: 'new'),
-          )
+        ? onFirstPage
+              ? EmptyState(
+                  variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+                  icon: filtered ? null : Icons.apps,
+                  title: 'No clients',
+                  subtitle: filtered ? 'No clients match the current filter.' : 'Create your first client to get started.',
+                  actionLabel: filtered ? 'Clear filter' : 'Create client',
+                  actionIcon: filtered ? Icons.filter_alt_off : null,
+                  onAction: filtered
+                      ? _clearFilter
+                      : () => AdminRoute.go('clients', action: 'new'),
+                )
+              : EmptyPageState(onBackToFirst: _reload)
         : _dataTable(items);
     final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
     return LayoutBuilder(

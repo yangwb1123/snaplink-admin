@@ -286,18 +286,9 @@ def handle(conn):
         
         # Handle CORS preflight
         if method == 'OPTIONS':
-            resp = (
-                'HTTP/1.1 204 No Content\r\n'
-                'Access-Control-Allow-Origin: *\r\n'
-                'Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS\r\n'
-                'Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With\r\n'
-                'Access-Control-Max-Age: 86400\r\n'
-                'Content-Length: 0\r\n'
-                'Connection: close\r\n\r\n'
-            )
-            conn.sendall(resp.encode())
+            _send_cors_preflight(conn)
             return
-        
+
         # API proxy
         is_api = should_proxy(method, path)
         if is_api:
@@ -328,6 +319,20 @@ def handle(conn):
             conn.close()
         except Exception as exc:
             print(f'robust_proxy: close error: {exc}')
+
+def _send_cors_preflight(conn):
+    """Reply to a CORS preflight (OPTIONS) with the allowed methods/headers."""
+    resp = (
+        'HTTP/1.1 204 No Content\r\n'
+        'Access-Control-Allow-Origin: *\r\n'
+        'Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS\r\n'
+        'Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With\r\n'
+        'Access-Control-Max-Age: 86400\r\n'
+        'Content-Length: 0\r\n'
+        'Connection: close\r\n\r\n'
+    )
+    conn.sendall(resp.encode())
+
 
 def serve():
     """Main server loop."""
