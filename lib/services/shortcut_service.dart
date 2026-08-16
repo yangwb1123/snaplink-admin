@@ -90,6 +90,7 @@ class ShortcutService {
     }
 
     if (key == '?' && controlPressed) {
+      preventDefault();
       _onShowShortcuts?.call();
     }
   }

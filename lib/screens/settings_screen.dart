@@ -6,6 +6,7 @@ import '../services/browser_navigation.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
 import '../widgets/app_snackbar.dart';
+import '../widgets/error_boundary.dart';
 import '../widgets/language_selector.dart';
 import '../theme/app_colors.dart';
 import 'settings/settings_form_layout.dart';
@@ -89,63 +90,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Text(strings.settings),
         ),
       ),
-      body: Center(
-        // 桌面超宽屏：表单行不再贴边拉伸，居中收窄到可读宽度。
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 840),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // ── 偏好分组：紧凑 form 行 ──
-              SettingsGroup(
-                children: [
-                  SettingsFormItem(
-                    icon: Icons.translate,
-                    iconColor: AppColors.groupOverview, // 导航组色板 sky
-                    label: strings.language,
-                    control: _SettingsReactive(
-                      builder: (_) => LanguageDropdown(),
+      body: ErrorBoundary(
+        // 设置页（从 admin 壳层/命令面板/登录页三处 push 的独立路由页）
+        // 页面级边界：表单构建崩溃 → 兜底 UI + 重载，不影响来源页面。
+        child: Center(
+          // 桌面超宽屏：表单行不再贴边拉伸，居中收窄到可读宽度。
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 840),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // ── 偏好分组：紧凑 form 行 ──
+                SettingsGroup(
+                  children: [
+                    SettingsFormItem(
+                      icon: Icons.translate,
+                      iconColor: AppColors.groupOverview, // 导航组色板 sky
+                      label: strings.language,
+                      control: _SettingsReactive(
+                        builder: (_) => LanguageDropdown(),
+                      ),
                     ),
-                  ),
-                  SettingsFormItem(
-                    icon: Icons.palette_outlined,
-                    iconColor: AppColors.groupIdentity, // 导航组色板 indigo-violet
-                    label: strings.theme,
-                    description: strings.translate(
-                      'Appearance follows the system or your explicit choice.',
+                    SettingsFormItem(
+                      icon: Icons.palette_outlined,
+                      iconColor: AppColors.groupIdentity, // 导航组色板 indigo-violet
+                      label: strings.theme,
+                      description: strings.translate(
+                        'Appearance follows the system or your explicit choice.',
+                      ),
+                      control: _SettingsReactive(
+                        builder: (_) => SettingsThemePicker(strings: strings),
+                      ),
                     ),
-                    control: _SettingsReactive(
-                      builder: (_) => SettingsThemePicker(strings: strings),
+                    SettingsFormItem(
+                      icon: Icons.view_sidebar_outlined,
+                      iconColor: AppColors.groupDevelopers, // 导航组色板 emerald
+                      label: strings.adminNavMode,
+                      description: strings.translate(
+                        'Standard shows Overview, Clients, and Users. Professional '
+                        'shows every module enabled by your server.',
+                      ),
+                      control: _SettingsReactive(
+                        builder: (_) => _AdminNavModeSwitch(),
+                      ),
                     ),
-                  ),
-                  SettingsFormItem(
-                    icon: Icons.view_sidebar_outlined,
-                    iconColor: AppColors.groupDevelopers, // 导航组色板 emerald
-                    label: strings.adminNavMode,
-                    description: strings.translate(
-                      'Standard shows Overview, Clients, and Users. Professional '
-                      'shows every module enabled by your server.',
-                    ),
-                    control: _SettingsReactive(
-                      builder: (_) => _AdminNavModeSwitch(),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
-              // 用 amber 图标 + 行内表单突出。 ──
-              _buildServiceGroup(strings),
-              // 保存按钮跟随 SSO 行（web 禁用）。
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FilledButton(
-                  onPressed: kIsWeb ? null : _saveBaseUrl,
-                  child: Text(strings.save),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
+                // 用 amber 图标 + 行内表单突出。 ──
+                _buildServiceGroup(strings),
+                // 保存按钮跟随 SSO 行（web 禁用）。
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton(
+                    onPressed: kIsWeb ? null : _saveBaseUrl,
+                    child: Text(strings.save),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

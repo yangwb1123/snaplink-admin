@@ -2,21 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
-import 'package:sso_admin/widgets/staggered_fade_in.dart';
-
-/// Renders one session entry plus its divider; keeps the per-item
-/// conditionals out of the ListView builder tree. Entry wrapped in
-/// [StaggeredFadeIn] for the list entrance animation (R7 convention).
-List<Widget> sessionSections(
-  BuildContext context,
-  dynamic s,
-  bool isLast,
-  Future<void> Function(String) onRevoke,
-  int index,
-) => [
-  StaggeredFadeIn(index: index, child: sessionTile(context, s, onRevoke)),
-  if (!isLast) const Divider(height: 1),
-];
 
 /// Renders a single session row with its UA-derived meta lines.
 /// [busy] 置位时行尾换成 spinner（撤销进行中，防重入）。

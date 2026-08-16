@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../i18n/app_strings.dart';
+import '../../widgets/brand_logo.dart';
 import 'dcr_models.dart';
 import 'developer_api.dart';
 import 'discovery_region_notice.dart';
@@ -99,6 +100,9 @@ class _DeveloperScreenState extends State<DeveloperScreen>
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
+        // 壳层头部与 Portal/Admin 一致：左上角品牌标记（R65）。
+        // 本页无抽屉，品牌标记纯展示不可点。
+        leading: const BrandLogo(),
         title: Semantics(container: true, header: true, child: Text(strings.developerPortal)),
         bottom: TabBar(
           controller: _tabController,

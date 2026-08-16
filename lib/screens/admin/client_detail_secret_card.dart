@@ -16,6 +16,7 @@ Future<void> showClientDetailSecret(
   barrierDismissible: false,
   builder: (dialogContext) => ClientSecretDialog(
     secret: secret,
+    copyable: true,
     expiryLabel: expiresAt > 0
         ? dialogContext.tr('Expires: {time}', {
             'time': DateTime.fromMillisecondsSinceEpoch(
@@ -99,7 +100,7 @@ class ClientSecretDialog extends StatelessWidget {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: secret));
                         if (context.mounted) {
-                          showAppSnackBar(context, content: LocalizedText('Copied to clipboard'));
+                          showCopySnackBar(context, content: LocalizedText('Copied to clipboard'));
                         }
                       },
                     ),

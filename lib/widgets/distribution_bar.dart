@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
 
 /// One segment of a [DistributionBar].
@@ -47,14 +48,20 @@ class DistributionBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final brightness = Theme.of(context).brightness;
     final effectiveTotal =
         total ?? segments.fold<int>(0, (sum, s) => sum + s.value);
     if (effectiveTotal <= 0) {
-      return Container(
-        height: height,
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(999),
+      return Semantics(
+        container: true,
+        label: AppStrings.of(context).noData,
+        excludeSemantics: true,
+        child: Container(
+          height: height,
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+            borderRadius: BorderRadius.circular(999),
+          ),
         ),
       );
     }
@@ -70,59 +77,75 @@ class DistributionBar extends StatelessWidget {
             for (final segment in visible)
               if (segment.label != emphasizedLabel) segment,
           ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
-            height: height,
-            color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-            child: Row(
+    // R64：无障碍——仅色条（showLegend: false）对读屏完全静默，统一由
+    // 一个汇总标签表达；浅色恒等原色，dark 下分段色经 semanticFor 提亮
+    // （R29 对比度门禁，warning 2.83→8.76:1 ≥AA）。
+    final label = ordered
+        .map((segment) => '${context.tr(segment.label)} ${formatCount(segment.value)}')
+        .join(', ');
+    return Semantics(
+      container: true,
+      label: label,
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: Container(
+              height: height,
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              child: Row(
+                children: [
+                  for (final segment in ordered)
+                    Expanded(
+                      flex: segment.value,
+                      child: ColoredBox(
+                        color: AppColors.semanticFor(brightness, segment.color),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (showLegend) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 for (final segment in ordered)
-                  Expanded(
-                    flex: segment.value,
-                    child: ColoredBox(color: segment.color),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppColors.semanticFor(
+                            brightness,
+                            segment.color,
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${context.tr(segment.label)} · ${formatCount(segment.value)}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: segment.label == emphasizedLabel
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
-          ),
-        ),
-        if (showLegend) ...[
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              for (final segment in ordered)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: segment.color,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${context.tr(segment.label)} · ${formatCount(segment.value)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                        fontWeight: segment.label == emphasizedLabel
-                            ? FontWeight.w700
-                            : FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

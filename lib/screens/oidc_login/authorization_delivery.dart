@@ -15,7 +15,6 @@
 /// transaction, and nothing is replayed on refresh.
 library;
 
-import '../../i18n/app_strings.dart';
 import 'authorization_redirect_policy.dart';
 import 'oauth_params.dart';
 
@@ -158,40 +157,3 @@ bool _isServerAttestedTarget(Uri uri) {
   }
   return uri.host.isNotEmpty;
 }
-
-/// Localized copy for the delivery status surface. [delivery] is required for
-/// [AuthorizationDeliveryPhase.resolved].
-String authorizationDeliveryStatusLabel(
-  AppStrings strings,
-  AuthorizationDeliveryPhase phase, [
-  AuthorizationDelivery? delivery,
-]) =>
-    switch (phase) {
-      AuthorizationDeliveryPhase.pending => strings.translate(
-        'Delivering the authorization result…',
-      ),
-      AuthorizationDeliveryPhase.resolved => strings.translate(
-        _deliveryTargetCopy(delivery!.kind),
-        {'host': delivery.redirectUri.host},
-      ),
-      AuthorizationDeliveryPhase.blocked => strings.translate(
-        _blockedDeliveryCopy,
-      ),
-    };
-
-String _deliveryTargetCopy(AuthorizationDeliveryKind kind) => switch (kind) {
-  AuthorizationDeliveryKind.formPost =>
-    'Submitting the authorization result to {host}.',
-  AuthorizationDeliveryKind.signedJarm =>
-    'Delivering the signed JARM envelope to {host}.',
-  AuthorizationDeliveryKind.queryRedirect ||
-  AuthorizationDeliveryKind.fragmentRedirect =>
-    'Redirecting the authorization result to {host}.',
-};
-
-/// Fail-closed copy for the delivery view: the browser never invents a
-/// continuation the server did not attest, and a blocked decision is not
-/// replayed.
-const _blockedDeliveryCopy =
-    'Snaplink did not provide a server-validated authorization continuation. '
-    'No code, token, or error was redirected.';

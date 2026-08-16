@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'portal_api.dart';
@@ -121,35 +122,38 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   @override
   Widget build(BuildContext context) {
     final device = <String, dynamic>{...widget.device, ...?_detail};
-    return AlertDialog(
-      title: Text(
-        device['device_name']?.toString().isNotEmpty == true
-            ? device['device_name'].toString()
-            : context.tr('Device details'),
-      ),
-      // 评估为无需 lazy：详情/活动/活跃会话三类区块均为小条目数（活跃会话
-      // 天然个位数），且处于对话框内无界高度滚动容器，lazy 需 shrinkWrap。
-      content: SizedBox(
-        width: 680,
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _detailsSection(device),
-              const Divider(height: 32),
-              _activitySection(),
-              const Divider(height: 32),
-              _sessionsSection(),
-            ],
+    // 详情对话框级边界：内容构建崩溃 → 兜底 UI + 重载，不破坏所在 tab 页。
+    return ErrorBoundary(
+      child: AlertDialog(
+        title: Text(
+          device['device_name']?.toString().isNotEmpty == true
+              ? device['device_name'].toString()
+              : context.tr('Device details'),
+        ),
+        // 评估为无需 lazy：详情/活动/活跃会话三类区块均为小条目数（活跃会话
+        // 天然个位数），且处于对话框内无界高度滚动容器，lazy 需 shrinkWrap。
+        content: SizedBox(
+          width: 680,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _detailsSection(device),
+                const Divider(height: 32),
+                _activitySection(),
+                const Divider(height: 32),
+                _sessionsSection(),
+              ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.tr('Close')),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.tr('Close')),
-        ),
-      ],
     );
   }
 
@@ -217,10 +221,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          context.tr('Recent activity'),
-          style: theme.textTheme.titleMedium,
-        ),
+        Text(context.tr('Recent activity'), style: theme.textTheme.titleMedium),
         if (_activityLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -247,7 +248,9 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
                     : theme.colorScheme.primary,
               ),
               title: Text(
-                context.tr(event['success'] == false ? 'Failed login' : 'Login'),
+                context.tr(
+                  event['success'] == false ? 'Failed login' : 'Login',
+                ),
               ),
               subtitle: Text(
                 _parts([
@@ -267,10 +270,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          context.tr('Active sessions'),
-          style: theme.textTheme.titleMedium,
-        ),
+        Text(context.tr('Active sessions'), style: theme.textTheme.titleMedium),
         if (_sessionsLoading)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 12),
@@ -292,9 +292,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
                 Icons.key_outlined,
                 color: theme.colorScheme.primary,
               ),
-              title: Text(
-                session['id']?.toString() ?? context.tr('Session'),
-              ),
+              title: Text(session['id']?.toString() ?? context.tr('Session')),
               subtitle: Text(
                 _parts([
                   session['created_at'],

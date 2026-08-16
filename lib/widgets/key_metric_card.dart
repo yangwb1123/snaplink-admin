@@ -63,7 +63,30 @@ class KeyMetricCard extends StatelessWidget {
     );
     final showDelta = delta != null;
     final showSparkline = sparkline != null && sparkline!.isNotEmpty;
-    return HoverCard(
+    // R64：无障碍——单卡汇总标签（标签: 值 [+涨跌] [趋势]），读屏一次播报，
+    // 不依赖视觉顺序（数值在上、标签在下）。
+    final trendSummary = showSparkline && sparkline!.length >= 2
+        ? context.tr('Trend line, {count} points, range {min}–{max}', {
+            'count': formatCount(sparkline!.length),
+            'min': formatDecimal(
+              sparkline!.reduce((a, b) => a < b ? a : b),
+              digits: 1,
+            ),
+            'max': formatDecimal(
+              sparkline!.reduce((a, b) => a > b ? a : b),
+              digits: 1,
+            ),
+          })
+        : '';
+    final semanticLabel =
+        '${context.tr(label)}: ${formatCount(value)}'
+        '${showDelta ? ' (${delta! < 0 ? '-' : '+'}${formatPercent(delta!)})' : ''}'
+        '${trendSummary.isEmpty ? '' : ' ($trendSummary)'}';
+    return Semantics(
+      container: true,
+      label: semanticLabel,
+      excludeSemantics: true,
+      child: HoverCard(
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -146,6 +169,7 @@ class KeyMetricCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }

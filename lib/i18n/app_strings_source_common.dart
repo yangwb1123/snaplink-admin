@@ -29,6 +29,8 @@ const appCommonSourceZh = <String, String>{
   'Search...': '搜索…',
   'Something went wrong': '发生了错误',
   'Retry': '重试',
+  'Trusted': '受信任',
+  'Trend line, {count} points, range {min}–{max}': '趋势线，{count} 个点，范围 {min}–{max}',
   'Search commands...': '搜索命令…',
   'Switch to tab': '切换标签页',
   'Toggle filters': '切换筛选条件',

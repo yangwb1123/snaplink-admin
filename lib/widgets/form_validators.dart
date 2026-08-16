@@ -1,5 +1,3 @@
-import 'package:flutter/material.dart';
-
 /// Static collection of common form validation functions.
 class FormValidators {
   FormValidators._();
@@ -67,60 +65,5 @@ class FormValidators {
       return '$fieldName may only contain letters, numbers, hyphens, and underscores';
     }
     return null;
-  }
-}
-
-/// A standardized text form field with built-in validation.
-///
-/// Replaces the repetitive TextField + validator pattern used across tabs.
-class ValidatedTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final String? hintText;
-  final String? Function(String?)? validator;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final int? maxLines;
-  final Widget? prefixIcon;
-  final Widget? suffixIcon;
-  final void Function(String)? onChanged;
-  final void Function(String)? onSubmitted;
-
-  const ValidatedTextField({
-    super.key,
-    required this.controller,
-    required this.label,
-    this.hintText,
-    this.validator,
-    this.obscureText = false,
-    this.keyboardType,
-    this.maxLines = 1,
-    this.prefixIcon,
-    this.suffixIcon,
-    this.onChanged,
-    this.onSubmitted,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hintText,
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
-        border: const OutlineInputBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-        ),
-        isDense: true,
-      ),
-      validator: validator,
-      onChanged: onChanged,
-      onFieldSubmitted: onSubmitted,
-    );
   }
 }

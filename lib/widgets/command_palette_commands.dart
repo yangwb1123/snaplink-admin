@@ -272,10 +272,34 @@ const commandPaletteItems = <CommandPaletteItem>[
     'Register a new OIDC client',
   ),
   CommandPaletteItem(
+    'Create New User',
+    '/admin/users/new',
+    Icons.add,
+    'Create a new user account',
+  ),
+  CommandPaletteItem(
+    'Create New Tenant',
+    '/admin/tenants/new',
+    Icons.add,
+    'Create a new tenant workspace',
+  ),
+  CommandPaletteItem(
     'Add Domain',
     '/admin/domains/new',
     Icons.add,
     'Register a new email domain',
+  ),
+  CommandPaletteItem(
+    'Add Threat Policy',
+    '/admin/threat-policies/new',
+    Icons.add,
+    'Create a new token threat policy',
+  ),
+  CommandPaletteItem(
+    'Create New Webhook',
+    '/admin/webhooks/new',
+    Icons.add,
+    'Create a new webhook subscription',
   ),
   CommandPaletteItem(
     'Report Credential Compromise',
@@ -288,6 +312,12 @@ const commandPaletteItems = <CommandPaletteItem>[
     '/admin/crypto-keys/rotate',
     Icons.refresh,
     'Rotate the active signing key',
+  ),
+  CommandPaletteItem(
+    'Refresh current view',
+    '/refresh',
+    Icons.refresh,
+    'Reload current page data',
   ),
 ];
 

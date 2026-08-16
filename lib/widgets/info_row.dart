@@ -92,10 +92,9 @@ class InfoRow extends StatelessWidget {
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: copyValue!));
                 if (!context.mounted) return;
-                showAppSnackBar(
+                showCopySnackBar(
                   context,
                   content: const LocalizedText('Copied to clipboard'),
-                  duration: const Duration(seconds: 1),
                 );
               },
             ),

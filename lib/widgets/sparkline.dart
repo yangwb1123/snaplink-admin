@@ -1,9 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/format_helpers.dart';
 
 /// 迷你趋势图（Sparkline）：数值序列 → 平滑折线 + 渐变面积。
 ///
 /// 自绘 CustomPaint（无第三方依赖），数据动画（500ms 从左到右生长）。
+/// R64：系统「减少动态效果」开启时跳过生长动画（直渲终态）；无障碍由
+/// 汇总标签表达（趋势线本身对读屏不可见）。
 class Sparkline extends StatelessWidget {
   /// 数值序列（至少 2 个点才绘制）。
   final List<num> data;
@@ -17,31 +21,69 @@ class Sparkline extends StatelessWidget {
   /// 折线宽度（默认 2）。
   final double strokeWidth;
 
+  /// 无障碍标签（null = 自动汇总：点数 + 范围）。
+  final String? semanticsLabel;
+
   const Sparkline({
     super.key,
     required this.data,
     this.color,
     this.height = 40,
     this.strokeWidth = 2,
+    this.semanticsLabel,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final lineColor = color ?? scheme.primary;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeOutCubic,
-      builder: (context, reveal, _) => CustomPaint(
-        size: Size(double.infinity, height),
-        painter: _SparklinePainter(
-          data: data,
-          color: lineColor,
-          strokeWidth: strokeWidth,
-          reveal: reveal,
-        ),
-      ),
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final min = data.isEmpty
+        ? null
+        : data.reduce((a, b) => a < b ? a : b).toDouble();
+    final max = data.isEmpty
+        ? null
+        : data.reduce((a, b) => a > b ? a : b).toDouble();
+    // R64：无障碍——CustomPaint 对读屏完全静默，汇总标签 = 点数 + 范围
+    // （趋势方向由折线形态表达，读屏给出数值范围）。
+    final label =
+        semanticsLabel ??
+        (data.length < 2
+            ? AppStrings.of(context).noData
+            : context.tr(
+                'Trend line, {count} points, range {min}–{max}',
+                {
+                  'count': formatCount(data.length),
+                  'min': formatDecimal(min, digits: 1),
+                  'max': formatDecimal(max, digits: 1),
+                },
+              ));
+    final painter = _SparklinePainter(
+      data: data,
+      color: lineColor,
+      strokeWidth: strokeWidth,
+      reveal: 1,
+    );
+    return Semantics(
+      container: true,
+      label: label,
+      excludeSemantics: true,
+      child: reduceMotion
+          ? CustomPaint(size: Size(double.infinity, height), painter: painter)
+          : TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOutCubic,
+              builder: (context, reveal, _) => CustomPaint(
+                size: Size(double.infinity, height),
+                painter: _SparklinePainter(
+                  data: data,
+                  color: lineColor,
+                  strokeWidth: strokeWidth,
+                  reveal: reveal,
+                ),
+              ),
+            ),
     );
   }
 }

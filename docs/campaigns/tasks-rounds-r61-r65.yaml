@@ -1,0 +1,115 @@
+# 10 轮推进（第七轮）— R61-R65（命令面板 / 错误边界 / 导出复制 / 图表组件 / 品牌一致性）
+#
+# 串行执行（--mode serial），失败即停由 operator 接管。
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r61-r65.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r61-r65.log
+
+tasks:
+- prompt: |
+    轮次 R61：命令面板与快捷键。步骤：
+    1. 分析 lib/widgets/command_palette.dart、command_palette_commands.dart、
+       shortcuts_dialog.dart 与使用点：
+       a. 命令覆盖：命令面板的命令是否覆盖主要页面跳转/操作（模块
+          导航、设置、刷新、新建等）——缺失清单；
+       b. 快捷键：shortcuts_dialog 展示的快捷键与 command_palette 实际
+          注册的一致性；
+       c. 触发：Ctrl/Cmd+K 等全局触发的注册范围（admin 壳层）；
+       d. 语义：命令面板条目图标/颜色（组色）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失命令补齐（保持命令语义）；
+       - 快捷键一致性；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/command_palette_commands_test.dart（如存在）
+       test/admin_shell_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r61-command-palette.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r61-command-palette.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R62：错误边界覆盖。步骤：
+    1. 分析 lib/widgets/error_boundary.dart 与使用范围：
+       a. 覆盖：页面级 ErrorBoundary 包裹范围（dashboard 壳层有，
+          详情页/对话框/Portal 页面是否缺）；
+       b. 降级：边界内崩溃的降级 UI（错误提示 + 重载）一致性；
+       c. 日志：边界捕获错误的上报（debugPrint）；
+       d. 粒度：过粗（整页）vs 过细（每个组件）的平衡。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失边界的关键页面/详情补 ErrorBoundary（保持行为）；
+       - 降级 UI 统一；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/error_boundary_test.dart（如存在）test/admin_shell_test.dart
+       test/portal_screens_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r62-error-boundaries.md。不跑 git、
+       不提交。
+  output: docs/ui/pages-per-page/r62-error-boundaries.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/error_boundary_test.dart test/admin_shell_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R63：数据导出与复制体验。步骤：
+    1. 分析导出/复制功能（lib/screens/ 的导出下载、CopyableCell、
+       tenant_export、portal_export 等）：
+       a. 导出格式：CSV/JSON 导出的一致性与命名（文件名校验）；
+       b. 复制反馈：CopyableCell 复制后的反馈（SnackBar/图标变化）
+          一致性；
+       c. 敏感数据：凭据/密钥复制的确认与一次性展示；
+       d. 大导出：导出中状态与失败重试。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 复制反馈统一；
+       - 导出状态补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_secondary_tabs_test.dart test/portal_screens_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r63-export-copy.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r63-export-copy.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/portal_screens_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R64：图表组件使用核对。步骤：
+    1. 分析图表类组件（lib/widgets/ 的 distribution_bar、sparkline、
+       progress_ring、metric_delta、count_up、key_metric_card）的使用：
+       a. 覆盖：指标/趋势数据是否使用对应图表组件（裸文本/手绘处
+          清单）；
+       b. 语义：图表的语义标签（无障碍）；
+       c. 动画：count_up/sparkline 动画开关与数据刷新；
+       d. 暗色：图表色在暗模式的对比（回查）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 缺失图表组件处替换（保持数据语义）；
+       - 语义/暗色补齐；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/admin_overview*（如有）test/admin_secondary_tabs_test.dart
+       test/dark_mode_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r64-charts.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r64-charts.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/admin_secondary_tabs_test.dart test/dark_mode_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R65：品牌一致性。步骤：
+    1. 分析品牌展示（lib/widgets/brand_logo.dart、branding_header、
+       tenant_branding 使用）：
+       a. 品牌组件：各入口的品牌展示是否统一用 BrandLogo/品牌头
+          （登录/Portal/Admin 壳层）；
+       b. 品牌数据：租户品牌（logo/名称/色）在各处的应用一致性
+          （登录页品牌 vs Portal 头部）；
+       c. 缺失品牌：无租户品牌时的默认品牌回退一致性；
+       d. 品牌 URL 安全：logo_url 的解析安全（resolveSafeHostedUrl）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 品牌组件统一/回退一致；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart
+       test/admin_shell_test.dart test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r65-branding.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r65-branding.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/login_backdrop_test.dart test/oidc_challenge_flow_test.dart test/admin_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

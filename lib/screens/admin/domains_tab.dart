@@ -171,6 +171,13 @@ class _DomainsTabState extends State<DomainsTab> {
     _filterDomains();
   }
 
+  /// 导出当前筛选结果为 CSV 下载（落盘文件）；空结果由 ExportService 静默跳过。
+  void _exportCsv() {
+    if (_filteredDomains.isEmpty || !mounted) return;
+    ExportService.exportCsv(_filteredDomains, 'domains.csv');
+    showAppSnackBar(context, content: LocalizedText('Exported {n} domains as CSV.', args: {'n': _filteredDomains.length}));
+  }
+
   /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
   void _clearSearch() {
     _searchCtrl.clear();
@@ -239,8 +246,7 @@ class _DomainsTabState extends State<DomainsTab> {
             action: IconButton(
               icon: Icon(Icons.file_download_outlined, color: _accent),
               tooltip: 'Export CSV'.localized,
-              onPressed: () =>
-                  ExportService.exportCsv(_filteredDomains, 'domains.csv'),
+              onPressed: _exportCsv,
             ),
           ),
           const SizedBox(height: 8),

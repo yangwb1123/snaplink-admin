@@ -30,6 +30,18 @@ void showAppSnackBar(
   );
 }
 
+/// 复制类轻提示统一入口（R63）：与 [showAppSnackBar] 同款成功样式，
+/// 固定 1s 轻提示时长（R26 约定：复制反馈不排队、不常驻）。
+/// 全站复制反馈（CopyableCell / InfoRow / 凭据与密钥复制 / JSON 复制）
+/// 一律走本函数，保证时长与样式一致。
+void showCopySnackBar(BuildContext context, {required Widget content}) {
+  showAppSnackBar(
+    context,
+    content: content,
+    duration: const Duration(seconds: 1),
+  );
+}
+
 /// 反馈语义：成功（写操作完成/复制/导出）与错误（写操作失败/未确认）。
 enum AppSnackBarKind { success, error }
 

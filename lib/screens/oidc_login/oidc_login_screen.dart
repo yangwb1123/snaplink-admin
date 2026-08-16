@@ -15,6 +15,7 @@ import '../../services/browser_auth_response.dart';
 import '../../services/browser_navigation.dart';
 import '../../services/product_api_origin.dart';
 import '../../session.dart';
+import '../../widgets/brand_logo.dart';
 import '../../widgets/responsive_entry_card.dart';
 import '../settings_screen.dart';
 import 'account_flow_views.dart';

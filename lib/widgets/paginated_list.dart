@@ -165,7 +165,10 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
 
   /// 记录上一帧已推进的页对象：同帧双触发（连点 Next）只推进一次，
   /// 页面重新加载后对象变化即自然失效（防重入，R46）。
-  Object? _lastAdvancedPage;
+  /// 哨兵初值：未推进过任何页 ≠ null 实参，避免 `goNext(token)` 未传
+  /// page 时被 identical(null, null) 误判为同帧重复而静默丢弃首次推进。
+  static final Object _noPageYet = Object();
+  Object? _lastAdvancedPage = _noPageYet;
 
   void goNext(String? nextPageToken, {Object? page}) {
     if (nextPageToken == null) return;

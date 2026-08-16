@@ -391,7 +391,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   Future<void> _copyResponse() async {
     await Clipboard.setData(ClipboardData(text: AdminOpsHelpers.responseText(_response, _rawResponse)));
     if (mounted) {
-      showAppSnackBar(context, content: LocalizedText('Response copied to clipboard.'));
+      showCopySnackBar(context, content: LocalizedText('Response copied to clipboard.'));
     }
   }
 }

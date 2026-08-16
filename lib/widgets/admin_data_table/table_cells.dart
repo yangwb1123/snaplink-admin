@@ -89,14 +89,13 @@ class CopyableCell extends StatelessWidget {
   }) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (ScaffoldMessenger.maybeOf(contextProvider()) == null) return;
-    showAppSnackBar(
+    showCopySnackBar(
       contextProvider(),
       content: Text(
         AppStrings.of(
           contextProvider(),
         ).translate('Copied to clipboard'),
       ),
-      duration: const Duration(seconds: 1),
     );
   }
 

@@ -164,8 +164,13 @@ extension _PortalScreenShell on _PortalScreenState {
               message: _actionNotice!,
               succeeded: _actionSucceeded,
             ),
+          // 页面级边界：单 tab 构建崩溃 → 兜底 UI，壳层导航/通知/登出仍可用
+          // （与 admin/dashboard_page_resolution 的每模块页边界同一粒度）。
           Expanded(
-            child: PageTransition(pageKey: ValueKey(_navIndex), child: page),
+            child: PageTransition(
+              pageKey: ValueKey(_navIndex),
+              child: ErrorBoundary(child: page),
+            ),
           ),
         ],
       ),

@@ -57,13 +57,12 @@
 | `command_palette_commands.dart` | 命令目录数据（`CommandPaletteItem` + 模块过滤/分组函数） | `title`、`path`、`icon`、`description` | command_palette（间接） |
 | `shortcuts_dialog.dart` | 快捷键参考弹窗（按类别分组，Ctrl+? 触发） | 静态 `show(context)` | admin/dashboard_screen |
 | `deferred_entry_screen.dart` | 代码分割入口占位（加载中 / 失败重试） | `load`、`build` | app_router |
-| `capability_gate.dart` | 后端能力门控（`CapabilityGate` 路径前缀 / `MethodGate` 方法+路径） | `capabilities`、`path`、`child`、`fallback` | 预留（按能力裁剪 UI） |
 
 ## 输入/选择（4）
 
 | 组件 | 职责一句话 | 关键参数 | 使用入口页面 |
 |---|---|---|---|
-| `form_validators.dart` | 表单校验函数集（required/hostname/url/email/minLength/alphanumeric）+ `ValidatedTextField` 标准校验输入框 | `controller`、`label`、`validator`、`obscureText` | 工具库（form_validators_test 锁定） |
+| `form_validators.dart` | 表单校验函数集（required/hostname/url/email/minLength/alphanumeric） | `required`、`hostname`、`url`、`email` 等 | 工具库（form_validators_test 锁定） |
 | `language_selector.dart` | 语言下拉（DropdownMenu 风格，登录头/设置页共用，国旗图标） | `compact`、`enabled` | oidc_login_screen、settings_screen |
 | `theme_selector.dart` | 主题模式下拉（system/light/dark，彩色图标，对比度安全） | `compact`、`enabled` | settings_theme_picker、oidc_login_screen |
 | `select_style.dart` | 登录头下拉共享样式与几何工具（菜单卡片/选中高亮/宽度测量/箭头按钮） | `appHeaderMenuStyle`、`appDropdownEntryStyle`、`appHeaderDropdownWidth` 等 | language_selector、theme_selector（间接） |

@@ -152,7 +152,7 @@ Future<void> copyDcrValue(
   if (value.isEmpty) return;
   await Clipboard.setData(ClipboardData(text: value));
   if (!context.mounted) return;
-  showAppSnackBar(context, content: Text(
+  showCopySnackBar(context, content: Text(
         context.tr('{label} copied.', {'label': context.tr(label)}),
       ));
 }

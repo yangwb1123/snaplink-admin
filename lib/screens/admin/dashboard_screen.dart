@@ -166,6 +166,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         allModules: _visibleModules
             .where((module) => module.isNotEmpty)
             .toList(growable: false),
+        onRefresh: _refreshCapabilities,
       ),
       onShowShortcuts: () => ShortcutsDialog.show(context),
     );

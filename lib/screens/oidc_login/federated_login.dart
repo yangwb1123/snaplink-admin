@@ -17,7 +17,6 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 
-import '../../i18n/app_strings.dart';
 import '../../services/browser_navigation.dart';
 import '../../services/product_api_origin.dart';
 import '../../services/session_storage.dart';
@@ -85,40 +84,6 @@ enum FederatedLoginFailure {
   /// The one-time code exchange at /token failed or timed out.
   tokenExchangeFailed,
 }
-
-/// Localized copy for the federated sign-in return surface. [failure] is
-/// required for [FederatedLoginPhase.failed].
-String federatedLoginStatusLabel(
-  AppStrings strings,
-  FederatedLoginPhase phase, [
-  FederatedLoginFailure? failure,
-]) => switch (phase) {
-  FederatedLoginPhase.pending => strings.translate(
-    'Checking for a pending federated sign-in…',
-  ),
-  FederatedLoginPhase.resolved => strings.translate(
-    'Federated sign-in completed. Resuming your session…',
-  ),
-  FederatedLoginPhase.failed => strings.translate(
-    _failedFederatedLoginCopy(failure),
-  ),
-};
-
-String _failedFederatedLoginCopy(FederatedLoginFailure? failure) =>
-    switch (failure) {
-      FederatedLoginFailure.storageUnavailable =>
-        'Federated sign-in could not start because secure tab storage is '
-            'unavailable.',
-      FederatedLoginFailure.providerDeclined =>
-        'The identity provider declined the sign-in. Start again or choose '
-            'another sign-in method.',
-      FederatedLoginFailure.tokenExchangeFailed =>
-        'The federated sign-in code could not be exchanged. Start sign-in '
-            'again; the one-time callback was not replayed.',
-      _ =>
-        'Federated sign-in could not be completed. Start sign-in again; the '
-            'one-time callback was not replayed.',
-    };
 
 /// Query parameter and JSON field names of the first-party PKCE exchange.
 const _authLoginPath = '/auth/login';

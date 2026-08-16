@@ -114,13 +114,6 @@ Widget menuFlagEmoji(String flag) => SizedBox(
   ),
 );
 
-/// 与控件尺寸匹配的下拉箭头。DropdownMenu 默认把箭头包进 IconButton，在
-/// 20px 收紧约束下被 SDK 内边距（Padding 4 + M3 按钮 Padding 8）塌缩成
-/// 0×0，并从字段右下角溢出绘制（审计 F1）。因此箭头不走 trailingIcon，
-/// 由 [appHeaderDropdownSuffixIcon] 自建按钮直装 suffix 槽。
-IconData get headerDropdownArrowIcon => Icons.arrow_drop_down;
-IconData get headerDropdownArrowUpIcon => Icons.arrow_drop_up;
-
 /// 箭头尺寸（与 [compactHeaderDecoration] / [formHeaderDecoration] 的
 /// suffixIconConstraints 一致，20×20）。
 const headerDropdownArrowSize = 20.0;

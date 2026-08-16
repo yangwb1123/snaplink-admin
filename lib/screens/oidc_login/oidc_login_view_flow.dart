@@ -68,10 +68,12 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   ),
                   const SizedBox(height: 12),
                   // 品牌区：租户配置优先，缺省时展示产品默认品牌。
+                  // 仅配置品牌色（无名称/logo）时仍落入缺省品牌区，但产品名
+                  // 用租户色着染（与 BrandingHeader 的名称着色规则一致）。
                   if (_brandName != null || _brandLogoUrl != null)
                     BrandingHeader(brandLogoUrl: _brandLogoUrl, brandName: _brandName, brandColor: _brandColor)
                   else
-                    _defaultBranding(context),
+                    _defaultBranding(context, brandColor: _brandColor),
                   const SizedBox(height: 16),
                   // 副标语 + 安全徽章：价值主张与信任信号。
                   _trustSignal(context),
@@ -114,24 +116,13 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   }
 
   /// 默认品牌区：产品徽标 + 名称 + 副标题（无租户品牌配置时展示）。
-  /// 徽标沿用 BrandLogo 的品牌渐变语言，缺省品牌与产品视觉一致。
-  Widget _defaultBranding(BuildContext context) {
+  /// 徽标与 Portal/Admin 壳层头部共用 `BrandLogo`（品牌渐变/阴影/图标
+  /// 单一实现，R65）；仅配置品牌色（无名称/logo）时用它着染产品名。
+  Widget _defaultBranding(BuildContext context, {Color? brandColor}) {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primary, AppColors.violet],
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const Icon(Icons.shield_outlined, size: 28, color: Colors.white),
-        ),
+        const BrandLogo(size: 48, iconSize: 28, radius: 12),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -139,7 +130,10 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             children: [
               Text(
                 context.tr('snaplink console'),
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700, color: theme.colorScheme.onSurface),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: brandColor ?? theme.colorScheme.onSurface,
+                ),
               ),
               const SizedBox(height: 4),
               Text(

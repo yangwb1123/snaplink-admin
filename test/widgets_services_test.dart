@@ -126,6 +126,17 @@ void main() {
       ExportService.exportCsv(const [], 'empty.csv');
       expect(capturedDownloads, isEmpty);
     });
+
+    test('sanitizes unsafe filenames before downloading', () {
+      ExportService.exportCsv([{'id': 1}], '../etc/passwd.csv');
+      expect(capturedDownloads.single['filename'], '-etc-passwd.csv');
+      BrowserDownload.resetForTest();
+      ExportService.exportJson([{'id': 1}], r'tenant-1\export.json');
+      expect(capturedDownloads.single['filename'], 'tenant-1-export.json');
+      BrowserDownload.resetForTest();
+      ExportService.exportCsv([{'id': 1}], '..');
+      expect(capturedDownloads.single['filename'], 'export.json');
+    });
   });
 
   group('ConnectivityService', () {

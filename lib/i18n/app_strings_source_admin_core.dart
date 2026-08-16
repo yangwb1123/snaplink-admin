@@ -296,6 +296,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Execute bulk': '执行批量操作',
   'Export CSV': '导出 CSV',
   'Exported {n} clients as CSV to clipboard': '已将 {n} 个客户端以 CSV 导出到剪贴板',
+  'Exported {n} domains as CSV.': '已将 {n} 个域名导出为 CSV。',
   'Export snapshot': '导出快照',
   'Export': '导出',
   'External ID': '外部 ID',

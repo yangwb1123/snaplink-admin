@@ -175,15 +175,6 @@ List<String> adminGroupVisibleModules(
     if (visibleModules.contains(module)) module,
 ];
 
-/// 组内第一个可见模块（点击一级导航时跳转目标）。
-String? adminGroupDefaultModule(
-  AdminModuleGroup group,
-  List<String> visibleModules,
-) {
-  final visible = adminGroupVisibleModules(group, visibleModules);
-  return visible.isEmpty ? null : visible.first;
-}
-
 /// 组标签（i18n）。
 LocalizedText adminGroupLabel(AdminModuleGroup group) =>
     LocalizedText(group.labelKey);

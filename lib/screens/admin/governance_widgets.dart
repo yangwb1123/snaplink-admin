@@ -83,7 +83,7 @@ class GovernanceJsonCard extends StatelessWidget {
             onPressed: () async {
               await Clipboard.setData(ClipboardData(text: jsonText));
               if (context.mounted) {
-                showAppSnackBar(context, content: LocalizedText('JSON copied.'));
+                showCopySnackBar(context, content: LocalizedText('JSON copied.'));
               }
             },
             icon: const Icon(Icons.copy_outlined, size: 16),

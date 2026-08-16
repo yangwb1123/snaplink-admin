@@ -264,7 +264,7 @@ class SetupCredentialValue extends StatelessWidget {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
-    showAppSnackBar(context, content: Text(AppStrings.of(context).copiedLabel(label)));
+    showCopySnackBar(context, content: Text(AppStrings.of(context).copiedLabel(label)));
   }
 
   @override

@@ -15,7 +15,6 @@ library;
 
 import 'dart:convert';
 
-import '../../i18n/app_strings.dart';
 import 'authorization_redirect_policy.dart';
 
 /// Typed terminal channel for a JARM completion, replacing bare field
@@ -185,35 +184,6 @@ bool isTrustedAuthorizationFormPost(String html, Uri expectedRedirect) {
   }
   return counts['code'] == 1;
 }
-
-/// Localized copy for the JARM completion surface: pending (envelope in
-/// flight), resolved (server-signed envelope delivered to its target host),
-/// and blocked (fail closed — nothing unsigned left the hosted page).
-/// [completion] is required for [JarmCompletionPhase.resolved].
-String jarmCompletionStatusLabel(
-  AppStrings strings,
-  JarmCompletionPhase phase, [
-  JarmCompletion? completion,
-]) => switch (phase) {
-  JarmCompletionPhase.pending => strings.translate(
-    'Delivering the signed JARM envelope…',
-  ),
-  JarmCompletionPhase.resolved => strings.translate(
-    _resolvedJarmCopy(completion!.kind),
-    {'host': completion.resolvedHost ?? ''},
-  ),
-  JarmCompletionPhase.blocked => strings.translate(
-    JarmCompletion.blockedMessage,
-  ),
-};
-
-String _resolvedJarmCopy(JarmCompletionKind kind) => switch (kind) {
-  JarmCompletionKind.redirect =>
-    'Delivering the signed JARM envelope to {host}.',
-  JarmCompletionKind.formPost =>
-    'Submitting the signed JARM envelope to {host}.',
-  JarmCompletionKind.blocked => JarmCompletion.blockedMessage,
-};
 
 const _jarmModes = {'jwt', 'query.jwt', 'fragment.jwt', 'form_post.jwt'};
 

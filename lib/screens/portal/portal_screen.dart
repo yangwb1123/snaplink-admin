@@ -19,6 +19,7 @@ import 'notification_bell.dart';
 import 'portal_entry.dart';
 import '../../session.dart';
 import '../../services/browser_navigation.dart';
+import '../../widgets/error_boundary.dart';
 import '../../widgets/responsive_navigation_scaffold.dart';
 
 part 'portal_screen_notifications.dart';

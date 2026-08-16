@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -41,13 +42,16 @@ class DeviceStatsCards extends StatelessWidget {
     ];
     final total = stats['total'] ?? fleetTotal;
     final suspiciousCount = stats['suspicious'] ?? 0;
+    final totalValue = total is num && total > 0 ? total.toInt() : 0;
     final riskyFraction = total is num && total > 0
         ? (suspiciousCount is num ? suspiciousCount : 0) / total.toDouble()
         : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 信任分布条（数据表达：可疑占比一眼可见，色编码）。
+        // 信任分布条（数据表达：可疑/受信任占比一眼可见，色编码）。
+        // R64：手绘渐变条 → 统一 DistributionBar（同 connections 摘要），
+        // 保留 "{percent}% suspicious" 文案行；分段色 dark 下自动提亮。
         Padding(
           padding: const EdgeInsets.only(bottom: 4),
           child: Row(
@@ -82,24 +86,26 @@ class DeviceStatsCards extends StatelessWidget {
             ],
           ),
         ),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: Container(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: DistributionBar(
             height: 6,
-            margin: const EdgeInsets.only(bottom: 12),
-            color: AppColors.success.withValues(alpha: 0.15),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: riskyFraction.clamp(0.0, 1.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(999),
-                  gradient: LinearGradient(
-                    colors: [AppColors.warning, AppColors.danger],
-                  ),
-                ),
+            showLegend: false,
+            segments: [
+              DistributionSegment(
+                label: 'Suspicious',
+                value: suspiciousCount is num ? suspiciousCount.toInt() : 0,
+                color: AppColors.danger,
               ),
-            ),
+              DistributionSegment(
+                label: 'Trusted',
+                value: (totalValue - suspiciousCount)
+                    .clamp(0, totalValue)
+                    .toInt(),
+                color: AppColors.success,
+              ),
+            ],
+            total: totalValue,
           ),
         ),
         Wrap(

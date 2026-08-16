@@ -1,0 +1,101 @@
+# 10 轮推进（第七轮）— R66-R70（全局状态反映 / 死代码清理 / TODO 清理 / 测试覆盖 / 综合终检）
+#
+# 运行（项目根）：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r66-r70.yaml \
+#     --mode serial --timeout 1500 --log-file logs/rounds-r66-r70.log
+
+tasks:
+- prompt: |
+    轮次 R66：全局状态 UI 反映。步骤：
+    1. 分析 AppSettings/Session 变化的 UI 反映（lib/）：
+       a. AppSettings（语言/主题/模式/服务源）变化后各页面的实时
+          反映（main.dart 的 ListenableBuilder 覆盖范围——哪些页面
+          未随设置变化重建）；
+       b. Session 变化（登录/退出）后的导航与状态清理一致性；
+       c. 服务源切换（原生）后的会话销毁与导航栈清理（已有——核对
+          各入口）。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 设置变化未反映的页面补监听（保持行为）；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/settings_screen_test.dart test/native_shell_test.dart
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r66-global-state.md。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r66-global-state.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/settings_screen_test.dart test/native_shell_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R67：死代码与未用组件清理。步骤：
+    1. 扫描未使用的代码（lib/）：
+       a. 未引用的公共组件/函数/常量（静态分析：grep 引用数为 0 的
+          lib/widgets 与 lib/screens 公共符号）；
+       b. 未使用的 import（flutter analyze 已查——查未被 lint 覆盖的
+          间接未用）；
+       c. 重复定义（同义常量/helper 多处定义）；
+       d. 遗留注释代码块（被注释的大段代码）。
+    2. 清理低风险项（白名单 lib/ + test/）：
+       - 删除未引用公共符号（先确认无测试引用）；
+       - 删除注释代码块；
+       - 不改变行为；不新增依赖；文件 ≤400 行。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/admin_icon_colors_test.dart
+       test/spacing_tokens_gate_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r67-dead-code.md（清理清单 +
+       证据）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r67-dead-code.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/admin_icon_colors_test.dart test/spacing_tokens_gate_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R68：TODO/FIXME 清理。步骤：
+    1. 扫描 lib/ 的 TODO/FIXME/HACK/XXX 注释：
+       a. 清单：每处位置/内容/关联；
+       b. 分类：可立即解决（低风险）、需设计（记录）、已过时（删除）；
+       c. 已过时的（重构已解决）直接删除；可立即解决的解决；需设计
+          的在产物中登记为遗留。
+    2. 修复低风险项（白名单 lib/ + lib/i18n/）：
+       - 过时 TODO 删除/已解决 TODO 关闭；
+       - 保持行为与既有测试；不新增依赖；文件 ≤400 行；
+       - 禁止 'audit' 字样进入 portal/developer/oidc_login。
+    3. 验证：flutter analyze 0 errors；flutter test
+       test/render_matrix_smoke_test.dart test/admin_shell_test.dart
+       全绿。
+    4. 输出 docs/ui/pages-per-page/r68-todos.md（分类表 + 处理清单 +
+       遗留登记）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r68-todos.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/admin_shell_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R69：测试覆盖补强。步骤：
+    1. 分析关键页面的测试覆盖缺口（对照产物问题清单与 test/ 文件）：
+       a. 每入口代表页的组件测试存在性（admin 各 tab、portal 各
+          tab、login 视图、device、setup）；
+       b. 高风险路径（写操作确认/错误重试/批量/分页）的测试覆盖；
+       c. 新共享组件（R51-R60 新增：pull_to_refresh、card_mode 等）
+          的测试。
+    2. 补测试（只新增 test/ 文件或扩展现有）：
+       - 覆盖缺口的关键路径（组件级测试，保持快速）；
+       - 不修改产品代码（除非测试暴露 bug——此时修 lib/ 低风险）；
+       - 不新增依赖。
+    3. 验证：flutter analyze 0 errors；新增测试 + 
+       test/render_matrix_smoke_test.dart 全绿。
+    4. 输出 docs/ui/pages-per-page/r69-test-coverage.md（覆盖矩阵 +
+       新增测试清单）。不跑 git、不提交。
+  output: docs/ui/pages-per-page/r69-test-coverage.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/render_matrix_smoke_test.dart test/admin_data_table_cards_test.dart 2>&1 | grep -qE 'All tests passed!'"
+
+- prompt: |
+    轮次 R70：综合终检（第七轮）。步骤：
+    1. 全站最终检查：
+       a. 复跑全部常驻门禁（i18n/spacing/三态/图标/渲染矩阵/性能/
+          census/guard）+ cli.py harness；
+       b. 抽查 R61-R69 产物（每轮 1-2 项修复在代码中的证据）；
+       c. 全量 flutter test + browser 关键测试；
+       d. 残留检查（test/zz_*、idget*、0 字节、临时文件）。
+    2. 修复发现的问题（低风险）。
+    3. 输出 docs/ui/pages-per-page/r70-final-audit-7.md（门禁全量表 +
+       抽查表 + 残留检查 + 总结论）。
+       VALIDATE 命令跑门禁集合。
+    4. 不跑 git、不提交。
+  output: docs/ui/pages-per-page/r70-final-audit-7.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings 2>&1 | grep -cE '^\\s+error' | grep -q '^0$' && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_icon_colors_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart 2>&1 | grep -qE 'All tests passed!'"

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/screens/admin/admin_module_groups.dart';
 import 'package:sso_admin/screens/admin/admin_route.dart';
 import 'package:sso_admin/screens/settings_screen.dart';
 import 'package:sso_admin/widgets/command_palette_commands.dart';
@@ -16,23 +17,37 @@ class CommandPalette extends StatefulWidget {
   final String currentModule;
   final List<String> allModules;
 
+  /// 刷新回调（对应 Ctrl+R 与面板 'Refresh current view' 命令）；由管理
+  /// 壳层注入，null 时该命令仅关闭面板。
+  final VoidCallback? onRefresh;
+
   const CommandPalette({
     super.key,
     required this.currentModule,
     required this.allModules,
+    this.onRefresh,
   });
+
+  /// 已打开标记：防止 Ctrl/Cmd+K 连按在已打开的面板上再压入一层对话框。
+  static bool _isOpen = false;
 
   /// Show the command palette as a dialog.
   static Future<void> show(
     BuildContext context, {
     required String currentModule,
     required List<String> allModules,
+    VoidCallback? onRefresh,
   }) {
+    if (_isOpen) return Future.value();
+    _isOpen = true;
     return showDialog(
       context: context,
-      builder: (_) =>
-          CommandPalette(currentModule: currentModule, allModules: allModules),
-    );
+      builder: (_) => CommandPalette(
+        currentModule: currentModule,
+        allModules: allModules,
+        onRefresh: onRefresh,
+      ),
+    ).whenComplete(() => _isOpen = false);
   }
 
   @override
@@ -100,7 +115,7 @@ class _CommandPaletteState extends State<CommandPalette> {
       );
     }
     return ListTile(
-      leading: Icon(cmd.icon, size: 20),
+      leading: Icon(cmd.icon, size: 20, color: _commandIconColor(cmd)),
       title: LocalizedText(
         cmd.title,
         style: const TextStyle(fontSize: 14),
@@ -117,6 +132,18 @@ class _CommandPaletteState extends State<CommandPalette> {
     );
   }
 
+  /// 命令图标颜色：admin 命令继承所属导航组色（与 rail/子菜单同色系）；
+  /// 全局命令（设置/刷新）保持中性主题色，不冒充任何组。
+  Color _commandIconColor(CommandPaletteItem cmd) {
+    if (!cmd.path.startsWith('/admin/')) {
+      return Theme.of(context).colorScheme.onSurfaceVariant;
+    }
+    return adminModuleIconColorFor(
+      cmd.routeModule,
+      Theme.of(context).brightness,
+    );
+  }
+
   void _activate(CommandPaletteItem cmd) {
     final navigator = Navigator.of(context);
     navigator.pop();
@@ -126,6 +153,11 @@ class _CommandPaletteState extends State<CommandPalette> {
           builder: (_) => const SettingsScreen(),
         ),
       );
+      return;
+    }
+    if (cmd.path == '/refresh') {
+      // 与 Ctrl+R 同一回调：壳层刷新能力/数据，行为保持一致。
+      widget.onRefresh?.call();
       return;
     }
     AdminRoute.go(
