@@ -29,18 +29,22 @@ void main() {
         reason: '${group.id} must have its own accent (not the fallback)',
       );
     }
-    final distinct = adminModuleGroups
-        .map((g) => g.iconColor)
-        .toSet();
-    expect(distinct.length, adminModuleGroups.length,
-        reason: 'every group gets a distinct color');
+    final distinct = adminModuleGroups.map((g) => g.iconColor).toSet();
+    expect(
+      distinct.length,
+      adminModuleGroups.length,
+      reason: 'every group gets a distinct color',
+    );
   });
 
   test('module colors inherit their group color', () {
     for (final group in adminModuleGroups) {
       for (final module in group.modules) {
-        expect(adminModuleIconColor(module), group.iconColor,
-            reason: '$module must inherit ${group.id} color');
+        expect(
+          adminModuleIconColor(module),
+          group.iconColor,
+          reason: '$module must inherit ${group.id} color',
+        );
       }
     }
     expect(
@@ -84,19 +88,23 @@ void main() {
       final icons = tester.widgetList<Icon>(find.byIcon(icon));
       expect(icons, isNotEmpty, reason: '$icon must render');
       for (final iconWidget in icons) {
-        expect(iconWidget.color, isNotNull,
-            reason: '$icon must be colored in section selector');
+        expect(
+          iconWidget.color,
+          isNotNull,
+          reason: '$icon must be colored in section selector',
+        );
       }
     }
     // 同组模块共享同色（identity 组 violet）。
-    final appsColor = tester
-        .widget<Icon>(find.byIcon(Icons.apps).first)
-        .color;
+    final appsColor = tester.widget<Icon>(find.byIcon(Icons.apps).first).color;
     final peopleColor = tester
         .widget<Icon>(find.byIcon(Icons.people).first)
         .color;
-    expect(appsColor, peopleColor,
-        reason: 'same-group module icons share the group color');
+    expect(
+      appsColor,
+      peopleColor,
+      reason: 'same-group module icons share the group color',
+    );
   });
 
   // ---------------------------------------------------------------------
@@ -110,17 +118,22 @@ void main() {
         final source = File(path).readAsStringSync();
         for (final call in _findCalls(source)) {
           if (call.name != 'SectionDef') continue;
-          final args = source.substring(call.start + 'SectionDef'.length, call.end - 1);
+          final args = source.substring(
+            call.start + 'SectionDef'.length,
+            call.end - 1,
+          );
           if (!args.contains('color:')) {
             violations.add(
-                '$path:${_lineOf(source, call.start)}: SectionDef without color');
+              '$path:${_lineOf(source, call.start)}: SectionDef without color',
+            );
           }
         }
       }
       expect(
         violations,
         isEmpty,
-        reason: 'navigation section icons must carry an explicit accent color:\n'
+        reason:
+            'navigation section icons must carry an explicit accent color:\n'
             '${violations.join('\n')}',
       );
     });
@@ -132,15 +145,21 @@ void main() {
       final scaffold = File(
         'lib/widgets/responsive_navigation_scaffold.dart',
       ).readAsStringSync();
-      expect(scaffold, contains('selectedIconTheme: IconThemeData('),
-          reason: 'rail selected icons must be themed');
+      expect(
+        scaffold,
+        contains('selectedIconTheme: IconThemeData('),
+        reason: 'rail selected icons must be themed',
+      );
       expect(
         scaffold,
         contains('color: Theme.of(context).colorScheme.primary'),
         reason: 'selected rail icons must use the theme primary (brand) color',
       );
-      expect(scaffold, contains('unselectedIconTheme: IconThemeData('),
-          reason: 'rail unselected icons must be themed');
+      expect(
+        scaffold,
+        contains('unselectedIconTheme: IconThemeData('),
+        reason: 'rail unselected icons must be themed',
+      );
       expect(
         scaffold,
         contains('color: Theme.of(context).colorScheme.onSurfaceVariant'),
@@ -148,80 +167,105 @@ void main() {
       );
     });
 
-    test('page-level icons carry a color or a whitelisted theme-inherit icon', () {
-      final violations = <String>[];
-      for (final path in _screenFiles()) {
-        final source = File(path).readAsStringSync();
-        final calls = _findCalls(source);
-        for (final call in calls) {
-          if (call.name != 'Icon') continue;
-          final args = source.substring(call.start + 'Icon'.length, call.end - 1);
-          if (args.contains('color:')) continue; // 显式上色 → 合规
-          final line = _lineOf(source, call.start);
-          final container = _enclosingContainer(calls, call);
-          if (_themeInheritContainers.contains(container)) continue;
-          final firstArg = args.trim().replaceFirst(RegExp(r'^\(?'), '').trim();
-          final iconName = RegExp(r'^Icons\.([A-Za-z0-9_]+)').firstMatch(firstArg);
-          if (iconName == null) {
-            // 动态图标（变量/条件）：仅允许状态/示意上下文继承主题色。
-            if (_themeInheritDynamicContainers.contains(container)) continue;
-            violations.add('$path:$line: 未上色动态图标 [$container] $firstArg');
-            continue;
+    test(
+      'page-level icons carry a color or a whitelisted theme-inherit icon',
+      () {
+        final violations = <String>[];
+        for (final path in _screenFiles()) {
+          final source = File(path).readAsStringSync();
+          final calls = _findCalls(source);
+          for (final call in calls) {
+            if (call.name != 'Icon') continue;
+            final args = source.substring(
+              call.start + 'Icon'.length,
+              call.end - 1,
+            );
+            if (args.contains('color:')) continue; // 显式上色 → 合规
+            final line = _lineOf(source, call.start);
+            final container = _enclosingContainer(calls, call);
+            if (_themeInheritContainers.contains(container)) continue;
+            final firstArg = args
+                .trim()
+                .replaceFirst(RegExp(r'^\(?'), '')
+                .trim();
+            final iconName = RegExp(
+              r'^Icons\.([A-Za-z0-9_]+)',
+            ).firstMatch(firstArg);
+            if (iconName == null) {
+              // 动态图标（变量/条件）：仅允许状态/示意上下文继承主题色。
+              if (_themeInheritDynamicContainers.contains(container)) continue;
+              violations.add('$path:$line: 未上色动态图标 [$container] $firstArg');
+              continue;
+            }
+            if (_themeInheritIconNames.contains(iconName.group(1))) continue;
+            violations.add(
+              '$path:$line: 未上色图标 [$container] Icons.${iconName.group(1)}',
+            );
           }
-          if (_themeInheritIconNames.contains(iconName.group(1))) continue;
-          violations.add('$path:$line: 未上色图标 [$container] Icons.${iconName.group(1)}');
         }
-      }
-      expect(
-        violations,
-        isEmpty,
-        reason: 'page-level icons outside the theme-inherit whitelist must be '
-            'explicitly colored (add a color: or extend the whitelist in this '
-            'test + docs/ui/pages-per-page/quality-gates.md):\n'
-            '${violations.join('\n')}',
-      );
-    });
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              'page-level icons outside the theme-inherit whitelist must be '
+              'explicitly colored (add a color: or extend the whitelist in this '
+              'test + docs/ui/pages-per-page/quality-gates.md):\n'
+              '${violations.join('\n')}',
+        );
+      },
+    );
 
-    test('admin icons do not use brand primary; other entries do not use admin group colors', () {
-      final violations = <String>[];
-      for (final path in _screenFiles()) {
-        final source = File(path).readAsStringSync();
-        final isAdmin = path.startsWith('lib/screens/admin') ||
-            path == 'lib/screens/settings_screen.dart';
-        for (final call in _findCalls(source)) {
-          if (call.name != 'Icon') continue;
-          final args = source.substring(call.start + 'Icon'.length, call.end - 1);
-          if (!args.contains('color:')) continue;
-          final line = _lineOf(source, call.start);
-          if (isAdmin &&
-              args.contains('colorScheme.primary') &&
-              !args.contains('adminModuleIconColor') &&
-              !args.contains('adminGroupIconColor') &&
-              !args.contains('_accent') &&
-              !args.contains('accent')) {
-            final firstArg = args.trim().replaceFirst(RegExp(r'^\(?'), '').trim();
-            final iconName = RegExp(r'^Icons\.([A-Za-z0-9_]+)')
-                .firstMatch(firstArg)
-                ?.group(1);
-            final exemptKey = iconName == null ? null : '$path|$iconName';
-            if (!_adminBrandIconExemptions.containsKey(exemptKey)) {
-              violations.add('$path:$line: admin 图标使用品牌主色而非组色');
+    test(
+      'admin icons do not use brand primary; other entries do not use admin group colors',
+      () {
+        final violations = <String>[];
+        for (final path in _screenFiles()) {
+          final source = File(path).readAsStringSync();
+          final isAdmin =
+              path.startsWith('lib/screens/admin') ||
+              path == 'lib/screens/settings_screen.dart';
+          for (final call in _findCalls(source)) {
+            if (call.name != 'Icon') continue;
+            final args = source.substring(
+              call.start + 'Icon'.length,
+              call.end - 1,
+            );
+            if (!args.contains('color:')) continue;
+            final line = _lineOf(source, call.start);
+            if (isAdmin &&
+                args.contains('colorScheme.primary') &&
+                !args.contains('adminModuleIconColor') &&
+                !args.contains('adminGroupIconColor') &&
+                !args.contains('_accent') &&
+                !args.contains('accent')) {
+              final firstArg = args
+                  .trim()
+                  .replaceFirst(RegExp(r'^\(?'), '')
+                  .trim();
+              final iconName = RegExp(
+                r'^Icons\.([A-Za-z0-9_]+)',
+              ).firstMatch(firstArg)?.group(1);
+              final exemptKey = iconName == null ? null : '$path|$iconName';
+              if (!_adminBrandIconExemptions.containsKey(exemptKey)) {
+                violations.add('$path:$line: admin 图标使用品牌主色而非组色');
+              }
+            }
+            if (!isAdmin &&
+                (args.contains('adminModuleIconColor') ||
+                    args.contains('adminGroupIconColor'))) {
+              violations.add('$path:$line: 非 admin 入口引用 admin 组色');
             }
           }
-          if (!isAdmin &&
-              (args.contains('adminModuleIconColor') ||
-                  args.contains('adminGroupIconColor'))) {
-            violations.add('$path:$line: 非 admin 入口引用 admin 组色');
-          }
         }
-      }
-      expect(
-        violations,
-        isEmpty,
-        reason: '色彩身份混淆（admin 应组色、其余入口应品牌色）：\n'
-            '${violations.join('\n')}',
-      );
-    });
+        expect(
+          violations,
+          isEmpty,
+          reason:
+              '色彩身份混淆（admin 应组色、其余入口应品牌色）：\n'
+              '${violations.join('\n')}',
+        );
+      },
+    );
   });
 }
 
@@ -269,8 +313,7 @@ const _themeInheritIconNames = <String>{
 /// 角标——设置页整体沿用登录头品牌色系（admin_module_groups.dart 注释），
 /// 选中态用 primary 与 portal rail 的 selectedIconTheme 同语义。
 const _adminBrandIconExemptions = <String, String>{
-  'lib/screens/settings_screen.dart|check_circle':
-      '设置页导航项选中角标（品牌色选中态）',
+  'lib/screens/settings_screen.dart|check_circle': '设置页导航项选中角标（品牌色选中态）',
 };
 
 class _Call {

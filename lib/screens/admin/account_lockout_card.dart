@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
@@ -42,7 +43,10 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Clear account lockout?',
-      message: 'Unlock $identifier for client $clientId?',
+      message: context.tr('Unlock {identifier} for client {clientId}?', {
+        'identifier': identifier,
+        'clientId': clientId,
+      }),
       confirmLabel: 'Clear lockout',
     );
     if (!confirmed) return;
@@ -57,7 +61,10 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       });
       if (!mounted) return;
       _identifierController.clear();
-      showAppSnackBar(context, content: LocalizedText('Account lockout cleared.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Account lockout cleared.'),
+      );
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {

@@ -158,10 +158,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
     children: [
       Row(
         children: [
-          Icon(
-            Icons.phonelink_lock,
-            color: adminModuleIconColor('users'),
-          ),
+          Icon(Icons.phonelink_lock, color: adminModuleIconColor('users')),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -207,11 +204,7 @@ class _UserDeviceSecurityPanelState extends State<UserDeviceSecurityPanel> {
         ),
         const SizedBox(height: 12),
         if (_historyError != null)
-          _warning(
-            'Login history unavailable',
-            _historyError!,
-            onRetry: _load,
-          ),
+          _warning('Login history unavailable', _historyError!, onRetry: _load),
         LoginHistoryPanel(records: _history),
       ],
     ],

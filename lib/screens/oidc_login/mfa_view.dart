@@ -131,9 +131,7 @@ class MfaView extends StatelessWidget {
           const SizedBox(height: 16),
           _notice(
             context,
-            context.tr(
-              'Use a registered passkey to verify this sign-in.',
-            ),
+            context.tr('Use a registered passkey to verify this sign-in.'),
             Icons.fingerprint,
           ),
         ],

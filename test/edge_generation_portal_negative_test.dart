@@ -86,17 +86,22 @@ void main() {
     for (final entity in Directory(dir).listSync(recursive: recursive)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
       scanned++;
-      if (normalizeForMatch(File(entity.path).readAsStringSync())
-          .contains(needle)) {
+      if (normalizeForMatch(
+        File(entity.path).readAsStringSync(),
+      ).contains(needle)) {
         offenders.add(entity.path);
       }
     }
     if (pinnedCount != null) {
-      expect(scanned, pinnedCount,
-          reason: 'the guard must cover the full $pinnedCount-file portal '
-              'module — a module-level rename, an emptied directory, or an '
-              'unlisted new file fails here, never silently '
-              '(found $scanned)');
+      expect(
+        scanned,
+        pinnedCount,
+        reason:
+            'the guard must cover the full $pinnedCount-file portal '
+            'module — a module-level rename, an emptied directory, or an '
+            'unlisted new file fails here, never silently '
+            '(found $scanned)',
+      );
     }
     return offenders;
   }
@@ -105,25 +110,24 @@ void main() {
     expect(
       offendersFor(portalDir, 'auth/login', pinnedCount: portalFileCount),
       isEmpty,
-      reason: 'the portal module must stay a non-emitter: PortalApi.login '
+      reason:
+          'the portal module must stay a non-emitter: PortalApi.login '
           'is a GET /me probe, never an auth/login emitter — the paste and '
           'resume paths cannot create spurious or duplicate sink events',
     );
   });
 
-  test(
-    'lib/-wide: zero auth.login.success emission strings anywhere in lib/ '
-    '(REQ-1 / AC-4.1)',
-    () {
-      expect(
-        offendersFor('lib', 'auth.login.success', recursive: true),
-        isEmpty,
-        reason: 'the emission string is generated server-side only; it '
-            'must never be fabricated anywhere in lib/ — the widened walk '
-            'closes the constant-outside-the-module and router/api-wrapper '
-            'bypass vectors (the manual AC-4.1 grep is an independent '
-            'backstop)',
-      );
-    },
-  );
+  test('lib/-wide: zero auth.login.success emission strings anywhere in lib/ '
+      '(REQ-1 / AC-4.1)', () {
+    expect(
+      offendersFor('lib', 'auth.login.success', recursive: true),
+      isEmpty,
+      reason:
+          'the emission string is generated server-side only; it '
+          'must never be fabricated anywhere in lib/ — the widened walk '
+          'closes the constant-outside-the-module and router/api-wrapper '
+          'bypass vectors (the manual AC-4.1 grep is an independent '
+          'backstop)',
+    );
+  });
 }

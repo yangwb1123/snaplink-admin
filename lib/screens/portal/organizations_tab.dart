@@ -79,7 +79,8 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
       final d = PortalApi.decode(r);
       setState(() {
         _available = true;
-        _orgs = (d['organizations'] as List?)
+        _orgs =
+            (d['organizations'] as List?)
                 ?.whereType<Map>()
                 .map((value) => Map<String, dynamic>.from(value))
                 .toList(growable: false) ??
@@ -213,13 +214,16 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Semantics(
-                    container: true,
-                    header: true,
-                    child: Text(
-                      context.strings.organizations,
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3),
+                      container: true,
+                      header: true,
+                      child: Text(
+                        context.strings.organizations,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
                     ),
-                  ),
                     const SizedBox(height: 4),
                     Text(
                       context.tr('Teams and organizations you belong to.'),
@@ -232,8 +236,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
               ),
               IconButton(
                 tooltip: context.tr('Refresh organizations'),
-                onPressed:
-                    _loading || _accepting || _leavingTenantId != null
+                onPressed: _loading || _accepting || _leavingTenantId != null
                     ? null
                     : _load,
                 icon: const Icon(Icons.refresh),
@@ -249,64 +252,65 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
                   compact: true,
                   variant: EmptyStateVariant.notEnabled,
                   icon: Icons.business_outlined,
-                  title:
-                      'Organizations are not available for this account.',
+                  title: 'Organizations are not available for this account.',
                 )
               : _error != null
-              ? PortalErrorCard(
-                  message: context.tr(_error!),
-                  onRetry: _load,
-                )
-              : PullToRefresh(onRefresh: _load, child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    MessageBanner(_notice, ok: _ok),
-                    if (_orgs.isEmpty)
-                      const EmptyState(
-                        compact: true,
-                        icon: Icons.groups_outlined,
-                        title:
-                            'You are not a member of any organization.',
-                      )
-                    else
+              ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
+              : PullToRefresh(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    children: [
+                      MessageBanner(_notice, ok: _ok),
+                      if (_orgs.isEmpty)
+                        const EmptyState(
+                          compact: true,
+                          icon: Icons.groups_outlined,
+                          title: 'You are not a member of any organization.',
+                        )
+                      else
+                        PortalCard(
+                          title: 'Your organizations',
+                          children: [
+                            for (final (index, org) in _orgs.indexed)
+                              StaggeredFadeIn(
+                                index: index,
+                                child: _orgRow(org),
+                              ),
+                          ],
+                        ),
                       PortalCard(
-                        title: 'Your organizations',
+                        title: 'Accept an invitation',
                         children: [
-                          for (final (index, org) in _orgs.indexed)
-                            StaggeredFadeIn(index: index, child: _orgRow(org)),
+                          TextField(
+                            controller: _inviteCtrl,
+                            enabled: !_accepting,
+                            decoration: InputDecoration(
+                              labelText: context.tr('Invitation token'),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: FilledButton.icon(
+                              onPressed: _accepting ? null : _acceptInvite,
+                              icon: _accepting
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.login_outlined, size: 18),
+                              label: Text(context.tr('Join organization')),
+                            ),
+                          ),
                         ],
                       ),
-                    PortalCard(
-                      title: 'Accept an invitation',
-                      children: [
-                        TextField(
-                          controller: _inviteCtrl,
-                          enabled: !_accepting,
-                          decoration: InputDecoration(
-                            labelText: context.tr('Invitation token'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: FilledButton.icon(
-                            onPressed: _accepting ? null : _acceptInvite,
-                            icon: _accepting
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.login_outlined, size: 18),
-                            label: Text(context.tr('Join organization')),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                )),
+                    ],
+                  ),
+                ),
         ),
       ],
     );

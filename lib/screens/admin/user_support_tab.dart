@@ -19,7 +19,11 @@ class UserSupportTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
 
-  const UserSupportTab({super.key, required this.api, required this.capabilities});
+  const UserSupportTab({
+    super.key,
+    required this.api,
+    required this.capabilities,
+  });
 
   @override
   State<UserSupportTab> createState() => _UserSupportTabState();
@@ -57,7 +61,8 @@ class _UserSupportTabState extends State<UserSupportTab> {
         (endpoint) => endpoint.method == method && endpoint.path == path,
       );
 
-  bool get _canClearAccountLockout => _hasOperation('POST', _accountLockoutPath);
+  bool get _canClearAccountLockout =>
+      _hasOperation('POST', _accountLockoutPath);
 
   String _userPath(String suffix) =>
       '/api/v1/admin/users/${Uri.encodeComponent(_userId!)}$suffix';
@@ -66,6 +71,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
   void initState() {
     super.initState();
   }
+
   @override
   void dispose() {
     _userCtrl.dispose();
@@ -74,6 +80,7 @@ class _UserSupportTabState extends State<UserSupportTab> {
     _reasonCtrl.dispose();
     super.dispose();
   }
+
   Future<Map<String, dynamic>> _get(String suffix) =>
       widget.api.get(_userPath(suffix));
 
@@ -92,8 +99,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
       if (_has('users/:id/consents')) ('consents', '/consents'),
       if (_has('users/:id/mfa')) ('mfa', '/mfa'),
       if (_has('users/:id/lifecycle')) ('lifecycle', '/lifecycle'),
-      if (_has('users/:id/password-reset-tokens')) ('passwordReset', '/password-reset-tokens'),
-      if (_has('users/:id/email-change-tokens')) ('emailChange', '/email-change-tokens'),
+      if (_has('users/:id/password-reset-tokens'))
+        ('passwordReset', '/password-reset-tokens'),
+      if (_has('users/:id/email-change-tokens'))
+        ('emailChange', '/email-change-tokens'),
     ];
     final entries = await Future.wait(
       spec.map((item) async {
@@ -105,7 +114,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
       }),
     );
     if (!mounted) return;
-    final unavailable = entries.where((entry) => entry.error != null).map((entry) => entry.key).join(', ');
+    final unavailable = entries
+        .where((entry) => entry.error != null)
+        .map((entry) => entry.key)
+        .join(', ');
     setState(() {
       _data = {
         for (final entry in entries)
@@ -113,7 +125,9 @@ class _UserSupportTabState extends State<UserSupportTab> {
       };
       _error = unavailable.isEmpty
           ? null
-          : context.tr('Some support data is unavailable: {sources}', {'sources': unavailable});
+          : context.tr('Some support data is unavailable: {sources}', {
+              'sources': unavailable,
+            });
       _loading = false;
     });
   }
@@ -146,7 +160,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
     try {
       await request();
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(success ?? 'Operation completed.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText(success ?? 'Operation completed.'),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -159,7 +176,10 @@ class _UserSupportTabState extends State<UserSupportTab> {
   List<Map<String, dynamic>> _list(String key, String valueKey) {
     final values = _data[key]?[valueKey];
     if (values is! List) return const [];
-    return values.whereType<Map>().map((value) => Map<String, dynamic>.from(value)).toList(growable: false);
+    return values
+        .whereType<Map>()
+        .map((value) => Map<String, dynamic>.from(value))
+        .toList(growable: false);
   }
 
   /// 构建“撤销 XXX”危险操作：DELETE 目标路径 + 确认文案模板。
@@ -183,47 +203,66 @@ class _UserSupportTabState extends State<UserSupportTab> {
   @override
   Widget build(BuildContext context) {
     final loaded = _userId != null && !_loading;
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        _header(context),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('support-user-id'),
-          controller: _userCtrl,
-          decoration: InputDecoration(labelText: 'User ID'.localized),
-          onSubmitted: (_) => _load(),
-        ),
-        const SizedBox(height: 12),
-        FilledButton.icon(onPressed: _loading ? null : _load, icon: const Icon(Icons.search), label: const LocalizedText('Load account support data')),
-        if (_error != null) ...[
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          _header(context),
           const SizedBox(height: 12),
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        ],
-        if (_loading)
-          const Padding(padding: EdgeInsets.only(top: 20), child: SkeletonListTile(itemCount: 3)),
-        if (_userId == null && !_loading)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Row(
-              children: [
-                Icon(Icons.support_agent_outlined, size: 18, color: _accent),
-                const SizedBox(width: 8),
-                const Expanded(child: LocalizedText('Enter a user ID to load support data.')),
-              ],
-            ),
+          TextField(
+            key: const Key('support-user-id'),
+            controller: _userCtrl,
+            decoration: InputDecoration(labelText: 'User ID'.localized),
+            onSubmitted: (_) => _load(),
           ),
-        if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
-        if (loaded) ...[
-          if (_has('users/:id/sessions')) SessionsCard(sessions: _list('sessions', 'sessions')),
-          if (_has('users/:id/consents')) _consentsCard(),
-          if (_has('users/:id/mfa')) _mfaCard(),
-          if (_has('users/:id/lifecycle')) _lifecycleCard(),
-          _credentialRecoveryCard(),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.search),
+            label: const LocalizedText('Load account support data'),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
+            ),
+          ],
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 20),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (_userId == null && !_loading)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.support_agent_outlined, size: 18, color: _accent),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: LocalizedText(
+                      'Enter a user ID to load support data.',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
+          if (loaded) ...[
+            if (_has('users/:id/sessions'))
+              SessionsCard(sessions: _list('sessions', 'sessions')),
+            if (_has('users/:id/consents')) _consentsCard(),
+            if (_has('users/:id/mfa')) _mfaCard(),
+            if (_has('users/:id/lifecycle')) _lifecycleCard(),
+            _credentialRecoveryCard(),
+          ],
         ],
-      ],
-    ));
+      ),
+    );
   }
 
   Widget _header(BuildContext context) => Row(
@@ -240,7 +279,11 @@ class _UserSupportTabState extends State<UserSupportTab> {
           ),
         ),
       ),
-      IconButton(onPressed: _loading ? null : _load, tooltip: 'Refresh'.localized, icon: const Icon(Icons.refresh)),
+      IconButton(
+        onPressed: _loading ? null : _load,
+        tooltip: 'Refresh'.localized,
+        icon: const Icon(Icons.refresh),
+      ),
     ],
   );
 
@@ -253,7 +296,9 @@ class _UserSupportTabState extends State<UserSupportTab> {
       onRevoke: (clientId) => _mutate(
         'Revoke consent?',
         'Remove this application grant for {userId}?',
-        () => widget.api.delete('${_userPath('/consents')}/${Uri.encodeComponent(clientId)}'),
+        () => widget.api.delete(
+          '${_userPath('/consents')}/${Uri.encodeComponent(clientId)}',
+        ),
         args: {'userId': _userId!},
         success: 'Consent revoked.',
       ),
@@ -269,7 +314,9 @@ class _UserSupportTabState extends State<UserSupportTab> {
       onRemove: (factorId) => _mutate(
         'Remove second factor?',
         'The user will no longer be able to use this factor.',
-        () => widget.api.delete('${_userPath('/mfa')}/${Uri.encodeComponent(factorId)}'),
+        () => widget.api.delete(
+          '${_userPath('/mfa')}/${Uri.encodeComponent(factorId)}',
+        ),
         success: 'Second factor removed.',
       ),
       onResetRecoveryCodes: () => _mutate(

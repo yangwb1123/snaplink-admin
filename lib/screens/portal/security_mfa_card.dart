@@ -213,10 +213,7 @@ class _FactorStateHint extends StatelessWidget {
             ),
           ),
           if (onRetry != null)
-            TextButton(
-              onPressed: onRetry,
-              child: Text(context.tr('Retry')),
-            ),
+            TextButton(onPressed: onRetry, child: Text(context.tr('Retry'))),
         ],
       ),
     );

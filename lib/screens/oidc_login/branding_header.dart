@@ -11,7 +11,12 @@ class BrandingHeader extends StatelessWidget {
   final String? brandName;
   final Color? brandColor;
 
-  const BrandingHeader({super.key, this.brandLogoUrl, this.brandName, this.brandColor});
+  const BrandingHeader({
+    super.key,
+    this.brandLogoUrl,
+    this.brandName,
+    this.brandColor,
+  });
 
   /// logo 尺寸 / 与名称间距（登录卡 440px 内紧凑布局）。
   static const double _logoSize = 40;
@@ -32,7 +37,11 @@ class BrandingHeader extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
-                BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.30), blurRadius: 16, spreadRadius: 1),
+                BoxShadow(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.30),
+                  blurRadius: 16,
+                  spreadRadius: 1,
+                ),
               ],
             ),
             child: Image.network(
@@ -41,7 +50,9 @@ class BrandingHeader extends StatelessWidget {
               height: _logoSize,
               fit: BoxFit.contain,
               excludeFromSemantics: brandName != null,
-              semanticLabel: brandName == null ? context.tr('Organization logo') : null,
+              semanticLabel: brandName == null
+                  ? context.tr('Organization logo')
+                  : null,
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           ),
@@ -56,7 +67,10 @@ class BrandingHeader extends StatelessWidget {
               brandName ?? '',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(color: nameColor, fontWeight: FontWeight.w700),
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: nameColor,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ),

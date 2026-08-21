@@ -274,14 +274,8 @@ void main() {
     );
     await tester.pump();
 
-    await tester.enterText(
-      newPasswordField(0),
-      'replacement-password',
-    );
-    await tester.enterText(
-      newPasswordField(1),
-      'replacement-password',
-    );
+    await tester.enterText(newPasswordField(0), 'replacement-password');
+    await tester.enterText(newPasswordField(1), 'replacement-password');
     // 登录卡片可滚动：48px 触摸目标（F3 修复）在 600px 视口下可能把按钮
     // 推出首屏，滚动到可见后再点击。
     await tester.ensureVisible(find.text('Update password'));

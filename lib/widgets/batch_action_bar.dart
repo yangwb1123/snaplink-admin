@@ -78,15 +78,11 @@ class BatchActionBar extends StatelessWidget {
           icon: Icon(
             action.icon,
             size: 18,
-            color: action.destructive
-                ? theme.colorScheme.error
-                : accentColor,
+            color: action.destructive ? theme.colorScheme.error : accentColor,
           ),
           label: Text(context.tr(action.label)),
           style: action.destructive
-              ? TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                )
+              ? TextButton.styleFrom(foregroundColor: theme.colorScheme.error)
               : null,
         ),
         const SizedBox(width: 4),
@@ -115,9 +111,7 @@ class BatchActionBar extends StatelessWidget {
               children: [...leading, ...trailing],
             );
           }
-          return Row(
-            children: [...leading, const Spacer(), ...trailing],
-          );
+          return Row(children: [...leading, const Spacer(), ...trailing]);
         },
       ),
     );

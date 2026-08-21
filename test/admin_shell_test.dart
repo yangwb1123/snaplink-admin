@@ -107,7 +107,11 @@ void main() {
           '/api/v1/admin/endpoints': (_) => http.Response(
             jsonEncode({
               'endpoints': [
-                {'method': 'GET', 'path': '/api/v1/admin/clients', 'feature': 'core'},
+                {
+                  'method': 'GET',
+                  'path': '/api/v1/admin/clients',
+                  'feature': 'core',
+                },
               ],
             }),
             200,

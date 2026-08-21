@@ -86,10 +86,7 @@ class _RingIsolationHarness {
       find.widgetWithText(TextField, 'Username'),
       'ada@example.com',
     );
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Password'),
-      'pw',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Password'), 'pw');
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
     await tester.pumpAndSettle();
   }
@@ -97,8 +94,9 @@ class _RingIsolationHarness {
 
 void main() {
   group('OidcLoginScreen ring isolation (AC-1 Phase A, REQ-2)', () {
-    testWidgets('login flow leaves the pre-seeded audit ring untouched',
-        (tester) async {
+    testWidgets('login flow leaves the pre-seeded audit ring untouched', (
+      tester,
+    ) async {
       // Pre-seed the debug-only ring (design §1.2): record() persists
       // synchronously via LocalStorage.setItem, so the key is present.
       AuditLogService().record(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -58,6 +60,8 @@ class AuditLogTab extends StatefulWidget {
 }
 
 class _AuditLogTabState extends State<AuditLogTab> {
+  static const _debounceWindow = Duration(milliseconds: 300);
+
   /// 模块组色（system → indigo）：页头图标按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.auditLog);
 
@@ -74,16 +78,22 @@ class _AuditLogTabState extends State<AuditLogTab> {
   String _outcomeFilter = 'ALL'; // 'ALL' | 'success' | 'failure'
   String? _sortColumn = 'time';
   bool _sortAscending = false;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
     super.initState();
-    _client = AuditReadClient(widget.api, tenantId: widget.tenantId, traceId: widget.traceId);
+    _client = AuditReadClient(
+      widget.api,
+      tenantId: widget.tenantId,
+      traceId: widget.traceId,
+    );
     _refresh();
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -130,6 +140,14 @@ class _AuditLogTabState extends State<AuditLogTab> {
     _searchCtrl.clear();
     _outcomeFilter = 'ALL';
     _refresh();
+  }
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    setState(_applyFilter);
+    _searchDebounce = Timer(_debounceWindow, () {
+      if (mounted) _refresh();
+    });
   }
 
   void _applyFilter() {
@@ -192,21 +210,32 @@ class _AuditLogTabState extends State<AuditLogTab> {
     for (final row in _displayed) {
       final cells = [
         row.timestamp?.toUtc().toIso8601String() ?? '--',
-        row.type, row.outcome, row.id, row.actorId, row.clientId, row.tenantId,
+        row.type,
+        row.outcome,
+        row.id,
+        row.actorId,
+        row.clientId,
+        row.tenantId,
       ].map(_csvCell).join(',');
       sb.writeln(cells);
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (mounted) {
-      showAppSnackBar(context, content: LocalizedText(
-            'Exported {n} entries as CSV to clipboard',
-            args: {'n': formatCount(_displayed.length)},
-          ));
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          'Exported {n} entries as CSV to clipboard',
+          args: {'n': formatCount(_displayed.length)},
+        ),
+      );
     }
   }
 
   String _csvCell(String value) {
-    var cell = value.replaceAll('\r\n', ' ').replaceAll('\r', ' ').replaceAll('\n', ' ');
+    var cell = value
+        .replaceAll('\r\n', ' ')
+        .replaceAll('\r', ' ')
+        .replaceAll('\n', ' ');
     cell = cell.replaceAll('"', '""');
     final trimmed = cell.trimLeft();
     if (trimmed.isNotEmpty &&
@@ -232,8 +261,10 @@ class _AuditLogTabState extends State<AuditLogTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Clear local debug records?',
-      message:
-          'This will permanently delete all $ringCount local debug records.',
+      message: context.tr(
+        'This will permanently delete all {n} local debug records.',
+        {'n': ringCount},
+      ),
       confirmLabel: 'Clear local debug records',
       destructive: true,
     );
@@ -248,7 +279,9 @@ class _AuditLogTabState extends State<AuditLogTab> {
     return StatusChip(
       label: row.outcome,
       color: row.outcome == 'success' ? AppColors.success : AppColors.danger,
-      icon: row.outcome == 'success' ? Icons.check_circle_outline : Icons.error_outline,
+      icon: row.outcome == 'success'
+          ? Icons.check_circle_outline
+          : Icons.error_outline,
     );
   }
 
@@ -257,7 +290,10 @@ class _AuditLogTabState extends State<AuditLogTab> {
   List<Widget> _actions(BuildContext context) {
     final ringCount = _logService.count;
     return [
-      LocalizedText('{count} entries', args: {'count': formatCount(_rows.length)}),
+      LocalizedText(
+        '{count} entries',
+        args: {'count': formatCount(_rows.length)},
+      ),
       if (_errorRate() > 0)
         StatusChip(
           label: context.tr('{n}% errors', {'n': _errorRate().round()}),
@@ -270,13 +306,29 @@ class _AuditLogTabState extends State<AuditLogTab> {
               ? Icons.error_outline
               : Icons.check_circle_outline,
         ),
-      IconButton(icon: const Icon(Icons.refresh), tooltip: 'Refresh'.localized, onPressed: _loading ? null : _refresh),
-      IconButton(icon: const Icon(Icons.file_download_outlined), tooltip: 'Export CSV'.localized, onPressed: _exportCsv),
+      IconButton(
+        icon: const Icon(Icons.refresh),
+        tooltip: 'Refresh'.localized,
+        onPressed: _loading ? null : _refresh,
+      ),
+      IconButton(
+        icon: const Icon(Icons.file_download_outlined),
+        tooltip: 'Export CSV'.localized,
+        onPressed: _exportCsv,
+      ),
       if (kDebugMode && AuditLogService.ringCopyEnabled) ...[
-        StatusChip(label: context.tr('Debug records'), color: AppColors.warning, icon: Icons.bug_report_outlined),
+        StatusChip(
+          label: context.tr('Debug records'),
+          color: AppColors.warning,
+          icon: Icons.bug_report_outlined,
+        ),
         if (ringCount > 0)
           LocalizedText('Debug records: {n} entries', args: {'n': ringCount}),
-        IconButton(icon: const Icon(Icons.delete_sweep), tooltip: 'Clear local debug records'.localized, onPressed: ringCount == 0 ? null : _clearRing),
+        IconButton(
+          icon: const Icon(Icons.delete_sweep),
+          tooltip: 'Clear local debug records'.localized,
+          onPressed: ringCount == 0 ? null : _clearRing,
+        ),
       ],
     ];
   }
@@ -286,26 +338,49 @@ class _AuditLogTabState extends State<AuditLogTab> {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(Icons.receipt_long_outlined, color: _accent, size: 28),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(container: true, header: true, child: Text(context.tr('Audit Log'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
-            const SizedBox(height: 4),
-            Text(context.tr('All authentication and administrative events recorded by the server.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          ]),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: _actions(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.receipt_long_outlined, color: _accent, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    context.tr('Audit Log'),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(
+                    'All authentication and administrative events recorded by the server.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ]),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: _actions(context),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -318,73 +393,136 @@ class _AuditLogTabState extends State<AuditLogTab> {
     // 空态语义：筛选后无可见行（含搜索/outcome 过滤排空）也算“无结果”。
     final showEmpty =
         _displayed.isEmpty && !_loading && _error == null && !_notEnabled;
-    return PullToRefresh(onRefresh: _refresh, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        _header(context),
-        if (_notEnabled)
-          const Padding(
-            padding: EdgeInsets.only(top: 24),
-            child: EmptyState(variant: EmptyStateVariant.notEnabled),
-          )
-        else if (_error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _errorCard(context),
-          )
-        else ...[
-          AuditMetrics(rows: _rows, persona: widget.persona),
-          const SizedBox(height: 8),
-          Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            SizedBox(
-              width: 300,
-              // 必须同步刷新（AC-1.6/F5）：无 debounce。
-              child: SearchFilterBar(debounce: false, hintText: 'Search...'.localized, controller: _searchCtrl, onSearchChanged: (_) => _refresh()),
-            ),
-            StatusFilterDropdown(value: _outcomeFilter, options: const {'ALL': 'All', 'success': 'success', 'failure': 'failure'}, onChanged: (v) {
-              setState(() => _outcomeFilter = v);
-              _refresh();
-            }),
-          ]),
-          const SizedBox(height: 16),
-          SectionHeader('Recent events', count: _rows.length),
-          const SizedBox(height: 8),
-          if (_loading)
-            const SkeletonListTile(itemCount: 4)
-          else if (showEmpty)
-            _searchCtrl.text.trim().isNotEmpty || _outcomeFilter != 'ALL'
-                ? EmptyState(
-                    variant: EmptyStateVariant.noMatch,
-                    title: 'No matching events.',
-                    actionLabel: 'Clear filter',
-                    actionIcon: Icons.filter_alt_off,
-                    onAction: _clearFilters,
-                  )
-                : const EmptyState(
-                    variant: EmptyStateVariant.empty,
-                    title: 'No audit events returned by the server yet.',
-                  )
-          else
-            AdminDataTable(
-              density: TableDensity.compact,
-              sortColumn: _sortColumn,
-              sortAscending: _sortAscending,
-              onSort: _onSort,
-              minWidth: 900,
-              columns: [
-                AdminDataColumn(id: 'time', label: 'TIME', width: 180, sortable: true, builder: (c, i) => TableCellText(_formatTime(_displayed[i].timestamp), muted: true)),
-                AdminDataColumn(id: 'type', label: 'EVENT', width: 220, sortable: true, builder: (c, i) => TableCellText(_displayed[i].type, bold: true)),
-                AdminDataColumn(id: 'outcome', label: 'OUTCOME', width: 160, sortable: true, builder: (c, i) => _outcomeCell(_displayed[i])),
-                AdminDataColumn(id: 'actor', label: 'ACTOR', width: 140, builder: (c, i) => _displayed[i].actorId.isEmpty ? const TableCellText('-') : CopyableCell(text: _displayed[i].actorId, contextProvider: () => c)),
-                AdminDataColumn(id: 'tenant', label: 'TENANT', width: 140, builder: (c, i) => _displayed[i].tenantId.isEmpty ? const TableCellText('-') : CopyableCell(text: _displayed[i].tenantId, contextProvider: () => c)),
+    return PullToRefresh(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          _header(context),
+          if (_notEnabled)
+            const Padding(
+              padding: EdgeInsets.only(top: 24),
+              child: EmptyState(variant: EmptyStateVariant.notEnabled),
+            )
+          else if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _errorCard(context),
+            )
+          else ...[
+            AuditMetrics(rows: _rows, persona: widget.persona),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 300,
+                  // 本地过滤即时生效；网络刷新由 300ms debounce 合并。
+                  child: SearchFilterBar(
+                    debounce: false,
+                    hintText: 'Search...'.localized,
+                    controller: _searchCtrl,
+                    onSearchChanged: _onSearchChanged,
+                  ),
+                ),
+                StatusFilterDropdown(
+                  value: _outcomeFilter,
+                  options: const {
+                    'ALL': 'All',
+                    'success': 'success',
+                    'failure': 'failure',
+                  },
+                  onChanged: (v) {
+                    setState(() => _outcomeFilter = v);
+                    _refresh();
+                  },
+                ),
               ],
-              itemCount: _displayed.length,
-              rowBuilder: (context, i) => const SizedBox.shrink(),
             ),
+            const SizedBox(height: 16),
+            SectionHeader('Recent events', count: _rows.length),
+            const SizedBox(height: 8),
+            if (_loading)
+              const SkeletonListTile(itemCount: 4)
+            else if (showEmpty)
+              _searchCtrl.text.trim().isNotEmpty || _outcomeFilter != 'ALL'
+                  ? EmptyState(
+                      variant: EmptyStateVariant.noMatch,
+                      title: 'No matching events.',
+                      actionLabel: 'Clear filter',
+                      actionIcon: Icons.filter_alt_off,
+                      onAction: _clearFilters,
+                    )
+                  : const EmptyState(
+                      variant: EmptyStateVariant.empty,
+                      title: 'No audit events returned by the server yet.',
+                    )
+            else
+              AdminDataTable(
+                density: TableDensity.compact,
+                sortColumn: _sortColumn,
+                sortAscending: _sortAscending,
+                onSort: _onSort,
+                minWidth: 900,
+                columns: [
+                  AdminDataColumn(
+                    id: 'time',
+                    label: 'TIME',
+                    width: 180,
+                    sortable: true,
+                    builder: (c, i) => TableCellText(
+                      _formatTime(_displayed[i].timestamp),
+                      muted: true,
+                    ),
+                  ),
+                  AdminDataColumn(
+                    id: 'type',
+                    label: 'EVENT',
+                    width: 220,
+                    sortable: true,
+                    builder: (c, i) =>
+                        TableCellText(_displayed[i].type, bold: true),
+                  ),
+                  AdminDataColumn(
+                    id: 'outcome',
+                    label: 'OUTCOME',
+                    width: 160,
+                    sortable: true,
+                    builder: (c, i) => _outcomeCell(_displayed[i]),
+                  ),
+                  AdminDataColumn(
+                    id: 'actor',
+                    label: 'ACTOR',
+                    width: 140,
+                    builder: (c, i) => _displayed[i].actorId.isEmpty
+                        ? const TableCellText('-')
+                        : CopyableCell(
+                            text: _displayed[i].actorId,
+                            contextProvider: () => c,
+                          ),
+                  ),
+                  AdminDataColumn(
+                    id: 'tenant',
+                    label: 'TENANT',
+                    width: 140,
+                    builder: (c, i) => _displayed[i].tenantId.isEmpty
+                        ? const TableCellText('-')
+                        : CopyableCell(
+                            text: _displayed[i].tenantId,
+                            contextProvider: () => c,
+                          ),
+                  ),
+                ],
+                itemCount: _displayed.length,
+                rowBuilder: (context, i) => const SizedBox.shrink(),
+              ),
+          ],
         ],
-      ],
-    ));
+      ),
+    );
   }
 
   // Relative labels only — date fallback and '--' stay verbatim.
@@ -392,8 +530,12 @@ class _AuditLogTabState extends State<AuditLogTab> {
     if (dt == null) return '--';
     final diff = DateTime.now().difference(dt);
     if (diff.inSeconds < 60) return context.tr('just now');
-    if (diff.inMinutes < 60) return context.tr('{count}m ago', {'count': diff.inMinutes});
-    if (diff.inHours < 24) return context.tr('{count}h ago', {'count': diff.inHours});
+    if (diff.inMinutes < 60) {
+      return context.tr('{count}m ago', {'count': diff.inMinutes});
+    }
+    if (diff.inHours < 24) {
+      return context.tr('{count}h ago', {'count': diff.inHours});
+    }
     return '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
   }
 }

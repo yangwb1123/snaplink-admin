@@ -10,15 +10,23 @@ const appAdminDynamicSourceZh = <String, String>{
   'Assign {roles} to {userId}?': '将 {roles} 分配给 {userId}？',
   'Audit event {id}': '审计事件 {id}',
   'Audit results ({count})': '审计结果（{count}）',
+  'Apply {mode} restore from {id}? Resource families are applied sequentially. Snaplink records every step and final result in a durable operation journal for reconciliation.':
+      '从 {id} 应用 {mode} 恢复？资源系列将按顺序应用。Snaplink 会将每一步和最终结果记录在持久化操作日志中，以便核对。',
   'Change the server from {current} to {selected}. {description}':
       '将服务器从 {current} 更改为 {selected}。{description}',
   'Client {clientId} approved.': '客户端 {clientId} 已批准。',
   'Client {clientId} rejected.': '客户端 {clientId} 已拒绝。',
   'Client {action}ed': '客户端已{action}',
   'Client: {clientId}': '客户端：{clientId}',
+  'Grant revoked; {revoked} derived credentials were revoked and {failed} failed. Retry only the reported idempotency keys.':
+      '授权已撤销；{revoked} 个派生凭据已撤销，{failed} 个失败。请仅重试已报告的幂等键。',
+  'Grant and all {revoked} reported derived credentials were revoked.':
+      '授权及全部 {revoked} 个已报告派生凭据均已撤销。',
   'Connected · latest {count} events are retained locally.':
       '已连接 · 最近 {count} 个事件保留在本地。',
   'Connection: {connectionId}': '连接：{connectionId}',
+  'Create a {scope} break-glass grant for {target}. {approval} Reason: {reason}':
+      '为 {target} 创建 {scope} 紧急访问授权。{approval} 原因：{reason}',
   'Created {date}': '创建于 {date}',
   'Current mode: {mode}': '当前模式：{mode}',
   'Current state: {state}': '当前状态：{state}',
@@ -34,6 +42,11 @@ const appAdminDynamicSourceZh = <String, String>{
       '{delivered} 次投递已发送；{failed} 次失败。',
   'Replay result: {delivered} delivered, {failed} failed, {pending} awaiting cleanup, and {remaining} selected dead letters remain visible.':
       '重放结果：{delivered} 次已投递，{failed} 次失败，{pending} 次等待清理，{remaining} 个选中的死信仍可见。',
+  'Execute {count} SCIM operations?': '执行 {count} 个 SCIM 操作？',
+  'The server processes operations in order. Per-operation failures do not roll back earlier successes.':
+      '服务器按顺序处理操作。单项操作失败不会回滚此前已成功的操作。',
+  'The server processes operations in order. Per-operation failures do not roll back earlier successes. This request contains {count} permanent deletes.':
+      '服务器按顺序处理操作。单项操作失败不会回滚此前已成功的操作。此请求包含 {count} 个永久删除。',
   'Delete {clientId} permanently? Existing tokens and integrations may stop working.':
       '永久删除 {clientId}？现有令牌和集成可能会停止工作。',
   'Delete {hostname}?': '删除 {hostname}？',
@@ -45,6 +58,12 @@ const appAdminDynamicSourceZh = <String, String>{
       '删除 {name}？请求将立即继续匹配下一条策略。',
   'Delete registered release {id}?': '删除已注册的发布版本 {id}？',
   'Delete SCIM {resource}?': '删除 SCIM {resource}？',
+  'Permanently delete SCIM user {id}. Deactivation is safer when access may need to be restored.':
+      '永久删除 SCIM 用户 {id}。如果可能需要恢复访问，停用更安全。',
+  'Permanently delete SCIM group {id} and its role definition. Existing membership assignments will no longer grant this role.':
+      '永久删除 SCIM 组 {id} 及其角色定义。现有成员分配将不再授予此角色。',
+  'Snapshot restore, traffic pinning, registry updates, and compensations are recorded in a durable operation journal.':
+      '快照恢复、流量固定、注册表更新和补偿均记录在持久化操作日志中。',
   'Delete stored snapshot {id}?': '删除已存储的快照 {id}？',
   'Delete webhook subscription {id}?': '删除 Webhook 订阅 {id}？',
   'Discovery failed ({status}): {error}': '发现失败（{status}）：{error}',
@@ -64,6 +83,10 @@ const appAdminDynamicSourceZh = <String, String>{
   'Permissions: {clientId}': '权限：{clientId}',
   'Pin {id} as the current paired release?': '将 {id} 固定为当前配对发布版本？',
   'Provider: {provider}': '提供商：{provider}',
+  'Issue a temporary bearer credential for {userId} with scopes {scopes}. The raw value must be transferred through an approved secure channel.':
+      '为 {userId} 签发包含 {scopes} 范围的临时持有者凭据。原始值必须通过获批准的安全渠道传输。',
+  'Requires independent approval.': '需要独立审批。',
+  'May become active immediately.': '可能立即生效。',
   'Remove {userId} from tenant?': '从租户中移除 {userId}？',
   'Remove {userId} from this organization?': '从此组织中移除 {userId}？',
   'Remove all role assignments for {userId}?': '移除 {userId} 的全部角色分配？',
@@ -80,6 +103,7 @@ const appAdminDynamicSourceZh = <String, String>{
   'Revoke every pending invitation for {email}?': '撤销 {email} 的所有待处理邀请？',
   'Revoke failed: {error}': '撤销失败：{error}',
   'Revoke for {clientId}?': '撤销 {clientId} 的授权？',
+  'Report {type} credentials as compromised?': '将 {type} 凭据报告为已泄露？',
   'Role: {role}': '角色：{role}',
   'Rollback frontend and backend to {id}? {warning}':
       '将前端和后端回滚到 {id}？{warning}',
@@ -96,6 +120,12 @@ const appAdminDynamicSourceZh = <String, String>{
   'Delete {label} ({id})? This cannot be undone. Snaplink will return the exact refresh-token and session revocation report.':
       '删除 {label}（{id}）？此操作无法撤销。Snaplink 将返回精确的刷新令牌和会话撤销报告。',
   'Tenant: {tenantId}': '租户：{tenantId}',
+  '{action} No credential-revocation report was returned.':
+      '{action} 未返回凭据撤销报告。',
+  '{action} Revoked {refreshTokens} refresh tokens and {sessions} sessions; every reported credential operation completed.':
+      '{action} 已撤销 {refreshTokens} 个刷新令牌和 {sessions} 个会话；所有已报告的凭据操作均已完成。',
+  '{action} Revoked {refreshTokens} refresh tokens and {sessions} sessions, but {failed} credential operations failed. Retry only the reported idempotency keys.':
+      '{action} 已撤销 {refreshTokens} 个刷新令牌和 {sessions} 个会话，但 {failed} 个凭据操作失败。请仅重试已报告的幂等键。',
   'The current secret for {clientId} will stop working. Update every integration with the new one-time value.':
       '{clientId} 的当前密钥将停止工作。请使用新的一次性值更新所有集成。',
   'The event stream disconnected. Retrying in {seconds} seconds.':
@@ -109,6 +139,36 @@ const appAdminDynamicSourceZh = <String, String>{
   'Webhook #{id}': 'Webhook #{id}',
   'Webhook details': 'Webhook 详情',
   'Webhook: {id}': 'Webhook：{id}',
+  'The write result is unknown (HTTP {status}). Reconcile token and session state before retrying.':
+      '写入结果未知（HTTP {status}）。请先核对令牌和会话状态，再重试。',
+  'The write result is unknown because no response was received. Reconcile token and session state before retrying.':
+      '未收到响应，写入结果未知。请先核对令牌和会话状态，再重试。',
+  'Token state reconciled?': '令牌状态已核对？',
+  'Confirm only after checking the affected token or session in a safe read. This unlocks token writes; it does not prove the previous request failed.':
+      '仅在通过安全读取核对受影响的令牌或会话后确认。此操作会解锁令牌写入，但不代表上一次请求一定失败。',
+  'Token reconciliation acknowledged. Review the scope before sending another write.':
+      '已确认令牌完成核对。再次写入前请检查作用域。',
+  'The temporary token result is unknown (HTTP {status}). Do not retry until token state is verified.':
+      '临时令牌结果未知（HTTP {status}）。核实令牌状态前请勿重试。',
+  'The temporary token result is unknown because no response was received. Do not retry until token state is verified.':
+      '未收到响应，临时令牌结果未知。核实令牌状态前请勿重试。',
+  'The secret was rotated, but its one-time value was not returned. Reconcile client state before retrying.':
+      '密钥已轮换，但未返回其一次性值。请先核对客户端状态，再重试。',
+  'Secret rotation result is unknown. Reconcile client state before retrying.':
+      '密钥轮换结果未知。请先核对客户端状态，再重试。',
+  'Client secret state reconciled?': '客户端密钥状态已核对？',
+  'Confirm only after checking the client and its integrations in a safe read. This unlocks secret rotation; it does not prove the previous request failed.':
+      '仅在通过安全读取核对客户端及其集成后确认。此操作会解锁密钥轮换，但不代表上一次请求一定失败。',
+  'The secret was rotated, but the server did not return its one-time value. Reconcile client state before retrying.':
+      '密钥已轮换，但服务器未返回其一次性值。请先核对客户端状态，再重试。',
+  'The break-glass write result is unknown. Reconcile the session state before retrying.':
+      '紧急访问写入结果未知。请先核对会话状态，再重试。',
+  'Break-glass state reconciled?': '紧急访问状态已核对？',
+  'Confirm only after checking the emergency-access session in a safe read. This unlocks break-glass writes; it does not prove the previous request failed.':
+      '仅在通过安全读取核对紧急访问会话后确认。此操作会解锁紧急访问写入，但不代表上一次请求一定失败。',
+  'Break-glass reconciliation acknowledged. Review the target before sending another write.':
+      '已确认紧急访问完成核对。再次写入前请检查目标。',
+  '{active} of {total} active': '{active}/{total} 个已启用',
   '{count} additional buckets omitted.': '已省略另外 {count} 个分桶。',
   '{count} devices currently require attention': '当前有 {count} 台设备需要关注',
   '{count} live endpoints': '{count} 个活跃端点',
@@ -118,6 +178,7 @@ const appAdminDynamicSourceZh = <String, String>{
   '{count} operations returned 404/501; the target does not support them.':
       '{count} 项操作返回 404/501；目标不支持这些操作。',
   '{count} of {total} operations succeeded': '{total} 项操作中有 {count} 项成功',
+  '{id} · events: {events}': '{id} · 事件：{events}',
   '{count} perms': '{count} 项权限',
   '{kind} created.': '{kind}已创建。',
   '{kind} deleted.': '{kind}已删除。',

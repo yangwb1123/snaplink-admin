@@ -116,10 +116,7 @@ class _CommandPaletteState extends State<CommandPalette> {
     }
     return ListTile(
       leading: Icon(cmd.icon, size: 20, color: _commandIconColor(cmd)),
-      title: LocalizedText(
-        cmd.title,
-        style: const TextStyle(fontSize: 14),
-      ),
+      title: LocalizedText(cmd.title, style: const TextStyle(fontSize: 14)),
       subtitle: Text(
         cmd.path,
         style: TextStyle(
@@ -148,11 +145,7 @@ class _CommandPaletteState extends State<CommandPalette> {
     final navigator = Navigator.of(context);
     navigator.pop();
     if (cmd.path == '/settings') {
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => const SettingsScreen(),
-        ),
-      );
+      navigator.push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
       return;
     }
     if (cmd.path == '/refresh') {
@@ -167,7 +160,6 @@ class _CommandPaletteState extends State<CommandPalette> {
       subresource: cmd.routeSubresource,
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

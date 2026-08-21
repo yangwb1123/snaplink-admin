@@ -36,6 +36,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
   List<Map<String, dynamic>> _policies = const [];
   String? _error;
   bool _loading = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
@@ -85,43 +86,51 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).tokenPolicies,
-          subtitle: 'Token issuance and validation policy configuration.',
-          onRefresh: _load,
-          actions: [
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        if (_error != null) ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).tokenPolicies,
+            subtitle: 'Token issuance and validation policy configuration.',
+            onRefresh: _load,
+            actions: [
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-        if (!_loading && _policies.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: EmptyState(
-              compact: true,
-              variant: EmptyStateVariant.empty,
-              title: 'No token policies configured.',
-              subtitle:
-                  'Token policies are managed server-side; this page reflects the active policy set.'
-                      .localized,
+          if (_error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ),
-        if (!_loading && _policies.isNotEmpty) _policiesCard(context),
-      ],
-    ));
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading && _policies.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                variant: EmptyStateVariant.empty,
+                title: 'No token policies configured.',
+                subtitle:
+                    'Token policies are managed server-side; this page reflects the active policy set.'
+                        .localized,
+              ),
+            ),
+          if (!_loading && _policies.isNotEmpty) _policiesCard(context),
+        ],
+      ),
+    );
   }
 
   /// 策略卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
@@ -215,4 +224,3 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     );
   }
 }
-

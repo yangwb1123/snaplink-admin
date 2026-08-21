@@ -103,7 +103,11 @@ class _DeveloperScreenState extends State<DeveloperScreen>
         // 壳层头部与 Portal/Admin 一致：左上角品牌标记（R65）。
         // 本页无抽屉，品牌标记纯展示不可点。
         leading: const BrandLogo(),
-        title: Semantics(container: true, header: true, child: Text(strings.developerPortal)),
+        title: Semantics(
+          container: true,
+          header: true,
+          child: Text(strings.developerPortal),
+        ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -114,10 +118,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
               text: strings.registerNewApp,
             ),
             Tab(
-              icon: Icon(
-                Icons.manage_accounts_outlined,
-                color: scheme.primary,
-              ),
+              icon: Icon(Icons.manage_accounts_outlined, color: scheme.primary),
               text: strings.manageExistingApp,
             ),
           ],
@@ -139,10 +140,7 @@ class _DeveloperScreenState extends State<DeveloperScreen>
                 liveRegion: true,
                 child: Text(context.tr(_discoveryError!)),
               ),
-              leading: Icon(
-                Icons.cloud_off_outlined,
-                color: scheme.error,
-              ),
+              leading: Icon(Icons.cloud_off_outlined, color: scheme.error),
               actions: [
                 TextButton.icon(
                   onPressed: _loadingDiscovery ? null : _loadDiscovery,

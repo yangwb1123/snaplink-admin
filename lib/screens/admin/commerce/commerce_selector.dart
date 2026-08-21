@@ -46,7 +46,10 @@ class CommerceTenantSelector extends StatelessWidget {
           ),
           FilledButton.icon(
             onPressed: enabled ? onLoad : null,
-            icon: Icon(Icons.search, color: adminModuleIconColor(AdminModuleId.commerce)),
+            icon: Icon(
+              Icons.search,
+              color: adminModuleIconColor(AdminModuleId.commerce),
+            ),
             label: const LocalizedText('Load tenant commerce'),
           ),
         ],
@@ -59,11 +62,7 @@ class CommerceErrorCard extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
 
-  const CommerceErrorCard({
-    super.key,
-    required this.message,
-    this.onRetry,
-  });
+  const CommerceErrorCard({super.key, required this.message, this.onRetry});
 
   @override
   Widget build(BuildContext context) => Card(

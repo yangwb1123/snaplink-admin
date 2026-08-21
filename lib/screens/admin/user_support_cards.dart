@@ -45,9 +45,15 @@ class SessionsCard extends StatelessWidget {
   const SessionsCard({super.key, required this.sessions});
 
   @override
-  Widget build(BuildContext context) => _card('Active sessions', Icons.devices_outlined, [
+  Widget build(
+    BuildContext context,
+  ) => _card('Active sessions', Icons.devices_outlined, [
     if (sessions.isEmpty)
-      const EmptyState(variant: EmptyStateVariant.empty, title: 'No active sessions.', compact: true)
+      const EmptyState(
+        variant: EmptyStateVariant.empty,
+        title: 'No active sessions.',
+        compact: true,
+      )
     else
       AdminDataTable(
         density: TableDensity.compact,
@@ -58,13 +64,18 @@ class SessionsCard extends StatelessWidget {
             label: 'SESSION',
             width: 220,
             cardPrimary: true,
-            builder: (c, i) => TableCellText(sessions[i]['id']?.toString() ?? '', bold: true),
+            builder: (c, i) =>
+                TableCellText(sessions[i]['id']?.toString() ?? '', bold: true),
           ),
           AdminDataColumn(
             id: 'device',
             label: 'DEVICE',
             width: 320,
-            builder: (c, i) => TableCellText('${sessions[i]['ip'] ?? ''} ${sessions[i]['user_agent'] ?? ''}'.trim(), muted: true),
+            builder: (c, i) => TableCellText(
+              '${sessions[i]['ip'] ?? ''} ${sessions[i]['user_agent'] ?? ''}'
+                  .trim(),
+              muted: true,
+            ),
           ),
         ],
         itemCount: sessions.length,
@@ -79,7 +90,13 @@ class ConsentsCard extends StatelessWidget {
   final String userId;
   final bool mutating;
   final Future<void> Function(String clientId) onRevoke;
-  const ConsentsCard({super.key, required this.consents, required this.userId, required this.mutating, required this.onRevoke});
+  const ConsentsCard({
+    super.key,
+    required this.consents,
+    required this.userId,
+    required this.mutating,
+    required this.onRevoke,
+  });
 
   @override
   Widget build(BuildContext context) => _card(
@@ -87,7 +104,11 @@ class ConsentsCard extends StatelessWidget {
     Icons.policy_outlined,
     [
       if (consents.isEmpty)
-        const EmptyState(variant: EmptyStateVariant.empty, title: 'No grants found.', compact: true)
+        const EmptyState(
+          variant: EmptyStateVariant.empty,
+          title: 'No grants found.',
+          compact: true,
+        )
       else
         AdminDataTable(
           density: TableDensity.compact,
@@ -98,20 +119,29 @@ class ConsentsCard extends StatelessWidget {
               label: 'CLIENT',
               width: 220,
               cardPrimary: true,
-              builder: (c, i) => TableCellText(consents[i]['client_id']?.toString() ?? '', bold: true),
+              builder: (c, i) => TableCellText(
+                consents[i]['client_id']?.toString() ?? '',
+                bold: true,
+              ),
             ),
             AdminDataColumn(
               id: 'scopes',
               label: 'SCOPES',
               width: 240,
-              builder: (c, i) => TableCellText((consents[i]['scopes'] as List? ?? const []).join(' '), muted: true),
+              builder: (c, i) => TableCellText(
+                (consents[i]['scopes'] as List? ?? const []).join(' '),
+                muted: true,
+              ),
             ),
             AdminDataColumn(
               id: 'actions',
               label: '',
               width: 100,
               builder: (c, i) => TextButton(
-                onPressed: mutating ? null : () => onRevoke(consents[i]['client_id']?.toString() ?? ''),
+                onPressed: mutating
+                    ? null
+                    : () =>
+                          onRevoke(consents[i]['client_id']?.toString() ?? ''),
                 // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
                 style: TextButton.styleFrom(
                   foregroundColor: AppColors.semanticFor(
@@ -138,58 +168,78 @@ class MfaFactorsCard extends StatelessWidget {
   final bool canResetRecoveryCodes;
   final Future<void> Function(String factorId) onRemove;
   final VoidCallback? onResetRecoveryCodes;
-  const MfaFactorsCard({super.key, required this.factors, required this.mutating, required this.canResetRecoveryCodes, required this.onRemove, this.onResetRecoveryCodes});
+  const MfaFactorsCard({
+    super.key,
+    required this.factors,
+    required this.mutating,
+    required this.canResetRecoveryCodes,
+    required this.onRemove,
+    this.onResetRecoveryCodes,
+  });
 
   @override
-  Widget build(BuildContext context) => _card(
-    'Second factors',
-    Icons.verified_user_outlined,
-    [
-      if (factors.isEmpty)
-        const EmptyState(variant: EmptyStateVariant.empty, title: 'No registered factors.', compact: true)
-      else
-        AdminDataTable(
-          density: TableDensity.compact,
-          minWidth: 460,
-          columns: [
-            AdminDataColumn(
-              id: 'factor',
-              label: 'FACTOR',
-              width: 220,
-              cardPrimary: true,
-              builder: (c, i) => TableCellText(factors[i]['label']?.toString() ?? factors[i]['method']?.toString() ?? '', bold: true),
-            ),
-            AdminDataColumn(
-              id: 'method',
-              label: 'METHOD',
-              width: 140,
-              builder: (c, i) => TableCellText(factors[i]['method']?.toString() ?? '', muted: true),
-            ),
-            AdminDataColumn(
-              id: 'actions',
-              label: '',
-              width: 110,
-              builder: (c, i) => TextButton(
-                onPressed: mutating ? null : () => onRemove(factors[i]['id']?.toString() ?? ''),
-                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.semanticFor(
-                    Theme.of(c).brightness,
-                    AppColors.danger,
-                  ),
+  Widget build(BuildContext context) =>
+      _card('Second factors', Icons.verified_user_outlined, [
+        if (factors.isEmpty)
+          const EmptyState(
+            variant: EmptyStateVariant.empty,
+            title: 'No registered factors.',
+            compact: true,
+          )
+        else
+          AdminDataTable(
+            density: TableDensity.compact,
+            minWidth: 460,
+            columns: [
+              AdminDataColumn(
+                id: 'factor',
+                label: 'FACTOR',
+                width: 220,
+                cardPrimary: true,
+                builder: (c, i) => TableCellText(
+                  factors[i]['label']?.toString() ??
+                      factors[i]['method']?.toString() ??
+                      '',
+                  bold: true,
                 ),
-                child: const LocalizedText('Remove'),
               ),
-            ),
-          ],
-          itemCount: factors.length,
-          rowBuilder: (context, i) => const SizedBox.shrink(),
-        ),
-      if (canResetRecoveryCodes)
-        OutlinedButton(onPressed: mutating ? null : onResetRecoveryCodes, child: const LocalizedText('Reset recovery codes')),
-    ],
-    count: factors.length,
-  );
+              AdminDataColumn(
+                id: 'method',
+                label: 'METHOD',
+                width: 140,
+                builder: (c, i) => TableCellText(
+                  factors[i]['method']?.toString() ?? '',
+                  muted: true,
+                ),
+              ),
+              AdminDataColumn(
+                id: 'actions',
+                label: '',
+                width: 110,
+                builder: (c, i) => TextButton(
+                  onPressed: mutating
+                      ? null
+                      : () => onRemove(factors[i]['id']?.toString() ?? ''),
+                  // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.semanticFor(
+                      Theme.of(c).brightness,
+                      AppColors.danger,
+                    ),
+                  ),
+                  child: const LocalizedText('Remove'),
+                ),
+              ),
+            ],
+            itemCount: factors.length,
+            rowBuilder: (context, i) => const SizedBox.shrink(),
+          ),
+        if (canResetRecoveryCodes)
+          OutlinedButton(
+            onPressed: mutating ? null : onResetRecoveryCodes,
+            child: const LocalizedText('Reset recovery codes'),
+          ),
+      ], count: factors.length);
 }
 
 /// 账户生命周期状态机卡：allowed_transitions 是 API 值，走 Text（X10）。
@@ -200,26 +250,49 @@ class LifecycleCard extends StatelessWidget {
   final ValueChanged<String?> onStateChanged;
   final TextEditingController reasonController;
   final VoidCallback onApply;
-  const LifecycleCard({super.key, required this.lifecycleData, required this.mutating, required this.nextState, required this.onStateChanged, required this.reasonController, required this.onApply});
+  const LifecycleCard({
+    super.key,
+    required this.lifecycleData,
+    required this.mutating,
+    required this.nextState,
+    required this.onStateChanged,
+    required this.reasonController,
+    required this.onApply,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final allowed = (lifecycleData['allowed_transitions'] as List? ?? const []).map((value) => value.toString()).toList();
+    final allowed = (lifecycleData['allowed_transitions'] as List? ?? const [])
+        .map((value) => value.toString())
+        .toList();
     return _card('Account lifecycle', Icons.swap_vert, [
-      LocalizedText('Current state: {state}', args: {'state': lifecycleData['state'] ?? 'active'}),
+      LocalizedText(
+        'Current state: {state}',
+        args: {'state': lifecycleData['state'] ?? 'active'},
+      ),
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
         initialValue: allowed.contains(nextState) ? nextState : null,
         // R29 字体缩放：isExpanded 约束选中项宽度，2x 下不横向溢出。
         isExpanded: true,
         decoration: InputDecoration(labelText: 'Transition to'.localized),
-        items: allowed.map((state) => DropdownMenuItem(value: state, child: Text(state))).toList(growable: false),
+        items: allowed
+            .map((state) => DropdownMenuItem(value: state, child: Text(state)))
+            .toList(growable: false),
         onChanged: mutating ? null : onStateChanged,
       ),
       const SizedBox(height: 12),
-      TextField(controller: reasonController, decoration: InputDecoration(labelText: 'Reason / ticket reference'.localized)),
+      TextField(
+        controller: reasonController,
+        decoration: InputDecoration(
+          labelText: 'Reason / ticket reference'.localized,
+        ),
+      ),
       const SizedBox(height: 12),
-      FilledButton(onPressed: mutating || nextState == null ? null : onApply, child: const LocalizedText('Apply transition')),
+      FilledButton(
+        onPressed: mutating || nextState == null ? null : onApply,
+        child: const LocalizedText('Apply transition'),
+      ),
     ]);
   }
 }
@@ -262,69 +335,92 @@ class CredentialRecoveryCard extends StatelessWidget {
     // 不再让父页每次按键整页重建（R11）。
     return ListenableBuilder(
       listenable: Listenable.merge([passwordController, emailController]),
-      builder: (context, _) => _card('Credential recovery and containment', Icons.key_outlined, [
-        if (!hasContent)
-          const EmptyState(
-            variant: EmptyStateVariant.empty,
-            title: 'No recovery or containment actions are available.',
-            compact: true,
-          )
-        else ...[
-          if (passwordResetData != null)
-            _recoveryStatus(context, 'Active password-reset links', passwordResetData!),
-          if (emailChangeData != null)
-            _recoveryStatus(context, 'Active email-change links', emailChangeData!),
-          if (canSetPassword) ...[
-            TextField(
-              controller: passwordController,
-              obscureText: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              decoration: InputDecoration(labelText: 'New password'.localized),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: mutating || passwordController.text.isEmpty
-                  ? null
-                  : onSetPassword,
-              child: const LocalizedText('Set password'),
-            ),
-          ],
-          if (canSetEmail) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: InputDecoration(labelText: 'Replacement email'.localized),
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: mutating || emailController.text.trim().isEmpty
-                  ? null
-                  : onSetEmail,
-              child: const LocalizedText('Set email'),
-            ),
-          ],
-          if (dangerActions.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: dangerActions.map((a) => a.build(context)).toList(),
-            ),
-          ],
-        ],
-      ]),
+      builder: (context, _) =>
+          _card('Credential recovery and containment', Icons.key_outlined, [
+            if (!hasContent)
+              const EmptyState(
+                variant: EmptyStateVariant.empty,
+                title: 'No recovery or containment actions are available.',
+                compact: true,
+              )
+            else ...[
+              if (passwordResetData != null)
+                _recoveryStatus(
+                  context,
+                  'Active password-reset links',
+                  passwordResetData!,
+                ),
+              if (emailChangeData != null)
+                _recoveryStatus(
+                  context,
+                  'Active email-change links',
+                  emailChangeData!,
+                ),
+              if (canSetPassword) ...[
+                TextField(
+                  controller: passwordController,
+                  obscureText: true,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: 'New password'.localized,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: mutating || passwordController.text.isEmpty
+                      ? null
+                      : onSetPassword,
+                  child: const LocalizedText('Set password'),
+                ),
+              ],
+              if (canSetEmail) ...[
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Replacement email'.localized,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                FilledButton(
+                  onPressed: mutating || emailController.text.trim().isEmpty
+                      ? null
+                      : onSetEmail,
+                  child: const LocalizedText('Set email'),
+                ),
+              ],
+              if (dangerActions.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: dangerActions.map((a) => a.build(context)).toList(),
+                ),
+              ],
+            ],
+          ]),
     );
   }
 
   /// 恢复链接计数：label 走 catalog 翻译，count 是 API 值。
-  Widget _recoveryStatus(BuildContext context, String label, Map<String, dynamic> data) {
+  Widget _recoveryStatus(
+    BuildContext context,
+    String label,
+    Map<String, dynamic> data,
+  ) {
     final records = data['tokens'] ?? data['links'] ?? data['items'];
-    final count = data['total'] ?? data['count'] ?? (records is List ? records.length : 0);
+    final count =
+        data['total'] ??
+        data['count'] ??
+        (records is List ? records.length : 0);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: LocalizedText('{label}: {count}', args: {'label': context.tr(label), 'count': count}),
+      child: LocalizedText(
+        '{label}: {count}',
+        args: {'label': context.tr(label), 'count': count},
+      ),
     );
   }
 }
@@ -336,7 +432,13 @@ class DangerAction {
   final String confirmMessage;
   final IconData icon;
   final VoidCallback onConfirmed;
-  const DangerAction({required this.label, required this.confirmTitle, required this.confirmMessage, this.icon = Icons.warning_amber_outlined, required this.onConfirmed});
+  const DangerAction({
+    required this.label,
+    required this.confirmTitle,
+    required this.confirmMessage,
+    this.icon = Icons.warning_amber_outlined,
+    required this.onConfirmed,
+  });
 
   Widget build(BuildContext context) {
     // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。

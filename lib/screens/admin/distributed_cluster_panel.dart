@@ -61,7 +61,9 @@ class _PanelState extends State<DistributedClusterPanel> {
   }
 
   String _t(String source, [Map<String, Object?> values = const {}]) =>
-      AppStrings.forLocale(AppSettings.instance.locale).translate(source, values);
+      AppStrings.forLocale(
+        AppSettings.instance.locale,
+      ).translate(source, values);
 
   Future<Map<String, dynamic>> _quiet(String path) =>
       widget.api.get(path).catchError((_) => <String, dynamic>{});
@@ -78,7 +80,8 @@ class _PanelState extends State<DistributedClusterPanel> {
       _readyz = results[0] as Map<String, dynamic>?;
       _status = results[1] as Map<String, dynamic>?;
       _keys = results[2] as Map<String, dynamic>?;
-      _jwksKids = ((results[3] as Map<String, dynamic>?)?['keys'] as List?)
+      _jwksKids =
+          ((results[3] as Map<String, dynamic>?)?['keys'] as List?)
               ?.map((k) => (k as Map)['kid']?.toString() ?? '')
               .where((k) => k.isNotEmpty)
               .toList() ??
@@ -123,26 +126,30 @@ class _PanelState extends State<DistributedClusterPanel> {
         unauthorized++;
       }
     }
-    results.add(_ClusterCheck(
-      _t('Cross-replica token validation'),
-      unauthorized == 0,
-      unauthorized == 0
-          ? _t('5/5 probes authorized')
-          : _t('{n} of 5 probes unauthorized', {'n': unauthorized}),
-    ));
+    results.add(
+      _ClusterCheck(
+        _t('Cross-replica token validation'),
+        unauthorized == 0,
+        unauthorized == 0
+            ? _t('5/5 probes authorized')
+            : _t('{n} of 5 probes unauthorized', {'n': unauthorized}),
+      ),
+    );
 
     // 3. Distributed control plane (etcd registry + bus + aggregation).
     final checks = (_readyz?['checks'] as Map?) ?? const {};
     final failing = _distributedReadyzChecks
         .where((name) => checks[name] != 'ok')
         .toList();
-    results.add(_ClusterCheck(
-      _t('Control plane checks'),
-      failing.isEmpty,
-      failing.isEmpty
-          ? _t('Distributed checks healthy')
-          : _t('{n} distributed check(s) failing', {'n': failing.length}),
-    ));
+    results.add(
+      _ClusterCheck(
+        _t('Control plane checks'),
+        failing.isEmpty,
+        failing.isEmpty
+            ? _t('Distributed checks healthy')
+            : _t('{n} distributed check(s) failing', {'n': failing.length}),
+      ),
+    );
 
     // 4. Backend modules (per-store ping from /api/v1/status).
     final modules = (_status?['modules'] as Map?) ?? const {};
@@ -150,13 +157,15 @@ class _PanelState extends State<DistributedClusterPanel> {
         .where((e) => e.value.toString() != 'ok')
         .map((e) => e.key)
         .toList();
-    results.add(_ClusterCheck(
-      _t('Backend module checks'),
-      badModules.isEmpty,
-      badModules.isEmpty
-          ? _t('All backends reachable')
-          : _t('{n} backend module(s) failing', {'n': badModules.length}),
-    ));
+    results.add(
+      _ClusterCheck(
+        _t('Backend module checks'),
+        badModules.isEmpty,
+        badModules.isEmpty
+            ? _t('All backends reachable')
+            : _t('{n} backend module(s) failing', {'n': badModules.length}),
+      ),
+    );
 
     if (!mounted) return;
     setState(() {
@@ -168,27 +177,28 @@ class _PanelState extends State<DistributedClusterPanel> {
   Widget _verifyOnlyWrap(List<dynamic> verifyOnly) => Wrap(
     spacing: 8,
     runSpacing: 8,
-    children: [
-      for (final k in verifyOnly) _kidChip('', k, false),
-    ],
+    children: [for (final k in verifyOnly) _kidChip('', k, false)],
   );
 
-  Widget _readyzWrap(BuildContext context, Map<dynamic, dynamic> checks) => Wrap(
-    spacing: 6,
-    runSpacing: 6,
-    children: [
-      for (final name in _distributedReadyzChecks)
-        _statusChip(context, name, checks[name]?.toString()),
-    ],
-  );
+  Widget _readyzWrap(BuildContext context, Map<dynamic, dynamic> checks) =>
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final name in _distributedReadyzChecks)
+            _statusChip(context, name, checks[name]?.toString()),
+        ],
+      );
 
-  Widget _modulesWrap(BuildContext context, Map<dynamic, dynamic> modules) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      for (final e in modules.entries) _statusChip(context, e.key, e.value?.toString()),
-    ],
-  );
+  Widget _modulesWrap(BuildContext context, Map<dynamic, dynamic> modules) =>
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final e in modules.entries)
+            _statusChip(context, e.key, e.value?.toString()),
+        ],
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -227,10 +237,10 @@ class _PanelState extends State<DistributedClusterPanel> {
                 const Divider(),
                 _row(
                   _t('Replica keys'),
-                  _t(
-                    '{n} replica keys (1 active, {m} verify-only)',
-                    {'n': keys.length, 'm': verifyOnly.length},
-                  ),
+                  _t('{n} replica keys (1 active, {m} verify-only)', {
+                    'n': keys.length,
+                    'm': verifyOnly.length,
+                  }),
                 ),
                 if (active.isNotEmpty)
                   Padding(
@@ -315,16 +325,18 @@ class _PanelState extends State<DistributedClusterPanel> {
                 ),
                 if (results != null) ...[
                   const Divider(),
-                  ...results.map((r) => ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      r.passed ? Icons.check_circle : Icons.cancel,
-                      color: r.passed ? AppColors.success : AppColors.danger,
+                  ...results.map(
+                    (r) => ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        r.passed ? Icons.check_circle : Icons.cancel,
+                        color: r.passed ? AppColors.success : AppColors.danger,
+                      ),
+                      title: Text(r.label),
+                      subtitle: Text(r.detail),
                     ),
-                    title: Text(r.label),
-                    subtitle: Text(r.detail),
-                  )),
+                  ),
                   Text(
                     passed == results.length
                         ? _t('All {n} checks passed', {'n': results.length})
@@ -366,7 +378,9 @@ class _PanelState extends State<DistributedClusterPanel> {
           ),
           label: Text('$kid ${alg.isNotEmpty ? '($alg)' : ''}'),
           visualDensity: VisualDensity.compact,
-          backgroundColor: active ? AppColors.success.withValues(alpha: 0.05) : null,
+          backgroundColor: active
+              ? AppColors.success.withValues(alpha: 0.05)
+              : null,
         ),
       ],
     );
@@ -387,7 +401,9 @@ class _PanelState extends State<DistributedClusterPanel> {
       ),
       label: Text(name),
       visualDensity: VisualDensity.compact,
-      backgroundColor: ok ? AppColors.success.withValues(alpha: 0.05) : AppColors.danger.withValues(alpha: 0.05),
+      backgroundColor: ok
+          ? AppColors.success.withValues(alpha: 0.05)
+          : AppColors.danger.withValues(alpha: 0.05),
     );
   }
 

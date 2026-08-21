@@ -198,10 +198,7 @@ class PortalActionNotice extends StatelessWidget {
           Expanded(
             child: Text(
               context.tr(message),
-              style: TextStyle(
-                color: foreground,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w600),
             ),
           ),
         ],

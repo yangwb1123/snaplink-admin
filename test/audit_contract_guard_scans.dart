@@ -27,8 +27,9 @@
 ///      reference `AuditReadClient` (no hand-built maps, no spread skins);
 ///   6. portal negative-boundary scan (B6-1) — zero case-insensitive
 ///      `audit` occurrences (identifiers, comments, literals) anywhere in
-///      `lib/screens/portal/`; the audit timeline read belongs to
-///      `SnaplinkAdminApi` via `AuditReadClient`, never the portal client;
+///      `lib/screens/portal/` and `lib/api/portal_api.dart`; the audit
+///      timeline read belongs to `SnaplinkAdminApi` via `AuditReadClient`,
+///      never the portal client;
 ///   6b. developer negative-boundary scan (B6-1) — zero case-insensitive
 ///      `audit` occurrences anywhere in `lib/screens/developer/`; DCR
 ///      reads/writes belong to DeveloperApi's /register surface, audit

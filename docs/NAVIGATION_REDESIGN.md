@@ -1,6 +1,7 @@
 # 导航架构重组方案（Tabs 分组整理）
 
-> 状态：**提案待确认**——本文档列出分析与方案，确认后实施。
+> 状态：**已实施**——分组导航、深链兼容和能力裁剪已落地；本文档保留为
+> 结构契约与验收基线。
 
 ## 1. 现状问题
 
@@ -78,12 +79,16 @@ Portal 分组后一级 NavigationRail 3 项 + 页内 tabs（当前 10 项 Rail �
 | 5. 命令面板按组标题分节（非 admin 命令归 Overview） | ✅ |
 | 6. portal 3 组（Account/Connections/Data）+ 壳层 SectionSelector | ✅ |
 | 7. 测试适配（窄 rail label Offstage → 组图标交互） | ✅ |
+| 8. 全局分组契约守护（每个 AdminModuleId 恰好归属一个组） | ✅ |
 
 **架构决策**（按推荐方案落地）：
 - 一级点击 → 直接进组内默认模块（Supabase 式）
 - Security 组 14 项 → 直接横滚 chips（克制，不分子群）
 - Portal 本轮一起完成
 - 路由零破坏：module id/URL 不变，group 纯导航层派生
+
+分组契约由 `test/admin_navigation_test.dart` 的全局断言守护：六个组必须覆盖全部
+`AdminModuleId`，不得重复或遗漏；未知模块仍回退到 Overview。
 
 ## 8. 验收标准
 

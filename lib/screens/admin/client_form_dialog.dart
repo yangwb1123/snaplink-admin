@@ -83,7 +83,10 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
           !uri.hasScheme ||
           uri.fragment.isNotEmpty ||
           uri.userInfo.isNotEmpty) {
-        return 'Invalid redirect URI: {uri}'.localized.replaceFirst('{uri}', raw);
+        return 'Invalid redirect URI: {uri}'.localized.replaceFirst(
+          '{uri}',
+          raw,
+        );
       }
     }
     return null;
@@ -148,7 +151,11 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
     } on SSOError catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text(e.toString()),
+        kind: AppSnackBarKind.error,
+      );
     }
   }
 
@@ -176,8 +183,9 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                     labelText: 'ID'.localized,
                     helperText: 'Immutable after creation.'.localized,
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Required'.localized
+                      : null,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
@@ -195,8 +203,9 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(labelText: 'Name'.localized),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required'.localized : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Required'.localized
+                      : null,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(

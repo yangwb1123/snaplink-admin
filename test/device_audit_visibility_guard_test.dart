@@ -21,27 +21,45 @@ import 'package:flutter_test/flutter_test.dart';
 ///     lib/screens/device/
 void main() {
   const moduleDir = 'lib/screens/device';
-  const banned = ['AuditLog' 'Service', 'audit_log_' 'service', 'sso_audit_' 'log'];
+  const banned = [
+    'AuditLog'
+        'Service',
+    'audit_log_'
+        'service',
+    'sso_audit_'
+        'log',
+  ];
 
-  test('zero audit-ring references in the device module (REQ-1 floor, AC-2)', () {
-    final offenders = <String, List<String>>{};
-    for (final entity in Directory(moduleDir).listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      final source = File(entity.path).readAsStringSync();
-      final hits = [
-        for (final needle in banned)
-          if (source.contains(needle)) needle,
-      ];
-      if (hits.isNotEmpty) offenders[entity.path] = hits;
-    }
-    expect(
-      offenders,
-      isEmpty,
-      reason: 'lib/screens/device must keep zero '
-          'AuditLog' 'Service' ' / ' 'audit_log_' 'service' ' / '
-          'sso_audit_' 'log' ' '
-          'references (localStorage ring is debug-only; device decisions '
-          'are evidenced exclusively through the server-fed timeline)',
-    );
-  });
+  test(
+    'zero audit-ring references in the device module (REQ-1 floor, AC-2)',
+    () {
+      final offenders = <String, List<String>>{};
+      for (final entity in Directory(moduleDir).listSync(recursive: true)) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final source = File(entity.path).readAsStringSync();
+        final hits = [
+          for (final needle in banned)
+            if (source.contains(needle)) needle,
+        ];
+        if (hits.isNotEmpty) offenders[entity.path] = hits;
+      }
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'lib/screens/device must keep zero '
+            'AuditLog'
+            'Service'
+            ' / '
+            'audit_log_'
+            'service'
+            ' / '
+            'sso_audit_'
+            'log'
+            ' '
+            'references (localStorage ring is debug-only; device decisions '
+            'are evidenced exclusively through the server-fed timeline)',
+      );
+    },
+  );
 }

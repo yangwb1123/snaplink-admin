@@ -108,10 +108,7 @@ void main() {
           matching: find.byType(FilledButton),
         ),
       );
-      expect(
-        button.style?.backgroundColor?.resolve({}),
-        AppColors.danger,
-      );
+      expect(button.style?.backgroundColor?.resolve({}), AppColors.danger);
     });
 
     testWidgets('type-to-confirm requires matching text', (tester) async {

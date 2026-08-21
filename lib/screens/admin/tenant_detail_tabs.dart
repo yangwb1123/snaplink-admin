@@ -36,10 +36,7 @@ class TenantMembersTab extends StatelessWidget {
           onRetry: onRetry,
         )
       else if (members.isEmpty)
-        const EmptyState(
-          variant: EmptyStateVariant.empty,
-          title: 'No members',
-        )
+        const EmptyState(variant: EmptyStateVariant.empty, title: 'No members')
       else
         _membersTable(context),
     ],
@@ -58,7 +55,9 @@ class TenantMembersTab extends StatelessWidget {
           cardPrimary: true,
           builder: (context, i) {
             final id =
-                rows[i]['user_id']?.toString() ?? rows[i]['id']?.toString() ?? '';
+                rows[i]['user_id']?.toString() ??
+                rows[i]['id']?.toString() ??
+                '';
             return TableCellText(id.isEmpty ? '?' : id, bold: true);
           },
         ),
@@ -77,7 +76,9 @@ class TenantMembersTab extends StatelessWidget {
           width: 110,
           builder: (context, i) {
             final id =
-                rows[i]['user_id']?.toString() ?? rows[i]['id']?.toString() ?? '';
+                rows[i]['user_id']?.toString() ??
+                rows[i]['id']?.toString() ??
+                '';
             return rows[i]['role'] == 'owner'
                 ? const SizedBox.shrink()
                 : TextButton(
@@ -143,10 +144,8 @@ class TenantInvitationsTab extends StatelessWidget {
           label: 'EMAIL',
           width: 240,
           cardPrimary: true,
-          builder: (context, i) => TableCellText(
-            rows[i]['email']?.toString() ?? '',
-            bold: true,
-          ),
+          builder: (context, i) =>
+              TableCellText(rows[i]['email']?.toString() ?? '', bold: true),
         ),
         AdminDataColumn(
           id: 'role',
@@ -162,9 +161,7 @@ class TenantInvitationsTab extends StatelessWidget {
           label: 'EXPIRES',
           width: 200,
           builder: (context, i) => TableCellText(
-            formatServerTime(
-              rows[i]['expires_at'] ?? rows[i]['expiry'],
-            ),
+            formatServerTime(rows[i]['expires_at'] ?? rows[i]['expiry']),
             muted: true,
           ),
         ),

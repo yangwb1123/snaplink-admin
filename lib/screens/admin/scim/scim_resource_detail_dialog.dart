@@ -141,7 +141,8 @@ class ScimResourceDetailDialog extends StatelessWidget {
         _row(context, 'External ID', resource['externalId']),
         if (name.isNotEmpty) ...[
           _section(context, 'Name'),
-          for (final entry in name.entries) _row(context, entry.key, entry.value),
+          for (final entry in name.entries)
+            _row(context, entry.key, entry.value),
         ],
         _section(context, 'Emails'),
         _objectList(resource['emails'], emptyText: 'No email addresses'),
@@ -149,12 +150,12 @@ class ScimResourceDetailDialog extends StatelessWidget {
           _section(context, 'Enterprise extension'),
           for (final entry in enterprise.entries)
             if (entry.key != 'manager') _row(context, entry.key, entry.value),
-            if (manager.isNotEmpty)
-              _row(
-                context,
-                'manager',
-                '${manager['displayName'] ?? ''} (${manager['value'] ?? ''})',
-              ),
+          if (manager.isNotEmpty)
+            _row(
+              context,
+              'manager',
+              '${manager['displayName'] ?? ''} (${manager['value'] ?? ''})',
+            ),
         ],
       ],
     );
@@ -237,7 +238,10 @@ class ScimResourceDetailDialog extends StatelessWidget {
   }
 
   Widget _chip(String label, String value) => Chip(
-    label: LocalizedText('{label}: {value}', args: {'label': label, 'value': value}),
+    label: LocalizedText(
+      '{label}: {value}',
+      args: {'label': label, 'value': value},
+    ),
     visualDensity: VisualDensity.compact,
   );
 

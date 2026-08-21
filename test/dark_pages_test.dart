@@ -53,8 +53,11 @@ void main() {
             200,
             headers: {'content-type': 'application/json'},
           ),
-          '/me/attributes': (_) =>
-              http.Response('[]', 200, headers: {'content-type': 'application/json'}),
+          '/me/attributes': (_) => http.Response(
+            '[]',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
         }),
         baseUri: Uri.parse('https://sso.example.test'),
       );

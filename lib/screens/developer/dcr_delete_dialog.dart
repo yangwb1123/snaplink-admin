@@ -90,9 +90,9 @@ class _DcrDeleteDialogState extends State<_DcrDeleteDialog> {
             const SizedBox(height: 8),
             Text(
               context.tr('Type the exact client ID to enable deletion.'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
         ),

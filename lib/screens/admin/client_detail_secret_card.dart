@@ -100,7 +100,10 @@ class ClientSecretDialog extends StatelessWidget {
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: secret));
                         if (context.mounted) {
-                          showCopySnackBar(context, content: LocalizedText('Copied to clipboard'));
+                          showCopySnackBar(
+                            context,
+                            content: LocalizedText('Copied to clipboard'),
+                          );
                         }
                       },
                     ),

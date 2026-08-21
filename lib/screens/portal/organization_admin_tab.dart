@@ -46,6 +46,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   bool _available = true;
   bool _invitationsAvailable = true;
   bool _busy = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   String? _error;
@@ -220,9 +221,8 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         confirmText: userId,
         destructive: true,
       ),
-      request: () => widget.api.delete(
-        '$_base/members/${Uri.encodeComponent(userId)}',
-      ),
+      request: () =>
+          widget.api.delete('$_base/members/${Uri.encodeComponent(userId)}'),
       success: 'Member removed.',
       failure: (status) => status == 409
           ? 'Last admin protected.'
@@ -278,9 +278,8 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         confirmText: email,
         destructive: true,
       ),
-      request: () => widget.api.delete(
-        '$_base/invitations/${Uri.encodeComponent(email)}',
-      ),
+      request: () =>
+          widget.api.delete('$_base/invitations/${Uri.encodeComponent(email)}'),
       success: 'Invitation revoked.',
       failure: (status) => status == 409
           ? 'Duplicate or protected.'
@@ -291,53 +290,56 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      OrganizationAdminHeader(
-        tenantId: widget.tenantId,
-        disabled: _loading || _busy,
-        onClose: widget.onClose,
-        onRefresh: _load,
-      ),
-      const SizedBox(height: 12),
-      if (_loading)
-        const SkeletonListTile(itemCount: 3)
-      else if (!_available)
-        const EmptyState(
-          compact: true,
-          variant: EmptyStateVariant.notEnabled,
-          icon: Icons.admin_panel_settings_outlined,
-          title:
-              'Organization administration is not available to this account.',
-        )
-      else if (_error != null)
-        PortalErrorCard(message: context.tr(_error!), onRetry: _load)
-      else ...[
-        PortalCard(
-          title: 'Members',
-          children: [
-            if (_members.isEmpty)
-              const EmptyHint('No organization members were returned.'),
-            for (final member in _members) _memberRow(member),
-          ],
+  Widget build(BuildContext context) => PullToRefresh(
+    onRefresh: _load,
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        OrganizationAdminHeader(
+          tenantId: widget.tenantId,
+          disabled: _loading || _busy,
+          onClose: widget.onClose,
+          onRefresh: _load,
         ),
-        if (_invitationsAvailable) ...[
-          OrganizationInvitationCards(
-            emailController: _emailCtrl,
-            role: _inviteRole,
-            roles: _roles,
-            busy: _busy,
-            invitations: _invitations,
-            onRoleChanged: (role) => setState(() => _inviteRole = role),
-            onInvite: _invite,
-            onRevoke: _revoke,
+        const SizedBox(height: 12),
+        if (_loading)
+          const SkeletonListTile(itemCount: 3)
+        else if (!_available)
+          const EmptyState(
+            compact: true,
+            variant: EmptyStateVariant.notEnabled,
+            icon: Icons.admin_panel_settings_outlined,
+            title:
+                'Organization administration is not available to this account.',
+          )
+        else if (_error != null)
+          PortalErrorCard(message: context.tr(_error!), onRetry: _load)
+        else ...[
+          PortalCard(
+            title: 'Members',
+            children: [
+              if (_members.isEmpty)
+                const EmptyHint('No organization members were returned.'),
+              for (final member in _members) _memberRow(member),
+            ],
           ),
+          if (_invitationsAvailable) ...[
+            OrganizationInvitationCards(
+              emailController: _emailCtrl,
+              role: _inviteRole,
+              roles: _roles,
+              busy: _busy,
+              invitations: _invitations,
+              onRoleChanged: (role) => setState(() => _inviteRole = role),
+              onInvite: _invite,
+              onRevoke: _revoke,
+            ),
+          ],
         ],
+        MessageBanner(_message, ok: _ok),
       ],
-      MessageBanner(_message, ok: _ok),
-    ],
-  ));
+    ),
+  );
 
   Widget _memberRow(Map<String, dynamic> member) => MemberRowTile(
     member: member,

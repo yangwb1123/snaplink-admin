@@ -82,11 +82,15 @@ List<AuditGuardViolation> _scanNegativeBoundary(
   String source,
   String fileLabel, {
   required String modulePrefix,
+  String? exactFile,
   required String scanId,
   required String moduleLabel,
   required String boundaryReason,
 }) {
-  if (!fileLabel.startsWith(modulePrefix)) return const [];
+  if (!fileLabel.startsWith(modulePrefix) &&
+      (exactFile == null || fileLabel != exactFile)) {
+    return const [];
+  }
   final violations = <AuditGuardViolation>[];
   for (final match in _auditAnyPattern.allMatches(source)) {
     final line = 1 + '\n'.allMatches(source.substring(0, match.start)).length;
@@ -105,11 +109,9 @@ List<AuditGuardViolation> _scanNegativeBoundary(
 
 /// Scan 6 — B6-1 portal negative boundary.
 ///
-/// The portal module (`lib/screens/portal/`) keeps zero case-insensitive
-/// `audit` occurrences (identifiers, comments, literals, doc comments).
-/// The audit timeline read belongs to SnaplinkAdminApi via
-/// AuditReadClient; the portal self-service client never acquires an
-/// audit surface (record: audit-contract-batch-snaplink-console.md:10).
+/// The portal module and its self-service transport keep zero case-insensitive
+/// audit occurrences. The audit timeline read belongs to SnaplinkAdminApi via
+/// AuditReadClient; the portal client never acquires an audit surface.
 List<AuditGuardViolation> scanPortalAuditBoundary(
   String source,
   String fileLabel,
@@ -117,9 +119,11 @@ List<AuditGuardViolation> scanPortalAuditBoundary(
   source,
   fileLabel,
   modulePrefix: 'screens/portal/',
+  exactFile: 'api/portal_api.dart',
   scanId: 'portal-audit-boundary',
   moduleLabel: 'portal module',
-  boundaryReason: 'audit reads belong to SnaplinkAdminApi via AuditReadClient',
+  boundaryReason:
+      'audit reads belong to SnaplinkAdminApi via AuditReadClient',
 );
 
 /// Scan 6b — B6-1 developer negative boundary (parity with scan 6).

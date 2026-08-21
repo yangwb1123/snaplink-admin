@@ -85,10 +85,8 @@ void main() {
           }),
           200,
         ),
-        '/api/v1/admin/endpoints': (_) => http.Response(
-          jsonEncode({'endpoints': []}),
-          200,
-        ),
+        '/api/v1/admin/endpoints': (_) =>
+            http.Response(jsonEncode({'endpoints': []}), 200),
       });
       await tester.pumpWidget(_wrap(HealthTab(api: api)));
       await tester.pumpAndSettle();

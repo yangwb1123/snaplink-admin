@@ -43,6 +43,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   bool _showReportForm = false;
@@ -99,7 +100,11 @@ class _CredentialsTabState extends State<CredentialsTab> {
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         _credsPath,
-        onRefresh: _applyRefresh,
+        onRefresh: (fresh) {
+          if (mounted && seq == _reqSeq) {
+            setState(() => _applyCredentials(fresh));
+          }
+        },
       );
       if (!mounted || seq != _reqSeq) return;
       setState(() {
@@ -131,18 +136,15 @@ class _CredentialsTabState extends State<CredentialsTab> {
         .toList();
   }
 
-  void _applyRefresh(Map<String, dynamic> fresh) {
-    if (!mounted) return;
-    setState(() => _applyCredentials(fresh));
-  }
-
   Future<void> _reportCompromise() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final type = _typeCtrl.text.trim();
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Report compromise?',
-      message: 'Report $type credentials as compromised?',
+      message: context.tr('Report {type} credentials as compromised?', {
+        'type': type,
+      }),
       confirmLabel: 'Report',
       destructive: true,
       confirmText: type,
@@ -172,50 +174,61 @@ class _CredentialsTabState extends State<CredentialsTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).credentials,
-          subtitle: 'Credential rotation inventory and compromise reporting.',
-          onRefresh: _load,
-          actions: [
-            if (!_showReportForm)
-              OutlinedButton.icon(
-                onPressed: () =>
-                    AdminRoute.go('credentials', subresource: 'report'),
-                icon: Icon(Icons.warning_amber_outlined, size: 18, color: _accent),
-                label: const LocalizedText('Report compromise'),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).credentials,
+            subtitle: 'Credential rotation inventory and compromise reporting.',
+            onRefresh: _load,
+            actions: [
+              if (!_showReportForm)
+                OutlinedButton.icon(
+                  onPressed: () =>
+                      AdminRoute.go('credentials', subresource: 'report'),
+                  icon: Icon(
+                    Icons.warning_amber_outlined,
+                    size: 18,
+                    color: _accent,
+                  ),
+                  label: const LocalizedText('Report compromise'),
+                ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
               ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
+            ],
+          ),
+          if (_showReportForm) _buildReportForm(context),
+          if (!_loading && _error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ],
-        ),
-        if (_showReportForm) _buildReportForm(context),
-        if (!_loading && _error != null)
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
-          ),
-        if (!_loading &&
-            _error == null &&
-            _credentials.isEmpty &&
-            !_showReportForm)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: EmptyState(compact: true, title: 'No credentials found.'),
-          ),
-        if (!_loading && _error == null && _credentials.isNotEmpty)
-          _credentialsCard(context),
-      ],
-    ));
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading &&
+              _error == null &&
+              _credentials.isEmpty &&
+              !_showReportForm)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: EmptyState(compact: true, title: 'No credentials found.'),
+            ),
+          if (!_loading && _error == null && _credentials.isNotEmpty)
+            _credentialsCard(context),
+        ],
+      ),
+    );
   }
 
   /// 凭据库存卡：组色钥匙图标 + SectionHeader（计数）+ AdminDataTable(compact)。
@@ -295,8 +308,8 @@ class _CredentialsTabState extends State<CredentialsTab> {
     'expired' => StatusChip.degraded(label: context.tr('Expired')),
     'suspended' => StatusChip.suspended(label: context.tr('Suspended')),
     _ => StatusChip.unknown(
-        label: status.isEmpty ? context.tr('unknown') : status,
-      ),
+      label: status.isEmpty ? context.tr('unknown') : status,
+    ),
   };
 
   Widget _buildReportForm(BuildContext context) => Card(
@@ -361,4 +374,3 @@ class _CredentialsTabState extends State<CredentialsTab> {
     ),
   );
 }
-

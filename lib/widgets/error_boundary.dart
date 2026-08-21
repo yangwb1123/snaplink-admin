@@ -68,9 +68,9 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                     ? '${_error!.substring(0, 200)}...'
                     : _error!,
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(

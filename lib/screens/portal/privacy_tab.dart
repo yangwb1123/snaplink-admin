@@ -172,7 +172,17 @@ class _PrivacyTabState extends State<PrivacyTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Semantics(container: true, header: true, child: Text(context.tr('Data and privacy'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            context.tr('Data and privacy'),
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           context.tr(
@@ -196,7 +206,10 @@ class _PrivacyTabState extends State<PrivacyTab> {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            PortalLeadingIcon(icon: Icons.file_download_outlined, color: accent),
+            PortalLeadingIcon(
+              icon: Icons.file_download_outlined,
+              color: accent,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
@@ -265,9 +278,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
           alignment: Alignment.centerLeft,
           child: OutlinedButton.icon(
             onPressed: _previewErase,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.danger,
-            ),
+            style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger),
             icon: _previewBusy
                 ? portalSpinner(AppColors.danger)
                 : const Icon(Icons.visibility_outlined, size: 18),
@@ -299,9 +310,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
             onPressed: _erase,
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.danger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
             icon: _eraseBusy
                 ? portalSpinner(theme.colorScheme.onPrimary)
                 : const Icon(Icons.delete_forever_outlined, size: 18),
@@ -377,4 +386,3 @@ class _PrivacyTabState extends State<PrivacyTab> {
     );
   }
 }
-

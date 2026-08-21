@@ -7,18 +7,12 @@ void main() {
   group('parseLanguageOptions', () {
     test('parses comma-separated BCP-47 tags in declared order', () {
       final options = parseLanguageOptions('en,zh,ja');
-      expect(
-        options.map((l) => l.languageCode).toList(),
-        ['en', 'zh', 'ja'],
-      );
+      expect(options.map((l) => l.languageCode).toList(), ['en', 'zh', 'ja']);
     });
 
     test('trims whitespace and drops empty segments', () {
       final options = parseLanguageOptions(' en , zh ,');
-      expect(
-        options.map((l) => l.languageCode).toList(),
-        ['en', 'zh'],
-      );
+      expect(options.map((l) => l.languageCode).toList(), ['en', 'zh']);
     });
 
     test('deduplicates repeated tags', () {
@@ -42,18 +36,17 @@ void main() {
 
     test('drops invalid tags but keeps valid ones', () {
       final options = parseLanguageOptions('en,!!!,zh');
-      expect(
-        options.map((l) => l.languageCode).toList(),
-        ['en', 'zh'],
-      );
+      expect(options.map((l) => l.languageCode).toList(), ['en', 'zh']);
     });
   });
 
   group('languageOptionsIncludingCurrent', () {
     test('returns options unchanged when the current locale is present', () {
       const options = [Locale('en'), Locale('zh')];
-      expect(languageOptionsIncludingCurrent(options, const Locale('zh')),
-          same(options));
+      expect(
+        languageOptionsIncludingCurrent(options, const Locale('zh')),
+        same(options),
+      );
     });
 
     test('appends the current locale when absent (dropdown value safety)', () {
@@ -90,18 +83,24 @@ void main() {
 
   group('flagEmojiForLocale', () {
     test('maps regions to regional-indicator flags', () {
-      expect(flagEmojiForLocale(const Locale.fromSubtags(
-        languageCode: 'pt',
-        countryCode: 'BR',
-      )), '🇧🇷');
-      expect(flagEmojiForLocale(const Locale.fromSubtags(
-        languageCode: 'en',
-        countryCode: 'US',
-      )), '🇺🇸');
-      expect(flagEmojiForLocale(const Locale.fromSubtags(
-        languageCode: 'zh',
-        countryCode: 'TW',
-      )), '🇹🇼');
+      expect(
+        flagEmojiForLocale(
+          const Locale.fromSubtags(languageCode: 'pt', countryCode: 'BR'),
+        ),
+        '🇧🇷',
+      );
+      expect(
+        flagEmojiForLocale(
+          const Locale.fromSubtags(languageCode: 'en', countryCode: 'US'),
+        ),
+        '🇺🇸',
+      );
+      expect(
+        flagEmojiForLocale(
+          const Locale.fromSubtags(languageCode: 'zh', countryCode: 'TW'),
+        ),
+        '🇹🇼',
+      );
     });
 
     test('maps bare language codes from the table', () {

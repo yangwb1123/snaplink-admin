@@ -3,7 +3,7 @@
 > Applies to: `lib/screens/admin/audit_log_tab.dart`, `lib/api/snaplink_admin_api.dart`, `test/audit_log_tab_test.dart`, `test/snaplink_admin_api_test.dart`. Supersedes, in part: the FM-9/FM-12 rows of `docs/proposals/b6-1a-lib-screens-admin-auditlogtab-server-read-design.md` §3 and the AC-1/AC-2 re-query pin `:143-152` of `test/audit_log_tab_test.dart`.
 > Origin: **F12 [HIGH]** of the api_contract_reviewer adversarial report — "the search box floods the wire": `onChanged: (_) => _refresh()` per keystroke, no debounce, no in-flight guard, no cancellation, `_request` retries up to `maxRetries=3` on 5xx/timeout/network error with exponential backoff. Typing a 5-char term against a struggling sink = 5+ concurrent round-trips, up to 20 wire hits (5 × (1+3)).
 > Root cause chain (reproduced against the tree): `DataCache._key(method, path)` is path-only (`data_cache.dart:166`), so query-bearing GETs were excluded from cache *and* dedup; `get()`'s `query != null` branch (`snaplink_admin_api.dart:134-135`) calls `_request` directly with no collapse. The tab's refresh button is disabled while loading, but `onChanged` fires `_refresh()` regardless — the only flood source, and the FM-9 race's own trigger.
-> Status: **design + validation complete (applied, ran, restored byte-identical; tree left at the pre-F12 certified change set)**. Landing is a follow-up commit per §7.
+> Status: **implemented and verified (2026-08-20)**. The debounce, query-aware in-flight registry, and their regression pins are landed in the four files named above; the validation ledger below records the current working tree.
 
 ## 1. Design
 
@@ -154,29 +154,29 @@ Harness note (the one real trap): `MockClient.send` consumes the request body st
 | Leader fails mid-group | — | all joiners get the same error; next trigger is a fresh leader |
 | Filter dropdown during in-flight | second request, guard arbitrates | joins (same key), filter applies at commit |
 
-## 5. Validation (all runs with the design applied; tree then restored)
+## 5. Validation (landed working tree)
 
 | Command | Result |
 |---|---|
-| `flutter test test/audit_log_tab_test.dart` | **16/16** (AC-1 debounce pump, FM-9 join rewrite, all other pins untouched) |
+| `flutter test test/audit_log_tab_test.dart` | **27/27** (AC-1 debounce pump, F12 join test, T-12 positive, and all existing pins) |
 | `flutter test test/audit_contract_guard_test.dart test/audit_query_test.dart test/audit_read_client_test.dart test/audit_event_row_test.dart` | **51/51** (guard/query/read-client/row; none of the four files touched — md5s unchanged from the pre-existing uncommitted set; census note: the campaign's earlier "47" baseline predates 4 tests added to this set by the uncommitted change set, not by this design) |
 | `flutter test test/admin_support_tabs_test.dart test/admin_navigation_test.dart` | **18/18** (both search-touching support-tab tests pass byte-unchanged) |
 | `flutter test test/snaplink_admin_api_test.dart` | **19/19** (15 pre-existing + 4 new dedup pins) |
-| `flutter test` (bare; the `make test` flutter leg) | **797/797, exit 0** (twice consecutively + once with `-r expanded`) |
-| `python3 -m unittest discover -s tests/unit -p 'test_*.py'` | **18/18 OK** (pre-existing coverage-relative-path warnings, unchanged) |
+| `flutter test` (bare; the `make test` flutter leg) | **1192/1192, exit 0** (full Flutter VM suite, 2026-08-20) |
+| `python3 -m unittest discover -s tests/unit -p 'test_*.py'` | **20/20 OK** (pre-existing coverage-relative-path warnings, unchanged) |
 | `flutter analyze` | **No issues found** |
-| `flutter test test/audit_contract_guard_mutation_test.dart` | 15 tests, 3 pre-existing failures — **A/B-proven identical on the pristine tree** (same 3 red: two `{id}` mutation probes, one accepted-escape-route probe); not caused by, and not exercised by, this design |
-| Tree restore | All four files restored byte-identical (md5 match with the pre-F12 snapshot `d7071ab3`/`cb5c151a`/`edade35b`/`91012c77`) |
+| `flutter test test/audit_contract_guard_mutation_test.dart` | **43/43** (guard mutation skins, including the PortalApi boundary skin; current tree)
+| `flutter analyze` after landing | **No issues found** (8.5s) |
 
-Environment note: bare `flutter test` in this checkout executes a pre-existing subset of the 124 test files (the runner starts all 124; ~44-46 report tests — the campaign's reviewers always ran the audit suites explicitly for exactly this reason). The F12 validation therefore uses explicit multi-file invocations, matching the certified-command pattern of §5 in the parent design doc.
+Environment note: the explicit suites are intentional because this checkout contains platform-filtered files; the browser gate is run separately with `make test-browser`.
 
 ## 6. Guard-scan compatibility (AC-3)
 
 No scan input changes: the debounce adds `dart:async` usage and no literals; the transport adds a `Completer` registry and a static key builder with no audit-path literals. `scanSecondConsumer`'s trigger (queryable audit literal + `query:` argument without `AuditQuery`) is not touched — the audit path still builds wire through `AuditReadClient`/`AuditQuery` only. Verified green in the 51/51 run.
 
-## 7. Landing steps (follow-up commit, after the certified B6-1a/b/c set)
+## 7. Landed change and scope
 
-1. Apply §1.1 + §1.2 to the two production files; apply §3.1 + §3.2 to the two test files (diffs in this doc are the authoritative landing text).
-2. Re-run the §5 command block — all four explicit suites must stay green, plus `flutter analyze`.
-3. Commit atomically with the parent change set or as a tagged follow-up (test lock-step with production, per the parent doc's §4 convention).
-4. Scope guard — do not expand: no wire-request cancellation machinery, no `skipCache`-bypass of the collapse, no debounce on the filter dropdown / refresh / Retry (discrete actions), no changes to `DataCache` or `AuditQuery`.
+1. `audit_log_tab.dart` owns the 300ms search debounce and immediate client-side filtering.
+2. `snaplink_admin_api.dart` owns the pending-only `(method, path, sorted query)` registry; cache and `AuditQuery` semantics remain unchanged.
+3. `audit_log_tab_test.dart` and `snaplink_admin_api_test.dart` pin timing, canonicalization, different-query isolation, shared failures, and post-release freshness.
+4. Scope guard remains active: no wire cancellation, no cache bypass of the collapse, no debounce on discrete actions, and no `DataCache`/`AuditQuery` changes.

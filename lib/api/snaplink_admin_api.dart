@@ -31,6 +31,7 @@ class SnaplinkAdminApi {
   final Duration requestTimeout;
   late final SnaplinkAdminDownloadTransport _downloads;
   late final SnaplinkAdminEventStream _events;
+  final Map<String, Completer<Map<String, dynamic>>> _inFlightQuery = {};
 
   SnaplinkAdminApi({
     required this.baseUrl,
@@ -98,6 +99,21 @@ class SnaplinkAdminApi {
     return segments.isEmpty ? path : segments.first;
   }
 
+  static String _inFlightKey(
+    String method,
+    String path,
+    Map<String, String> query,
+  ) {
+    // JSON keeps query keys/values unambiguous even when a value contains
+    // '&' or '='. A delimiter-joined key would make
+    // {filter: 'a&b=c'} collide with {filter: 'a', b: 'c'}.
+    final pairs = query.entries
+        .map((entry) => <String>[entry.key, entry.value])
+        .toList()
+      ..sort((a, b) => a[0].compareTo(b[0]));
+    return jsonEncode(<Object>[method, path, pairs]);
+  }
+
   /// Clear the entire response cache.
   void clearCache() => _cache.clear();
 
@@ -131,7 +147,28 @@ class SnaplinkAdminApi {
     final skipCache = _skipCacheNext || forceRefresh;
     _skipCacheNext = false;
     if (query != null) {
-      return _request('GET', path, query: query);
+      final key = _inFlightKey('GET', path, query);
+      final pending = _inFlightQuery[key];
+      if (pending != null) return pending.future;
+
+      final completer = Completer<Map<String, dynamic>>();
+      // A leader may fail before a joiner awaits the future. Attach an error
+      // observer so the shared future never creates an unhandled-error zone
+      // report; callers still receive the original error below.
+      unawaited(completer.future.then<void>((_) {}, onError: (_, _) {}));
+      _inFlightQuery[key] = completer;
+      try {
+        final data = await _request('GET', path, query: query);
+        if (!completer.isCompleted) completer.complete(data);
+        return data;
+      } catch (error, stackTrace) {
+        if (!completer.isCompleted) completer.completeError(error, stackTrace);
+        rethrow;
+      } finally {
+        if (identical(_inFlightQuery[key], completer)) {
+          _inFlightQuery.remove(key);
+        }
+      }
     }
     if (!skipCache) {
       final cached = _cache.get('GET', path);

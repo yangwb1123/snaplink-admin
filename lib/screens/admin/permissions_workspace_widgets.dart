@@ -90,7 +90,11 @@ class PermissionMenusCard extends StatelessWidget {
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.primaryContainer,
-                  child: Icon(Icons.account_tree_outlined, size: 18, color: accent),
+                  child: Icon(
+                    Icons.account_tree_outlined,
+                    size: 18,
+                    color: accent,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

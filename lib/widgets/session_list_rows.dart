@@ -15,12 +15,16 @@ Widget sessionTile(
   final metaParts = <String>[];
   if (s['created_at'] != null) {
     metaParts.add(
-      context.tr('since {date}', {'date': formatServerTime(s['created_at'], dateOnly: true)}),
+      context.tr('since {date}', {
+        'date': formatServerTime(s['created_at'], dateOnly: true),
+      }),
     );
   }
   if (s['expires_at'] != null) {
     metaParts.add(
-      context.tr('expires {date}', {'date': formatServerTime(s['expires_at'], dateOnly: true)}),
+      context.tr('expires {date}', {
+        'date': formatServerTime(s['expires_at'], dateOnly: true),
+      }),
     );
   }
   final devParts = <String>[];

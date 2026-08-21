@@ -283,8 +283,11 @@ class ManagePanelState extends State<ManagePanel> {
   }
 
   void _showMessage(String message, {bool error = false}) {
-    showAppSnackBar(context, content: Text(context.tr(message)),
-        kind: error ? AppSnackBarKind.error : AppSnackBarKind.success);
+    showAppSnackBar(
+      context,
+      content: Text(context.tr(message)),
+      kind: error ? AppSnackBarKind.error : AppSnackBarKind.success,
+    );
   }
 
   void _loadIfIdle() {

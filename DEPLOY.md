@@ -57,7 +57,10 @@ SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapt
 
 This produces `build/web/` — a plain directory of static files (HTML/JS/CSS/
 assets). The Dockerfile performs the equivalent build inside its build stage,
-so container workflows do not require a host Flutter installation.
+so container workflows do not require a host Flutter installation. The image
+pins the Flutter stable archive and its SHA-256 checksum; override
+`FLUTTER_VERSION` and `FLUTTER_SHA256` together only when intentionally
+updating the build toolchain.
 
 Pick **one** of the following:
 
@@ -142,6 +145,11 @@ fast when `SNAPLINK_BILLING_UPSTREAM`/`SNAPLINK_STRIPE_ADAPTER_UPSTREAM` are
 unset, so a deployment missing those services can never silently route
 Billing/checkout traffic to the sso-server and surface confusing 404s.
 Set the independent Billing/Stripe origins when those services are deployed.
+The image repeats this contract for all three origins in
+`docker-entrypoint.d/10-validate-upstreams.sh`: it rejects an empty value,
+credentials, paths, queries, fragments, or non-HTTP(S) values before nginx
+renders its configuration. Minimal Kubernetes may intentionally point both
+optional variables at the core origin, but it must still set them explicitly.
 Place the dedicated
 test/backend configuration at `config.local.yaml` first. That local file is
 gitignored and must not contain production secrets.

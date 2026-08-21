@@ -13,8 +13,9 @@ import 'package:sso_admin/widgets/status_chip.dart';
 /// 未来调整 token 时破坏可读性。
 double contrastRatio(Color a, Color b) {
   double lum(Color c) {
-    double ch(double v) =>
-        v <= 0.03928 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+    double ch(double v) => v <= 0.03928
+        ? v / 12.92
+        : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
 
     return 0.2126 * ch(c.r) + 0.7152 * ch(c.g) + 0.0722 * ch(c.b);
   }
@@ -70,29 +71,26 @@ void main() {
             greaterThanOrEqualTo(4.5),
             reason: '$name on $brightness: text contrast $ratio too low',
           );
-          // 语义色点缀（图标）vs 表面 ≥ 3.0（WCAG 非文本）。深色模式下
-          // danger/warning 略低于 3（2.26-2.83）——已登记 TECH_DEBT，
-          // chip 内部图标已用 50% 叠表面提亮补偿；此处只对浅色硬断言。
-          if (brightness == Brightness.light) {
-            final accentRatio = contrastRatio(chip.color, surface);
-            expect(
-              accentRatio,
-              greaterThanOrEqualTo(3.0),
-              reason: '$name on $brightness: accent contrast $accentRatio too low',
-            );
-          } else {
-            final accentRatio = contrastRatio(chip.color, surface);
-            // ignore: avoid_print
-            debugPrint('$name on dark: accent contrast ${accentRatio.toStringAsFixed(2)} (TECH_DEBT)');
-          }
+          // 语义色点缀（图标）vs 表面 ≥ 3.0（WCAG 非文本）。StatusChip
+          // 在深色模式下会通过 semanticFor 使用同族亮色变体，确保图标
+          // 与背景保持足够辨识度；浅色模式则保持原始语义色。
+          final accent = AppColors.semanticFor(brightness, chip.color);
+          final accentRatio = contrastRatio(accent, surface);
+          expect(
+            accentRatio,
+            greaterThanOrEqualTo(3.0),
+            reason:
+                '$name on $brightness: accent contrast $accentRatio too low',
+          );
         }
       });
     }
   });
 
   group('dark theme smoke', () {
-    testWidgets('settings + status chips render without overflow',
-        (tester) async {
+    testWidgets('settings + status chips render without overflow', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark(),

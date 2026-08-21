@@ -36,9 +36,7 @@ MockClient _portalRecordingClient(
       );
     }
     if (!request.url.path.startsWith('/me')) {
-      fail(
-        'portal traffic must stay under /me — got ${request.url.path} (F2)',
-      );
+      fail('portal traffic must stay under /me — got ${request.url.path} (F2)');
     }
     recorded.add(
       _PortalRecordedRequest(method: request.method, path: request.url.path),
@@ -65,12 +63,19 @@ MockClient _portalRecordingClient(
 /// second leading /me and fails here.
 void _expectSingleValidationGetMe(List<_PortalRecordedRequest> recorded) {
   final leadingMe = recorded.takeWhile((r) => r.path == '/me').toList();
-  expect(leadingMe.length, 1,
-      reason: 'exactly one credential-validating GET /me — the paste/resume '
-          'path must probe once and only once (${recorded.length} requests '
-          'recorded)');
-  expect(leadingMe.single.method, 'GET',
-      reason: 'the credential validation must be a GET, never a POST');
+  expect(
+    leadingMe.length,
+    1,
+    reason:
+        'exactly one credential-validating GET /me — the paste/resume '
+        'path must probe once and only once (${recorded.length} requests '
+        'recorded)',
+  );
+  expect(
+    leadingMe.single.method,
+    'GET',
+    reason: 'the credential validation must be a GET, never a POST',
+  );
 }
 
 void main() {
@@ -312,10 +317,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: PortalScreen(
-            api: api,
-            redirectMissingSessionToLogin: false,
-          ),
+          home: PortalScreen(api: api, redirectMissingSessionToLogin: false),
         ),
       );
       await tester.pump();
@@ -324,41 +326,47 @@ void main() {
       await tester.pumpAndSettle();
 
       _expectSingleValidationGetMe(recorded);
-      expect(recorded.where((r) => r.method == 'POST'), isEmpty,
-          reason: 'zero POSTs — in particular zero /auth/login');
-      expect(recorded.every((r) => r.path.startsWith('/me')), isTrue,
-          reason: 'all other traffic (if any) is a /me-rooted GET BFF read');
+      expect(
+        recorded.where((r) => r.method == 'POST'),
+        isEmpty,
+        reason: 'zero POSTs — in particular zero /auth/login',
+      );
+      expect(
+        recorded.every((r) => r.path.startsWith('/me')),
+        isTrue,
+        reason: 'all other traffic (if any) is a /me-rooted GET BFF read',
+      );
     },
   );
 
-  testWidgets(
-    'stored-session resume issues zero POSTs and exactly one GET /me '
-    'validation (REQ-3/AC-2)',
-    (tester) async {
-      Session.store('still-valid-token', clientId: 'portal-client');
-      final recorded = <_PortalRecordedRequest>[];
-      final api = PortalApi(
-        httpClient: _portalRecordingClient(
-          recorded,
-          expectedBearer: 'still-valid-token',
-        ),
-      );
+  testWidgets('stored-session resume issues zero POSTs and exactly one GET /me '
+      'validation (REQ-3/AC-2)', (tester) async {
+    Session.store('still-valid-token', clientId: 'portal-client');
+    final recorded = <_PortalRecordedRequest>[];
+    final api = PortalApi(
+      httpClient: _portalRecordingClient(
+        recorded,
+        expectedBearer: 'still-valid-token',
+      ),
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: PortalScreen(
-            api: api,
-            redirectMissingSessionToLogin: false,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PortalScreen(api: api, redirectMissingSessionToLogin: false),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      _expectSingleValidationGetMe(recorded);
-      expect(recorded.where((r) => r.method == 'POST'), isEmpty,
-          reason: 'zero POSTs — in particular zero /auth/login');
-      expect(recorded.every((r) => r.path.startsWith('/me')), isTrue,
-          reason: 'all other traffic (if any) is a /me-rooted GET BFF read');
-    },
-  );
+    _expectSingleValidationGetMe(recorded);
+    expect(
+      recorded.where((r) => r.method == 'POST'),
+      isEmpty,
+      reason: 'zero POSTs — in particular zero /auth/login',
+    );
+    expect(
+      recorded.every((r) => r.path.startsWith('/me')),
+      isTrue,
+      reason: 'all other traffic (if any) is a /me-rooted GET BFF read',
+    );
+  });
 }

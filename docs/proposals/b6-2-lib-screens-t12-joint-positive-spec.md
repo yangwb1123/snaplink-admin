@@ -1,8 +1,10 @@
 # B6-2 Requirements Specification — missing T-12 joint positive: server-truth timeline renders the drill's `auth.login.success` row
 
 Module: `lib/screens` (analysis bucket `docs/auto/analyses/lib-screens-19d4d0ab.json`) · Direction: T-12 joint positive · Value: 8 · Risk reduction: 8 · Effort: 2 · Confidence: 9
-Status: requirements (test-only change set; zero production diff)
+Status: implemented and verified (2026-08-20; test-only change set; zero production diff)
 Sibling instances: the B6-2 developer lens (`b6-2-lib-screens-developer-client-id-alignment-spec.md` REQ-4.3) assigns this rendering test to the B6-1 change set; the i18n lens (`b6-2-lib-i18n-verbatim-display-edge-spec.md`) pins the same row's verbatim data-vs-copy boundary. This spec is the **`lib/screens` lens**: it adds the missing positive widget test for the drill row and keeps the T-12 joint's negative half pinned.
+
+Implementation record: the positive widget test and constant-backed drill fixture are landed in `test/audit_log_tab_test.dart`; the three-file acceptance command passes 43/43 and the production implementation is unchanged.
 
 ---
 
@@ -21,7 +23,7 @@ Every citation in the direction was re-checked against the working tree at HEAD.
 | `lib/screens/admin/audit_log_tab.dart:78-101` — `_refresh` → `AuditReadClient.list` | **Exact substance, 1-line drift.** `_refresh()` at `:84-118`: capability gate `widget.capabilities.has('GET', AuditReadClient.eventsPath)` at `:86-96`, `await _client.list(limit: 100)` at `:102`. Direction's `:78-101` covers the doc comment through the gate. |
 | `lib/screens/admin/audit_log_tab.dart:143-149` — outcome/type cell rendering | **Stale region, symbols exact.** `:143-149` is now `_applyFilter`/`_compareRows`. The cell builders moved with the B6-1b landing: EVENT column `:427-433` (`TableCellText(type, bold: true)`), OUTCOME `:435-460` (StatusChip, `label: row.outcome`, "never fabricates localized copy"), ACTOR `:461-468`, TENANT `:470-475`. `StatusChip` renders `Text(label)` (`lib/widgets/status_chip.dart:83-90`) so `find.text('success')` pins the OUTCOME chip exactly. |
 | `lib/api/audit_read_client.dart:44-52` — eventsPath + AuditQuery wire | **Exact substance, line drift.** `eventsPath = '/api/v1/audit/events'` at `:15`; `list()` at `:35-51` — `AuditQuery(...).toQueryParameters()` and `_api.get(eventsPath, query: query)` at `:51`. |
-| Baseline green | **Verified.** `flutter test test/audit_log_tab_test.dart test/admin_support_tabs_test.dart test/oidc_login_handle_success_census_test.dart` → 40/40 passed at HEAD. |
+| Baseline/landed green | **Verified.** The historical baseline was 40/40; the landed command now passes 43/43. |
 
 ### C1 — required testability correction: fixture must interpolate `SSOAdminClient.firstPartyClientId`, not the raw literal
 
@@ -75,7 +77,7 @@ New `testWidgets` in `test/audit_log_tab_test.dart`, inside the existing `AuditL
    - `find.textContaining('forged entry')` findsNothing and `find.textContaining('/api/v1/admin/forged')` findsNothing — the ring is not evidence;
    - exactly one recorded request to `/api/v1/audit/events` (via `_recordingApi`) — the row comes from the server response only, behind the capability gate.
 
-**Testable:** the test exists in `test/audit_log_tab_test.dart` with the asserts above; `flutter test test/audit_log_tab_test.dart` green (40 existing + 1 new).
+**Testable:** the test exists in `test/audit_log_tab_test.dart` with the asserts above; `flutter test test/audit_log_tab_test.dart` passes 25/25.
 
 ### REQ-2 — No raw `client_id` literal, census stays active
 
@@ -91,7 +93,7 @@ Removing the drill row from the mock response must turn the new test red: with `
 
 ### REQ-4 — No-regression / zero-delta boundaries
 
-- `flutter test test/audit_log_tab_test.dart test/admin_support_tabs_test.dart test/oidc_login_handle_success_census_test.dart` → all green (41 total after landing).
+- `flutter test test/audit_log_tab_test.dart test/admin_support_tabs_test.dart test/oidc_login_handle_success_census_test.dart` → all green (43 total in the landed tree).
 - `git diff --stat lib/` empty for this change set (test-only).
 - `test/admin_support_tabs_test.dart`, `test/oidc_login_handle_success_census_test.dart`, and the standing 30-test gate (`censusCount 10 + clientIdCount 3 + ssoCount 17`) untouched and green.
 
@@ -104,7 +106,7 @@ Removing the drill row from the mock response must turn the new test red: with `
 | AC-1 | New widget test in `test/audit_log_tab_test.dart`: mock GET `/api/v1/audit/events` returning the drill row `{type:'auth.login.success', outcome:'success', client_id:'sso-admin-console', tenant_id:'<t>', actor_id:...}` with ring empty → assert EVENT/OUTCOME/TENANT cells render and count == 1 | REQ-1: fixture `client_id` interpolated from `SSOAdminClient.firstPartyClientId` (C1); asserts `find.text('auth.login.success')` findsOneWidget, `find.text('success')` findsOneWidget, `find.text('<t>')` findsOneWidget, `find.text('1 entries')` findsOneWidget, exactly one request to `/api/v1/audit/events` |
 | AC-2 | Same response with a forged ring entry present (AuditLogService seeded) → row count still from server only, forged row findsNothing | REQ-1 steps 2/4: ring seeded via the established `_seedForgedRing()` pattern (C2); `find.textContaining('forged entry')` findsNothing, `find.textContaining('/api/v1/admin/forged')` findsNothing, count stays `1 entries` |
 | AC-3 | Removing the row from the mock response makes the test red | REQ-3: empty-body mock → `auth.login.success`/`<t>`/`1 entries` asserts fail; documented negative control |
-| AC-4 | `flutter test test/audit_log_tab_test.dart test/admin_support_tabs_test.dart test/oidc_login_handle_success_census_test.dart` green | REQ-2/REQ-4: full command green (41 tests); `grep -rn "sso-admin-console" test/` hits only the census file; `git diff --stat lib/` empty |
+| AC-4 | `flutter test test/audit_log_tab_test.dart test/admin_support_tabs_test.dart test/oidc_login_handle_success_census_test.dart` green | REQ-2/REQ-4: full command green (43 tests); `grep -rn "sso-admin-console" test/` hits only the census file; no production diff from this change |
 
 T-12 joint mapping (`implementation-gate.md:56`): **positive half** = "查询触发 self-audit 行" — the drill's `auth.login.success` row (client_id resolved from the single source) renders from the sink read (this test); **negative half** = "devtools 伪造不再构成证据" — stays pinned by the existing `findsNothing` guards (`audit_log_tab_test.dart` AC-3a `:317-320`/AC-3c `:380-383`/AC-3 joint `:835-843`, `admin_support_tabs_test.dart:126-127`).
 

@@ -39,8 +39,11 @@ void main() {
 
     final control = tester.getRect(find.byType(DropdownMenu<ThemeMode>));
     final item = tester.getRect(menuItem('System'));
-    expect(item.top, greaterThanOrEqualTo(control.bottom - 1),
-        reason: 'theme menu must open below the control');
+    expect(
+      item.top,
+      greaterThanOrEqualTo(control.bottom - 1),
+      reason: 'theme menu must open below the control',
+    );
   });
 
   testWidgets('selecting a theme updates AppSettings and checks the item', (
@@ -70,7 +73,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 每个菜单项都有图标（彩色由 Icon.color 提供，此处验证存在且着色）。
-    for (final icon in [Icons.brightness_auto, Icons.light_mode, Icons.dark_mode]) {
+    for (final icon in [
+      Icons.brightness_auto,
+      Icons.light_mode,
+      Icons.dark_mode,
+    ]) {
       final icons = tester.widgetList<Icon>(
         find.descendant(
           of: find.byType(MenuItemButton).hitTestable(),
@@ -89,7 +96,9 @@ void main() {
   // ButtonStyle.backgroundColor 经 WidgetState.focused 注入、画在
   // MenuItemButton 的 Material 上，未选中透明；边框 2px primary、圆角 8，
   // 未选中项同宽透明占位；选中/未选中条目几何一致（≤0.1px）。
-  testWidgets('selected entry border spans the full item width', (tester) async {
+  testWidgets('selected entry border spans the full item width', (
+    tester,
+  ) async {
     await tester.pumpWidget(wrap(const ThemeDropdown()));
     await tester.tap(find.byType(DropdownMenu<ThemeMode>));
     await tester.pumpAndSettle();
@@ -105,29 +114,50 @@ void main() {
         .toList();
     expect(itemRects.length, 3, reason: 'one entry per theme mode');
     for (final rect in itemRects.skip(1)) {
-      expect(rect.left, closeTo(itemRects.first.left, 0.1),
-          reason: 'item boxes must share the left edge');
-      expect(rect.width, closeTo(itemRects.first.width, 0.1),
-          reason: 'item boxes must have identical widths');
-      expect(rect.height, closeTo(itemRects.first.height, 0.1),
-          reason: 'item boxes must have identical heights');
+      expect(
+        rect.left,
+        closeTo(itemRects.first.left, 0.1),
+        reason: 'item boxes must share the left edge',
+      );
+      expect(
+        rect.width,
+        closeTo(itemRects.first.width, 0.1),
+        reason: 'item boxes must have identical widths',
+      );
+      expect(
+        rect.height,
+        closeTo(itemRects.first.height, 0.1),
+        reason: 'item boxes must have identical heights',
+      );
     }
     final item = itemRects.first;
 
     // 内容占位容器（AnimatedContainer，恒透明）几何一致（≤0.1px）。
     final boxes = tester
         .renderObjectList<RenderBox>(
-          find.descendant(of: buttons, matching: find.byType(AnimatedContainer)),
+          find.descendant(
+            of: buttons,
+            matching: find.byType(AnimatedContainer),
+          ),
         )
         .toList();
     final rects = boxes.map(boxRect).toList();
     for (final rect in rects.skip(1)) {
-      expect(rect.left, closeTo(rects.first.left, 0.1),
-          reason: 'content boxes must share the left edge');
-      expect(rect.width, closeTo(rects.first.width, 0.1),
-          reason: 'content boxes must have identical widths');
-      expect(rect.height, closeTo(rects.first.height, 0.1),
-          reason: 'content boxes must have identical heights');
+      expect(
+        rect.left,
+        closeTo(rects.first.left, 0.1),
+        reason: 'content boxes must share the left edge',
+      );
+      expect(
+        rect.width,
+        closeTo(rects.first.width, 0.1),
+        reason: 'content boxes must have identical widths',
+      );
+      expect(
+        rect.height,
+        closeTo(rects.first.height, 0.1),
+        reason: 'content boxes must have identical heights',
+      );
     }
 
     final theme = Theme.of(tester.element(find.byType(ThemeDropdown)));
@@ -158,8 +188,11 @@ void main() {
           'selected entry background must be primaryContainer on the item Material',
     );
     for (final m in materials.where((m) => m != selectedMaterial)) {
-      expect(m.color, Colors.transparent,
-          reason: 'unselected entries keep a transparent background');
+      expect(
+        m.color,
+        Colors.transparent,
+        reason: 'unselected entries keep a transparent background',
+      );
     }
 
     // 选中背景盒（Material 整宽绘制，边框与背景共用该层）与 MenuItemButton
@@ -179,24 +212,39 @@ void main() {
           .first,
     );
     final bg = selectedBox.localToGlobal(Offset.zero) & selectedBox.size;
-    expect(bg.left, closeTo(item.left, 1),
-        reason: 'selected background must start at the item left edge');
-    expect(bg.width, closeTo(item.width, 1),
-        reason:
-            'selected background box must span the full MenuItemButton width');
-    expect(bg.right, closeTo(item.right, 1),
-        reason: 'selected background must end at the item right edge');
+    expect(
+      bg.left,
+      closeTo(item.left, 1),
+      reason: 'selected background must start at the item left edge',
+    );
+    expect(
+      bg.width,
+      closeTo(item.width, 1),
+      reason: 'selected background box must span the full MenuItemButton width',
+    );
+    expect(
+      bg.right,
+      closeTo(item.right, 1),
+      reason: 'selected background must end at the item right edge',
+    );
 
     // 外圈 2px 边框画在同一 Material shape side 上：选中项 primary、未选中
     // 项同宽透明占位；圆角 8。
-    final shapes =
-        materials.map((m) => m.shape! as RoundedRectangleBorder).toList();
+    final shapes = materials
+        .map((m) => m.shape! as RoundedRectangleBorder)
+        .toList();
     for (final shape in shapes) {
-      expect(shape.side.width, 2,
-          reason: 'entry border must match the 2px system tiles');
+      expect(
+        shape.side.width,
+        2,
+        reason: 'entry border must match the 2px system tiles',
+      );
     }
-    expect(shapes.where((s) => s.side.color == primary), hasLength(1),
-        reason: 'exactly the selected entry carries the primary border');
+    expect(
+      shapes.where((s) => s.side.color == primary),
+      hasLength(1),
+      reason: 'exactly the selected entry carries the primary border',
+    );
     expect(
       selectedMaterial.shape! as RoundedRectangleBorder,
       isA<RoundedRectangleBorder>().having(
@@ -217,31 +265,41 @@ void main() {
 
   // F1：紧凑变体箭头在收起/展开两态下均 20×20、垂直居中于字段、右缘
   // 贴齐（间隙一致）。
-  testWidgets('compact trailing arrow is centered in collapsed and open states', (
-    tester,
-  ) async {
-    await tester.pumpWidget(wrap(const ThemeDropdown(compact: true)));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'compact trailing arrow is centered in collapsed and open states',
+    (tester) async {
+      await tester.pumpWidget(wrap(const ThemeDropdown(compact: true)));
+      await tester.pumpAndSettle();
 
-    final field = tester.getRect(find.byType(DropdownMenu<ThemeMode>));
-    void checkArrow(IconData data) {
-      final rect = tester.getRect(
-        find.descendant(
-          of: find.byType(InputDecorator),
-          matching: find.byIcon(data),
-        ),
-      );
-      expect(rect.size, const Size(20, 20),
-          reason: 'arrow must keep the 20x20 icon region');
-      expect(rect.center.dy, closeTo(field.center.dy, 1.5),
-          reason: 'arrow must be vertically centered in the field');
-      expect(field.right - rect.right, closeTo(0, 0.5),
-          reason: 'arrow gap from the right edge must be consistent');
-    }
+      final field = tester.getRect(find.byType(DropdownMenu<ThemeMode>));
+      void checkArrow(IconData data) {
+        final rect = tester.getRect(
+          find.descendant(
+            of: find.byType(InputDecorator),
+            matching: find.byIcon(data),
+          ),
+        );
+        expect(
+          rect.size,
+          const Size(20, 20),
+          reason: 'arrow must keep the 20x20 icon region',
+        );
+        expect(
+          rect.center.dy,
+          closeTo(field.center.dy, 1.5),
+          reason: 'arrow must be vertically centered in the field',
+        );
+        expect(
+          field.right - rect.right,
+          closeTo(0, 0.5),
+          reason: 'arrow gap from the right edge must be consistent',
+        );
+      }
 
-    checkArrow(Icons.arrow_drop_down);
-    await tester.tap(find.byType(DropdownMenu<ThemeMode>));
-    await tester.pumpAndSettle();
-    checkArrow(Icons.arrow_drop_up);
-  });
+      checkArrow(Icons.arrow_drop_down);
+      await tester.tap(find.byType(DropdownMenu<ThemeMode>));
+      await tester.pumpAndSettle();
+      checkArrow(Icons.arrow_drop_up);
+    },
+  );
 }

@@ -61,7 +61,11 @@ Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
   final entry = productEntryForPath(location.path);
   switch (entry) {
     case ProductEntry.setup:
-      return _entryScreen(entry, setup_entry.loadLibrary, setup_entry.buildSetupScreen);
+      return _entryScreen(
+        entry,
+        setup_entry.loadLibrary,
+        setup_entry.buildSetupScreen,
+      );
     case ProductEntry.portal:
       return _entryScreen(
         entry,
@@ -81,7 +85,11 @@ Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
         () => device_entry.buildDeviceVerifyScreen(location),
       );
     case ProductEntry.admin:
-      return _entryScreen(entry, admin_entry.loadLibrary, admin_entry.buildAdminGateScreen);
+      return _entryScreen(
+        entry,
+        admin_entry.loadLibrary,
+        admin_entry.buildAdminGateScreen,
+      );
     case ProductEntry.login:
       return _entryScreen(
         entry,

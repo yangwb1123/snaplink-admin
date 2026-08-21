@@ -26,10 +26,17 @@ class SetupNoticePanel extends StatelessWidget {
     children: [
       const SetupLogo(),
       const SizedBox(height: 12),
-      Text(title, style: Theme.of(context).textTheme.titleLarge, textAlign: TextAlign.center),
+      Text(
+        title,
+        style: Theme.of(context).textTheme.titleLarge,
+        textAlign: TextAlign.center,
+      ),
       const SizedBox(height: 16),
       notice,
-      for (final action in actions) ...[const SizedBox(height: 12), PressableScale(child: action)],
+      for (final action in actions) ...[
+        const SizedBox(height: 12),
+        PressableScale(child: action),
+      ],
     ],
   );
 }
@@ -48,9 +55,17 @@ class SetupLoadingPanel extends StatelessWidget {
       children: [
         const SetupLogo(),
         const SizedBox(height: 16),
-        const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+        const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
         const SizedBox(height: 16),
-        Text(strings.setup, style: theme.textTheme.titleLarge, textAlign: TextAlign.center),
+        Text(
+          strings.setup,
+          style: theme.textTheme.titleLarge,
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 8),
         Text(
           strings.checkingSystemStatus,
@@ -77,7 +92,12 @@ class SetupAlreadyInitializedPanel extends StatelessWidget {
         variant: SetupNoticeVariant.success,
         text: strings.alreadyInitialized,
       ),
-      actions: [FilledButton(onPressed: onContinue, child: Text(strings.goToAdminConsole))],
+      actions: [
+        FilledButton(
+          onPressed: onContinue,
+          child: Text(strings.goToAdminConsole),
+        ),
+      ],
     );
   }
 }
@@ -107,7 +127,10 @@ class SetupUnavailablePanel extends StatelessWidget {
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(strings.retry),
         ),
-        FilledButton(onPressed: onContinue, child: Text(strings.goToAdminConsole)),
+        FilledButton(
+          onPressed: onContinue,
+          child: Text(strings.goToAdminConsole),
+        ),
       ],
     );
   }
@@ -162,7 +185,11 @@ class SetupStepDots extends StatelessWidget {
       child: ExcludeSemantics(
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [dot(activeCount >= 1), const SizedBox(width: 8), dot(activeCount >= 2)],
+          children: [
+            dot(activeCount >= 1),
+            const SizedBox(width: 8),
+            dot(activeCount >= 2),
+          ],
         ),
       ),
     );
@@ -178,7 +205,10 @@ class SetupOptionalTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: AppColors.primaryTint, borderRadius: BorderRadius.circular(8)),
+    decoration: BoxDecoration(
+      color: AppColors.primaryTint,
+      borderRadius: BorderRadius.circular(8),
+    ),
     child: Text(
       label,
       style: const TextStyle(
@@ -233,7 +263,9 @@ class SetupInlineNotice extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: foreground),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: foreground),
           ),
         ),
       ],
@@ -241,7 +273,10 @@ class SetupInlineNotice extends StatelessWidget {
     final box = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(color: background, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: notice,
     );
     return liveRegion ? Semantics(liveRegion: true, child: box) : box;
@@ -264,7 +299,10 @@ class SetupCredentialValue extends StatelessWidget {
   Future<void> _copy(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: value));
     if (!context.mounted) return;
-    showCopySnackBar(context, content: Text(AppStrings.of(context).copiedLabel(label)));
+    showCopySnackBar(
+      context,
+      content: Text(AppStrings.of(context).copiedLabel(label)),
+    );
   }
 
   @override
@@ -282,7 +320,11 @@ class SetupCredentialValue extends StatelessWidget {
           IconButton(
             tooltip: AppStrings.of(context).copyLabel(label),
             onPressed: () => _copy(context),
-            icon: const Icon(Icons.copy_outlined, size: 19, color: AppColors.primary),
+            icon: const Icon(
+              Icons.copy_outlined,
+              size: 19,
+              color: AppColors.primary,
+            ),
           ),
         ],
       ),
@@ -294,7 +336,10 @@ class SetupCredentialValue extends StatelessWidget {
           border: Border.all(color: Theme.of(context).colorScheme.outline),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: SelectableText(value, style: const TextStyle(fontFamily: 'monospace')),
+        child: SelectableText(
+          value,
+          style: const TextStyle(fontFamily: 'monospace'),
+        ),
       ),
     ],
   );
@@ -336,15 +381,29 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.check_circle_outline, size: 72, color: AppColors.success),
+        const Icon(
+          Icons.check_circle_outline,
+          size: 72,
+          color: AppColors.success,
+        ),
         const SizedBox(height: 16),
         // R36：与其他 setup 面板标题（titleLarge）同层，消除全库唯一 headlineMedium 离群。
-        Semantics(container: true, header: true, child: Text(strings.setupComplete, style: Theme.of(context).textTheme.titleLarge)),
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            strings.setupComplete,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+        ),
         const SizedBox(height: 8),
         Text(strings.setupCompleteDescription),
         if (widget.adminUsername != null) ...[
           const SizedBox(height: 8),
-          SetupCredentialValue(label: strings.administratorUsername, value: widget.adminUsername!),
+          SetupCredentialValue(
+            label: strings.administratorUsername,
+            value: widget.adminUsername!,
+          ),
         ],
         if (widget.applicationRequestedButMissing) ...[
           const SizedBox(height: 12),
@@ -368,7 +427,10 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
         ],
         if (widget.clientId != null) ...[
           const SizedBox(height: 8),
-          SetupCredentialValue(label: strings.clientId, value: widget.clientId!),
+          SetupCredentialValue(
+            label: strings.clientId,
+            value: widget.clientId!,
+          ),
         ],
         if (widget.clientSecret != null) ...[
           const SizedBox(height: 8),
@@ -388,7 +450,9 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
         const SizedBox(height: 32),
         PressableScale(
           child: FilledButton(
-            onPressed: widget.clientSecret == null || _savedSecret ? widget.onDone : null,
+            onPressed: widget.clientSecret == null || _savedSecret
+                ? widget.onDone
+                : null,
             child: Text(strings.goToAdminConsole),
           ),
         ),

@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
-import 'package:sso_admin/api/snaplink_admin_types.dart';
 import 'package:sso_admin/screens/admin/admin_navigation.dart';
 import 'package:sso_admin/screens/admin/connections/connection_contract.dart';
 
@@ -18,9 +17,9 @@ import 'package:sso_admin/screens/admin/connections/connection_contract.dart';
 ///    the two tautologies (usage, privacy) are pinned and explained.
 /// 4. Gate-off state — listEndpoints 404 ⇒ core trio only + commerce hidden
 ///    (dashboard contract, mirrored here at the capabilities level).
-/// 5. Per-tab gap pins — DR and device-security consult no capabilities
-///    gate; their contract is 404 ⇒ error card (asserted so the gap cannot
-///    silently regress into a gate that never fires).
+/// 5. Per-tab gap pins — DR still uses the documented fallback, while device
+///    security additionally uses the runtime snapshot boundary; server 404
+///    remains the final authority for either page.
 
 SnaplinkAdminEndpoint ep(String method, String path) =>
     SnaplinkAdminEndpoint(method: method, path: path, feature: 'runtime');
@@ -116,31 +115,32 @@ void main() {
       final missing = <String>[];
       _flagPrefixes.forEach((flag, prefixes) {
         for (final prefix in prefixes) {
-          final hit = catalogPaths.any((path) => _catalogPathPrefixMatch(path, prefix));
+          final hit = catalogPaths.any(
+            (path) => _catalogPathPrefixMatch(path, prefix),
+          );
           if (!hit) missing.add('$flag: $prefix');
         }
       });
       expect(
         missing,
         isEmpty,
-        reason: 'flag prefixes without catalog coverage (drift — either the '
+        reason:
+            'flag prefixes without catalog coverage (drift — either the '
             'flag or the catalog must change):\n${missing.join('\n')}',
       );
     });
 
     test('all 24 flags are true under the default catalog merge', () {
       final navigation = AdminNavigationCapabilities(const []);
-      _flagPrefixes.keys.forEach((flag) {
+      for (final flag in _flagPrefixes.keys) {
         expect(
           navigation.capabilities
-              .hasAnyPathPrefix(
-                _flagPrefixes[flag]!.first,
-              )
+              .hasAnyPathPrefix(_flagPrefixes[flag]!.first)
               .toString(),
           isNotNull,
           reason: flag,
         );
-      });
+      }
       // Direct flag-level allowlist pin (mirrors admin_navigation_test).
       expect(navigation.supportsAuditLog, isTrue);
       expect(navigation.supportsConnections, isTrue);
@@ -162,17 +162,27 @@ void main() {
       ]);
       expect(withConnections.supportsConnections, isTrue);
       final without = runtimeOnly(const []);
-      expect(without.supportsConnections, isFalse,
-          reason: 'connections is runtime-meaningful (mirrored in the '
-              'backend inventory) — must flip off when absent');
+      expect(
+        without.supportsConnections,
+        isFalse,
+        reason:
+            'connections is runtime-meaningful (mirrored in the '
+            'backend inventory) — must flip off when absent',
+      );
       expect(without.supportsAuditLog, isFalse);
       expect(without.supportsThreatPolicies, isFalse);
       expect(without.supportsWebhooks, isFalse);
       expect(without.supportsAccessPolicies, isFalse);
-      expect(without.supportsOrganizations, isFalse,
-          reason: 'members/invitations are runtime-meaningful');
-      expect(without.supportsAuditLog, isFalse,
-          reason: 'audit read is runtime-meaningful');
+      expect(
+        without.supportsOrganizations,
+        isFalse,
+        reason: 'members/invitations are runtime-meaningful',
+      );
+      expect(
+        without.supportsAuditLog,
+        isFalse,
+        reason: 'audit read is runtime-meaningful',
+      );
     });
 
     test('catalog-fallback families stay false runtime-only (devices, '
@@ -192,9 +202,13 @@ void main() {
       // usage: /sessions/linked/ is mounted unconditionally in the backend
       // (server_routes_admin.go) — a runtime-only mirror keeps it true.
       final without = runtimeOnly(const []);
-      expect(without.supportsUsageAnalytics, isFalse,
-          reason: 'usage mirrors runtime inventory; unconditional mounting '
-              'is a backend property, not a frontend flag');
+      expect(
+        without.supportsUsageAnalytics,
+        isFalse,
+        reason:
+            'usage mirrors runtime inventory; unconditional mounting '
+            'is a backend property, not a frontend flag',
+      );
       // privacy: compliance data-map is unconditionally mounted too.
       expect(without.supportsPrivacyCompliance, isFalse);
     });
@@ -214,13 +228,13 @@ void main() {
         const [],
         documentedEndpoints: const [],
       );
-      _flagPrefixes.keys.forEach((flag) {
+      for (final flag in _flagPrefixes.keys) {
         // The dashboard contract: listEndpoints 404 ⇒ core trio only. At
         // the capabilities level every flag must read false so the rail
         // cannot advertise modules the replica does not serve.
         final getter = _flagGetter(navigation, flag);
         expect(getter, isFalse, reason: '$flag must be false when gate off');
-      });
+      }
     });
   });
 
@@ -231,11 +245,17 @@ void main() {
         const [],
         documentedEndpoints: const [],
       );
-      final availability = ConnectionAdminAvailability(runtimeOnly.capabilities);
+      final availability = ConnectionAdminAvailability(
+        runtimeOnly.capabilities,
+      );
       expect(availability.familyAvailable, isFalse);
-      expect(availability.canCreate, isFalse,
-          reason: 'connections writes must not be advertised on a replica '
-              'that does not mirror the family');
+      expect(
+        availability.canCreate,
+        isFalse,
+        reason:
+            'connections writes must not be advertised on a replica '
+            'that does not mirror the family',
+      );
       expect(availability.canDelete, isFalse);
       // Catalog-fallback may keep read affordances (server 404 is the
       // authority for reads too), but the write buttons must gate off.
@@ -276,25 +296,24 @@ void main() {
         documentedEndpoints: const [],
       );
       expect(
-        runtimeOnly
-            .capabilities
-            .hasAnyPathPrefix('/api/v1/admin/tenants/:id/members'),
+        runtimeOnly.capabilities.hasAnyPathPrefix(
+          '/api/v1/admin/tenants/:id/members',
+        ),
         isFalse,
       );
       expect(
-        runtimeOnly
-            .capabilities
-            .hasAnyPathPrefix('/api/v1/admin/tenants/:id/invitations'),
+        runtimeOnly.capabilities.hasAnyPathPrefix(
+          '/api/v1/admin/tenants/:id/invitations',
+        ),
         isFalse,
       );
-      final withMembers = AdminNavigationCapabilities(
-        [ep('GET', '/api/v1/admin/tenants/{id}/members')],
-        documentedEndpoints: const [],
-      );
+      final withMembers = AdminNavigationCapabilities([
+        ep('GET', '/api/v1/admin/tenants/{id}/members'),
+      ], documentedEndpoints: const []);
       expect(
-        withMembers
-            .capabilities
-            .hasAnyPathPrefix('/api/v1/admin/tenants/:id/members'),
+        withMembers.capabilities.hasAnyPathPrefix(
+          '/api/v1/admin/tenants/:id/members',
+        ),
         isTrue,
       );
     });

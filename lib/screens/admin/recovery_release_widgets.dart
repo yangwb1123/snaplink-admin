@@ -352,10 +352,8 @@ class RecoveryReleasesCard extends StatelessWidget {
                   id: 'summary',
                   label: 'SUMMARY',
                   width: 300,
-                  builder: (context, i) => TableCellText(
-                    releaseSummary(releases[i]),
-                    muted: true,
-                  ),
+                  builder: (context, i) =>
+                      TableCellText(releaseSummary(releases[i]), muted: true),
                 ),
                 AdminDataColumn(
                   id: 'actions',
@@ -365,10 +363,7 @@ class RecoveryReleasesCard extends StatelessWidget {
                     enabled: !mutating,
                     onSelected: (action) => onAction(releases[i], action),
                     itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'pin',
-                        child: LocalizedText('Pin'),
-                      ),
+                      PopupMenuItem(value: 'pin', child: LocalizedText('Pin')),
                       PopupMenuItem(
                         value: 'rollback',
                         child: LocalizedText('Rollback'),

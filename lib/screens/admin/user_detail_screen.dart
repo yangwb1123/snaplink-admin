@@ -82,6 +82,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
 
   /// 模块强调色（identity 组 indigo-violet）。
   Color get _accent => adminModuleIconColor('users');
+
   /// Tabs backed by a runtime-inventory endpoint; while the inventory is
   /// still loading (empty) every tab stays visible.
   List<(String, String, IconData)> get _tabs =>
@@ -134,7 +135,10 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       for (final tab in _tabs) {
         if (tab.$1 == 'device-security') continue; // self-loading panel
         final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        tabFutures[tab.$1] = _optionalGet(tab.$1, spec.$5.replaceAll(':id', uid));
+        tabFutures[tab.$1] = _optionalGet(
+          tab.$1,
+          spec.$5.replaceAll(':id', uid),
+        );
       }
       final tabResults = await Future.wait(tabFutures.values);
       final sections = <String, Map<String, dynamic>>{
@@ -159,6 +163,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       }
     }
   }
+
   Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
     try {
       final result = await widget.api.get(path, forceRefresh: true);
@@ -169,6 +174,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       return <String, dynamic>{};
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,6 +221,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       Expanded(child: _tabContent(context)),
     ],
   );
+
   /// Tab label with count suffix ONLY when the count is > 0 — count ≤ 0
   /// renders the bare label (exact-match pins at
   /// user_detail_optional_resources_test.dart:71-72 stay green).
@@ -244,7 +251,9 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       case 'sessions':
         return _optionalSection(
           'sessions',
-          UserSessionsView(sessions: _sessions?['sessions'] as List? ?? const []),
+          UserSessionsView(
+            sessions: _sessions?['sessions'] as List? ?? const [],
+          ),
         );
       case 'consents':
         return _optionalSection(
@@ -316,7 +325,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke consent?',
-      message: 'Revoke for $clientId?',
+      message: context.tr('Revoke for {clientId}?', {'clientId': clientId}),
       confirmLabel: 'Revoke',
       destructive: true,
       confirmText: clientId,
@@ -332,7 +341,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, content: LocalizedText('Error: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Error: {e}', args: {'e': e}),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -359,7 +372,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       _load();
     } catch (error) {
       if (mounted) {
-        showAppSnackBar(context, content: LocalizedText('Error: {error}', args: {'error': error}), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Error: {error}', args: {'error': error}),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

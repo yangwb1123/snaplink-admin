@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/app_settings.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/screens/admin/audit_log_tab.dart';
@@ -39,6 +40,16 @@ String _eventsBodyRelative(DateTime a, DateTime b, DateTime c) =>
     '"timestamp":"${c.toUtc().toIso8601String()}","actor_id":"admin-1",'
     '"client_id":"console","tenant_id":"acme"}],'
     '"count":999}';
+
+/// The drill's sink row (T-12 joint positive): auth.login.success with the
+/// first-party client_id resolved from the single source (the raw literal is
+/// banned from test/ by the active literal census).
+const _drillEventsBody =
+    '{"events":['
+    '{"id":"drill-1","type":"auth.login.success","outcome":"success",'
+    '"timestamp":"2026-08-05T12:00:00Z","actor_id":"admin-1",'
+    '"client_id":"${SSOAdminClient.firstPartyClientId}","tenant_id":"<t>"}],'
+    '"count":1}';
 
 String? _clipboardText;
 
@@ -189,6 +200,7 @@ void main() {
 
         // AC-1.6: search re-queries with the identical exact query.
         await tester.enterText(find.byType(TextField), 'admin_client');
+        await tester.pump(const Duration(milliseconds: 350));
         await tester.pumpAndSettle();
         expect(requests, hasLength(2));
         for (final request in requests) {
@@ -256,7 +268,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('成功'), findsOneWidget);
       expect(find.text('失败'), findsOneWidget);
-      await tester.tap(find.byType(DropdownButton<String>));
+      // Closing the popup by tapping the page avoids targeting the obscured
+      // anchor after the menu has shifted into the overlay route.
+      await tester.tapAt(const Offset(20, 20));
       await tester.pumpAndSettle();
 
       // CSV snackbar resolves through the exact-key path (args form) in zh
@@ -502,6 +516,42 @@ void main() {
         });
       },
     );
+
+    testWidgets(
+      'T-12 joint positive: the drill auth.login.success row (client_id '
+      'from the single source) renders from the server response only '
+      '(REQ-4.3)',
+      (tester) async {
+        _seedForgedRing();
+        final requests = <Uri>[];
+        final api = _recordingApi(requests, {
+          '/api/v1/audit/events': (_) => http.Response(_drillEventsBody, 200),
+        });
+        await _pump(
+          tester,
+          AuditLogTab(api: api, capabilities: _caps(['/api/v1/audit/events'])),
+        );
+
+        // EVENT cell — verbatim machine data.
+        expect(find.text('auth.login.success'), findsOneWidget);
+        // OUTCOME chip — StatusChip renders Text(label); the closed
+        // dropdown shows only 'All', so the chip is the unique match.
+        expect(find.text('success'), findsOneWidget);
+        // TENANT cell — verbatim, hostile string passthrough.
+        expect(find.text('<t>'), findsOneWidget);
+        // Header count = _rows.length (server rows), never response
+        // count and never the ring.
+        expect(find.text('1 entries'), findsOneWidget);
+        // The forged ring is not evidence.
+        expect(find.textContaining('forged entry'), findsNothing);
+        expect(find.textContaining('/api/v1/admin/forged'), findsNothing);
+        // The row comes from exactly one server read, behind the
+        // capability gate, with the established default query.
+        expect(requests, hasLength(1));
+        expect(requests.single.path, '/api/v1/audit/events');
+        expect(requests.single.queryParameters, {'limit': '100'});
+      },
+    );
   });
 
   group('FM-2 / FM-3 / FM-7 error-state variants', () {
@@ -628,12 +678,11 @@ void main() {
     );
   });
 
-  group('FM-9 stale-response race', () {
-    testWidgets('older in-flight response never replaces newer rows', (
+  group('F12 search debounce + query deduplication', () {
+    testWidgets('settled search joins the initial request, then refreshes', (
       tester,
     ) async {
       final first = Completer<http.Response>();
-      final second = Completer<http.Response>();
       var calls = 0;
       final api = SnaplinkAdminApi(
         baseUrl: 'https://sso.example.test',
@@ -641,7 +690,21 @@ void main() {
         httpClient: MockClient((request) {
           calls++;
           if (calls == 1) return first.future;
-          return second.future;
+          return Future.value(
+            http.Response(
+              jsonEncode({
+                'events': [
+                  {
+                    'id': 'fresh-1',
+                    'type': 'fresh-event',
+                    'outcome': 'success',
+                    'timestamp': '2026-08-05T12:00:00Z',
+                  },
+                ],
+              }),
+              200,
+            ),
+          );
         }),
       );
       tester.view.physicalSize = const Size(1200, 2200);
@@ -657,22 +720,22 @@ void main() {
           ),
         ),
       );
-      // Request 1 (older) is in flight; explicit pump only — never
-      // pumpAndSettle while a request is held.
+      // Request 1 is in flight; explicit pump only — never pumpAndSettle
+      // while the response is held.
       await tester.pump();
 
-      // Trigger the second (newer) request via search onChanged — the
-      // refresh button is disabled while loading. The search term matches
-      // both row types so the stale guard, not the filter, decides what
-      // renders.
+      // The settled search fires after 300 ms, but the identical query joins
+      // the initial leader instead of opening a second wire request.
       await tester.enterText(find.byType(TextField), 'event');
+      await tester.pump(const Duration(milliseconds: 350));
       await tester.pump();
+      expect(calls, 1);
 
       http.Response body(String type) => http.Response(
         jsonEncode({
           'events': [
             {
-              'id': type == 'newer' ? 'n-1' : 'o-1',
+              'id': 'server-1',
               'type': type,
               'outcome': 'success',
               'timestamp': '2026-08-05T12:00:00Z',
@@ -682,15 +745,17 @@ void main() {
         200,
       );
 
-      // Complete the NEWER response first, then the OLDER one.
-      second.complete(body('newer-event'));
-      await tester.pump();
-      first.complete(body('older-event'));
+      first.complete(body('searched-event'));
       await tester.pumpAndSettle();
 
       expect(find.text('1 entries'), findsOneWidget);
-      expect(find.textContaining('newer-event'), findsOneWidget);
-      expect(find.textContaining('older-event'), findsNothing);
+      expect(find.textContaining('searched-event'), findsOneWidget);
+
+      // Once the shared leader is released, a discrete refresh is a fresh
+      // request rather than a cache hit.
+      await tester.tap(find.byIcon(Icons.refresh));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
     });
   });
 

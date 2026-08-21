@@ -27,11 +27,17 @@ import 'admin_route.dart';
 import 'client_detail_secret_card.dart';
 import 'client_form_dialog.dart';
 import 'client_secret_lifecycle.dart';
+import 'admin_ops_helpers.dart';
 import 'list_metrics.dart';
+
 class ClientsTab extends StatefulWidget {
   final SSOAdminClient client;
   final OperatorPersona persona;
-  const ClientsTab({super.key, required this.client, this.persona = OperatorPersona.general});
+  const ClientsTab({
+    super.key,
+    required this.client,
+    this.persona = OperatorPersona.general,
+  });
   @override
   State<ClientsTab> createState() => _ClientsTabState();
 }
@@ -46,9 +52,12 @@ class _ClientsTabState extends State<ClientsTab>
   String? _sortColumn = 'id';
   bool _sortAscending = true;
   var _expiringOnly = false, _statusFilter = 'all';
+
   /// 行内/批量变更进行中：禁行菜单 + 批量栏按钮（防止重复提交，R53）。
   bool _busy = false;
+  bool _secretRotationOutcomeUnknown = false;
   late final void Function() _cancelPopState;
+
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('clients');
   @override
@@ -62,12 +71,14 @@ class _ClientsTabState extends State<ClientsTab>
       if (mounted) _handleRoute();
     });
   }
+
   @override
   void dispose() {
     _cancelPopState();
     _filterCtrl.dispose();
     super.dispose();
   }
+
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'clients') return;
@@ -77,6 +88,7 @@ class _ClientsTabState extends State<ClientsTab>
       _openEditForId(route.resourceId);
     }
   }
+
   Future<void> _openEditForId(String id) async {
     try {
       final client = await widget.client.getClient(id);
@@ -87,6 +99,7 @@ class _ClientsTabState extends State<ClientsTab>
     }
     if (mounted) AdminRoute.back('clients');
   }
+
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
     if (_expiringOnly) {
@@ -139,6 +152,7 @@ class _ClientsTabState extends State<ClientsTab>
     if (seq == _reqSeq) _lastPage = page;
     return page;
   }
+
   /// 列头排序 → 服务端 orderBy（避免只排当前页）；status 列不可排；点击三态。
   void _onSort(String column) {
     if (column == 'status') return;
@@ -156,26 +170,39 @@ class _ClientsTabState extends State<ClientsTab>
     });
     _reload();
   }
+
   /// 导出当前页为 CSV（剪贴板；`= + - @` 前缀做公式注入防护）。
   Future<void> _exportCsv(List<Map<String, dynamic>> items) async {
     final sb = StringBuffer('id,name,active,strategy\n');
     for (final c in items) {
-      sb.writeln([
-        c['id']?.toString() ?? '',
-        c['name']?.toString() ?? '',
-        c['active'] == true ? 'active' : 'inactive',
-        c['tokenStrategy']?.toString() ?? c['token_strategy']?.toString() ?? '',
-      ].map(_csvCell).join(','));
+      sb.writeln(
+        [
+          c['id']?.toString() ?? '',
+          c['name']?.toString() ?? '',
+          c['active'] == true ? 'active' : 'inactive',
+          c['tokenStrategy']?.toString() ??
+              c['token_strategy']?.toString() ??
+              '',
+        ].map(_csvCell).join(','),
+      );
     }
     await Clipboard.setData(ClipboardData(text: sb.toString()));
     if (!mounted) return;
-    showAppSnackBar(context, content: LocalizedText('Exported {n} clients as CSV to clipboard', args: {'n': items.length}));
+    showAppSnackBar(
+      context,
+      content: LocalizedText(
+        'Exported {n} clients as CSV to clipboard',
+        args: {'n': items.length},
+      ),
+    );
   }
+
   String _csvCell(String value) {
     var cell = value.replaceAll('"', '""');
     if (cell.startsWith(RegExp(r'[=+\-@]'))) cell = "'$cell";
     return '"$cell"';
   }
+
   /// 刷新语义（R5）：保留筛选、清除选择、重置分页；返回加载 Future 供下拉刷新指示器（R56）。
   Future<void> _reload() {
     clearSelection();
@@ -193,6 +220,7 @@ class _ClientsTabState extends State<ClientsTab>
     _expiringOnly = false;
     _reload();
   }
+
   void _goPrevious() {
     if (!canGoBack) return;
     setState(() {
@@ -200,6 +228,7 @@ class _ClientsTabState extends State<ClientsTab>
       _future = _loadPage();
     });
   }
+
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken == null) return;
     setState(() {
@@ -214,16 +243,38 @@ class _ClientsTabState extends State<ClientsTab>
       _future = _loadPage();
     });
   }
+
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
-    final changed = await showDialog<bool>(context: context, builder: (_) => ClientFormDialog(client: widget.client, existing: existing));
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) =>
+          ClientFormDialog(client: widget.client, existing: existing),
+    );
     if (changed == true) _reload();
     if (mounted) AdminRoute.back('clients');
   }
+
   static const _copy = <String, (String, String, String, String?)>{
-    'approve': ('Approve client?', 'Approve {clientId} for use on this authorization server?', 'Approve', 'Client {id} approved.'),
-    'reject': ('Reject client?', 'Reject the pending client registration for {clientId}?', 'Reject', 'Client {id} rejected.'),
-    'delete': ('Delete client?', 'Delete {clientId} permanently? Existing tokens and integrations may stop working.', 'Delete permanently', 'Client {id} deleted.'),
+    'approve': (
+      'Approve client?',
+      'Approve {clientId} for use on this authorization server?',
+      'Approve',
+      'Client {id} approved.',
+    ),
+    'reject': (
+      'Reject client?',
+      'Reject the pending client registration for {clientId}?',
+      'Reject',
+      'Client {id} rejected.',
+    ),
+    'delete': (
+      'Delete client?',
+      'Delete {clientId} permanently? Existing tokens and integrations may stop working.',
+      'Delete permanently',
+      'Client {id} deleted.',
+    ),
   };
+
   /// 单客户端动作公共骨架：确认（破坏性需输入 ID）→ 调用 → 报告 → 刷新。
   /// 进行中 [_busy] 禁行全部行菜单（防重入，与批量一致）。
   Future<void> _clientAction(Map<String, dynamic> c, String kind) async {
@@ -231,7 +282,14 @@ class _ClientsTabState extends State<ClientsTab>
     if (id.isEmpty || _busy) return;
     final (titleKey, msgKey, confirm, snack) = _copy[kind]!;
     final destructive = kind != 'approve';
-    final confirmed = await ConfirmDialog.show(context, title: context.tr(titleKey), message: context.tr(msgKey, {'clientId': id}), confirmLabel: confirm, destructive: destructive, confirmText: destructive ? id : null);
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: context.tr(titleKey),
+      message: context.tr(msgKey, {'clientId': id}),
+      confirmLabel: confirm,
+      destructive: destructive,
+      confirmText: destructive ? id : null,
+    );
     if (!confirmed) return;
     setState(() => _busy = true);
     try {
@@ -241,19 +299,39 @@ class _ClientsTabState extends State<ClientsTab>
         _ => widget.client.deleteClient(id),
       };
       if (!mounted) return;
-      if (snack != null) showAppSnackBar(context, content: LocalizedText(snack, args: {'id': id}));
+      if (snack != null) {
+        showAppSnackBar(
+          context,
+          content: LocalizedText(snack, args: {'id': id}),
+        );
+      }
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text(e.toString()),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
   Future<void> _rotateSecret(Map<String, dynamic> c) async {
     final id = c['id']?.toString() ?? '';
-    if (id.isEmpty || _busy) return;
-    final confirmed = await ConfirmDialog.show(context, title: context.tr('Rotate client secret?'), message: context.tr('The current secret for {clientId} remains valid for 24 hours. Update every integration with the new one-time value before that window closes.', {'clientId': id}), confirmLabel: 'Rotate secret', destructive: true, confirmText: id);
+    if (id.isEmpty || _busy || _secretRotationOutcomeUnknown) return;
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: context.tr('Rotate client secret?'),
+      message: context.tr(
+        'The current secret for {clientId} remains valid for 24 hours. Update every integration with the new one-time value before that window closes.',
+        {'clientId': id},
+      ),
+      confirmLabel: 'Rotate secret',
+      destructive: true,
+      confirmText: id,
+    );
     if (!confirmed) return;
     setState(() => _busy = true);
     try {
@@ -261,49 +339,130 @@ class _ClientsTabState extends State<ClientsTab>
       if (!mounted) return;
       final secret = rotation['secret']?.toString() ?? '';
       if (secret.isEmpty) {
-        showAppSnackBar(context, content: LocalizedText('The secret was rotated, but its one-time value was not returned.'), kind: AppSnackBarKind.error);
+        setState(() => _secretRotationOutcomeUnknown = true);
+        showAppSnackBar(
+          context,
+          content: LocalizedText(
+            'The secret was rotated, but its one-time value was not returned. Reconcile client state before retrying.',
+          ),
+          kind: AppSnackBarKind.error,
+        );
+        await _reload();
         return;
       }
-      await showRotatedClientSecret(context, secret, expiryLabel: clientSecretExpiryLabel(context, rotation));
+      await showRotatedClientSecret(
+        context,
+        secret,
+        expiryLabel: clientSecretExpiryLabel(context, rotation),
+      );
       _reload(); // 轮换已落库：SECRET 列过期时间需要按服务端最新值重绘。
     } on SSOError catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+      final unknown = AdminOpsHelpers.isAmbiguousWriteStatus(e.status);
+      if (unknown) {
+        setState(() => _secretRotationOutcomeUnknown = true);
+        showAppSnackBar(
+          context,
+          content: LocalizedText(
+            'Secret rotation result is unknown. Reconcile client state before retrying.',
+          ),
+          kind: AppSnackBarKind.error,
+        );
+      } else {
+        showAppSnackBar(
+          context,
+          content: Text(e.toString()),
+          kind: AppSnackBarKind.error,
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _secretRotationOutcomeUnknown = true);
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          'Secret rotation result is unknown. Reconcile client state before retrying.',
+        ),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  Future<void> _acknowledgeSecretRotation() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Client secret state reconciled?',
+      message:
+          'Confirm only after checking the client and its integrations in a safe read. This unlocks secret rotation; it does not prove the previous request failed.',
+      confirmLabel: 'Unlock secret rotation',
+      destructive: true,
+      confirmText: 'RECONCILED',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _secretRotationOutcomeUnknown = false);
+  }
+
   /// 批量执行：确认影响数量 → 并行执行 → 报告成功/失败明细 → 刷新。
   /// 进行中 [_busy] 禁用动作按钮；部分失败时 SnackBar 提供明细入口。
-  Future<void> _runBatch(String action, Future<void> Function(String) run) async {
+  Future<void> _runBatch(
+    String action,
+    Future<void> Function(String) run,
+  ) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final approve = action == 'Approve';
-    final confirmed = await ConfirmDialog.show(context, title: context.tr(approve ? 'Approve {n} clients?' : 'Reject {n} clients?', {'n': ids.length}), message: context.tr(approve ? 'This will approve {n} selected clients in one operation.' : 'This will reject {n} selected clients in one operation.', {'n': ids.length}), confirmLabel: action);
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: context.tr(
+        approve ? 'Approve {n} clients?' : 'Reject {n} clients?',
+        {'n': ids.length},
+      ),
+      message: context.tr(
+        approve
+            ? 'This will approve {n} selected clients in one operation.'
+            : 'This will reject {n} selected clients in one operation.',
+        {'n': ids.length},
+      ),
+      confirmLabel: action,
+    );
     if (!confirmed) return;
     setState(() => _busy = true);
     try {
-      final results = await Future.wait(ids.map((id) async {
-        try {
-          await run(id);
-          return null;
-        } catch (e) {
-          return '$id: $e';
-        }
-      }));
+      final results = await Future.wait(
+        ids.map((id) async {
+          try {
+            await run(id);
+            return null;
+          } catch (e) {
+            return '$id: $e';
+          }
+        }),
+      );
       final failures = results.whereType<String>().toList();
       final ok = ids.length - failures.length;
       if (!mounted) return;
       clearSelection();
       final message = failures.isEmpty
-          ? context.tr('{action} completed for {n} of {total} clients.', {'action': action, 'n': ok, 'total': ids.length})
-          : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': action, 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+          ? context.tr('{action} completed for {n} of {total} clients.', {
+              'action': action,
+              'n': ok,
+              'total': ids.length,
+            })
+          : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {
+              'action': action,
+              'n': ok,
+              'failed': failures.length,
+              'details': failures.take(3).join('; '),
+            });
       showBatchResultSnackBar(context, message: message, failures: failures);
       _reload();
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
+
   /// 批量操作栏：已选数量 + Approve/Reject 双动作 + 退出选择（共享组件，
   /// 图标用身份组强调色；确认弹窗语义保留在 [_runBatch]）。
   Widget _batchBar(BuildContext context) => BatchActionBar(
@@ -311,19 +470,39 @@ class _ClientsTabState extends State<ClientsTab>
     accent: _accent,
     isLoading: _busy,
     actions: [
-      BatchAction(label: 'Approve', icon: Icons.check_circle_outline, onPressed: () => _runBatch('Approve', (id) => widget.client.approveClient(id))),
-      BatchAction(label: 'Reject', icon: Icons.cancel_outlined, onPressed: () => _runBatch('Reject', (id) => widget.client.rejectClient(id))),
+      BatchAction(
+        label: 'Approve',
+        icon: Icons.check_circle_outline,
+        onPressed: () =>
+            _runBatch('Approve', (id) => widget.client.approveClient(id)),
+      ),
+      BatchAction(
+        label: 'Reject',
+        icon: Icons.cancel_outlined,
+        onPressed: () =>
+            _runBatch('Reject', (id) => widget.client.rejectClient(id)),
+      ),
     ],
     onClearSelection: clearSelection,
   );
   @override
-
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AdminBreadcrumb(),
-        AdminListHeader(title: AppStrings.of(context).clients, subtitle: 'Manage OAuth clients, secrets and expiring credentials.', createTooltip: 'Create client', onCreate: () => AdminRoute.go('clients', action: 'new'), onRefresh: _reload),
+        AdminListHeader(
+          title: AppStrings.of(context).clients,
+          subtitle: 'Manage OAuth clients, secrets and expiring credentials.',
+          createTooltip: 'Create client',
+          onCreate: () => AdminRoute.go('clients', action: 'new'),
+          onRefresh: _reload,
+        ),
+        if (_secretRotationOutcomeUnknown)
+          AdminOpsHelpers.unknownOutcomeCard(
+            context,
+            onAcknowledge: _busy ? null : _acknowledgeSecretRotation,
+          ),
         _filterBar(context),
         const SizedBox(height: 8),
         Expanded(
@@ -332,23 +511,43 @@ class _ClientsTabState extends State<ClientsTab>
             builder: (context, snap) {
               if (!snap.hasData) {
                 if (snap.hasError) {
-                  return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
+                  return ErrorStateView(
+                    message: '${snap.error}',
+                    onRetry: _retryPage,
+                  );
                 }
-                return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
+                return const SkeletonListTile(
+                  itemCount: 6,
+                  delay: Duration(milliseconds: 150),
+                );
               }
               final page = snap.data!;
               final items = [...page.items];
-              return _listBody(context, page, items, ClientMetrics(items: items, totalSize: page.totalSize, persona: widget.persona));
+              return _listBody(
+                context,
+                page,
+                items,
+                ClientMetrics(
+                  items: items,
+                  totalSize: page.totalSize,
+                  persona: widget.persona,
+                ),
+              );
             },
           ),
         ),
       ],
     );
   }
+
   /// 带刷新语义的通用下拉（排序/每页条数共用）。R29：改用
   /// [TightDropdownButton]——字体缩放（1.5x/2.0x）下宽度封顶 + 标签
   /// 省略号，不再横向溢出（原 DropdownButton 在有界 Wrap 内溢出）。
-  Widget _menu<T>(T value, List<(T, String)> options, ValueChanged<T> onPicked) => TightDropdownButton<T>(
+  Widget _menu<T>(
+    T value,
+    List<(T, String)> options,
+    ValueChanged<T> onPicked,
+  ) => TightDropdownButton<T>(
     value: value,
     options: options,
     maxWidth: 240,
@@ -359,51 +558,90 @@ class _ClientsTabState extends State<ClientsTab>
   );
   Widget _filterBar(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Wrap(spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      SizedBox(width: 280, child: SearchFilterBar(labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false, onSearchChanged: (_) {}, onSubmitted: (_) => _reload())),
-      _menu<String>(_orderBy, const [
-        ('id', 'ID ascending'),
-        ('-id', 'ID descending'),
-        ('name', 'Name ascending'),
-        ('-name', 'Name descending'),
-      ], (v) {
-        _orderBy = v;
-        _sortAscending = !v.startsWith('-');
-        _sortColumn = v.endsWith('name') ? 'name' : 'id';
-      }),
-      IconButton(
-        tooltip: 'Export CSV'.localized,
-        icon: Icon(Icons.file_download_outlined, color: _accent),
-        onPressed: _lastPage == null || _lastPage!.items.isEmpty ? null : () => _exportCsv(_lastPage!.items),
-      ),
-      StatusFilterDropdown(value: _statusFilter, options: const {'all': 'All statuses', 'active': 'Active only', 'inactive': 'Inactive only'}, onChanged: (value) {
-        setState(() => _statusFilter = value);
-        _reload();
-      }),
-      _menu<int>(_pageSize, const [
-        (25, '25 per page'),
-        (100, '100 per page'),
-        (250, '250 per page'),
-      ], (v) => _pageSize = v),
-      FilterChip(label: const LocalizedText('Expiring within 30 days'), selected: _expiringOnly, onSelected: (value) {
-        _expiringOnly = value;
-        _reload();
-      }),
-    ]),
+    child: Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 280,
+          child: SearchFilterBar(
+            labelText: 'Filter'.localized,
+            controller: _filterCtrl,
+            debounce: false,
+            onSearchChanged: (_) {},
+            onSubmitted: (_) => _reload(),
+          ),
+        ),
+        _menu<String>(
+          _orderBy,
+          const [
+            ('id', 'ID ascending'),
+            ('-id', 'ID descending'),
+            ('name', 'Name ascending'),
+            ('-name', 'Name descending'),
+          ],
+          (v) {
+            _orderBy = v;
+            _sortAscending = !v.startsWith('-');
+            _sortColumn = v.endsWith('name') ? 'name' : 'id';
+          },
+        ),
+        IconButton(
+          tooltip: 'Export CSV'.localized,
+          icon: Icon(Icons.file_download_outlined, color: _accent),
+          onPressed: _lastPage == null || _lastPage!.items.isEmpty
+              ? null
+              : () => _exportCsv(_lastPage!.items),
+        ),
+        StatusFilterDropdown(
+          value: _statusFilter,
+          options: const {
+            'all': 'All statuses',
+            'active': 'Active only',
+            'inactive': 'Inactive only',
+          },
+          onChanged: (value) {
+            setState(() => _statusFilter = value);
+            _reload();
+          },
+        ),
+        _menu<int>(_pageSize, const [
+          (25, '25 per page'),
+          (100, '100 per page'),
+          (250, '250 per page'),
+        ], (v) => _pageSize = v),
+        FilterChip(
+          label: const LocalizedText('Expiring within 30 days'),
+          selected: _expiringOnly,
+          onSelected: (value) {
+            _expiringOnly = value;
+            _reload();
+          },
+        ),
+      ],
+    ),
   );
 
-  Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
+  Widget _listBody(
+    BuildContext context,
+    SSOAdminListPage page,
+    List<Map<String, dynamic>> items,
+    Widget metrics,
+  ) {
     final filtered =
-        _filterCtrl.text.isNotEmpty ||
-        _statusFilter != 'all' ||
-        _expiringOnly;
+        _filterCtrl.text.isNotEmpty || _statusFilter != 'all' || _expiringOnly;
     final list = items.isEmpty
         ? onFirstPage
               ? EmptyState(
-                  variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+                  variant: filtered
+                      ? EmptyStateVariant.noMatch
+                      : EmptyStateVariant.empty,
                   icon: filtered ? null : Icons.apps,
                   title: 'No clients',
-                  subtitle: filtered ? 'No clients match the current filter.' : 'Create your first client to get started.',
+                  subtitle: filtered
+                      ? 'No clients match the current filter.'
+                      : 'Create your first client to get started.',
                   actionLabel: filtered ? 'Clear filter' : 'Create client',
                   actionIcon: filtered ? Icons.filter_alt_off : null,
                   onAction: filtered
@@ -412,20 +650,36 @@ class _ClientsTabState extends State<ClientsTab>
                 )
               : EmptyPageState(onBackToFirst: _reload)
         : _dataTable(items);
-    final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
+    final pagination = PaginationControls(
+      page: currentPage,
+      total: page.totalSize,
+      canGoBack: canGoBack,
+      canGoNext: page.nextPageToken != null,
+      onPrevious: _goPrevious,
+      onNext: () => _goNext(page),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长，固定 380
         // 会在窄高容器溢出）——文本放大时提前切到整页滚动，不截断不溢出。
         final scale = MediaQuery.textScalerOf(context).scale(1);
         final short = constraints.maxHeight < 380 * scale;
-        final content = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
-          metrics,
-          if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
-          pagination,
-        ]);
-        return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
+        final content = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
+            metrics,
+            if (short)
+              SizedBox(height: 280, child: list)
+            else
+              Expanded(child: list),
+            pagination,
+          ],
+        );
+        return PullToRefresh(
+          onRefresh: _reload,
+          child: short ? SingleChildScrollView(child: content) : content,
+        );
       },
     );
   }
@@ -438,43 +692,110 @@ class _ClientsTabState extends State<ClientsTab>
       sortColumn: _sortColumn,
       sortAscending: _sortAscending,
       onSort: _onSort,
-      onRowTap: selecting ? (i) => toggleSelect(cid(i)) : (i) => AdminRoute.go('clients', resourceId: cid(i)),
+      onRowTap: selecting
+          ? (i) => toggleSelect(cid(i))
+          : (i) => AdminRoute.go('clients', resourceId: cid(i)),
       onRowLongPress: selecting ? null : (i) => toggleSelect(cid(i)),
       columns: [
         if (selecting)
-          AdminDataColumn(id: 'select', label: '', width: 44, builder: (context, i) => Checkbox(
-            value: selected.contains(cid(i)),
-            onChanged: (_) {
-              if (!selected.remove(cid(i))) toggleSelect(cid(i));
-            },
-          )),
-        AdminDataColumn(id: 'id', label: 'CLIENT ID', width: 190, sortable: true, builder: (context, i) => CopyableCell(text: cid(i), contextProvider: () => context, enabled: !selecting)),
-        AdminDataColumn(id: 'name', label: 'NAME', width: 180, sortable: true, builder: (context, i) => TableCellText(items[i]['name']?.toString() ?? '', bold: true, maxLines: 2)),
-        AdminDataColumn(id: 'status', label: 'STATUS', width: 160, builder: (context, i) => items[i]['active'] == true ? StatusChip.active() : StatusChip.inactive()),
+          AdminDataColumn(
+            id: 'select',
+            label: '',
+            width: 44,
+            builder: (context, i) => Checkbox(
+              value: selected.contains(cid(i)),
+              onChanged: (_) {
+                if (!selected.remove(cid(i))) toggleSelect(cid(i));
+              },
+            ),
+          ),
+        AdminDataColumn(
+          id: 'id',
+          label: 'CLIENT ID',
+          width: 190,
+          sortable: true,
+          builder: (context, i) => CopyableCell(
+            text: cid(i),
+            contextProvider: () => context,
+            enabled: !selecting,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'name',
+          label: 'NAME',
+          width: 180,
+          sortable: true,
+          builder: (context, i) => TableCellText(
+            items[i]['name']?.toString() ?? '',
+            bold: true,
+            maxLines: 2,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'status',
+          label: 'STATUS',
+          width: 160,
+          builder: (context, i) => items[i]['active'] == true
+              ? StatusChip.active()
+              : StatusChip.inactive(),
+        ),
         // R52：TOKEN（token_strategy）列为冗余——客户端详情页已展示
         // 'Token strategy'（client_detail_screen.dart），列表收进 6 列内。
-        AdminDataColumn(id: 'expiry', label: 'SECRET', width: 170, builder: (context, i) => TableCellText(clientSecretExpiryLabel(context, items[i]), muted: true)),
-        AdminDataColumn(id: 'actions', label: '', width: 60, builder: (context, i) {
-          final c = items[i];
-          return PopupMenuButton<String>(
-            enabled: !_busy,
-            onSelected: (value) => switch (value) {
-              'edit' => AdminRoute.go('clients', action: 'edit', resourceId: c['id']?.toString() ?? ''),
-              'rotate' => _rotateSecret(c),
-              'approve' => _clientAction(c, 'approve'),
-              'reject' => _clientAction(c, 'reject'),
-              'delete' => _clientAction(c, 'delete'),
-              _ => null,
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
-              PopupMenuItem(value: 'rotate', child: LocalizedText('Rotate secret')),
-              PopupMenuItem(value: 'approve', child: LocalizedText('Approve')),
-              PopupMenuItem(value: 'reject', child: LocalizedText('Reject')),
-              PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
-            ],
-          );
-        }),
+        AdminDataColumn(
+          id: 'expiry',
+          label: 'SECRET',
+          width: 170,
+          builder: (context, i) => TableCellText(
+            clientSecretExpiryLabel(context, items[i]),
+            muted: true,
+          ),
+        ),
+        AdminDataColumn(
+          id: 'actions',
+          label: '',
+          width: 60,
+          builder: (context, i) {
+            final c = items[i];
+            return PopupMenuButton<String>(
+              enabled: !_busy,
+              onSelected: (value) => switch (value) {
+                'edit' => AdminRoute.go(
+                  'clients',
+                  action: 'edit',
+                  resourceId: c['id']?.toString() ?? '',
+                ),
+                'rotate' => _rotateSecret(c),
+                'approve' => _clientAction(c, 'approve'),
+                'reject' => _clientAction(c, 'reject'),
+                'delete' => _clientAction(c, 'delete'),
+                _ => null,
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'edit',
+                  child: LocalizedText('Edit'),
+                ),
+                PopupMenuItem(
+                  value: 'rotate',
+                  enabled: !_secretRotationOutcomeUnknown,
+                  child: const LocalizedText('Rotate secret'),
+                ),
+                const PopupMenuItem(
+                  value: 'approve',
+                  child: LocalizedText('Approve'),
+                ),
+                const PopupMenuItem(
+                  value: 'reject',
+                  child: LocalizedText('Reject'),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: LocalizedText('Delete'),
+                ),
+              ],
+            );
+          },
+        ),
       ],
       itemCount: items.length,
       rowBuilder: (context, i) => const SizedBox.shrink(),

@@ -49,10 +49,7 @@ class ShortcutsDialog extends StatelessWidget {
   /// 保持 build 精简、内容可滚动（P1 懒构建门禁兼容）。
   static List<Widget> _shortcutRows(BuildContext context) => [
     for (final group in _shortcuts) ...[
-      LocalizedText(
-        group.name,
-        style: Theme.of(context).textTheme.titleSmall,
-      ),
+      LocalizedText(group.name, style: Theme.of(context).textTheme.titleSmall),
       const SizedBox(height: 8),
       for (final (key, desc) in group.items)
         Padding(
@@ -60,22 +57,14 @@ class ShortcutsDialog extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.surfaceContainerHighest,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   key,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
               const SizedBox(width: 12),

@@ -17,6 +17,7 @@ class CommerceWalletPanel extends StatelessWidget {
   final String? eventOrderID;
   final List<Map<String, dynamic>> events;
   final Map<String, dynamic>? reconciliation;
+
   /// P0-1 probe result: false hides the checkout affordance on replicas
   /// that do not serve the session endpoint (no dead-end 404 button).
   final bool checkoutEnabled;
@@ -71,13 +72,19 @@ class CommerceWalletPanel extends StatelessWidget {
           ),
           const Divider(),
           if (wallet == null)
-            LocalizedText('No {currency} wallet exists for this tenant.', args: {'currency': currency})
+            LocalizedText(
+              'No {currency} wallet exists for this tenant.',
+              args: {'currency': currency},
+            )
           else
             _walletSummary(context),
           const SizedBox(height: 8),
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
-            title: LocalizedText('Ledger entries ({entries_length})', args: {'entries_length': entries.length}),
+            title: LocalizedText(
+              'Ledger entries ({entries_length})',
+              args: {'entries_length': entries.length},
+            ),
             children: entries.isEmpty
                 ? [
                     const EmptyState(
@@ -122,7 +129,10 @@ class CommerceWalletPanel extends StatelessWidget {
               ? Icons.check_circle
               : Icons.circle_outlined,
         ),
-        LocalizedText('Wallet version {version}', args: {'version': wallet!['version'] ?? 0}),
+        LocalizedText(
+          'Wallet version {version}',
+          args: {'version': wallet!['version'] ?? 0},
+        ),
       ],
     );
   }
@@ -238,7 +248,10 @@ class CommerceWalletPanel extends StatelessWidget {
                 _orderStatusChip(order['status']?.toString() ?? 'unknown'),
                 const SizedBox(width: 8),
                 Chip(
-                  label: LocalizedText('Revision {revision}', args: {'revision': order['revision'] ?? '—'}),
+                  label: LocalizedText(
+                    'Revision {revision}',
+                    args: {'revision': order['revision'] ?? '—'},
+                  ),
                 ),
               ],
             ),
@@ -252,7 +265,10 @@ class CommerceWalletPanel extends StatelessWidget {
                   onPressed: id.isEmpty || onLoadEvents == null
                       ? null
                       : () => onLoadEvents!(id),
-                  icon: Icon(Icons.receipt_long_outlined, color: adminModuleIconColor(AdminModuleId.commerce)),
+                  icon: Icon(
+                    Icons.receipt_long_outlined,
+                    color: adminModuleIconColor(AdminModuleId.commerce),
+                  ),
                   label: const LocalizedText('Load payment facts'),
                 ),
                 if (checkoutReady)
@@ -335,8 +351,10 @@ class CommerceWalletPanel extends StatelessWidget {
                 label: 'ORDER',
                 width: 240,
                 cardPrimary: true,
-                builder: (context, i) =>
-                    TableCellText(issues[i]['order_id']?.toString() ?? '—', bold: true),
+                builder: (context, i) => TableCellText(
+                  issues[i]['order_id']?.toString() ?? '—',
+                  bold: true,
+                ),
               ),
               AdminDataColumn(
                 id: 'detail',

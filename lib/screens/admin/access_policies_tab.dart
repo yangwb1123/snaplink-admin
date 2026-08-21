@@ -48,9 +48,8 @@ String _humanize(String value) => value
     .replaceAll('_', ' ')
     .split(' ')
     .map(
-      (word) => word.isEmpty
-          ? word
-          : '${word[0].toUpperCase()}${word.substring(1)}',
+      (word) =>
+          word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}',
     )
     .join(' ');
 
@@ -79,13 +78,15 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
   String? _convergenceError;
   bool _loading = false;
   bool _converging = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.accessPolicies);
 
-  bool get _available => widget.capabilities.hasAnyPathPrefix(accessPoliciesPath) ||
+  bool get _available =>
+      widget.capabilities.hasAnyPathPrefix(accessPoliciesPath) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(accessPoliciesPath);
 
   bool get _canConverge => widget.capabilities.endpoints.any(
@@ -110,7 +111,11 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         accessPoliciesPath,
-        onRefresh: _applyRefresh,
+        onRefresh: (fresh) {
+          if (mounted && seq == _reqSeq) {
+            setState(() => _applyPolicies(fresh));
+          }
+        },
       );
       if (!mounted || seq != _reqSeq) return;
       setState(() {
@@ -119,7 +124,9 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted && seq == _reqSeq) setState(() => _error = error.toString());
     } catch (_) {
-      if (mounted && seq == _reqSeq) setState(() => _error = 'Could not load access policies.');
+      if (mounted && seq == _reqSeq) {
+        setState(() => _error = 'Could not load access policies.');
+      }
     } finally {
       if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
@@ -132,11 +139,6 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
         .whereType<Map>()
         .map(Map<String, dynamic>.from)
         .toList(growable: false);
-  }
-
-  void _applyRefresh(Map<String, dynamic> fresh) {
-    if (!mounted) return;
-    setState(() => _applyPolicies(fresh));
   }
 
   Future<void> _converge() async {
@@ -173,7 +175,11 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _convergenceError = error.toString());
     } catch (_) {
-      if (mounted) setState(() => _convergenceError = 'Could not converge active sessions.');
+      if (mounted) {
+        setState(
+          () => _convergenceError = 'Could not converge active sessions.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _converging = false);
     }
@@ -181,69 +187,78 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_available) return const EmptyState(variant: EmptyStateVariant.notEnabled);
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).accessPolicies,
-          subtitle:
-              'Priority-ordered session access decisions; converge applies '
-              'them to active sessions.',
-          onRefresh: _load,
-          actions: [
-            if (_canConverge) ...[
-              FilledButton.icon(
-                onPressed: _loading || _converging ? null : _converge,
-                icon: _converging
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.policy_outlined),
-                label: const LocalizedText('Apply to active sessions'),
+    if (!_available) {
+      return const EmptyState(variant: EmptyStateVariant.notEnabled);
+    }
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).accessPolicies,
+            subtitle:
+                'Priority-ordered session access decisions; converge applies '
+                'them to active sessions.',
+            onRefresh: _load,
+            actions: [
+              if (_canConverge) ...[
+                FilledButton.icon(
+                  onPressed: _loading || _converging ? null : _converge,
+                  icon: _converging
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.policy_outlined),
+                  label: const LocalizedText('Apply to active sessions'),
+                ),
+                const SizedBox(width: 4),
+              ],
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
               ),
-              const SizedBox(width: 4),
             ],
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        if (!_canConverge)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 12),
-            child: LocalizedText(
-              'Active-session convergence is not advertised by this server.',
-            ),
           ),
-        if (_convergenceError != null)
-          _statusCard(_convergenceError!, isError: true),
-        if (_convergence != null) _convergenceCard(_convergence!),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
-          ),
-        if (!_loading && _error != null)
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (!_loading && _error == null && _policies.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: EmptyState(
-              compact: true,
-              title: 'No access policies',
-              subtitle:
-                  'Policies are configured server-side; this page applies them to active sessions.',
+          if (!_canConverge)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: LocalizedText(
+                'Active-session convergence is not advertised by this server.',
+              ),
             ),
-          ),
-        if (!_loading && _error == null && _policies.isNotEmpty)
-          _policiesCard(context),
-      ],
-    ));
+          if (_convergenceError != null)
+            _statusCard(_convergenceError!, isError: true),
+          if (_convergence != null) _convergenceCard(_convergence!),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading && _error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
+            ),
+          if (!_loading && _error == null && _policies.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                title: 'No access policies',
+                subtitle:
+                    'Policies are configured server-side; this page applies them to active sessions.',
+              ),
+            ),
+          if (!_loading && _error == null && _policies.isNotEmpty)
+            _policiesCard(context),
+        ],
+      ),
+    );
   }
 
   /// 策略列表卡：组色图标 + SectionHeader + AdminDataTable(compact)。
@@ -261,7 +276,10 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
                 Icon(Icons.policy_outlined, size: 20, color: _accent),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: SectionHeader('Access Policies', count: policies.length),
+                  child: SectionHeader(
+                    'Access Policies',
+                    count: policies.length,
+                  ),
                 ),
               ],
             ),
@@ -292,8 +310,10 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
                   label: 'Priority'.localized,
                   width: 100,
                   cardDetail: true,
-                  builder: (_, i) =>
-                      TableCellText('${policies[i]['priority'] ?? 0}', muted: true),
+                  builder: (_, i) => TableCellText(
+                    '${policies[i]['priority'] ?? 0}',
+                    muted: true,
+                  ),
                 ),
                 AdminDataColumn(
                   id: 'conditions',
@@ -379,10 +399,6 @@ class _AccessPoliciesTabState extends State<AccessPoliciesTab> {
     color: isError
         ? Theme.of(context).colorScheme.errorContainer
         : Theme.of(context).colorScheme.secondaryContainer,
-    child: Padding(
-      padding: const EdgeInsets.all(12),
-      child: Text(message),
-    ),
+    child: Padding(padding: const EdgeInsets.all(12), child: Text(message)),
   );
 }
-

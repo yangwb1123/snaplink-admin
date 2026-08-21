@@ -17,6 +17,13 @@ skipped. Sink emission is IdP-side (B4-5) — the leg is [proposed] and
 FAILs loudly until that lands; a runnable leg is never marked
 [proposed] for a zero/unverifiable query result.
 
+Step 【1b】 adds the DCR leg (REQ-1): POST {PROXY}/register with
+the register_panel wire shape (developer_api.dart:104 →
+DcrClientMetadata.toRegistrationWire(), dcr_models.dart:151-165); the
+RFC 7591 server-assigned response client_id must equal AGREED_CLIENT_ID
+(REQ-1.4) — a failed/mismatched register exits 1 with the response
+printed, never a skip, never [proposed].
+
 Branch value (REQ-0): AGREED_CLIENT_ID = 'console' (A) or
 'sso-admin-console' (B), one line. The login leg is API-driven through
 the proxy because Flutter renders to a canvas (browser_login_test.py:89).
@@ -131,6 +138,47 @@ check("CONFIG.client_id == AGREED_CLIENT_ID",
       CONFIG.client_id == AGREED_CLIENT_ID,
       f"config={CONFIG.client_id!r}, agreed={AGREED_CLIENT_ID!r}")
 
+# Step 1b — REQ-1 DCR leg: POST /register with the module's wire shape
+# (developer_api.dart:104 → DcrClientMetadata.toRegistrationWire(),
+# dcr_models.dart:151-165). RFC 7591: client_id is server-assigned —
+# never sent in the body; the response id must equal AGREED_CLIENT_ID.
+print("\n【1b. DCR: POST /register issues the agreed client_id (REQ-1)】")
+
+
+def register_client():
+    """POST {PROXY}/register with the register_panel wire shape; return
+    (parsed response dict or None, raw body)."""
+    body = {
+        'client_name': f'drill-dcr-{int(time.time())}',
+        'redirect_uris': ['https://app.example.test/callback'],
+        'scope': 'openid profile',
+        'token_endpoint_auth_method': 'client_secret_basic',
+        'token_strategy': 'jwt',
+        'grant_types': ['authorization_code', 'refresh_token'],
+        'require_pkce': True,
+    }
+    check("DCR body has no client_id (RFC 7591 server-assigned)",
+          'client_id' not in body)
+    raw = curl('POST', f'{PROXY}/register', data=body,
+               headers={'Content-Type': 'application/json'})
+    try:
+        return json.loads(raw), raw
+    except Exception:
+        check("DCR response is parseable JSON", False, raw[:200])
+        return None, raw
+
+
+dcr_resp, dcr_raw = register_client()
+if dcr_resp is None:
+    check("DCR register 2xx JSON", False, f"POST {PROXY}/register")
+    dcr_client_id = None
+else:
+    dcr_client_id = dcr_resp.get('client_id')
+    check("DCR response client_id == AGREED_CLIENT_ID",
+          dcr_client_id == AGREED_CLIENT_ID,
+          f"issued {dcr_client_id!r}, agreed {AGREED_CLIENT_ID!r}")
+    print(f"    register response: {dcr_raw[:300]}")
+
 # Step 2 — REQ-3 device leg: build the device-entry login URL by the
 # module's rule (device_verify_screen.dart:174-180) and assert the
 # redirect query parameter has the leg shape REQ-1 pins. No browser hop:
@@ -152,6 +200,10 @@ login_data = CONFIG.login_payload()
 check("login payload carries the agreed client_id",
       login_data.get('client_id') == AGREED_CLIENT_ID,
       f"got {login_data.get('client_id')!r}")
+if dcr_client_id is not None:
+    login_data['client_id'] = dcr_client_id
+    check("login client_id sourced from DCR response (register→manage pivot)",
+          login_data['client_id'] == AGREED_CLIENT_ID)
 auth_resp = curl('POST', f'{PROXY}/auth/login', data=login_data,
                  headers={'Content-Type': 'application/json'})
 token = ''

@@ -50,11 +50,7 @@ class BrandLogo extends StatelessWidget {
           ),
         ],
       ),
-      child: Icon(
-        Icons.shield_outlined,
-        size: iconSize,
-        color: Colors.white,
-      ),
+      child: Icon(Icons.shield_outlined, size: iconSize, color: Colors.white),
     );
     if (onTap == null) return logo;
     return Tooltip(

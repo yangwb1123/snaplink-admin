@@ -193,54 +193,58 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
     if (_creating || _editing) return _buildForm(context);
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).threatPolicies,
-          subtitle:
-              'Realtime threat detection rules protecting authentication flows.',
-          onRefresh: _load,
-          actions: [
-            FilledButton.icon(
-              onPressed: () => AdminRoute.go('threat-policies', action: 'new'),
-              icon: const Icon(Icons.add, size: 18),
-              label: const LocalizedText('Add policy'),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        if (!_loading && _error != null)
-          ErrorStateCard(
-            message: _error!,
-            onRetry: _load,
-            margin: EdgeInsets.zero,
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).threatPolicies,
+            subtitle:
+                'Realtime threat detection rules protecting authentication flows.',
+            onRefresh: _load,
+            actions: [
+              FilledButton.icon(
+                onPressed: () =>
+                    AdminRoute.go('threat-policies', action: 'new'),
+                icon: const Icon(Icons.add, size: 18),
+                label: const LocalizedText('Add policy'),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
-          ),
-        if (!_loading && _error == null && _policies.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: EmptyState(
-              compact: true,
-              title: 'No threat policies configured.',
-              actionLabel: 'Add policy',
-              onAction: () => AdminRoute.go('threat-policies', action: 'new'),
+          if (!_loading && _error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ),
-        if (!_loading && _error == null && _policies.isNotEmpty)
-          _policiesCard(context),
-      ],
-    ));
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading && _error == null && _policies.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                title: 'No threat policies configured.',
+                actionLabel: 'Add policy',
+                onAction: () => AdminRoute.go('threat-policies', action: 'new'),
+              ),
+            ),
+          if (!_loading && _error == null && _policies.isNotEmpty)
+            _policiesCard(context),
+        ],
+      ),
+    );
   }
 
   /// 策略列表卡：组色盾牌图标 + SectionHeader（计数）+ AdminDataTable(compact)。
@@ -275,20 +279,30 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
                   label: 'Policy'.localized,
                   width: 220,
                   cardPrimary: true,
-                  builder: (_, i) => TableCellText(policies[i]['name']?.toString() ?? '', level: DataEmphasisLevel.primary),
+                  builder: (_, i) => TableCellText(
+                    policies[i]['name']?.toString() ?? '',
+                    level: DataEmphasisLevel.primary,
+                  ),
                 ),
                 AdminDataColumn(
                   id: 'description',
                   label: 'Description'.localized,
                   width: 260, // R52：两行描述列 260 才合理（ID 窄、描述宽）。
                   cardDetail: true,
-                  builder: (_, i) => TableCellText(policies[i]['description']?.toString() ?? '', muted: true, maxLines: 2),
+                  builder: (_, i) => TableCellText(
+                    policies[i]['description']?.toString() ?? '',
+                    muted: true,
+                    maxLines: 2,
+                  ),
                 ),
                 AdminDataColumn(
                   id: 'id',
                   label: 'ID'.localized,
                   width: 150,
-                  builder: (_, i) => CopyableCell(text: policies[i]['id']?.toString() ?? '', contextProvider: () => context),
+                  builder: (_, i) => CopyableCell(
+                    text: policies[i]['id']?.toString() ?? '',
+                    contextProvider: () => context,
+                  ),
                 ),
                 AdminDataColumn(
                   id: 'status',
@@ -319,7 +333,11 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab> {
               ],
               itemCount: policies.length,
               rowBuilder: (_, _) => const SizedBox.shrink(),
-              onRowTap: (i) => AdminRoute.go('threat-policies', resourceId: policies[i]['name']?.toString() ?? '', action: 'edit'),
+              onRowTap: (i) => AdminRoute.go(
+                'threat-policies',
+                resourceId: policies[i]['name']?.toString() ?? '',
+                action: 'edit',
+              ),
             ),
           ],
         ),

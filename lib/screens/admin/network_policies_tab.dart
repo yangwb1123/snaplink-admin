@@ -45,6 +45,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
@@ -191,45 +192,49 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).networkPolicies,
-          onRefresh: _load,
-          subtitle:
-              'Map trusted CIDRs and hostnames to advertised endpoints. '
-              'Higher priority wins; hostname matches win over CIDRs.',
-          actions: [
-            FilledButton.icon(
-              onPressed: _mutating ? null : _edit,
-              icon: const Icon(Icons.add, size: 18),
-              label: const LocalizedText('Add policy'),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: _loading || _mutating ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        AsyncView<List<Map<String, dynamic>>>(
-          loading: _loading,
-          error: _error,
-          data: _policies,
-          onRetry: _load,
-          useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
-          emptyTitle: 'No network policies',
-          emptySubtitle: 'Unclassified requests use the deployment defaults.',
-          emptyActionLabel: 'Add policy',
-          onEmptyAction: _edit,
-          dataBuilder: (policies) => _policiesCard(context, policies),
-        ),
-        _classifierCard(context),
-      ],
-    ));
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).networkPolicies,
+            onRefresh: _load,
+            subtitle:
+                'Map trusted CIDRs and hostnames to advertised endpoints. '
+                'Higher priority wins; hostname matches win over CIDRs.',
+            actions: [
+              FilledButton.icon(
+                onPressed: _mutating ? null : _edit,
+                icon: const Icon(Icons.add, size: 18),
+                label: const LocalizedText('Add policy'),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _loading || _mutating ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
+          ),
+          AsyncView<List<Map<String, dynamic>>>(
+            loading: _loading,
+            error: _error,
+            data: _policies,
+            onRetry: _load,
+            useSkeleton: true,
+            skeletonDelay: const Duration(milliseconds: 150),
+            emptyTitle: 'No network policies',
+            emptySubtitle: 'Unclassified requests use the deployment defaults.',
+            emptyActionLabel: 'Add policy',
+            onEmptyAction: _edit,
+            dataBuilder: (policies) => _policiesCard(context, policies),
+          ),
+          _classifierCard(context),
+        ],
+      ),
+    );
   }
 
   /// 策略列表卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
@@ -296,9 +301,7 @@ class _NetworkPoliciesTabState extends State<NetworkPoliciesTab> {
                   width: 200, // R52：多值列表列加宽（描述类宽列）。
                   cardDetail: true,
                   builder: (_, i) => TableCellText(
-                    (policies[i]['hostnames'] as List? ?? const []).join(
-                      ', ',
-                    ),
+                    (policies[i]['hostnames'] as List? ?? const []).join(', '),
                     muted: true,
                     maxLines: 2,
                   ),

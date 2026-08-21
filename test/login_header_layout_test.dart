@@ -31,7 +31,6 @@ Finder passwordField() => find.byWidgetPredicate(
 );
 
 void main() {
-
   Future<void> pumpLogin(WidgetTester tester, Size size) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1.0;
@@ -65,10 +64,16 @@ void main() {
 
     // 主题先于语言（同一行时在其左侧；Ahem 换行时在其上方），两者都在
     // 卡片内且不溢出。
-    expect(theme.top, lessThanOrEqualTo(language.top),
-        reason: 'theme selector must come before the language selector');
-    expect(theme.left, lessThanOrEqualTo(language.left),
-        reason: 'theme selector must be left-aligned before language');
+    expect(
+      theme.top,
+      lessThanOrEqualTo(language.top),
+      reason: 'theme selector must come before the language selector',
+    );
+    expect(
+      theme.left,
+      lessThanOrEqualTo(language.left),
+      reason: 'theme selector must be left-aligned before language',
+    );
     expect(card.contains(theme.center), isTrue);
     expect(card.contains(language.center), isTrue);
     expect(tester.takeException(), isNull, reason: 'no layout overflow');
@@ -84,8 +89,11 @@ void main() {
     tester,
   ) async {
     await pumpLogin(tester, const Size(400, 800));
-    expect(tester.takeException(), isNull,
-        reason: 'narrow header must wrap, not overflow');
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'narrow header must wrap, not overflow',
+    );
     expect(find.byType(ThemeDropdown), findsOneWidget);
     expect(find.byType(LanguageDropdown), findsOneWidget);
   });
@@ -98,10 +106,16 @@ void main() {
 
     final theme = tester.getRect(find.byType(DropdownMenu<ThemeMode>));
     final language = tester.getRect(find.byType(DropdownMenu<Locale>));
-    expect(theme.height, greaterThanOrEqualTo(44),
-        reason: 'theme selector tap target must meet Apple HIG 44px');
-    expect(language.height, greaterThanOrEqualTo(44),
-        reason: 'language selector tap target must meet Apple HIG 44px');
+    expect(
+      theme.height,
+      greaterThanOrEqualTo(44),
+      reason: 'theme selector tap target must meet Apple HIG 44px',
+    );
+    expect(
+      language.height,
+      greaterThanOrEqualTo(44),
+      reason: 'language selector tap target must meet Apple HIG 44px',
+    );
   });
 
   // F1：键盘 Tab 到达下拉后，悬停容器出现焦点底色，输入装饰绘制 primary
@@ -119,8 +133,11 @@ void main() {
       await tester.pump();
       tabs++;
     }
-    expect(Focus.of(dropdownContext).hasFocus, isTrue,
-        reason: 'Tab traversal must reach the compact theme dropdown');
+    expect(
+      Focus.of(dropdownContext).hasFocus,
+      isTrue,
+      reason: 'Tab traversal must reach the compact theme dropdown',
+    );
 
     // _HoverTint 焦点底色：悬停容器不再是透明背景。
     final tint = tester.widget<AnimatedContainer>(
@@ -131,8 +148,11 @@ void main() {
           )
           .first,
     );
-    expect((tint.decoration as BoxDecoration?)?.color, isNot(Colors.transparent),
-        reason: 'focus must tint the hover container background');
+    expect(
+      (tint.decoration as BoxDecoration?)?.color,
+      isNot(Colors.transparent),
+      reason: 'focus must tint the hover container background',
+    );
 
     // 输入装饰：聚焦态配置 primary 描边（非透明、宽度 1.5）。
     final decorator = tester.widget<InputDecorator>(
@@ -140,11 +160,17 @@ void main() {
           .descendant(of: themeDropdown, matching: find.byType(InputDecorator))
           .first,
     );
-    expect(decorator.decoration.enabledBorder, same(InputBorder.none),
-        reason: 'unfocused state stays borderless');
+    expect(
+      decorator.decoration.enabledBorder,
+      same(InputBorder.none),
+      reason: 'unfocused state stays borderless',
+    );
     final focused = decorator.decoration.focusedBorder as OutlineInputBorder;
-    expect(focused.borderSide.color, Theme.of(dropdownContext).colorScheme.primary,
-        reason: 'focused border must use the theme primary color');
+    expect(
+      focused.borderSide.color,
+      Theme.of(dropdownContext).colorScheme.primary,
+      reason: 'focused border must use the theme primary color',
+    );
     expect(focused.borderSide.width, 1.5);
   });
 
@@ -242,8 +268,9 @@ void main() {
 
     for (final path in files) {
       final source = File(path).readAsStringSync();
-      for (final match
-          in RegExp(r'EdgeInsets\.symmetric\([^)]*\)').allMatches(source)) {
+      for (final match in RegExp(
+        r'EdgeInsets\.symmetric\([^)]*\)',
+      ).allMatches(source)) {
         checkLine(path, source, match.start, match.group(0)!);
       }
       for (final pattern in [
@@ -259,9 +286,13 @@ void main() {
         }
       }
     }
-    expect(violations, isEmpty,
-        reason: 'non-token spacing in header sources:\n'
-            '${violations.join('\n')}');
+    expect(
+      violations,
+      isEmpty,
+      reason:
+          'non-token spacing in header sources:\n'
+          '${violations.join('\n')}',
+    );
   });
 
   // 下拉箭头（审计 F1 修复后）：普通 Icon 直装 suffix 槽——每个下拉字段
@@ -287,8 +318,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final dropdowns =
-        find.byWidgetPredicate((widget) => widget is DropdownMenu<dynamic>);
+    final dropdowns = find.byWidgetPredicate(
+      (widget) => widget is DropdownMenu<dynamic>,
+    );
     expect(dropdowns, findsNWidgets(3));
     for (final element in dropdowns.evaluate()) {
       final field = tester.getRect(find.byWidget(element.widget));
@@ -296,8 +328,11 @@ void main() {
         of: find.byWidget(element.widget),
         matching: find.byType(InputDecorator),
       );
-      expect(decorator, findsOneWidget,
-          reason: 'one input decorator per dropdown');
+      expect(
+        decorator,
+        findsOneWidget,
+        reason: 'one input decorator per dropdown',
+      );
       // suffix 区域仍是 20x20（与 prefix 一致，两个变体同一视觉）。
       final decoration = tester.widget<InputDecorator>(decorator).decoration;
       expect(
@@ -311,12 +346,21 @@ void main() {
       );
       expect(arrow, findsOneWidget, reason: 'one field arrow per dropdown');
       final arrowRect = tester.getRect(arrow);
-      expect(arrowRect.size, const Size(20, 20),
-          reason: 'arrow must render at its 20x20 icon region');
-      expect(arrowRect.center.dy, closeTo(field.center.dy, 1.5),
-          reason: 'arrow must be vertically centered in the field');
-      expect(field.right - arrowRect.right, closeTo(0, 0.5),
-          reason: 'arrow gap from the right edge must be consistent');
+      expect(
+        arrowRect.size,
+        const Size(20, 20),
+        reason: 'arrow must render at its 20x20 icon region',
+      );
+      expect(
+        arrowRect.center.dy,
+        closeTo(field.center.dy, 1.5),
+        reason: 'arrow must be vertically centered in the field',
+      );
+      expect(
+        field.right - arrowRect.right,
+        closeTo(0, 0.5),
+        reason: 'arrow gap from the right edge must be consistent',
+      );
     }
   });
 
@@ -346,8 +390,9 @@ void main() {
     expect(checks, isNotEmpty);
 
     // 排除输入框内的同名元素（菜单打开时仍 hitTestable），只比较菜单项。
-    final fieldBottom =
-        tester.getRect(find.byType(DropdownMenu<Locale>)).bottom;
+    final fieldBottom = tester
+        .getRect(find.byType(DropdownMenu<Locale>))
+        .bottom;
     bool inMenu(RenderBox box) =>
         box.localToGlobal(Offset.zero).dy >= fieldBottom - 1;
 
@@ -356,14 +401,23 @@ void main() {
     final menuFlags = flags.where(inMenu).toList();
     final menuLabels = labels.where(inMenu).toList();
     final menuChecks = checks.where(inMenu).toList();
-    expect(menuFlags.length, menuLabels.length,
-        reason: 'one flag per menu label');
+    expect(
+      menuFlags.length,
+      menuLabels.length,
+      reason: 'one flag per menu label',
+    );
     for (var i = 0; i < menuFlags.length; i++) {
-      expect(centerY(menuFlags[i]), closeTo(centerY(menuLabels[i]), 1.5),
-          reason: 'flag and label must share a center line');
+      expect(
+        centerY(menuFlags[i]),
+        closeTo(centerY(menuLabels[i]), 1.5),
+        reason: 'flag and label must share a center line',
+      );
       if (i < menuChecks.length) {
-        expect(centerY(menuChecks[i]), closeTo(centerY(menuLabels[i]), 1.5),
-            reason: 'check badge must share the center line');
+        expect(
+          centerY(menuChecks[i]),
+          closeTo(centerY(menuLabels[i]), 1.5),
+          reason: 'check badge must share the center line',
+        );
       }
     }
     // 国旗起点一致 → 语言名左缘对齐。
@@ -379,84 +433,100 @@ void main() {
   // 宽度、与 select item 对齐（审计 select-bg F1 修复，不再内缩 28px）；
   // 未选中项背景透明。每个菜单项携带圆角 shape 的 style（hover/focus
   // 背景圆角由 MenuItemButton 的 style.shape 决定）。
-  testWidgets('selected background spans the item and entries carry rounded styles', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(home: Scaffold(body: LanguageDropdown(compact: true))),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownMenu<Locale>));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'selected background spans the item and entries carry rounded styles',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: LanguageDropdown(compact: true))),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownMenu<Locale>));
+      await tester.pumpAndSettle();
 
-    final buttons = find.byType(MenuItemButton).hitTestable();
-    final item = tester.renderObject<RenderBox>(buttons.first);
-    final theme = Theme.of(tester.element(find.byType(LanguageDropdown)));
-    final primary = theme.colorScheme.primary;
-    final selectedFinder = find.descendant(
-      of: buttons,
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Material &&
-            widget.shape is RoundedRectangleBorder &&
-            (widget.shape! as RoundedRectangleBorder).side.color == primary,
-      ),
-    );
-
-    // 选中背景盒与边框盒是同一层（Material 整宽绘制）：横贯整个菜单项
-    // 宽度，与 MenuItemButton 同框（审计 select-bg 修复——内容区高亮曾
-    // 内缩 28px，此处不再断言 item − 28）。
-    final bgBox = tester.renderObject<RenderBox>(selectedFinder.first);
-    final bg = bgBox.localToGlobal(Offset.zero) & bgBox.size;
-    expect(bg.left, closeTo(item.localToGlobal(Offset.zero).dx, 1),
-        reason: 'selected background must start at the item left edge');
-    expect(bg.width, closeTo(item.size.width, 1),
-        reason:
-            'selected background box must span the full MenuItemButton width');
-    expect(bg.right,
-        closeTo(
-          item.localToGlobal(Offset.zero).dx + item.size.width,
-          1,
+      final buttons = find.byType(MenuItemButton).hitTestable();
+      final item = tester.renderObject<RenderBox>(buttons.first);
+      final theme = Theme.of(tester.element(find.byType(LanguageDropdown)));
+      final primary = theme.colorScheme.primary;
+      final selectedFinder = find.descendant(
+        of: buttons,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Material &&
+              widget.shape is RoundedRectangleBorder &&
+              (widget.shape! as RoundedRectangleBorder).side.color == primary,
         ),
-        reason: 'selected background must end at the item right edge');
+      );
 
-    // 选中项 Material 背景 primaryContainer@0.45；未选中项透明（同时顶掉
-    // SDK 默认 onSurface 12% 底衬）。
-    expect(
-      tester.widget<Material>(selectedFinder.first).color,
-      theme.colorScheme.primaryContainer.withValues(alpha: 0.45),
-      reason:
-          'selected entry background must be primaryContainer on the item Material',
-    );
-    final unselectedColors = tester
-        .widgetList<Material>(
-          find.descendant(
-            of: buttons,
-            matching: find.byWidgetPredicate(
-              (widget) =>
-                  widget is Material &&
-                  widget.shape is RoundedRectangleBorder &&
-                  (widget.shape! as RoundedRectangleBorder).side.color !=
-                      primary,
+      // 选中背景盒与边框盒是同一层（Material 整宽绘制）：横贯整个菜单项
+      // 宽度，与 MenuItemButton 同框（审计 select-bg 修复——内容区高亮曾
+      // 内缩 28px，此处不再断言 item − 28）。
+      final bgBox = tester.renderObject<RenderBox>(selectedFinder.first);
+      final bg = bgBox.localToGlobal(Offset.zero) & bgBox.size;
+      expect(
+        bg.left,
+        closeTo(item.localToGlobal(Offset.zero).dx, 1),
+        reason: 'selected background must start at the item left edge',
+      );
+      expect(
+        bg.width,
+        closeTo(item.size.width, 1),
+        reason:
+            'selected background box must span the full MenuItemButton width',
+      );
+      expect(
+        bg.right,
+        closeTo(item.localToGlobal(Offset.zero).dx + item.size.width, 1),
+        reason: 'selected background must end at the item right edge',
+      );
+
+      // 选中项 Material 背景 primaryContainer@0.45；未选中项透明（同时顶掉
+      // SDK 默认 onSurface 12% 底衬）。
+      expect(
+        tester.widget<Material>(selectedFinder.first).color,
+        theme.colorScheme.primaryContainer.withValues(alpha: 0.45),
+        reason:
+            'selected entry background must be primaryContainer on the item Material',
+      );
+      final unselectedColors = tester
+          .widgetList<Material>(
+            find.descendant(
+              of: buttons,
+              matching: find.byWidgetPredicate(
+                (widget) =>
+                    widget is Material &&
+                    widget.shape is RoundedRectangleBorder &&
+                    (widget.shape! as RoundedRectangleBorder).side.color !=
+                        primary,
+              ),
             ),
-          ),
-        )
-        .map((m) => m.color)
-        .toSet();
-    expect(unselectedColors, {Colors.transparent},
-        reason: 'unselected entries keep a transparent background');
+          )
+          .map((m) => m.color)
+          .toSet();
+      expect(
+        unselectedColors,
+        {Colors.transparent},
+        reason: 'unselected entries keep a transparent background',
+      );
 
-    final menu = tester
-        .widget<DropdownMenu<Locale>>(find.byType(DropdownMenu<Locale>));
-    for (final entry in menu.dropdownMenuEntries) {
-      final shape = entry.style?.shape?.resolve(<WidgetState>{});
-      expect(shape, isA<RoundedRectangleBorder>(),
-          reason: 'every entry must carry a rounded shape for hover/focus');
-      final radius = (shape as RoundedRectangleBorder).borderRadius;
-      expect(radius, const BorderRadius.all(Radius.circular(8)),
-          reason: 'hover/focus background must be rounded like the active box');
-    }
-  });
+      final menu = tester.widget<DropdownMenu<Locale>>(
+        find.byType(DropdownMenu<Locale>),
+      );
+      for (final entry in menu.dropdownMenuEntries) {
+        final shape = entry.style?.shape?.resolve(<WidgetState>{});
+        expect(
+          shape,
+          isA<RoundedRectangleBorder>(),
+          reason: 'every entry must carry a rounded shape for hover/focus',
+        );
+        final radius = (shape as RoundedRectangleBorder).borderRadius;
+        expect(
+          radius,
+          const BorderRadius.all(Radius.circular(8)),
+          reason: 'hover/focus background must be rounded like the active box',
+        );
+      }
+    },
+  );
 
   // compact（登录头）与 form（设置页）下拉共享同一图标几何：prefix/suffix
   // 区域 20x20、箭头尺寸 20，视觉一致。
@@ -499,6 +569,10 @@ void main() {
     final arrows = tester
         .widgetList<Icon>(find.byIcon(Icons.arrow_drop_down))
         .where((icon) => icon.size == 20);
-    expect(arrows.length, 4, reason: 'two dropdowns x (closed arrow + measure copy)');
+    expect(
+      arrows.length,
+      4,
+      reason: 'two dropdowns x (closed arrow + measure copy)',
+    );
   });
 }

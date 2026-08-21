@@ -4,7 +4,7 @@ import 'package:sso_admin/screens/admin/tenant_lifecycle_copy.dart';
 
 void main() {
   test('tenant lifecycle copy reports exact partial revocation outcome', () {
-    final message = TenantLifecycleCopy.result('Tenant suspended.', {
+    final copy = TenantLifecycleCopy.resultCopy('Tenant suspended.', {
       'credential_revocation': {
         'complete': false,
         'refresh_tokens_revoked': 4,
@@ -16,13 +16,17 @@ void main() {
       },
     });
 
-    expect(message, contains('4 refresh tokens and 2 sessions'));
-    expect(message, contains('1 credential operations failed'));
-    expect(message, contains('idempotency keys'));
+    expect(
+      copy.key,
+      contains('{refreshTokens} refresh tokens and {sessions} sessions'),
+    );
+    expect(copy.args, containsPair('refreshTokens', 4));
+    expect(copy.args, containsPair('sessions', 2));
+    expect(copy.args, containsPair('failed', 1));
   });
 
   test('break-glass copy distinguishes exact partial credential outcome', () {
-    final message = BreakGlassRevocationCopy.result({
+    final copy = BreakGlassRevocationCopy.resultCopy({
       'retryable': true,
       'credential_results': [
         {'status': 'revoked', 'idempotency_key': 'break-glass:session:s1'},
@@ -30,8 +34,8 @@ void main() {
       ],
     });
 
-    expect(message, contains('1 derived credentials were revoked'));
-    expect(message, contains('1 failed'));
-    expect(message, contains('idempotency keys'));
+    expect(copy.key, contains('{revoked} derived credentials were revoked'));
+    expect(copy.args, containsPair('revoked', 1));
+    expect(copy.args, containsPair('failed', 1));
   });
 }

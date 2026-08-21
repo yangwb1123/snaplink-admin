@@ -37,7 +37,7 @@
 | `status_chip.dart` | 状态徽章（颜色 + 文字双编码，10 个工厂：active/inactive/suspended/healthy/…） | `label`、`color`、`icon` | 全站 38 处（状态列/摘要） |
 | `async_view.dart` | 统一三态视图（loading / error / empty / data），含 `ErrorStateView` 整页错误与 `ErrorStateCard` 内联错误条 | `loading`、`error`、`data`、`onRetry`、`errorTitle`、`emptyTitle`、`dataBuilder` | 全站 38 处列表/详情加载 |
 | `error_boundary.dart` | 子树错误边界（构建异常 → 兜底 UI + 重试，链式 restore 全局 handler） | `child`、`label` | admin/dashboard_page_resolution |
-| `offline_banner.dart` | 离线横幅（ConnectivityService 订阅，警告色 tint 叠表面） | `child` | admin/dashboard_screen |
+| `offline_banner.dart` | 离线横幅（ConnectivityService 订阅，警告色 tint 叠表面；可在当前离线周期内忽略，状态切换后恢复） | `child` | admin/dashboard_screen |
 | `confirm_dialog.dart` | 确认对话框（破坏性红色、键入确认 `confirmText`、加载态），`DangerActionTile` 危险操作列表项 | `title`、`message`、`confirmText`、`destructive`、`isLoading` | 全站 46 处危险操作 |
 | `hover_card.dart` | 卡片 hover 提升（阴影加深 + 上浮 2dp + 180ms 动画） | `child`、`hoverElevation`、`restingElevation` | admin_overview_tab、portal_widgets |
 | `pressable_scale.dart` | 按压缩放反馈（0.98，90ms 回弹） | `child` | device_verify、oidc_login 各视图、setup |

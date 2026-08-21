@@ -79,7 +79,10 @@ class _SessionsTabState extends State<SessionsTab> {
       }
       if (r.statusCode >= 200 && r.statusCode < 300) {
         if (mounted) {
-          showAppSnackBar(context, content: Text(context.tr('Session revoked.')));
+          showAppSnackBar(
+            context,
+            content: Text(context.tr('Session revoked.')),
+          );
         }
         _reload();
       } else if (mounted) {
@@ -114,7 +117,11 @@ class _SessionsTabState extends State<SessionsTab> {
           return;
         }
       } else if (mounted) {
-        showAppSnackBar(context, content: Text(context.tr('Could not revoke sessions.')), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: Text(context.tr('Could not revoke sessions.')),
+          kind: AppSnackBarKind.error,
+        );
       }
       _reload();
     } finally {
@@ -329,12 +336,15 @@ class _SessionsTabState extends State<SessionsTab> {
             error: _error,
             data: _result,
             onRetry: _reload,
-            useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
-            dataBuilder: (result) => PullToRefresh(onRefresh: _load, child: _buildSessionList(context, result)),
+            useSkeleton: true,
+            skeletonDelay: const Duration(milliseconds: 150),
+            dataBuilder: (result) => PullToRefresh(
+              onRefresh: _load,
+              child: _buildSessionList(context, result),
+            ),
           ),
         ),
       ],
     );
   }
 }
-

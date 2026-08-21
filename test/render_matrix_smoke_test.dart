@@ -59,16 +59,14 @@ void main() {
 List<({String name, Widget Function() build, Type type})> get _pages => [
   (
     name: 'admin clients',
-    build: () => ClientsTab(
-      client: _adminClient('/api/v1/admin/clients', 'clients'),
-    ),
+    build: () =>
+        ClientsTab(client: _adminClient('/api/v1/admin/clients', 'clients')),
     type: ClientsTab,
   ),
   (
     name: 'admin tenants',
-    build: () => TenantsTab(
-      client: _adminClient('/api/v1/admin/tenants', 'tenants'),
-    ),
+    build: () =>
+        TenantsTab(client: _adminClient('/api/v1/admin/tenants', 'tenants')),
     type: TenantsTab,
   ),
   (
@@ -156,20 +154,20 @@ void _runCombo(
     addTearDown(() => AppSettings.instance.locale = originalLocale);
     final locale = Locale(lang);
     AppSettings.instance.locale = locale;
-    await tester.pumpWidget(
-      _wrap(page.build(), dark: dark, locale: locale),
-    );
+    await tester.pumpWidget(_wrap(page.build(), dark: dark, locale: locale));
     await tester.pumpAndSettle();
     expect(
       tester.takeException(),
       isNull,
-      reason: '${page.name} (${dark ? 'dark' : 'light'}, $lang) threw '
+      reason:
+          '${page.name} (${dark ? 'dark' : 'light'}, $lang) threw '
           'during render',
     );
     expect(
       find.byType(page.type),
       findsOneWidget,
-      reason: '${page.name} (${dark ? 'dark' : 'light'}, $lang) did not '
+      reason:
+          '${page.name} (${dark ? 'dark' : 'light'}, $lang) did not '
           'settle into its page root',
     );
   });

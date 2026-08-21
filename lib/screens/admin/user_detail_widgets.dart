@@ -352,9 +352,7 @@ class UserLifecycleView extends StatelessWidget {
                   Wrap(
                     spacing: 8,
                     children: transitions
-                        .map(
-                          (transition) => Chip(label: Text(transition)),
-                        )
+                        .map((transition) => Chip(label: Text(transition)))
                         .toList(),
                   ),
                 ],

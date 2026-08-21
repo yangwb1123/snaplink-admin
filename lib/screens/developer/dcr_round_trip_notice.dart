@@ -71,9 +71,9 @@ class DcrRoundTripNotice extends StatelessWidget {
                     context.tr(
                       'Every typed field round-trips through the RFC 7592 PUT.',
                     ),
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: foreground,
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: foreground),
                   )
                 else
                   for (final warning in safety.warnings)
@@ -82,11 +82,7 @@ class DcrRoundTripNotice extends StatelessWidget {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            Icons.info_outline,
-                            size: 14,
-                            color: foreground,
-                          ),
+                          Icon(Icons.info_outline, size: 14, color: foreground),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
@@ -272,8 +268,9 @@ class ManageFormCard extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             FilledButton(
-              onPressed:
-                  saving || deleting || !safety.canSafelyUpdate ? null : onSave,
+              onPressed: saving || deleting || !safety.canSafelyUpdate
+                  ? null
+                  : onSave,
               child: saving
                   ? const ManageInlineSpinner()
                   : Row(
@@ -333,9 +330,9 @@ class ManageStatusArea extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               context.tr('Loading app…'),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ],
         ),

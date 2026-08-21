@@ -128,10 +128,7 @@ class OrganizationInvitationCards extends StatelessWidget {
           SegmentedButton<String>(
             segments: [
               for (final value in roles)
-                ButtonSegment(
-                  value: value,
-                  label: Text(context.tr(value)),
-                ),
+                ButtonSegment(value: value, label: Text(context.tr(value))),
             ],
             selected: {role},
             showSelectedIcon: false,
@@ -167,10 +164,7 @@ class OrganizationInvitationCards extends StatelessWidget {
 
   /// One pending invitation row: brand-tinted mail icon, recipient email
   /// (API value, raw [Text]), role + expiry meta, danger Revoke action.
-  Widget _invitationRow(
-    BuildContext context,
-    Map<String, dynamic> invitation,
-  ) {
+  Widget _invitationRow(BuildContext context, Map<String, dynamic> invitation) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
     final email = invitation['email']?.toString() ?? '';

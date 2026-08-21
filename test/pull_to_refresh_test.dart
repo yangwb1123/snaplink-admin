@@ -45,11 +45,7 @@ void main() {
       wrap(
         PullToRefresh(
           onRefresh: () async => refreshed++,
-          child: ListView(
-            children: [
-              ListTile(title: const Text('Only item')),
-            ],
-          ),
+          child: ListView(children: [ListTile(title: const Text('Only item'))]),
         ),
       ),
     );

@@ -53,10 +53,7 @@ class KeyMetricCard extends StatelessWidget {
     final theme = Theme.of(context);
     // R29：深色模式图标/涨跌色用同族 400 提亮变体（danger 2.26→5.29、
     // accentBlue 2.83→5.75）；浅色恒等原色（既有测试锁定浅色规范）。
-    final effective = AppColors.semanticFor(
-      theme.brightness,
-      color,
-    );
+    final effective = AppColors.semanticFor(theme.brightness, color);
     final dangerColor = AppColors.semanticFor(
       theme.brightness,
       AppColors.danger,
@@ -87,89 +84,89 @@ class KeyMetricCard extends StatelessWidget {
       label: semanticLabel,
       excludeSemantics: true,
       child: HoverCard(
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  if (icon != null) ...[
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: effective.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(icon, size: 20, color: effective),
-                    ),
-                    const Spacer(),
-                  ],
-                  if (showDelta)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          delta! < 0
-                              ? Icons.arrow_downward
-                              : Icons.arrow_upward,
-                          size: 14,
-                          color: delta! < 0 ? dangerColor : effective,
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: effective.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${delta! < 0 ? '' : '+'}${formatPercent(delta!)}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            fontWeight: FontWeight.w700,
+                        child: Icon(icon, size: 20, color: effective),
+                      ),
+                      const Spacer(),
+                    ],
+                    if (showDelta)
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            delta! < 0
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            size: 14,
                             color: delta! < 0 ? dangerColor : effective,
                           ),
-                        ),
-                      ],
-                    )
-                  else
-                    const Spacer(),
-                ],
-              ),
-              const SizedBox(height: 12),
-              CountUp(
-                value: value,
-                fractionDigits: fractionDigits,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
+                          const SizedBox(width: 4),
+                          Text(
+                            '${delta! < 0 ? '' : '+'}${formatPercent(delta!)}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: delta! < 0 ? dangerColor : effective,
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      const Spacer(),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.tr(label),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 12),
+                CountUp(
+                  value: value,
+                  fractionDigits: fractionDigits,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.5,
+                  ),
                 ),
-              ),
-              if (caption != null) ...[
                 const SizedBox(height: 4),
                 Text(
-                  context.tr(caption!),
+                  context.tr(label),
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.7,
-                    ),
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
+                if (caption != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr(caption!),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.7,
+                      ),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (showSparkline) ...[
+                  const SizedBox(height: 8),
+                  Sparkline(data: sparkline!, color: effective, height: 28),
+                ],
               ],
-              if (showSparkline) ...[
-                const SizedBox(height: 8),
-                Sparkline(data: sparkline!, color: effective, height: 28),
-              ],
-            ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

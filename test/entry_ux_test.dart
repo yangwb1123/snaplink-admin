@@ -177,46 +177,55 @@ void main() {
       Session.clear(); // memory-backed on VM (D-DEV-2); guarantees null session
     });
 
-    testWidgets('no session with user_code redirects to /login/?redirect=/device/verify?user_code=…', (
-      tester,
-    ) async {
-      await _useNarrowViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DeviceVerifyScreen(
-            accessTokenProvider: () => null,
-            routeUri: Uri.parse('https://sso.example/device/verify?user_code=WXYZ-1234'),
+    testWidgets(
+      'no session with user_code redirects to /login/?redirect=/device/verify?user_code=…',
+      (tester) async {
+        await _useNarrowViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: DeviceVerifyScreen(
+              accessTokenProvider: () => null,
+              routeUri: Uri.parse(
+                'https://sso.example/device/verify?user_code=WXYZ-1234',
+              ),
+            ),
           ),
-        ),
-      );
-      await tester.pump(); // fire addPostFrameCallback (:76) -> _redirectToLogin; stub records synchronously
-      expect(BrowserNavigation.currentUri.path, '/login/'); // static getter
-      expect(
-        BrowserNavigation.currentUri.queryParameters['redirect'],
-        '/device/verify?user_code=WXYZ-1234',
-      );
-    });
+        );
+        await tester
+            .pump(); // fire addPostFrameCallback (:76) -> _redirectToLogin; stub records synchronously
+        expect(BrowserNavigation.currentUri.path, '/login/'); // static getter
+        expect(
+          BrowserNavigation.currentUri.queryParameters['redirect'],
+          '/device/verify?user_code=WXYZ-1234',
+        );
+      },
+    );
 
-    testWidgets('no session without code redirects to /login/?redirect=/device/verify', (
-      tester,
-    ) async {
-      await _useNarrowViewport(tester);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: DeviceVerifyScreen(
-            accessTokenProvider: () => null,
-            routeUri: Uri.parse('https://sso.example/device/verify'),
+    testWidgets(
+      'no session without code redirects to /login/?redirect=/device/verify',
+      (tester) async {
+        await _useNarrowViewport(tester);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: DeviceVerifyScreen(
+              accessTokenProvider: () => null,
+              routeUri: Uri.parse('https://sso.example/device/verify'),
+            ),
           ),
-        ),
-      );
-      await tester.pump(); // fire addPostFrameCallback (:76) -> _redirectToLogin
-      expect(BrowserNavigation.currentUri.path, '/login/'); // static getter
-      expect(BrowserNavigation.currentUri.queryParameters['redirect'], '/device/verify');
-      expect(
-        BrowserNavigation.currentUri.queryParameters.containsKey('user_code'),
-        isFalse,
-      );
-    });
+        );
+        await tester
+            .pump(); // fire addPostFrameCallback (:76) -> _redirectToLogin
+        expect(BrowserNavigation.currentUri.path, '/login/'); // static getter
+        expect(
+          BrowserNavigation.currentUri.queryParameters['redirect'],
+          '/device/verify',
+        );
+        expect(
+          BrowserNavigation.currentUri.queryParameters.containsKey('user_code'),
+          isFalse,
+        );
+      },
+    );
   });
 
   // B6-1 device decisions stay out of the debug ring (REQ-1/REQ-2, AC-3).
@@ -242,14 +251,20 @@ void main() {
       // removeItem() — the reverse would re-persist '[]'.
       final ring = AuditLogService();
       ring.clear();
-      LocalStorage.removeItem('sso_audit_' 'log');
+      LocalStorage.removeItem(
+        'sso_audit_'
+        'log',
+      );
       addTearDown(() {
         ring.clear();
-        LocalStorage.removeItem('sso_audit_' 'log');
+        LocalStorage.removeItem(
+          'sso_audit_'
+          'log',
+        );
       });
     });
 
-    MockClient _fixture(List<http.Request> requests, int postStatus) {
+    MockClient fixture(List<http.Request> requests, int postStatus) {
       return MockClient((request) async {
         requests.add(request);
         if (request.method == 'GET') {
@@ -266,7 +281,7 @@ void main() {
       });
     }
 
-    Future<void> _pumpDeviceScreen(
+    Future<void> pumpDeviceScreen(
       WidgetTester tester,
       DeviceVerifyApi api,
     ) async {
@@ -284,26 +299,32 @@ void main() {
       expect(find.text('Accounting terminal'), findsOneWidget);
     }
 
-    Finder _dialogConfirm(String label) => find.descendant(
+    Finder dialogConfirm(String label) => find.descendant(
       of: find.byType(AlertDialog),
       matching: find.widgetWithText(FilledButton, label),
     );
 
-    void _expectRingUntouched() {
-      expect(LocalStorage.getItem('sso_audit_' 'log'), isNull);
+    void expectRingUntouched() {
+      expect(
+        LocalStorage.getItem(
+          'sso_audit_'
+          'log',
+        ),
+        isNull,
+      );
       expect(AuditLogService().count, 0);
     }
 
     testWidgets('approve 200 completes with zero ring writes', (tester) async {
       final requests = <http.Request>[];
-      final api = DeviceVerifyApi(httpClient: _fixture(requests, 200));
-      await _pumpDeviceScreen(tester, api);
+      final api = DeviceVerifyApi(httpClient: fixture(requests, 200));
+      await pumpDeviceScreen(tester, api);
 
       await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
       await tester.pumpAndSettle();
       // Dialog confirm is a second 'Approve' FilledButton (dual-'Approve'
       // hazard): scope the tap to the dialog.
-      await tester.tap(_dialogConfirm('Approve'));
+      await tester.tap(dialogConfirm('Approve'));
       await tester.pumpAndSettle();
 
       expect(
@@ -311,7 +332,7 @@ void main() {
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
-      _expectRingUntouched();
+      expectRingUntouched();
       // Wire body: exactly {user_code, approve} — no client_id, no tenant
       // key (screen-level mirror of device_verify_api_test.dart:31-50).
       final post = requests.singleWhere(
@@ -327,19 +348,19 @@ void main() {
 
     testWidgets('deny 200 completes with zero ring writes', (tester) async {
       final requests = <http.Request>[];
-      final api = DeviceVerifyApi(httpClient: _fixture(requests, 200));
-      await _pumpDeviceScreen(tester, api);
+      final api = DeviceVerifyApi(httpClient: fixture(requests, 200));
+      await pumpDeviceScreen(tester, api);
 
       // Screen deny is an OutlinedButton; the dialog confirm is a
       // FilledButton (find.text('Deny') would match both when open).
       await tester.tap(find.widgetWithText(OutlinedButton, 'Deny'));
       await tester.pumpAndSettle();
-      await tester.tap(_dialogConfirm('Deny'));
+      await tester.tap(dialogConfirm('Deny'));
       await tester.pumpAndSettle();
 
       expect(find.text('Device sign-in was denied.'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      _expectRingUntouched();
+      expectRingUntouched();
       final post = requests.singleWhere(
         (r) => r.method == 'POST' && r.url.path == '/device/verify',
       );
@@ -350,41 +371,39 @@ void main() {
       expect(BrowserNavigation.currentUri.path, isNot('/login/'));
     });
 
-    testWidgets(
-      '401 expiry clears the session and never auto-redirects',
-      (tester) async {
-        final requests = <http.Request>[];
-        final api = DeviceVerifyApi(httpClient: _fixture(requests, 401));
-        await _pumpDeviceScreen(tester, api);
+    testWidgets('401 expiry clears the session and never auto-redirects', (
+      tester,
+    ) async {
+      final requests = <http.Request>[];
+      final api = DeviceVerifyApi(httpClient: fixture(requests, 401));
+      await pumpDeviceScreen(tester, api);
 
-        await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
-        await tester.pumpAndSettle();
-        await tester.tap(_dialogConfirm('Approve'));
-        await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Approve'));
+      await tester.pumpAndSettle();
+      await tester.tap(dialogConfirm('Approve'));
+      await tester.pumpAndSettle();
 
-        expect(
-          find.text('Your sign-in expired. Please sign in again.'),
-          findsOneWidget,
-        );
-        // signInAgain button — the only 'Sign in' text on the 401 view.
-        expect(find.text('Sign in'), findsOneWidget);
-        expect(Session.read(), isNull);
-        // The 401 branch must NOT invoke _redirectToLogin: only the explicit
-        // 'Sign in' button redirects (B6-2 pins the no-session entry leg).
-        expect(BrowserNavigation.currentUri.path, isNot('/login/'));
-        expect(tester.takeException(), isNull);
-        _expectRingUntouched();
-        final post = requests.singleWhere(
-          (r) => r.method == 'POST' && r.url.path == '/device/verify',
-        );
-        expect(jsonDecode(post.body), {
-          'user_code': 'WXYZ-1234',
-          'approve': true,
-        });
-      },
-    );
+      expect(
+        find.text('Your sign-in expired. Please sign in again.'),
+        findsOneWidget,
+      );
+      // signInAgain button — the only 'Sign in' text on the 401 view.
+      expect(find.text('Sign in'), findsOneWidget);
+      expect(Session.read(), isNull);
+      // The 401 branch must NOT invoke _redirectToLogin: only the explicit
+      // 'Sign in' button redirects (B6-2 pins the no-session entry leg).
+      expect(BrowserNavigation.currentUri.path, isNot('/login/'));
+      expect(tester.takeException(), isNull);
+      expectRingUntouched();
+      final post = requests.singleWhere(
+        (r) => r.method == 'POST' && r.url.path == '/device/verify',
+      );
+      expect(jsonDecode(post.body), {
+        'user_code': 'WXYZ-1234',
+        'approve': true,
+      });
+    });
   });
-
 }
 
 Future<void> _useNarrowViewport(WidgetTester tester) async {

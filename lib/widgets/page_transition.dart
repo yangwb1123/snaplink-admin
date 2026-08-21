@@ -24,10 +24,13 @@ class PageTransition extends StatelessWidget {
         children: [...previousChildren, ?currentChild],
       ),
       transitionBuilder: (child, animation) {
-        final offset = Tween<Offset>(
-          begin: const Offset(0, 0.015),
-          end: Offset.zero,
-        ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+        final offset =
+            Tween<Offset>(
+              begin: const Offset(0, 0.015),
+              end: Offset.zero,
+            ).animate(
+              CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+            );
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(position: offset, child: child),

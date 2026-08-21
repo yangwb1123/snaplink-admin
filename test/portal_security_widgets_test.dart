@@ -31,8 +31,9 @@ void main() {
     expect(find.textContaining('Chrome on macOS'), findsOneWidget);
   });
 
-  testWidgets('Activity tab issues only /me BFF paths — never the audit trio',
-      (tester) async {
+  testWidgets('Activity tab issues only /me BFF paths — never the audit trio', (
+    tester,
+  ) async {
     // B6-1 AC-2(b): the portal Activity tab must never call the audit trio
     // (`/api/v1/audit/events|facets|events/{id}`) — the timeline read
     // belongs to SnaplinkAdminApi via AuditReadClient. The recorded path

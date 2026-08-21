@@ -53,10 +53,7 @@ class ScimDirectoryTab extends StatelessWidget {
                   backgroundColor: Theme.of(
                     context,
                   ).colorScheme.primaryContainer,
-                  child: Icon(
-                    Icons.account_tree_outlined,
-                    color: accent,
-                  ),
+                  child: Icon(Icons.account_tree_outlined, color: accent),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

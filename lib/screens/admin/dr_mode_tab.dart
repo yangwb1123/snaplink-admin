@@ -45,6 +45,7 @@ class _DRModeTabState extends State<DRModeTab> {
   String? _formError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
@@ -59,9 +60,9 @@ class _DRModeTabState extends State<DRModeTab> {
   String _modeDescription(String mode) => switch (mode) {
     'normal' => 'All request classes are available.',
     'read_only' =>
-        'Administrative writes are blocked; the token plane remains available.',
+      'Administrative writes are blocked; the token plane remains available.',
     'auth_only' =>
-        'Only authentication, token, and discovery requests remain available.',
+      'Only authentication, token, and discovery requests remain available.',
     'local_only' => 'Endpoints that depend on remote systems are shed.',
     'maintenance' => 'Every non-probe request is rejected.',
     _ => 'Unknown service posture.',
@@ -128,14 +129,12 @@ class _DRModeTabState extends State<DRModeTab> {
       title: _selectedMode == 'normal'
           ? 'Return to normal service?'
           : 'Apply degraded-service mode?',
-      message: context.tr(
-        'Change the server from {current} to {selected}. {description}',
-        {
-          'current': current,
-          'selected': _selectedMode,
-          'description': context.tr(_modeDescription(_selectedMode)),
-        },
-      ),
+      message: context
+          .tr('Change the server from {current} to {selected}. {description}', {
+            'current': current,
+            'selected': _selectedMode,
+            'description': context.tr(_modeDescription(_selectedMode)),
+          }),
       confirmLabel: 'Apply mode',
       destructive: _selectedMode != 'normal',
       confirmText: _selectedMode != 'normal' ? _selectedMode : null,
@@ -151,10 +150,13 @@ class _DRModeTabState extends State<DRModeTab> {
         if (reason.isNotEmpty) 'reason': reason,
       });
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(
-            'Service mode changed to {mode}.',
-            args: {'mode': _selectedMode},
-          ));
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          'Service mode changed to {mode}.',
+          args: {'mode': _selectedMode},
+        ),
+      );
       _reasonCtrl.clear();
       await _load();
     } on SnaplinkAdminApiError catch (e) {
@@ -169,42 +171,49 @@ class _DRModeTabState extends State<DRModeTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).drMode,
-          subtitle:
-              'Disaster recovery modes let you serve authentication when the primary replica is unavailable.',
-          onRefresh: _load,
-          actions: [
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).drMode,
+            subtitle:
+                'Disaster recovery modes let you serve authentication when the primary replica is unavailable.',
+            onRefresh: _load,
+            actions: [
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-        if (!_loading && _error != null)
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (!_loading && _error == null && _status == null)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: EmptyState(
-              compact: true,
-              title: 'No DR mode status available.',
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
             ),
-          ),
-        if (!_loading && _error == null && _status != null)
-          _statusCard(context),
-      ],
-    ));
+          if (!_loading && _error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
+            ),
+          if (!_loading && _error == null && _status == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                title: 'No DR mode status available.',
+              ),
+            ),
+          if (!_loading && _error == null && _status != null)
+            _statusCard(context),
+        ],
+      ),
+    );
   }
 
   /// 状态卡：组色图标 + SectionHeader（当前模式 chip）+ 目标模式选择表单。
@@ -305,4 +314,3 @@ class _DRModeTabState extends State<DRModeTab> {
     );
   }
 }
-

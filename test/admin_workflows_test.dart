@@ -337,7 +337,6 @@ void main() {
       expect(find.text('Create client'), findsNWidgets(2));
     });
 
-
     testWidgets('batch approve selected clients with success report', (
       tester,
     ) async {
@@ -385,9 +384,7 @@ void main() {
       expect(approveCalls, containsAll(['portal-client', 'pending-app']));
     });
 
-    testWidgets('batch reject reports partial failure details', (
-      tester,
-    ) async {
+    testWidgets('batch reject reports partial failure details', (tester) async {
       var rejected = 0;
       final client = _client({
         '/api/v1/admin/clients': (request) => http.Response(
@@ -520,7 +517,7 @@ void main() {
 
       expect(find.text('Acme Corp'), findsOneWidget);
       expect(find.text('acme'), findsOneWidget);
-      expect(find.text('Active'), findsWidgets);  // StatusChip label
+      expect(find.text('Active'), findsWidgets); // StatusChip label
       expect(find.text('globex'), findsOneWidget);
       expect(find.text('Suspended'), findsWidgets);
     });
@@ -568,7 +565,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(setStatus, hasLength(2));
-      expect(setStatus.every((b) => b.contains('"status":"suspended"')), isTrue);
+      expect(
+        setStatus.every((b) => b.contains('"status":"suspended"')),
+        isTrue,
+      );
     });
 
     testWidgets('suspends a tenant with typed confirmation', (tester) async {

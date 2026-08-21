@@ -100,9 +100,7 @@ class PhysicalDeviceCard extends StatelessWidget {
               runSpacing: 4,
               children: [
                 StatusChip(
-                  label: context.tr('Trust {value}', {
-                    'value': trustLabel,
-                  }),
+                  label: context.tr('Trust {value}', {'value': trustLabel}),
                   color: suspicious
                       ? AppColors.warning
                       : trusted

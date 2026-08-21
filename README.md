@@ -24,9 +24,14 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 管理端以 Snaplink 后端契约为准，不在前端猜测接口：
 
 1. 加载当前副本的 `/api/v1/admin/endpoints` 运行时能力清单。
-2. 合并 `docs/openapi.yaml` 对应的精确方法与路径目录。
+2. 将运行时清单与 `docs/openapi.yaml` 对应的精确方法与路径目录分开保存：
+   前者决定当前副本是否可用，后者只提供兼容性导航和操作契约。
 3. 对后端已挂载但尚未进入 OpenAPI 的少量路由使用独立补充清单，并在
    `404/501` 时显式降级。
+
+接入三态门禁的能力页遵循：清单加载中显示加载态，清单读取失败显示可重试错误，
+清单成功但不包含路由才显示“未启用”。这些页面不会在探测失败时误发读取或
+高风险写请求；设备安全页和 Checkout 均使用运行时事实。
 
 导航条目与页面保持同一个描述对象，因此能力裁剪不会造成索引错位。高频和
 高风险场景使用专用工作流；其余已发布管理契约由 Advanced operations 提供
@@ -39,6 +44,7 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 - `lib/screens/admin/admin_route.dart`：可深链的管理路由
 - `lib/api/snaplink_admin_api.dart`：认证、缓存、重试和契约传输
 - `lib/api/snaplink_admin_types.dart`：已发布及补充路由清单
+- `lib/screens/admin/admin_capability_boundary.dart`：可选模块三态门禁
 - `lib/app_router.dart`：六个产品入口的顶层分发，含代码分割
 - `lib/entries/*.dart`：六个入口的 deferred chunk 边界工厂
 - `lib/i18n/app_strings*.dart`：共享 EN/ZH 文案、领域目录和动态占位符翻译

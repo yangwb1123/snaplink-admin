@@ -28,19 +28,24 @@ class _DirectLoginHarness {
             lastClientId = body['client_id'] as String?;
             lastUsername = (body['credential'] as Map)['username'] as String?;
             if (script.removeAt(0) == 'fail') {
-              return http.Response(jsonEncode({'error': 'invalid_credentials'}), 401);
+              return http.Response(
+                jsonEncode({'error': 'invalid_credentials'}),
+                401,
+              );
             }
             return http.Response(jsonEncode({'access_token': 't'}), 200);
           }
           probePosts++; // credential-less POST — mount-probe analog (parity)
           throw StateError(
-              'unscripted POST ${request.url.path} (probePosts=$probePosts)');
+            'unscripted POST ${request.url.path} (probePosts=$probePosts)',
+          );
         } else if (request.method == 'POST') {
           // POST to any other path (e.g. a refresh-grant endpoint): also an
           // unscripted dispatch — same deterministic red.
           probePosts++;
           throw StateError(
-              'unscripted POST ${request.url.path} (probePosts=$probePosts)');
+            'unscripted POST ${request.url.path} (probePosts=$probePosts)',
+          );
         } else if (request.method == 'GET' && authExpired) {
           return http.Response(jsonEncode({'error': 'invalid_token'}), 401);
         }
@@ -90,16 +95,16 @@ void main() {
     expect(h.loginPosts, 1);
 
     await h.client.probeAdminAccess(); // GET /api/v1/admin/endpoints
-    await h.client.listClients();      // GET /api/v1/admin/clients
+    await h.client.listClients(); // GET /api/v1/admin/clients
 
-    h.authExpired = true;              // next authenticated read → 401
+    h.authExpired = true; // next authenticated read → 401
     await expectLater(
       h.client.listClients(),
       throwsA(isA<SSOError>().having((e) => e.status, 'status', 401)),
     );
 
-    expect(h.loginPosts, 1);           // no renewal, no re-login
-    expect(h.probePosts, 0);           // no credential-less POST anywhere
-    expect(h.unauthorizedCalls, 1);    // session cleared exactly once
+    expect(h.loginPosts, 1); // no renewal, no re-login
+    expect(h.probePosts, 0); // no credential-less POST anywhere
+    expect(h.unauthorizedCalls, 1); // session cleared exactly once
   });
 }

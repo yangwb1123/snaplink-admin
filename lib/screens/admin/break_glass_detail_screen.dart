@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -148,9 +149,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
 
   bool get _isPending => _session?['status']?.toString() == 'pending';
 
-  List<Widget> _pendingActionCards() => [
-    if (_isPending) _actionsCard(context),
-  ];
+  List<Widget> _pendingActionCards() => [if (_isPending) _actionsCard(context)];
 
   /// 加载失败三态之一：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
   Widget _errorView(BuildContext context) =>
@@ -188,14 +187,18 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
             label: 'Requested by',
             value: _session?['requested_by']?.toString() ?? '—',
           ),
-          InfoRow(label: 'Reason', value: _session?['reason']?.toString() ?? '—'),
+          InfoRow(
+            label: 'Reason',
+            value: _session?['reason']?.toString() ?? '—',
+          ),
           InfoRow(
             label: 'Target role',
             value: _session?['target_role']?.toString() ?? '—',
           ),
           InfoRow(
             label: 'Expires',
-            value: _session?['expires_at']?.toString() ??
+            value:
+                _session?['expires_at']?.toString() ??
                 _session?['expiry']?.toString() ??
                 '—',
           ),
@@ -285,7 +288,9 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Approve emergency access?',
-      message: 'Grant ${_session?['requested_by'] ?? ''} access?',
+      message: context.tr('Grant {requester} access?', {
+        'requester': _session?['requested_by'] ?? '',
+      }),
       confirmLabel: 'Approve',
       destructive: true,
       confirmText: widget.sessionId,
@@ -302,7 +307,11 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
       _load();
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: Text('$e'),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);
@@ -325,11 +334,19 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
         '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}',
       );
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(BreakGlassRevocationCopy.result(response)));
+      final copy = BreakGlassRevocationCopy.resultCopy(response);
+      showAppSnackBar(
+        context,
+        content: LocalizedText(copy.key, args: copy.args),
+      );
       _load();
     } catch (e) {
       if (mounted) {
-        showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: Text('$e'),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _mutating = false);

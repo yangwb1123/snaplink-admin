@@ -37,6 +37,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
   Map<String, dynamic>? _chain;
   String? _error;
   bool _loading = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
@@ -104,32 +105,40 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).tokenExchange,
-          subtitle: 'Trace token exchange chains by JTI.',
-          onRefresh: _load,
-          actions: [
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        _searchRow(context),
-        if (_error != null) ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 8),
-            child: SkeletonListTile(itemCount: 3),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).tokenExchange,
+            subtitle: 'Trace token exchange chains by JTI.',
+            onRefresh: _load,
+            actions: [
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-        if (!_loading && _chain != null) _chainSection(context, _chain!),
-      ],
-    ));
+          _searchRow(context),
+          if (_error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
+            ),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading && _chain != null) _chainSection(context, _chain!),
+        ],
+      ),
+    );
   }
 
   Widget _searchRow(BuildContext context) {
@@ -142,8 +151,8 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
               controller: _searchCtrl,
               decoration: InputDecoration(
                 labelText: 'Token ID (JTI)'.localized,
-                hintText: 'Enter a token JTI to trace its exchange chain'
-                    .localized,
+                hintText:
+                    'Enter a token JTI to trace its exchange chain'.localized,
                 prefixIcon: Icon(Icons.key_outlined, color: _accent),
               ),
               onSubmitted: (_) => _load(),
@@ -226,11 +235,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
             _row(context, 'Subject', _pick(entry, ['subject', 'sub'])),
             _row(context, 'Actor', _pick(entry, ['actor', 'actor_id'])),
             _row(context, 'Source Token', _pick(entry, ['source_jti'])),
-            _row(
-              context,
-              'Target Token',
-              _pick(entry, ['target_jti', 'jti']),
-            ),
+            _row(context, 'Target Token', _pick(entry, ['target_jti', 'jti'])),
             _row(context, 'Grant Type', _pick(entry, ['grant_type'])),
             _row(context, 'Scope', _scope(entry)),
             _row(context, 'Client', _pick(entry, ['client_id'])),
@@ -298,4 +303,3 @@ class _ChainConnector extends StatelessWidget {
     ),
   );
 }
-

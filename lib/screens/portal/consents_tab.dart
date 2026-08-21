@@ -55,13 +55,11 @@ class _ConsentsTabState extends State<ConsentsTab> {
         return;
       }
       if (response.statusCode != 200) {
-        setState(
-          () => _error = 'Connected applications are not available.',
-        );
+        setState(() => _error = 'Connected applications are not available.');
         return;
       }
-      final values = PortalApi.decode(response)['consents'] as List? ??
-          const [];
+      final values =
+          PortalApi.decode(response)['consents'] as List? ?? const [];
       setState(() {
         _consents = values
             .whereType<Map>()
@@ -105,11 +103,19 @@ class _ConsentsTabState extends State<ConsentsTab> {
         setState(() => _notice = 'Application access revoked.');
         await _load(preserveNotice: true);
       } else {
-        showAppSnackBar(context, content: Text(context.tr('Could not revoke application access.')), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: Text(context.tr('Could not revoke application access.')),
+          kind: AppSnackBarKind.error,
+        );
       }
     } catch (_) {
       if (mounted) {
-        showAppSnackBar(context, content: Text(context.tr('Could not revoke application access.')), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: Text(context.tr('Could not revoke application access.')),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _revokingClientId = null);
@@ -177,8 +183,9 @@ class _ConsentsTabState extends State<ConsentsTab> {
           ),
           const SizedBox(width: 8),
           TextButton(
-            onPressed:
-                busy || clientId.isEmpty ? null : () => _revoke(clientId),
+            onPressed: busy || clientId.isEmpty
+                ? null
+                : () => _revoke(clientId),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             child: busy
                 ? const SizedBox(
@@ -243,33 +250,33 @@ class _ConsentsTabState extends State<ConsentsTab> {
           child: _loading
               ? const SkeletonListTile(itemCount: 3)
               : _error != null
-              ? PortalErrorCard(
-                  message: context.tr(_error!),
-                  onRetry: _load,
-                )
-              : PullToRefresh(onRefresh: _load, child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    MessageBanner(_notice, ok: true),
-                    if (_consents.isEmpty)
-                      const EmptyState(
-                        compact: true,
-                        icon: Icons.apps_outlined,
-                        title: 'No connected applications.',
-                      )
-                    else
-                      PortalCard(
-                        title: 'Authorized applications',
-                        children: [
-                          for (final (index, consent) in _consents.indexed)
-                            StaggeredFadeIn(
-                              index: index,
-                              child: _consentRow(context, consent),
-                            ),
-                        ],
-                      ),
-                  ],
-                )),
+              ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
+              : PullToRefresh(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    children: [
+                      MessageBanner(_notice, ok: true),
+                      if (_consents.isEmpty)
+                        const EmptyState(
+                          compact: true,
+                          icon: Icons.apps_outlined,
+                          title: 'No connected applications.',
+                        )
+                      else
+                        PortalCard(
+                          title: 'Authorized applications',
+                          children: [
+                            for (final (index, consent) in _consents.indexed)
+                              StaggeredFadeIn(
+                                index: index,
+                                child: _consentRow(context, consent),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
         ),
       ],
     );

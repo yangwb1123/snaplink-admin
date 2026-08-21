@@ -121,6 +121,58 @@ class SnaplinkAdminCapabilities {
   );
 }
 
+/// The result of deciding whether an optional admin capability can be used on
+/// the connected replica.
+///
+/// The published OpenAPI catalog describes what this console knows how to
+/// use, while the runtime inventory describes what the current replica has
+/// actually mounted. Keeping those facts separate prevents a documented-only
+/// route from being mistaken for a live feature.
+enum SnaplinkAdminCapabilityState { available, unavailable, unknown }
+
+/// Runtime capability view shared by navigation and domain screens.
+///
+/// [runtimeInventoryAvailable] is false when the inventory request failed.
+/// In that case the UI must not turn an empty list into "disabled": the
+/// server state is unknown and the operator should be offered a retry.
+class SnaplinkAdminCapabilitySnapshot {
+  final SnaplinkAdminCapabilities effective;
+  final SnaplinkAdminCapabilities runtime;
+  final bool runtimeInventoryLoading;
+  final bool runtimeInventoryAvailable;
+
+  const SnaplinkAdminCapabilitySnapshot({
+    required this.effective,
+    required this.runtime,
+    this.runtimeInventoryLoading = false,
+    required this.runtimeInventoryAvailable,
+  });
+
+  SnaplinkAdminCapabilityState stateFor(String method, String path) {
+    if (runtimeInventoryLoading || !runtimeInventoryAvailable) {
+      return SnaplinkAdminCapabilityState.unknown;
+    }
+    return runtime.has(method, path)
+        ? SnaplinkAdminCapabilityState.available
+        : SnaplinkAdminCapabilityState.unavailable;
+  }
+
+  SnaplinkAdminCapabilityState stateForAnyPathPrefix(String prefix) {
+    if (runtimeInventoryLoading || !runtimeInventoryAvailable) {
+      return SnaplinkAdminCapabilityState.unknown;
+    }
+    return runtime.hasAnyPathPrefix(prefix)
+        ? SnaplinkAdminCapabilityState.available
+        : SnaplinkAdminCapabilityState.unavailable;
+  }
+
+  bool canUse(String method, String path) =>
+      stateFor(method, path) == SnaplinkAdminCapabilityState.available;
+
+  bool canUseAnyPathPrefix(String prefix) =>
+      stateForAnyPathPrefix(prefix) == SnaplinkAdminCapabilityState.available;
+}
+
 const routes = '''
 GET /api/v1/admin/events/stream
 GET /api/v1/admin/authz/policy-bundle

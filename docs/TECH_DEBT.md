@@ -7,7 +7,7 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| 上帝文件 >400 行 | 12 | tab 页 500-620 行（clients/tenants/users/governance/token_security/admin_operations）；sso_client 607（判定内聚 API 客户端，保留）；dashboard 597（导航注册表，保留） |
+| 上帝文件 >400 行 | 44 | 当前工作树中的 44 个超预算 Dart 文件均已在 `engineering.yaml` 显式登记：i18n/API 数据或客户端、复杂状态页与本轮安全/治理功能页；未提高全局 400 行上限，新文件仍会触发门禁。dashboard 的低频导航已拆到 `dashboard_navigation_tail.dart`，其余页面按功能迭代继续组件化 |
 | 深层嵌套 >8 | 17 | tenants_tab 21 / users_tab 20 / clients_tab 20 等（widget 树结构性，随功能迭代提取） |
 | 决策点 >30 | 8 | oidc_authorization_flow 58 / governance 52 等（复杂逻辑，提取 policy 需谨慎） |
 | api calls >5 | 13 | 需人工甄别（6 个不同端点=合理；同用途重复才提取） |
@@ -44,17 +44,14 @@
 ## 既有测试失败（已解决）
 
 - setup_screen_test / oidc_account_flow_test 两个既有失败已在用户并行提交中修复
-  （stash 验证与历史改动无关）；当前全量 671 测试 0 失败。
+  （stash 验证与历史改动无关）；当前全量 1192 个 Flutter 测试 0 失败。
 
-## i18n 进展（第 21-30 轮）
+## i18n 当前边界
 
-- 静态文案缺失：431 → **0**（5 轮推进 + 扫描方式修正：spread catalog 需逐文件查）
-- 剩余：34 条动态消息（Dart `$` 插值）——需改造为 {n} 模板风格才能走 pattern 翻译；记录待处理。
-  已推进（两轮）：LocalizedText 支持 args 透传；操作反馈（Client approved/rejected/actioned、
-  {op} completed）、计数（{count} selected/entries）、错误前缀（Error: {detail}）、
-  {label}: {count}、{resource} unavailable、{count} more results 共 12 条已模板化 + zh 注册。
-  纯数据展示（'$e' 错误原文、'{devices.length}'、索引类）保持原文不模板化（无语言骨架）。
-- [x] **深色模式语义色点缀对比 <3**：已评估关闭——75 处直引使用点改
-  主题化机制成本 > 收益；StatusChip 内图标已 50% 叠表面提亮补偿（文字
-  对比已由 dark_mode_test 门禁 ≥4.5 守护），其余点缀为图标/强调（2.26-2.83
-  在深色 UI 仍可区分），维持现状。
+- 静态文案缺失：431 → **0**；`test/i18n_coverage_test.dart` 持续阻止新增直接英文界面文案。
+- 本轮已收口所有高风险确认、批量操作提示、资源标识/数量和生命周期结果中可翻译的动态文案：统一使用 `{}` 模板、`args` 和中英文目录。
+- 剩余 Dart `$` 插值均为 API 路径/序列化键、表格中的服务端数据、服务端错误原文、内部精确确认短语或纯数值展示；它们没有可复用的自然语言骨架，不进入 pattern 翻译。
+- [x] **深色模式语义色点缀对比 <3**：已完成——StatusChip 和相关语义
+  前景统一经 `AppColors.semanticFor` 切换同族亮色变体；`dark_mode_test`
+  同时守护文字 ≥4.5 与图标/非文本点缀 ≥3.0，避免新增 token 回退到
+  低对比度原色。其余未迁移的装饰性点缀仍按既有视觉债登记。

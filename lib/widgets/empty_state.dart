@@ -89,9 +89,9 @@ class EmptyState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               context.tr(resolvedTitle),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
             if (subtitle != null) ...[
               const SizedBox(height: 8),

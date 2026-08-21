@@ -65,7 +65,14 @@ class AdminOverviewTab extends StatelessWidget {
           running: running,
           documentedOnly: documentedOnly,
           onRefresh: onRefresh,
-          metrics: OverviewMetrics(endpoints: endpoints, featureGroups: capabilities.featureCounts.length, documentedOnly: documentedOnly, commerceAvailable: commerceAvailable, commerceProbeError: commerceProbeError, persona: persona),
+          metrics: OverviewMetrics(
+            endpoints: endpoints,
+            featureGroups: capabilities.featureCounts.length,
+            documentedOnly: documentedOnly,
+            commerceAvailable: commerceAvailable,
+            commerceProbeError: commerceProbeError,
+            persona: persona,
+          ),
         ),
         const SizedBox(height: 12),
         // 三态：error → 警告卡 + Retry；loading → 状态卡 + 骨架；
@@ -74,21 +81,32 @@ class AdminOverviewTab extends StatelessWidget {
           _StatusCard(
             icon: Icons.cloud_off,
             title: 'Capability inventory is unavailable',
-            body: 'The console is using its versioned OpenAPI catalog and will probe optional pages safely.',
+            body:
+                'The console is using its versioned OpenAPI catalog and will probe optional pages safely.',
             detail: 'Runtime error: {error}',
             detailArgs: {'error': loadError.toString()},
             color: AppColors.warning,
             onRetry: onRefresh,
           )
         else if (endpoints.isEmpty) ...const [
-          _StatusCard(icon: Icons.hourglass_empty, title: 'Loading runtime capabilities', body: 'Contract-backed modules remain discoverable while this replica is queried.', color: AppColors.accentBlue),
+          _StatusCard(
+            icon: Icons.hourglass_empty,
+            title: 'Loading runtime capabilities',
+            body:
+                'Contract-backed modules remain discoverable while this replica is queried.',
+            color: AppColors.accentBlue,
+          ),
           SizedBox(height: 16),
           SkeletonListTile(itemCount: 3),
         ] else ...[
           // 异常优先（信息优先级 05）：就绪/风险一句话 + 色编码。
           _StatusCard(
-            icon: documentedOnly == 0 ? Icons.verified_user_outlined : Icons.warning_amber_outlined,
-            title: documentedOnly == 0 ? 'All contract routes are live' : '{count} documented routes not advertised',
+            icon: documentedOnly == 0
+                ? Icons.verified_user_outlined
+                : Icons.warning_amber_outlined,
+            title: documentedOnly == 0
+                ? 'All contract routes are live'
+                : '{count} documented routes not advertised',
             titleArgs: documentedOnly == 0 ? null : {'count': documentedOnly},
             body: documentedOnly == 0
                 ? 'Every OpenAPI contract route is advertised by this replica — no fallback access needed.'
@@ -105,50 +123,104 @@ class AdminOverviewTab extends StatelessWidget {
             runSpacing: 8,
             children: [
               // feature 名来自运行时清单（动态值）——verbatim Text（X10）。
-              for (final entry in capabilities.featureCounts.entries) Chip(label: Text('${entry.key} · ${entry.value}')),
+              for (final entry in capabilities.featureCounts.entries)
+                Chip(label: Text('${entry.key} · ${entry.value}')),
             ],
           ),
           const SizedBox(height: 20),
           SectionHeader('Available management domains'),
           const SizedBox(height: 8),
-          for (final key in orderedGroupKeys) _GroupCard(MapEntry(key, groups[key]!)),
+          for (final key in orderedGroupKeys)
+            _GroupCard(MapEntry(key, groups[key]!)),
         ],
       ],
     );
   }
 
-  Map<String, _EndpointGroup> _groupEndpoints(List<SnaplinkAdminEndpoint> endpoints, Brightness brightness) {
+  Map<String, _EndpointGroup> _groupEndpoints(
+    List<SnaplinkAdminEndpoint> endpoints,
+    Brightness brightness,
+  ) {
     final groups = <String, _EndpointGroup>{};
     for (final endpoint in endpoints) {
       final group = _groupFor(endpoint.path, brightness);
-      groups.putIfAbsent(group.$1, () => _EndpointGroup(group.$2, group.$3)).endpoints.add(endpoint);
+      groups
+          .putIfAbsent(group.$1, () => _EndpointGroup(group.$2, group.$3))
+          .endpoints
+          .add(endpoint);
     }
     return groups;
   }
 
   (String, IconData, Color) _groupFor(String path, Brightness brightness) {
     if (path.contains('/clients') || path.contains('/register')) {
-      return ('Applications and OAuth', Icons.apps_outlined, adminGroupIconColorFor('identity', brightness));
+      return (
+        'Applications and OAuth',
+        Icons.apps_outlined,
+        adminGroupIconColorFor('identity', brightness),
+      );
     }
-    if (path.contains('/users') || path.contains('/local-users') || path.contains('/connections')) {
-      return ('Identity and connections', Icons.people_outline, adminGroupIconColorFor('identity', brightness));
+    if (path.contains('/users') ||
+        path.contains('/local-users') ||
+        path.contains('/connections')) {
+      return (
+        'Identity and connections',
+        Icons.people_outline,
+        adminGroupIconColorFor('identity', brightness),
+      );
     }
     if (path.contains('/tenants') || path.contains('/domains')) {
-      return ('Tenants and organizations', Icons.business_outlined, adminGroupIconColorFor('tenants', brightness));
+      return (
+        'Tenants and organizations',
+        Icons.business_outlined,
+        adminGroupIconColorFor('tenants', brightness),
+      );
     }
-    if (path.contains('/tokens') || path.contains('/sessions') || path.contains('/logout')) {
-      return ('Tokens and sessions', Icons.security_outlined, adminGroupIconColorFor('security', brightness));
+    if (path.contains('/tokens') ||
+        path.contains('/sessions') ||
+        path.contains('/logout')) {
+      return (
+        'Tokens and sessions',
+        Icons.security_outlined,
+        adminGroupIconColorFor('security', brightness),
+      );
     }
-    if (path.contains('/keys') || path.contains('/credentials') || path.contains('/break-glass')) {
-      return ('Security operations', Icons.key_outlined, adminGroupIconColorFor('security', brightness));
+    if (path.contains('/keys') ||
+        path.contains('/credentials') ||
+        path.contains('/break-glass')) {
+      return (
+        'Security operations',
+        Icons.key_outlined,
+        adminGroupIconColorFor('security', brightness),
+      );
     }
-    if (path.contains('/compliance') || path.contains('/changes') || path.contains('/audit') || path.contains('/policy')) {
-      return ('Governance and compliance', Icons.gavel_outlined, adminGroupIconColorFor('system', brightness));
+    if (path.contains('/compliance') ||
+        path.contains('/changes') ||
+        path.contains('/audit') ||
+        path.contains('/policy')) {
+      return (
+        'Governance and compliance',
+        Icons.gavel_outlined,
+        adminGroupIconColorFor('system', brightness),
+      );
     }
-    if (path.contains('/snapshots') || path.contains('/releases') || path.contains('/backup') || path.contains('/dr/') || path.contains('/health') || path.contains('/config')) {
-      return ('Platform operations', Icons.monitor_heart_outlined, adminGroupIconColorFor('overview', brightness));
+    if (path.contains('/snapshots') ||
+        path.contains('/releases') ||
+        path.contains('/backup') ||
+        path.contains('/dr/') ||
+        path.contains('/health') ||
+        path.contains('/config')) {
+      return (
+        'Platform operations',
+        Icons.monitor_heart_outlined,
+        adminGroupIconColorFor('overview', brightness),
+      );
     }
-    return ('Other exposed APIs', Icons.extension_outlined, adminGroupIconColorFor('other', brightness));
+    return (
+      'Other exposed APIs',
+      Icons.extension_outlined,
+      adminGroupIconColorFor('other', brightness),
+    );
   }
 }
 
@@ -159,7 +231,12 @@ class _Hero extends StatelessWidget {
   final Widget metrics;
   final VoidCallback onRefresh;
 
-  const _Hero({required this.running, required this.documentedOnly, required this.metrics, required this.onRefresh});
+  const _Hero({
+    required this.running,
+    required this.documentedOnly,
+    required this.metrics,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -170,40 +247,97 @@ class _Hero extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [theme.colorScheme.primary.withValues(alpha: 0.10), theme.colorScheme.surface],
+          colors: [
+            theme.colorScheme.primary.withValues(alpha: 0.10),
+            theme.colorScheme.surface,
+          ],
         ),
       ),
       padding: const EdgeInsets.fromLTRB(20, 20, 12, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(Icons.dashboard_outlined, color: adminModuleIconColor(AdminModuleId.overview), size: 28),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Semantics(container: true, header: true, child: Text(AppStrings.of(context).platformOverview, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700))),
-              const SizedBox(height: 4),
-              const LocalizedText('Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.', style: TextStyle(fontSize: 13)),
-            ])),
-            IconButton(onPressed: onRefresh, icon: const Icon(Icons.refresh), tooltip: 'Refresh capabilities'.localized),
-          ]),
+          Row(
+            children: [
+              Icon(
+                Icons.dashboard_outlined,
+                color: adminModuleIconColor(AdminModuleId.overview),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        AppStrings.of(context).platformOverview,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const LocalizedText(
+                      'Runtime inventory of every module this replica advertises, with OpenAPI-only fallbacks.',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: onRefresh,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh capabilities'.localized,
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
           // 健康中心（健康度大数字第一眼可见）+ 指标条。
-          Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-            _HealthRing(healthy: running, total: running + documentedOnly),
-            const SizedBox(width: 20),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              metrics,
-              const SizedBox(height: 12),
-              // 运行覆盖率：文档契约 vs 运行端点（数据表达对比条）。
-              DistributionBar(segments: [
-                DistributionSegment(label: 'Running', value: running, color: AppColors.primary),
-                DistributionSegment(label: 'Documented-only', value: documentedOnly, color: AppColors.warning),
-              ], total: running + documentedOnly),
-              const SizedBox(height: 4),
-              LocalizedText('{running} running · {documented} documented-only', args: {'running': running, 'documented': documentedOnly}, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7))),
-            ])),
-          ]),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _HealthRing(healthy: running, total: running + documentedOnly),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    metrics,
+                    const SizedBox(height: 12),
+                    // 运行覆盖率：文档契约 vs 运行端点（数据表达对比条）。
+                    DistributionBar(
+                      segments: [
+                        DistributionSegment(
+                          label: 'Running',
+                          value: running,
+                          color: AppColors.primary,
+                        ),
+                        DistributionSegment(
+                          label: 'Documented-only',
+                          value: documentedOnly,
+                          color: AppColors.warning,
+                        ),
+                      ],
+                      total: running + documentedOnly,
+                    ),
+                    const SizedBox(height: 4),
+                    LocalizedText(
+                      '{running} running · {documented} documented-only',
+                      args: {'running': running, 'documented': documentedOnly},
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -219,15 +353,35 @@ class _GroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final group = entry.value;
-    return Card(child: ExpansionTile(
-      leading: Container(width: 36, height: 36, decoration: BoxDecoration(color: group.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)), child: Icon(group.icon, size: 20, color: group.color)),
-      title: LocalizedText(entry.key),
-      subtitle: LocalizedText('{count} live endpoints', args: {'count': group.endpoints.length}),
-      children: [
-        for (final endpoint in group.endpoints)
-          ListTile(dense: true, title: Text(endpoint.path, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)), trailing: _MethodChip(endpoint.method)),
-      ],
-    ));
+    return Card(
+      child: ExpansionTile(
+        leading: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: group.color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(group.icon, size: 20, color: group.color),
+        ),
+        title: LocalizedText(entry.key),
+        subtitle: LocalizedText(
+          '{count} live endpoints',
+          args: {'count': group.endpoints.length},
+        ),
+        children: [
+          for (final endpoint in group.endpoints)
+            ListTile(
+              dense: true,
+              title: Text(
+                endpoint.path,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+              ),
+              trailing: _MethodChip(endpoint.method),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -242,12 +396,23 @@ class _StatusCard extends StatelessWidget {
   final Map<String, Object?>? detailArgs;
   final VoidCallback? onRetry;
 
-  const _StatusCard({required this.icon, required this.title, required this.body, required this.color, this.titleArgs, this.detail, this.detailArgs, this.onRetry});
+  const _StatusCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.color,
+    this.titleArgs,
+    this.detail,
+    this.detailArgs,
+    this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final textStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final textStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     // R29：dark 下语义色提亮（accentBlue 2.83 / danger 2.26 → 5.29-5.75
     // ≥AA 非文本），浅色恒等。
     final effective = AppColors.semanticFor(theme.brightness, color);
@@ -275,15 +440,31 @@ class _StatusCard extends StatelessWidget {
                     LocalizedText(
                       title,
                       args: titleArgs,
-                      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     LocalizedText(body, style: textStyle),
-                    if (detail != null) ...[const SizedBox(height: 4), LocalizedText(detail!, args: detailArgs, style: textStyle)],
+                    if (detail != null) ...[
+                      const SizedBox(height: 4),
+                      LocalizedText(
+                        detail!,
+                        args: detailArgs,
+                        style: textStyle,
+                      ),
+                    ],
                   ],
                 ),
               ),
-              if (onRetry != null) ...[const SizedBox(width: 8), OutlinedButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh, size: 16), label: const LocalizedText('Retry'))],
+              if (onRetry != null) ...[
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: onRetry,
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const LocalizedText('Retry'),
+                ),
+              ],
             ],
           ),
         ),
@@ -301,11 +482,21 @@ class _PersonaDisclosure extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
-      StatusChip.info(label: context.tr('Persona: {persona}', {'persona': context.tr(personaLabelKey(persona))})),
+      StatusChip.info(
+        label: context.tr('Persona: {persona}', {
+          'persona': context.tr(personaLabelKey(persona)),
+        }),
+      ),
       const SizedBox(width: 8),
       Tooltip(
-        message: context.tr('Persona is derived from the server capability inventory, not from your identity.'),
-        child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        message: context.tr(
+          'Persona is derived from the server capability inventory, not from your identity.',
+        ),
+        child: Icon(
+          Icons.info_outline,
+          size: 16,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     ],
   );
@@ -370,9 +561,19 @@ class _HealthRing extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ProgressRing(value: percent, size: 76, strokeWidth: 7, label: '${percent.round()}%'),
+        ProgressRing(
+          value: percent,
+          size: 76,
+          strokeWidth: 7,
+          label: '${percent.round()}%',
+        ),
         const SizedBox(height: 4),
-        LocalizedText('Runtime health', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        LocalizedText(
+          'Runtime health',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }

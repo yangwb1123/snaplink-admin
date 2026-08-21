@@ -135,11 +135,15 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
     final deletes = preview.methodCounts['DELETE'] ?? 0;
     final confirmed = await ConfirmDialog.show(
       context,
-      title: 'Execute ${preview.operationCount} SCIM operations?',
-      message:
-          'The server processes operations in order. Per-operation failures '
-          'do not roll back earlier successes. '
-          '${deletes > 0 ? 'This request contains $deletes permanent deletes.' : ''}',
+      title: context.tr('Execute {count} SCIM operations?', {
+        'count': preview.operationCount,
+      }),
+      message: context.tr(
+        deletes > 0
+            ? 'The server processes operations in order. Per-operation failures do not roll back earlier successes. This request contains {count} permanent deletes.'
+            : 'The server processes operations in order. Per-operation failures do not roll back earlier successes.',
+        {'count': deletes},
+      ),
       confirmLabel: 'Execute bulk',
       destructive: deletes > 0,
       confirmText: deletes > 0 ? 'BULK' : null,
@@ -231,12 +235,24 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
         Row(
           children: [
             // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），操作区仍贴右。
-            Expanded(child: LocalizedText('SCIM Bulk', style: Theme.of(context).textTheme.titleLarge)),
+            Expanded(
+              child: LocalizedText(
+                'SCIM Bulk',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
             if (_loadingProfile)
-              const SizedBox.square(dimension: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              const SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: _submitting || _loadingProfile || !supported || _outcomeUnknown
+              onPressed:
+                  _submitting ||
+                      _loadingProfile ||
+                      !supported ||
+                      _outcomeUnknown
                   ? null
                   : _loadTemplate,
               icon: const Icon(Icons.description_outlined),
@@ -249,14 +265,18 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
           'Bounded expert mode · max {maxOperations} operations · '
           'max {maxPayload}. POST operations require bulkId; targets are '
           'limited to /Users and /Groups.',
-          args: {'maxOperations': '$_maxOperations', 'maxPayload': formatScimBytes(_maxPayload)},
+          args: {
+            'maxOperations': '$_maxOperations',
+            'maxPayload': formatScimBytes(_maxPayload),
+          },
         ),
         const SizedBox(height: 12),
         _NoticeCard(
           background: Theme.of(context).colorScheme.secondaryContainer,
           icon: Icons.security_outlined,
           title: 'Validate before execution',
-          subtitle: 'Empty, malformed, oversized, recursive, or unsupported '
+          subtitle:
+              'Empty, malformed, oversized, recursive, or unsupported '
               'requests cannot be sent. Keep credentials and secrets out of '
               'the editor; the server returns per-operation status.',
         ),
@@ -291,7 +311,11 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
             for (final entry in (preview?.methodCounts ?? const {}).entries)
               ScimMetric(label: entry.key, value: '${entry.value}'),
             FilledButton.icon(
-              onPressed: preview?.isValid == true && !_submitting && supported && !_outcomeUnknown
+              onPressed:
+                  preview?.isValid == true &&
+                      !_submitting &&
+                      supported &&
+                      !_outcomeUnknown
                   ? _submit
                   : null,
               icon: _submitting
@@ -341,7 +365,9 @@ class _ScimBulkPanelState extends State<ScimBulkPanel> {
             tilePadding: EdgeInsets.zero,
             initiallyExpanded: true,
             title: const LocalizedText('Bulk response'),
-            subtitle: const LocalizedText('Per-operation status; overall HTTP is 200'),
+            subtitle: const LocalizedText(
+              'Per-operation status; overall HTTP is 200',
+            ),
             children: [
               Container(
                 width: double.infinity,

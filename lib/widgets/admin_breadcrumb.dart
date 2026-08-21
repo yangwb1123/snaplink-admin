@@ -78,7 +78,9 @@ class AdminBreadcrumb extends StatelessWidget {
     final crumbs = <Widget>[];
 
     // Group prefix（Identity › ...）——非 overview 模块显示分组层级。
-    final groupId = route.module.isEmpty ? '' : adminGroupForModule(route.module);
+    final groupId = route.module.isEmpty
+        ? ''
+        : adminGroupForModule(route.module);
     final group = groupId.isEmpty
         ? null
         : adminModuleGroups.where((g) => g.id == groupId).firstOrNull;
@@ -120,7 +122,8 @@ class AdminBreadcrumb extends StatelessWidget {
       crumbs.add(_separator(context));
       if (route.action == 'edit') {
         crumbs.add(
-          _crumb(context, 
+          _crumb(
+            context,
             route.resourceId,
             () => AdminRoute.go(route.module, resourceId: route.resourceId),
           ),
@@ -133,7 +136,8 @@ class AdminBreadcrumb extends StatelessWidget {
         crumbs.add(_crumb(context, route.resourceId, null));
       } else {
         crumbs.add(
-          _crumb(context, 
+          _crumb(
+            context,
             route.resourceId,
             () => AdminRoute.go(route.module, resourceId: route.resourceId),
           ),
@@ -144,7 +148,9 @@ class AdminBreadcrumb extends StatelessWidget {
     // Sub-resource
     if (route.subresource.isNotEmpty) {
       crumbs.add(_separator(context));
-      crumbs.add(_crumb(context, _subLabel(route.subresource), null, localized: true));
+      crumbs.add(
+        _crumb(context, _subLabel(route.subresource), null, localized: true),
+      );
     }
 
     // Extra trailing crumbs
@@ -178,7 +184,12 @@ class AdminBreadcrumb extends StatelessWidget {
     ),
   );
 
-  Widget _crumb(BuildContext context, String text, VoidCallback? onTap, {bool localized = false}) {
+  Widget _crumb(
+    BuildContext context,
+    String text,
+    VoidCallback? onTap, {
+    bool localized = false,
+  }) {
     final style = TextStyle(
       fontSize: 13,
       fontWeight: onTap == null ? FontWeight.w700 : FontWeight.w500,

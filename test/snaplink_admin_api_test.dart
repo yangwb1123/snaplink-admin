@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -324,74 +325,214 @@ void main() {
     expect(events.last.data['tenant'], 'acme');
   });
 
+  group('query-bearing GET in-flight deduplication (F12)', () {
+    test(
+      'joins identical concurrent queries and releases for a fresh read',
+      () async {
+        final response = Completer<http.Response>();
+        var calls = 0;
+        final api = SnaplinkAdminApi(
+          baseUrl: 'https://sso.example.test',
+          accessToken: 'admin-token',
+          httpClient: MockClient((_) {
+            calls++;
+            if (calls == 1) return response.future;
+            return Future.value(http.Response('{"value":"fresh"}', 200));
+          }),
+        );
+
+        final first = api.get(
+          '/api/v1/audit/events',
+          query: const {'limit': '100'},
+        );
+        final second = api.get(
+          '/api/v1/audit/events',
+          query: const {'limit': '100'},
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, 1);
+
+        response.complete(http.Response('{"value":"shared"}', 200));
+        expect(await first, {'value': 'shared'});
+        expect(await second, {'value': 'shared'});
+
+        final third = api.get(
+          '/api/v1/audit/events',
+          query: const {'limit': '100'},
+        );
+        expect(await third, {'value': 'fresh'});
+        expect(calls, 2);
+      },
+    );
+
+    test('canonicalizes reversed query insertion order', () async {
+      final response = Completer<http.Response>();
+      var calls = 0;
+      final api = SnaplinkAdminApi(
+        baseUrl: 'https://sso.example.test',
+        accessToken: 'admin-token',
+        httpClient: MockClient((_) {
+          calls++;
+          return response.future;
+        }),
+      );
+
+      final first = api.get(
+        '/api/v1/audit/events',
+        query: {'limit': '100', 'outcome': 'failure'},
+      );
+      final second = api.get(
+        '/api/v1/audit/events',
+        query: {'outcome': 'failure', 'limit': '100'},
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(calls, 1);
+
+      response.complete(http.Response('{"value":"shared"}', 200));
+      await Future.wait([first, second]);
+      expect(calls, 1);
+    });
+
+    test('does not join distinct queries with reserved delimiters', () async {
+      var calls = 0;
+      final api = SnaplinkAdminApi(
+        baseUrl: 'https://sso.example.test',
+        accessToken: 'admin-token',
+        httpClient: MockClient((request) async {
+          calls++;
+          return http.Response(jsonEncode(request.url.queryParameters), 200);
+        }),
+      );
+
+      final first = api.get(
+        '/api/v1/audit/events',
+        query: const {'filter': 'a&b=c'},
+      );
+      final second = api.get(
+        '/api/v1/audit/events',
+        query: const {'filter': 'a', 'b': 'c'},
+      );
+      final values = await Future.wait([first, second]);
+
+      expect(calls, 2);
+      expect(values, [
+        {'filter': 'a&b=c'},
+        {'filter': 'a', 'b': 'c'},
+      ]);
+    });
+
+    test(
+      'shares a failed leader and allows the next request to retry fresh',
+      () async {
+        var calls = 0;
+        final api = SnaplinkAdminApi(
+          baseUrl: 'https://sso.example.test',
+          accessToken: 'admin-token',
+          httpClient: MockClient((_) async {
+            calls++;
+            return http.Response('{"error":"sink unavailable"}', 500);
+          }),
+        )..maxRetries = 0;
+
+        final first = api.get(
+          '/api/v1/audit/events',
+          query: const {'limit': '100'},
+        );
+        final second = api.get(
+          '/api/v1/audit/events',
+          query: const {'limit': '100'},
+        );
+        final firstError = expectLater(
+          first,
+          throwsA(isA<SnaplinkAdminApiError>()),
+        );
+        final secondError = expectLater(
+          second,
+          throwsA(isA<SnaplinkAdminApiError>()),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(calls, 1);
+        await Future.wait([firstError, secondError]);
+
+        await expectLater(
+          api.get('/api/v1/audit/events', query: const {'limit': '100'}),
+          throwsA(isA<SnaplinkAdminApiError>()),
+        );
+        expect(calls, 2);
+      },
+    );
+  });
+
   group('ring liveness — successful mutations land in the audit ring', () {
     // Closes the security review gap (d): every guard that asserts the ring
     // is *unchanged* is vacuously green for a dead writer. This pin asserts
     // the ring is *live*: a 2xx non-GET routed through `_request` must add
     // exactly one entry to AuditLogService AND persist it under the
     // `sso_audit_log` key with the exact query-free wire path.
-    test('POST/PUT/DELETE each append exactly one query-free ring entry',
-        () async {
-      final ring = AuditLogService();
-      addTearDown(ring.clear);
-      final api = SnaplinkAdminApi(
-        baseUrl: 'https://sso.example.test',
-        accessToken: 'admin-token',
-        httpClient: MockClient((request) async {
-          expect(
-            request.url.query,
-            isEmpty,
-            reason: 'exercised mutation paths must be query-free on the wire',
-          );
-          return http.Response('{"status":"ok"}', 200);
-        }),
-      );
+    test(
+      'POST/PUT/DELETE each append exactly one query-free ring entry',
+      () async {
+        final ring = AuditLogService();
+        addTearDown(ring.clear);
+        final api = SnaplinkAdminApi(
+          baseUrl: 'https://sso.example.test',
+          accessToken: 'admin-token',
+          httpClient: MockClient((request) async {
+            expect(
+              request.url.query,
+              isEmpty,
+              reason: 'exercised mutation paths must be query-free on the wire',
+            );
+            return http.Response('{"status":"ok"}', 200);
+          }),
+        );
 
-      List<Map<String, dynamic>> storedEntries() {
-        final stored = LocalStorage.getItem('sso_audit_log');
-        if (stored == null) return const [];
-        return (jsonDecode(stored) as List).cast<Map<String, dynamic>>();
-      }
-
-      Future<void> expectRecorded(String method, String path) async {
-        final countBefore = ring.count;
-        final storedBefore = storedEntries();
-        if (method == 'POST') {
-          await api.post(path, {'operator': 'ada@example.test'});
-        } else if (method == 'PUT') {
-          await api.put(path, {'menu': 'ops'});
-        } else {
-          await api.delete(path);
+        List<Map<String, dynamic>> storedEntries() {
+          final stored = LocalStorage.getItem('sso_audit_log');
+          if (stored == null) return const [];
+          return (jsonDecode(stored) as List).cast<Map<String, dynamic>>();
         }
-        expect(
-          ring.count,
-          countBefore + 1,
-          reason: '$method $path must add exactly one ring entry',
-        );
-        final stored = storedEntries();
-        expect(stored, hasLength(storedBefore.length + 1));
-        final entry = stored.first;
-        expect(entry['method'], method);
-        expect(
-          entry['path'],
-          path,
-          reason: 'audited path must be the exact query-free wire path',
-        );
-        expect(
-          entry['path'],
-          isNot(contains('?')),
-          reason: 'query strings must never reach the ring',
-        );
-        expect(entry['statusCode'], 200);
-      }
 
-      await expectRecorded('POST', '/api/v1/admin/tenants/acme/invitations');
-      await expectRecorded('PUT', '/api/v1/admin/permissions/acme/menus');
-      await expectRecorded(
-        'DELETE',
-        '/api/v1/admin/tenants/acme/members/ada',
-      );
-    });
+        Future<void> expectRecorded(String method, String path) async {
+          final countBefore = ring.count;
+          final storedBefore = storedEntries();
+          if (method == 'POST') {
+            await api.post(path, {'operator': 'ada@example.test'});
+          } else if (method == 'PUT') {
+            await api.put(path, {'menu': 'ops'});
+          } else {
+            await api.delete(path);
+          }
+          expect(
+            ring.count,
+            countBefore + 1,
+            reason: '$method $path must add exactly one ring entry',
+          );
+          final stored = storedEntries();
+          expect(stored, hasLength(storedBefore.length + 1));
+          final entry = stored.first;
+          expect(entry['method'], method);
+          expect(
+            entry['path'],
+            path,
+            reason: 'audited path must be the exact query-free wire path',
+          );
+          expect(
+            entry['path'],
+            isNot(contains('?')),
+            reason: 'query strings must never reach the ring',
+          );
+          expect(entry['statusCode'], 200);
+        }
+
+        await expectRecorded('POST', '/api/v1/admin/tenants/acme/invitations');
+        await expectRecorded('PUT', '/api/v1/admin/permissions/acme/menus');
+        await expectRecorded(
+          'DELETE',
+          '/api/v1/admin/tenants/acme/members/ada',
+        );
+      },
+    );
 
     // Negative half of the `method != 'GET'` predicate: safe reads must not
     // inflate the ring. Keeps the liveness pin specific to mutations.

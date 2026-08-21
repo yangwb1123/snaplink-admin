@@ -103,9 +103,9 @@ class _TimelineRow extends StatelessWidget {
               children: [
                 Text(
                   item.title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 ),
                 if (item.subtitle != null) ...[
                   const SizedBox(height: 4),

@@ -14,7 +14,7 @@
 | 页面骨架（标题+操作栏+筛选+列表） | ✅ AdminBreadcrumb + AdminListHeader + 搜索栏 + ListView |
 | 操作分级（创建=主操作，批准/拒绝=危险操作+确认） | ✅ ConfirmDialog 确认 |
 | 反馈闭环（成功/失败 SnackBar） | ✅ |
-| 三态（loading/empty/error） | ⚠️ 手动实现（未用 AsyncView），error 态**无重试按钮** |
+| 三态（loading/empty/error） | ⚠️ 手动实现（未用 AsyncView），error 态已提供 Retry |
 | 搜索触发 | ✅ onSubmitted 明确触发（符合决策表，无需防抖） |
 
 **本轮修复**：error 态补 Retry 按钮（错误必须可恢复）。
@@ -22,7 +22,7 @@
 ### 2. dashboard_screen（工作台）— 数据密度高
 
 - ✅ 指标卡片 + 事件流
-- ⚠️ 597 行 god-file：卡片网格+事件流+状态混合，建议按区块提取 widget
+- ⚠️ 437 行 god-file：卡片网格+事件流+状态混合，已保留显式工程豁免；建议按区块提取 widget
 - ⚠️ 36 决策点：条件渲染复杂，抽 helper
 
 ### 3. tenants_tab / users_tab（列表页）— 深层嵌套
@@ -61,7 +61,7 @@
 
 ## 技术债（不硬拆，随功能迭代）
 
-- god-files：dashboard 597 / clients 509 / tenants 512 / users 505 / governance 512 / token_security 624
+- god-files：dashboard 437 / clients 804 / token_security 946；tenants/users/governance 等复杂状态页均已登记显式工程豁免，仍需关注复杂度并按功能迭代拆分
 - 深层嵌套：tenants_tab 21 / users_tab 20 / clients_tab 20
 - AsyncView 统一迁移（存量 40+ 页）
 

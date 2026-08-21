@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import subprocess
 import unittest
 
@@ -155,8 +156,22 @@ class DeploymentContractsTest(unittest.TestCase):
     def test_image_and_nginx_share_the_app_prefix_and_upstream_contract(self):
         dockerfile = (ROOT / 'Dockerfile').read_text()
         nginx = (ROOT / 'nginx.conf').read_text()
+        preflight = (
+            ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'
+        ).read_text()
 
         self.assertIn('ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api', dockerfile)
+        self.assertIn('ARG FLUTTER_VERSION=3.47.1', dockerfile)
+        self.assertRegex(
+            dockerfile,
+            r'ARG FLUTTER_SHA256=[0-9a-f]{64}',
+        )
+        self.assertIn(
+            'flutter_linux_${FLUTTER_VERSION}-stable.tar.xz',
+            dockerfile,
+        )
+        self.assertIn('sha256sum -c -', dockerfile)
+        self.assertIn('tar xJf /tmp/flutter.tar.xz -C /opt', dockerfile)
         self.assertIn('--dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES=', dockerfile)
         # The image must build the same code-split dart2js bundle as
         # `make build-prod` (deferred chunks; dart2wasm does not emit chunks).
@@ -168,6 +183,15 @@ class DeploymentContractsTest(unittest.TestCase):
             'COPY nginx.conf /etc/nginx/templates/default.conf.template',
             dockerfile,
         )
+        self.assertIn(
+            'COPY docker-entrypoint.d/10-validate-upstreams.sh /docker-entrypoint.d/10-validate-upstreams.sh',
+            dockerfile,
+        )
+        self.assertIn('RUN chmod +x /docker-entrypoint.d/10-validate-upstreams.sh', dockerfile)
+        self.assertIn('validate_origin SNAPLINK_BILLING_UPSTREAM', preflight)
+        self.assertIn('validate_origin SNAPLINK_STRIPE_ADAPTER_UPSTREAM', preflight)
+        self.assertIn('validate_origin SNAPLINK_UPSTREAM', preflight)
+        self.assertIn('must be an explicit http:// or https:// origin', preflight)
         self.assertIn('ENV SNAPLINK_UPSTREAM=http://snaplink:8080', dockerfile)
         self.assertIn('ENV SNAPLINK_SERVER_NAME=snaplink', dockerfile)
         self.assertIn(
@@ -248,6 +272,60 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('admin/commerce|commerce|metering', nginx)
         self.assertIn('location = /device/verify', nginx)
         self.assertIn('register(?:/|$)', nginx)
+
+    def test_optional_upstream_preflight_rejects_implicit_fallbacks(self):
+        script = ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'
+        environment = os.environ.copy()
+        environment.update(
+            {
+                'SNAPLINK_UPSTREAM': 'http://snaplink:8080',
+                'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
+                'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
+            }
+        )
+        valid = subprocess.run(
+            ['sh', str(script)],
+            capture_output=True,
+            check=False,
+            text=True,
+            env=environment,
+        )
+        self.assertEqual(valid.returncode, 0, valid.stderr)
+
+        for invalid in ('', 'http://billing/api', 'billing:8080'):
+            environment['SNAPLINK_BILLING_UPSTREAM'] = invalid
+            result = subprocess.run(
+                ['sh', str(script)],
+                capture_output=True,
+                check=False,
+                text=True,
+                env=environment,
+            )
+            self.assertNotEqual(result.returncode, 0, invalid)
+            self.assertIn('SNAPLINK_BILLING_UPSTREAM', result.stderr)
+
+    def test_core_upstream_preflight_rejects_invalid_origin(self):
+        script = ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'
+        environment = os.environ.copy()
+        environment.update(
+            {
+                'SNAPLINK_UPSTREAM': 'http://snaplink:8080',
+                'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
+                'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
+            }
+        )
+
+        for invalid in ('', 'http://snaplink/api', 'snaplink:8080'):
+            environment['SNAPLINK_UPSTREAM'] = invalid
+            result = subprocess.run(
+                ['sh', str(script)],
+                capture_output=True,
+                check=False,
+                text=True,
+                env=environment,
+            )
+            self.assertNotEqual(result.returncode, 0, invalid)
+            self.assertIn('SNAPLINK_UPSTREAM', result.stderr)
 
     def test_ci_installs_declared_tools_and_scopes_fixture_credentials(self):
         workflow = yaml.safe_load((ROOT / '.github/workflows/ci.yml').read_text())

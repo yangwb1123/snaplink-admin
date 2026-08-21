@@ -96,7 +96,11 @@ class _UserFormDialogState extends State<UserFormDialog> {
     } on SSOError catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);
-      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text(e.toString()),
+        kind: AppSnackBarKind.error,
+      );
     }
   }
 

@@ -128,13 +128,19 @@ void main() {
     });
 
     test('sanitizes unsafe filenames before downloading', () {
-      ExportService.exportCsv([{'id': 1}], '../etc/passwd.csv');
+      ExportService.exportCsv([
+        {'id': 1},
+      ], '../etc/passwd.csv');
       expect(capturedDownloads.single['filename'], '-etc-passwd.csv');
       BrowserDownload.resetForTest();
-      ExportService.exportJson([{'id': 1}], r'tenant-1\export.json');
+      ExportService.exportJson([
+        {'id': 1},
+      ], r'tenant-1\export.json');
       expect(capturedDownloads.single['filename'], 'tenant-1-export.json');
       BrowserDownload.resetForTest();
-      ExportService.exportCsv([{'id': 1}], '..');
+      ExportService.exportCsv([
+        {'id': 1},
+      ], '..');
       expect(capturedDownloads.single['filename'], 'export.json');
     });
   });
@@ -195,6 +201,43 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets(
+      'dismisses for the current outage and reappears after a transition',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: OfflineBanner(
+              child: const Scaffold(body: Center(child: Text('content'))),
+            ),
+          ),
+        );
+
+        connectivity_platform.testEmitStatus(false);
+        await tester.pump();
+        final bannerText = find.text(
+          'You are offline. Some features may be unavailable.',
+        );
+        expect(bannerText, findsOneWidget);
+
+        await tester.tap(find.text('Dismiss'));
+        await tester.pump();
+        expect(bannerText, findsNothing);
+        expect(find.text('content'), findsOneWidget);
+
+        // Duplicate offline events belong to the same outage and stay dismissed.
+        connectivity_platform.testEmitStatus(false);
+        await tester.pump();
+        expect(bannerText, findsNothing);
+
+        // A real online → offline transition starts a new warning period.
+        connectivity_platform.testEmitStatus(true);
+        await tester.pump();
+        connectivity_platform.testEmitStatus(false);
+        await tester.pump();
+        expect(bannerText, findsOneWidget);
+      },
+    );
   });
 
   group('SearchFilterBar', () {
@@ -294,7 +337,7 @@ void main() {
       );
 
       expect(find.text('Page 2'), findsOneWidget);
-    expect(find.text('57 total'), findsOneWidget);
+      expect(find.text('57 total'), findsOneWidget);
       await tester.tap(find.text('Previous'));
       await tester.tap(find.text('Next'));
       expect(previous, 1);

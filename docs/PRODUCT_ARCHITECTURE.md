@@ -59,16 +59,20 @@ client secret、Registration Access Token 及其轮换值只展示一次。若�
 ## 4. 契约和状态模型
 
 ```text
-Snaplink runtime inventory ─┐
-OpenAPI published catalog ──┼─> Effective capabilities ─> Navigation + pages
-Source-only compatibility ──┘                               │
-                                                            v
-                                              Server authorization/gates
-                                                   remain authoritative
+Snaplink runtime inventory ─────> Runtime snapshot ──> Three-state page gates
+                                      │                         │
+OpenAPI published catalog ───────┐    │                         v
+Source-only compatibility ──────┴─> Effective capabilities ─> Navigation + pages
+                                                                │
+                                                                v
+                                                  Server authorization/gates
+                                                     remain authoritative
 ```
 
 - OpenAPI 目录提供稳定的方法、路径和参数模板。
 - Runtime inventory 覆盖同一路由时，其 feature 元数据优先。
+- Runtime inventory 不可读时是 `unknown`，不是“没有能力”；成功但缺少路由
+  才是 `unavailable`。
 - Source-only 路由只代表某些版本已挂载；`404/501` 是正常的能力降级。
 - Advanced operations 只能选择目录中的操作，不能输入任意 URL。
 

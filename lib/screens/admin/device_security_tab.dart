@@ -17,10 +17,11 @@ import 'device_security_activity_dialog.dart';
 import 'device_security_dashboard_widgets.dart';
 import 'device_security_models.dart';
 import 'device_security_widgets.dart';
+import 'admin_capability_boundary.dart';
 
 /// 写入操作的本地化反馈：(i18n key, placeholder args)。
-typedef _WriteMessage = (String, Map<String, Object?>)
-    Function(Map<String, dynamic> result);
+typedef _WriteMessage =
+    (String, Map<String, Object?>) Function(Map<String, dynamic> result);
 
 /// Fleet-level device risk and response workspace.
 ///
@@ -29,8 +30,15 @@ typedef _WriteMessage = (String, Map<String, Object?>)
 /// if one optional source is unavailable.
 class DeviceSecurityTab extends StatefulWidget {
   final SnaplinkAdminApi api;
+  final SnaplinkAdminCapabilitySnapshot? capabilitySnapshot;
+  final VoidCallback? onCapabilityRetry;
 
-  const DeviceSecurityTab({super.key, required this.api});
+  const DeviceSecurityTab({
+    super.key,
+    required this.api,
+    this.capabilitySnapshot,
+    this.onCapabilityRetry,
+  });
 
   @override
   State<DeviceSecurityTab> createState() => _DeviceSecurityTabState();
@@ -51,10 +59,32 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   int _fleetTotal = 0;
   String? _error;
 
+  /// 请求序号：筛选/刷新连续触发时，旧的聚合结果和后台缓存回调不得覆盖新查询。
+  int _reqSeq = 0;
+
+  bool get _available =>
+      widget.capabilitySnapshot == null ||
+      widget.capabilitySnapshot!.canUseAnyPathPrefix(
+        DeviceSecurityPaths.devices,
+      );
+
   @override
   void initState() {
     super.initState();
-    _load();
+    if (_available) _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant DeviceSecurityTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previous =
+        oldWidget.capabilitySnapshot?.stateForAnyPathPrefix(
+          DeviceSecurityPaths.devices,
+        ) ??
+        SnaplinkAdminCapabilityState.available;
+    if (_available && previous != SnaplinkAdminCapabilityState.available) {
+      _load();
+    }
   }
 
   @override
@@ -78,6 +108,7 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   Future<(String, Map<String, dynamic>?, Object?)> _read(
     String key,
     String path, {
+    required int seq,
     Map<String, String>? query,
   }) async {
     try {
@@ -85,7 +116,9 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
           ? await widget.api.getStaleWhileRevalidate(
               path,
               onRefresh: (fresh) {
-                if (mounted) setState(() => _applyResult(key, fresh));
+                if (mounted && seq == _reqSeq) {
+                  setState(() => _applyResult(key, fresh));
+                }
               },
             )
           : await widget.api.get(path, query: query);
@@ -109,16 +142,18 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   }
 
   Future<void> _load() async {
+    if (!_available) return;
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
     });
     final results = await Future.wait([
-      _read('devices', DeviceSecurityPaths.devices, query: _query),
-      _read('stats', DeviceSecurityPaths.stats),
-      _read('events', DeviceSecurityPaths.securityActivity),
+      _read('devices', DeviceSecurityPaths.devices, seq: seq, query: _query),
+      _read('stats', DeviceSecurityPaths.stats, seq: seq),
+      _read('events', DeviceSecurityPaths.securityActivity, seq: seq),
     ]);
-    if (!mounted) return;
+    if (!mounted || seq != _reqSeq) return;
     final failures = <String>[];
     setState(() {
       for (final result in results) {
@@ -131,10 +166,9 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
       }
       _error = failures.isEmpty
           ? null
-          : context.tr(
-              'Some device data is unavailable — {failures}',
-              {'failures': failures.join(' · ')},
-            );
+          : context.tr('Some device data is unavailable — {failures}', {
+              'failures': failures.join(' · '),
+            });
       _loading = false;
     });
   }
@@ -256,83 +290,104 @@ class _DeviceSecurityTabState extends State<DeviceSecurityTab> {
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      const AdminBreadcrumb(),
-      AdminListHeader(
-        title: 'Device security',
-        subtitle:
-            'Fleet posture, device-level investigation, and bounded incident '
-            'response.',
-        onRefresh: () {
-          if (!_loading && !_mutating) _load();
-        },
-        actions: [
-          FilledButton.icon(
-            onPressed: _loading || _mutating ? null : _bulkRevoke,
-            style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-            icon: const Icon(Icons.phonelink_erase),
-            label: const LocalizedText('Bulk revoke'),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            onPressed: _loading || _mutating ? null : _load,
-            tooltip: 'Refresh'.localized,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      DeviceStatsCards(stats: _stats, fleetTotal: _fleetTotal),
-      const SizedBox(height: 12),
-      DeviceFleetFilters(
-        userController: _userCtrl,
-        platformController: _platformCtrl,
-        ipController: _ipCtrl,
-        deviceType: _deviceType,
-        trustLevel: _trustLevel,
-        suspiciousOnly: _suspiciousOnly,
-        loading: _loading,
-        onDeviceTypeChanged: (value) => setState(() => _deviceType = value),
-        onTrustLevelChanged: (value) => setState(() => _trustLevel = value),
-        onSuspiciousChanged: (value) => setState(() => _suspiciousOnly = value),
-        onApply: _load,
-        onClear: _clearFilters,
-      ),
-      if (_error != null) ...[
-        const SizedBox(height: 8),
-        ErrorStateCard(message: _error!, onRetry: _loading ? null : _load, margin: EdgeInsets.zero),
-      ],
-      if (_loading) ...[
-        const SizedBox(height: 12),
-        const SkeletonListTile(itemCount: 3),
-      ] else ...[
-        const SizedBox(height: 12),
-        DeviceListPanel(
-          title: _query.isEmpty
-              ? 'All devices ({total} total)'
-              : 'Filtered devices ({shown} of {total})',
-          titleArgs: _query.isEmpty
-              ? {'total': formatCount(_fleetTotal)}
-              : {'shown': formatCount(_devices.length), 'total': formatCount(_fleetTotal)},
-          devices: _devices,
-          filtering: _query.isNotEmpty,
-          onClearFilter: _clearFilters,
-          emptyMessage: _query.isEmpty
-              ? 'No devices have been recorded.'
-              : 'No devices match the current filters.',
-          actionsEnabled: !_mutating,
-          onActivity: _showActivity,
-          onResetTrust: _resetTrust,
-          onRevoke: _revoke,
+  Widget build(BuildContext context) {
+    return AdminCapabilityBoundary(
+      snapshot: widget.capabilitySnapshot,
+      pathPrefix: DeviceSecurityPaths.devices,
+      onRetry: widget.onCapabilityRetry,
+      builder: (context) => PullToRefresh(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const AdminBreadcrumb(),
+            AdminListHeader(
+              title: 'Device security',
+              subtitle:
+                  'Fleet posture, device-level investigation, and bounded incident '
+                  'response.',
+              onRefresh: () {
+                if (!_loading && !_mutating) _load();
+              },
+              actions: [
+                FilledButton.icon(
+                  onPressed: _loading || _mutating ? null : _bulkRevoke,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                  ),
+                  icon: const Icon(Icons.phonelink_erase),
+                  label: const LocalizedText('Bulk revoke'),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  onPressed: _loading || _mutating ? null : _load,
+                  tooltip: 'Refresh'.localized,
+                  icon: const Icon(Icons.refresh),
+                ),
+              ],
+            ),
+            DeviceStatsCards(stats: _stats, fleetTotal: _fleetTotal),
+            const SizedBox(height: 12),
+            DeviceFleetFilters(
+              userController: _userCtrl,
+              platformController: _platformCtrl,
+              ipController: _ipCtrl,
+              deviceType: _deviceType,
+              trustLevel: _trustLevel,
+              suspiciousOnly: _suspiciousOnly,
+              loading: _loading,
+              onDeviceTypeChanged: (value) =>
+                  setState(() => _deviceType = value),
+              onTrustLevelChanged: (value) =>
+                  setState(() => _trustLevel = value),
+              onSuspiciousChanged: (value) =>
+                  setState(() => _suspiciousOnly = value),
+              onApply: _load,
+              onClear: _clearFilters,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              ErrorStateCard(
+                message: _error!,
+                onRetry: _loading ? null : _load,
+                margin: EdgeInsets.zero,
+              ),
+            ],
+            if (_loading) ...[
+              const SizedBox(height: 12),
+              const SkeletonListTile(itemCount: 3),
+            ] else ...[
+              const SizedBox(height: 12),
+              DeviceListPanel(
+                title: _query.isEmpty
+                    ? 'All devices ({total} total)'
+                    : 'Filtered devices ({shown} of {total})',
+                titleArgs: _query.isEmpty
+                    ? {'total': formatCount(_fleetTotal)}
+                    : {
+                        'shown': formatCount(_devices.length),
+                        'total': formatCount(_fleetTotal),
+                      },
+                devices: _devices,
+                filtering: _query.isNotEmpty,
+                onClearFilter: _clearFilters,
+                emptyMessage: _query.isEmpty
+                    ? 'No devices have been recorded.'
+                    : 'No devices match the current filters.',
+                actionsEnabled: !_mutating,
+                onActivity: _showActivity,
+                onResetTrust: _resetTrust,
+                onRevoke: _revoke,
+              ),
+              const SizedBox(height: 12),
+              DeviceSecurityActivityPanel(
+                events: _securityEvents,
+                onInvestigate: _showActivity,
+              ),
+            ],
+          ],
         ),
-        const SizedBox(height: 12),
-        DeviceSecurityActivityPanel(
-          events: _securityEvents,
-          onInvestigate: _showActivity,
-        ),
-      ],
-    ],
-  ));
+      ),
+    );
+  }
 }
-

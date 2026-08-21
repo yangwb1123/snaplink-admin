@@ -51,10 +51,7 @@ class EmptyHint extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Text(
-        context.tr(text),
-        style: TextStyle(color: AppColors.muted),
-      ),
+      child: Text(context.tr(text), style: TextStyle(color: AppColors.muted)),
     );
   }
 }
@@ -123,9 +120,7 @@ class PortalCard extends StatelessWidget {
                 ).copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 12),
-              Divider(
-                height: 1,
-              ),
+              Divider(height: 1),
               const SizedBox(height: 16),
               ...children,
             ],
@@ -318,10 +313,10 @@ class PortalLeadingIcon extends StatelessWidget {
 
 /// Small in-button busy indicator, tinted to sit on the button surface.
 Widget portalSpinner(Color color) => SizedBox(
-      width: 16,
-      height: 16,
-      child: CircularProgressIndicator(
-        strokeWidth: 2,
-        valueColor: AlwaysStoppedAnimation(color),
-      ),
-    );
+  width: 16,
+  height: 16,
+  child: CircularProgressIndicator(
+    strokeWidth: 2,
+    valueColor: AlwaysStoppedAnimation(color),
+  ),
+);

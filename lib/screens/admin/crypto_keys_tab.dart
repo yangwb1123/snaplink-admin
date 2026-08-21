@@ -39,6 +39,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   List<Map<String, dynamic>> _keys = const [];
   String? _error;
   bool _loading = false, _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   late final void Function() _cancelPopState;
@@ -78,11 +79,18 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
   Future<void> _load() async {
     if (!_available) return;
     final seq = ++_reqSeq;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         _keysPath,
-        onRefresh: _applyRefresh,
+        onRefresh: (fresh) {
+          if (mounted && seq == _reqSeq) {
+            setState(() => _applyKeys(fresh));
+          }
+        },
       );
       if (!mounted || seq != _reqSeq) return;
       setState(() {
@@ -90,9 +98,19 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted && seq == _reqSeq) setState(() { _error = e.toString(); _loading = false; });
+      if (mounted && seq == _reqSeq) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted && seq == _reqSeq) setState(() { _error = 'Could not load crypto keys.'; _loading = false; });
+      if (mounted && seq == _reqSeq) {
+        setState(() {
+          _error = 'Could not load crypto keys.';
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -102,15 +120,13 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     _keys = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
-  void _applyRefresh(Map<String, dynamic> fresh) {
-    if (!mounted) return;
-    setState(() => _applyKeys(fresh));
-  }
-
   Future<void> _compromise(String id) async {
     final reason = await _compromiseReason(id);
     if (reason == null) return;
-    setState(() { _mutating = true; _error = null; });
+    setState(() {
+      _mutating = true;
+      _error = null;
+    });
     try {
       final response = await widget.api.post(
         '$_keysPath/${Uri.encodeComponent(id)}/compromise',
@@ -145,7 +161,10 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       confirmText: 'ROTATE SIGNING KEY',
     );
     if (!confirmed) return;
-    setState(() { _mutating = true; _error = null; });
+    setState(() {
+      _mutating = true;
+      _error = null;
+    });
     try {
       final response = await widget.api.post(_rotatePath);
       if (!mounted) return;
@@ -184,11 +203,23 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
               'failed, is unsupported, or still needs verification.',
             ),
             const SizedBox(height: 8),
-            LocalizedText('Type {id} and provide an incident reference.', args: {'id': id}),
+            LocalizedText(
+              'Type {id} and provide an incident reference.',
+              args: {'id': id},
+            ),
             const SizedBox(height: 12),
-            TextField(controller: reason, autofocus: true, decoration: InputDecoration(labelText: 'Reason / incident reference'.localized)),
+            TextField(
+              controller: reason,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Reason / incident reference'.localized,
+              ),
+            ),
             const SizedBox(height: 8),
-            TextField(controller: confirm, decoration: InputDecoration(labelText: id)),
+            TextField(
+              controller: confirm,
+              decoration: InputDecoration(labelText: id),
+            ),
           ],
         ),
         actions: [
@@ -200,7 +231,8 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
             listenable: Listenable.merge([reason, confirm]),
             builder: (_, _) => FilledButton(
               style: FilledButton.styleFrom(backgroundColor: AppColors.danger),
-              onPressed: reason.text.trim().isNotEmpty && confirm.text.trim() == id
+              onPressed:
+                  reason.text.trim().isNotEmpty && confirm.text.trim() == id
                   ? () => Navigator.pop(dialogContext, reason.text.trim())
                   : null,
               child: const LocalizedText('Compromise'),
@@ -216,54 +248,70 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_available) return const EmptyState(variant: EmptyStateVariant.notEnabled, title: 'Crypto key management is not enabled on this replica.');
+    if (!_available) {
+      return const EmptyState(
+        variant: EmptyStateVariant.notEnabled,
+        title: 'Crypto key management is not enabled on this replica.',
+      );
+    }
     final rotating = AdminRoute.current().subresource == 'rotate';
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).cryptoKeys,
-          subtitle: 'Signing and encryption keys protecting authentication flows.',
-          onRefresh: _load,
-          actions: [
-            if (_canRotate && !rotating)
-              OutlinedButton.icon(
-                onPressed: _mutating ? null : () => AdminRoute.go('crypto-keys', subresource: 'rotate'),
-                icon: const Icon(Icons.vpn_key_outlined, size: 18),
-                label: const LocalizedText('Rotate signing key'),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).cryptoKeys,
+            subtitle:
+                'Signing and encryption keys protecting authentication flows.',
+            onRefresh: _load,
+            actions: [
+              if (_canRotate && !rotating)
+                OutlinedButton.icon(
+                  onPressed: _mutating
+                      ? null
+                      : () =>
+                            AdminRoute.go('crypto-keys', subresource: 'rotate'),
+                  icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                  label: const LocalizedText('Rotate signing key'),
+                ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
               ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        if (rotating) _buildRotateConfirm(context),
-        if (!_loading && _error != null)
-          ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
+            ],
           ),
-        if (!_loading && _error == null && _keys.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: EmptyState(
-              compact: true,
-              title: 'No keys found.',
-              subtitle:
-                  'Signing keys are generated server-side; rotate from the header to start a new generation.'
-                      .localized,
+          if (rotating) _buildRotateConfirm(context),
+          if (!_loading && _error != null)
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ),
-        if (!_loading && _error == null && _keys.isNotEmpty)
-          _keysCard(context),
-      ],
-    ));
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (!_loading && _error == null && _keys.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                title: 'No keys found.',
+                subtitle:
+                    'Signing keys are generated server-side; rotate from the header to start a new generation.'
+                        .localized,
+              ),
+            ),
+          if (!_loading && _error == null && _keys.isNotEmpty)
+            _keysCard(context),
+        ],
+      ),
+    );
   }
 
   /// 密钥列表卡：组色密钥图标 + SectionHeader（计数）+ AdminDataTable(compact)。
@@ -276,38 +324,72 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(children: [
-              Icon(Icons.vpn_key_outlined, size: 20, color: _accent),
-              const SizedBox(width: 8),
-              Expanded(child: SectionHeader(AppStrings.of(context).cryptoKeys, count: keys.length)),
-            ]),
+            Row(
+              children: [
+                Icon(Icons.vpn_key_outlined, size: 20, color: _accent),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SectionHeader(
+                    AppStrings.of(context).cryptoKeys,
+                    count: keys.length,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             AdminDataTable(
               density: TableDensity.compact,
               minWidth: 920,
               columns: [
                 AdminDataColumn(
-                  id: 'id', label: 'Key ID'.localized, width: 200, cardPrimary: true,
-                  builder: (_, i) => CopyableCell(text: _value(i, ['id', 'kid']), contextProvider: () => context),
+                  id: 'id',
+                  label: 'Key ID'.localized,
+                  width: 200,
+                  cardPrimary: true,
+                  builder: (_, i) => CopyableCell(
+                    text: _value(i, ['id', 'kid']),
+                    contextProvider: () => context,
+                  ),
                 ),
                 AdminDataColumn(
-                  id: 'keyClass', label: 'Key class'.localized, cardDetail: true,
-                  builder: (_, i) => TableCellText(_value(i, ['key_class', 'class']), muted: true),
+                  id: 'keyClass',
+                  label: 'Key class'.localized,
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _value(i, ['key_class', 'class']),
+                    muted: true,
+                  ),
                 ),
                 AdminDataColumn(
-                  id: 'algorithm', label: 'Algorithm'.localized, cardDetail: true,
-                  builder: (_, i) => TableCellText(_value(i, ['algorithm', 'alg']), muted: true),
+                  id: 'algorithm',
+                  label: 'Algorithm'.localized,
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _value(i, ['algorithm', 'alg']),
+                    muted: true,
+                  ),
                 ),
                 AdminDataColumn(
-                  id: 'created', label: 'Created'.localized, cardDetail: true,
-                  builder: (_, i) => TableCellText(_value(i, ['created_at', 'createdAt']), muted: true, maxLines: 2),
+                  id: 'created',
+                  label: 'Created'.localized,
+                  cardDetail: true,
+                  builder: (_, i) => TableCellText(
+                    _value(i, ['created_at', 'createdAt']),
+                    muted: true,
+                    maxLines: 2,
+                  ),
                 ),
                 AdminDataColumn(
-                  id: 'status', label: 'Status'.localized, cardDetail: true,
-                  builder: (_, i) => _statusChip(context, _value(i, ['status'])),
+                  id: 'status',
+                  label: 'Status'.localized,
+                  cardDetail: true,
+                  builder: (_, i) =>
+                      _statusChip(context, _value(i, ['status'])),
                 ),
                 AdminDataColumn(
-                  id: 'actions', label: '', width: 120,
+                  id: 'actions',
+                  label: '',
+                  width: 120,
                   builder: (_, i) {
                     final status = _value(i, ['status']);
                     final id = _value(i, ['id', 'kid']);
@@ -352,16 +434,18 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(children: [
-            Icon(Icons.vpn_key_outlined, size: 20, color: _accent),
-            const SizedBox(width: 8),
-            Expanded(
-              child: LocalizedText(
-                'Rotate the signing key?',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          Row(
+            children: [
+              Icon(Icons.vpn_key_outlined, size: 20, color: _accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: LocalizedText(
+                  'Rotate the signing key?',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                ),
               ),
-            ),
-          ]),
+            ],
+          ),
           const SizedBox(height: 8),
           const LocalizedText(
             'This endpoint rotates the active signing key; it does not rotate '
@@ -397,4 +481,3 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> {
     if (route.subresource == 'rotate' && !_mutating) _rotate();
   }
 }
-

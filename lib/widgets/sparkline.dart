@@ -50,14 +50,11 @@ class Sparkline extends StatelessWidget {
         semanticsLabel ??
         (data.length < 2
             ? AppStrings.of(context).noData
-            : context.tr(
-                'Trend line, {count} points, range {min}–{max}',
-                {
-                  'count': formatCount(data.length),
-                  'min': formatDecimal(min, digits: 1),
-                  'max': formatDecimal(max, digits: 1),
-                },
-              ));
+            : context.tr('Trend line, {count} points, range {min}–{max}', {
+                'count': formatCount(data.length),
+                'min': formatDecimal(min, digits: 1),
+                'max': formatDecimal(max, digits: 1),
+              }));
     final painter = _SparklinePainter(
       data: data,
       color: lineColor,
@@ -110,7 +107,8 @@ class _SparklinePainter extends CustomPainter {
 
     Offset pointAt(int index) {
       final x = size.width * index / (data.length - 1);
-      final y = size.height - (data[index].toDouble() - min) / range * size.height;
+      final y =
+          size.height - (data[index].toDouble() - min) / range * size.height;
       return Offset(x, y);
     }
 

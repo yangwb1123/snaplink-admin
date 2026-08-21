@@ -203,9 +203,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
                 onPressed: () => Navigator.pop(context, true),
                 style: approve
                     ? null
-                    : FilledButton.styleFrom(
-                        backgroundColor: AppColors.danger,
-                      ),
+                    : FilledButton.styleFrom(backgroundColor: AppColors.danger),
                 child: Text(approve ? strings.approve : strings.deny),
               ),
             ],
@@ -271,8 +269,8 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
       'approved' => (Icons.check_circle_outline, scheme.primary, false),
       'denied' => (Icons.block, scheme.onSurfaceVariant, false),
       'expired' => (Icons.schedule, AppColors.warning, false),
-      'not_found' || 'invalid' =>
-        (Icons.search_off, scheme.onErrorContainer, true),
+      'not_found' ||
+      'invalid' => (Icons.search_off, scheme.onErrorContainer, true),
       'unavailable' => (Icons.toggle_off_outlined, AppColors.warning, false),
       'error' => (Icons.error_outline, scheme.onErrorContainer, true),
       _ => (Icons.error_outline, scheme.onErrorContainer, true),

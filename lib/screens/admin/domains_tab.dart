@@ -94,7 +94,11 @@ class _DomainsTabState extends State<DomainsTab> {
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         _path,
-        onRefresh: _applyRefresh,
+        onRefresh: (fresh) {
+          if (mounted && seq == _reqSeq) {
+            setState(() => _applyDomains(fresh));
+          }
+        },
       );
       if (!mounted || seq != _reqSeq) return;
       setState(() {
@@ -123,11 +127,6 @@ class _DomainsTabState extends State<DomainsTab> {
     final items = data['domains'] as List? ?? [];
     _domains = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     _filterDomains();
-  }
-
-  void _applyRefresh(Map<String, dynamic> fresh) {
-    if (!mounted) return;
-    setState(() => _applyDomains(fresh));
   }
 
   Future<void> _create() async {
@@ -175,7 +174,13 @@ class _DomainsTabState extends State<DomainsTab> {
   void _exportCsv() {
     if (_filteredDomains.isEmpty || !mounted) return;
     ExportService.exportCsv(_filteredDomains, 'domains.csv');
-    showAppSnackBar(context, content: LocalizedText('Exported {n} domains as CSV.', args: {'n': _filteredDomains.length}));
+    showAppSnackBar(
+      context,
+      content: LocalizedText(
+        'Exported {n} domains as CSV.',
+        args: {'n': _filteredDomains.length},
+      ),
+    );
   }
 
   /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
@@ -188,7 +193,7 @@ class _DomainsTabState extends State<DomainsTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Delete domain?',
-      message: 'Delete $hostname?',
+      message: context.tr('Delete {hostname}?', {'hostname': hostname}),
       confirmLabel: 'Delete',
       destructive: true,
       confirmText: hostname,
@@ -215,76 +220,79 @@ class _DomainsTabState extends State<DomainsTab> {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).domains,
-          subtitle: 'Manage email domains for home-realm discovery.',
-          createTooltip: 'Add domain',
-          onCreate: _showForm
-              ? null
-              : () => AdminRoute.go('domains', action: 'new'),
-          onRefresh: _load,
-          refreshing: _loading,
-        ),
-        if (_error != null) ...[
-          ErrorStateCard(
-            message: _error!,
-            onRetry: _load,
-            margin: EdgeInsets.zero,
-          ),
-          const SizedBox(height: 12),
-        ],
-        if (_showForm) _buildForm(context),
-        if (_domains.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          SectionHeader(
-            'Registered domains',
-            count: _filteredDomains.length,
-            action: IconButton(
-              icon: Icon(Icons.file_download_outlined, color: _accent),
-              tooltip: 'Export CSV'.localized,
-              onPressed: _exportCsv,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SearchFilterBar(
-            hintText: 'Search domains...'.localized,
-            controller: _searchCtrl,
-            // 本地内存过滤（无请求）：同步即时响应，无需 300ms 防抖（R44）。
-            debounce: false,
-            onSearchChanged: _onSearchChanged,
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).domains,
+            subtitle: 'Manage email domains for home-realm discovery.',
+            createTooltip: 'Add domain',
+            onCreate: _showForm
+                ? null
+                : () => AdminRoute.go('domains', action: 'new'),
             onRefresh: _load,
+            refreshing: _loading,
           ),
-        ],
-        const SizedBox(height: 12),
-        if (_loading)
-          const SkeletonListTile(itemCount: 3)
-        else if (_filteredDomains.isEmpty && !_showForm)
-          EmptyState(
-            variant: _searchQuery.isEmpty
-                ? EmptyStateVariant.empty
-                : EmptyStateVariant.noMatch,
-            title: _searchQuery.isEmpty ? 'No domains registered.' : null,
-            actionLabel: _searchQuery.isEmpty ? null : 'Clear filter',
-            actionIcon: Icons.filter_alt_off,
-            onAction: _searchQuery.isEmpty ? null : _clearSearch,
-          )
-        else if (_filteredDomains.isNotEmpty)
-          _buildTable(context),
-        if (!_showForm)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: OutlinedButton.icon(
-              onPressed: () => AdminRoute.go('domains', action: 'new'),
-              icon: Icon(Icons.add, color: _accent),
-              label: const LocalizedText('Add domain'),
+          if (_error != null) ...[
+            ErrorStateCard(
+              message: _error!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ),
-      ],
-    ));
+            const SizedBox(height: 12),
+          ],
+          if (_showForm) _buildForm(context),
+          if (_domains.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SectionHeader(
+              'Registered domains',
+              count: _filteredDomains.length,
+              action: IconButton(
+                icon: Icon(Icons.file_download_outlined, color: _accent),
+                tooltip: 'Export CSV'.localized,
+                onPressed: _exportCsv,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SearchFilterBar(
+              hintText: 'Search domains...'.localized,
+              controller: _searchCtrl,
+              // 本地内存过滤（无请求）：同步即时响应，无需 300ms 防抖（R44）。
+              debounce: false,
+              onSearchChanged: _onSearchChanged,
+              onRefresh: _load,
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (_loading)
+            const SkeletonListTile(itemCount: 3)
+          else if (_filteredDomains.isEmpty && !_showForm)
+            EmptyState(
+              variant: _searchQuery.isEmpty
+                  ? EmptyStateVariant.empty
+                  : EmptyStateVariant.noMatch,
+              title: _searchQuery.isEmpty ? 'No domains registered.' : null,
+              actionLabel: _searchQuery.isEmpty ? null : 'Clear filter',
+              actionIcon: Icons.filter_alt_off,
+              onAction: _searchQuery.isEmpty ? null : _clearSearch,
+            )
+          else if (_filteredDomains.isNotEmpty)
+            _buildTable(context),
+          if (!_showForm)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: OutlinedButton.icon(
+                onPressed: () => AdminRoute.go('domains', action: 'new'),
+                icon: Icon(Icons.add, color: _accent),
+                label: const LocalizedText('Add domain'),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   /// 域名表格：四列（hostname/id/状态/删除）。
@@ -314,7 +322,8 @@ class _DomainsTabState extends State<DomainsTab> {
         ),
         AdminDataColumn(
           id: 'verified',
-          label: 'Status', cardDetail: true,
+          label: 'Status',
+          cardDetail: true,
           builder: (_, i) {
             final verified = _filteredDomains[i]['verified'] == true;
             return verified

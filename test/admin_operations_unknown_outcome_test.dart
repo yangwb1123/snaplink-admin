@@ -7,6 +7,30 @@ import 'package:sso_admin/screens/admin/admin_operations_tab.dart';
 import 'package:sso_admin/screens/admin/admin_ops_helpers.dart';
 
 void main() {
+  testWidgets('unknown outcome notice wraps at narrow widths', (tester) async {
+    tester.view.physicalSize = const Size(320, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Builder(
+              builder: (context) => AdminOpsHelpers.unknownOutcomeCard(
+                context,
+                onAcknowledge: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Previous write outcome is unknown'), findsOneWidget);
+    expect(find.text('I reconciled server state'), findsOneWidget);
+  });
+
   test(
     'only ambiguous write statuses require authoritative reconciliation',
     () {

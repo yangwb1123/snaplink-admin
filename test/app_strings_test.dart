@@ -83,5 +83,23 @@ void main() {
       }),
       '第 1–25 条，共 100 条',
     );
+    expect(
+      chinese.translate('{active} of {total} active', {
+        'active': 3,
+        'total': 5,
+      }),
+      '3/5 个已启用',
+    );
+    expect(
+      chinese.translate('{count} additional buckets omitted.', {'count': 7}),
+      '已省略另外 7 个分桶。',
+    );
+    expect(
+      chinese.translate('{id} · events: {events}', {
+        'id': 'sub-1',
+        'events': '全部',
+      }),
+      'sub-1 · 事件：全部',
+    );
   });
 }

@@ -200,7 +200,10 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
     }
     final confirmed = await _confirm(
       'Create or replace connection?',
-      'This updates $id and its home-realm domain routing for tenant $tenantId.',
+      context.tr(
+        'This updates {id} and its home-realm domain routing for tenant {tenantId}.',
+        {'id': id, 'tenantId': tenantId},
+      ),
       confirmLabel: 'Save connection',
     );
     if (!confirmed) return;
@@ -232,7 +235,10 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
   Future<void> _deleteConnection(String id) async {
     if (!await _confirm(
       'Delete connection?',
-      'Delete $id, including its configured domain routing. This cannot be undone.',
+      context.tr(
+        'Delete {id}, including its configured domain routing. This cannot be undone.',
+        {'id': id},
+      ),
       confirmLabel: 'Delete connection',
       destructive: true,
       confirmText: id,
@@ -273,7 +279,7 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
 
   Future<void> _verifyDomain(String id, String domain) async {
     if (!await _confirm(
-      'Verify $domain?',
+      context.tr('Verify {domain}?', {'domain': domain}),
       'Snaplink will query the DNS TXT challenge and may promote this connection as the domain owner.',
       confirmLabel: 'Verify domain',
     )) {
@@ -336,64 +342,67 @@ class _ConnectionsTabState extends State<ConnectionsTab> {
             'Identity connection management is not enabled on this Snaplink replica.',
       );
     }
-    return PullToRefresh(onRefresh: _loadConnections, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        ConnectionWorkspaceHeader(
-          title: AppStrings.of(context).identityConnections,
-          refreshEnabled: !_loadingList && !_mutating,
-          onRefresh: _loadConnections,
-        ),
-        if (_error != null)
-          ConnectionErrorCard(
-            error: _error!,
-            onRetry: _retry ?? _loadConnections,
+    return PullToRefresh(
+      onRefresh: _loadConnections,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          ConnectionWorkspaceHeader(
+            title: AppStrings.of(context).identityConnections,
+            refreshEnabled: !_loadingList && !_mutating,
+            onRefresh: _loadConnections,
           ),
-        ConnectionsListCard(
-          tenantController: _tenantCtrl,
-          lookupController: _lookupCtrl,
-          connections: _connections,
-          canList: _availability.canList,
-          canGet: _availability.canGet,
-          loadingList: _loadingList,
-          loadingConnection: _loadingConnection,
-          mutating: _mutating,
-          onLoadList: _loadConnections,
-          onLoadSelected: _loadSelected,
-          onSelect: (id) => AdminRoute.go('connections', resourceId: id),
-        ),
-        if (_availability.canCreate)
-          ConnectionCreateCard(
-            idController: _idCtrl,
-            tenantController: _createTenantCtrl,
-            displayNameController: _displayNameCtrl,
-            domainsController: _domainsCtrl,
-            configController: _configCtrl,
-            type: _type,
-            enabled: _enabled,
+          if (_error != null)
+            ConnectionErrorCard(
+              error: _error!,
+              onRetry: _retry ?? _loadConnections,
+            ),
+          ConnectionsListCard(
+            tenantController: _tenantCtrl,
+            lookupController: _lookupCtrl,
+            connections: _connections,
+            canList: _availability.canList,
+            canGet: _availability.canGet,
+            loadingList: _loadingList,
+            loadingConnection: _loadingConnection,
             mutating: _mutating,
-            onTypeChanged: (type) => setState(() => _type = type),
-            onEnabledChanged: (enabled) => setState(() => _enabled = enabled),
-            onSave: _upsertConnection,
+            onLoadList: _loadConnections,
+            onLoadSelected: _loadSelected,
+            onSelect: (id) => AdminRoute.go('connections', resourceId: id),
           ),
-        if (_selectedId case final id?)
-          ConnectionDetailsCard(
-            id: id,
-            connection: _connection,
-            health: _health,
-            domainClaims: _domainClaims,
-            loading: _loadingConnection,
-            mutating: _mutating,
-            canProbe: _availability.canProbe,
-            canListDomains: _availability.canListDomains,
-            canVerifyDomain: _availability.canVerifyDomain,
-            canDelete: _availability.canDelete,
-            onRefresh: _loadSelected,
-            onProbe: () => _probeConnection(id),
-            onDelete: () => _deleteConnection(id),
-            onVerifyDomain: (domain) => _verifyDomain(id, domain),
-          ),
-      ],
-    ));
+          if (_availability.canCreate)
+            ConnectionCreateCard(
+              idController: _idCtrl,
+              tenantController: _createTenantCtrl,
+              displayNameController: _displayNameCtrl,
+              domainsController: _domainsCtrl,
+              configController: _configCtrl,
+              type: _type,
+              enabled: _enabled,
+              mutating: _mutating,
+              onTypeChanged: (type) => setState(() => _type = type),
+              onEnabledChanged: (enabled) => setState(() => _enabled = enabled),
+              onSave: _upsertConnection,
+            ),
+          if (_selectedId case final id?)
+            ConnectionDetailsCard(
+              id: id,
+              connection: _connection,
+              health: _health,
+              domainClaims: _domainClaims,
+              loading: _loadingConnection,
+              mutating: _mutating,
+              canProbe: _availability.canProbe,
+              canListDomains: _availability.canListDomains,
+              canVerifyDomain: _availability.canVerifyDomain,
+              canDelete: _availability.canDelete,
+              onRefresh: _loadSelected,
+              onProbe: () => _probeConnection(id),
+              onDelete: () => _deleteConnection(id),
+              onVerifyDomain: (domain) => _verifyDomain(id, domain),
+            ),
+        ],
+      ),
+    );
   }
 }

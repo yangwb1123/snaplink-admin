@@ -25,7 +25,11 @@ import 'local_user_validation.dart';
 class LocalUsersTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-  const LocalUsersTab({super.key, required this.api, required this.capabilities});
+  const LocalUsersTab({
+    super.key,
+    required this.api,
+    required this.capabilities,
+  });
   @override
   State<LocalUsersTab> createState() => _LocalUsersTabState();
 }
@@ -53,15 +57,24 @@ class _LocalUsersTabState extends State<LocalUsersTab>
   Future<void> _load({int? page}) async {
     if (!_available) return;
     final target = page ?? _page;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
-      final data = await widget.api.get(_basePath, query: {'page': '$target', 'limit': '$_pageSize'});
+      final data = await widget.api.get(
+        _basePath,
+        query: {'page': '$target', 'limit': '$_pageSize'},
+      );
       final values = data['users'] as List? ?? const [];
       if (!mounted) return;
       setState(() {
         _page = target;
         _total = (data['total'] as num?)?.toInt() ?? values.length;
-        _users = values.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList(growable: false);
+        _users = values
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList(growable: false);
       });
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -82,10 +95,18 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         await widget.api.post(_basePath, draft.createBody);
       } else {
         final id = existing['id']?.toString() ?? '';
-        await widget.api.put('$_basePath/${Uri.encodeComponent(id)}', draft.updateBody);
+        await widget.api.put(
+          '$_basePath/${Uri.encodeComponent(id)}',
+          draft.updateBody,
+        );
       }
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(existing == null ? 'Local user created.' : 'Local user updated.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText(
+          existing == null ? 'Local user created.' : 'Local user updated.',
+        ),
+      );
       await _load(page: existing == null ? 1 : _page);
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
@@ -93,26 +114,33 @@ class _LocalUsersTabState extends State<LocalUsersTab>
       if (mounted) setState(() => _mutating = false);
     }
   }
+
   /// 批量删除：确认 → 并行执行 → 明细报告；进行中 _mutating 禁按钮（防重复提交）。
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
-    final confirmed = await ConfirmDialog.show(context,
+    final confirmed = await ConfirmDialog.show(
+      context,
       title: context.tr('Delete {n} local users?', {'n': ids.length}),
-      message: context.tr('This will delete {n} selected local users and their password credentials. This cannot be undone.', {'n': ids.length}),
+      message: context.tr(
+        'This will delete {n} selected local users and their password credentials. This cannot be undone.',
+        {'n': ids.length},
+      ),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
     setState(() => _mutating = true);
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await widget.api.delete('$_basePath/${Uri.encodeComponent(id)}');
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     if (!mounted) return;
     setState(() => _mutating = false);
     final failures = results.whereType<String>().toList();
@@ -120,15 +148,32 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     final pageEmptied = _users.isNotEmpty && ok == _users.length && _page > 1;
     clearSelection();
     final message = failures.isEmpty
-        ? context.tr('Deleted {n} of {total} local users.', {'n': ok, 'total': ids.length})
-        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+        ? context.tr('Deleted {n} of {total} local users.', {
+            'n': ok,
+            'total': ids.length,
+          })
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {
+            'action': 'Delete',
+            'n': ok,
+            'failed': failures.length,
+            'details': failures.take(3).join('; '),
+          });
     showBatchResultSnackBar(context, message: message, failures: failures);
     await _load(page: pageEmptied ? _page - 1 : _page); // 空页回退（对齐单删语义）
   }
 
   Widget _batchBar(BuildContext context) => BatchActionBar(
-    selectedCount: selected.length, accent: _accent, isLoading: _mutating,
-    actions: [BatchAction(label: 'Delete', icon: Icons.delete_outline, destructive: true, onPressed: _batchDelete)],
+    selectedCount: selected.length,
+    accent: _accent,
+    isLoading: _mutating,
+    actions: [
+      BatchAction(
+        label: 'Delete',
+        icon: Icons.delete_outline,
+        destructive: true,
+        onPressed: _batchDelete,
+      ),
+    ],
     onClearSelection: clearSelection,
   );
 
@@ -139,7 +184,10 @@ class _LocalUsersTabState extends State<LocalUsersTab>
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Delete local user?'),
-      message: context.tr('Delete {label} and its password credential? This cannot be undone.', {'label': label}),
+      message: context.tr(
+        'Delete {label} and its password credential? This cannot be undone.',
+        {'label': label},
+      ),
       confirmLabel: 'Delete user',
       destructive: true,
       confirmText: label,
@@ -158,6 +206,7 @@ class _LocalUsersTabState extends State<LocalUsersTab>
       if (mounted) setState(() => _mutating = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     if (!_available) {
@@ -172,29 +221,53 @@ class _LocalUsersTabState extends State<LocalUsersTab>
         AdminBreadcrumb(),
         AdminListHeader(
           title: AppStrings.of(context).localUsers,
-          subtitle: 'Password-authenticated accounts managed by this SSO server.',
+          subtitle:
+              'Password-authenticated accounts managed by this SSO server.',
           onRefresh: _load,
           actions: [
-            FilledButton.icon(onPressed: _mutating ? null : _openForm,
-                icon: const Icon(Icons.person_add_outlined), label: const LocalizedText('Create local user')),
+            FilledButton.icon(
+              onPressed: _mutating ? null : _openForm,
+              icon: const Icon(Icons.person_add_outlined),
+              label: const LocalizedText('Create local user'),
+            ),
             const SizedBox(width: 4),
-            IconButton(onPressed: _loading || _mutating ? null : () { clearSelection(); _load(); },
-                tooltip: 'Refresh'.localized,
-                icon: _loading || _mutating ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : Icon(Icons.refresh, color: _accent)),
+            IconButton(
+              onPressed: _loading || _mutating
+                  ? null
+                  : () {
+                      clearSelection();
+                      _load();
+                    },
+              tooltip: 'Refresh'.localized,
+              icon: _loading || _mutating
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.refresh, color: _accent),
+            ),
           ],
         ),
-        if (selecting) ...[
-          _batchBar(context),
-          const SizedBox(height: 8),
-        ],
+        if (selecting) ...[_batchBar(context), const SizedBox(height: 8)],
         Expanded(
           child: AsyncView<List<Map<String, dynamic>>>(
-            loading: _loading, error: _error, data: _users, onRetry: _load, useSkeleton: true, skeletonDelay: const Duration(milliseconds: 150),
+            loading: _loading,
+            error: _error,
+            data: _users,
+            onRetry: _load,
+            useSkeleton: true,
+            skeletonDelay: const Duration(milliseconds: 150),
             emptyTitle: _page > 1 ? 'No data on this page' : 'No local users',
-            emptySubtitle: _page > 1 ? 'The data may have changed since you last loaded this page.' : 'Create the first password-authenticated account.',
-            emptyActionLabel: _page > 1 ? 'Back to first page' : 'Create local user',
+            emptySubtitle: _page > 1
+                ? 'The data may have changed since you last loaded this page.'
+                : 'Create the first password-authenticated account.',
+            emptyActionLabel: _page > 1
+                ? 'Back to first page'
+                : 'Create local user',
             onEmptyAction: _page > 1 ? () => _load(page: 1) : _openForm,
-            dataBuilder: (users) => PullToRefresh(onRefresh: _load, child: _dataTable(users)),
+            dataBuilder: (users) =>
+                PullToRefresh(onRefresh: _load, child: _dataTable(users)),
           ),
         ),
         if (_total > _pageSize)
@@ -233,9 +306,15 @@ class _LocalUsersTabState extends State<LocalUsersTab>
       onRowLongPress: selecting ? null : (i) => toggleSelect(uid(i)),
       columns: [
         if (selecting)
-          AdminDataColumn(id: 'select', label: '', width: 44, builder: (context, i) => Checkbox(
-            value: selected.contains(uid(i)), onChanged: (_) => toggleSelect(uid(i)),
-          )),
+          AdminDataColumn(
+            id: 'select',
+            label: '',
+            width: 44,
+            builder: (context, i) => Checkbox(
+              value: selected.contains(uid(i)),
+              onChanged: (_) => toggleSelect(uid(i)),
+            ),
+          ),
         AdminDataColumn(
           id: 'user',
           label: 'USER',
@@ -246,7 +325,13 @@ class _LocalUsersTabState extends State<LocalUsersTab>
             children: [
               UserAvatar(name: uid(i), radius: 14),
               const SizedBox(width: 8),
-              Flexible(child: TableCellText(_display(users[i]), bold: true, maxLines: 1)),
+              Flexible(
+                child: TableCellText(
+                  _display(users[i]),
+                  bold: true,
+                  maxLines: 1,
+                ),
+              ),
             ],
           ),
         ),
@@ -257,13 +342,17 @@ class _LocalUsersTabState extends State<LocalUsersTab>
           builder: (context, i) {
             // 与显示名相同时不重复渲染（保持单实例文本）。
             final username = users[i]['username']?.toString() ?? '';
-            return TableCellText(username == _display(users[i]) ? '' : username, muted: true);
+            return TableCellText(
+              username == _display(users[i]) ? '' : username,
+              muted: true,
+            );
           },
         ),
         AdminDataColumn(
           id: 'email',
           label: 'EMAIL',
-          builder: (context, i) => TableCellText(users[i]['email']?.toString() ?? '', muted: true),
+          builder: (context, i) =>
+              TableCellText(users[i]['email']?.toString() ?? '', muted: true),
         ),
         AdminDataColumn(
           id: 'actions',
@@ -301,8 +390,16 @@ class _LocalUserDraft {
     required this.password,
   });
 
-  Map<String, dynamic> get createBody => {'username': username, 'email': email, 'display_name': displayName, 'password': password};
-  Map<String, dynamic> get updateBody => {'email': email, 'display_name': displayName};
+  Map<String, dynamic> get createBody => {
+    'username': username,
+    'email': email,
+    'display_name': displayName,
+    'password': password,
+  };
+  Map<String, dynamic> get updateBody => {
+    'email': email,
+    'display_name': displayName,
+  };
 }
 
 class _LocalUserDialog extends StatefulWidget {
@@ -314,7 +411,10 @@ class _LocalUserDialog extends StatefulWidget {
 
 class _LocalUserDialogState extends State<_LocalUserDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameCtrl, _emailCtrl, _nameCtrl, _passwordCtrl;
+  late final TextEditingController _usernameCtrl,
+      _emailCtrl,
+      _nameCtrl,
+      _passwordCtrl;
 
   bool get _editing => widget.existing != null;
 
@@ -322,9 +422,18 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
   void initState() {
     super.initState();
     final existing = widget.existing;
-    _usernameCtrl = TextEditingController(text: existing?['username']?.toString() ?? '');
-    _emailCtrl = TextEditingController(text: existing?['email']?.toString() ?? '');
-    _nameCtrl = TextEditingController(text: existing?['display_name']?.toString() ?? existing?['name']?.toString() ?? '');
+    _usernameCtrl = TextEditingController(
+      text: existing?['username']?.toString() ?? '',
+    );
+    _emailCtrl = TextEditingController(
+      text: existing?['email']?.toString() ?? '',
+    );
+    _nameCtrl = TextEditingController(
+      text:
+          existing?['display_name']?.toString() ??
+          existing?['name']?.toString() ??
+          '',
+    );
     _passwordCtrl = TextEditingController();
   }
 
@@ -343,10 +452,15 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
 
   void _submit() {
     if (!_formKey.currentState!.validate()) return;
-    Navigator.pop(context, _LocalUserDraft(
-      username: _usernameCtrl.text.trim(), email: _emailCtrl.text.trim(),
-      displayName: _nameCtrl.text.trim(), password: _passwordCtrl.text,
-    ));
+    Navigator.pop(
+      context,
+      _LocalUserDraft(
+        username: _usernameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        displayName: _nameCtrl.text.trim(),
+        password: _passwordCtrl.text,
+      ),
+    );
   }
 
   Widget _field({
@@ -382,18 +496,38 @@ class _LocalUserDialogState extends State<_LocalUserDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _field(controller: _usernameCtrl, label: 'Username', enabled: !_editing, autofocus: !_editing, validate: (v) => _validate(validateSnaplinkLocalUsername, v)),
-              _field(controller: _emailCtrl, label: 'Email', keyboard: TextInputType.emailAddress, validate: (v) => _validate(validateSnaplinkLocalEmail, v)),
+              _field(
+                controller: _usernameCtrl,
+                label: 'Username',
+                enabled: !_editing,
+                autofocus: !_editing,
+                validate: (v) => _validate(validateSnaplinkLocalUsername, v),
+              ),
+              _field(
+                controller: _emailCtrl,
+                label: 'Email',
+                keyboard: TextInputType.emailAddress,
+                validate: (v) => _validate(validateSnaplinkLocalEmail, v),
+              ),
               _field(controller: _nameCtrl, label: 'Display name'),
               if (!_editing)
-                _field(controller: _passwordCtrl, label: 'Initial password', obscure: true, validate: (v) => _validate(validateSnaplinkInitialPassword, v)),
+                _field(
+                  controller: _passwordCtrl,
+                  label: 'Initial password',
+                  obscure: true,
+                  validate: (v) =>
+                      _validate(validateSnaplinkInitialPassword, v),
+                ),
             ],
           ),
         ),
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const LocalizedText('Cancel')),
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const LocalizedText('Cancel'),
+      ),
       FilledButton(onPressed: _submit, child: const LocalizedText('Save')),
     ],
   );

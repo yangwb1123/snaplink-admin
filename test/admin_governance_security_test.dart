@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -10,7 +11,7 @@ import 'package:sso_admin/screens/admin/governance_tab.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 
 SnaplinkAdminApi _api(
-  Map<String, http.Response Function(http.Request)> routes,
+  Map<String, FutureOr<http.Response> Function(http.Request)> routes,
 ) => SnaplinkAdminApi(
   baseUrl: 'https://sso.example.test',
   accessToken: 'admin-token',
@@ -74,6 +75,103 @@ void main() {
 
       expect(find.text('Laptop'), findsOneWidget);
       expect(find.text('Fleet devices'), findsOneWidget);
+    });
+
+    testWidgets('does not read devices when runtime capability is absent', (
+      tester,
+    ) async {
+      var requests = 0;
+      final api = _api({
+        '/api/v1/admin/devices': (_) {
+          requests++;
+          return http.Response('{}', 200);
+        },
+      });
+      final snapshot = SnaplinkAdminCapabilitySnapshot(
+        effective: SnaplinkAdminCapabilities(const []),
+        runtime: SnaplinkAdminCapabilities(const []),
+        runtimeInventoryAvailable: true,
+      );
+
+      await _pump(
+        tester,
+        DeviceSecurityTab(api: api, capabilitySnapshot: snapshot),
+      );
+
+      expect(
+        find.text('This feature is not enabled on the connected replica.'),
+        findsOneWidget,
+      );
+      expect(requests, 0);
+    });
+
+    testWidgets('shows retry when capability discovery is unknown', (
+      tester,
+    ) async {
+      var retries = 0;
+      final snapshot = SnaplinkAdminCapabilitySnapshot(
+        effective: SnaplinkAdminCapabilities(const []),
+        runtime: SnaplinkAdminCapabilities(const []),
+        runtimeInventoryAvailable: false,
+      );
+
+      await _pump(
+        tester,
+        DeviceSecurityTab(
+          api: _api(const {}),
+          capabilitySnapshot: snapshot,
+          onCapabilityRetry: () => retries++,
+        ),
+      );
+
+      expect(find.text('Capability inventory is unavailable'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      await tester.tap(find.text('Retry'));
+      expect(retries, 1);
+    });
+
+    testWidgets('refreshes the aggregate after filters change', (tester) async {
+      var devicesCall = 0;
+      final api = _api({
+        '/api/v1/admin/devices': (_) async {
+          devicesCall++;
+          if (devicesCall == 1) {
+            await Future<void>.delayed(const Duration(milliseconds: 80));
+          }
+          return http.Response(
+            jsonEncode({
+              'devices': [
+                {
+                  'id': devicesCall == 1 ? 'stale-device' : 'fresh-device',
+                  'device_name': devicesCall == 1
+                      ? 'Stale laptop'
+                      : 'Fresh laptop',
+                },
+              ],
+              'total': 1,
+            }),
+            200,
+          );
+        },
+        '/api/v1/admin/devices/stats': (_) => http.Response('{}', 200),
+        '/api/v1/admin/security/activity': (_) => http.Response('{}', 200),
+      });
+      tester.view.physicalSize = const Size(1200, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: DeviceSecurityTab(api: api)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Stale laptop'), findsOneWidget);
+      await tester.enterText(find.byType(TextField).first, 'user-fresh');
+      await tester.tap(find.text('Apply filters'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Fresh laptop'), findsOneWidget);
+      expect(find.text('Stale laptop'), findsNothing);
     });
   });
 

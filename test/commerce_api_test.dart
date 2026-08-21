@@ -243,9 +243,7 @@ void main() {
     });
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(body: _tabWithProbe(api)),
-      ),
+      MaterialApp(home: Scaffold(body: _tabWithProbe(api))),
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'tenant-a');
@@ -527,17 +525,14 @@ SnaplinkAdminApi _probeClient([int status = 405]) => SnaplinkAdminApi(
 );
 
 CommerceTab _tabWithProbe(SnaplinkAdminApi api, {int probeStatus = 405}) =>
-    CommerceTab(
-      api: api,
-      probeClientBuilder: () => _probeClient(probeStatus),
-    );
-
+    CommerceTab(api: api, probeClientBuilder: () => _probeClient(probeStatus));
 
 // ── P0-1 checkout affordance gating (api-gap analysis) ──
 
 void _checkoutGatingGroup() {
-  testWidgets('probe 404 hides Continue secure checkout (no dead-end button)',
-      (tester) async {
+  testWidgets('probe 404 hides Continue secure checkout (no dead-end button)', (
+    tester,
+  ) async {
     _largeView(tester);
     final api = _api((request) async {
       final path = request.url.path;
@@ -573,13 +568,18 @@ void _checkoutGatingGroup() {
     await tester.tap(find.text('Load tenant commerce'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Continue secure checkout'), findsNothing,
-        reason: 'P0-1: a 404 probe must hide the checkout affordance '
-            'instead of leading into a dead-end 404 POST');
+    expect(
+      find.text('Continue secure checkout'),
+      findsNothing,
+      reason:
+          'P0-1: a 404 probe must hide the checkout affordance '
+          'instead of leading into a dead-end 404 POST',
+    );
   });
 
-  testWidgets('probe 405 keeps the checkout affordance (adapter mounted)',
-      (tester) async {
+  testWidgets('probe 405 keeps the checkout affordance (adapter mounted)', (
+    tester,
+  ) async {
     _largeView(tester);
     final api = _api((request) async {
       final path = request.url.path;
@@ -623,10 +623,8 @@ void _checkoutGatingGroup() {
 
 void _checkoutProbeGroup() {
   group('checkoutProbeState classification (P0-1)', () {
-    SnaplinkAdminApiError err(int status) => SnaplinkAdminApiError(
-      status,
-      code: 'probe',
-    );
+    SnaplinkAdminApiError err(int status) =>
+        SnaplinkAdminApiError(status, code: 'probe');
 
     test('405 proves the adapter is mounted -> available', () {
       expect(checkoutProbeState(err(405)), CheckoutProbeState.available);

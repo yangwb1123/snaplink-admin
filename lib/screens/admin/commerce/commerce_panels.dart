@@ -158,9 +158,17 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ),
-                Chip(label: LocalizedText('Revision {revision}', args: {'revision': revision})),
+                Chip(
+                  label: LocalizedText(
+                    'Revision {revision}',
+                    args: {'revision': revision},
+                  ),
+                ),
               ],
             ),
             SelectableText(subscription['id']?.toString() ?? '—'),
@@ -242,10 +250,15 @@ class CommerceEntitlementPanel extends StatelessWidget {
       children: [
         Icon(
           entitlement!['active'] == true ? Icons.check_circle : Icons.block,
-          color: entitlement!['active'] == true ? AppColors.success : AppColors.warning,
+          color: entitlement!['active'] == true
+              ? AppColors.success
+              : AppColors.warning,
         ),
         Text(summary, style: Theme.of(context).textTheme.titleMedium),
-        LocalizedText('Expires: {time}', args: {'time': formatServerTime(entitlement!['expires_at'])}),
+        LocalizedText(
+          'Expires: {time}',
+          args: {'time': formatServerTime(entitlement!['expires_at'])},
+        ),
       ],
     );
   }

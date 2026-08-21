@@ -50,10 +50,13 @@ abstract final class AppColors {
 
   /// 破坏性 OutlinedButton 样式（R32 按钮体系）：前景与边框统一危险色，
   /// dark 下经 [semanticFor] 提亮；避免各处重复手写两段 color/side。
-  static ButtonStyle dangerOutlinedStyle(BuildContext context) => OutlinedButton.styleFrom(
-    foregroundColor: semanticFor(Theme.of(context).brightness, danger),
-    side: BorderSide(color: semanticFor(Theme.of(context).brightness, danger)),
-  );
+  static ButtonStyle dangerOutlinedStyle(BuildContext context) =>
+      OutlinedButton.styleFrom(
+        foregroundColor: semanticFor(Theme.of(context).brightness, danger),
+        side: BorderSide(
+          color: semanticFor(Theme.of(context).brightness, danger),
+        ),
+      );
 
   /// 语义前景亮度感知（R29）：浅色恒等原色；深色返回同族 400 提亮变体
   /// （文字 ≥4.5、非文本 ≥3）。未知颜色（中性/自定义/组色板）原样返回。
@@ -104,7 +107,9 @@ abstract final class AppColors {
   static const Color themeSystemAccent = Color(0xFF7C6FF0); // = groupIdentity
   static const Color themeLightAccent = Color(0xFFB45309); // amber-700
   static const Color themeDarkAccent = Color(0xFF4F46E5); // = groupSystem
-  static const Color themeLightAccentBright = Color(0xFFF59E0B); // = groupTenants
+  static const Color themeLightAccentBright = Color(
+    0xFFF59E0B,
+  ); // = groupTenants
   static const Color themeDarkAccentBright = Color(0xFF818CF8); // indigo-400
 
   /// 浅色脚手架背景（品牌浅灰，区别于纯白模板）。

@@ -49,6 +49,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late final SnaplinkAdminApi _api;
   List<SnaplinkAdminEndpoint> _endpoints = const [];
   Object? _capabilitiesError;
+  bool _capabilitiesLoading = true;
+  int _capabilitiesRequestGeneration = 0;
   bool _commerceAvailable = false;
   Object? _commerceProbeError;
   late final void Function() _cancelLocationChange;
@@ -94,16 +96,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _refreshCapabilities() async {
-    setState(() => _capabilitiesError = null);
+    final generation = ++_capabilitiesRequestGeneration;
+    if (mounted) {
+      setState(() {
+        _capabilitiesError = null;
+        _capabilitiesLoading = true;
+      });
+    }
     final commerceProbe = _probeCommerce();
     try {
       final endpoints = await _api.listEndpoints();
-      if (!mounted) return;
+      if (!mounted || generation != _capabilitiesRequestGeneration) return;
       setState(() {
         _endpoints = endpoints;
+        _capabilitiesError = null;
       });
     } catch (error) {
-      if (mounted) setState(() => _capabilitiesError = error);
+      if (mounted && generation == _capabilitiesRequestGeneration) {
+        setState(() => _capabilitiesError = error);
+      }
+    } finally {
+      if (mounted && generation == _capabilitiesRequestGeneration) {
+        setState(() => _capabilitiesLoading = false);
+      }
     }
     await commerceProbe;
   }
@@ -226,6 +241,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       api: _api,
       endpoints: _endpoints,
       capabilitiesError: _capabilitiesError,
+      capabilitiesLoading: _capabilitiesLoading,
       onRefresh: _refreshCapabilities,
       strings: strings,
       commerceAvailable: _commerceAvailable,
@@ -317,7 +333,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final groupDestinations = [
       for (final group in visibleGroups)
         NavigationRailDestination(
-          icon: Icon(group.icon, color: adminGroupIconColorFor(group.id, brightness)),
+          icon: Icon(
+            group.icon,
+            color: adminGroupIconColorFor(group.id, brightness),
+          ),
           selectedIcon: Icon(
             group.selectedIcon,
             color: adminGroupIconColorFor(group.id, brightness),

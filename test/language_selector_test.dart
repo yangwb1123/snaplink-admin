@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SemanticsNode;
 import 'package:flutter_test/flutter_test.dart';
@@ -49,7 +47,10 @@ void main() {
               alignment: Alignment.topCenter,
               child: Padding(
                 padding: const EdgeInsets.only(top: 40),
-                child: SizedBox(width: 190, child: LanguageDropdown(compact: true)),
+                child: SizedBox(
+                  width: 190,
+                  child: LanguageDropdown(compact: true),
+                ),
               ),
             ),
           ),
@@ -59,41 +60,52 @@ void main() {
 
       final control = tester.getRect(find.byType(DropdownMenu<Locale>));
       // F3：紧凑控件触摸目标 ≥44px（Material/Apple 指导线）。
-      expect(control.height, greaterThanOrEqualTo(44),
-          reason: 'compact tap target must meet Apple HIG 44px');
+      expect(
+        control.height,
+        greaterThanOrEqualTo(44),
+        reason: 'compact tap target must meet Apple HIG 44px',
+      );
       final item = tester.getRect(menuItem('English'));
       // 菜单从控件下方展开（DropdownButton 在顶部控件上会向上弹）。
-      expect(item.top, greaterThanOrEqualTo(control.bottom - 1),
-          reason: 'compact menu must open below the header control');
-      expect(item.left, greaterThanOrEqualTo(control.left - 1),
-          reason: 'menu aligns with the control edge');
+      expect(
+        item.top,
+        greaterThanOrEqualTo(control.bottom - 1),
+        reason: 'compact menu must open below the header control',
+      );
+      expect(
+        item.left,
+        greaterThanOrEqualTo(control.left - 1),
+        reason: 'menu aligns with the control edge',
+      );
     },
   );
 
-  testWidgets(
-    'form selector (settings) opens the menu BELOW the control',
-    (tester) async {
-      tester.view.physicalSize = const Size(600, 900);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Align(
-              alignment: Alignment.center,
-              child: SizedBox(width: 320, child: LanguageDropdown()),
-            ),
+  testWidgets('form selector (settings) opens the menu BELOW the control', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(600, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.center,
+            child: SizedBox(width: 320, child: LanguageDropdown()),
           ),
         ),
-      );
-      await openMenu(tester, find.byType(DropdownMenu<Locale>));
+      ),
+    );
+    await openMenu(tester, find.byType(DropdownMenu<Locale>));
 
-      final control = tester.getRect(find.byType(DropdownMenu<Locale>));
-      final item = tester.getRect(menuItem('English'));
-      expect(item.top, greaterThanOrEqualTo(control.bottom - 1),
-          reason: 'settings menu must open below the control');
-    },
-  );
+    final control = tester.getRect(find.byType(DropdownMenu<Locale>));
+    final item = tester.getRect(menuItem('English'));
+    expect(
+      item.top,
+      greaterThanOrEqualTo(control.bottom - 1),
+      reason: 'settings menu must open below the control',
+    );
+  });
 
   testWidgets('menu items come from the backend languages list', (
     tester,
@@ -138,7 +150,7 @@ void main() {
     final input = tester.widget<EditableText>(
       find.byType(EditableText).hitTestable().first,
     );
-    expect(input.controller?.text, '中文');
+    expect(input.controller.text, '中文');
   });
 
   testWidgets('default options render when no backend list was loaded', (
@@ -170,15 +182,27 @@ void main() {
         .renderObjectList<RenderBox>(buttons)
         .map(boxRect)
         .toList();
-    expect(itemRects.length, greaterThanOrEqualTo(2),
-        reason: 'menu shows selected and unselected entries');
+    expect(
+      itemRects.length,
+      greaterThanOrEqualTo(2),
+      reason: 'menu shows selected and unselected entries',
+    );
     for (final rect in itemRects.skip(1)) {
-      expect(rect.left, closeTo(itemRects.first.left, 0.1),
-          reason: 'item boxes must share the left edge');
-      expect(rect.width, closeTo(itemRects.first.width, 0.1),
-          reason: 'item boxes must have identical widths');
-      expect(rect.height, closeTo(itemRects.first.height, 0.1),
-          reason: 'item boxes must have identical heights');
+      expect(
+        rect.left,
+        closeTo(itemRects.first.left, 0.1),
+        reason: 'item boxes must share the left edge',
+      );
+      expect(
+        rect.width,
+        closeTo(itemRects.first.width, 0.1),
+        reason: 'item boxes must have identical widths',
+      );
+      expect(
+        rect.height,
+        closeTo(itemRects.first.height, 0.1),
+        reason: 'item boxes must have identical heights',
+      );
     }
     final item = itemRects.first;
 
@@ -186,17 +210,29 @@ void main() {
     // 徽标不改变条目几何。
     final boxes = tester
         .renderObjectList<RenderBox>(
-          find.descendant(of: buttons, matching: find.byType(AnimatedContainer)),
+          find.descendant(
+            of: buttons,
+            matching: find.byType(AnimatedContainer),
+          ),
         )
         .toList();
     final rects = boxes.map(boxRect).toList();
     for (final rect in rects.skip(1)) {
-      expect(rect.left, closeTo(rects.first.left, 0.1),
-          reason: 'content boxes must share the left edge');
-      expect(rect.width, closeTo(rects.first.width, 0.1),
-          reason: 'content boxes must have identical widths');
-      expect(rect.height, closeTo(rects.first.height, 0.1),
-          reason: 'content boxes must have identical heights');
+      expect(
+        rect.left,
+        closeTo(rects.first.left, 0.1),
+        reason: 'content boxes must share the left edge',
+      );
+      expect(
+        rect.width,
+        closeTo(rects.first.width, 0.1),
+        reason: 'content boxes must have identical widths',
+      );
+      expect(
+        rect.height,
+        closeTo(rects.first.height, 0.1),
+        reason: 'content boxes must have identical heights',
+      );
     }
 
     // 选中背景画在 MenuItemButton 的 Material 上（ButtonStyle.backgroundColor
@@ -215,8 +251,11 @@ void main() {
           ),
         )
         .toList();
-    expect(materials.length, greaterThanOrEqualTo(2),
-        reason: 'each entry button renders its bordered Material');
+    expect(
+      materials.length,
+      greaterThanOrEqualTo(2),
+      reason: 'each entry button renders its bordered Material',
+    );
     final selectedMaterial = materials.singleWhere(
       (m) => (m.shape! as RoundedRectangleBorder).side.color == primary,
     );
@@ -227,8 +266,11 @@ void main() {
           'selected entry background must be primaryContainer on the item Material',
     );
     for (final m in materials.where((m) => m != selectedMaterial)) {
-      expect(m.color, Colors.transparent,
-          reason: 'unselected entries keep a transparent background');
+      expect(
+        m.color,
+        Colors.transparent,
+        reason: 'unselected entries keep a transparent background',
+      );
     }
 
     // 选中背景盒（Material 整宽绘制，边框与背景共用该层）与 MenuItemButton
@@ -248,24 +290,39 @@ void main() {
           .first,
     );
     final bg = selectedBox.localToGlobal(Offset.zero) & selectedBox.size;
-    expect(bg.left, closeTo(item.left, 1),
-        reason: 'selected background must start at the item left edge');
-    expect(bg.width, closeTo(item.width, 1),
-        reason:
-            'selected background box must span the full MenuItemButton width');
-    expect(bg.right, closeTo(item.right, 1),
-        reason: 'selected background must end at the item right edge');
+    expect(
+      bg.left,
+      closeTo(item.left, 1),
+      reason: 'selected background must start at the item left edge',
+    );
+    expect(
+      bg.width,
+      closeTo(item.width, 1),
+      reason: 'selected background box must span the full MenuItemButton width',
+    );
+    expect(
+      bg.right,
+      closeTo(item.right, 1),
+      reason: 'selected background must end at the item right edge',
+    );
 
     // 外圈 2px 边框画在同一 Material shape side 上：选中（高亮，DropdownMenu
     // 注入 WidgetState.focused）项 primary，未选中项同宽透明占位；圆角 8。
-    final shapes =
-        materials.map((m) => m.shape! as RoundedRectangleBorder).toList();
+    final shapes = materials
+        .map((m) => m.shape! as RoundedRectangleBorder)
+        .toList();
     for (final shape in shapes) {
-      expect(shape.side.width, 2,
-          reason: 'entry border must match the 2px system tiles');
+      expect(
+        shape.side.width,
+        2,
+        reason: 'entry border must match the 2px system tiles',
+      );
     }
-    expect(shapes.where((s) => s.side.color == primary), hasLength(1),
-        reason: 'exactly the selected entry carries the primary border');
+    expect(
+      shapes.where((s) => s.side.color == primary),
+      hasLength(1),
+      reason: 'exactly the selected entry carries the primary border',
+    );
     expect(
       selectedMaterial.shape! as RoundedRectangleBorder,
       isA<RoundedRectangleBorder>().having(
@@ -276,8 +333,11 @@ void main() {
       reason: 'selected border must keep the 8px rounded corners',
     );
     for (final shape in shapes.where((s) => s.side.color != primary)) {
-      expect(shape.side.color, Colors.transparent,
-          reason: 'unselected entries keep a transparent 2px placeholder');
+      expect(
+        shape.side.color,
+        Colors.transparent,
+        reason: 'unselected entries keep a transparent 2px placeholder',
+      );
     }
   });
 
@@ -302,12 +362,21 @@ void main() {
         );
         expect(arrow, findsOneWidget);
         final rect = tester.getRect(arrow);
-        expect(rect.size, const Size(20, 20),
-            reason: 'arrow must keep the 20x20 icon region');
-        expect(rect.center.dy, closeTo(field.center.dy, 1.5),
-            reason: 'arrow must be vertically centered in the field');
-        expect(field.right - rect.right, closeTo(0, 0.5),
-            reason: 'arrow must sit flush with the field right edge');
+        expect(
+          rect.size,
+          const Size(20, 20),
+          reason: 'arrow must keep the 20x20 icon region',
+        );
+        expect(
+          rect.center.dy,
+          closeTo(field.center.dy, 1.5),
+          reason: 'arrow must be vertically centered in the field',
+        );
+        expect(
+          field.right - rect.right,
+          closeTo(0, 0.5),
+          reason: 'arrow must sit flush with the field right edge',
+        );
         return rect;
       }
 
@@ -341,10 +410,7 @@ void main() {
         .hitTestable();
     expect(leadingFlag, findsOneWidget);
     expect(
-      find.ancestor(
-        of: leadingFlag,
-        matching: find.byType(ExcludeSemantics),
-      ),
+      find.ancestor(of: leadingFlag, matching: find.byType(ExcludeSemantics)),
       findsWidgets,
       reason: 'collapsed leading flag must be excluded from semantics',
     );
@@ -361,14 +427,23 @@ void main() {
       }
     }
 
+    // TestWidgetsFlutterBinding still exposes the active semantics tree here;
+    // the replacement root pipeline does not own the test view's tree yet.
+    // ignore: deprecated_member_use
     final owner = tester.binding.pipelineOwner.semanticsOwner;
     expect(owner, isNotNull, reason: 'semantics must be enabled');
     final nodes = walk(owner!.rootSemanticsNode!).toList();
     for (final node in nodes) {
-      expect(node.label.contains('🇬🇧'), isFalse,
-          reason: 'raw flag emoji must not be a semantics label');
-      expect(node.value.contains('🇬🇧'), isFalse,
-          reason: 'raw flag emoji must not be a semantics value');
+      expect(
+        node.label.contains('🇬🇧'),
+        isFalse,
+        reason: 'raw flag emoji must not be a semantics label',
+      );
+      expect(
+        node.value.contains('🇬🇧'),
+        isFalse,
+        reason: 'raw flag emoji must not be a semantics value',
+      );
     }
     // 字段值仍可读（收起态选择器朗读 "English"）。
     expect(
@@ -381,7 +456,7 @@ void main() {
     await openMenu(tester, find.byType(DropdownMenu<Locale>));
     // 菜单打开后：语义树中语言名以节点 label 存在（字段值或菜单项），且
     // 原始 emoji 依然不进入 label/value。
-    final nodesAfterOpen = walk(owner!.rootSemanticsNode!).toList();
+    final nodesAfterOpen = walk(owner.rootSemanticsNode!).toList();
     expect(
       nodesAfterOpen.any(
         (node) => node.label == 'English' || node.value == 'English',
@@ -390,8 +465,11 @@ void main() {
       reason: 'menu flag must carry the language name as its label',
     );
     for (final node in nodesAfterOpen) {
-      expect(node.label.contains('🇬🇧'), isFalse,
-          reason: 'raw flag emoji must not be a semantics label');
+      expect(
+        node.label.contains('🇬🇧'),
+        isFalse,
+        reason: 'raw flag emoji must not be a semantics label',
+      );
     }
     handle.dispose();
   });
@@ -400,13 +478,17 @@ void main() {
   testWidgets('enabled: false disables the dropdown entirely', (tester) async {
     await tester.pumpWidget(wrap(const LanguageDropdown(enabled: false)));
 
-    final menu =
-        tester.widget<DropdownMenu<Locale>>(find.byType(DropdownMenu<Locale>));
+    final menu = tester.widget<DropdownMenu<Locale>>(
+      find.byType(DropdownMenu<Locale>),
+    );
     expect(menu.enabled, isFalse);
 
     await tester.tap(find.byType(DropdownMenu<Locale>));
     await tester.pumpAndSettle();
-    expect(find.byType(MenuItemButton).hitTestable(), findsNothing,
-        reason: 'disabled dropdown must not open on tap');
+    expect(
+      find.byType(MenuItemButton).hitTestable(),
+      findsNothing,
+      reason: 'disabled dropdown must not open on tap',
+    );
   });
 }

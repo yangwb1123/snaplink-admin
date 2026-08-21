@@ -16,6 +16,7 @@ import 'scim_models.dart';
 import 'scim_patch_dialog.dart';
 import 'scim_resource_detail_dialog.dart';
 import 'scim_user_dialog.dart';
+
 class ScimResourceBrowser extends StatefulWidget {
   final SnaplinkAdminApi api;
   final ScimResourceKind kind;
@@ -23,6 +24,7 @@ class ScimResourceBrowser extends StatefulWidget {
   @override
   State<ScimResourceBrowser> createState() => _ScimResourceBrowserState();
 }
+
 class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   final _filterController = TextEditingController();
   final _startIndexController = TextEditingController(text: '1');
@@ -34,6 +36,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   bool _mutating = false;
   bool _unavailable = false;
   String? _error;
+
   /// 上次已应用的查询签名；筛选/排序/条数变化时 Apply 清空分页回第一页（R46）。
   (String, int, String, bool)? _lastQuery;
   String get _path => widget.kind.path;
@@ -43,12 +46,14 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     super.initState();
     _load();
   }
+
   @override
   void dispose() {
     _filterController.dispose();
     _startIndexController.dispose();
     super.dispose();
   }
+
   Future<void> _load({int? startIndex}) async {
     final parsedStart =
         startIndex ?? int.tryParse(_startIndexController.text.trim()) ?? 1;
@@ -92,6 +97,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
   /// Apply 语义：查询签名（筛选/条数/排序）变化 → 回 startIndex=1；
   /// 仅页码变化时保留原位（R46 三态联动）。
   void _applyQuery() {
@@ -100,6 +106,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     _lastQuery = sig;
     _load(startIndex: changed ? 1 : null);
   }
+
   Future<void> _create() async {
     final body = await _showResourceForm();
     if (body == null || !mounted) return;
@@ -146,12 +153,18 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     if (id.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
-      title: 'Delete SCIM ${widget.kind.singular.toLowerCase()}?',
+      title: context.tr('Delete SCIM {resource}?', {
+        'resource': widget.kind.singular.toLowerCase(),
+      }),
       message: widget.kind == ScimResourceKind.users
-          ? 'Permanently delete $id from the identity directory. '
-                'Deactivation is safer when access may need to be restored.'
-          : 'Permanently delete $id and its role definition. Existing '
-                'membership assignments will no longer grant this role.',
+          ? context.tr(
+              'Permanently delete SCIM user {id}. Deactivation is safer when access may need to be restored.',
+              {'id': id},
+            )
+          : context.tr(
+              'Permanently delete SCIM group {id} and its role definition. Existing membership assignments will no longer grant this role.',
+              {'id': id},
+            ),
       confirmLabel: 'Delete permanently',
       confirmText: id,
       destructive: true,
@@ -285,9 +298,12 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
             children: [
               // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），操作区仍贴右。
               Expanded(
-                child: LocalizedText(widget.kind == ScimResourceKind.users
-                    ? 'SCIM Users'
-                    : 'SCIM Groups', style: Theme.of(context).textTheme.titleLarge),
+                child: LocalizedText(
+                  widget.kind == ScimResourceKind.users
+                      ? 'SCIM Users'
+                      : 'SCIM Groups',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
               IconButton(
                 onPressed: _loading || _mutating ? null : _load,
@@ -321,7 +337,10 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           if (_error != null) _errorCard(context),
           if (_loading && page == null)
             const Expanded(
-              child: SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150)),
+              child: SkeletonListTile(
+                itemCount: 6,
+                delay: Duration(milliseconds: 150),
+              ),
             )
           else if (page != null)
             Expanded(
@@ -377,7 +396,9 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     }
     return EmptyState(
       variant: querying ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-      title: querying ? 'No resources match this query.' : 'No resources found.',
+      title: querying
+          ? 'No resources match this query.'
+          : 'No resources found.',
       actionLabel: querying ? 'Clear filter' : null,
       actionIcon: Icons.filter_alt_off,
       onAction: querying ? _clearFilter : null,
@@ -395,6 +416,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
       ErrorStateCard(message: _error!, onRetry: _load, retryEnabled: !_loading);
 
   String _errorMessage(SnaplinkAdminApiError error) => context.tr(
-      'SCIM request failed ({status}): {error}',
-      {'status': '${error.status}', 'error': error.toString()});
+    'SCIM request failed ({status}): {error}',
+    {'status': '${error.status}', 'error': error.toString()},
+  );
 }

@@ -17,6 +17,7 @@ import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
+import 'admin_ops_helpers.dart';
 import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
 
@@ -44,6 +45,10 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   final Map<String, Map<String, dynamic>> _data = {};
   String? _error;
   bool _loading = true, _mutating = false;
+
+  /// 请求序号：总览刷新与后台 stale 回写必须属于同一批次。
+  int _reqSeq = 0;
+  bool _mutationOutcomeUnknown = false;
   String? _tempToken;
   String _revokeKind = 'session_id', _currentSection = 'all';
   late final void Function() _cancelPopState;
@@ -118,6 +123,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   }
 
   Future<void> _load() async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -130,7 +136,9 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
             data: await widget.api.getStaleWhileRevalidate(
               e.value,
               onRefresh: (fresh) {
-                if (mounted) setState(() => _data[e.key] = fresh);
+                if (mounted && seq == _reqSeq) {
+                  setState(() => _data[e.key] = fresh);
+                }
               },
             ),
             error: null,
@@ -140,7 +148,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         }
       }),
     );
-    if (!mounted) return;
+    if (!mounted || seq != _reqSeq) return;
     final unavailable = results
         .where((r) => r.error != null)
         .map((r) => r.key)
@@ -172,6 +180,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     Future<Map<String, dynamic>> Function() request,
     String message,
   ) async {
+    if (_mutationOutcomeUnknown) return;
     setState(() => _mutating = true);
     try {
       await request();
@@ -179,10 +188,49 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       showAppSnackBar(context, content: LocalizedText(message));
       await _load();
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        final unknown = AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
+        setState(() {
+          _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
+          _error = unknown
+              ? context.tr(
+                  'The write result is unknown (HTTP {status}). Reconcile token and session state before retrying.',
+                  {'status': error.status},
+                )
+              : error.toString();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _mutationOutcomeUnknown = true;
+          _error = context.tr(
+            'The write result is unknown because no response was received. Reconcile token and session state before retrying.',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
+  }
+
+  Future<void> _acknowledgeUnknownOutcome() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Token state reconciled?',
+      message:
+          'Confirm only after checking the affected token or session in a safe read. This unlocks token writes; it does not prove the previous request failed.',
+      confirmLabel: 'Unlock token writes',
+      destructive: true,
+      confirmText: 'RECONCILED',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _mutationOutcomeUnknown = false;
+      _error = context.tr(
+        'Token reconciliation acknowledged. Review the scope before sending another write.',
+      );
+    });
   }
 
   Future<bool> _confirm(String title, String body, {String? confirmText}) =>
@@ -194,6 +242,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         confirmText: confirmText,
       );
   Future<void> _revokeAdminToken(String id) async {
+    if (_mutationOutcomeUnknown) return;
     if (!await _confirm(
       'Revoke administrator token?',
       'The selected administrator session will immediately lose access.',
@@ -208,6 +257,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   }
 
   Future<void> _bulkRevoke() async {
+    if (_mutationOutcomeUnknown) return;
     final subject = _subjectCtrl.text.trim(),
         clientId = _clientCtrl.text.trim();
     if (subject.isEmpty && clientId.isEmpty) {
@@ -234,6 +284,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   }
 
   Future<void> _createTempToken() async {
+    if (_mutationOutcomeUnknown) return;
     final userId = _createUserCtrl.text.trim();
     if (userId.isEmpty) {
       setState(() => _error = 'User ID is required.');
@@ -245,7 +296,13 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         .toList(growable: false);
     if (!await _confirm(
       'Issue one-time token?',
-      'Issue a temporary bearer credential for $userId with scopes ${scopes.isEmpty ? '(none)' : scopes.join(' ')}. The raw value must be transferred through an approved secure channel.',
+      context.tr(
+        'Issue a temporary bearer credential for {userId} with scopes {scopes}. The raw value must be transferred through an approved secure channel.',
+        {
+          'userId': userId,
+          'scopes': scopes.isEmpty ? '(none)' : scopes.join(' '),
+        },
+      ),
       confirmText: userId,
     )) {
       return;
@@ -265,21 +322,44 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           data['token']?.toString() ?? data['access_token']?.toString() ?? '';
       setState(() {
         if (token.isEmpty) {
-          _error =
-              'The token may have been issued, but Snaplink did not return its one-time value. Do not retry until you verify server state.';
+          _mutationOutcomeUnknown = true;
+          _error = context.tr(
+            'The token may have been issued, but Snaplink did not return its one-time value. Do not retry until you verify server state.',
+          );
           _tempToken = null;
         } else {
           _tempToken = token;
         }
       });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted) {
+        final unknown = AdminOpsHelpers.isAmbiguousWriteStatus(e.status);
+        setState(() {
+          _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
+          _error = unknown
+              ? context.tr(
+                  'The temporary token result is unknown (HTTP {status}). Do not retry until token state is verified.',
+                  {'status': e.status},
+                )
+              : e.toString();
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _mutationOutcomeUnknown = true;
+          _error = context.tr(
+            'The temporary token result is unknown because no response was received. Do not retry until token state is verified.',
+          );
+        });
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
   Future<void> _revokeToken() async {
+    if (_mutationOutcomeUnknown) return;
     final value = _revokeTokenCtrl.text.trim();
     if (value.isEmpty) {
       setState(
@@ -394,44 +474,53 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         ),
       ),
       Expanded(
-        child: PullToRefresh(onRefresh: _load, child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_error != null)
-              ErrorStateCard(
-                message: _error!,
-                onRetry: _load,
-                margin: EdgeInsets.zero,
-              ),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.only(top: 16),
-                child: SkeletonListTile(itemCount: 3),
-              )
-            else if (_data.isEmpty)
-              const EmptyState(
-                compact: true,
-                variant: EmptyStateVariant.empty,
-                title: 'No token data available.',
-              )
-            else ...[
-              _securitySummary(context),
-              if (_shows('portfolio') && _data.containsKey('portfolio'))
-                _portfolioCard(),
-              if (_shows('suspicious') && _data.containsKey('suspicious'))
-                _listCard('suspicious'),
-              if (_shows('sessions') && _data.containsKey('sessions'))
-                _listCard('sessions'),
-              if (_shows('revoke') && _data.containsKey('tokens'))
-                _listCard('tokens'),
-              if (_shows('expiring') && _data.containsKey('expiring'))
-                _listCard('expiring'),
-              if (_shows('revoke') && _supportsBulkRevoke) _bulkRevokeCard(),
-              if (_shows('temp') && _supportsTempToken) _tempTokenCard(),
-              if (_shows('revoke') && _supportsSingleRevoke) _revokeTokenCard(),
+        child: PullToRefresh(
+          onRefresh: _load,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (_mutationOutcomeUnknown)
+                AdminOpsHelpers.unknownOutcomeCard(
+                  context,
+                  onAcknowledge: _mutating ? null : _acknowledgeUnknownOutcome,
+                ),
+              if (_error != null)
+                ErrorStateCard(
+                  message: _error!,
+                  onRetry: _load,
+                  margin: EdgeInsets.zero,
+                ),
+              if (_loading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: SkeletonListTile(itemCount: 3),
+                )
+              else if (_data.isEmpty)
+                const EmptyState(
+                  compact: true,
+                  variant: EmptyStateVariant.empty,
+                  title: 'No token data available.',
+                )
+              else ...[
+                _securitySummary(context),
+                if (_shows('portfolio') && _data.containsKey('portfolio'))
+                  _portfolioCard(),
+                if (_shows('suspicious') && _data.containsKey('suspicious'))
+                  _listCard('suspicious'),
+                if (_shows('sessions') && _data.containsKey('sessions'))
+                  _listCard('sessions'),
+                if (_shows('revoke') && _data.containsKey('tokens'))
+                  _listCard('tokens'),
+                if (_shows('expiring') && _data.containsKey('expiring'))
+                  _listCard('expiring'),
+                if (_shows('revoke') && _supportsBulkRevoke) _bulkRevokeCard(),
+                if (_shows('temp') && _supportsTempToken) _tempTokenCard(),
+                if (_shows('revoke') && _supportsSingleRevoke)
+                  _revokeTokenCard(),
+              ],
             ],
-          ],
-        )),
+          ),
+        ),
       ),
     ],
   );
@@ -715,7 +804,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       const SizedBox(height: 12),
       OutlinedButton(
         key: const Key('bulk-revoke-submit'),
-        onPressed: _mutating ? null : _bulkRevoke,
+        onPressed: _mutating || _mutationOutcomeUnknown ? null : _bulkRevoke,
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.semanticFor(
             Theme.of(context).brightness,
@@ -749,7 +838,9 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         const SizedBox(height: 12),
         FilledButton(
           key: const Key('temp-token-submit'),
-          onPressed: _mutating ? null : _createTempToken,
+          onPressed: _mutating || _mutationOutcomeUnknown
+              ? null
+              : _createTempToken,
           child: const LocalizedText('Create temp token'),
         ),
         if (_tempToken != null) ...[
@@ -785,7 +876,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
           ],
           selected: {_revokeKind},
           showSelectedIcon: false,
-          onSelectionChanged: _mutating
+          onSelectionChanged: _mutating || _mutationOutcomeUnknown
               ? null
               : (selection) => setState(() => _revokeKind = selection.first),
         ),
@@ -804,7 +895,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
         const SizedBox(height: 12),
         OutlinedButton(
           key: const Key('single-revoke-submit'),
-          onPressed: _mutating ? null : _revokeToken,
+          onPressed: _mutating || _mutationOutcomeUnknown ? null : _revokeToken,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.semanticFor(
               Theme.of(context).brightness,

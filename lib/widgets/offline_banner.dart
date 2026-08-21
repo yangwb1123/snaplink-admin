@@ -21,13 +21,22 @@ class _OfflineBannerState extends State<OfflineBanner> {
   final _connectivity = ConnectivityService();
   late StreamSubscription<bool> _sub;
   bool _offline = false;
+  bool _dismissed = false;
 
   @override
   void initState() {
     super.initState();
     _offline = !_connectivity.isOnline;
     _sub = _connectivity.onStatusChanged.listen((online) {
-      if (mounted) setState(() => _offline = !online);
+      if (!mounted) return;
+      final offline = !online;
+      setState(() {
+        // A dismissal is scoped to one connectivity period. Repeated browser
+        // events with the same status must not immediately resurrect the bar,
+        // while a real transition makes a new warning visible again.
+        if (_offline != offline) _dismissed = false;
+        _offline = offline;
+      });
     });
   }
 
@@ -42,7 +51,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        if (_offline)
+        if (_offline && !_dismissed)
           MaterialBanner(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             content: Text(
@@ -59,7 +68,7 @@ class _OfflineBannerState extends State<OfflineBanner> {
             contentTextStyle: TextStyle(color: scheme.onSurface),
             actions: [
               TextButton(
-                onPressed: () {},
+                onPressed: () => setState(() => _dismissed = true),
                 child: Text(
                   context.tr('Dismiss'),
                   style: TextStyle(

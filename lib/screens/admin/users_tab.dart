@@ -29,7 +29,11 @@ import 'user_form_dialog.dart';
 class UsersTab extends StatefulWidget {
   final SSOAdminClient client;
   final OperatorPersona persona;
-  const UsersTab({super.key, required this.client, this.persona = OperatorPersona.general});
+  const UsersTab({
+    super.key,
+    required this.client,
+    this.persona = OperatorPersona.general,
+  });
   @override
   State<UsersTab> createState() => _UsersTabState();
 }
@@ -45,6 +49,7 @@ class _UsersTabState extends State<UsersTab>
   bool _sortAscending = true;
   String? _busyId; // 行级/批量删除进行中：非空即禁用（批量用 '' 哨兵）。
   late final void Function() _cancelPopState;
+
   /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('users');
   @override
@@ -87,12 +92,19 @@ class _UsersTabState extends State<UsersTab>
     }
     if (mounted) AdminRoute.back('users');
   }
+
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
-    final page = await widget.client.listUsers(pageToken: currentPageToken, pageSize: _pageSize, orderBy: _orderBy, filter: _filterCtrl.text);
+    final page = await widget.client.listUsers(
+      pageToken: currentPageToken,
+      pageSize: _pageSize,
+      orderBy: _orderBy,
+      filter: _filterCtrl.text,
+    );
     if (seq == _reqSeq) _lastPage = page;
     return page;
   }
+
   /// 刷新语义（R5）：保留筛选、清除选择、重置分页；返回加载 Future 供下拉刷新指示器（R56）。
   Future<void> _reload() {
     clearSelection();
@@ -102,18 +114,34 @@ class _UsersTabState extends State<UsersTab>
     });
     return _future;
   }
+
   /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
-  void _clearFilter() { _filterCtrl.clear(); _reload(); }
-  void _goPrevious() {
-    if (canGoBack) setState(() { goPrevious(); _future = _loadPage(); });
+  void _clearFilter() {
+    _filterCtrl.clear();
+    _reload();
   }
-  void _goNext(SSOAdminListPage page) {
-    if (page.nextPageToken != null) {
-      setState(() { goNext(page.nextPageToken, page: page); _future = _loadPage(); });
+
+  void _goPrevious() {
+    if (canGoBack) {
+      setState(() {
+        goPrevious();
+        _future = _loadPage();
+      });
     }
   }
+
+  void _goNext(SSOAdminListPage page) {
+    if (page.nextPageToken != null) {
+      setState(() {
+        goNext(page.nextPageToken, page: page);
+        _future = _loadPage();
+      });
+    }
+  }
+
   /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
   void _retryPage() => setState(() => _future = _loadPage());
+
   /// 列头排序 → 服务端 orderBy（与排序下拉保持同步）；点击三态。
   void _onSort(String column) {
     final field = switch (column) {
@@ -138,7 +166,11 @@ class _UsersTabState extends State<UsersTab>
   }
 
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
-    final changed = await showDialog<Map<String, dynamic>>(context: context, builder: (context) => UserFormDialog(client: widget.client, existing: existing));
+    final changed = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) =>
+          UserFormDialog(client: widget.client, existing: existing),
+    );
     if (changed != null) _reload();
     if (mounted) AdminRoute.back('users');
   }
@@ -150,28 +182,40 @@ class _UsersTabState extends State<UsersTab>
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Delete {n} users?', {'n': ids.length}),
-      message: context.tr('This will delete {n} selected users.', {'n': ids.length}),
+      message: context.tr('This will delete {n} selected users.', {
+        'n': ids.length,
+      }),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
     setState(() => _busyId = '');
-    final results = await Future.wait(ids.map((id) async {
-      try {
-        await widget.client.deleteUser(id);
-        return null;
-      } catch (e) {
-        return '$id: $e';
-      }
-    }));
+    final results = await Future.wait(
+      ids.map((id) async {
+        try {
+          await widget.client.deleteUser(id);
+          return null;
+        } catch (e) {
+          return '$id: $e';
+        }
+      }),
+    );
     if (!mounted) return;
     setState(() => _busyId = null);
     final failures = results.whereType<String>().toList();
     final ok = ids.length - failures.length;
     clearSelection();
     final message = failures.isEmpty
-        ? context.tr('Deleted {n} of {total} users.', {'n': ok, 'total': ids.length})
-        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {'action': 'Delete', 'n': ok, 'failed': failures.length, 'details': failures.take(3).join('; ')});
+        ? context.tr('Deleted {n} of {total} users.', {
+            'n': ok,
+            'total': ids.length,
+          })
+        : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {
+            'action': 'Delete',
+            'n': ok,
+            'failed': failures.length,
+            'details': failures.take(3).join('; '),
+          });
     showBatchResultSnackBar(context, message: message, failures: failures);
     _reload();
   }
@@ -182,7 +226,10 @@ class _UsersTabState extends State<UsersTab>
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Delete user?'),
-      message: context.tr('Delete {id}? Sessions, credentials, and dependent records may stop working. This cannot be undone.', {'id': id}),
+      message: context.tr(
+        'Delete {id}? Sessions, credentials, and dependent records may stop working. This cannot be undone.',
+        {'id': id},
+      ),
       confirmLabel: 'Delete user',
       destructive: true,
       confirmText: id,
@@ -191,11 +238,17 @@ class _UsersTabState extends State<UsersTab>
     setState(() => _busyId = id);
     try {
       await widget.client.deleteUser(id);
-      if (mounted) showAppSnackBar(context, content: LocalizedText('User deleted.'));
+      if (mounted) {
+        showAppSnackBar(context, content: LocalizedText('User deleted.'));
+      }
       _reload();
     } on SSOError catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, content: Text(e.toString()), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text(e.toString()),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
@@ -215,8 +268,17 @@ class _UsersTabState extends State<UsersTab>
       ),
       if (selecting) ...[
         BatchActionBar(
-          selectedCount: selected.length, accent: _accent, isLoading: _busyId != null,
-          actions: [BatchAction(label: 'Delete', icon: Icons.delete_outline, destructive: true, onPressed: _batchDelete)],
+          selectedCount: selected.length,
+          accent: _accent,
+          isLoading: _busyId != null,
+          actions: [
+            BatchAction(
+              label: 'Delete',
+              icon: Icons.delete_outline,
+              destructive: true,
+              onPressed: _batchDelete,
+            ),
+          ],
           onClearSelection: clearSelection,
         ),
         const SizedBox(height: 8),
@@ -229,13 +291,28 @@ class _UsersTabState extends State<UsersTab>
           builder: (context, snap) {
             if (!snap.hasData) {
               if (snap.hasError) {
-                return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
+                return ErrorStateView(
+                  message: '${snap.error}',
+                  onRetry: _retryPage,
+                );
               }
-              return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
+              return const SkeletonListTile(
+                itemCount: 6,
+                delay: Duration(milliseconds: 150),
+              );
             }
             final page = snap.data!;
             final items = page.items;
-            return _listBody(context, page, items, UserMetrics(items: items, totalSize: page.totalSize, persona: widget.persona));
+            return _listBody(
+              context,
+              page,
+              items,
+              UserMetrics(
+                items: items,
+                totalSize: page.totalSize,
+                persona: widget.persona,
+              ),
+            );
           },
         ),
       ),
@@ -243,7 +320,11 @@ class _UsersTabState extends State<UsersTab>
   );
 
   /// 通用下拉（排序/每页条数共用），箭头按组色上色。
-  Widget _menu<T>(T value, List<DropdownMenuItem<T>> items, ValueChanged<T> onPicked) => DropdownButton<T>(
+  Widget _menu<T>(
+    T value,
+    List<DropdownMenuItem<T>> items,
+    ValueChanged<T> onPicked,
+  ) => DropdownButton<T>(
     value: value,
     items: items,
     icon: Icon(Icons.arrow_drop_down, color: _accent),
@@ -263,20 +344,49 @@ class _UsersTabState extends State<UsersTab>
       children: [
         SizedBox(
           width: 280,
-          child: SearchFilterBar(labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false, onSearchChanged: (_) {}, onSubmitted: (_) => _reload()),
+          child: SearchFilterBar(
+            labelText: 'Filter'.localized,
+            controller: _filterCtrl,
+            debounce: false,
+            onSearchChanged: (_) {},
+            onSubmitted: (_) => _reload(),
+          ),
         ),
-        _menu<String>(_orderBy, const [
-          DropdownMenuItem(value: 'id', child: LocalizedText('ID ascending')),
-          DropdownMenuItem(value: '-id', child: LocalizedText('ID descending')),
-          DropdownMenuItem(value: 'provider', child: LocalizedText('Provider ascending')),
-          DropdownMenuItem(value: '-provider', child: LocalizedText('Provider descending')),
-          DropdownMenuItem(value: 'created_at', child: LocalizedText('Created ascending')),
-          DropdownMenuItem(value: '-created_at', child: LocalizedText('Created descending')),
-        ], (v) {
-          _orderBy = v;
-          _sortAscending = !v.startsWith('-');
-          _sortColumn = v.endsWith('provider') ? 'provider' : v.endsWith('id') ? 'user' : null;
-        }),
+        _menu<String>(
+          _orderBy,
+          const [
+            DropdownMenuItem(value: 'id', child: LocalizedText('ID ascending')),
+            DropdownMenuItem(
+              value: '-id',
+              child: LocalizedText('ID descending'),
+            ),
+            DropdownMenuItem(
+              value: 'provider',
+              child: LocalizedText('Provider ascending'),
+            ),
+            DropdownMenuItem(
+              value: '-provider',
+              child: LocalizedText('Provider descending'),
+            ),
+            DropdownMenuItem(
+              value: 'created_at',
+              child: LocalizedText('Created ascending'),
+            ),
+            DropdownMenuItem(
+              value: '-created_at',
+              child: LocalizedText('Created descending'),
+            ),
+          ],
+          (v) {
+            _orderBy = v;
+            _sortAscending = !v.startsWith('-');
+            _sortColumn = v.endsWith('provider')
+                ? 'provider'
+                : v.endsWith('id')
+                ? 'user'
+                : null;
+          },
+        ),
         _menu<int>(_pageSize, const [
           DropdownMenuItem(value: 25, child: LocalizedText('25 per page')),
           DropdownMenuItem(value: 100, child: LocalizedText('100 per page')),
@@ -286,23 +396,39 @@ class _UsersTabState extends State<UsersTab>
     ),
   );
 
-  Widget _listBody(BuildContext context, SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
+  Widget _listBody(
+    BuildContext context,
+    SSOAdminListPage page,
+    List<Map<String, dynamic>> items,
+    Widget metrics,
+  ) {
     final filtered = _filterCtrl.text.isNotEmpty;
     // 空态：第一页 → empty/noMatch（文案被测试钉死）；非首页 → 空页提示。
     final list = items.isEmpty
         ? onFirstPage
               ? EmptyState(
-                  variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+                  variant: filtered
+                      ? EmptyStateVariant.noMatch
+                      : EmptyStateVariant.empty,
                   icon: filtered ? null : Icons.person,
                   title: 'No users',
                   subtitle: 'No users match the current filter.',
                   actionLabel: filtered ? 'Clear filter' : 'Create user',
                   actionIcon: filtered ? Icons.filter_alt_off : null,
-                  onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
+                  onAction: filtered
+                      ? _clearFilter
+                      : () => AdminRoute.go('users', action: 'new'),
                 )
               : EmptyPageState(onBackToFirst: _reload)
         : _dataTable(items);
-    final pagination = PaginationControls(page: currentPage, total: page.totalSize, canGoBack: canGoBack, canGoNext: page.nextPageToken != null, onPrevious: _goPrevious, onNext: () => _goNext(page));
+    final pagination = PaginationControls(
+      page: currentPage,
+      total: page.totalSize,
+      canGoBack: canGoBack,
+      canGoNext: page.nextPageToken != null,
+      onPrevious: _goPrevious,
+      onNext: () => _goNext(page),
+    );
     return LayoutBuilder(
       builder: (context, constraints) {
         // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长）——文本放大时提前切整页滚动。
@@ -312,11 +438,17 @@ class _UsersTabState extends State<UsersTab>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             metrics,
-            if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
+            if (short)
+              SizedBox(height: 280, child: list)
+            else
+              Expanded(child: list),
             pagination,
           ],
         );
-        return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
+        return PullToRefresh(
+          onRefresh: _reload,
+          child: short ? SingleChildScrollView(child: content) : content,
+        );
       },
     );
   }
@@ -329,7 +461,9 @@ class _UsersTabState extends State<UsersTab>
       sortColumn: _sortColumn,
       sortAscending: _sortAscending,
       onSort: _onSort,
-      onRowTap: selecting ? (i) => toggleSelect(uid(i)) : (i) => AdminRoute.go('users', resourceId: uid(i)),
+      onRowTap: selecting
+          ? (i) => toggleSelect(uid(i))
+          : (i) => AdminRoute.go('users', resourceId: uid(i)),
       onRowLongPress: selecting ? null : (i) => toggleSelect(uid(i)),
       columns: [
         if (selecting)
@@ -337,7 +471,10 @@ class _UsersTabState extends State<UsersTab>
             id: 'select',
             label: '',
             width: 44,
-            builder: (context, i) => Checkbox(value: selected.contains(uid(i)), onChanged: (_) => toggleSelect(uid(i))),
+            builder: (context, i) => Checkbox(
+              value: selected.contains(uid(i)),
+              onChanged: (_) => toggleSelect(uid(i)),
+            ),
           ),
         AdminDataColumn(
           id: 'user',
@@ -349,7 +486,13 @@ class _UsersTabState extends State<UsersTab>
             children: [
               UserAvatar(name: uid(i), radius: 14),
               const SizedBox(width: 8),
-              Flexible(child: CopyableCell(text: uid(i), contextProvider: () => context, enabled: !selecting)),
+              Flexible(
+                child: CopyableCell(
+                  text: uid(i),
+                  contextProvider: () => context,
+                  enabled: !selecting,
+                ),
+              ),
             ],
           ),
         ),
@@ -358,13 +501,18 @@ class _UsersTabState extends State<UsersTab>
           label: 'PROVIDER',
           width: 140,
           sortable: true,
-          builder: (context, i) => TableCellText(items[i]['provider']?.toString() ?? '?', muted: true),
+          builder: (context, i) => TableCellText(
+            items[i]['provider']?.toString() ?? '?',
+            muted: true,
+          ),
         ),
         AdminDataColumn(
           id: 'external',
           label: 'EXTERNAL ID',
           builder: (context, i) => TableCellText(
-            items[i]['externalId']?.toString() ?? items[i]['external_id']?.toString() ?? '',
+            items[i]['externalId']?.toString() ??
+                items[i]['external_id']?.toString() ??
+                '',
             muted: true,
             maxLines: 1,
           ),
@@ -379,7 +527,11 @@ class _UsersTabState extends State<UsersTab>
               enabled: _busyId == null,
               onSelected: (value) {
                 if (value == 'edit') {
-                  AdminRoute.go('users', action: 'edit', resourceId: u['id']?.toString() ?? '');
+                  AdminRoute.go(
+                    'users',
+                    action: 'edit',
+                    resourceId: u['id']?.toString() ?? '',
+                  );
                 }
                 if (value == 'delete') {
                   _confirmDelete(u);

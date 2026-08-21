@@ -187,6 +187,9 @@ void main() {
       return true;
     }
 
+    // TestWidgetsFlutterBinding's legacy owner is still where this test view
+    // exposes its semantics tree on the current Flutter test backend.
+    // ignore: deprecated_member_use
     final root = tester.binding.pipelineOwner.semanticsOwner?.rootSemanticsNode;
     if (root != null) visit(root);
     expect(

@@ -97,6 +97,7 @@ class _TenantsTabState extends State<TenantsTab>
     _filterCtrl.dispose();
     super.dispose();
   }
+
   String get _filterQuery {
     final text = _filterCtrl.text.trim();
     return _statusFilter == 'all'
@@ -104,7 +105,12 @@ class _TenantsTabState extends State<TenantsTab>
         : '${text.isEmpty ? '' : '$text and '}status:$_statusFilter';
   }
 
-  void _clearFilter() { _filterCtrl.clear(); _statusFilter = 'all'; _reload(); }
+  void _clearFilter() {
+    _filterCtrl.clear();
+    _statusFilter = 'all';
+    _reload();
+  }
+
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
     final page = await widget.client.listTenants(
@@ -125,12 +131,22 @@ class _TenantsTabState extends State<TenantsTab>
     });
     return _future;
   }
+
   void _goPrevious() {
-    if (canGoBack) setState(() { goPrevious(); _future = _loadPage(); });
+    if (canGoBack) {
+      setState(() {
+        goPrevious();
+        _future = _loadPage();
+      });
+    }
   }
+
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken != null) {
-      setState(() { goNext(page.nextPageToken, page: page); _future = _loadPage(); });
+      setState(() {
+        goNext(page.nextPageToken, page: page);
+        _future = _loadPage();
+      });
     }
   }
 
@@ -143,13 +159,20 @@ class _TenantsTabState extends State<TenantsTab>
     if (ids.isEmpty) return;
     final suspending = next == 'suspended';
     final n = ids.length;
-    final confirmed = await ConfirmDialog.show(context,
+    final confirmed = await ConfirmDialog.show(
+      context,
       title: suspending
           ? context.tr('Suspend {n} tenants?', {'n': n})
           : context.tr('Activate {n} tenants?', {'n': n}),
       message: suspending
-          ? context.tr('This will suspend {n} selected tenants in one operation.', {'n': n})
-          : context.tr('This will activate {n} selected tenants in one operation.', {'n': n}),
+          ? context.tr(
+              'This will suspend {n} selected tenants in one operation.',
+              {'n': n},
+            )
+          : context.tr(
+              'This will activate {n} selected tenants in one operation.',
+              {'n': n},
+            ),
       confirmLabel: suspending
           ? context.tr('Suspend tenants')
           : context.tr('Activate tenants'),
@@ -180,7 +203,12 @@ class _TenantsTabState extends State<TenantsTab>
           : suspending
           ? 'Suspend: {ok} succeeded, {failed} failed. {detail}'
           : 'Activate: {ok} succeeded, {failed} failed. {detail}',
-      {'ok': ok, 'total': n, 'failed': failures.length, 'detail': failures.take(3).join('; ')},
+      {
+        'ok': ok,
+        'total': n,
+        'failed': failures.length,
+        'detail': failures.take(3).join('; '),
+      },
     );
     showBatchResultSnackBar(context, message: message, failures: failures);
     _reload();
@@ -222,20 +250,27 @@ class _TenantsTabState extends State<TenantsTab>
       final response = await op();
       if (mounted) {
         final content = report
-            ? LocalizedText(
-                TenantLifecycleCopy.result(context.tr(successCopy), response),
-              )
+            ? _lifecycleResult(context.tr(successCopy), response)
             : const LocalizedText('Tenant activated.');
         showAppSnackBar(context, content: content);
       }
       _reload();
     } on SSOError catch (e) {
       if (mounted) {
-        showAppSnackBar(context, content: LocalizedText('Failed: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Failed: {e}', args: {'e': e}),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
+  }
+
+  Widget _lifecycleResult(String action, Map<String, dynamic> response) {
+    final copy = TenantLifecycleCopy.resultCopy(action, response);
+    return LocalizedText(copy.key, args: copy.args);
   }
 
   void _toggleStatus(String id, String currentStatus) {
@@ -243,9 +278,18 @@ class _TenantsTabState extends State<TenantsTab>
     final suspending = next == 'suspended';
     _runLifecycle(
       id: id,
-      title: suspending ? context.tr('Suspend tenant?') : context.tr('Activate tenant?'),
-      confirmLabel: suspending ? context.tr('Suspend tenant') : context.tr('Activate tenant'),
-      confirmMessage: TenantLifecycleCopy.confirmation(id, next),
+      title: suspending
+          ? context.tr('Suspend tenant?')
+          : context.tr('Activate tenant?'),
+      confirmLabel: suspending
+          ? context.tr('Suspend tenant')
+          : context.tr('Activate tenant'),
+      confirmMessage: context.tr(
+        suspending
+            ? 'Suspend {id}? New access is blocked and Snaplink will report every refresh-token and session revocation result with a stable retry key for any failed item.'
+            : 'Return {id} to active service?',
+        {'id': id},
+      ),
       destructive: suspending,
       successCopy: suspending ? 'Tenant suspended.' : 'Tenant activated.',
       report: suspending,
@@ -259,7 +303,10 @@ class _TenantsTabState extends State<TenantsTab>
       id: id,
       title: context.tr('Delete tenant?'),
       confirmLabel: context.tr('Delete tenant'),
-      confirmMessage: TenantLifecycleCopy.deletion(id, label),
+      confirmMessage: context.tr(
+        'Delete {label} ({id})? This cannot be undone. Snaplink will return the exact refresh-token and session revocation report.',
+        {'label': label, 'id': id},
+      ),
       destructive: true,
       successCopy: 'Tenant deleted.',
       report: true,
@@ -332,7 +379,10 @@ class _TenantsTabState extends State<TenantsTab>
     future: _future,
     builder: (context, snap) {
       if (snap.connectionState != ConnectionState.done) {
-        return const SkeletonListTile(itemCount: 6, delay: Duration(milliseconds: 150));
+        return const SkeletonListTile(
+          itemCount: 6,
+          delay: Duration(milliseconds: 150),
+        );
       }
       if (snap.hasError) {
         return ErrorStateView(message: '${snap.error}', onRetry: _retryPage);
@@ -347,7 +397,10 @@ class _TenantsTabState extends State<TenantsTab>
       final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
       final list = items.isEmpty
           ? onFirstPage
-                ? TenantsEmptyState(filtering: filtered, onClearFilter: _clearFilter)
+                ? TenantsEmptyState(
+                    filtering: filtered,
+                    onClearFilter: _clearFilter,
+                  )
                 : EmptyPageState(onBackToFirst: _reload)
           : _tenantTable(items);
       final pagination = PaginationControls(
@@ -367,11 +420,17 @@ class _TenantsTabState extends State<TenantsTab>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               metrics,
-              if (short) SizedBox(height: 280, child: list) else Expanded(child: list),
+              if (short)
+                SizedBox(height: 280, child: list)
+              else
+                Expanded(child: list),
               pagination,
             ],
           );
-          return PullToRefresh(onRefresh: _reload, child: short ? SingleChildScrollView(child: content) : content);
+          return PullToRefresh(
+            onRefresh: _reload,
+            child: short ? SingleChildScrollView(child: content) : content,
+          );
         },
       );
     },

@@ -46,7 +46,9 @@ Color adminGroupIconColor(String groupId) =>
 /// 模块图标色：继承所属组的颜色，保证子菜单与一级导航同组同色。
 /// 未知模块回退中性 slate（不冒充任何组）。
 Color adminModuleIconColor(String module) {
-  final known = adminModuleGroups.any((group) => group.modules.contains(module));
+  final known = adminModuleGroups.any(
+    (group) => group.modules.contains(module),
+  );
   if (!known) return AppColors.muted;
   return adminGroupIconColor(adminGroupForModule(module));
 }
@@ -63,7 +65,9 @@ Color adminGroupIconColorFor(String groupId, Brightness brightness) =>
 /// 模块图标色（亮度感知）：未知模块回退中性 slate，已知模块继承所属组
 /// 的亮度感知色。
 Color adminModuleIconColorFor(String module, Brightness brightness) {
-  final known = adminModuleGroups.any((group) => group.modules.contains(module));
+  final known = adminModuleGroups.any(
+    (group) => group.modules.contains(module),
+  );
   if (!known) return AppColors.muted;
   return adminGroupIconColorFor(adminGroupForModule(module), brightness);
 }

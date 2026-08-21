@@ -128,9 +128,7 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        wrap(
-          const DeviceStatusBlock(spinner: true, title: 'Checking code'),
-        ),
+        wrap(const DeviceStatusBlock(spinner: true, title: 'Checking code')),
       );
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Checking code'), findsOneWidget);

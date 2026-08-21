@@ -86,9 +86,7 @@ class DeviceDecisionButtons extends StatelessWidget {
           child: PressableScale(
             child: OutlinedButton.icon(
               onPressed: onDeny,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: scheme.error,
-              ),
+              style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
               icon: const Icon(Icons.close, size: 18),
               label: Text(strings.deny),
             ),
@@ -197,7 +195,9 @@ class DeviceInlineNotice extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(color: color))),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color)),
+        ),
       ],
     );
     final wrapped = contained

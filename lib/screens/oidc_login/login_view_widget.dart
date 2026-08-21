@@ -75,26 +75,42 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
-    final builtinProviders = widget.providers.where((item) => item.builtin).toList();
+    final builtinProviders = widget.providers
+        .where((item) => item.builtin)
+        .toList();
     final federatedProviders = widget.providers
-        .where((item) => item.isFederated && (!widget.usesFederatedProvider || item.id != widget.provider))
+        .where(
+          (item) =>
+              item.isFederated &&
+              (!widget.usesFederatedProvider || item.id != widget.provider),
+        )
         .toList();
     final selected = _descriptorFor(widget.provider);
-    final selectedBuiltin = builtinProviders.any((item) => item.id == widget.provider);
+    final selectedBuiltin = builtinProviders.any(
+      (item) => item.id == widget.provider,
+    );
 
     return AutofillGroup(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Semantics(container: true, header: true, child: Text(strings.signIn, style: theme.textTheme.titleLarge)),
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(strings.signIn, style: theme.textTheme.titleLarge),
+          ),
           const SizedBox(height: 20),
           if (builtinProviders.length > 1)
             DropdownButtonFormField<String>(
               initialValue: selectedBuiltin ? widget.provider : null,
               hint: Text(strings.provider),
               items: [
-                for (final item in builtinProviders) DropdownMenuItem(value: item.id, child: Text(item.displayName)),
+                for (final item in builtinProviders)
+                  DropdownMenuItem(
+                    value: item.id,
+                    child: Text(item.displayName),
+                  ),
               ],
               onChanged: widget.loading
                   ? null
@@ -104,15 +120,26 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
               decoration: InputDecoration(labelText: strings.provider),
             ),
           if (widget.signupConfirmed != null)
-            _notice(context.tr(widget.signupConfirmed!), Icons.check_circle_outline, top: 12, live: true),
+            _notice(
+              context.tr(widget.signupConfirmed!),
+              Icons.check_circle_outline,
+              top: 12,
+              live: true,
+            ),
           if (widget.usesFederatedProvider)
             _notice(
-              context.tr('Continue to {provider} to sign in.', {'provider': selected.displayName}),
+              context.tr('Continue to {provider} to sign in.', {
+                'provider': selected.displayName,
+              }),
               Icons.open_in_new,
               vertical: 16,
             )
           else if (widget.provider == 'webauthn')
-            _notice(context.tr('Choose a passkey to sign in without a password.'), Icons.fingerprint, vertical: 16)
+            _notice(
+              context.tr('Choose a passkey to sign in without a password.'),
+              Icons.fingerprint,
+              vertical: 16,
+            )
           else if (widget.usesCodeProvider)
             _codeForm(context)
           else if (widget.usesTotpProvider)
@@ -126,7 +153,9 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
               top: 16,
               // Sentry 错误横幅（login-redesign-2 §3）：显式 danger 常量前景
               // （亮 dangerDark / 暗 dangerTint），底维持 M3 errorContainer。
-              color: Theme.of(context).brightness == Brightness.dark ? AppColors.dangerTint : AppColors.dangerDark,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.dangerTint
+                  : AppColors.dangerDark,
               contained: true,
               live: true,
             ),
@@ -135,7 +164,10 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
             child: FilledButton(
               onPressed: widget.loading ? null : widget.onSubmit,
               child: widget.loading
-                  ? const SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
                   : Text(
                       widget.usesFederatedProvider
                           ? selected.effectiveButtonLabel
@@ -153,13 +185,19 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
                 Flexible(
                   child: TextButton(
                     onPressed: widget.loading ? null : widget.onForgotPassword,
-                    child: Text(strings.forgotPassword, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      strings.forgotPassword,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
                 Flexible(
                   child: TextButton(
                     onPressed: widget.loading ? null : widget.onSignUp,
-                    child: Text(strings.signUp, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      strings.signUp,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
               ],
@@ -168,7 +206,10 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
                 onPressed: widget.loading ? null : widget.onHomeRealm,
-                icon: Icon(Icons.business_outlined, color: theme.colorScheme.primary),
+                icon: Icon(
+                  Icons.business_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 label: Text(context.tr('Use organization sign-in')),
               ),
             ),
@@ -180,7 +221,10 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
                 const Expanded(child: Divider()),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Text(strings.orDivider, style: theme.textTheme.bodySmall),
+                  child: Text(
+                    strings.orDivider,
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ),
                 const Expanded(child: Divider()),
               ],
@@ -210,7 +254,12 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
 
   Widget _passwordForm(AppStrings strings) => Column(
     children: [
-      _field(controller: widget.userCtrl, label: strings.username, hints: const [AutofillHints.username], next: true),
+      _field(
+        controller: widget.userCtrl,
+        label: strings.username,
+        hints: const [AutofillHints.username],
+        next: true,
+      ),
       const SizedBox(height: 16),
       _field(
         controller: widget.passCtrl,
@@ -219,9 +268,13 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         hints: const [AutofillHints.password],
         obscure: true,
         suffix: IconButton(
-          tooltip: context.tr(_obscurePassword ? 'Show password' : 'Hide password'),
+          tooltip: context.tr(
+            _obscurePassword ? 'Show password' : 'Hide password',
+          ),
           icon: Icon(
-            _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            _obscurePassword
+                ? Icons.visibility_off_outlined
+                : Icons.visibility_outlined,
             color: Theme.of(context).colorScheme.primary,
           ),
           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -240,7 +293,9 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         _field(
           controller: widget.codeTargetCtrl,
           label: context.tr(isPhone ? 'Phone number' : 'Email address'),
-          hints: isPhone ? const [AutofillHints.telephoneNumber] : const [AutofillHints.email],
+          hints: isPhone
+              ? const [AutofillHints.telephoneNumber]
+              : const [AutofillHints.email],
           keyboard: isPhone ? TextInputType.phone : TextInputType.emailAddress,
           next: true,
         ),
@@ -248,9 +303,15 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         Align(
           alignment: Alignment.centerLeft,
           child: OutlinedButton(
-            onPressed: widget.loading || widget.magicLinkToken != null ? null : widget.onSendCode,
+            onPressed: widget.loading || widget.magicLinkToken != null
+                ? null
+                : widget.onSendCode,
             child: widget.loading
-                ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : Text(
                     context.tr(
                       isMagicLink
@@ -268,7 +329,11 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
               alignment: Alignment.centerLeft,
               child: widget.codeSent
                   ? StatusChip.active(label: context.tr(widget.codeMessage!))
-                  : _notice(context.tr(widget.codeMessage!), Icons.info_outline, color: scheme.onSurfaceVariant),
+                  : _notice(
+                      context.tr(widget.codeMessage!),
+                      Icons.info_outline,
+                      color: scheme.onSurfaceVariant,
+                    ),
             ),
           ),
         ],
@@ -288,7 +353,12 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
 
   Widget _totpForm(AppStrings strings) => Column(
     children: [
-      _field(controller: widget.userCtrl, label: strings.username, hints: const [AutofillHints.username], next: true),
+      _field(
+        controller: widget.userCtrl,
+        label: strings.username,
+        hints: const [AutofillHints.username],
+        next: true,
+      ),
       const SizedBox(height: 16),
       _field(
         controller: widget.providerCodeCtrl,
@@ -325,10 +395,10 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       autofillHints: hints,
       textInputAction: next ? TextInputAction.next : TextInputAction.done,
       obscureText: obscure,
-      decoration: InputDecoration(
-        labelText: label,
-        suffixIcon: suffix,
-      ).applyDefaults(AppTheme.loginInputDecoration(Theme.of(context).brightness)),
+      decoration: InputDecoration(labelText: label, suffixIcon: suffix)
+          .applyDefaults(
+            AppTheme.loginInputDecoration(Theme.of(context).brightness),
+          ),
       onSubmitted: onSubmit == null ? null : (_) => onSubmit(),
     ),
   );
@@ -350,8 +420,12 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       contained: contained,
       liveRegion: live,
     );
-    final margin = EdgeInsets.only(top: top ?? 0).add(EdgeInsets.symmetric(vertical: vertical ?? 0));
-    return margin == EdgeInsets.zero ? notice : Padding(padding: margin, child: notice);
+    final margin = EdgeInsets.only(
+      top: top ?? 0,
+    ).add(EdgeInsets.symmetric(vertical: vertical ?? 0));
+    return margin == EdgeInsets.zero
+        ? notice
+        : Padding(padding: margin, child: notice);
   }
 }
 
@@ -381,7 +455,13 @@ class _FocusGlowState extends State<_FocusGlow> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           boxShadow: _focused
-              ? [BoxShadow(color: primary.withValues(alpha: 0.30), blurRadius: 14, spreadRadius: 0.5)]
+              ? [
+                  BoxShadow(
+                    color: primary.withValues(alpha: 0.30),
+                    blurRadius: 14,
+                    spreadRadius: 0.5,
+                  ),
+                ]
               : const [],
         ),
         child: widget.child,

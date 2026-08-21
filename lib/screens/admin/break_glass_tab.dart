@@ -13,6 +13,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'admin_navigation.dart';
+import 'admin_ops_helpers.dart';
 import 'break_glass_widgets.dart';
 
 /// Break Glass (emergency access) management tab.
@@ -48,6 +49,8 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   String? _actionError; // 校验/提交错误 → 表单内联提示
   bool _loading = false;
   bool _mutating = false;
+  bool _mutationOutcomeUnknown = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
   late final void Function() _cancelPopState;
@@ -118,6 +121,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   }
 
   Future<void> _create() async {
+    if (_mutationOutcomeUnknown) return;
     final target = _targetCtrl.text.trim();
     final reason = _reasonCtrl.text.trim();
     if (target.isEmpty || reason.isEmpty) {
@@ -127,10 +131,19 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Create emergency-access grant?',
-      message:
-          'Create a $_scope break-glass grant for $target'
-          '${_requireApproval ? ' pending independent approval' : ' that may become active immediately'}? '
-          'Reason: $reason',
+      message: context.tr(
+        'Create a {scope} break-glass grant for {target}. {approval} Reason: {reason}',
+        {
+          'scope': _scope,
+          'target': target,
+          'approval': context.tr(
+            _requireApproval
+                ? 'Requires independent approval.'
+                : 'May become active immediately.',
+          ),
+          'reason': reason,
+        },
+      ),
       confirmLabel: 'Create grant',
       destructive: true,
       confirmText: target,
@@ -153,21 +166,21 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       if (!mounted) return;
       _targetCtrl.clear();
       _reasonCtrl.clear();
-      showAppSnackBar(context, content: LocalizedText('Break-glass session created.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Break-glass session created.'),
+      );
       if (mounted) AdminRoute.back('emergency-access');
       await _load();
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _actionError = e.toString());
-    } catch (_) {
-      if (mounted) {
-        setState(() => _actionError = 'Failed to create break-glass session.');
-      }
+    } catch (e) {
+      _recordMutationError(e);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
   Future<void> _approve(String id) async {
+    if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Approve?',
@@ -186,14 +199,15 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Break-glass approved.'));
       await _load();
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _actionError = e.toString());
+    } catch (e) {
+      _recordMutationError(e);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
   Future<void> _revoke(String id) async {
+    if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke?',
@@ -212,16 +226,21 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         '$_basePath/${Uri.encodeComponent(id)}',
       );
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText(BreakGlassRevocationCopy.result(response)));
+      final copy = BreakGlassRevocationCopy.resultCopy(response);
+      showAppSnackBar(
+        context,
+        content: LocalizedText(copy.key, args: copy.args),
+      );
       await _load();
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _actionError = e.toString());
+    } catch (e) {
+      _recordMutationError(e);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
   Future<void> _impersonate(String id) async {
+    if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Impersonate?',
@@ -284,18 +303,53 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
           ),
         );
       } else {
-        setState(
-          () => _actionError =
-              'Snaplink accepted the impersonation request but did not return '
-              'a bearer. Do not retry until server state is verified.',
-        );
+        setState(() {
+          _mutationOutcomeUnknown = true;
+          _actionError = context.tr(
+            'Snaplink accepted the impersonation request but did not return a bearer. Do not retry until server state is verified.',
+          );
+        });
       }
       await _load();
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _actionError = e.toString());
+    } catch (e) {
+      _recordMutationError(e);
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
+  }
+
+  void _recordMutationError(Object error) {
+    if (!mounted) return;
+    final unknown =
+        error is! SnaplinkAdminApiError ||
+        AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
+    setState(() {
+      _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
+      _actionError = unknown
+          ? context.tr(
+              'The break-glass write result is unknown. Reconcile the session state before retrying.',
+            )
+          : error.toString();
+    });
+  }
+
+  Future<void> _acknowledgeUnknownOutcome() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Break-glass state reconciled?',
+      message:
+          'Confirm only after checking the emergency-access session in a safe read. This unlocks break-glass writes; it does not prove the previous request failed.',
+      confirmLabel: 'Unlock break-glass writes',
+      destructive: true,
+      confirmText: 'RECONCILED',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _mutationOutcomeUnknown = false;
+      _actionError = context.tr(
+        'Break-glass reconciliation acknowledged. Review the target before sending another write.',
+      );
+    });
   }
 
   @override
@@ -306,66 +360,78 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         title: 'Break-glass access is not enabled on this replica.',
       );
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).emergencyAccess,
-          subtitle:
-              'Create audited, time-bound emergency access to user accounts.',
-          onRefresh: _load,
-          actions: [
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const LocalizedText(
-            'Requests are time-bound and reason-required; every request and session is recorded.',
-          ),
-        ),
-        const SizedBox(height: 12),
-        BreakGlassRequestCard(
-          targetController: _targetCtrl,
-          reasonController: _reasonCtrl,
-          scope: _scope,
-          requireApproval: _requireApproval,
-          mutating: _mutating,
-          accent: _accent,
-          formError: _actionError,
-          onScopeChanged: (value) => setState(() => _scope = value),
-          onTtlChanged: (value) => _ttl = value,
-          onRequireApprovalChanged: (value) =>
-              setState(() => _requireApproval = value),
-          onCreate: () => AdminRoute.go('emergency-access', action: 'new'),
-        ),
-        const SizedBox(height: 16),
-        if (_loadError != null)
-          ErrorStateCard(message: _loadError!, onRetry: _load, margin: EdgeInsets.zero)
-        else
-          BreakGlassSessionsList(
-            sessions: _sessions,
-            loading: _loading,
-            mutating: _mutating,
-            accent: _accent,
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).emergencyAccess,
+            subtitle:
+                'Create audited, time-bound emergency access to user accounts.',
             onRefresh: _load,
-            onOpen: (id) => AdminRoute.go('emergency-access', resourceId: id),
-            onApprove: _approve,
-            onImpersonate: _impersonate,
-            onRevoke: _revoke,
+            actions: [
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-      ],
-    ));
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const LocalizedText(
+              'Requests are time-bound and reason-required; every request and session is recorded.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          BreakGlassRequestCard(
+            targetController: _targetCtrl,
+            reasonController: _reasonCtrl,
+            scope: _scope,
+            requireApproval: _requireApproval,
+            mutating: _mutating || _mutationOutcomeUnknown,
+            accent: _accent,
+            formError: _actionError,
+            onScopeChanged: (value) => setState(() => _scope = value),
+            onTtlChanged: (value) => _ttl = value,
+            onRequireApprovalChanged: (value) =>
+                setState(() => _requireApproval = value),
+            onCreate: () => AdminRoute.go('emergency-access', action: 'new'),
+          ),
+          const SizedBox(height: 16),
+          if (_mutationOutcomeUnknown)
+            AdminOpsHelpers.unknownOutcomeCard(
+              context,
+              onAcknowledge: _mutating ? null : _acknowledgeUnknownOutcome,
+            ),
+          if (_mutationOutcomeUnknown) const SizedBox(height: 12),
+          if (_loadError != null)
+            ErrorStateCard(
+              message: _loadError!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
+            )
+          else
+            BreakGlassSessionsList(
+              sessions: _sessions,
+              loading: _loading,
+              mutating: _mutating || _mutationOutcomeUnknown,
+              accent: _accent,
+              onRefresh: _load,
+              onOpen: (id) => AdminRoute.go('emergency-access', resourceId: id),
+              onApprove: _approve,
+              onImpersonate: _impersonate,
+              onRevoke: _revoke,
+            ),
+        ],
+      ),
+    );
   }
 }
-

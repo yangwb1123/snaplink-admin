@@ -97,8 +97,9 @@ class AppSettings extends ChangeNotifier {
   set languageOptions(List<Locale> value) {
     if (value.isEmpty) return; // 空列表没有意义，保持当前值。
     if (value.length == _languageOptions.length &&
-        value.every((l) =>
-            _languageOptions.any((c) => c.languageCode == l.languageCode))) {
+        value.every(
+          (l) => _languageOptions.any((c) => c.languageCode == l.languageCode),
+        )) {
       return;
     }
     _languageOptions = List.unmodifiable(value);

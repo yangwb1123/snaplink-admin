@@ -148,7 +148,8 @@ void main() {
       final rows = auditEventRowsFromResponse(const {
         'events': [
           {
-            'type': 'https://sso.example.test/oauth/authorize'
+            'type':
+                'https://sso.example.test/oauth/authorize'
                 '?code=C0DESECRET&state=ST8SECRET&jwt=J0TSECRET'
                 '&key=K3YSECRET&sig=S1GSECRET&assertion=ASRTSECRET'
                 '&ticket=T1CKSECRET&session=S3SSSECRET'
@@ -204,7 +205,8 @@ void main() {
             // `decode`, `state` inside `statement`. The scrub is exact-key
             // on the normalized query key, so the full URI (and its audit
             // context) survives.
-            'type': 'https://sso.example.test/ops'
+            'type':
+                'https://sso.example.test/ops'
                 '?design=v2&monkey=zoo&decode=1&statement=paid'
                 '&limit=100&tenant_id=acme&page=2&outcome=failure',
           },
@@ -227,7 +229,8 @@ void main() {
       final rows = auditEventRowsFromResponse(const {
         'events': [
           {
-            'type': 'https://sso.example.test/continue'
+            'type':
+                'https://sso.example.test/continue'
                 '?session_id=S3SSID&session_id2=keepme',
           },
         ],
@@ -261,37 +264,40 @@ void main() {
       expect(rows.single.timestamp, isNull);
     });
 
-    test('wrong-typed envelope keys produce zero rows, never a phantom row (F1)', () {
-      // The adversarial review's degenerate-payload probe matrix: a
-      // degraded sink returning a present-but-not-List envelope key must
-      // read as "server had nothing", not as one fabricated 'audit event'
-      // record that would ride the CSV export.
-      for (final payload in <Map<String, dynamic>>[
-        const {'events': null, 'count': 0},
-        const {'events': 42},
-        const {'events': 'oops'},
-        const {'events': <String, dynamic>{}},
-      ]) {
+    test(
+      'wrong-typed envelope keys produce zero rows, never a phantom row (F1)',
+      () {
+        // The adversarial review's degenerate-payload probe matrix: a
+        // degraded sink returning a present-but-not-List envelope key must
+        // read as "server had nothing", not as one fabricated 'audit event'
+        // record that would ride the CSV export.
+        for (final payload in <Map<String, dynamic>>[
+          const {'events': null, 'count': 0},
+          const {'events': 42},
+          const {'events': 'oops'},
+          const {'events': <String, dynamic>{}},
+        ]) {
+          expect(
+            auditEventRowsFromResponse(payload),
+            isEmpty,
+            reason: 'payload: $payload',
+          );
+        }
+        // The wrong-typed envelope also wins over bare-map record fields:
+        // `{'events': null, 'id': 'x'}` is still zero rows (F3 precedence:
+        // the envelope key owns the payload shape).
         expect(
-          auditEventRowsFromResponse(payload),
+          auditEventRowsFromResponse(const {'events': null, 'id': 'x'}),
           isEmpty,
-          reason: 'payload: $payload',
         );
-      }
-      // The wrong-typed envelope also wins over bare-map record fields:
-      // `{'events': null, 'id': 'x'}` is still zero rows (F3 precedence:
-      // the envelope key owns the payload shape).
-      expect(
-        auditEventRowsFromResponse(const {'events': null, 'id': 'x'}),
-        isEmpty,
-      );
-      // And `{}` / `{'events': []}` stay zero rows (existing pin).
-      expect(auditEventRowsFromResponse(const {}), isEmpty);
-      expect(
-        auditEventRowsFromResponse(const {'events': <Object>[], 'count': 0}),
-        isEmpty,
-      );
-    });
+        // And `{}` / `{'events': []}` stay zero rows (existing pin).
+        expect(auditEventRowsFromResponse(const {}), isEmpty);
+        expect(
+          auditEventRowsFromResponse(const {'events': <Object>[], 'count': 0}),
+          isEmpty,
+        );
+      },
+    );
 
     test('never throws on garbage input', () {
       expect(
@@ -304,7 +310,10 @@ void main() {
         returnsNormally,
       );
       // Wrong-typed envelope: zero rows (F1), not a fabricated row.
-      expect(auditEventRowsFromResponse(const {'events': 'not-a-list'}), isEmpty);
+      expect(
+        auditEventRowsFromResponse(const {'events': 'not-a-list'}),
+        isEmpty,
+      );
     });
   });
 }

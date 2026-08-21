@@ -11,7 +11,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              (dark ? AppColors.primaryDark : AppColors.primary).withValues(alpha: dark ? 0.45 : 0.16),
+              (dark ? AppColors.primaryDark : AppColors.primary).withValues(
+                alpha: dark ? 0.45 : 0.16,
+              ),
               theme.scaffoldBackgroundColor,
             ],
           ),
@@ -24,13 +26,19 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               right: -60,
               child: _GlowOrb(
                 size: 220,
-                color: (dark ? AppColors.primary : AppColors.primaryTint).withValues(alpha: dark ? 0.10 : 0.35),
+                color: (dark ? AppColors.primary : AppColors.primaryTint)
+                    .withValues(alpha: dark ? 0.10 : 0.35),
               ),
             ),
             Positioned(
               bottom: -100,
               left: -70,
-              child: _GlowOrb(size: 260, color: AppColors.accentBlue.withValues(alpha: dark ? 0.08 : 0.18)),
+              child: _GlowOrb(
+                size: 260,
+                color: AppColors.accentBlue.withValues(
+                  alpha: dark ? 0.08 : 0.18,
+                ),
+              ),
             ),
             // 装饰性极光背景（login-redesign-2）——纯装饰，不拦截、无语义。
             Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
@@ -41,10 +49,14 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               // 1px 边框与圆角 16 保留（kLoginCardBlur 开关）。
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide(
-                color: dark ? Colors.white12 : AppColors.textSubtle.withValues(alpha: 0.14),
+                color: dark
+                    ? Colors.white12
+                    : AppColors.textSubtle.withValues(alpha: 0.14),
                 width: 1,
               ),
-              surfaceColor: dark ? AppColors.textMuted.withValues(alpha: 0.75) : Colors.white.withValues(alpha: 0.85),
+              surfaceColor: dark
+                  ? AppColors.textMuted.withValues(alpha: 0.75)
+                  : Colors.white.withValues(alpha: 0.85),
               backdropBlur: kLoginCardBlur ? (dark ? 24 : 20) : null,
               elevation: dark ? 0 : 1,
               child: Column(
@@ -59,8 +71,15 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     spacing: 12,
                     runSpacing: 8,
                     children: [
-                      _HoverTint(child: ThemeDropdown(compact: true, enabled: !_loading)),
-                      _HoverTint(child: LanguageDropdown(compact: true, enabled: !_loading)),
+                      _HoverTint(
+                        child: ThemeDropdown(compact: true, enabled: !_loading),
+                      ),
+                      _HoverTint(
+                        child: LanguageDropdown(
+                          compact: true,
+                          enabled: !_loading,
+                        ),
+                      ),
                       if (!kIsWeb)
                         IconButton(
                           onPressed: _loading ? null : _openNativeSettings,
@@ -72,7 +91,11 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   const SizedBox(height: 12),
                   // 品牌区：租户配置优先；仅配置品牌色时落缺省品牌区并着染产品名。
                   if (_brandName != null || _brandLogoUrl != null)
-                    BrandingHeader(brandLogoUrl: _brandLogoUrl, brandName: _brandName, brandColor: _brandColor)
+                    BrandingHeader(
+                      brandLogoUrl: _brandLogoUrl,
+                      brandName: _brandName,
+                      brandColor: _brandColor,
+                    )
                   else
                     _defaultBranding(context, brandColor: _brandColor),
                   const SizedBox(height: 16),
@@ -83,9 +106,13 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                   PageTransition(pageKey: ValueKey(_view), child: _buildView()),
                   const SizedBox(height: 12),
                   Text(
-                    context.tr('© {year} snaplink · secure identity platform', {'year': '2026'}),
+                    context.tr('© {year} snaplink · secure identity platform', {
+                      'year': '2026',
+                    }),
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -106,7 +133,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
         Expanded(
           child: Text(
             context.tr('Enterprise-grade identity & access management'),
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],
@@ -123,7 +152,11 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             boxShadow: [
-              BoxShadow(color: theme.colorScheme.primary.withValues(alpha: 0.32), blurRadius: 18, spreadRadius: 1),
+              BoxShadow(
+                color: theme.colorScheme.primary.withValues(alpha: 0.32),
+                blurRadius: 18,
+                spreadRadius: 1,
+              ),
             ],
           ),
           child: const BrandLogo(size: 48, iconSize: 28, radius: 12),
@@ -143,7 +176,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
               const SizedBox(height: 4),
               Text(
                 context.tr('Identity & Access Management'),
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -154,7 +189,10 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
 
   Widget _buildView() {
     if (_checkingFederatedReturn) {
-      return _ShellStatus(spinner: true, title: context.tr('Checking for a pending federated sign-in…'));
+      return _ShellStatus(
+        spinner: true,
+        title: context.tr('Checking for a pending federated sign-in…'),
+      );
     }
     switch (_view) {
       case _View.login:
@@ -217,7 +255,10 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       case _View.consent:
         return _consentView();
       case _View.success:
-        return _ShellStatus(icon: Icons.check_circle_outline, title: AppStrings.of(context).signedIn);
+        return _ShellStatus(
+          icon: Icons.check_circle_outline,
+          title: AppStrings.of(context).signedIn,
+        );
     }
   }
 
@@ -225,8 +266,12 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     if (_providerDiscoveryComplete && _providers.isEmpty) {
       return _ShellStatus(
         icon: Icons.person_off_outlined,
-        title: context.tr('No sign-in methods are available for this application.'),
-        subtitle: context.tr('Contact your administrator to enable sign-in for this application.'),
+        title: context.tr(
+          'No sign-in methods are available for this application.',
+        ),
+        subtitle: context.tr(
+          'Contact your administrator to enable sign-in for this application.',
+        ),
       );
     }
     return LoginViewWidget(
@@ -302,7 +347,12 @@ class _ShellStatus extends StatelessWidget {
   final String title;
   final String? subtitle;
 
-  const _ShellStatus({this.icon, this.spinner = false, required this.title, this.subtitle});
+  const _ShellStatus({
+    this.icon,
+    this.spinner = false,
+    required this.title,
+    this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -313,21 +363,29 @@ class _ShellStatus extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (spinner)
-            const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5))
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.5),
+            )
           else
             Icon(icon, size: 44, color: theme.colorScheme.primary),
           const SizedBox(height: 16),
           Text(
             title,
             textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface),
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
           ),
           if (subtitle != null) ...[
             const SizedBox(height: 8),
             Text(
               subtitle!,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],
@@ -386,7 +444,9 @@ class _HoverTintState extends State<_HoverTint> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           decoration: BoxDecoration(
-            color: _active ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6) : Colors.transparent,
+            color: _active
+                ? colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)
+                : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
           child: widget.child,

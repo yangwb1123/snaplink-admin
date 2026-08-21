@@ -24,7 +24,11 @@ import 'admin_ops_helpers.dart';
 class AdminOperationsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final List<SnaplinkAdminEndpoint> endpoints;
-  const AdminOperationsTab({super.key, required this.api, required this.endpoints});
+  const AdminOperationsTab({
+    super.key,
+    required this.api,
+    required this.endpoints,
+  });
   @override
   State<AdminOperationsTab> createState() => _AdminOperationsTabState();
 }
@@ -46,16 +50,18 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
 
   List<SnaplinkAdminEndpoint> get _adminEndpoints =>
       SnaplinkAdminOperationCatalog.mergedWith(widget.endpoints)
-          .where((endpoint) =>
-              !AdminOpsHelpers.exposesUnredactedProviderConfig(endpoint) &&
-              !AdminOpsHelpers.exposesDecodedSnapshotResources(endpoint) &&
-              !AdminOpsHelpers.requiresDedicatedWorkflow(endpoint) &&
-              (endpoint.path.startsWith('/api/v1/admin/') ||
-                  endpoint.path.startsWith('/api/v1/clients/') ||
-                  endpoint.path.startsWith('/api/v1/audit') ||
-                  endpoint.path.startsWith('/api/v1/compliance/') ||
-                  endpoint.path.startsWith('/api/v1/scim/') ||
-                  endpoint.path.startsWith('/api/v1/netpolicy/')))
+          .where(
+            (endpoint) =>
+                !AdminOpsHelpers.exposesUnredactedProviderConfig(endpoint) &&
+                !AdminOpsHelpers.exposesDecodedSnapshotResources(endpoint) &&
+                !AdminOpsHelpers.requiresDedicatedWorkflow(endpoint) &&
+                (endpoint.path.startsWith('/api/v1/admin/') ||
+                    endpoint.path.startsWith('/api/v1/clients/') ||
+                    endpoint.path.startsWith('/api/v1/audit') ||
+                    endpoint.path.startsWith('/api/v1/compliance/') ||
+                    endpoint.path.startsWith('/api/v1/scim/') ||
+                    endpoint.path.startsWith('/api/v1/netpolicy/')),
+          )
           .toList(growable: false);
   @override
   void initState() {
@@ -74,7 +80,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   SnaplinkAdminEndpoint? _defaultEndpoint() {
     if (_adminEndpoints.isEmpty) return null;
     return _adminEndpoints.firstWhere(
-      (endpoint) => endpoint.method == 'GET' && endpoint.path == '/api/v1/admin/endpoints',
+      (endpoint) =>
+          endpoint.method == 'GET' &&
+          endpoint.path == '/api/v1/admin/endpoints',
       orElse: () => _adminEndpoints.first,
     );
   }
@@ -96,11 +104,13 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     _pathCtrls.values.forEach(_disposeController);
     _pathCtrls
       ..clear()
-      ..addEntries((endpoint?.pathParameters ?? const <String>[]).map((parameter) {
-        final controller = TextEditingController();
-        controller.addListener(_pathChanged);
-        return MapEntry(parameter, controller);
-      }));
+      ..addEntries(
+        (endpoint?.pathParameters ?? const <String>[]).map((parameter) {
+          final controller = TextEditingController();
+          controller.addListener(_pathChanged);
+          return MapEntry(parameter, controller);
+        }),
+      );
     _confirmCtrl.clear();
     setState(() {
       _selected = endpoint;
@@ -124,7 +134,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     if (endpoint == null) return 'CONFIRM';
     try {
       final path = endpoint.resolvePath(
-        Map.fromEntries(_pathCtrls.entries.map((entry) => MapEntry(entry.key, entry.value.text))),
+        Map.fromEntries(
+          _pathCtrls.entries.map(
+            (entry) => MapEntry(entry.key, entry.value.text),
+          ),
+        ),
       );
       return AdminOpsHelpers.writeConfirmation(endpoint.method, path);
     } catch (_) {
@@ -135,8 +149,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
   Future<void> _run() async {
     final endpoint = _selected;
     if (endpoint == null) return;
-    final blocked =
-        endpoint.method != 'GET' && _mutationOutcomeUnknown
+    final blocked = endpoint.method != 'GET' && _mutationOutcomeUnknown
         ? 'Reconcile the previous write against authoritative server state before authorizing another mutation.'
         : endpoint.path == '/api/v1/admin/events/stream'
         ? 'Use Live audit activity for the authenticated, cancellable event stream.'
@@ -151,7 +164,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     var clearSensitiveBody = false;
     try {
       path = endpoint.resolvePath(
-        Map.fromEntries(_pathCtrls.entries.map((entry) => MapEntry(entry.key, entry.value.text))),
+        Map.fromEntries(
+          _pathCtrls.entries.map(
+            (entry) => MapEntry(entry.key, entry.value.text),
+          ),
+        ),
       );
       query = AdminOpsHelpers.stringMap(_queryCtrl.text, 'Query parameters');
       body = endpoint.method == 'GET'
@@ -168,9 +185,15 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       setState(() => _error = error.message.toString());
       return;
     }
-    final requiredConfirmation = AdminOpsHelpers.writeConfirmation(endpoint.method, path);
+    final requiredConfirmation = AdminOpsHelpers.writeConfirmation(
+      endpoint.method,
+      path,
+    );
     if (_isMutation && _confirmCtrl.text.trim() != requiredConfirmation) {
-      setState(() => _error = 'Type the exact confirmation phrase before running this write: $requiredConfirmation');
+      setState(
+        () => _error =
+            'Type the exact confirmation phrase before running this write: $requiredConfirmation',
+      );
       return;
     }
     setState(() {
@@ -182,12 +205,25 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     var responseReceived = false;
     try {
       if (AdminOpsHelpers.isSubjectExport(endpoint)) {
-        await AdminOpsHelpers.downloadSubjectExport(context, widget.api, path, query);
+        await AdminOpsHelpers.downloadSubjectExport(
+          context,
+          widget.api,
+          path,
+          query,
+        );
         return;
       }
-      final response = await AdminOpsHelpers.dispatchRequest(widget.api, endpoint, path, query, body);
+      final response = await AdminOpsHelpers.dispatchRequest(
+        widget.api,
+        endpoint,
+        path,
+        query,
+        body,
+      );
       responseReceived = true;
-      if (endpoint.method != 'GET' && mounted) setState(() => _mutationOutcomeUnknown = false);
+      if (endpoint.method != 'GET' && mounted) {
+        setState(() => _mutationOutcomeUnknown = false);
+      }
       if (mounted) {
         if (endpoint.path == '/api/v1/admin/docs') {
           final document = await widget.api.getText(path, query: query);
@@ -196,15 +232,25 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           if (response == null) {
             setState(() => _error = 'The server returned an empty response.');
           } else {
-            await AdminOpsHelpers.showOneTimeCredential(context, response, endpoint);
+            await AdminOpsHelpers.showOneTimeCredential(
+              context,
+              response,
+              endpoint,
+            );
           }
         } else {
-          setState(() => _response = response == null ? null : AdminOpsHelpers.redactResponse(response));
+          setState(
+            () => _response = response == null
+                ? null
+                : AdminOpsHelpers.redactResponse(response),
+          );
         }
       }
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) {
-        final unknown = endpoint.method != 'GET' && AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
+        final unknown =
+            endpoint.method != 'GET' &&
+            AdminOpsHelpers.isAmbiguousWriteStatus(error.status);
         setState(() {
           _mutationOutcomeUnknown = _mutationOutcomeUnknown || unknown;
           _error = unknown
@@ -235,7 +281,8 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Authoritative state reconciled?',
-      message: 'Confirm only after checking the affected resource in a safe read or dedicated workflow. This unlocks writes; it does not prove the previous request failed.',
+      message:
+          'Confirm only after checking the affected resource in a safe read or dedicated workflow. This unlocks writes; it does not prove the previous request failed.',
       confirmLabel: 'Unlock writes',
       destructive: true,
       confirmText: 'RECONCILED',
@@ -244,7 +291,8 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     _confirmCtrl.clear();
     setState(() {
       _mutationOutcomeUnknown = false;
-      _error = 'Reconciliation acknowledged. Review the endpoint, path, and body before submitting another write.';
+      _error =
+          'Reconciliation acknowledged. Review the endpoint, path, and body before submitting another write.';
     });
   }
 
@@ -258,7 +306,12 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
       const SizedBox(height: 4),
       _header(context),
       const SizedBox(height: 16),
-      const EmptyState(variant: EmptyStateVariant.empty, icon: Icons.terminal_outlined, title: 'No optional administration routes are registered on this replica.'),
+      const EmptyState(
+        variant: EmptyStateVariant.empty,
+        icon: Icons.terminal_outlined,
+        title:
+            'No optional administration routes are registered on this replica.',
+      ),
     ],
   );
   Widget _workbench(BuildContext context) {
@@ -270,7 +323,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         const SizedBox(height: 4),
         _header(context),
         const SizedBox(height: 8),
-        const LocalizedText('Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.'),
+        const LocalizedText(
+          'Documented Snaplink administration routes are listed here; runtime inventory marks routes the current replica reports as active. Server-side feature gates remain authoritative. Write operations are audited and require explicit confirmation.',
+        ),
         const SizedBox(height: 4),
         const LocalizedText(
           'Provider and connection reads are server-redacted, secret fields remain write-only, and ordinary snapshot detail is server-redacted. High-impact workflows with dedicated preview or reconciliation screens cannot be bypassed here.',
@@ -286,15 +341,30 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
             _field(entry.value, label: 'Path parameter: ${entry.key}'),
           ],
           const SizedBox(height: 12),
-          _field(_queryCtrl, label: 'Query parameters JSON', maxLines: 3, helper: 'Use {} when none are required.', mono: true),
+          _field(
+            _queryCtrl,
+            label: 'Query parameters JSON',
+            maxLines: 3,
+            helper: 'Use {} when none are required.',
+            mono: true,
+          ),
           if (_isMutation) ...[
             const SizedBox(height: 12),
-            _field(_bodyCtrl, label: 'Request body JSON', maxLines: 8, mono: true),
+            _field(
+              _bodyCtrl,
+              label: 'Request body JSON',
+              maxLines: 8,
+              mono: true,
+            ),
             const SizedBox(height: 12),
             // 确认提示只依赖路径参数文本：仅监听这些控制器局部重建。
             ListenableBuilder(
               listenable: Listenable.merge(_pathCtrls.values),
-              builder: (context, _) => _field(_confirmCtrl, label: 'Exact write confirmation', helper: _confirmationHint),
+              builder: (context, _) => _field(
+                _confirmCtrl,
+                label: 'Exact write confirmation',
+                helper: _confirmationHint,
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -302,7 +372,10 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ],
         if (_mutationOutcomeUnknown) ...[
           const SizedBox(height: 16),
-          AdminOpsHelpers.unknownOutcomeCard(context, onAcknowledge: _running ? null : _acknowledgeReconciliation),
+          AdminOpsHelpers.unknownOutcomeCard(
+            context,
+            onAcknowledge: _running ? null : _acknowledgeReconciliation,
+          ),
         ],
         if (_error != null) ...[
           const SizedBox(height: 16),
@@ -314,7 +387,11 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         ],
         if (_response != null || _rawResponse != null) ...[
           const SizedBox(height: 16),
-          AdminOpsHelpers.responseCard(context, body: AdminOpsHelpers.responseText(_response, _rawResponse), onCopy: _copyResponse),
+          AdminOpsHelpers.responseCard(
+            context,
+            body: AdminOpsHelpers.responseText(_response, _rawResponse),
+            onCopy: _copyResponse,
+          ),
         ],
       ],
     );
@@ -330,7 +407,9 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
           header: true,
           child: Text(
             AppStrings.of(context).adminOperations,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
         ),
       ),
@@ -345,7 +424,15 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
         initialValue: _selected,
         isExpanded: true,
         items: _adminEndpoints
-            .map((item) => DropdownMenuItem(value: item, child: Text('${item.method} ${item.path}', overflow: TextOverflow.ellipsis)))
+            .map(
+              (item) => DropdownMenuItem(
+                value: item,
+                child: Text(
+                  '${item.method} ${item.path}',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
             .toList(growable: false),
         onChanged: _running ? null : _select,
       ),
@@ -356,24 +443,42 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     return Row(
       children: [
         StatusChip(
-          label: documented ? context.tr('Documented only') : _selected!.feature,
+          label: documented
+              ? context.tr('Documented only')
+              : _selected!.feature,
           color: documented ? AppColors.muted : AppColors.success,
-          icon: documented ? Icons.description_outlined : Icons.check_circle_outline,
+          icon: documented
+              ? Icons.description_outlined
+              : Icons.check_circle_outline,
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: LocalizedText(documented ? 'Availability: documented contract; this replica has not advertised the route.' : 'Runtime feature surface: {feature}', args: documented ? null : {'feature': _selected!.feature}),
+          child: LocalizedText(
+            documented
+                ? 'Availability: documented contract; this replica has not advertised the route.'
+                : 'Runtime feature surface: {feature}',
+            args: documented ? null : {'feature': _selected!.feature},
+          ),
         ),
       ],
     );
   }
 
   Widget _runButton(BuildContext context) => FilledButton.icon(
-    onPressed: _running || (_isMutation && _mutationOutcomeUnknown) ? null : _run,
+    onPressed: _running || (_isMutation && _mutationOutcomeUnknown)
+        ? null
+        : _run,
     icon: _running
-        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+        ? const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
         : const Icon(Icons.play_arrow),
-    label: LocalizedText('Run {endpoint_method}', args: {'endpoint_method': _selected!.method}),
+    label: LocalizedText(
+      'Run {endpoint_method}',
+      args: {'endpoint_method': _selected!.method},
+    ),
   );
   Widget _field(
     TextEditingController controller, {
@@ -386,12 +491,22 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     maxLines: maxLines,
     enabled: !_running && (!_isMutation || !_mutationOutcomeUnknown),
     style: mono ? const TextStyle(fontFamily: 'monospace', fontSize: 13) : null,
-    decoration: InputDecoration(labelText: label.localized, helperText: helper?.localized),
+    decoration: InputDecoration(
+      labelText: label.localized,
+      helperText: helper?.localized,
+    ),
   );
   Future<void> _copyResponse() async {
-    await Clipboard.setData(ClipboardData(text: AdminOpsHelpers.responseText(_response, _rawResponse)));
+    await Clipboard.setData(
+      ClipboardData(
+        text: AdminOpsHelpers.responseText(_response, _rawResponse),
+      ),
+    );
     if (mounted) {
-      showCopySnackBar(context, content: LocalizedText('Response copied to clipboard.'));
+      showCopySnackBar(
+        context,
+        content: LocalizedText('Response copied to clipboard.'),
+      );
     }
   }
 }

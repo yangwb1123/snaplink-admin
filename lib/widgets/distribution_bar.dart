@@ -81,7 +81,10 @@ class DistributionBar extends StatelessWidget {
     // 一个汇总标签表达；浅色恒等原色，dark 下分段色经 semanticFor 提亮
     // （R29 对比度门禁，warning 2.83→8.76:1 ≥AA）。
     final label = ordered
-        .map((segment) => '${context.tr(segment.label)} ${formatCount(segment.value)}')
+        .map(
+          (segment) =>
+              '${context.tr(segment.label)} ${formatCount(segment.value)}',
+        )
         .join(', ');
     return Semantics(
       container: true,

@@ -57,10 +57,34 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
   late final void Function() _cancelPopState;
 
   static const _tabSpecs = [
-    ('members', 'Members', Icons.people, 'GET', '/api/v1/admin/tenants/:id/members'),
-    ('invitations', 'Invitations', Icons.mail_outline, 'GET', '/api/v1/admin/tenants/:id/invitations'),
-    ('usage', 'Usage', Icons.bar_chart, 'GET', '/api/v1/admin/tenants/:id/usage'),
-    ('branding', 'Branding', Icons.palette_outlined, 'GET', '/api/v1/admin/branding'),
+    (
+      'members',
+      'Members',
+      Icons.people,
+      'GET',
+      '/api/v1/admin/tenants/:id/members',
+    ),
+    (
+      'invitations',
+      'Invitations',
+      Icons.mail_outline,
+      'GET',
+      '/api/v1/admin/tenants/:id/invitations',
+    ),
+    (
+      'usage',
+      'Usage',
+      Icons.bar_chart,
+      'GET',
+      '/api/v1/admin/tenants/:id/usage',
+    ),
+    (
+      'branding',
+      'Branding',
+      Icons.palette_outlined,
+      'GET',
+      '/api/v1/admin/branding',
+    ),
   ];
 
   /// 模块强调色（tenants 组 amber）：AppBar 编辑键与 tab 芯片图标统一按组色上色（X7）。
@@ -239,17 +263,23 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     final cardByMetric = <TenantDetailMetric, KeyMetricCard>{
       if (showMembers)
         TenantDetailMetric.members: KeyMetricCard(
-          label: 'Members', value: _members.length,
-          icon: Icons.people_outline, color: AppColors.primary,
+          label: 'Members',
+          value: _members.length,
+          icon: Icons.people_outline,
+          color: AppColors.primary,
         ),
       TenantDetailMetric.invitations: KeyMetricCard(
-        label: 'Invitations', value: _invitations.length,
-        icon: Icons.mail_outline, color: AppColors.accentBlue,
+        label: 'Invitations',
+        value: _invitations.length,
+        icon: Icons.mail_outline,
+        color: AppColors.accentBlue,
       ),
       TenantDetailMetric.residencyRegion: KeyMetricCard(
-        label: 'Home region', value: homeRegion.isEmpty ? 0 : 1,
+        label: 'Home region',
+        value: homeRegion.isEmpty ? 0 : 1,
         caption: homeRegion.isEmpty ? '—' : homeRegion,
-        icon: Icons.public, color: AppColors.success,
+        icon: Icons.public,
+        color: AppColors.success,
       ),
     };
     return MetricStrip(
@@ -293,18 +323,24 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     switch (_tabs[_tabIndex].$1) {
       case 'members':
         return TenantMembersTab(
-          members: _members, error: _sectionErrors['members'],
-          onRetry: _load, onRemove: _removeMember,
+          members: _members,
+          error: _sectionErrors['members'],
+          onRetry: _load,
+          onRemove: _removeMember,
         );
       case 'invitations':
         return TenantInvitationsTab(
-          invitations: _invitations, error: _sectionErrors['invitations'],
+          invitations: _invitations,
+          error: _sectionErrors['invitations'],
           onRetry: _load,
-          onResend: _resendInvitation, onRevoke: _revokeInvitation,
+          onResend: _resendInvitation,
+          onRevoke: _revokeInvitation,
         );
       case 'usage':
         return TenantUsageTab(
-          usage: _usage ?? const {}, error: _sectionErrors['usage'], onRetry: _load,
+          usage: _usage ?? const {},
+          error: _sectionErrors['usage'],
+          onRetry: _load,
         );
       case 'branding':
         return TenantBrandingTab(api: widget.api, tenantId: widget.tenantId);
@@ -324,7 +360,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     );
     if (!confirmed) return;
     try {
-      await widget.api.delete('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}');
+      await widget.api.delete(
+        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}',
+      );
       if (!mounted) return;
       _snack('Removed {userId}', {'userId': userId});
       _load();
@@ -348,7 +386,10 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     );
     if (!confirmed) return;
     try {
-      await widget.api.post('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations', {'email': email, 'role': invitation['role']?.toString() ?? 'member'});
+      await widget.api.post(
+        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations',
+        {'email': email, 'role': invitation['role']?.toString() ?? 'member'},
+      );
       if (!mounted) return;
       _snack('Invitation resent');
       await _load();
@@ -369,7 +410,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen> {
     );
     if (!confirmed) return;
     try {
-      await widget.api.delete('/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}');
+      await widget.api.delete(
+        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}',
+      );
       if (!mounted) return;
       _snack('Invitation revoked');
       _load();

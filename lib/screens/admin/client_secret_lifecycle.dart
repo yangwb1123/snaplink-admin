@@ -5,7 +5,10 @@ import 'package:sso_admin/i18n/app_strings.dart';
 /// info rows and rotation dialogs). Pure data rendering via `context.tr`
 /// keys with `{days}`/`{date}` placeholders — never fed back into
 /// `LocalizedText` as a dynamic key (X1/X10 pattern).
-String clientSecretExpiryLabel(BuildContext context, Map<String, dynamic>? client) {
+String clientSecretExpiryLabel(
+  BuildContext context,
+  Map<String, dynamic>? client,
+) {
   final seconds = clientSecretExpiryUnix(client);
   if (seconds <= 0) return context.tr('Never expires');
   final expiry = DateTime.fromMillisecondsSinceEpoch(
@@ -19,10 +22,10 @@ String clientSecretExpiryLabel(BuildContext context, Map<String, dynamic>? clien
   }
   if (remaining <= const Duration(days: 30)) {
     final days = remaining.inDays < 1 ? '<1' : '${remaining.inDays}';
-    return context.tr(
-      'Expires in {days} day(s) · {date}',
-      {'days': days, 'date': date},
-    );
+    return context.tr('Expires in {days} day(s) · {date}', {
+      'days': days,
+      'date': date,
+    });
   }
   return context.tr('Expires {date}', {'date': date});
 }

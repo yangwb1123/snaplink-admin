@@ -40,33 +40,37 @@ void main() {
     expect(
       notData,
       isEmpty,
-      reason: '抽查页面不再含数据加载机制（不再是数据页，应从清单移除或补回）：\n'
+      reason:
+          '抽查页面不再含数据加载机制（不再是数据页，应从清单移除或补回）：\n'
           '${notData.join('\n')}',
     );
   });
 
-  test('sampled data pages reference loading/empty/error patterns (lenient)', () {
-    final warnings = <String>[];
-    for (final page in _dataPages) {
-      if (!File(page).existsSync()) continue;
-      final source = File(page).readAsStringSync();
-      final missing = <String>[
-        if (!_loadingPattern.hasMatch(source)) 'loading',
-        if (!_emptyPattern.hasMatch(source)) 'empty',
-        if (!_errorPattern.hasMatch(source)) 'error',
-      ];
-      if (missing.isNotEmpty) {
-        warnings.add('$page: 缺少 ${missing.join('/')} 模式');
+  test(
+    'sampled data pages reference loading/empty/error patterns (lenient)',
+    () {
+      final warnings = <String>[];
+      for (final page in _dataPages) {
+        if (!File(page).existsSync()) continue;
+        final source = File(page).readAsStringSync();
+        final missing = <String>[
+          if (!_loadingPattern.hasMatch(source)) 'loading',
+          if (!_emptyPattern.hasMatch(source)) 'empty',
+          if (!_errorPattern.hasMatch(source)) 'error',
+        ];
+        if (missing.isNotEmpty) {
+          warnings.add('$page: 缺少 ${missing.join('/')} 模式');
+        }
       }
-    }
-    // 宽松门禁：缺失仅告警，不失败；告警计入质量门禁报告。
-    // ignore: avoid_print
-    debugPrint('three-state warnings (${warnings.length}):');
-    for (final warning in warnings) {
+      // 宽松门禁：缺失仅告警，不失败；告警计入质量门禁报告。
       // ignore: avoid_print
-      debugPrint('  $warning');
-    }
-  });
+      debugPrint('three-state warnings (${warnings.length}):');
+      for (final warning in warnings) {
+        // ignore: avoid_print
+        debugPrint('  $warning');
+      }
+    },
+  );
 }
 
 // ---------------------------------------------------------------------

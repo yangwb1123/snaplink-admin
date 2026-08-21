@@ -46,6 +46,9 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
+  /// 请求序号：恢复/发布数据由多个可选端点聚合，旧批次不得回写新批次。
+  int _reqSeq = 0;
   final Set<String> _restorePreviews = {};
 
   /// 模块组色（developers → emerald）：页头图标统一上色（X7）。
@@ -60,6 +63,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   Future<(String, Map<String, dynamic>?, String?)> _readSection(
     String key,
     String path,
+    int seq,
   ) async {
     try {
       return (
@@ -67,7 +71,9 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         await widget.api.getStaleWhileRevalidate(
           path,
           onRefresh: (fresh) {
-            if (mounted) setState(() => _applySection(key, fresh));
+            if (mounted && seq == _reqSeq) {
+              setState(() => _applySection(key, fresh));
+            }
           },
         ),
         null,
@@ -85,11 +91,21 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后原位更新（R2）。
   void _applySection(String key, Map<String, dynamic> data) {
     switch (key) {
-      case 'Snapshots': _snapshots = recoveryRecords(data['items']); break;
-      case 'Releases': _releases = recoveryRecords(data['items']); break;
-      case 'Current release': _currentRelease = recoveryRecord(data['release']); break;
-      case 'DR status': _drStatus = data; break;
-      case 'Operations': _operations = recoveryRecords(data['operations']); break;
+      case 'Snapshots':
+        _snapshots = recoveryRecords(data['items']);
+        break;
+      case 'Releases':
+        _releases = recoveryRecords(data['items']);
+        break;
+      case 'Current release':
+        _currentRelease = recoveryRecord(data['release']);
+        break;
+      case 'DR status':
+        _drStatus = data;
+        break;
+      case 'Operations':
+        _operations = recoveryRecords(data['operations']);
+        break;
     }
   }
 
@@ -100,6 +116,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   }
 
   Future<void> _load() async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
@@ -107,17 +124,18 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     try {
       final jobs = <Future<(String, Map<String, dynamic>?, String?)>>[
         if (_has('GET', _snapshotsPath))
-          _readSection('Snapshots', _snapshotsPath),
-        if (_has('GET', _releasesPath)) _readSection('Releases', _releasesPath),
+          _readSection('Snapshots', _snapshotsPath, seq),
+        if (_has('GET', _releasesPath))
+          _readSection('Releases', _releasesPath, seq),
         if (_has('GET', '$_releasesPath:current'))
-          _readSection('Current release', '$_releasesPath:current'),
+          _readSection('Current release', '$_releasesPath:current', seq),
         if (_has('GET', '/api/v1/admin/dr/status'))
-          _readSection('DR status', '/api/v1/admin/dr/status'),
+          _readSection('DR status', '/api/v1/admin/dr/status', seq),
         if (_has('GET', _operationsPath))
-          _readSection('Operations', _operationsPath),
+          _readSection('Operations', _operationsPath, seq),
       ];
       final results = await Future.wait(jobs);
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         final errors = <String>[];
         for (final result in results) {
@@ -131,7 +149,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
         _error = errors.isEmpty ? null : errors.join('\n');
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 
@@ -153,12 +171,18 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     final previewKey = draft.previewKey(id);
     if (!draft.dryRun) {
       if (!_restorePreviews.contains(previewKey)) {
-        setState(() => _error = 'Run a successful dry-run preview with these exact restore settings before committing.');
+        setState(
+          () => _error =
+              'Run a successful dry-run preview with these exact restore settings before committing.',
+        );
         return;
       }
       final confirmed = await _confirm(
         'Restore snapshot?',
-        'Apply ${draft.mode} restore from $id? Resource families are applied sequentially. Snaplink records every step and final result in a durable operation journal for reconciliation.',
+        context.tr(
+          'Apply {mode} restore from {id}? Resource families are applied sequentially. Snaplink records every step and final result in a durable operation journal for reconciliation.',
+          {'mode': draft.mode, 'id': id},
+        ),
         confirmLabel: 'Restore snapshot',
         confirmText: id,
       );
@@ -185,7 +209,7 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     if (id.isEmpty ||
         !await _confirm(
           'Delete snapshot?',
-          'Delete stored snapshot $id?',
+          context.tr('Delete stored snapshot {id}?', {'id': id}),
           confirmLabel: 'Delete snapshot',
           confirmText: id,
         )) {
@@ -216,9 +240,17 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     final id = release['id']?.toString() ?? '';
     if (id.isEmpty) return;
     final message = switch (action) {
-      'pin' => 'Pin $id as the current paired release?',
-      'rollback' => 'Rollback frontend and backend to $id? Snapshot restore, traffic pinning, registry updates, and compensations are recorded in a durable operation journal.',
-      _ => 'Delete registered release $id?',
+      'pin' => context.tr('Pin {id} as the current paired release?', {
+        'id': id,
+      }),
+      'rollback' =>
+        context.tr('Rollback frontend and backend to {id}? {warning}', {
+          'id': id,
+          'warning': context.tr(
+            'Snapshot restore, traffic pinning, registry updates, and compensations are recorded in a durable operation journal.',
+          ),
+        }),
+      _ => context.tr('Delete registered release {id}?', {'id': id}),
     };
     final confirmLabel = switch (action) {
       'pin' => 'Pin release',
@@ -226,7 +258,11 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
       _ => 'Delete release',
     };
     if (!await _confirm(
-      '${action[0].toUpperCase()}${action.substring(1)} release?',
+      action == 'pin'
+          ? 'Pin release?'
+          : action == 'rollback'
+          ? 'Rollback release?'
+          : 'Delete release?',
       message,
       confirmLabel: confirmLabel,
       confirmText: id,
@@ -293,9 +329,19 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
           recoveryRecord(report['operation'])?['state']?.toString() ??
           'recorded';
       final tracked = operationId != null && operationId.isNotEmpty;
-      showAppSnackBar(context, content: tracked
-              ? LocalizedText('{message} Operation {operationId} is {operationState}.', args: {'message': context.tr(success), 'operationId': operationId, 'operationState': operationState})
-              : LocalizedText(success));
+      showAppSnackBar(
+        context,
+        content: tracked
+            ? LocalizedText(
+                '{message} Operation {operationId} is {operationState}.',
+                args: {
+                  'message': context.tr(success),
+                  'operationId': operationId,
+                  'operationState': operationState,
+                },
+              )
+            : LocalizedText(success),
+      );
       await _load();
       return true;
     } on SnaplinkAdminApiError catch (error) {
@@ -322,65 +368,113 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
     await _load();
     if (!mounted) return;
     final sectionError = _error;
-    setState(() => _error = '$message ${operationId == null ? '' : 'Operation $operationId failed. '}The durable operation journal and visible state were refreshed; inspect every failed step and compensation before retrying.${sectionError == null ? '' : '\n$sectionError'}');
+    setState(
+      () => _error =
+          '$message ${operationId == null ? '' : 'Operation $operationId failed. '}The durable operation journal and visible state were refreshed; inspect every failed step and compensation before retrying.${sectionError == null ? '' : '\n$sectionError'}',
+    );
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(onRefresh: _load, child: ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      const AdminBreadcrumb(),
-      _header(context),
-      if (_error != null) ...[const SizedBox(height: 4), _errorCard(context)],
-      if (_loading) ...[
+  Widget build(BuildContext context) => PullToRefresh(
+    onRefresh: _load,
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AdminBreadcrumb(),
+        _header(context),
+        if (_error != null) ...[const SizedBox(height: 4), _errorCard(context)],
+        if (_loading) ...[
+          const SizedBox(height: 12),
+          const SkeletonListTile(itemCount: 3),
+        ],
         const SizedBox(height: 12),
-        const SkeletonListTile(itemCount: 3),
-      ],
-      const SizedBox(height: 12),
-      if (_drStatus != null) RecoveryStatusCard(status: _drStatus!),
-      const SizedBox(height: 12),
-      RecoverySnapshotsCard(snapshots: _snapshots, canCreate: _has('POST', _snapshotsPath), mutating: _mutating, onCreate: _createSnapshot, onRestore: _restore, onDelete: _deleteSnapshot),
-      const SizedBox(height: 12),
-      RecoveryReleasesCard(releases: _releases, current: _currentRelease, canRegister: _has('POST', _releasesPath), mutating: _mutating, onRegister: _registerRelease, onAction: _releaseAction),
-      const SizedBox(height: 12),
-      RecoveryOperationsCard(operations: _operations),
-      if (_lastReport?.isNotEmpty == true) ...[
+        if (_drStatus != null) RecoveryStatusCard(status: _drStatus!),
         const SizedBox(height: 12),
-        _reportCard(context),
+        RecoverySnapshotsCard(
+          snapshots: _snapshots,
+          canCreate: _has('POST', _snapshotsPath),
+          mutating: _mutating,
+          onCreate: _createSnapshot,
+          onRestore: _restore,
+          onDelete: _deleteSnapshot,
+        ),
+        const SizedBox(height: 12),
+        RecoveryReleasesCard(
+          releases: _releases,
+          current: _currentRelease,
+          canRegister: _has('POST', _releasesPath),
+          mutating: _mutating,
+          onRegister: _registerRelease,
+          onAction: _releaseAction,
+        ),
+        const SizedBox(height: 12),
+        RecoveryOperationsCard(operations: _operations),
+        if (_lastReport?.isNotEmpty == true) ...[
+          const SizedBox(height: 12),
+          _reportCard(context),
+        ],
       ],
-    ],
-  ));
+    ),
+  );
 
   /// 页头：图标按模块组色上色（X7）；标题/副标题走 i18n 字面量。
   Widget _header(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Icon(Icons.restore_outlined, color: _accent, size: 28),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Semantics(container: true, header: true, child: Text(context.tr('Recovery and releases'), style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3))),
-            const SizedBox(height: 4),
-            Text(context.tr('Manage encrypted state snapshots and coordinated frontend/backend release pins.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-          ]),
-        ),
-        const SizedBox(width: 12),
-        Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-          IconButton(
-            onPressed: _loading || _mutating ? null : _load,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Refresh'.localized,
-          ),
-          if (_has('POST', '/api/v1/admin/backup'))
-            FilledButton.icon(
-              onPressed: _mutating ? null : _backup,
-              icon: const Icon(Icons.backup_outlined),
-              label: const LocalizedText('Online backup'),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.restore_outlined, color: _accent, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Semantics(
+                  container: true,
+                  header: true,
+                  child: Text(
+                    context.tr('Recovery and releases'),
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.tr(
+                    'Manage encrypted state snapshots and coordinated frontend/backend release pins.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-        ]),
-      ]),
+          ),
+          const SizedBox(width: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              IconButton(
+                onPressed: _loading || _mutating ? null : _load,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Refresh'.localized,
+              ),
+              if (_has('POST', '/api/v1/admin/backup'))
+                FilledButton.icon(
+                  onPressed: _mutating ? null : _backup,
+                  icon: const Icon(Icons.backup_outlined),
+                  label: const LocalizedText('Online backup'),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -395,11 +489,14 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   Widget _reportCard(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const SectionHeader('Last operation report'),
-        const SizedBox(height: 8),
-        SelectableText(_lastReport.toString()),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader('Last operation report'),
+          const SizedBox(height: 8),
+          SelectableText(_lastReport.toString()),
+        ],
+      ),
     ),
   );
 }

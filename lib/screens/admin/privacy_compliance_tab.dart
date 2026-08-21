@@ -195,13 +195,18 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
           Semantics(
             container: true,
             header: true,
-            child: LocalizedText('Privacy and retention', style: Theme.of(context).textTheme.headlineSmall),
+            child: LocalizedText(
+              'Privacy and retention',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
           ),
         ],
       ),
       const SizedBox(height: 4),
-      const LocalizedText('Execute data-subject requests with preview-first controls and keep '
-          'sensitive exports out of the console display.'),
+      const LocalizedText(
+        'Execute data-subject requests with preview-first controls and keep '
+        'sensitive exports out of the console display.',
+      ),
       if (_error != null) ...[const SizedBox(height: 12), _errorCard(context)],
       if (_busy) ...[
         const SizedBox(height: 12),

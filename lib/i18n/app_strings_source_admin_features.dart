@@ -133,6 +133,8 @@ const appAdminFeatureSourceZh = <String, String>{
   'Subject investigation is not enabled.': '主体调查功能未启用。',
   'Supply at least one boundary. Snaplink rejects an unscoped revoke and may require confirmation for large batches.':
       '请至少提供一个范围限制。Snaplink 会拒绝无范围撤销，并可能要求确认大型批次。',
+  'This requests deletion of each matching device record and invalidation of its bound sessions. Verify the inventory after the request: the estimate may change and the backend does not expose per-device failures.':
+      '此操作会请求删除每条匹配的设备记录，并使其绑定会话失效。请在请求后核对清单：估算值可能变化，后端不会提供逐设备失败结果。',
   'Tenant usage metering is unavailable or has no data.': '租户使用计量不可用或没有数据。',
   'Bulk revocation request accepted. The server reported {revoked} revoked of {matched} matched; verify device inventory before treating the segment as fully revoked.':
       '批量撤销请求已接受。服务器报告 {matched} 台匹配设备中已撤销 {revoked} 台；在将该设备段视为完全撤销前，请核对设备清单。',

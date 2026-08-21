@@ -243,35 +243,35 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                   title: 'Linked-identity management is not enabled.',
                 )
               : _error != null
-              ? PortalErrorCard(
-                  message: context.tr(_error!),
-                  onRetry: _load,
-                )
-              : PullToRefresh(onRefresh: _load, child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  children: [
-                    MessageBanner(_notice, ok: true),
-                    if (_identities.isEmpty)
-                      const EmptyState(
-                        compact: true,
-                        icon: Icons.link_outlined,
-                        title:
-                            'No external identities are linked to this '
-                            'account.',
-                      )
-                    else
-                      PortalCard(
-                        title: 'External sign-in methods',
-                        children: [
-                          for (final (index, identity) in _identities.indexed)
-                            StaggeredFadeIn(
-                              index: index,
-                              child: _identityRow(context, identity),
-                            ),
-                        ],
-                      ),
-                  ],
-                )),
+              ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
+              : PullToRefresh(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    children: [
+                      MessageBanner(_notice, ok: true),
+                      if (_identities.isEmpty)
+                        const EmptyState(
+                          compact: true,
+                          icon: Icons.link_outlined,
+                          title:
+                              'No external identities are linked to this '
+                              'account.',
+                        )
+                      else
+                        PortalCard(
+                          title: 'External sign-in methods',
+                          children: [
+                            for (final (index, identity) in _identities.indexed)
+                              StaggeredFadeIn(
+                                index: index,
+                                child: _identityRow(context, identity),
+                              ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
         ),
       ],
     );

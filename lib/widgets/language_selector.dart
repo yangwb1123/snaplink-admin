@@ -16,7 +16,11 @@ class LanguageDropdown extends StatefulWidget {
   /// 是否可交互（登录请求进行中时由登录头禁用，避免与加载态不一致）。
   final bool enabled;
 
-  const LanguageDropdown({super.key, this.compact = false, this.enabled = true});
+  const LanguageDropdown({
+    super.key,
+    this.compact = false,
+    this.enabled = true,
+  });
 
   @override
   State<LanguageDropdown> createState() => _LanguageDropdownState();

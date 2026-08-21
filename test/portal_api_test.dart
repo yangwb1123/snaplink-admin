@@ -189,6 +189,12 @@ void main() {
               : '403/500 must not fire the hook (403 = feature-gated '
                     'state, e.g. trusted-device enrollment until MFA — '
                     'portal_api.dart:104-107)';
+          expect(
+            requests,
+            2,
+            reason:
+                'login probe + exactly one exercised request; $path/$status',
+          );
           expect(fired, status == 401 ? 1 : 0, reason: reason);
         });
       }
@@ -218,9 +224,7 @@ void main() {
       // 2. Non-200 probe rejection → previous state restored.
       await expectLater(
         api.login('second-token'),
-        throwsA(
-          isA<PortalApiError>().having((e) => e.status, 'status', 500),
-        ),
+        throwsA(isA<PortalApiError>().having((e) => e.status, 'status', 500)),
       );
       expect(api.hasToken, isTrue);
       expect(api.currentSessionId, 's-1');
@@ -229,9 +233,7 @@ void main() {
       // 3. Transport error → PortalApiError(0) and state restored again.
       await expectLater(
         api.login('third-token'),
-        throwsA(
-          isA<PortalApiError>().having((e) => e.status, 'status', 0),
-        ),
+        throwsA(isA<PortalApiError>().having((e) => e.status, 'status', 0)),
       );
       expect(api.hasToken, isTrue);
       expect(api.currentSessionId, 's-1');
@@ -261,18 +263,25 @@ void main() {
       );
     }
 
-    test('fetchMe throws PortalApiError on non-200, decodes on 200',
-        () async {
-      for (final status in [404, 500]) {
-        final api = apiReturning(status);
-        await api.login('t');
-        await expectLater(
-          api.fetchMe(),
-          throwsA(
-            isA<PortalApiError>().having((e) => e.status, 'status', status),
-          ),
-        );
-      }
+    test('fetchMe throws PortalApiError on 404', () async {
+      final api = apiReturning(404);
+      await api.login('t');
+      await expectLater(
+        api.fetchMe(),
+        throwsA(isA<PortalApiError>().having((e) => e.status, 'status', 404)),
+      );
+    });
+
+    test('fetchMe throws PortalApiError on 500', () async {
+      final api = apiReturning(500);
+      await api.login('t');
+      await expectLater(
+        api.fetchMe(),
+        throwsA(isA<PortalApiError>().having((e) => e.status, 'status', 500)),
+      );
+    });
+
+    test('fetchMe decodes a successful profile response', () async {
       final api = PortalApi(
         httpClient: MockClient((request) async {
           if (request.url.path == '/me' && request.method == 'GET') {
@@ -286,13 +295,19 @@ void main() {
       expect(body, {'name': 'x'});
     });
 
-    test('fetchListOrEmpty swallows every error as const []', () async {
-      for (final status in [404, 500]) {
-        final api = apiReturning(status);
-        await api.login('t');
-        expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
-      }
-      // Transport error (throwing handler) → const [] without throwing.
+    test('fetchListOrEmpty turns a 404 into const []', () async {
+      final api = apiReturning(404);
+      await api.login('t');
+      expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
+    });
+
+    test('fetchListOrEmpty turns a 500 into const []', () async {
+      final api = apiReturning(500);
+      await api.login('t');
+      expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
+    });
+
+    test('fetchListOrEmpty turns a transport error into const []', () async {
       final api = PortalApi(
         httpClient: MockClient((request) async {
           if (request.url.path == '/me' && request.method == 'GET') {
@@ -303,7 +318,9 @@ void main() {
       );
       await api.login('t');
       expect(await api.fetchListOrEmpty('/me/roles', 'roles'), isEmpty);
-      // Positive control: 200 returns the keyed list.
+    });
+
+    test('fetchListOrEmpty returns the keyed list on 200', () async {
       final ok = PortalApi(
         httpClient: MockClient((request) async {
           if (request.url.path == '/me' && request.method == 'GET') {
@@ -318,15 +335,18 @@ void main() {
   });
 
   group('AC-4 JWT claim decode through the public getters (REQ-4)', () {
-    String b64url(String s) =>
-        base64Url.encode(utf8.encode(s));
+    String b64url(String s) => base64Url.encode(utf8.encode(s));
 
-    PortalApi apiFor(String token) => PortalApi(
-      httpClient: MockClient((request) async => http.Response('{}', 200)),
-    )..login(token);
+    Future<PortalApi> apiFor(String token) async {
+      final api = PortalApi(
+        httpClient: MockClient((request) async => http.Response('{}', 200)),
+      );
+      await api.login(token);
+      return api;
+    }
 
     test('string sid/aud claims decode', () async {
-      final api = apiFor(
+      final api = await apiFor(
         'h.${b64url('{"sid":"s-9","aud":"console-client"}')}.s',
       );
       expect(api.hasToken, isTrue);
@@ -335,7 +355,7 @@ void main() {
     });
 
     test('list-valued claims yield their first element', () async {
-      final api = apiFor(
+      final api = await apiFor(
         'h.${b64url('{"sid":["s-list","s-2"],"aud":["c-1","c-2"]}')}.s',
       );
       expect(api.hasToken, isTrue);
@@ -343,27 +363,46 @@ void main() {
       expect(api.currentClientId, 'c-1');
     });
 
-    test('non-JWT token shapes decode to null', () async {
-      for (final token in ['no-dots', 'two.parts', 'a.b.c.d']) {
-        final api = apiFor(token);
-        expect(api.hasToken, isTrue);
-        expect(api.currentSessionId, isNull, reason: 'token: $token');
-        expect(api.currentClientId, isNull, reason: 'token: $token');
-      }
+    test('a token without dots has no decoded claims', () async {
+      final api = await apiFor('no-dots');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
     });
 
-    test('malformed payloads decode to null', () async {
-      final malformed = [
-        'a.!!!.c', // invalid base64
-        'a.${b64url('not json')}.c', // base64 of non-JSON
-        'a.${b64url('[1,2]')}.c', // base64 of a JSON non-map
-      ];
-      for (final token in malformed) {
-        final api = apiFor(token);
-        expect(api.hasToken, isTrue);
-        expect(api.currentSessionId, isNull, reason: 'token: $token');
-        expect(api.currentClientId, isNull, reason: 'token: $token');
-      }
+    test('a two-part token has no decoded claims', () async {
+      final api = await apiFor('two.parts');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
+    });
+
+    test('a four-part token has no decoded claims', () async {
+      final api = await apiFor('a.b.c.d');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
+    });
+
+    test('an invalid-base64 payload has no decoded claims', () async {
+      final api = await apiFor('a.!!!.c');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
+    });
+
+    test('a non-JSON payload has no decoded claims', () async {
+      final api = await apiFor('a.${b64url('not json')}.c');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
+    });
+
+    test('a non-map JSON payload has no decoded claims', () async {
+      final api = await apiFor('a.${b64url('[1,2]')}.c');
+      expect(api.hasToken, isTrue);
+      expect(api.currentSessionId, isNull);
+      expect(api.currentClientId, isNull);
     });
   });
 }

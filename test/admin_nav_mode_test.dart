@@ -30,10 +30,8 @@ SSOAdminClient _ssoClient(
   }),
 );
 
-http.Response _endpoints(List<Map<String, String>> endpoints) => http.Response(
-  jsonEncode({'endpoints': endpoints}),
-  200,
-);
+http.Response _endpoints(List<Map<String, String>> endpoints) =>
+    http.Response(jsonEncode({'endpoints': endpoints}), 200);
 
 const _fullEndpoints = [
   {'method': 'GET', 'path': '/api/v1/admin/clients', 'feature': 'core'},
@@ -118,7 +116,8 @@ void main() {
 
     test('T2 corrupt values default to normal, never throw', () async {
       for (final corrupt in ['expert', '1', '', 'garbage']) {
-        final prefs = _MemoryPrefs()..values['sso_settings_admin_nav_mode'] = corrupt;
+        final prefs = _MemoryPrefs()
+          ..values['sso_settings_admin_nav_mode'] = corrupt;
         AppSettings.debugPreferencesOverride = prefs;
         await AppSettings.instance.initialize();
         expect(
@@ -148,20 +147,22 @@ void main() {
       expect(AppSettings.instance.adminNavMode, AdminNavMode.professional);
     });
 
-    test('T4 no-op setter does not notify, change notifies exactly once',
-        () async {
-      var notifications = 0;
-      void listener() => notifications++;
-      AppSettings.instance.addListener(listener);
-      addTearDown(() => AppSettings.instance.removeListener(listener));
+    test(
+      'T4 no-op setter does not notify, change notifies exactly once',
+      () async {
+        var notifications = 0;
+        void listener() => notifications++;
+        AppSettings.instance.addListener(listener);
+        addTearDown(() => AppSettings.instance.removeListener(listener));
 
-      AppSettings.instance.adminNavMode = AdminNavMode.normal; // no-op
-      expect(notifications, 0, reason: 'same-value set must not notify');
-      AppSettings.instance.adminNavMode = AdminNavMode.professional;
-      expect(notifications, 1);
-      AppSettings.instance.adminNavMode = AdminNavMode.professional; // no-op
-      expect(notifications, 1);
-    });
+        AppSettings.instance.adminNavMode = AdminNavMode.normal; // no-op
+        expect(notifications, 0, reason: 'same-value set must not notify');
+        AppSettings.instance.adminNavMode = AdminNavMode.professional;
+        expect(notifications, 1);
+        AppSettings.instance.adminNavMode = AdminNavMode.professional; // no-op
+        expect(notifications, 1);
+      },
+    );
   });
 
   group('T13/T14 failure seams', () {
@@ -172,8 +173,11 @@ void main() {
 
       AppSettings.instance.adminNavMode = AdminNavMode.professional;
       await Future<void>.delayed(Duration.zero);
-      expect(AppSettings.instance.adminNavMode, AdminNavMode.professional,
-          reason: 'in-memory value applies even when persistence throws');
+      expect(
+        AppSettings.instance.adminNavMode,
+        AdminNavMode.professional,
+        reason: 'in-memory value applies even when persistence throws',
+      );
       expect(prefs.values, isEmpty, reason: 'store must stay empty');
     });
 
@@ -185,8 +189,9 @@ void main() {
   });
 
   group('T6-T8 rail surfaces', () {
-    testWidgets('T6 normal mode shows exactly the core trio groups',
-        (tester) async {
+    testWidgets('T6 normal mode shows exactly the core trio groups', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 2200);
       tester.view.devicePixelRatio = 1.0;
       await tester.pumpWidget(
@@ -215,8 +220,9 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    testWidgets('T7 professional mode shows the hot groups, audit gated off',
-        (tester) async {
+    testWidgets('T7 professional mode shows the hot groups, audit gated off', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 2200);
       tester.view.devicePixelRatio = 1.0;
       AppSettings.instance.adminNavMode = AdminNavMode.professional;
@@ -248,71 +254,76 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
 
-    test('T8 capability precedence: gated modules stay hidden in both modes', () {
-      // Capability gating runs BEFORE the mode filter in the dashboard
-      // (dashboard_screen._buildBody): the filter only ever receives the
-      // capability-surviving module list. Professional is the identity
-      // over that list — a module capability gating removed stays hidden;
-      // normal narrows to the core trio.
-      //
-      // The widget harness cannot produce a gated-off module: the documented
-      // catalog merge (admin_navigation.dart AdminNavigationCapabilities,
-      // admin_shell_test.dart AC-5.1) keeps every gate open, so the
-      // precedence is pinned here on the pure filter instead.
-      const capabilityVisible = <String>[
-        AdminModuleId.overview,
-        AdminModuleId.clients,
-        AdminModuleId.users,
-        AdminModuleId.tenants,
-        AdminModuleId.tokenSecurity,
-        // auditLog deliberately absent: capability gating removed it.
-        AdminModuleId.webhooks, // capability-present.
-      ];
-
-      final professional = AdminHotModules.visibleForMode(
-        capabilityVisible,
-        AdminNavMode.professional,
-      );
-      expect(
-        professional,
-        isNot(contains(AdminModuleId.auditLog)),
-        reason: 'capability-gated module must stay hidden in professional',
-      );
-      expect(
-        professional,
-        orderedEquals(capabilityVisible),
-        reason: 'professional is the identity over capability-visible modules',
-      );
-      final normal = AdminHotModules.visibleForMode(
-        capabilityVisible,
-        AdminNavMode.normal,
-      );
-      expect(
-        normal,
-        isNot(contains(AdminModuleId.auditLog)),
-        reason: 'capability-gated module must stay hidden in normal',
-      );
-      expect(
-        normal,
-        isNot(contains(AdminModuleId.tenants)),
-        reason: 'normal is the core trio only — tenants is not core',
-      );
-      expect(normal, isNot(contains(AdminModuleId.webhooks)));
-      expect(
-        normal,
-        orderedEquals(<String>[
+    test(
+      'T8 capability precedence: gated modules stay hidden in both modes',
+      () {
+        // Capability gating runs BEFORE the mode filter in the dashboard
+        // (dashboard_screen._buildBody): the filter only ever receives the
+        // capability-surviving module list. Professional is the identity
+        // over that list — a module capability gating removed stays hidden;
+        // normal narrows to the core trio.
+        //
+        // The widget harness cannot produce a gated-off module: the documented
+        // catalog merge (admin_navigation.dart AdminNavigationCapabilities,
+        // admin_shell_test.dart AC-5.1) keeps every gate open, so the
+        // precedence is pinned here on the pure filter instead.
+        const capabilityVisible = <String>[
           AdminModuleId.overview,
           AdminModuleId.clients,
           AdminModuleId.users,
-        ]),
-        reason: 'normal mode keeps exactly the core trio',
-      );
-    });
+          AdminModuleId.tenants,
+          AdminModuleId.tokenSecurity,
+          // auditLog deliberately absent: capability gating removed it.
+          AdminModuleId.webhooks, // capability-present.
+        ];
+
+        final professional = AdminHotModules.visibleForMode(
+          capabilityVisible,
+          AdminNavMode.professional,
+        );
+        expect(
+          professional,
+          isNot(contains(AdminModuleId.auditLog)),
+          reason: 'capability-gated module must stay hidden in professional',
+        );
+        expect(
+          professional,
+          orderedEquals(capabilityVisible),
+          reason:
+              'professional is the identity over capability-visible modules',
+        );
+        final normal = AdminHotModules.visibleForMode(
+          capabilityVisible,
+          AdminNavMode.normal,
+        );
+        expect(
+          normal,
+          isNot(contains(AdminModuleId.auditLog)),
+          reason: 'capability-gated module must stay hidden in normal',
+        );
+        expect(
+          normal,
+          isNot(contains(AdminModuleId.tenants)),
+          reason: 'normal is the core trio only — tenants is not core',
+        );
+        expect(normal, isNot(contains(AdminModuleId.webhooks)));
+        expect(
+          normal,
+          orderedEquals(<String>[
+            AdminModuleId.overview,
+            AdminModuleId.clients,
+            AdminModuleId.users,
+          ]),
+          reason: 'normal mode keeps exactly the core trio',
+        );
+      },
+    );
   });
 
   group('T9 deep links resolve to rail-hidden modules', () {
-    testWidgets('fully-hidden group: page renders, rail falls back',
-        (tester) async {
+    testWidgets('fully-hidden group: page renders, rail falls back', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1200, 2200);
       tester.view.devicePixelRatio = 1.0;
       AppSettings.instance.adminNavMode = AdminNavMode.normal;
@@ -327,10 +338,8 @@ void main() {
                 jsonEncode({'clients': [], 'total_size': 0}),
                 200,
               ),
-              '/api/v1/admin/webhooks/subscriptions': (_) => http.Response(
-                jsonEncode({'subscriptions': []}),
-                200,
-              ),
+              '/api/v1/admin/webhooks/subscriptions': (_) =>
+                  http.Response(jsonEncode({'subscriptions': []}), 200),
             }),
           ),
         ),
@@ -371,7 +380,8 @@ void main() {
       expect(
         zh.translate(description),
         isNot(description),
-        reason: 'zh description must be translated (i18n_coverage gate does '
+        reason:
+            'zh description must be translated (i18n_coverage gate does '
             'not scan strings.translate(...) — this is the only guard)',
       );
       expect(zh.adminNavMode, '管理导航模式');

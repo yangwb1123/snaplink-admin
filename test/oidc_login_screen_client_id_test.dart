@@ -35,8 +35,7 @@ class _LoginHarness {
           if (isLogin) {
             loginPosts++;
             lastClientId = body['client_id'] as String?;
-            lastUsername =
-                (body['credential'] as Map)['username'] as String?;
+            lastUsername = (body['credential'] as Map)['username'] as String?;
             if (script.removeAt(0) == 'fail') {
               return http.Response(
                 jsonEncode({'error': 'invalid_credentials'}),
@@ -92,10 +91,7 @@ class _LoginHarness {
       'ada@example.com',
     );
     // The login form's password field label is `strings.password` ('Password').
-    await tester.enterText(
-      find.widgetWithText(TextField, 'Password'),
-      'pw',
-    );
+    await tester.enterText(find.widgetWithText(TextField, 'Password'), 'pw');
     // The view also renders a title Text('Sign in') above the button, so the
     // tap targets the FilledButton specifically.
     await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
@@ -105,21 +101,20 @@ class _LoginHarness {
 
 void main() {
   group('OidcLoginScreen client_id + exactly-once login POST', () {
-    testWidgets(
-      'mount probe fires once and is not a login request (F1, D9)',
-      (tester) async {
-        final harness = _LoginHarness(['ok']);
-        await harness.pump(tester);
+    testWidgets('mount probe fires once and is not a login request (F1, D9)', (
+      tester,
+    ) async {
+      final harness = _LoginHarness(['ok']);
+      await harness.pump(tester);
 
-        // Probe-404 at initState: the probe answered 404 and was excluded by
-        // the credential-key filter; the login form is still up with no
-        // branding-error UI.
-        expect(harness.probePosts, 1);
-        expect(harness.loginPosts, 0);
-        expect(find.widgetWithText(TextField, 'Username'), findsOneWidget);
-        expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
-      },
-    );
+      // Probe-404 at initState: the probe answered 404 and was excluded by
+      // the credential-key filter; the login form is still up with no
+      // branding-error UI.
+      expect(harness.probePosts, 1);
+      expect(harness.loginPosts, 0);
+      expect(find.widgetWithText(TextField, 'Username'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Password'), findsOneWidget);
+    });
 
     testWidgets(
       'single submit sends one credential-bearing login POST with the '

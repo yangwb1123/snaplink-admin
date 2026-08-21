@@ -65,8 +65,8 @@ test:
 # ── G7 (B6-1) executable count pin — closes the F8 silent-regression class ──
 # The four-file guard suite must report EXACTLY +$(GUARD_PIN_COUNT) on the
 # VM platform, per implementation-gate.md G7 row (`flutter test … -r
-# expanded`; breakdown guard 38 + mutation 42 + developer guard 1 + oidc
-# guard 1 = 82, 2026-08-08 re-measured — the mutation-gap work landed its
+# expanded`; breakdown guard 38 + mutation 43 + developer guard 1 + oidc
+# guard 1 = 83, 2026-08-20 re-measured — the mutation-gap work landed its
 # 3 rows: guard probe 4 (mid-identifier canary), the _scanWith
 # second-consumer dispatch-branch pin, and the scan 6/6b residual row).
 # Fail-closed: numeric equality on the expanded reporter's summary line
@@ -80,7 +80,7 @@ test:
 # Any future change to the four files must re-measure with `-r expanded`
 # and bump GUARD_PIN_COUNT and the implementation-gate.md G7 row TOGETHER.
 GUARD_PIN_FILES = test/audit_contract_guard_test.dart test/audit_contract_guard_mutation_test.dart test/developer_audit_visibility_guard_test.dart test/oidc_login_audit_visibility_guard_test.dart
-GUARD_PIN_COUNT ?= 82
+GUARD_PIN_COUNT ?= 83
 guard-count-pin:
 	@set -eu; \
 	out="$$(flutter test $(GUARD_PIN_FILES) -r expanded 2>&1)"; \
@@ -92,7 +92,7 @@ guard-count-pin:
 # 在真实浏览器运行全部 @TestOn('browser') 契约（适配层、联邦登录、
 # 账户 action、门户安全与 Admin → hosted-login resource 传递）
 test-browser:
-	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/web_adapters_test.dart
+	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart
 
 # 静态分析
 analyze:

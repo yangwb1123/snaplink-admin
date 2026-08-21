@@ -108,4 +108,78 @@ void main() {
     await tester.pumpAndSettle();
     expect(posts['/api/v1/admin/tokens/revoke'], {'session_id': 'session-123'});
   });
+
+  testWidgets(
+    'unknown temporary-token result locks retry until reconciliation',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var tempPosts = 0;
+      final api = SnaplinkAdminApi(
+        baseUrl: 'https://sso.example.test',
+        accessToken: 'admin-token',
+        httpClient: MockClient((request) async {
+          if (request.method == 'POST' && request.url.path.endsWith('/temp')) {
+            tempPosts++;
+            return http.Response('{"error":"gateway"}', 503);
+          }
+          return http.Response('{}', 200);
+        }),
+      )..maxRetries = 1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TokenSecurityTab(
+              api: api,
+              capabilities: SnaplinkAdminCapabilities(
+                SnaplinkAdminOperationCatalog.endpoints,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Temp Token'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('temp-token-user-id')),
+        'user-unknown',
+      );
+      await tester.tap(find.byKey(const Key('temp-token-submit')));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'user-unknown',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      expect(tempPosts, 1);
+      expect(find.text('Previous write outcome is unknown'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('temp-token-submit')))
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('I reconciled server state'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(TextField),
+        ),
+        'RECONCILED',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Unlock token writes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Previous write outcome is unknown'), findsNothing);
+    },
+  );
 }

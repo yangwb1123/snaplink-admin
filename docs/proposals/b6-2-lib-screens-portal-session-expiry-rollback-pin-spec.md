@@ -2,7 +2,7 @@
 
 > Source direction: **"Pin PortalApi session-expiry hook firing and token-state rollback semantics (test-only; the state machine around the already-pinned login leg)"** (value 7 / risk-reduction 7 / effort 2 / confidence 9), from `docs/auto/analyses/lib-screens-portal-44bdd36d.json`.
 >
-> Verification basis: **HEAD `de9b446`** (working tree checked 2026-08-08; every cited span re-checked via the live tree; no `lib/` working-tree diff). The direction's premise — that `test/portal_api_test.dart`'s five tests never assert the hook fires, that `login()` rollback / `fetchMe` / `fetchListOrEmpty` / JWT claim decode are untested — **holds at HEAD** (verified below). Nothing has landed for this direction; this spec is a build request for the test-only change set. Line positions in the direction's evidence list are from an earlier snapshot and are refreshed here with `[CORRECTION]` markers where they drifted.
+> Verification basis: **HEAD `de9b446`** (historical baseline; working tree implementation verified 2026-08-20). The four gaps described below were real at that baseline and are now pinned by the landed test-only change set: `test/portal_api_test.dart` has the 42-test VM suite, `test/portal_entry_test.dart` runs in the browser gate, and `Makefile:test-browser` includes the entry suite. Historical line positions remain marked with `[CORRECTION]` where they drifted.
 
 ## 0. Direction premise vs HEAD (verified, no delta)
 
@@ -77,8 +77,8 @@ Helpers are private, so each case goes through `login(token)` with a mock that 2
 - Each case asserts `hasToken` is true (the decode path is only reachable with an installed token).
 
 ### AC-5 (suite + zero-lib gate)
-- `flutter test test/portal_api_test.dart test/portal_entry_test.dart` → all green (portal_entry_test untouched, re-run as the request-bound regression guard).
-- `git diff --exit-code --stat -- lib/` → **empty** (zero `lib/` changes; REQ-1..REQ-4 are test-only).
+- `flutter test test/portal_api_test.dart` → **42/42** VM tests; `flutter test --platform chrome test/portal_entry_test.dart` → **13/13** browser tests (the latter is also included by `make test-browser`).
+- `git diff --exit-code --stat -- lib/` → **empty for this direction** (REQ-1..REQ-4 are test-only; unrelated working-tree production changes are outside this pin).
 
 ## 4. Scope guard (non-goals, unchanged from the direction)
 
@@ -92,6 +92,7 @@ Helpers are private, so each case goes through `login(token)` with a mock that 2
 
 ```bash
 cd /home/u1/workspace/demo/snaplink-console
-flutter test test/portal_api_test.dart test/portal_entry_test.dart   # AC-5 leg 1
-git diff --exit-code --stat -- lib/                                  # AC-5 leg 2 (empty)
+flutter test test/portal_api_test.dart                                # AC-5 VM leg
+flutter test --platform chrome test/portal_entry_test.dart            # AC-5 browser leg
+git diff --exit-code --stat -- lib/                                   # AC-5 zero-lib leg
 ```

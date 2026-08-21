@@ -53,6 +53,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   String? _error;
   bool _loading = false;
   bool _mutating = false;
+
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
   int _reqSeq = 0;
 
@@ -85,7 +86,11 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     try {
       final data = await widget.api.getStaleWhileRevalidate(
         _basePath,
-        onRefresh: _applyRefresh,
+        onRefresh: (fresh) {
+          if (mounted && seq == _reqSeq) {
+            setState(() => _applyChanges(fresh));
+          }
+        },
       );
       if (!mounted || seq != _reqSeq) return;
       setState(() {
@@ -105,11 +110,6 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         .whereType<Map>()
         .map(normalizeChangeApproval)
         .toList(growable: false);
-  }
-
-  void _applyRefresh(Map<String, dynamic> fresh) {
-    if (!mounted) return;
-    setState(() => _applyChanges(fresh));
   }
 
   Future<void> _propose() async {
@@ -137,20 +137,17 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
               'Approval may immediately apply {action}. You must be a different administrator from the proposer.',
               {'action': actionName},
             )
-          : context.tr(
-              'Reject {action}? It will never be applied.',
-              {'action': actionName},
-            ),
+          : context.tr('Reject {action}? It will never be applied.', {
+              'action': actionName,
+            }),
       confirmLabel: approve ? 'Approve' : 'Reject',
       destructive: true,
       confirmText: id,
     );
     if (!confirmed) return;
     await _write(
-      () => widget.api.post(
-        '$_basePath/${Uri.encodeComponent(id)}/$action',
-        {},
-      ),
+      () =>
+          widget.api.post('$_basePath/${Uri.encodeComponent(id)}/$action', {}),
       approve ? 'Change approved.' : 'Change rejected.',
     );
   }
@@ -183,63 +180,72 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         title: 'Two-person administrative approvals are not enabled.',
       );
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).changeApprovals,
-          subtitle:
-              'High-impact changes require an independent administrator to approve them before application.',
-          onRefresh: _load,
-          actions: [
-            FilledButton.icon(
-              onPressed: _mutating ? null : _propose,
-              icon: const Icon(Icons.add_task_outlined, size: 18),
-              label: const LocalizedText('Propose change'),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        _statusFilter(context),
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: SkeletonListTile(itemCount: 3),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).changeApprovals,
+            subtitle:
+                'High-impact changes require an independent administrator to approve them before application.',
+            onRefresh: _load,
+            actions: [
+              FilledButton.icon(
+                onPressed: _mutating ? null : _propose,
+                icon: const Icon(Icons.add_task_outlined, size: 18),
+                label: const LocalizedText('Propose change'),
+              ),
+              const SizedBox(width: 4),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
           ),
-        if (!_loading && _error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
-          ),
-        if (!_loading && _error == null && _visible.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: EmptyState(
-              compact: true,
-              variant: _status == ChangeStatus.all
-                  ? EmptyStateVariant.empty
-                  : EmptyStateVariant.noMatch,
-              title: 'No change requests',
-              subtitle: _status == ChangeStatus.all
-                  ? 'No governed changes have been proposed.'
-                  : 'No requests currently have this status.',
-              actionLabel: _status == ChangeStatus.all ? null : 'Clear filter',
-              actionIcon: Icons.filter_alt_off,
-              onAction: _status == ChangeStatus.all
-                  ? null
-                  : () => setState(() => _status = ChangeStatus.all),
+          _statusFilter(context),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 16),
+              child: SkeletonListTile(itemCount: 3),
             ),
-          ),
-        if (!_loading && _error == null && _visible.isNotEmpty)
-          _changeList(context),
-      ],
-    ));
+          if (!_loading && _error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: ErrorStateCard(
+                message: _error!,
+                onRetry: _load,
+                margin: EdgeInsets.zero,
+              ),
+            ),
+          if (!_loading && _error == null && _visible.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: EmptyState(
+                compact: true,
+                variant: _status == ChangeStatus.all
+                    ? EmptyStateVariant.empty
+                    : EmptyStateVariant.noMatch,
+                title: 'No change requests',
+                subtitle: _status == ChangeStatus.all
+                    ? 'No governed changes have been proposed.'
+                    : 'No requests currently have this status.',
+                actionLabel: _status == ChangeStatus.all
+                    ? null
+                    : 'Clear filter',
+                actionIcon: Icons.filter_alt_off,
+                onAction: _status == ChangeStatus.all
+                    ? null
+                    : () => setState(() => _status = ChangeStatus.all),
+              ),
+            ),
+          if (!_loading && _error == null && _visible.isNotEmpty)
+            _changeList(context),
+        ],
+      ),
+    );
   }
 
   /// 状态过滤：常量状态值走 i18n 键（all/pending/approved/applied/rejected/failed）。
@@ -372,8 +378,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     'rejected' => StatusChip.failed(label: context.tr('Rejected')),
     'failed' => StatusChip.failed(label: context.tr('Failed')),
     _ => StatusChip.unknown(
-        label: status.isEmpty ? context.tr('unknown') : status,
-      ),
+      label: status.isEmpty ? context.tr('unknown') : status,
+    ),
   };
 }
-

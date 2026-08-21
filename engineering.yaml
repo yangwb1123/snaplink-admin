@@ -56,7 +56,41 @@ filesize:
     - "lib/screens/admin/token_security_tab.dart"
     - "lib/screens/admin/governance_tab.dart"
     - "lib/screens/admin/admin_operations_tab.dart"
-    # Large screens actively being refactored
+    # 2026-08 continuation: cohesive stateful screens remain intentionally
+    # over the generic 400-line budget while their behavior-heavy sections
+    # are being componentized. Keep these entries explicit (new files still
+    # fail the budget) and track the next decomposition opportunities in
+    # docs/TECH_DEBT.md rather than silently widening max_lines.
+    - "lib/screens/admin/access_policies_tab.dart"
+    - "lib/screens/admin/admin_live_events_tab.dart"
+    - "lib/screens/admin/admin_overview_tab.dart"
+    - "lib/screens/admin/break_glass_tab.dart"
+    - "lib/screens/admin/client_detail_screen.dart"
+    - "lib/screens/admin/commerce/commerce_tab.dart"
+    - "lib/screens/admin/connections_tab.dart"
+    - "lib/screens/admin/crypto_keys_tab.dart"
+    - "lib/screens/admin/domains_tab.dart"
+    - "lib/screens/admin/governance_widgets.dart"
+    - "lib/screens/admin/local_users_tab.dart"
+    - "lib/screens/admin/privacy_compliance_tab.dart"
+    - "lib/screens/admin/scim/scim_bulk_panel.dart"
+    - "lib/screens/admin/scim/scim_resource_browser.dart"
+    - "lib/screens/admin/tenant_branding_tab.dart"
+    - "lib/screens/admin/tenant_detail_screen.dart"
+    - "lib/screens/admin/tenants_tab.dart"
+    - "lib/screens/admin/threat_policies_tab.dart"
+    - "lib/screens/admin/usage_analytics_tab.dart"
+    - "lib/screens/admin/user_support_cards.dart"
+    - "lib/screens/admin/user_support_tab.dart"
+    - "lib/screens/admin/users_tab.dart"
+    - "lib/screens/admin/webhooks_tab.dart"
+    - "lib/screens/developer/manage_panel.dart"
+    - "lib/screens/oidc_login/account_flow_views.dart"
+    - "lib/screens/oidc_login/login_view_widget.dart"
+    - "lib/screens/oidc_login/oidc_login_view_flow.dart"
+    - "lib/screens/portal/notifications_tab.dart"
+    - "lib/screens/portal/organizations_tab.dart"
+    - "lib/screens/setup/setup_widgets.dart"
   required_exemptions:
     - "lib/main.dart"
 

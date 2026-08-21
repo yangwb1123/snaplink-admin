@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
@@ -117,12 +118,10 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
     filter.toRequestBody();
     final confirmed = await ConfirmDialog.show(
       context,
-      title: 'Revoke $count matching devices?',
-      message:
-          'This requests deletion of each matching device record and '
-          'invalidation of its bound sessions. Verify the inventory after the '
-          'request: the estimate may change and the backend does not expose '
-          'per-device failures.',
+      title: context.tr('Revoke {count} matching devices?', {'count': count}),
+      message: context.tr(
+        'This requests deletion of each matching device record and invalidation of its bound sessions. Verify the inventory after the request: the estimate may change and the backend does not expose per-device failures.',
+      ),
       confirmLabel: 'Revoke devices',
       destructive: true,
       confirmText: filter.confirmationText(count),
@@ -293,7 +292,10 @@ class _DeviceBulkRevokeDialogState extends State<DeviceBulkRevokeDialog> {
                         ? Icons.verified_outlined
                         : Icons.warning_amber_outlined,
                   ),
-                  title: LocalizedText('Estimated matches: {_estimatedCount}', args: {'_estimatedCount': _estimatedCount}),
+                  title: LocalizedText(
+                    'Estimated matches: {_estimatedCount}',
+                    args: {'_estimatedCount': _estimatedCount},
+                  ),
                   subtitle: LocalizedText(
                     _estimatedCount == 0
                         ? 'No devices currently match; revocation is disabled.'

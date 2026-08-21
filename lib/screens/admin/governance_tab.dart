@@ -48,18 +48,42 @@ class _GovernanceTabState extends State<GovernanceTab> {
   String _currentSection = 'all';
   late final void Function() _cancelPopState;
   static final _sections = [
-    SectionDef('all', 'All', Icons.dashboard_outlined,
-        color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('audit', 'Audit', Icons.search,
-        color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('compliance', 'Compliance', Icons.verified_outlined,
-        color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('configuration', 'Config', Icons.settings_outlined,
-        color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('lifecycle', 'Lifecycle', Icons.swap_vert,
-        color: adminModuleIconColor(AdminModuleId.governance)),
-    SectionDef('write', 'Write', Icons.edit_outlined,
-        color: adminModuleIconColor(AdminModuleId.governance)),
+    SectionDef(
+      'all',
+      'All',
+      Icons.dashboard_outlined,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'audit',
+      'Audit',
+      Icons.search,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'compliance',
+      'Compliance',
+      Icons.verified_outlined,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'configuration',
+      'Config',
+      Icons.settings_outlined,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'lifecycle',
+      'Lifecycle',
+      Icons.swap_vert,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'write',
+      'Write',
+      Icons.edit_outlined,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
   ];
 
   @override
@@ -145,7 +169,9 @@ class _GovernanceTabState extends State<GovernanceTab> {
         }),
       );
       if (!mounted) return;
-      final failures = results.where((result) => result.error.isNotEmpty).toList();
+      final failures = results
+          .where((result) => result.error.isNotEmpty)
+          .toList();
       setState(() {
         _data.addEntries(
           results
@@ -235,7 +261,10 @@ class _GovernanceTabState extends State<GovernanceTab> {
           : await widget.api.delete(path, body);
       if (!mounted) return null;
       setState(() => _data['lastWrite'] = _safe(result));
-      showAppSnackBar(context, content: LocalizedText('{op} completed.', args: {'op': label}));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('{op} completed.', args: {'op': label}),
+      );
       await _refresh();
       return null;
     } on SnaplinkAdminApiError catch (error) {
@@ -303,30 +332,48 @@ class _GovernanceTabState extends State<GovernanceTab> {
         ),
       ),
       Expanded(
-        child: PullToRefresh(onRefresh: _refresh, child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (_error != null)
-              GovernanceErrorBanner(error: _error!, onRetry: _refresh),
-            if (_loading) const SkeletonListTile(itemCount: 3),
-            if (_show('all') || _show('health'))
-              _readSection('Platform health', Icons.monitor_heart_outlined, 'health'),
-            if (_show('all') || _show('audit')) _auditPanel(context),
-            if (_show('all') || _show('compliance'))
-              _readSection('Compliance evidence', Icons.verified_outlined, 'compliance'),
-            if (_show('all') || _show('configuration'))
-              _readSection('Configuration assurance', Icons.settings_outlined, 'configuration'),
-            if (_show('all') || _show('lifecycle'))
-              _readSection(
-                'Snapshots, releases, and change approvals',
-                Icons.swap_vert,
-                'lifecycle',
-              ),
-            if (_show('all') || _show('write')) _writePanel(context),
-            if (_data.containsKey('lastWrite'))
-              GovernanceJsonCard(title: 'Last write response', data: _data['lastWrite']!),
-          ],
-        )),
+        child: PullToRefresh(
+          onRefresh: _refresh,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (_error != null)
+                GovernanceErrorBanner(error: _error!, onRetry: _refresh),
+              if (_loading) const SkeletonListTile(itemCount: 3),
+              if (_show('all') || _show('health'))
+                _readSection(
+                  'Platform health',
+                  Icons.monitor_heart_outlined,
+                  'health',
+                ),
+              if (_show('all') || _show('audit')) _auditPanel(context),
+              if (_show('all') || _show('compliance'))
+                _readSection(
+                  'Compliance evidence',
+                  Icons.verified_outlined,
+                  'compliance',
+                ),
+              if (_show('all') || _show('configuration'))
+                _readSection(
+                  'Configuration assurance',
+                  Icons.settings_outlined,
+                  'configuration',
+                ),
+              if (_show('all') || _show('lifecycle'))
+                _readSection(
+                  'Snapshots, releases, and change approvals',
+                  Icons.swap_vert,
+                  'lifecycle',
+                ),
+              if (_show('all') || _show('write')) _writePanel(context),
+              if (_data.containsKey('lastWrite'))
+                GovernanceJsonCard(
+                  title: 'Last write response',
+                  data: _data['lastWrite']!,
+                ),
+            ],
+          ),
+        ),
       ),
     ],
   );

@@ -108,8 +108,10 @@ class AdminOpsHelpers {
 
   /// 查询参数映射（值字符串化）。
   static Map<String, String> stringMap(String value, String label) =>
-      parseJsonObject(value, label)
-          .map((key, item) => MapEntry(key, item.toString()));
+      parseJsonObject(
+        value,
+        label,
+      ).map((key, item) => MapEntry(key, item.toString()));
 
   /// 按端点契约派发单个请求；GET /docs 返回 null，文档文本由调用方单独拉取。
   static Future<Map<String, dynamic>?> dispatchRequest(
@@ -132,10 +134,10 @@ class AdminOpsHelpers {
       'PATCH' => await api.patch(path, body, contentType),
       'DELETE' => await api.delete(path, body, contentType),
       _ => throw ArgumentError.value(
-          endpoint.method,
-          'method',
-          'Unsupported HTTP method',
-        ),
+        endpoint.method,
+        'method',
+        'Unsupported HTTP method',
+      ),
     };
   }
 
@@ -152,7 +154,12 @@ class AdminOpsHelpers {
       export,
       fallbackFilename: 'snaplink-subject-export.json',
     );
-    showAppSnackBar(context, content: LocalizedText('Subject export downloaded without previewing it.'));
+    showAppSnackBar(
+      context,
+      content: LocalizedText(
+        'Subject export downloaded without previewing it.',
+      ),
+    );
   }
 
   /// 响应文本：JSON（缩进）或原始文档；供面板与复制共用。
@@ -171,17 +178,38 @@ class AdminOpsHelpers {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       color: scheme.errorContainer,
-      child: ListTile(
-        leading: Icon(Icons.sync_problem_outlined, color: scheme.error),
-        title: const LocalizedText('Previous write outcome is unknown'),
-        subtitle: const LocalizedText(
-          'Mutation inputs are locked. Select and run a safe GET, or '
-          'use the dedicated resource screen, then explicitly '
-          'acknowledge reconciliation.',
-        ),
-        trailing: TextButton(
-          onPressed: onAcknowledge,
-          child: const LocalizedText('I reconciled server state'),
+      child: Semantics(
+        container: true,
+        liveRegion: true,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.sync_problem_outlined, color: scheme.error),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: LocalizedText('Previous write outcome is unknown'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const LocalizedText(
+                'Mutation inputs are locked. Select and run a safe GET, or '
+                'use the dedicated resource screen, then explicitly '
+                'acknowledge reconciliation.',
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: onAcknowledge,
+                  child: const LocalizedText('I reconciled server state'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

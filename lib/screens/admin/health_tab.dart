@@ -99,55 +99,58 @@ class _HealthTabState extends State<HealthTab> {
         _health?.isNotEmpty == true ||
         _storageHealth?.isNotEmpty == true ||
         _federationHealth?.isNotEmpty == true;
-    return PullToRefresh(onRefresh: _refresh, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        _header(context),
-        // 健康总览（异常优先）：三个子系统状态一眼可见。
-        _overview(context),
-        const SizedBox(height: 12),
-        // 三态：loading → 骨架；error → 卡片 + Retry；empty → EmptyState。
-        if (_loading && _health == null)
-          const SkeletonListTile(
-            itemCount: 3,
-            variant: SkeletonVariant.card,
-            delay: Duration(milliseconds: 150),
-          )
-        else if (_error != null && _health == null)
-          _errorCard(context)
-        else if (!hasData)
-          const EmptyState(
-            variant: EmptyStateVariant.empty,
-            title: 'No health data returned by the server yet.',
-          )
-        else ...[
-          _serverCard(context),
+    return PullToRefresh(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          _header(context),
+          // 健康总览（异常优先）：三个子系统状态一眼可见。
+          _overview(context),
           const SizedBox(height: 12),
-          DistributedClusterPanel(api: widget.api),
-          if (_storageHealth?.isNotEmpty ?? false) ...[
+          // 三态：loading → 骨架；error → 卡片 + Retry；empty → EmptyState。
+          if (_loading && _health == null)
+            const SkeletonListTile(
+              itemCount: 3,
+              variant: SkeletonVariant.card,
+              delay: Duration(milliseconds: 150),
+            )
+          else if (_error != null && _health == null)
+            _errorCard(context)
+          else if (!hasData)
+            const EmptyState(
+              variant: EmptyStateVariant.empty,
+              title: 'No health data returned by the server yet.',
+            )
+          else ...[
+            _serverCard(context),
             const SizedBox(height: 12),
-            _dataCard(
-              context,
-              'Storage Health',
-              _storageHealth!,
-              Icons.storage_outlined,
-            ),
+            DistributedClusterPanel(api: widget.api),
+            if (_storageHealth?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              _dataCard(
+                context,
+                'Storage Health',
+                _storageHealth!,
+                Icons.storage_outlined,
+              ),
+            ],
+            if (_federationHealth?.isNotEmpty ?? false) ...[
+              const SizedBox(height: 12),
+              _dataCard(
+                context,
+                'Federation Health',
+                _federationHealth!,
+                Icons.lan_outlined,
+              ),
+            ],
           ],
-          if (_federationHealth?.isNotEmpty ?? false) ...[
-            const SizedBox(height: 12),
-            _dataCard(
-              context,
-              'Federation Health',
-              _federationHealth!,
-              Icons.lan_outlined,
-            ),
-          ],
+          const SizedBox(height: 12),
+          _actionsCard(context),
         ],
-        const SizedBox(height: 12),
-        _actionsCard(context),
-      ],
-    ));
+      ),
+    );
   }
 
   /// 页头：模块组色图标 + 标题 + 副标题 + 刷新（X7）。

@@ -36,9 +36,7 @@ void main() {
       'device_browser': 'chrome',
       'trust_label': 'Trusted',
     };
-    await tester.pumpWidget(
-      wrapSession(session, (_) async {}),
-    );
+    await tester.pumpWidget(wrapSession(session, (_) async {}));
     expect(find.text('sess-1'), findsOneWidget);
     expect(find.textContaining('since '), findsOneWidget);
     expect(find.textContaining('expires '), findsOneWidget);
@@ -72,9 +70,7 @@ void main() {
     /// 在 Localizations 之下取 context（MaterialApp 元素本身在其上）。
     late BuildContext captured;
     Widget probe() => MaterialApp(
-      home: Scaffold(
-        body: _ContextProbe((context) => captured = context),
-      ),
+      home: Scaffold(body: _ContextProbe((context) => captured = context)),
     );
     String hint(String ua) => deviceHint(captured, ua);
 
@@ -88,7 +84,10 @@ void main() {
 
     testWidgets('maps Firefox on Android and Edge on macOS', (tester) async {
       await tester.pumpWidget(probe());
-      expect(hint('Mozilla/5.0 (Android 14) Firefox/126.0'), 'Firefox on Android');
+      expect(
+        hint('Mozilla/5.0 (Android 14) Firefox/126.0'),
+        'Firefox on Android',
+      );
       expect(
         hint('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Edg/125.0'),
         'Edge on macOS',

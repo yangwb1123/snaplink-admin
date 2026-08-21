@@ -208,7 +208,10 @@ class DcrMetadataForm extends StatelessWidget {
           ),
         const SizedBox(height: 16),
         // R31：2 项短枚举 → SegmentedButton（替代 Token strategy 下拉）。
-        Text(context.tr('Token strategy'), style: Theme.of(context).textTheme.labelLarge),
+        Text(
+          context.tr('Token strategy'),
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
         const SizedBox(height: 8),
         SegmentedButton<String>(
           key: ValueKey('strategy-${controller.tokenStrategy}'),
@@ -275,10 +278,7 @@ class DcrMetadataForm extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        _lineField(
-          controller.contacts,
-          context.tr('Contacts (one per line)'),
-        ),
+        _lineField(controller.contacts, context.tr('Contacts (one per line)')),
         const SizedBox(height: 16),
         TextField(
           controller: controller.tenantId,
@@ -357,11 +357,7 @@ class DcrMetadataForm extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 12),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: Theme.of(context).colorScheme.primary,
-            ),
+            Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

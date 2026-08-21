@@ -70,9 +70,7 @@ abstract final class AdminHotModules {
     if (mode == AdminNavMode.professional) {
       return capabilityVisible;
     }
-    return capabilityVisible
-        .where(core.contains)
-        .toList(growable: false);
+    return capabilityVisible.where(core.contains).toList(growable: false);
   }
 }
 
@@ -91,16 +89,32 @@ class AdminNavigationCapabilities {
   /// 404/501, authorization, tenant, and feature-gate response as the final
   /// authority.
   final SnaplinkAdminCapabilities capabilities;
+  final SnaplinkAdminCapabilities runtimeCapabilities;
+  final bool runtimeInventoryLoading;
+  final bool runtimeInventoryAvailable;
 
   AdminNavigationCapabilities(
     List<SnaplinkAdminEndpoint> endpoints, {
     List<SnaplinkAdminEndpoint>? documentedEndpoints,
+    this.runtimeInventoryLoading = false,
+    this.runtimeInventoryAvailable = true,
   }) : capabilities = SnaplinkAdminCapabilities(
          _mergeEndpoints(
            endpoints,
            documentedEndpoints ?? SnaplinkAdminOperationCatalog.endpoints,
          ),
-       );
+       ),
+       runtimeCapabilities = SnaplinkAdminCapabilities(endpoints);
+
+  /// Shared state view for pages that need to distinguish a documented route
+  /// from a route actually advertised by the connected replica.
+  SnaplinkAdminCapabilitySnapshot get snapshot =>
+      SnaplinkAdminCapabilitySnapshot(
+        effective: capabilities,
+        runtime: runtimeCapabilities,
+        runtimeInventoryLoading: runtimeInventoryLoading,
+        runtimeInventoryAvailable: runtimeInventoryAvailable,
+      );
 
   bool get supportsOrganizations =>
       _hasAnyPathPrefix('/api/v1/admin/tenants/:id/members') ||

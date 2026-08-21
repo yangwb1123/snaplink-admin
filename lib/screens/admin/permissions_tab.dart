@@ -22,7 +22,11 @@ import 'permissions_workspace_widgets.dart';
 class PermissionsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
-  const PermissionsTab({super.key, required this.api, required this.capabilities});
+  const PermissionsTab({
+    super.key,
+    required this.api,
+    required this.capabilities,
+  });
   @override
   State<PermissionsTab> createState() => _PermissionsTabState();
 }
@@ -75,7 +79,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'permissions') return;
-    if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) _clientCtrl.text = route.resourceId;
+    if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) {
+      _clientCtrl.text = route.resourceId;
+    }
     _currentSection = route.subresource.isNotEmpty ? route.subresource : 'all';
     if (_clientId != null) _load();
     if (mounted) setState(() {});
@@ -83,7 +89,11 @@ class _PermissionsTabState extends State<PermissionsTab> {
 
   void _selectSection(String section) {
     setState(() => _currentSection = section);
-    AdminRoute.go('permissions', resourceId: _clientId ?? '', subresource: section == 'all' ? '' : section);
+    AdminRoute.go(
+      'permissions',
+      resourceId: _clientId ?? '',
+      subresource: section == 'all' ? '' : section,
+    );
   }
 
   @override
@@ -104,12 +114,19 @@ class _PermissionsTabState extends State<PermissionsTab> {
     return path;
   }
 
-  List<String> _codes(String text) =>
-      text.split(RegExp(r'[,\n]')).map((v) => v.trim()).where((v) => v.isNotEmpty).toSet().toList();
+  List<String> _codes(String text) => text
+      .split(RegExp(r'[,\n]'))
+      .map((v) => v.trim())
+      .where((v) => v.isNotEmpty)
+      .toSet()
+      .toList();
 
   List<Map<String, dynamic>> _records(Object? value) => value is! List
       ? const []
-      : value.whereType<Map>().map((i) => Map<String, dynamic>.from(i)).toList();
+      : value
+            .whereType<Map>()
+            .map((i) => Map<String, dynamic>.from(i))
+            .toList();
 
   Future<void> _load() async {
     widget.api.skipCache();
@@ -118,7 +135,10 @@ class _PermissionsTabState extends State<PermissionsTab> {
       setState(() => _error = 'Enter a client ID first.');
       return;
     }
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final jobs = <Future>[
         if (_supportsRoles)
@@ -135,7 +155,10 @@ class _PermissionsTabState extends State<PermissionsTab> {
           ? _records(results[idx]['assignments'])
           : <Map<String, dynamic>>[];
       if (!mounted) return;
-      setState(() { _roles = roles; _assignments = assignments; });
+      setState(() {
+        _roles = roles;
+        _assignments = assignments;
+      });
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } catch (_) {
@@ -157,7 +180,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (!await _confirm(
       context.tr(editing ? 'Update role?' : 'Create role?'),
       context.tr(
-        editing ? 'Update role {code} for {client}?' : 'Create role {code} for {client}?',
+        editing
+            ? 'Update role {code} for {client}?'
+            : 'Create role {code} for {client}?',
         {'code': role.code, 'client': cid},
       ),
       confirmLabel: editing ? 'Update' : 'Create',
@@ -166,8 +191,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
     }
     await _write(
       () => editing
-          ? widget.api.put(_path(_rolePath, {'client_id': cid, 'role_code': role.code}), role.toJson())
-          : widget.api.post(_path(_rolesPath, {'client_id': cid}), role.toJson()),
+          ? widget.api.put(
+              _path(_rolePath, {'client_id': cid, 'role_code': role.code}),
+              role.toJson(),
+            )
+          : widget.api.post(
+              _path(_rolesPath, {'client_id': cid}),
+              role.toJson(),
+            ),
       editing ? 'Role updated.' : 'Role created.',
     );
   }
@@ -177,7 +208,10 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (cid == null || code.isEmpty) return;
     if (!await _confirm(
       context.tr('Delete role?'),
-      context.tr('Delete {code} from {client}? This cannot be undone.', {'code': code, 'client': cid}),
+      context.tr('Delete {code} from {client}? This cannot be undone.', {
+        'code': code,
+        'client': cid,
+      }),
       confirmLabel: 'Delete',
       destructive: true,
       confirmText: code,
@@ -185,7 +219,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
       return;
     }
     await _write(
-      () => widget.api.delete(_path(_rolePath, {'client_id': cid, 'role_code': code})),
+      () => widget.api.delete(
+        _path(_rolePath, {'client_id': cid, 'role_code': code}),
+      ),
       'Role deleted.',
     );
   }
@@ -204,7 +240,10 @@ class _PermissionsTabState extends State<PermissionsTab> {
     }
     if (!await _confirm(
       context.tr('Assign roles?'),
-      context.tr('Assign {roles} to {user}?', {'roles': codes.join(', '), 'user': uid}),
+      context.tr('Assign {roles} to {user}?', {
+        'roles': codes.join(', '),
+        'user': uid,
+      }),
       confirmLabel: 'Assign',
     )) {
       return;
@@ -231,7 +270,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
       return;
     }
     await _write(
-      () => widget.api.post(_path(_unassignPath, {'client_id': cid, 'user_id': uid})),
+      () => widget.api.post(
+        _path(_unassignPath, {'client_id': cid, 'user_id': uid}),
+      ),
       'User unassigned.',
     );
   }
@@ -249,7 +290,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
         return;
       }
       await _write(
-        () => widget.api.put(_path(_menusPath, {'client_id': cid}), {'menus': menus}),
+        () => widget.api.put(_path(_menusPath, {'client_id': cid}), {
+          'menus': menus,
+        }),
         'Navigation tree updated.',
       );
     } on FormatException {
@@ -292,80 +335,123 @@ class _PermissionsTabState extends State<PermissionsTab> {
   Widget build(BuildContext context) {
     final clientId = _clientId;
     final accent = adminModuleIconColor('permissions');
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: Icon(Icons.admin_panel_settings_outlined, color: accent),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Semantics(container: true, header: true, child: Text(AppStrings.of(context).permissions, style: Theme.of(context).textTheme.headlineSmall)),
-                  const SizedBox(height: 4),
-                  LocalizedText(
-                    'Client-scoped roles, assignments and navigation menus.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  ),
-                ],
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(Icons.admin_panel_settings_outlined, color: accent),
               ),
-            ),
-            IconButton(onPressed: _clientId == null || _loading ? null : _load, icon: Icon(Icons.refresh, color: accent), tooltip: context.strings.refresh),
-          ],
-        ),
-        const SizedBox(height: 16),
-        PermissionsClientSelector(
-          controller: _clientCtrl,
-          clientId: clientId,
-          loading: _loading,
-          onSearch: _load,
-          onSubmitted: _handleRoute,
-        ),
-        if (_error != null) ...[const SizedBox(height: 8), _errorBanner(context)],
-        if (clientId != null) ...[
-          const SizedBox(height: 12),
-          SectionSelector(
-            current: _currentSection,
-            onSelected: _selectSection,
-            sections: [
-              SectionDef('all', 'All', Icons.view_quilt_outlined, color: accent),
-              SectionDef('roles', 'Roles', Icons.shield_outlined, color: accent),
-              SectionDef('assignments', 'Assignments', Icons.assignment_outlined, color: accent),
-              SectionDef('menus', 'Menus', Icons.account_tree_outlined, color: accent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        AppStrings.of(context).permissions,
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    LocalizedText(
+                      'Client-scoped roles, assignments and navigation menus.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _clientId == null || _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: accent),
+                tooltip: context.strings.refresh,
+              ),
             ],
           ),
-        ],
-        if (clientId != null && _loading) ...[
-          const SizedBox(height: 12),
-          const SkeletonListTile(itemCount: 3),
-        ],
-        if (clientId != null && !_loading) ...[
-          if ((_currentSection == 'all' || _currentSection == 'roles') && _supportsRoles) ...[
-            const SizedBox(height: 12),
-            _roleSection(context),
+          const SizedBox(height: 16),
+          PermissionsClientSelector(
+            controller: _clientCtrl,
+            clientId: clientId,
+            loading: _loading,
+            onSearch: _load,
+            onSubmitted: _handleRoute,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            _errorBanner(context),
           ],
-          if ((_currentSection == 'all' || _currentSection == 'assignments') && _supportsAssignments) ...[
+          if (clientId != null) ...[
             const SizedBox(height: 12),
-            _assignmentSection(context),
-          ],
-          if ((_currentSection == 'all' || _currentSection == 'menus') && _supportsMenus) ...[
-            const SizedBox(height: 12),
-            PermissionMenusCard(
-              controller: _menusCtrl,
-              mutating: _mutating,
-              onSave: _saveMenus,
+            SectionSelector(
+              current: _currentSection,
+              onSelected: _selectSection,
+              sections: [
+                SectionDef(
+                  'all',
+                  'All',
+                  Icons.view_quilt_outlined,
+                  color: accent,
+                ),
+                SectionDef(
+                  'roles',
+                  'Roles',
+                  Icons.shield_outlined,
+                  color: accent,
+                ),
+                SectionDef(
+                  'assignments',
+                  'Assignments',
+                  Icons.assignment_outlined,
+                  color: accent,
+                ),
+                SectionDef(
+                  'menus',
+                  'Menus',
+                  Icons.account_tree_outlined,
+                  color: accent,
+                ),
+              ],
             ),
           ],
+          if (clientId != null && _loading) ...[
+            const SizedBox(height: 12),
+            const SkeletonListTile(itemCount: 3),
+          ],
+          if (clientId != null && !_loading) ...[
+            if ((_currentSection == 'all' || _currentSection == 'roles') &&
+                _supportsRoles) ...[
+              const SizedBox(height: 12),
+              _roleSection(context),
+            ],
+            if ((_currentSection == 'all' ||
+                    _currentSection == 'assignments') &&
+                _supportsAssignments) ...[
+              const SizedBox(height: 12),
+              _assignmentSection(context),
+            ],
+            if ((_currentSection == 'all' || _currentSection == 'menus') &&
+                _supportsMenus) ...[
+              const SizedBox(height: 12),
+              PermissionMenusCard(
+                controller: _menusCtrl,
+                mutating: _mutating,
+                onSave: _saveMenus,
+              ),
+            ],
+          ],
         ],
-      ],
-    ));
+      ),
+    );
   }
 
   Widget _errorBanner(BuildContext context) => Container(
@@ -376,7 +462,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
     ),
     child: Row(
       children: [
-        Icon(Icons.error_outline, size: 18, color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger)),
+        Icon(
+          Icons.error_outline,
+          size: 18,
+          color: AppColors.semanticFor(
+            Theme.of(context).brightness,
+            AppColors.danger,
+          ),
+        ),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -389,7 +482,8 @@ class _PermissionsTabState extends State<PermissionsTab> {
               ),
             ),
           ),
-        ),        TextButton(
+        ),
+        TextButton(
           onPressed: _clientId == null ? null : _load,
           child: const LocalizedText('Retry'),
         ),

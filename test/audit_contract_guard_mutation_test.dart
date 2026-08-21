@@ -434,6 +434,18 @@ class AuditLogTab {
           reason: violations.join('\n'),
         );
       });
+
+      test('skin D — audit surface added to the contract-named PortalApi', () {
+        final source = _libSource('api/portal_api.dart');
+        final mutated = '$source\n/// audit probe comment\n';
+        expect(mutated, isNot(source));
+        final violations = _scanWith({'api/portal_api.dart': mutated});
+        expect(
+          violations.where((v) => v.scan == 'portal-audit-boundary'),
+          isNotEmpty,
+          reason: violations.join('\n'),
+        );
+      });
     });
 
     group('B6-1 scan 6 — developer negative boundary fails closed', () {

@@ -169,22 +169,37 @@ void main() {
       '(shared implementation, canonical-literal payloads)', () {
     test('Clause A probe — a fabricated emission string trips', () {
       expect(
-        clauseAEmissionString('auth.login.' 'success'),
+        clauseAEmissionString(
+          'auth.login.'
+          'success',
+        ),
         isTrue,
       );
       expect(
-        clauseAEmissionString('auth.login.' 'ok'),
+        clauseAEmissionString(
+          'auth.login.'
+          'ok',
+        ),
         isFalse,
       );
     });
 
     test('Clause B probe — a ../-relative route construction trips', () {
-      expect(clauseBLoginPath('../' 'auth/' 'login'), isTrue);
+      expect(
+        clauseBLoginPath(
+          '../'
+          'auth/'
+          'login',
+        ),
+        isTrue,
+      );
       expect(clauseBLoginPath('/me/security/activity'), isFalse);
     });
 
     test('Clause C probe — a quoted key in a payload trips', () {
-      final payload = "result['client_" "id']";
+      final payload =
+          "result['client_"
+          "id']";
       expect(clauseCClientIdKey(payload), isTrue);
       expect(clauseCClientIdKey('result[clientId]'), isFalse);
       expect(clauseCClientIdKey('result.clientId'), isFalse);
@@ -210,9 +225,27 @@ void main() {
     };
     // Dirty tree — one canonical-literal probe file per clause, built
     // from the same split pieces the green runs use.
-    writeProbe('_probe_a.dart', "final s = '" 'auth.login.' 'success' "';\n");
-    writeProbe('_probe_b.dart', "final p = '../" 'auth/' 'login' "';\n");
-    writeProbe('_probe_c.dart', "final k = " "'client_" "id'" ";\n");
+    writeProbe(
+      '_probe_a.dart',
+      "final s = '"
+          'auth.login.'
+          'success'
+          "';\n",
+    );
+    writeProbe(
+      '_probe_b.dart',
+      "final p = '../"
+          'auth/'
+          'login'
+          "';\n",
+    );
+    writeProbe(
+      '_probe_c.dart',
+      "final k = "
+          "'client_"
+          "id'"
+          ";\n",
+    );
     for (final entry in clauses.entries) {
       expect(
         offendersFor(tempDir.path, entry.value),

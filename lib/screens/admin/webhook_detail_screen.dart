@@ -156,7 +156,9 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                         deadLetters: _deadLetters,
                         expanded: _showDeadLetters,
                         mutating: _mutating,
-                        onToggle: () => setState(() => _showDeadLetters = !_showDeadLetters),
+                        onToggle: () => setState(
+                          () => _showDeadLetters = !_showDeadLetters,
+                        ),
                         onReplay: _replay,
                         onReplayAll: _replayAll,
                       ),
@@ -166,7 +168,9 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _mutating ? null : () => _delete(context),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Theme.of(context).colorScheme.error,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                           ),
                           icon: const Icon(Icons.delete_outline),
                           label: const LocalizedText('Delete subscription'),
@@ -245,7 +249,11 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text('$e'),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -261,9 +269,10 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Replay all?',
-      message:
-          'Send all ${ids.length} stored events again. Receivers may repeat '
-          'business actions. Each result is reported independently.',
+      message: context.tr(
+        'Send all {count} stored events again. Receivers may repeat business actions. Each result is reported independently.',
+        {'count': ids.length},
+      ),
       confirmLabel: 'Replay all deliveries',
       destructive: true,
       confirmText: 'REPLAY ${ids.length}',
@@ -288,7 +297,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
         } catch (_) {
           return (delivered: 0, cleanupPending: 0, failed: 1);
         }
-      }));
+      }),
+    );
     var delivered = 0;
     var cleanupPending = 0;
     var failed = 0;
@@ -365,7 +375,11 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     } catch (e) {
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
-      showAppSnackBar(context, content: Text('$e'), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: Text('$e'),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

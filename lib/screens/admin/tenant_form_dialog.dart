@@ -85,7 +85,11 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
       if (mounted) Navigator.pop(context, true);
     } on SSOError catch (e) {
       if (mounted) {
-        showAppSnackBar(context, content: LocalizedText('Failed: {e}', args: {'e': e}), kind: AppSnackBarKind.error);
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Failed: {e}', args: {'e': e}),
+          kind: AppSnackBarKind.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -155,18 +159,18 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
                   ),
                 ],
                 TenantResidencyFields(
-                homeRegionController: _homeRegionController,
-                allowedRegionsController: _allowedRegionsController,
-                enforceWrites: _enforceWrites,
-                onEnforceWritesChanged: (value) {
-                  setState(() => _enforceWrites = value);
-                },
-              ),
-            ],
+                  homeRegionController: _homeRegionController,
+                  allowedRegionsController: _allowedRegionsController,
+                  enforceWrites: _enforceWrites,
+                  onEnforceWritesChanged: (value) {
+                    setState(() => _enforceWrites = value);
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ),
       actions: [
         TextButton(
           onPressed: _saving ? null : () => Navigator.pop(context, false),

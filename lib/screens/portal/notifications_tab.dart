@@ -55,7 +55,9 @@ class _NotificationsTabState extends State<NotificationsTab> {
         _loading = true;
         _error = null;
       });
-    } else { setState(() => _loadingMore = true); }
+    } else {
+      setState(() => _loadingMore = true);
+    }
     try {
       final before = more && _items.isNotEmpty
           ? _items.last['id']?.toString()
@@ -80,7 +82,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
     } catch (_) {
       if (mounted) setState(() => _error = 'Notifications are not available.');
     } finally {
-      if (mounted) setState(() { _loading = false; _loadingMore = false; });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
     }
   }
 
@@ -161,8 +168,10 @@ class _NotificationsTabState extends State<NotificationsTab> {
     });
     widget.onChanged?.call();
     if (failed) {
-      _snack('Some notifications could not be marked as read.',
-          kind: AppSnackBarKind.error);
+      _snack(
+        'Some notifications could not be marked as read.',
+        kind: AppSnackBarKind.error,
+      );
     }
   }
 
@@ -212,10 +221,11 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
     if (mounted) {
       _snack(
-          ok
-              ? 'Notification preferences saved.'
-              : 'Could not save notification preferences.',
-          kind: ok ? AppSnackBarKind.success : AppSnackBarKind.error);
+        ok
+            ? 'Notification preferences saved.'
+            : 'Could not save notification preferences.',
+        kind: ok ? AppSnackBarKind.success : AppSnackBarKind.error,
+      );
       setState(() => _saving = false);
     }
   }
@@ -223,113 +233,135 @@ class _NotificationsTabState extends State<NotificationsTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Semantics(container: true, header: true, child: Text(context.tr('Notifications'), style: theme.textTheme.headlineSmall)),
-                  Text(
-                    context.tr(
-                      '{count} unread security and account notifications.',
-                      {'count': formatCount(_unread)},
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Semantics(
+                      container: true,
+                      header: true,
+                      child: Text(
+                        context.tr('Notifications'),
+                        style: theme.textTheme.headlineSmall,
+                      ),
                     ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    Text(
+                      context.tr(
+                        '{count} unread security and account notifications.',
+                        {'count': formatCount(_unread)},
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_unread > 0)
+                TextButton(
+                  onPressed: _loading ? null : _markAllRead,
+                  child: Text(context.tr('Mark all as read')),
+                ),
+              IconButton(
+                onPressed: _loading ? null : _load,
+                tooltip: context.tr('Refresh notifications'),
+                icon: const Icon(Icons.refresh),
+                color: theme.colorScheme.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_loading)
+            const SkeletonListTile(itemCount: 3)
+          else ...[
+            PortalCard(
+              title: 'Inbox',
+              children: [
+                if (_error != null) ...[
+                  MessageBanner(_error),
+                  OutlinedButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(context.tr('Retry')),
+                  ),
+                ] else if (_items.isEmpty)
+                  const EmptyState(
+                    compact: true,
+                    icon: Icons.notifications_off_outlined,
+                    title: 'You have no notifications.',
+                  )
+                else ...[
+                  for (final (index, item) in _items.indexed)
+                    StaggeredFadeIn(
+                      index: index,
+                      child: _NotificationTile(
+                        item: item,
+                        onTap: () => _markRead(item),
+                      ),
+                    ),
+                  if (_hasMore)
+                    TextButton(
+                      onPressed: _loadingMore ? null : () => _load(more: true),
+                      child: _loadingMore
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(context.tr('Load more')),
+                    ),
+                ],
+              ],
+            ),
+            if (_preferences.isNotEmpty)
+              PortalCard(
+                title: 'Notification preferences',
+                children: [
+                  for (final preference in _preferences)
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        context.tr(
+                          _typeLabel(preference['type']?.toString() ?? ''),
+                        ),
+                      ),
+                      subtitle: Text(
+                        context.tr(
+                          _channelLabel(
+                            preference['channel']?.toString() ?? '',
+                          ),
+                        ),
+                      ),
+                      value: preference['enabled'] != false,
+                      onChanged: (value) =>
+                          setState(() => preference['enabled'] = value),
+                    ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _savePreferences,
+                      icon: _saving
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.save_outlined),
+                      label: Text(context.tr('Save preferences')),
                     ),
                   ),
                 ],
               ),
-            ),
-            if (_unread > 0)
-              TextButton(
-                onPressed: _loading ? null : _markAllRead,
-                child: Text(context.tr('Mark all as read')),
-              ),
-            IconButton(
-              onPressed: _loading ? null : _load,
-              tooltip: context.tr('Refresh notifications'),
-              icon: const Icon(Icons.refresh),
-              color: theme.colorScheme.primary,
-            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        if (_loading)
-          const SkeletonListTile(itemCount: 3)
-        else ...[
-          PortalCard(
-            title: 'Inbox',
-            children: [
-              if (_error != null) ...[
-                MessageBanner(_error),
-                OutlinedButton.icon(
-                  onPressed: _load,
-                  icon: const Icon(Icons.refresh),
-                  label: Text(context.tr('Retry')),
-                ),
-              ] else if (_items.isEmpty)
-                const EmptyState(
-                  compact: true,
-                  icon: Icons.notifications_off_outlined,
-                  title: 'You have no notifications.',
-                )
-              else ...[
-                for (final (index, item) in _items.indexed)
-                  StaggeredFadeIn(index: index, child: _NotificationTile(item: item, onTap: () => _markRead(item))),
-                if (_hasMore)
-                  TextButton(
-                    onPressed: _loadingMore ? null : () => _load(more: true),
-                    child: _loadingMore
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                        : Text(context.tr('Load more')),
-                  ),
-              ],
-            ],
-          ),
-          if (_preferences.isNotEmpty)
-            PortalCard(
-              title: 'Notification preferences',
-              children: [
-                for (final preference in _preferences)
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      context.tr(
-                        _typeLabel(preference['type']?.toString() ?? ''),
-                      ),
-                    ),
-                    subtitle: Text(
-                      context.tr(
-                        _channelLabel(preference['channel']?.toString() ?? ''),
-                      ),
-                    ),
-                    value: preference['enabled'] != false,
-                    onChanged: (value) =>
-                        setState(() => preference['enabled'] = value),
-                  ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton.icon(
-                    onPressed: _saving ? null : _savePreferences,
-                    icon: _saving
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.save_outlined),
-                    label: Text(context.tr('Save preferences')),
-                  ),
-                ),
-              ],
-            ),
         ],
-      ],
-    ));
+      ),
+    );
   }
 }
 
@@ -365,7 +397,14 @@ class _NotificationTile extends StatelessWidget {
         item['title']?.toString() ?? context.tr('Security notification'),
         style: TextStyle(fontWeight: unread ? FontWeight.w700 : null),
       ),
-      subtitle: Text(_join(item['body'], item['created_at'] == null ? null : formatServerTime(item['created_at']))),
+      subtitle: Text(
+        _join(
+          item['body'],
+          item['created_at'] == null
+              ? null
+              : formatServerTime(item['created_at']),
+        ),
+      ),
       trailing: StatusChip(label: context.tr(label), color: color, icon: icon),
     );
   }
@@ -377,9 +416,8 @@ List<Map<String, dynamic>> _objects(Object? value) => value is List
           .map((item) => Map<String, dynamic>.from(item))
           .toList()
     : <Map<String, dynamic>>[];
-String _join(Object? first, Object? second) => [first, second]
-    .where((v) => v?.toString().isNotEmpty == true)
-    .join(' · ');
+String _join(Object? first, Object? second) =>
+    [first, second].where((v) => v?.toString().isNotEmpty == true).join(' · ');
 
 /// Severity → (icon, brand color, label key); unknown severities = Notice.
 (IconData, Color, String) _severityStyle(String severity) => switch (severity) {

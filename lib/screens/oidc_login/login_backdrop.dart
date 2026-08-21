@@ -7,7 +7,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 /// a11y R3）、无模糊/Ticker/Timer/资产/依赖——全层静态渐变，`transientCallbackCount
 /// == 0` 断言天然成立。层次：① 超大主光斑（900px）中央偏上打底，故意落在
 /// 卡片排除带内——玻璃卡需要"背后有光"；② 四角光斑（480/560/340/440px）
-/// 保留，仅微调亮色 α（0.30→0.32 等）；④ 底部渐隐收尾（暗 #0F172A→0.55）；
+/// 保留，仅微调亮色 α（0.30→0.32 等）；④ 底部渐隐收尾（暗色文本色阶→0.55）；
 /// ⑤ 顶部微光带（900×140 三段线性渐变）。亮色"更清新"= 更高 α + 更浅
 /// 色阶（indigo-400→indigo-200，新增装饰常量 [AppColors.violetTint]）。
 class LoginBackdrop extends StatelessWidget {
@@ -30,7 +30,8 @@ class LoginBackdrop extends StatelessWidget {
 
   /// 按亮度换色（装饰三原则）：暗色保持 400/600 级原色，亮色更浅色阶
   /// （indigo-200 = primaryTint / violet-200 = violetTint）。
-  Color _tint(Color darkColor, Color lightColor) => _light ? lightColor : darkColor;
+  Color _tint(Color darkColor, Color lightColor) =>
+      _light ? lightColor : darkColor;
 
   @override
   Widget build(BuildContext context) => RepaintBoundary(
@@ -55,7 +56,10 @@ class LoginBackdrop extends StatelessWidget {
             ),
             _glow(
               size: glowTopRight,
-              color: _tint(AppColors.accentBlueBright, AppColors.accentBlueBright),
+              color: _tint(
+                AppColors.accentBlueBright,
+                AppColors.accentBlueBright,
+              ),
               alpha: _light ? 0.24 : 0.10,
               alignment: const Alignment(0.65, -0.70),
             ),
@@ -82,23 +86,27 @@ class LoginBackdrop extends StatelessWidget {
   );
 
   /// 单个光斑：大半径径向渐变圆，边缘透明（Apple 式氛围光，无硬边）。
-  Widget _glow({required double size, required Color color, required double alpha, required Alignment alignment}) =>
-      Align(
-        alignment: alignment,
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                color.withValues(alpha: alpha),
-                color.withValues(alpha: 0),
-              ],
-            ),
-          ),
+  Widget _glow({
+    required double size,
+    required Color color,
+    required double alpha,
+    required Alignment alignment,
+  }) => Align(
+    alignment: alignment,
+    child: Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(
+          colors: [
+            color.withValues(alpha: alpha),
+            color.withValues(alpha: 0),
+          ],
         ),
-      );
+      ),
+    ),
+  );
 
   /// 顶部微光带颜色（亮色浅色阶 indigo-200）。
   Color get _bandColor => _tint(AppColors.primaryOnDark, AppColors.primaryTint);

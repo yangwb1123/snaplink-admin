@@ -188,7 +188,10 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         body: {'branding': branding},
       );
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText('Tenant branding saved.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Tenant branding saved.'),
+      );
       await _load();
     } on SnaplinkAdminApiError catch (error) {
       if (error.status == 412) {
@@ -286,7 +289,10 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
             _error!,
             // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
             style: TextStyle(
-              color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger),
+              color: AppColors.semanticFor(
+                Theme.of(context).brightness,
+                AppColors.danger,
+              ),
             ),
           ),
         ],
@@ -336,7 +342,8 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
                   enabled: !_saving && !_outcomeUnknown,
                   decoration: InputDecoration(
                     labelText: 'Languages'.localized,
-                    hintText: 'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
+                    hintText:
+                        'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
                   ),
                 ),
                 const SizedBox(height: 12),

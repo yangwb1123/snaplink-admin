@@ -39,8 +39,8 @@ class ThemeDropdown extends StatelessWidget {
   /// 当前界面亮度下的主题模式图标色。
   static Color themeModeAccentColor(ThemeMode mode, Brightness brightness) =>
       brightness == Brightness.dark
-          ? (_darkBrightnessAccents[mode] ?? _modeAccents[mode]!)
-          : _modeAccents[mode]!;
+      ? (_darkBrightnessAccents[mode] ?? _modeAccents[mode]!)
+      : _modeAccents[mode]!;
 
   @override
   Widget build(BuildContext context) {
@@ -73,11 +73,7 @@ class ThemeDropdown extends StatelessWidget {
       // MenuController 切换。prefixIcon 承载当前主题模式图标。其余字段由
       // inputDecorationTheme 经 applyDefaults 合并。
       decorationBuilder: (context, controller) => InputDecoration(
-        prefixIcon: Icon(
-          _modeIcons[current]!,
-          size: 20,
-          color: currentColor,
-        ),
+        prefixIcon: Icon(_modeIcons[current]!, size: 20, color: currentColor),
         suffixIcon: appHeaderDropdownSuffixIcon(
           theme,
           controller,
@@ -85,8 +81,9 @@ class ThemeDropdown extends StatelessWidget {
         ),
       ),
       textStyle: textStyle,
-      inputDecorationTheme:
-          compact ? compactHeaderDecoration(theme) : formHeaderDecoration(theme),
+      inputDecorationTheme: compact
+          ? compactHeaderDecoration(theme)
+          : formHeaderDecoration(theme),
       menuStyle: appHeaderMenuStyle(theme),
       dropdownMenuEntries: [
         for (final mode in ThemeMode.values)
@@ -111,13 +108,11 @@ class ThemeDropdown extends StatelessWidget {
                     color: themeModeAccentColor(mode, theme.brightness),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    switch (mode) {
-                      ThemeMode.system => strings.themeSystem,
-                      ThemeMode.light => strings.themeLight,
-                      ThemeMode.dark => strings.themeDark,
-                    },
-                  ),
+                  Text(switch (mode) {
+                    ThemeMode.system => strings.themeSystem,
+                    ThemeMode.light => strings.themeLight,
+                    ThemeMode.dark => strings.themeDark,
+                  }),
                 ],
               ),
             ),

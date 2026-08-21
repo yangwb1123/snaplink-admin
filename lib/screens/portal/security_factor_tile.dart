@@ -45,9 +45,7 @@ class SecurityFactorTile extends StatelessWidget {
       ),
       title: Text(
         factor['label']?.toString() ?? method,
-        style: theme.textTheme.bodyLarge?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
+        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         meta,

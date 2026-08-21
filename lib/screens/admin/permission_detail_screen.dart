@@ -96,9 +96,10 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
         title: Semantics(
           container: true,
           header: true,
-          child: LocalizedText('Permissions: {widget_clientId}', args: {
-            'widget_clientId': widget.clientId,
-          }),
+          child: LocalizedText(
+            'Permissions: {widget_clientId}',
+            args: {'widget_clientId': widget.clientId},
+          ),
         ),
         leading: IconButton(
           tooltip: 'Back'.localized,
@@ -205,11 +206,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
         subtitle: LocalizedText(
           'Subject: {subject}',
           args: {
-            'subject':
-                a['subject'] ??
-                a['user_id'] ??
-                a['group_id'] ??
-                '',
+            'subject': a['subject'] ?? a['user_id'] ?? a['group_id'] ?? '',
           },
         ),
       ),

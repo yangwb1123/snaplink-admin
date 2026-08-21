@@ -131,37 +131,34 @@ Widget appHeaderDropdownSuffixIcon(
   ThemeData theme,
   MenuController controller, {
   required bool enabled,
-}) =>
-    ExcludeSemantics(
-      child: IconButton(
-        icon: Icon(
-          Icons.arrow_drop_down,
-          size: headerDropdownArrowSize,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        selectedIcon: Icon(
-          Icons.arrow_drop_up,
-          size: headerDropdownArrowSize,
-          color: theme.colorScheme.onSurfaceVariant,
-        ),
-        isSelected: controller.isOpen,
-        onPressed: enabled
-            ? () => controller.isOpen
-                ? controller.close()
-                : controller.open()
-            : null,
-        iconSize: headerDropdownArrowSize,
-        constraints: const BoxConstraints.tightFor(
-          width: headerDropdownArrowSize,
-          height: headerDropdownArrowSize,
-        ),
-        style: IconButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-      ),
-    );
+}) => ExcludeSemantics(
+  child: IconButton(
+    icon: Icon(
+      Icons.arrow_drop_down,
+      size: headerDropdownArrowSize,
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+    selectedIcon: Icon(
+      Icons.arrow_drop_up,
+      size: headerDropdownArrowSize,
+      color: theme.colorScheme.onSurfaceVariant,
+    ),
+    isSelected: controller.isOpen,
+    onPressed: enabled
+        ? () => controller.isOpen ? controller.close() : controller.open()
+        : null,
+    iconSize: headerDropdownArrowSize,
+    constraints: const BoxConstraints.tightFor(
+      width: headerDropdownArrowSize,
+      height: headerDropdownArrowSize,
+    ),
+    style: IconButton.styleFrom(
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    ),
+  ),
+);
 
 /// 登录头紧凑输入装饰（无边框，紧凑高度）。prefix/suffix 图标约束收紧到
 /// 20px（与设置页表单版同一视觉），否则 InputDecorator 的 icon 默认
@@ -171,31 +168,33 @@ Widget appHeaderDropdownSuffixIcon(
 /// （Material 最小交互尺寸），与旁边 48px 的设置 IconButton 对齐。
 /// 键盘焦点：enabled 态无边框，聚焦时绘制 primary 圆角描边
 /// （WCAG 2.4.7 Focus Visible）。
-InputDecorationTheme compactHeaderDecoration(ThemeData theme) =>
-    InputDecorationTheme(
-      isDense: true,
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-      prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
-      suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
-    );
+InputDecorationTheme compactHeaderDecoration(
+  ThemeData theme,
+) => InputDecorationTheme(
+  isDense: true,
+  border: InputBorder.none,
+  enabledBorder: InputBorder.none,
+  focusedBorder: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.5),
+  ),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+  prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+  suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+);
 
 /// 设置页表单输入装饰（圆角边框，与设置页其他控件一致）。
 /// prefix/suffix 图标约束与登录头紧凑版同一视觉：icon 区域 20x20，
 /// 避免 InputDecorator 默认 48x48 图标区把国旗/箭头撑大。
-InputDecorationTheme formHeaderDecoration(ThemeData theme) =>
-    InputDecorationTheme(
-      isDense: true,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
-      suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
-    );
+InputDecorationTheme formHeaderDecoration(
+  ThemeData theme,
+) => InputDecorationTheme(
+  isDense: true,
+  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  prefixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+  suffixIconConstraints: const BoxConstraints.tightFor(width: 20, height: 20),
+);
 
 /// 测量下拉内容的自然宽度：最长文字 + leading 图标 + 箭头 + 留白。
 /// DropdownMenu 在无界约束（Row/Column 内）下 intrinsic 宽度不可靠

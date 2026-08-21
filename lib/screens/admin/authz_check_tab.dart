@@ -154,54 +154,57 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
         title: 'Authorization check tools are not enabled on this replica.',
       );
     }
-    return PullToRefresh(onRefresh: _refresh, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).authzChecks,
-          subtitle: 'Test ReBAC and WASM authorization policies.',
-          onRefresh: _refresh,
-          actions: [
-            IconButton(
-              onPressed: _lastRan == null || _busy ? null : _refresh,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
+    return PullToRefresh(
+      onRefresh: _refresh,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).authzChecks,
+            subtitle: 'Test ReBAC and WASM authorization policies.',
+            onRefresh: _refresh,
+            actions: [
+              IconButton(
+                onPressed: _lastRan == null || _busy ? null : _refresh,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
+          ),
+          if (_hasRebac) ...[
+            _CheckCard(
+              title: 'ReBAC policy check',
+              icon: Icons.account_tree_outlined,
+              accent: _accent,
+              controller: _rebacCtrl,
+              label: 'Check parameters',
+              hint: _hintRebac,
+              buttonLabel: 'Check ReBAC',
+              loading: _rebacLoading,
+              error: _rebacError,
+              result: _rebacResult,
+              onCheck: _checkRebac,
             ),
+            const SizedBox(height: 16),
           ],
-        ),
-        if (_hasRebac) ...[
-          _CheckCard(
-            title: 'ReBAC policy check',
-            icon: Icons.account_tree_outlined,
-            accent: _accent,
-            controller: _rebacCtrl,
-            label: 'Check parameters',
-            hint: _hintRebac,
-            buttonLabel: 'Check ReBAC',
-            loading: _rebacLoading,
-            error: _rebacError,
-            result: _rebacResult,
-            onCheck: _checkRebac,
-          ),
-          const SizedBox(height: 16),
+          if (_hasWasm)
+            _CheckCard(
+              title: 'WASM authorization check',
+              icon: Icons.memory,
+              accent: _accent,
+              controller: _wasmCtrl,
+              label: 'Request JSON',
+              hint: _hintWasm,
+              buttonLabel: 'Check WASM',
+              loading: _wasmLoading,
+              error: _wasmError,
+              result: _wasmResult,
+              onCheck: _checkWasm,
+            ),
         ],
-        if (_hasWasm)
-          _CheckCard(
-            title: 'WASM authorization check',
-            icon: Icons.memory,
-            accent: _accent,
-            controller: _wasmCtrl,
-            label: 'Request JSON',
-            hint: _hintWasm,
-            buttonLabel: 'Check WASM',
-            loading: _wasmLoading,
-            error: _wasmError,
-            result: _wasmResult,
-            onCheck: _checkWasm,
-          ),
-      ],
-    ));
+      ),
+    );
   }
 }
 
@@ -310,10 +313,7 @@ class _CheckCard extends StatelessWidget {
               ),
             ),
           ),
-          TextButton(
-            onPressed: onCheck,
-            child: const LocalizedText('Retry'),
-          ),
+          TextButton(onPressed: onCheck, child: const LocalizedText('Retry')),
         ],
       );
     }

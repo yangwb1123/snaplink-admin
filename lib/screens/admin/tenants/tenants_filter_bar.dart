@@ -76,7 +76,9 @@ class TenantsFilterBar extends StatelessWidget {
           ),
           TightDropdownButton<String>(
             value: orderBy,
-            options: [for (final (value, label) in _orderOptions) (value, label)],
+            options: [
+              for (final (value, label) in _orderOptions) (value, label),
+            ],
             maxWidth: 240,
             onChanged: onOrderChanged,
           ),

@@ -135,7 +135,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
         _invitations = invitations;
       });
     } on SnaplinkAdminApiError catch (error) {
-      if (mounted && seq == _reqSeq) setState(() => _loadError = error.toString());
+      if (mounted && seq == _reqSeq) {
+        setState(() => _loadError = error.toString());
+      }
     } catch (_) {
       if (mounted && seq == _reqSeq) {
         setState(() => _loadError = 'Could not load organization data.');
@@ -239,7 +241,10 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       );
       if (!mounted) return;
       downloadTenantExport(export, tenantId);
-      showAppSnackBar(context, content: LocalizedText('Tenant export download started.'));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Tenant export download started.'),
+      );
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _actionError = error.toString());
     } finally {
@@ -292,84 +297,91 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
             'Organization management is not enabled on this Snaplink replica.',
       );
     }
-    return PullToRefresh(onRefresh: _load, child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        AdminListHeader(
-          title: AppStrings.of(context).tenantOrganizations,
-          onRefresh: _load,
-          actions: [
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: Icon(Icons.refresh, color: _accent),
-              tooltip: context.strings.refresh,
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _tenantCtrl,
-                decoration: InputDecoration(
-                  labelText: 'Tenant ID'.localized,
-                  hintText: 'acme'.localized,
-                  prefixIcon: Icon(Icons.business_outlined, color: _accent),
+    return PullToRefresh(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const AdminBreadcrumb(),
+          AdminListHeader(
+            title: AppStrings.of(context).tenantOrganizations,
+            onRefresh: _load,
+            actions: [
+              IconButton(
+                onPressed: _loading ? null : _load,
+                icon: Icon(Icons.refresh, color: _accent),
+                tooltip: context.strings.refresh,
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _tenantCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Tenant ID'.localized,
+                    hintText: 'acme'.localized,
+                    prefixIcon: Icon(Icons.business_outlined, color: _accent),
+                  ),
+                  onSubmitted: (_) => _load(),
                 ),
-                onSubmitted: (_) => _load(),
               ),
-            ),
-            const SizedBox(width: 12),
-            FilledButton.icon(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.search, size: 18),
-              label: const LocalizedText('Load organization'),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.search, size: 18),
+                label: const LocalizedText('Load organization'),
+              ),
+            ],
+          ),
+          if (_actionError != null) ...[
+            const SizedBox(height: 12),
+            LocalizedText(
+              _actionError!,
+              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+              style: TextStyle(
+                color: AppColors.semanticFor(
+                  Theme.of(context).brightness,
+                  AppColors.danger,
+                ),
+              ),
             ),
           ],
-        ),
-        if (_actionError != null) ...[
-          const SizedBox(height: 12),
-          LocalizedText(
-            _actionError!,
-            // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-            style: TextStyle(
-              color: AppColors.semanticFor(
-                Theme.of(context).brightness,
-                AppColors.danger,
-              ),
+          if (_loadError != null) ...[
+            const SizedBox(height: 12),
+            ErrorStateCard(
+              message: _loadError!,
+              onRetry: _load,
+              margin: EdgeInsets.zero,
             ),
-          ),
+          ],
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.only(top: 20),
+              child: SkeletonListTile(itemCount: 3),
+            ),
+          if (_supportsMembers) _membersCard(context),
+          if (_supportsInvitations)
+            OrganizationInvitationsCard(
+              invitations: _invitations,
+              emailController: _inviteCtrl,
+              role: _inviteRole,
+              mutating: _mutating,
+              accent: _accent,
+              onRoleChanged: (value) => setState(() => _inviteRole = value),
+              onSend: _sendInvitation,
+              onRevoke: _revokeInvitation,
+            ),
+          if (_supportsExport)
+            TenantOrganizationExportCard(
+              mutating: _mutating,
+              accent: _accent,
+              onExport: _exportTenant,
+            ),
         ],
-        if (_loadError != null) ...[
-          const SizedBox(height: 12),
-          ErrorStateCard(message: _loadError!, onRetry: _load, margin: EdgeInsets.zero),
-        ],
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 20),
-            child: SkeletonListTile(itemCount: 3),
-          ),
-        if (_supportsMembers) _membersCard(context),
-        if (_supportsInvitations)
-          OrganizationInvitationsCard(
-            invitations: _invitations,
-            emailController: _inviteCtrl,
-            role: _inviteRole,
-            mutating: _mutating,
-            accent: _accent,
-            onRoleChanged: (value) => setState(() => _inviteRole = value),
-            onSend: _sendInvitation,
-            onRevoke: _revokeInvitation,
-          ),
-        if (_supportsExport)
-          TenantOrganizationExportCard(
-            mutating: _mutating,
-            accent: _accent,
-            onExport: _exportTenant,
-          ),
-      ],
-    ));
+      ),
+    );
   }
 
   Widget _membersCard(BuildContext context) => OrgMembersCard(
@@ -383,4 +395,3 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     onRemoveMember: (u) => _removeMember(u),
   );
 }
-

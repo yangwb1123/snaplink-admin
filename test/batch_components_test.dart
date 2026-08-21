@@ -83,9 +83,10 @@ void main() {
         ),
       );
       final style = button.style;
-      expect(style?.foregroundColor?.resolve({}), Theme.of(
-        tester.element(find.text('Delete')),
-      ).colorScheme.error);
+      expect(
+        style?.foregroundColor?.resolve({}),
+        Theme.of(tester.element(find.text('Delete'))).colorScheme.error,
+      );
     });
 
     testWidgets('isLoading shows spinner and disables actions and clear', (
@@ -152,11 +153,7 @@ void main() {
                 icon: Icons.check,
                 onPressed: () {},
               ),
-              BatchAction(
-                label: 'Reject',
-                icon: Icons.close,
-                onPressed: () {},
-              ),
+              BatchAction(label: 'Reject', icon: Icons.close, onPressed: () {}),
               BatchAction(
                 label: 'Delete',
                 icon: Icons.delete,
@@ -210,11 +207,10 @@ void main() {
     testWidgets('partial failure shows error snackbar with detail entry', (
       tester,
     ) async {
-      await pumpFeedback(tester, failures: const [
-        'id-1: rejected',
-        'id-2: not found',
-        'id-3: timeout',
-      ]);
+      await pumpFeedback(
+        tester,
+        failures: const ['id-1: rejected', 'id-2: not found', 'id-3: timeout'],
+      );
       expect(find.text('Updated 2 items'), findsOneWidget);
       expect(find.text('View details'), findsOneWidget);
       // 明细对话框逐项列出全部失败项（R25 不再截断到前 3 条）。

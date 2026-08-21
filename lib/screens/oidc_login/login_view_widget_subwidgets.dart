@@ -7,7 +7,11 @@ class _FederatedProviderButton extends StatelessWidget {
   final bool loading;
   final VoidCallback onPressed;
 
-  const _FederatedProviderButton({required this.provider, required this.loading, required this.onPressed});
+  const _FederatedProviderButton({
+    required this.provider,
+    required this.loading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,26 +19,44 @@ class _FederatedProviderButton extends StatelessWidget {
     final color = _parseButtonColor(provider.buttonColor);
     final foreground = color == null
         ? null
-        : ThemeData.estimateBrightnessForColor(color) == Brightness.dark ? Colors.white : Colors.black;
+        : ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
     final iconUrl = provider.safeIconUrl(ProductApiOrigin.baseUri);
     final iconColor = color == null ? scheme.primary : foreground;
     final icon = iconUrl == null
         ? Icon(Icons.login, color: iconColor)
-        : Image.network(iconUrl, width: 20, height: 20, fit: BoxFit.contain, errorBuilder: (_, _, _) => Icon(Icons.login, color: iconColor));
+        : Image.network(
+            iconUrl,
+            width: 20,
+            height: 20,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => Icon(Icons.login, color: iconColor),
+          );
 
     return OutlinedButton.icon(
       onPressed: loading ? null : onPressed,
-      style: color == null ? null : OutlinedButton.styleFrom(backgroundColor: color, foregroundColor: foreground, side: BorderSide(color: color)),
+      style: color == null
+          ? null
+          : OutlinedButton.styleFrom(
+              backgroundColor: color,
+              foregroundColor: foreground,
+              side: BorderSide(color: color),
+            ),
       icon: icon,
       label: Text(context.tr(provider.effectiveButtonLabel)),
     );
   }
 
   Color? _parseButtonColor(String raw) {
-    final match = RegExp(r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$').firstMatch(raw.trim());
+    final match = RegExp(
+      r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$',
+    ).firstMatch(raw.trim());
     if (match == null) return null;
     final hex = match.group(1)!;
-    final flutterHex = hex.length == 6 ? 'ff$hex' : '${hex.substring(6)}${hex.substring(0, 6)}';
+    final flutterHex = hex.length == 6
+        ? 'ff$hex'
+        : '${hex.substring(6)}${hex.substring(0, 6)}';
     return Color(int.parse(flutterHex, radix: 16));
   }
 }
@@ -64,13 +86,18 @@ class _InlineNotice extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 8),
-        Expanded(child: Text(text, style: TextStyle(color: color))),
+        Expanded(
+          child: Text(text, style: TextStyle(color: color)),
+        ),
       ],
     );
     final wrapped = contained
         ? Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.errorContainer, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(8),
+            ),
             child: notice,
           )
         : notice;

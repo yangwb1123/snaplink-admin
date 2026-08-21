@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/screens/admin/admin_module_groups.dart';
 import 'package:sso_admin/screens/admin/admin_navigation.dart';
 
 AdminNavigationEntry<String, String> _entry(String module) =>
@@ -98,6 +99,52 @@ void main() {
       expect(adminNavigationModuleAt(entries, -1), isNull);
       expect(adminNavigationModuleAt(entries, entries.length), isNull);
     });
+
+    test('module groups partition every route exactly once', () {
+      final grouped = [for (final group in adminModuleGroups) ...group.modules];
+      final expected = {
+        AdminModuleId.overview,
+        AdminModuleId.clients,
+        AdminModuleId.users,
+        AdminModuleId.localUsers,
+        AdminModuleId.scimDirectory,
+        AdminModuleId.permissions,
+        AdminModuleId.connections,
+        AdminModuleId.userSupport,
+        AdminModuleId.deviceSecurity,
+        AdminModuleId.liveActivity,
+        AdminModuleId.tokenSecurity,
+        AdminModuleId.usageAnalytics,
+        AdminModuleId.tenants,
+        AdminModuleId.commerce,
+        AdminModuleId.organizations,
+        AdminModuleId.operations,
+        AdminModuleId.cryptoKeys,
+        AdminModuleId.credentials,
+        AdminModuleId.tokenPolicies,
+        AdminModuleId.tokenExchange,
+        AdminModuleId.authzChecks,
+        AdminModuleId.domains,
+        AdminModuleId.networkPolicies,
+        AdminModuleId.accessPolicies,
+        AdminModuleId.drMode,
+        AdminModuleId.threatPolicies,
+        AdminModuleId.webhooks,
+        AdminModuleId.emergencyAccess,
+        AdminModuleId.changeApprovals,
+        AdminModuleId.recoveryReleases,
+        AdminModuleId.privacyCompliance,
+        AdminModuleId.governance,
+        AdminModuleId.auditLog,
+        AdminModuleId.health,
+      };
+
+      expect(adminModuleGroups, hasLength(6));
+      expect(grouped, hasLength(expected.length));
+      expect(grouped.toSet(), hasLength(grouped.length));
+      expect(grouped.toSet(), expected);
+      expect(adminGroupForModule('future-module'), 'overview');
+    });
   });
 
   group('Admin navigation capabilities', () {
@@ -148,6 +195,48 @@ void main() {
       );
       expect(endpoint.feature, 'runtime-webhooks');
     });
+
+    test(
+      'snapshot separates runtime availability from documented fallback',
+      () {
+        final live = AdminNavigationCapabilities(const [
+          SnaplinkAdminEndpoint(
+            method: 'GET',
+            path: '/api/v1/admin/devices/stats',
+            feature: 'runtime-devices',
+          ),
+        ], documentedEndpoints: const []);
+        expect(
+          live.snapshot.stateForAnyPathPrefix('/api/v1/admin/devices'),
+          SnaplinkAdminCapabilityState.available,
+        );
+
+        final absent = AdminNavigationCapabilities(
+          const [],
+          documentedEndpoints: const [],
+        );
+        expect(
+          absent.snapshot.stateForAnyPathPrefix('/api/v1/admin/devices'),
+          SnaplinkAdminCapabilityState.unavailable,
+        );
+        expect(
+          absent.snapshot.effective.has('GET', '/api/v1/admin/devices/stats'),
+          isFalse,
+        );
+
+        final loading = AdminNavigationCapabilities(
+          const [],
+          documentedEndpoints: const [],
+          runtimeInventoryLoading: true,
+          runtimeInventoryAvailable: false,
+        );
+        expect(
+          loading.snapshot.stateForAnyPathPrefix('/api/v1/admin/devices'),
+          SnaplinkAdminCapabilityState.unknown,
+        );
+        expect(loading.snapshot.runtimeInventoryLoading, isTrue);
+      },
+    );
 
     test('matches the documented ReBAC and DR endpoint contracts', () {
       final documented = SnaplinkAdminOperationCatalog.endpoints;
@@ -254,16 +343,13 @@ void main() {
       );
 
       // (iii) runtime set explicitly containing the trio → true.
-      final runtime = AdminNavigationCapabilities(
-        const [
-          SnaplinkAdminEndpoint(
-            method: 'GET',
-            path: '/api/v1/audit/events',
-            feature: 'runtime-audit',
-          ),
-        ],
-        documentedEndpoints: const [],
-      );
+      final runtime = AdminNavigationCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/audit/events',
+          feature: 'runtime-audit',
+        ),
+      ], documentedEndpoints: const []);
       expect(runtime.supportsAuditLog, isTrue);
       expect(
         runtime.supportsAuditLog,
@@ -277,7 +363,10 @@ void main() {
         _entry(AdminModuleId.auditLog),
         _entry(AdminModuleId.health),
       ];
-      expect(adminNavigationModules(withAudit), contains(AdminModuleId.auditLog));
+      expect(
+        adminNavigationModules(withAudit),
+        contains(AdminModuleId.auditLog),
+      );
       expect(
         adminNavigationModules([
           _entry(AdminModuleId.overview),

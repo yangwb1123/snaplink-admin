@@ -29,6 +29,7 @@ class CommerceTab extends StatefulWidget {
   final Object? availabilityError;
   final CommerceCheckoutOrigin? checkoutOrigin;
   final CommerceCheckoutNavigator? checkoutNavigator;
+
   /// P0-1 test seam: probe uses its own client (onUnauthorized: null) so a
   /// 401 probe never logs the operator out; tests inject a MockClient here.
   final SnaplinkAdminApi Function()? probeClientBuilder;
@@ -47,7 +48,8 @@ class CommerceTab extends StatefulWidget {
 }
 
 class _CommerceTabState extends State<CommerceTab> {
-  final _tenant = TextEditingController(), _currency = TextEditingController(text: 'USD');
+  final _tenant = TextEditingController(),
+      _currency = TextEditingController(text: 'USD');
   late final CommerceAdminApi _commerce = CommerceAdminApi(widget.api);
 
   List<Map<String, dynamic>> _plans = const [];
@@ -87,7 +89,10 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _loadPlans() async {
-    setState(() { _catalogLoading = true; _catalogError = null; });
+    setState(() {
+      _catalogLoading = true;
+      _catalogError = null;
+    });
     try {
       final response = await _commerce.listPlans();
       if (!mounted) return;
@@ -123,17 +128,25 @@ class _CommerceTabState extends State<CommerceTab> {
     final tenantID = _tenant.text.trim();
     final currency = _currency.text.trim().toUpperCase();
     if (tenantID.isEmpty || !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
-      setState(() => _tenantError = 'Enter a tenant ID and a three-letter currency code.');
+      setState(
+        () => _tenantError =
+            'Enter a tenant ID and a three-letter currency code.',
+      );
       return;
     }
     _currency.text = currency;
-    setState(() { _tenantLoading = true; _tenantError = null; });
+    setState(() {
+      _tenantLoading = true;
+      _tenantError = null;
+    });
     final results = await Future.wait([
       _section(_commerce.listSubscriptions(tenantID)),
       _section(_commerce.getEntitlement(tenantID), allowMissing: true),
       _section(_commerce.getWallet(tenantID, currency), allowMissing: true),
-      _section(_commerce.listWalletEntries(tenantID, currency),
-          allowMissing: true),
+      _section(
+        _commerce.listWalletEntries(tenantID, currency),
+        allowMissing: true,
+      ),
       _section(_commerce.listOrders(tenantID)),
     ]);
     if (!mounted) return;
@@ -145,7 +158,10 @@ class _CommerceTabState extends State<CommerceTab> {
   ) {
     final errors = results.map((result) => result.error).whereType<String>();
     setState(() {
-      _subscriptions = commerceRecords(results[0].data ?? const {}, 'subscriptions');
+      _subscriptions = commerceRecords(
+        results[0].data ?? const {},
+        'subscriptions',
+      );
       _entitlement = commerceRecord(results[1].data ?? const {}, 'entitlement');
       _wallet = commerceRecord(results[2].data ?? const {}, 'wallet');
       _entries = commerceRecords(results[3].data ?? const {}, 'entries');
@@ -195,7 +211,10 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _changeStatus(Map<String, dynamic> subscription) async {
-    final status = await CommerceStatusDialog.show(context, subscription['status']?.toString() ?? 'pending');
+    final status = await CommerceStatusDialog.show(
+      context,
+      subscription['status']?.toString() ?? 'pending',
+    );
     if (status == null) return;
     await _mutate(
       () => _commerce.transitionSubscription(
@@ -225,7 +244,8 @@ class _CommerceTabState extends State<CommerceTab> {
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Run administrative renewal?',
-      message: 'This repair action advances the subscription period without debiting the wallet. Normal paid renewal belongs to the opt-in renewal worker.',
+      message:
+          'This repair action advances the subscription period without debiting the wallet. Normal paid renewal belongs to the opt-in renewal worker.',
       confirmLabel: 'Renew without debit',
     );
     if (!confirmed) return;
@@ -256,7 +276,8 @@ class _CommerceTabState extends State<CommerceTab> {
   Future<bool> _confirmFinancial(String title) => ConfirmDialog.show(
     context,
     title: title,
-    message: 'This changes the tenant financial record. Type the tenant ID to confirm the exact target.',
+    message:
+        'This changes the tenant financial record. Type the tenant ID to confirm the exact target.',
     confirmLabel: 'Confirm financial change',
     destructive: true,
     confirmText: _tenant.text.trim(),
@@ -315,80 +336,90 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(onRefresh: _refresh, child: ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      const AdminBreadcrumb(),
-      AdminListHeader(
-        title: 'Commercial subscriptions and quotas',
-        subtitle: 'Manage immutable plan versions, tenant subscriptions, projected entitlements, wallet ledger entries, and normalized payment facts.',
-        onRefresh: _refresh,
-        actions: [
-          IconButton(
-            onPressed: _catalogLoading || _tenantLoading ? null : _refresh,
-            icon: (_catalogLoading || _tenantLoading)
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(Icons.refresh, color: _accent),
-            tooltip: 'Refresh'.localized,
+  Widget build(BuildContext context) => PullToRefresh(
+    onRefresh: _refresh,
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AdminBreadcrumb(),
+        AdminListHeader(
+          title: 'Commercial subscriptions and quotas',
+          subtitle:
+              'Manage immutable plan versions, tenant subscriptions, projected entitlements, wallet ledger entries, and normalized payment facts.',
+          onRefresh: _refresh,
+          actions: [
+            IconButton(
+              onPressed: _catalogLoading || _tenantLoading ? null : _refresh,
+              icon: (_catalogLoading || _tenantLoading)
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.refresh, color: _accent),
+              tooltip: 'Refresh'.localized,
+            ),
+          ],
+        ),
+        if (widget.availabilityError != null)
+          CommerceErrorCard(
+            message: widget.availabilityError.toString(),
+            onRetry: _catalogLoading ? null : _loadPlans,
+          ),
+        if (_catalogError != null)
+          CommerceErrorCard(message: _catalogError!, onRetry: _loadPlans),
+        if (_catalogLoading)
+          const SkeletonListTile(itemCount: 2, variant: SkeletonVariant.card),
+        const SizedBox(height: 12),
+        CommercePlansPanel(
+          plans: _plans,
+          onPublish: _mutating ? null : _publishPlan,
+        ),
+        const SizedBox(height: 12),
+        CommerceTenantSelector(
+          tenant: _tenant,
+          currency: _currency,
+          enabled: !_tenantLoading && !_mutating,
+          onLoad: _loadTenant,
+        ),
+        if (_tenantError != null)
+          CommerceErrorCard(
+            message: _tenantError!,
+            onRetry: _tenantLoading ? null : _loadTenant,
+          ),
+        if (_tenantLoading)
+          const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card),
+        if (_tenantLoaded && !_tenantLoading) ...[
+          const SizedBox(height: 12),
+          CommerceSubscriptionsPanel(
+            subscriptions: _subscriptions,
+            onCreate: _mutating ? null : _createSubscription,
+            onStatus: _mutating ? null : _changeStatus,
+            onChangePlan: _mutating ? null : _changePlan,
+            onRenew: _mutating ? null : _renew,
+          ),
+          const SizedBox(height: 12),
+          CommerceEntitlementPanel(entitlement: _entitlement),
+          const SizedBox(height: 12),
+          CommerceWalletPanel(
+            currency: _currency.text,
+            wallet: _wallet,
+            entries: _entries,
+            orders: _orders,
+            eventOrderID: _eventOrderID,
+            events: _events,
+            reconciliation: _reconciliation,
+            checkoutEnabled: _checkoutProbe == CheckoutProbeState.available,
+            onAdjust: _mutating ? null : _adjustWallet,
+            onTopUp: _mutating ? null : _createTopUp,
+            onReconcile: _mutating ? null : _reconcile,
+            onLoadEvents: _mutating ? null : _loadEvents,
+            onCheckoutOrder: _mutating ? null : _retryCheckout,
           ),
         ],
-      ),
-      if (widget.availabilityError != null)
-        CommerceErrorCard(
-          message: widget.availabilityError.toString(),
-          onRetry: _catalogLoading ? null : _loadPlans,
-        ),
-      if (_catalogError != null)
-        CommerceErrorCard(message: _catalogError!, onRetry: _loadPlans),
-      if (_catalogLoading) const SkeletonListTile(itemCount: 2, variant: SkeletonVariant.card),
-      const SizedBox(height: 12),
-      CommercePlansPanel(
-        plans: _plans,
-        onPublish: _mutating ? null : _publishPlan,
-      ),
-      const SizedBox(height: 12),
-      CommerceTenantSelector(
-        tenant: _tenant,
-        currency: _currency,
-        enabled: !_tenantLoading && !_mutating,
-        onLoad: _loadTenant,
-      ),
-      if (_tenantError != null)
-        CommerceErrorCard(
-          message: _tenantError!,
-          onRetry: _tenantLoading ? null : _loadTenant,
-        ),
-      if (_tenantLoading) const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card),
-      if (_tenantLoaded && !_tenantLoading) ...[
-        const SizedBox(height: 12),
-        CommerceSubscriptionsPanel(
-          subscriptions: _subscriptions,
-          onCreate: _mutating ? null : _createSubscription,
-          onStatus: _mutating ? null : _changeStatus,
-          onChangePlan: _mutating ? null : _changePlan,
-          onRenew: _mutating ? null : _renew,
-        ),
-        const SizedBox(height: 12),
-        CommerceEntitlementPanel(entitlement: _entitlement),
-        const SizedBox(height: 12),
-        CommerceWalletPanel(
-          currency: _currency.text,
-          wallet: _wallet,
-          entries: _entries,
-          orders: _orders,
-          eventOrderID: _eventOrderID,
-          events: _events,
-          reconciliation: _reconciliation,
-          checkoutEnabled: _checkoutProbe == CheckoutProbeState.available,
-          onAdjust: _mutating ? null : _adjustWallet,
-          onTopUp: _mutating ? null : _createTopUp,
-          onReconcile: _mutating ? null : _reconcile,
-          onLoadEvents: _mutating ? null : _loadEvents,
-          onCheckoutOrder: _mutating ? null : _retryCheckout,
-        ),
       ],
-    ],
-  ));
+    ),
+  );
 
   Future<void> _refresh() async {
     await _loadPlans();

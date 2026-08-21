@@ -238,12 +238,7 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
       const SizedBox(height: 8),
       SegmentedButton<String>(
         segments: const ['active', 'retired']
-            .map(
-              (value) => ButtonSegment(
-                value: value,
-                label: Text(value),
-              ),
-            )
+            .map((value) => ButtonSegment(value: value, label: Text(value)))
             .toList(growable: false),
         selected: {_status},
         showSelectedIcon: false,
@@ -263,12 +258,7 @@ class _CommercePlanDialogState extends State<CommercePlanDialog> {
       const SizedBox(height: 8),
       SegmentedButton<String>(
         segments: const ['none', 'month', 'year']
-            .map(
-              (value) => ButtonSegment(
-                value: value,
-                label: Text(value),
-              ),
-            )
+            .map((value) => ButtonSegment(value: value, label: Text(value)))
             .toList(growable: false),
         selected: {_interval},
         showSelectedIcon: false,

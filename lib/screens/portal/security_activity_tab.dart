@@ -96,87 +96,87 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(onRefresh: _loadAll, child: ListView(
-    padding: const EdgeInsets.all(16),
-    children: [
-      Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  container: true,
-                  header: true,
-                  child: Text(
-                    context.tr('Security activity'),
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
+  Widget build(BuildContext context) => PullToRefresh(
+    onRefresh: _loadAll,
+    child: ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    container: true,
+                    header: true,
+                    child: Text(
+                      context.tr('Security activity'),
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.3,
+                          ),
                     ),
                   ),
-                ),
-        const SizedBox(height: 4),
-        LocalizedText(
-          'Recent sign-in and security events on your account.',
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr(
-                    'Review new devices, locations, and recent authentication history.',
+                  const SizedBox(height: 4),
+                  LocalizedText(
+                    'Recent sign-in and security events on your account.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    context.tr(
+                      'Review new devices, locations, and recent authentication history.',
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          IconButton(
-            tooltip: context.tr('Refresh activity'),
-            onPressed: _activityLoading || _historyLoading ? null : _loadAll,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      const SizedBox(height: 16),
-      PortalCard(
-        title: 'Security timeline',
-        children: [
-          if (_activityLoading)
-            const LinearProgressIndicator()
-          else if (_activityError != null)
-            MessageBanner(_activityError)
-          else if (_events.isEmpty)
-            const EmptyHint('No security events have been recorded.')
-          else
-            TimelineList(
-              items: [
-                for (final event in _events) _toTimelineItem(event),
-              ],
+            IconButton(
+              tooltip: context.tr('Refresh activity'),
+              onPressed: _activityLoading || _historyLoading ? null : _loadAll,
+              icon: const Icon(Icons.refresh),
             ),
-        ],
-      ),
-      PortalCard(
-        title: 'Login history',
-        children: [
-          if (_historyLoading)
-            const LinearProgressIndicator()
-          else if (_historyError != null)
-            MessageBanner(_historyError)
-          else if (_history.isEmpty)
-            const EmptyHint('No login history has been recorded.')
-          else
-            TimelineList(
-              items: [
-                for (final record in _history) _toHistoryItem(record),
-              ],
-            ),
-        ],
-      ),
-    ],
-  ));
+          ],
+        ),
+        const SizedBox(height: 16),
+        PortalCard(
+          title: 'Security timeline',
+          children: [
+            if (_activityLoading)
+              const LinearProgressIndicator()
+            else if (_activityError != null)
+              MessageBanner(_activityError)
+            else if (_events.isEmpty)
+              const EmptyHint('No security events have been recorded.')
+            else
+              TimelineList(
+                items: [for (final event in _events) _toTimelineItem(event)],
+              ),
+          ],
+        ),
+        PortalCard(
+          title: 'Login history',
+          children: [
+            if (_historyLoading)
+              const LinearProgressIndicator()
+            else if (_historyError != null)
+              MessageBanner(_historyError)
+            else if (_history.isEmpty)
+              const EmptyHint('No login history has been recorded.')
+            else
+              TimelineList(
+                items: [for (final record in _history) _toHistoryItem(record)],
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 /// 事件 → 时间线条目（语义色编码：新设备/新位置 = 警告）。

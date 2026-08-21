@@ -318,7 +318,7 @@ class AuditLogTab {
   });
 
   group('scan 6 — portal-audit-boundary (B6-1 negative boundary)', () {
-    test('zero "audit" occurrences across the live portal module', () {
+    test('zero "audit" occurrences across the portal module and API', () {
       final violations = scanLibDirectory(
         packageLibDir(),
       ).where((violation) => violation.scan == 'portal-audit-boundary');
@@ -343,18 +343,23 @@ class AuditLogTab {
       addTearDown(() {
         if (tempDir.existsSync()) tempDir.deleteSync(recursive: true);
       });
-      final writeProbe = (String relativePath, String body) {
+      void writeProbe(String relativePath, String body) {
         final file = File(
           '${tempDir.path}${Platform.pathSeparator}'
           '${relativePath.replaceAll('/', Platform.pathSeparator)}',
         );
         file.parent.createSync(recursive: true);
         file.writeAsStringSync(body);
-      };
+      }
+
       // Dirty state — one probe per scan id:
       writeProbe(
         'screens/portal/_probe.dart',
         "final _probe = 'audit'; // synthetic negative-boundary probe\n",
+      );
+      writeProbe(
+        'api/portal_api.dart',
+        "final _probe = 'audit'; // contract-named API probe\n",
       );
       writeProbe(
         'screens/developer/_probe.dart',
@@ -405,6 +410,7 @@ class AuditLogTab {
       // Control: neutralize every probe; all ids must stay green, so the
       // pin cannot be satisfied by paths/layout alone (over-flagging).
       writeProbe('screens/portal/_probe.dart', "final _probe = 'activity';\n");
+      writeProbe('api/portal_api.dart', "final _probe = 'activity';\n");
       writeProbe(
         'screens/developer/_probe.dart',
         "final _probe = 'activity';\n",

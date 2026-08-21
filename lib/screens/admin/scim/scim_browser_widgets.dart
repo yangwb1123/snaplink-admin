@@ -58,9 +58,7 @@ class ScimBulkResultSummary extends StatelessWidget {
               ? AppColors.success
               : AppColors.warning,
         ),
-        title: Text(
-          '$succeeded of ${operations.length} operations succeeded',
-        ),
+        title: Text('$succeeded of ${operations.length} operations succeeded'),
         subtitle: LocalizedText(
           unavailable > 0
               ? '$unavailable operations returned 404/501; the target '
@@ -343,7 +341,9 @@ class ScimResourceTable extends StatelessWidget {
     if (value is! List) return '';
     final emails = value.whereType<Map>().toList();
     if (emails.isEmpty) return '';
-    final primary = emails.where((email) => email['primary'] == true).firstOrNull;
+    final primary = emails
+        .where((email) => email['primary'] == true)
+        .firstOrNull;
     return (primary ?? emails.first)['value']?.toString() ?? '';
   }
 }

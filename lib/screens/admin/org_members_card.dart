@@ -75,10 +75,7 @@ class OrgMembersCard extends StatelessWidget {
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(
-                  value: 'member',
-                  label: LocalizedText('Member'),
-                ),
+                ButtonSegment(value: 'member', label: LocalizedText('Member')),
                 ButtonSegment(value: 'admin', label: LocalizedText('Admin')),
                 ButtonSegment(value: 'guest', label: LocalizedText('Guest')),
               ],

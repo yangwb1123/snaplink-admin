@@ -19,6 +19,7 @@ import 'admin_route.dart';
 import 'client_detail_secret_card.dart';
 import 'client_form_dialog.dart';
 import 'client_secret_lifecycle.dart';
+import 'admin_ops_helpers.dart';
 
 /// Client detail screen with actions (rotate-secret, approve, reject).
 /// URL: /admin/clients/{id}[/{action}]
@@ -47,6 +48,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   String? _error;
   bool _loading = true;
   bool _mutating = false;
+  bool _secretRotationOutcomeUnknown = false;
 
   /// 模块强调色（identity 组 indigo-violet）：详情页图标统一按组色上色。
   Color get _accent => adminModuleIconColor('clients');
@@ -112,7 +114,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       ),
       body: _loading
           ? const SkeletonListTile(itemCount: 6)
-          : _error != null
+          : _error != null && !_secretRotationOutcomeUnknown
           ? _errorState(_error!)
           : Column(
               children: [
@@ -124,6 +126,14 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _infoCard(context),
+                        if (_secretRotationOutcomeUnknown)
+                          AdminOpsHelpers.unknownOutcomeCard(
+                            context,
+                            onAcknowledge: _mutating
+                                ? null
+                                : _acknowledgeSecretRotation,
+                          ),
+                        if (_error != null) ErrorStateCard(message: _error!),
                         if (_client != null) ...[
                           const SizedBox(height: 16),
                           _miniStrip(context),
@@ -147,24 +157,52 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   /// `clientDetailMetricOrder(persona)`（设计 §4.9 T-06）。无箭头。
   Widget _miniStrip(BuildContext context) {
     final grantTypes = ((_client?['grant_types'] as List?) ?? const []).length;
-    final scopes = ((_client?['allowed_scopes'] ?? _client?['scopes']) as List? ?? const []).length;
+    final scopes =
+        ((_client?['allowed_scopes'] ?? _client?['scopes']) as List? ??
+                const [])
+            .length;
     final secretExpiry = clientSecretExpiryUnix(_client);
     final remaining = secretExpiry <= 0
         ? null
-        : DateTime.fromMillisecondsSinceEpoch(secretExpiry * 1000, isUtc: true)
-              .toLocal()
-              .difference(DateTime.now());
+        : DateTime.fromMillisecondsSinceEpoch(
+            secretExpiry * 1000,
+            isUtc: true,
+          ).toLocal().difference(DateTime.now());
     final cards = <KeyMetricCard>[
-      KeyMetricCard(label: 'Grant types', value: grantTypes, icon: Icons.tune, color: AppColors.accentBlue),
-      KeyMetricCard(label: 'Scopes', value: scopes, icon: Icons.lock_open_outlined, color: AppColors.primary),
+      KeyMetricCard(
+        label: 'Grant types',
+        value: grantTypes,
+        icon: Icons.tune,
+        color: AppColors.accentBlue,
+      ),
+      KeyMetricCard(
+        label: 'Scopes',
+        value: scopes,
+        icon: Icons.lock_open_outlined,
+        color: AppColors.primary,
+      ),
       if (remaining == null)
-        KeyMetricCard(label: 'Secret expiry', value: 0, caption: 'Never expires', icon: Icons.schedule_outlined, color: AppColors.muted)
+        KeyMetricCard(
+          label: 'Secret expiry',
+          value: 0,
+          caption: 'Never expires',
+          icon: Icons.schedule_outlined,
+          color: AppColors.muted,
+        )
       else
-        KeyMetricCard(label: 'Secret expiry', value: remaining.isNegative ? 0 : remaining.inDays, icon: Icons.schedule_outlined, color: AppColors.warning),
+        KeyMetricCard(
+          label: 'Secret expiry',
+          value: remaining.isNegative ? 0 : remaining.inDays,
+          icon: Icons.schedule_outlined,
+          color: AppColors.warning,
+        ),
     ];
-    return MetricStrip(cards: [
-      for (final metric in clientDetailMetricOrder(widget.persona)) cards[metric.index],
-    ]);
+    return MetricStrip(
+      cards: [
+        for (final metric in clientDetailMetricOrder(widget.persona))
+          cards[metric.index],
+      ],
+    );
   }
 
   Widget _infoCard(BuildContext context) => Card(
@@ -181,8 +219,14 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_client?['name']?.toString() ?? widget.clientId, style: Theme.of(context).textTheme.titleMedium),
-                    LocalizedText('ID: {id}', args: {'id': _client?['id'] ?? widget.clientId}),
+                    Text(
+                      _client?['name']?.toString() ?? widget.clientId,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    LocalizedText(
+                      'ID: {id}',
+                      args: {'id': _client?['id'] ?? widget.clientId},
+                    ),
                   ],
                 ),
               ),
@@ -192,11 +236,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           const Divider(),
           InfoRow(
             label: 'Client ID',
-            value: _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId,
+            value:
+                _client?['id']?.toString() ??
+                _client?['client_id']?.toString() ??
+                widget.clientId,
             level: DataEmphasisLevel.secondary,
             // R36：激活 InfoRow 内置复制按钮（与表格 CopyableCell / DCR
             // CopyableDcrValue 同数据同能力）。
-            copyValue: _client?['id']?.toString() ?? _client?['client_id']?.toString() ?? widget.clientId,
+            copyValue:
+                _client?['id']?.toString() ??
+                _client?['client_id']?.toString() ??
+                widget.clientId,
           ),
           InfoRow(
             label: 'Redirect URIs',
@@ -205,7 +255,10 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
           ),
           InfoRow(
             label: 'Login page URI',
-            value: _client?['login_page_uri']?.toString() ?? _client?['loginPageUri']?.toString() ?? '—',
+            value:
+                _client?['login_page_uri']?.toString() ??
+                _client?['loginPageUri']?.toString() ??
+                '—',
             level: DataEmphasisLevel.tertiary,
           ),
           if (_client?['grant_types'] is List)
@@ -216,12 +269,17 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
             ),
           InfoRow(
             label: 'Allowed scopes',
-            value: ((_client?['allowed_scopes'] ?? _client?['scopes']) as List?)?.join(', ') ?? '—',
+            value:
+                ((_client?['allowed_scopes'] ?? _client?['scopes']) as List?)
+                    ?.join(', ') ??
+                '—',
             level: DataEmphasisLevel.tertiary,
           ),
           InfoRow(
             label: 'Authenticators',
-            value: (_client?['allowed_authenticators'] as List?)?.join(', ') ?? 'Any',
+            value:
+                (_client?['allowed_authenticators'] as List?)?.join(', ') ??
+                'Any',
             level: DataEmphasisLevel.tertiary,
           ),
           InfoRow(
@@ -240,7 +298,9 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   );
 
   Widget _statusChip() {
-    final status = _client?['status']?.toString() ?? (_client?['active'] == true ? 'active' : 'inactive');
+    final status =
+        _client?['status']?.toString() ??
+        (_client?['active'] == true ? 'active' : 'inactive');
     // Labels pass through context.tr(status): lowercase keys preserve the
     // EN pins (test/admin_detail_screens_test.dart:85) and the existing ZH
     // renderings (活跃/待处理); 'inactive' is a new admin-UX catalog key.
@@ -257,14 +317,23 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LocalizedText('Actions', style: Theme.of(context).textTheme.titleMedium),
+          LocalizedText(
+            'Actions',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           const SizedBox(height: 16),
           Wrap(
             spacing: 12,
             runSpacing: 8,
             children: [
               if (_client?['status'] == 'pending')
-                _actionButton(icon: Icons.check_circle_outline, label: 'Approve', color: AppColors.success, primary: true, onPressed: () => _doAction('approve')),
+                _actionButton(
+                  icon: Icons.check_circle_outline,
+                  label: 'Approve',
+                  color: AppColors.success,
+                  primary: true,
+                  onPressed: () => _doAction('approve'),
+                ),
               if (_client?['status'] == 'pending')
                 _actionButton(
                   icon: Icons.cancel_outlined,
@@ -276,7 +345,13 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
                   ),
                   onPressed: () => _doAction('reject'),
                 ),
-              _actionButton(icon: Icons.key, label: 'Rotate Secret', color: AppColors.warning, primary: true, onPressed: () => _rotateSecret(context)),
+              _actionButton(
+                icon: Icons.key,
+                label: 'Rotate Secret',
+                color: AppColors.warning,
+                primary: true,
+                onPressed: () => _rotateSecret(context),
+              ),
             ],
           ),
         ],
@@ -292,16 +367,23 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     bool primary = false,
   }) {
     if (primary) {
-      final onColor = color.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
+      final onColor = color.computeLuminance() > 0.5
+          ? Colors.black87
+          : Colors.white;
       return FilledButton.icon(
-        onPressed: _mutating ? null : onPressed,
+        onPressed: _mutating || _secretRotationOutcomeUnknown
+            ? null
+            : onPressed,
         icon: Icon(icon),
         label: LocalizedText(label),
-        style: FilledButton.styleFrom(backgroundColor: color, foregroundColor: onColor),
+        style: FilledButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: onColor,
+        ),
       );
     }
     return OutlinedButton.icon(
-      onPressed: _mutating ? null : onPressed,
+      onPressed: _mutating || _secretRotationOutcomeUnknown ? null : onPressed,
       icon: Icon(icon),
       label: LocalizedText(label),
       style: OutlinedButton.styleFrom(foregroundColor: color),
@@ -309,6 +391,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   }
 
   Future<void> _rotateSecret(BuildContext context) async {
+    if (_secretRotationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Rotate client secret?',
@@ -321,46 +404,108 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      final rotation = await widget.client.rotateClientSecretWithPolicy(widget.clientId);
+      final rotation = await widget.client.rotateClientSecretWithPolicy(
+        widget.clientId,
+      );
       final newSecret = rotation['secret']?.toString() ?? '';
       if (!context.mounted) return;
       if (newSecret.isEmpty) {
-        setState(
-          () => _error =
-              'The secret was rotated, but the server did not return its one-time value.',
-        );
+        setState(() {
+          _secretRotationOutcomeUnknown = true;
+          _error = context.tr(
+            'The secret was rotated, but the server did not return its one-time value. Reconcile client state before retrying.',
+          );
+        });
+        await _load();
       } else {
-        await showClientDetailSecret(context, newSecret, expiresAt: clientSecretExpiryUnix(rotation));
+        await showClientDetailSecret(
+          context,
+          newSecret,
+          expiresAt: clientSecretExpiryUnix(rotation),
+        );
         if (!context.mounted) return;
         showAppSnackBar(context, content: LocalizedText('Secret rotated.'));
       }
-    } catch (e) {
+    } on SSOError catch (e) {
       if (!context.mounted) return;
-      showAppSnackBar(context, content: LocalizedText('Error: {detail}', args: {'detail': e}), kind: AppSnackBarKind.error);
+      if (AdminOpsHelpers.isAmbiguousWriteStatus(e.status)) {
+        setState(() {
+          _secretRotationOutcomeUnknown = true;
+          _error = context.tr(
+            'Secret rotation result is unknown. Reconcile client state before retrying.',
+          );
+        });
+      } else {
+        showAppSnackBar(
+          context,
+          content: LocalizedText('Error: {detail}', args: {'detail': e}),
+          kind: AppSnackBarKind.error,
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      setState(() {
+        _secretRotationOutcomeUnknown = true;
+        _error = context.tr(
+          'Secret rotation result is unknown. Reconcile client state before retrying.',
+        );
+      });
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
   }
 
+  Future<void> _acknowledgeSecretRotation() async {
+    final confirmed = await ConfirmDialog.show(
+      context,
+      title: 'Client secret state reconciled?',
+      message:
+          'Confirm only after checking the client and its integrations in a safe read. This unlocks secret rotation; it does not prove the previous request failed.',
+      confirmLabel: 'Unlock secret rotation',
+      destructive: true,
+      confirmText: 'RECONCILED',
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _secretRotationOutcomeUnknown = false;
+      _error = null;
+    });
+  }
+
   Future<void> _doAction(String action) async {
     final confirmed = await ConfirmDialog.show(
       context,
-      title: '${action[0].toUpperCase()}${action.substring(1)} client?',
-      message: '${action[0].toUpperCase()}${action.substring(1)} this client?',
-      confirmLabel: '${action[0].toUpperCase()}${action.substring(1)}',
+      title: action == 'approve' ? 'Approve client?' : 'Reject client?',
+      message: context.tr(
+        action == 'approve'
+            ? 'Approve {clientId} for use on this authorization server?'
+            : 'Reject the pending client registration for {clientId}?',
+        {'clientId': widget.clientId},
+      ),
+      confirmLabel: action == 'approve' ? 'Approve' : 'Reject',
       destructive: true,
       confirmText: widget.clientId,
     );
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.post('/api/v1/admin/clients/${Uri.encodeComponent(widget.clientId)}/$action', {});
+      await widget.api.post(
+        '/api/v1/admin/clients/${Uri.encodeComponent(widget.clientId)}/$action',
+        {},
+      );
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText('Client {action}ed', args: {'action': action}));
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Client {action}ed', args: {'action': action}),
+      );
       _load();
     } catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, content: LocalizedText('Error: {detail}', args: {'detail': e}), kind: AppSnackBarKind.error);
+      showAppSnackBar(
+        context,
+        content: LocalizedText('Error: {detail}', args: {'detail': e}),
+        kind: AppSnackBarKind.error,
+      );
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -369,7 +514,8 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
   Future<void> _editClient(BuildContext context) async {
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => ClientFormDialog(client: widget.client, existing: _client),
+      builder: (_) =>
+          ClientFormDialog(client: widget.client, existing: _client),
     );
     if (result == true) _load();
   }

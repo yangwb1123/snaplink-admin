@@ -62,10 +62,10 @@ class _ScimDiscoveryPanelState extends State<ScimDiscoveryPanel> {
         if (error.status == 404 || error.status == 501) {
           _unavailable = true;
         } else {
-          _error = context.tr(
-            'SCIM request failed ({status}): {error}',
-            {'status': '${error.status}', 'error': error.toString()},
-          );
+          _error = context.tr('SCIM request failed ({status}): {error}', {
+            'status': '${error.status}',
+            'error': error.toString(),
+          });
         }
       });
     } catch (_) {

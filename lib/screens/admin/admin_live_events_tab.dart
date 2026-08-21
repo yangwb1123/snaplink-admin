@@ -251,7 +251,10 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
   List<Widget> _feedTail() {
     if (_connecting) return const [SkeletonListTile(itemCount: 4)];
     return const [
-      EmptyState(variant: EmptyStateVariant.empty, title: 'No events received yet.'),
+      EmptyState(
+        variant: EmptyStateVariant.empty,
+        title: 'No events received yet.',
+      ),
     ];
   }
 
@@ -365,11 +368,14 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
       Row(
         children: [
           _connectionChip(),
-          if (_connected) ...[const SizedBox(height: 8), LocalizedText(
-            'Connected · latest {count} events are retained locally.',
-            args: {'count': _maximumEvents},
-            style: theme.textTheme.titleSmall,
-          )],
+          if (_connected) ...[
+            const SizedBox(height: 8),
+            LocalizedText(
+              'Connected · latest {count} events are retained locally.',
+              args: {'count': _maximumEvents},
+              style: theme.textTheme.titleSmall,
+            ),
+          ],
         ],
       ),
       const SizedBox(height: 16),

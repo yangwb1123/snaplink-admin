@@ -92,9 +92,7 @@ class CopyableCell extends StatelessWidget {
     showCopySnackBar(
       contextProvider(),
       content: Text(
-        AppStrings.of(
-          contextProvider(),
-        ).translate('Copied to clipboard'),
+        AppStrings.of(contextProvider()).translate('Copied to clipboard'),
       ),
     );
   }

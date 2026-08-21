@@ -65,7 +65,10 @@ class ResponsiveEntryCard extends StatelessWidget {
           final card = Card(
             elevation: elevation ?? cardTheme.elevation ?? 1,
             color: surfaceColor ?? cardTheme.color,
-            shape: RoundedRectangleBorder(borderRadius: radius, side: borderSide ?? BorderSide.none),
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: borderSide ?? BorderSide.none,
+            ),
             child: Padding(padding: EdgeInsets.all(inner), child: child),
           );
           final blur = backdropBlur;
@@ -78,7 +81,10 @@ class ResponsiveEntryCard extends StatelessWidget {
             curve: Curves.easeOutCubic,
             builder: (context, value, child) => Opacity(
               opacity: value.clamp(0.0, 1.0),
-              child: Transform.translate(offset: Offset(0, 12 * (1 - value)), child: child),
+              child: Transform.translate(
+                offset: Offset(0, 12 * (1 - value)),
+                child: child,
+              ),
             ),
             child: card,
           );
@@ -95,7 +101,10 @@ class ResponsiveEntryCard extends StatelessWidget {
                       : ClipRRect(
                           borderRadius: radius,
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                            filter: ImageFilter.blur(
+                              sigmaX: blur,
+                              sigmaY: blur,
+                            ),
                             child: animatedCard,
                           ),
                         ),
