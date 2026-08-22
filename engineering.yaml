@@ -73,7 +73,6 @@ filesize:
     - "lib/screens/admin/governance_widgets.dart"
     - "lib/screens/admin/local_users_tab.dart"
     - "lib/screens/admin/privacy_compliance_tab.dart"
-    - "lib/screens/admin/scim/scim_bulk_panel.dart"
     - "lib/screens/admin/scim/scim_resource_browser.dart"
     - "lib/screens/admin/tenant_branding_tab.dart"
     - "lib/screens/admin/tenant_detail_screen.dart"
