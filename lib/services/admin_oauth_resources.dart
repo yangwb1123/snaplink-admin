@@ -4,7 +4,7 @@
 /// set [environmentName] with `--dart-define` while building the bundle.
 abstract final class AdminOAuthResources {
   static const environmentName = 'SNAPLINK_ADMIN_OAUTH_RESOURCES';
-  static const defaultValue = 'billing-api,stripe-adapter-api';
+  static const defaultValue = 'billing-api,stripe-adapter-api,audit-governance';
 
   static const _configured = String.fromEnvironment(
     environmentName,

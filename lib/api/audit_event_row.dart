@@ -120,9 +120,18 @@ AuditEventRow _rowFromMap(Map<String, dynamic> map) {
     timestamp: timestamp == null ? null : DateTime.tryParse(timestamp),
     type: _scrubQueryIfUri(type ?? 'audit event'),
     outcome: _firstString(map, const ['outcome']) ?? '',
-    id: _firstString(map, const ['id']) ?? '',
-    actorId: _firstString(map, const ['actor_id', 'actorId']) ?? '',
-    clientId: _firstString(map, const ['client_id', 'clientId']) ?? '',
+    id: _firstString(map, const ['id', 'event_id']) ?? '',
+    actorId:
+        _firstString(map, const ['actor_id', 'actorId']) ??
+        _nestedString(map, 'actor', 'id') ??
+        '',
+    // Audit Governance derives and persists the registered source identity as
+    // `source_system`; it intentionally does not echo OAuth client secrets or
+    // an unverified request-side client id. Use that trusted source as the
+    // CLIENT column fallback while preserving Snaplink's legacy client_id.
+    clientId:
+        _firstString(map, const ['client_id', 'clientId', 'source_system']) ??
+        '',
     tenantId: _firstString(map, const ['tenant_id', 'tenantId']) ?? '',
   );
 }
@@ -133,6 +142,17 @@ String? _firstString(Map<String, dynamic> map, List<String> keys) {
     if (value is String && value.isNotEmpty) return value;
   }
   return null;
+}
+
+String? _nestedString(
+  Map<String, dynamic> map,
+  String containerKey,
+  String valueKey,
+) {
+  final container = map[containerKey];
+  if (container is! Map) return null;
+  final value = container[valueKey];
+  return value is String && value.isNotEmpty ? value : null;
 }
 
 /// URI-query-scoped credential-bearing keys, layered on top of

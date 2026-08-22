@@ -17,7 +17,7 @@ services:
     build:
       context: .
       args:
-        SNAPLINK_ADMIN_OAUTH_RESOURCES: ${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api}
+        SNAPLINK_ADMIN_OAUTH_RESOURCES: ${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api,audit-governance}
     ports:
       - "4444:80"
     depends_on:
@@ -33,3 +33,6 @@ services:
       SNAPLINK_STRIPE_ADAPTER_UPSTREAM: ${SNAPLINK_STRIPE_ADAPTER_UPSTREAM:?SNAPLINK_STRIPE_ADAPTER_UPSTREAM must be set — no implicit sso-server fallback (P0-2)}
       SNAPLINK_STRIPE_ADAPTER_SERVER_NAME: ${SNAPLINK_STRIPE_ADAPTER_SERVER_NAME:-snaplink-stripe-adapter}
       SNAPLINK_STRIPE_ADAPTER_CA: ${SNAPLINK_STRIPE_ADAPTER_CA:-/etc/ssl/certs/ca-certificates.crt}
+      AUDIT_GOVERNANCE_UPSTREAM: ${AUDIT_GOVERNANCE_UPSTREAM:?AUDIT_GOVERNANCE_UPSTREAM must be set — audit reads have no local fallback}
+      AUDIT_GOVERNANCE_SERVER_NAME: ${AUDIT_GOVERNANCE_SERVER_NAME:-audit-governance}
+      AUDIT_GOVERNANCE_CA: ${AUDIT_GOVERNANCE_CA:-/etc/ssl/certs/ca-certificates.crt}

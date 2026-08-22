@@ -45,7 +45,7 @@ class DeploymentContractsTest(unittest.TestCase):
         )
         self.assertEqual(
             console['build']['args']['SNAPLINK_ADMIN_OAUTH_RESOURCES'],
-            '${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api}',
+            '${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api,audit-governance}',
         )
         self.assertEqual(
             console['environment']['SNAPLINK_BILLING_UPSTREAM'],
@@ -54,6 +54,10 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertEqual(
             console['environment']['SNAPLINK_STRIPE_ADAPTER_UPSTREAM'],
             '${SNAPLINK_STRIPE_ADAPTER_UPSTREAM:?SNAPLINK_STRIPE_ADAPTER_UPSTREAM must be set — no implicit sso-server fallback (P0-2)}',
+        )
+        self.assertEqual(
+            console['environment']['AUDIT_GOVERNANCE_UPSTREAM'],
+            '${AUDIT_GOVERNANCE_UPSTREAM:?AUDIT_GOVERNANCE_UPSTREAM must be set — audit reads have no local fallback}',
         )
         self.assertIn('4444:80', console['ports'])
 
@@ -95,6 +99,10 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertEqual(
             environment['SNAPLINK_STRIPE_ADAPTER_CA'],
             '/etc/snaplink-stripe-adapter/ca/ca.crt',
+        )
+        self.assertEqual(
+            environment['AUDIT_GOVERNANCE_UPSTREAM'],
+            'http://audit-governance.sv-sso.svc.cluster.local:8089',
         )
         self.assertTrue(container['securityContext']['readOnlyRootFilesystem'])
         self.assertFalse(container['securityContext']['allowPrivilegeEscalation'])
@@ -160,7 +168,7 @@ class DeploymentContractsTest(unittest.TestCase):
             ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'
         ).read_text()
 
-        self.assertIn('ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api', dockerfile)
+        self.assertIn('ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api,audit-governance', dockerfile)
         self.assertIn('ARG FLUTTER_VERSION=3.47.1', dockerfile)
         self.assertRegex(
             dockerfile,
@@ -191,6 +199,7 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('validate_origin SNAPLINK_BILLING_UPSTREAM', preflight)
         self.assertIn('validate_origin SNAPLINK_STRIPE_ADAPTER_UPSTREAM', preflight)
         self.assertIn('validate_origin SNAPLINK_UPSTREAM', preflight)
+        self.assertIn('validate_origin AUDIT_GOVERNANCE_UPSTREAM', preflight)
         self.assertIn('must be an explicit http:// or https:// origin', preflight)
         self.assertIn('ENV SNAPLINK_UPSTREAM=http://snaplink:8080', dockerfile)
         self.assertIn('ENV SNAPLINK_SERVER_NAME=snaplink', dockerfile)
@@ -203,11 +212,12 @@ class DeploymentContractsTest(unittest.TestCase):
             dockerfile,
         )
         self.assertIn('ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=', dockerfile)
+        self.assertIn('ENV AUDIT_GOVERNANCE_UPSTREAM=', dockerfile)
         self.assertIn('location ^~ /app/', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_BILLING_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_STRIPE_ADAPTER_UPSTREAM};', nginx)
-        self.assertEqual(nginx.count('proxy_ssl_verify on;'), 4)
+        self.assertEqual(nginx.count('proxy_ssl_verify on;'), 7)
         self.assertEqual(nginx.count('proxy_ssl_name ${SNAPLINK_SERVER_NAME};'), 2)
         self.assertEqual(
             nginx.count('proxy_ssl_trusted_certificate ${SNAPLINK_CA};'),
@@ -228,6 +238,14 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertEqual(
             nginx.count('proxy_ssl_trusted_certificate ${SNAPLINK_STRIPE_ADAPTER_CA};'),
             1,
+        )
+        self.assertEqual(
+            nginx.count('proxy_ssl_name ${AUDIT_GOVERNANCE_SERVER_NAME};'),
+            3,
+        )
+        self.assertEqual(
+            nginx.count('proxy_ssl_trusted_certificate ${AUDIT_GOVERNANCE_CA};'),
+            3,
         )
         device = section_between(
             nginx,
@@ -270,6 +288,11 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertNotIn('SNAPLINK_STRIPE_ADAPTER_', device + snaplink + billing)
         self.assertIn('location = /api/v1/checkout/sessions', nginx)
         self.assertIn('admin/commerce|commerce|metering', nginx)
+        self.assertIn('location = /api/v1/audit/events', nginx)
+        self.assertIn('location = /api/v1/audit/facets', nginx)
+        self.assertIn('/api/v1/compat/snaplink/audit/events break;', nginx)
+        self.assertIn('/api/v1/compat/snaplink/audit/facets break;', nginx)
+        self.assertIn('/api/v1/compat/snaplink/audit/events/$1 break;', nginx)
         self.assertIn('location = /device/verify', nginx)
         self.assertIn('register(?:/|$)', nginx)
 
@@ -281,6 +304,7 @@ class DeploymentContractsTest(unittest.TestCase):
                 'SNAPLINK_UPSTREAM': 'http://snaplink:8080',
                 'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
                 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
+                'AUDIT_GOVERNANCE_UPSTREAM': 'http://audit-governance:8089',
             }
         )
         valid = subprocess.run(
@@ -312,6 +336,7 @@ class DeploymentContractsTest(unittest.TestCase):
                 'SNAPLINK_UPSTREAM': 'http://snaplink:8080',
                 'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
                 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
+                'AUDIT_GOVERNANCE_UPSTREAM': 'http://audit-governance:8089',
             }
         )
 

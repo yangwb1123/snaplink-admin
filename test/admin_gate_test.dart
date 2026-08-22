@@ -18,6 +18,7 @@ void main() {
     expect(login.queryParametersAll['resource'], [
       'billing-api',
       'stripe-adapter-api',
+      'audit-governance',
     ]);
     final target = Uri.parse(login.queryParameters['redirect']!);
     expect(target.path, '/admin/users/u1/sessions');

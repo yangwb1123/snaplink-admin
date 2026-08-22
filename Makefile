@@ -2,7 +2,7 @@
 
 SNAPLINK_API_URL ?= http://localhost:8080
 SNAPLINK_PROXY_PORT ?= 4444
-SNAPLINK_ADMIN_OAUTH_RESOURCES ?= billing-api,stripe-adapter-api
+SNAPLINK_ADMIN_OAUTH_RESOURCES ?= billing-api,stripe-adapter-api,audit-governance
 
 # ═══════════════════════════════════════════
 # sso-console 开发命令

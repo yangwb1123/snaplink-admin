@@ -13,7 +13,9 @@ accepts those paths directly and proxies the console's same-origin API paths
 to `SNAPLINK_UPSTREAM`. Commercial and metering paths are routed to
 `SNAPLINK_BILLING_UPSTREAM`; it may equal `SNAPLINK_UPSTREAM` for a minimal
 deployment, or identify the independent API-only Billing service in a full
-deployment.
+deployment. Audit reads are always rewritten onto the canonical Audit
+Governance API at `AUDIT_GOVERNANCE_UPSTREAM`; there is no local audit-store
+fallback in the Console proxy.
 
 Stripe top-up checkout uses the exact same-origin path
 `POST /api/v1/checkout/sessions`, routed only to
@@ -21,14 +23,17 @@ Stripe top-up checkout uses the exact same-origin path
 Bearer; it never receives a Stripe secret or a machine-client secret. That
 Snaplink token must carry `admin:write` and an `aud` value (or audience array)
 containing the adapter's configured `SNAPLINK_STRIPE_AUDIENCE`; Billing calls
-likewise require `SNAPLINK_BILLING_AUDIENCE`.
+likewise require `SNAPLINK_BILLING_AUDIENCE`. Audit reads require the
+`audit-governance` audience. Audit Governance independently validates the
+Snaplink token and maps its audience-bound `admin:read` permission to the
+tenant-scoped event read surface.
 
-The Admin Console requests both audiences on direct and hosted login. Set the
+The Admin Console requests all three audiences on direct and hosted login. Set the
 comma-separated build value `SNAPLINK_ADMIN_OAUTH_RESOURCES` to those exact
-resource identifiers. Its default is `billing-api,stripe-adapter-api`. The
-`sso-admin-console` client's `allowed_resources`, Billing audience, Stripe
-audience, and this build value must agree. An empty build value disables the
-extra resource request for a profile without the commerce services. Because
+resource identifiers. Its default is
+`billing-api,stripe-adapter-api,audit-governance`. The `sso-admin-console`
+client's `allowed_resources`, Billing audience, Stripe audience, Audit
+Governance audience, and this build value must agree. Because
 Flutter is a static bundle, changing a container runtime environment variable
 does not change this setting; rebuild the image or `build/web/` artifact.
 The adapter must independently bind the requested `tenant_id` and permit the
@@ -41,6 +46,8 @@ Each proxy target has an independent TLS trust tuple:
   `SNAPLINK_BILLING_CA`
 - Stripe adapter: `SNAPLINK_STRIPE_ADAPTER_UPSTREAM`,
   `SNAPLINK_STRIPE_ADAPTER_SERVER_NAME`, `SNAPLINK_STRIPE_ADAPTER_CA`
+- Audit Governance: `AUDIT_GOVERNANCE_UPSTREAM`,
+  `AUDIT_GOVERNANCE_SERVER_NAME`, `AUDIT_GOVERNANCE_CA`
 
 nginx enables SNI and certificate verification for every HTTPS target. The
 server name must match its certificate and the CA file must contain only the
@@ -51,7 +58,7 @@ Changing one target never changes another target's server name or CA.
 For direct static hosting, build the production artifact with:
 
 ```bash
-SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com' \
+SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
   make build-prod
 ```
 
@@ -72,23 +79,23 @@ into every schedulable node's containerd.
 
 Choose the profile before building because OAuth resource indicators are part
 of the static Flutter bundle. A full deployment requests the Billing and
-Stripe Adapter audiences and keeps their independent TLS trust roots:
+Stripe Adapter audiences, always requests Audit Governance, and keeps their independent TLS trust roots:
 
 ```bash
 docker build \
-  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com' \
+  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
   -t snaplink/sso-console:v1 .
 kubectl apply -k k8s/full
 ```
 
-A minimal deployment does not request optional audiences. Its commercial and
+A minimal deployment requests only the required Audit Governance audience. Its commercial and
 Checkout locations intentionally fall through to the required SSO upstream,
 which returns 404, so nginx never resolves optional service names. The
 minimal profile also removes both optional CA Secret volumes:
 
 ```bash
 docker build \
-  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='' \
+  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='audit-governance' \
   -t snaplink/sso-console:v1 .
 kubectl apply -k k8s/minimal
 ```
@@ -124,18 +131,19 @@ For any environment that runs plain Docker without Kubernetes:
 
 ```bash
 docker build \
-  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com' \
+  --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
   -t sso-console:latest .
 docker run -d --name sso-console \
   --add-host=host.docker.internal:host-gateway \
   -e SNAPLINK_UPSTREAM=http://host.docker.internal:8080 \
   -e SNAPLINK_BILLING_UPSTREAM=http://host.docker.internal:8090 \
   -e SNAPLINK_STRIPE_ADAPTER_UPSTREAM=http://host.docker.internal:8091 \
+  -e AUDIT_GOVERNANCE_UPSTREAM=http://host.docker.internal:8089 \
   -p 8081:80 sso-console:latest
 ```
 
 This example assumes Snaplink listens on the Docker host at port 8080,
-Billing at port 8090, and the Stripe adapter at port 8091; the
+Billing at port 8090, the Stripe adapter at port 8091, and Audit Governance at port 8089; the
 console is reachable on `http://localhost:8081/`. In a Docker network, set
 `SNAPLINK_UPSTREAM` to the backend service origin instead. For HTTPS, also set
 that target's matching server-name and CA variables described above.
@@ -145,7 +153,7 @@ fast when `SNAPLINK_BILLING_UPSTREAM`/`SNAPLINK_STRIPE_ADAPTER_UPSTREAM` are
 unset, so a deployment missing those services can never silently route
 Billing/checkout traffic to the sso-server and surface confusing 404s.
 Set the independent Billing/Stripe origins when those services are deployed.
-The image repeats this contract for all three origins in
+The image repeats this contract for all four origins in
 `docker-entrypoint.d/10-validate-upstreams.sh`: it rejects an empty value,
 credentials, paths, queries, fragments, or non-HTTP(S) values before nginx
 renders its configuration. Minimal Kubernetes may intentionally point both
@@ -154,11 +162,11 @@ Place the dedicated
 test/backend configuration at `config.local.yaml` first. That local file is
 gitignored and must not contain production secrets.
 
-An explicit empty OAuth resource value is preserved by Compose, so a minimal
-bundle can be built and started without requesting optional audiences:
+The minimal bundle can omit commerce audiences while retaining the required
+Audit Governance resource:
 
 ```bash
-SNAPLINK_ADMIN_OAUTH_RESOURCES='' docker compose up --build
+SNAPLINK_ADMIN_OAUTH_RESOURCES='audit-governance' docker compose up --build
 ```
 
 ## Method 3: Manual / direct static hosting (no container)
@@ -168,7 +176,7 @@ deployed in the live environment today: an OpenResty `alias` directive
 pointing straight at the built directory, no container involved.
 
 ```bash
-SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com' \
+SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
   make build-prod
 ```
 

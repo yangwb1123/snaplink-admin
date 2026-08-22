@@ -58,6 +58,12 @@ spec:
               value: snaplink-stripe-adapter.sv-sso.svc.cluster.local
             - name: SNAPLINK_STRIPE_ADAPTER_CA
               value: /etc/snaplink-stripe-adapter/ca/ca.crt
+            - name: AUDIT_GOVERNANCE_UPSTREAM
+              value: http://audit-governance.sv-sso.svc.cluster.local:8089
+            - name: AUDIT_GOVERNANCE_SERVER_NAME
+              value: audit-governance.sv-sso.svc.cluster.local
+            - name: AUDIT_GOVERNANCE_CA
+              value: /etc/ssl/certs/ca-certificates.crt
           ports:
             - { containerPort: 80, name: http }
           securityContext:

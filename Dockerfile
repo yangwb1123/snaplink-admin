@@ -5,7 +5,7 @@ FROM python:3.12-slim AS build
 # from silently changing the production artifact.
 ARG FLUTTER_VERSION=3.47.1
 ARG FLUTTER_SHA256=a1d8166c0309267cb7dc99f1424eecf08b86946ad3b50723c6f59945964aea45
-ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api
+ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api,audit-governance
 
 WORKDIR /app
 
@@ -50,6 +50,9 @@ ENV SNAPLINK_BILLING_CA=/etc/ssl/certs/ca-certificates.crt
 ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=
 ENV SNAPLINK_STRIPE_ADAPTER_SERVER_NAME=snaplink-stripe-adapter
 ENV SNAPLINK_STRIPE_ADAPTER_CA=/etc/ssl/certs/ca-certificates.crt
+ENV AUDIT_GOVERNANCE_UPSTREAM=
+ENV AUDIT_GOVERNANCE_SERVER_NAME=audit-governance
+ENV AUDIT_GOVERNANCE_CA=/etc/ssl/certs/ca-certificates.crt
 
 # Copy Flutter build output
 COPY --from=build /app/build/web /usr/share/nginx/html

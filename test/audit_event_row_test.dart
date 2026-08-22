@@ -30,6 +30,36 @@ void main() {
       expect(row.tenantId, 'acme');
     });
 
+    test('maps Audit Governance event envelopes without exposing payload', () {
+      final rows = auditEventRowsFromResponse({
+        'items': [
+          {
+            'event_id': 'ag-1',
+            'event_type': 'aero.vault.audit-fact',
+            'outcome': 'success',
+            'occurred_at': '2026-08-22T09:30:00Z',
+            'actor': {'id': 'principal-digest', 'type': 'principal'},
+            'source_system': 'aero-vault.source-1',
+            'tenant_id': 'acme',
+            'payload': {'access_token': 'must-not-surface'},
+          },
+        ],
+        'next_cursor': 'opaque',
+        'count': 1,
+      });
+
+      expect(rows, hasLength(1));
+      final row = rows.single;
+      expect(row.id, 'ag-1');
+      expect(row.type, 'aero.vault.audit-fact');
+      expect(row.outcome, 'success');
+      expect(row.timestamp, DateTime.utc(2026, 8, 22, 9, 30));
+      expect(row.actorId, 'principal-digest');
+      expect(row.clientId, 'aero-vault.source-1');
+      expect(row.tenantId, 'acme');
+      expect(row.type, isNot(contains('must-not-surface')));
+    });
+
     test('{} and {"events": []} both produce zero rows', () {
       expect(auditEventRowsFromResponse(const {}), isEmpty);
       expect(

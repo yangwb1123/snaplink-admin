@@ -17,7 +17,7 @@ void main() {
           'provider': 'password',
           'client_id': SSOAdminClient.firstPartyClientId,
           'scope': ['openid', 'profile', 'admin:read', 'admin:write'],
-          'resource': ['billing-api', 'stripe-adapter-api'],
+          'resource': ['billing-api', 'stripe-adapter-api', 'audit-governance'],
           'credential': {'username': 'admin', 'password': 'password'},
         });
         return http.Response('{"access_token":"admin-token"}', 200);
