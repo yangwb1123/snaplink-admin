@@ -32,7 +32,6 @@ filesize:
     # pushed these pages just past the budget (1-38 lines over)
     - "lib/screens/admin/permissions_tab.dart"
     - "lib/screens/admin/device_security_widgets.dart"
-    - "lib/screens/admin/distributed_cluster_panel.dart"
     - "lib/screens/admin/recovery_releases_tab.dart"
     # API client files (dense with docs and methods)
     - "lib/api/sso_client.dart"
