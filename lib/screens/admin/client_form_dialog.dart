@@ -3,6 +3,8 @@ import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
 
+part 'client_form_dialog_view.dart';
+
 /// Create/edit form for an [AdminClient]. Pass [existing] to edit; omit to create.
 class ClientFormDialog extends StatefulWidget {
   final SSOAdminClient client;
@@ -110,6 +112,11 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
     return 'Use an HTTPS login page URI (or localhost HTTP).'.localized;
   }
 
+  void _selectTokenStrategy(Set<String> selection) =>
+      setState(() => _tokenStrategy = selection.first);
+
+  void _setActive(bool value) => setState(() => _active = value);
+
   @override
   void dispose() {
     _idController.dispose();
@@ -160,146 +167,5 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: widget.isEdit
-          ? const LocalizedText('Edit client')
-          : const LocalizedText('Create client'),
-      content: SizedBox(
-        width: 560,
-        child: SingleChildScrollView(
-          child: Form(
-            key: _formKey,
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _idController,
-                  enabled: !widget.isEdit,
-                  autofocus: !widget.isEdit,
-                  decoration: InputDecoration(
-                    labelText: 'ID'.localized,
-                    helperText: 'Immutable after creation.'.localized,
-                  ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Required'.localized
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _loginPageUriController,
-                  decoration: InputDecoration(
-                    labelText: 'Login page URI (optional)'.localized,
-                    helperText:
-                        'Required for federated OIDC/SAML callbacks. Use HTTPS except for local development.'
-                            .localized,
-                    helperMaxLines: 2,
-                  ),
-                  validator: _validateLoginPageUri,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: 'Name'.localized),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Required'.localized
-                      : null,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _redirectUrisController,
-                  decoration: InputDecoration(
-                    labelText: 'Redirect URIs'.localized,
-                    helperText: 'One per line or comma-separated'.localized,
-                  ),
-                  maxLines: 3,
-                  validator: _validateRedirectUris,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _allowedScopesController,
-                  decoration: InputDecoration(
-                    labelText: 'Allowed scopes'.localized,
-                    helperText: 'One per line or comma-separated'.localized,
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _allowedAuthenticatorsController,
-                  decoration: InputDecoration(
-                    labelText: 'Allowed authenticators'.localized,
-                    helperText:
-                        'One per line or comma-separated. Leave blank to accept any authenticator.'
-                            .localized,
-                    helperMaxLines: 2,
-                  ),
-                  maxLines: 2,
-                ),
-                const SizedBox(height: 8),
-                // R31：2 项短枚举 → SegmentedButton（替代 Token strategy 下拉）。
-                LocalizedText(
-                  'Token strategy',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'jwt', label: LocalizedText('jwt')),
-                    ButtonSegment(
-                      value: 'session',
-                      label: LocalizedText('session'),
-                    ),
-                  ],
-                  selected: {_tokenStrategy},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (selection) =>
-                      setState(() => _tokenStrategy = selection.first),
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _secretController,
-                  decoration: InputDecoration(
-                    labelText: 'Secret (optional)'.localized,
-                    helperText:
-                        ('Leave blank to avoid setting a static secret. This '
-                                'admin contract does not configure PKCE; create '
-                                'public PKCE clients through the Developer Portal '
-                                'or deployment configuration.')
-                            .localized,
-                    helperMaxLines: 4,
-                  ),
-                  obscureText: true,
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const LocalizedText('Active'),
-                  value: _active,
-                  onChanged: (v) => setState(() => _active = v),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.pop(context, false),
-          child: const LocalizedText('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _submitting ? null : _submit,
-          child: _submitting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const LocalizedText('Save'),
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => _buildClientFormDialog(context);
 }
