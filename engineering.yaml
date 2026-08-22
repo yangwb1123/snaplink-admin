@@ -86,7 +86,6 @@ filesize:
     - "lib/screens/admin/webhooks_tab.dart"
     - "lib/screens/developer/manage_panel.dart"
     - "lib/screens/oidc_login/account_flow_views.dart"
-    - "lib/screens/oidc_login/login_view_widget.dart"
     - "lib/screens/oidc_login/oidc_login_view_flow.dart"
     - "lib/screens/portal/notifications_tab.dart"
     - "lib/screens/portal/organizations_tab.dart"
