@@ -30,7 +30,6 @@ filesize:
     - "lib/i18n/app_strings_source_portal.dart"
     # 2026-08 pages-ui refactor: componentized lists/status/empty states
     # pushed these pages just past the budget (1-38 lines over)
-    - "lib/screens/admin/permissions_tab.dart"
     - "lib/screens/admin/device_security_widgets.dart"
     - "lib/screens/admin/recovery_releases_tab.dart"
     # API client files (dense with docs and methods)
