@@ -12,6 +12,8 @@ import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
+part 'notifications_tab_view.dart';
+
 /// Account notification inbox: unread counter, cursor pagination, mark-read
 /// (single + all), and channel/type preferences.
 class NotificationsTab extends StatefulWidget {
@@ -230,139 +232,12 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return PullToRefresh(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      container: true,
-                      header: true,
-                      child: Text(
-                        context.tr('Notifications'),
-                        style: theme.textTheme.headlineSmall,
-                      ),
-                    ),
-                    Text(
-                      context.tr(
-                        '{count} unread security and account notifications.',
-                        {'count': formatCount(_unread)},
-                      ),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (_unread > 0)
-                TextButton(
-                  onPressed: _loading ? null : _markAllRead,
-                  child: Text(context.tr('Mark all as read')),
-                ),
-              IconButton(
-                onPressed: _loading ? null : _load,
-                tooltip: context.tr('Refresh notifications'),
-                icon: const Icon(Icons.refresh),
-                color: theme.colorScheme.primary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (_loading)
-            const SkeletonListTile(itemCount: 3)
-          else ...[
-            PortalCard(
-              title: 'Inbox',
-              children: [
-                if (_error != null) ...[
-                  MessageBanner(_error),
-                  OutlinedButton.icon(
-                    onPressed: _load,
-                    icon: const Icon(Icons.refresh),
-                    label: Text(context.tr('Retry')),
-                  ),
-                ] else if (_items.isEmpty)
-                  const EmptyState(
-                    compact: true,
-                    icon: Icons.notifications_off_outlined,
-                    title: 'You have no notifications.',
-                  )
-                else ...[
-                  for (final (index, item) in _items.indexed)
-                    StaggeredFadeIn(
-                      index: index,
-                      child: _NotificationTile(
-                        item: item,
-                        onTap: () => _markRead(item),
-                      ),
-                    ),
-                  if (_hasMore)
-                    TextButton(
-                      onPressed: _loadingMore ? null : () => _load(more: true),
-                      child: _loadingMore
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Text(context.tr('Load more')),
-                    ),
-                ],
-              ],
-            ),
-            if (_preferences.isNotEmpty)
-              PortalCard(
-                title: 'Notification preferences',
-                children: [
-                  for (final preference in _preferences)
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(
-                        context.tr(
-                          _typeLabel(preference['type']?.toString() ?? ''),
-                        ),
-                      ),
-                      subtitle: Text(
-                        context.tr(
-                          _channelLabel(
-                            preference['channel']?.toString() ?? '',
-                          ),
-                        ),
-                      ),
-                      value: preference['enabled'] != false,
-                      onChanged: (value) =>
-                          setState(() => preference['enabled'] = value),
-                    ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton.icon(
-                      onPressed: _saving ? null : _savePreferences,
-                      icon: _saving
-                          ? const SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(context.tr('Save preferences')),
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ],
-      ),
-    );
+  void _setPreferenceEnabled(Map<String, dynamic> preference, bool value) {
+    setState(() => preference['enabled'] = value);
   }
+
+  @override
+  Widget build(BuildContext context) => _buildNotificationsTab(context);
 }
 
 /// Inbox row: severity icon, unread-bold title, meta, trailing severity chip.

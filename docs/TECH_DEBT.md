@@ -3,11 +3,11 @@
 > 由 ai-batch-runner 的 `pi-batch advance` 扫描 + 人工甄别维护。
 > 原则：**不机械硬拆**——内聚的大文件是合理架构；结构债随对应功能迭代处理。
 
-## P2 结构债（advance 扫描，63 项）
+## P2 结构债（advance 扫描，62 项）
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| 上帝文件 >400 行 | 39 | 当前工作树中的 39 个超预算 Dart 文件均已在 `engineering.yaml` 显式登记：i18n/API 数据或客户端、复杂状态页与本轮安全/治理功能页；未提高全局 400 行上限，新文件仍会触发门禁。dashboard 的低频导航已拆到 `dashboard_navigation_tail.dart`，登录、SCIM Bulk、分布式集群、租户品牌与审计日志面板的视图组合已分别拆到独立 part，其余页面按功能迭代继续组件化 |
+| 上帝文件 >400 行 | 38 | 当前工作树中的 38 个超预算 Dart 文件均已在 `engineering.yaml` 显式登记：i18n/API 数据或客户端、复杂状态页与本轮安全/治理功能页；未提高全局 400 行上限，新文件仍会触发门禁。dashboard 的低频导航已拆到 `dashboard_navigation_tail.dart`，登录、SCIM Bulk、分布式集群、租户品牌、审计日志与通知中心面板的视图组合已分别拆到独立 part，其余页面按功能迭代继续组件化 |
 | 深层嵌套 >8 | 17 | tenants_tab 21 / users_tab 20 / clients_tab 20 等（widget 树结构性，随功能迭代提取） |
 | 决策点 >30 | 8 | oidc_authorization_flow 58 / governance 52 等（复杂逻辑，提取 policy 需谨慎） |
 | api calls >5 | 13 | 需人工甄别（6 个不同端点=合理；同用途重复才提取） |
