@@ -60,10 +60,6 @@ class MfaView extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final strings = AppStrings.of(context);
-    final acceptsCode =
-        selectedMfaMethod != null &&
-        selectedMfaMethod != 'webauthn' &&
-        selectedMfaMethod != 'push';
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -77,115 +73,12 @@ class MfaView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 4,
-          children: mfaMethods.map((method) {
-            final selected = selectedMfaMethod == method;
-            return ChoiceChip(
-              avatar: Icon(
-                _methodIcon(method),
-                size: 18,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
-              label: Text(_label(strings, method)),
-              selected: selected,
-              onSelected: loading ? null : (_) => onMethodChanged(method),
-            );
-          }).toList(),
-        ),
-        if (selectedMfaMethod == null && mfaMethods.length > 1) ...[
-          const SizedBox(height: 12),
-          _notice(
-            context,
-            context.tr('Select a verification method.'),
-            Icons.info_outline,
-          ),
-        ],
-        if (acceptsCode) ...[
-          const SizedBox(height: 16),
-          TextField(
-            controller: mfaCodeCtrl,
-            enabled: !loading,
-            autocorrect: false,
-            enableSuggestions: false,
-            keyboardType: selectedMfaMethod == 'recovery'
-                ? TextInputType.visiblePassword
-                : TextInputType.number,
-            autofillHints: selectedMfaMethod == 'recovery'
-                ? const []
-                : const [AutofillHints.oneTimeCode],
-            textInputAction: TextInputAction.done,
-            decoration: InputDecoration(
-              labelText: selectedMfaMethod == 'recovery'
-                  ? context.tr('Recovery code')
-                  : strings.verificationCode,
-              prefixIcon: Icon(Icons.pin_outlined, color: scheme.primary),
-            ),
-            onSubmitted: (_) {
-              if (!loading) onSubmit();
-            },
-          ),
-        ],
-        if (selectedMfaMethod == 'webauthn') ...[
-          const SizedBox(height: 16),
-          _notice(
-            context,
-            context.tr('Use a registered passkey to verify this sign-in.'),
-            Icons.fingerprint,
-          ),
-        ],
-        if (selectedMfaMethod == 'push') ...[
-          const SizedBox(height: 16),
-          _notice(
-            context,
-            context.tr(
-              'Approve the notification on your device, then continue.',
-            ),
-            Icons.notifications_active_outlined,
-          ),
-        ],
-        if (allowTrustDevice)
-          CheckboxListTile(
-            contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.trailing,
-            secondary: Icon(
-              Icons.verified_user_outlined,
-              color: scheme.primary,
-            ),
-            title: Text(context.tr('Trust this device')),
-            subtitle: Text(context.tr('Skip future MFA when allowed.')),
-            value: trustThisDevice,
-            onChanged: loading ? null : onTrustChanged,
-          ),
-        if (error != null) ...[
-          const SizedBox(height: 16),
-          _notice(
-            context,
-            context.tr(error!),
-            Icons.error_outline,
-            color: scheme.onErrorContainer,
-            contained: true,
-            live: true,
-          ),
-        ],
+        _methodPicker(strings, scheme),
+        ..._methodChallengeWidgets(context, strings, scheme),
+        if (allowTrustDevice) _trustDeviceTile(context, scheme),
+        ..._errorWidgets(context, scheme),
         const SizedBox(height: 20),
-        PressableScale(
-          child: FilledButton(
-            onPressed: loading ? null : onSubmit,
-            child: loading
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(
-                    selectedMfaMethod == 'webauthn'
-                        ? context.tr('Use passkey')
-                        : strings.verify,
-                  ),
-          ),
-        ),
+        _submitButton(context, strings),
         TextButton(
           onPressed: loading ? null : onBack,
           child: Text(strings.back),
@@ -193,6 +86,129 @@ class MfaView extends StatelessWidget {
       ],
     );
   }
+
+  Widget _methodPicker(AppStrings strings, ColorScheme scheme) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    children: mfaMethods.map((method) {
+      final selected = selectedMfaMethod == method;
+      return ChoiceChip(
+        avatar: Icon(
+          _methodIcon(method),
+          size: 18,
+          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+        ),
+        label: Text(_label(strings, method)),
+        selected: selected,
+        onSelected: loading ? null : (_) => onMethodChanged(method),
+      );
+    }).toList(),
+  );
+
+  List<Widget> _methodChallengeWidgets(
+    BuildContext context,
+    AppStrings strings,
+    ColorScheme scheme,
+  ) {
+    final acceptsCode =
+        selectedMfaMethod != null &&
+        selectedMfaMethod != 'webauthn' &&
+        selectedMfaMethod != 'push';
+    return [
+      if (selectedMfaMethod == null && mfaMethods.length > 1) ...[
+        const SizedBox(height: 12),
+        _notice(
+          context,
+          context.tr('Select a verification method.'),
+          Icons.info_outline,
+        ),
+      ],
+      if (acceptsCode) ...[
+        const SizedBox(height: 16),
+        TextField(
+          controller: mfaCodeCtrl,
+          enabled: !loading,
+          autocorrect: false,
+          enableSuggestions: false,
+          keyboardType: selectedMfaMethod == 'recovery'
+              ? TextInputType.visiblePassword
+              : TextInputType.number,
+          autofillHints: selectedMfaMethod == 'recovery'
+              ? const []
+              : const [AutofillHints.oneTimeCode],
+          textInputAction: TextInputAction.done,
+          decoration: InputDecoration(
+            labelText: selectedMfaMethod == 'recovery'
+                ? context.tr('Recovery code')
+                : strings.verificationCode,
+            prefixIcon: Icon(Icons.pin_outlined, color: scheme.primary),
+          ),
+          onSubmitted: (_) {
+            if (!loading) onSubmit();
+          },
+        ),
+      ],
+      if (selectedMfaMethod == 'webauthn') ...[
+        const SizedBox(height: 16),
+        _notice(
+          context,
+          context.tr('Use a registered passkey to verify this sign-in.'),
+          Icons.fingerprint,
+        ),
+      ],
+      if (selectedMfaMethod == 'push') ...[
+        const SizedBox(height: 16),
+        _notice(
+          context,
+          context.tr('Approve the notification on your device, then continue.'),
+          Icons.notifications_active_outlined,
+        ),
+      ],
+    ];
+  }
+
+  Widget _trustDeviceTile(BuildContext context, ColorScheme scheme) =>
+      CheckboxListTile(
+        contentPadding: EdgeInsets.zero,
+        controlAffinity: ListTileControlAffinity.trailing,
+        secondary: Icon(Icons.verified_user_outlined, color: scheme.primary),
+        title: Text(context.tr('Trust this device')),
+        subtitle: Text(context.tr('Skip future MFA when allowed.')),
+        value: trustThisDevice,
+        onChanged: loading ? null : onTrustChanged,
+      );
+
+  List<Widget> _errorWidgets(BuildContext context, ColorScheme scheme) => [
+    if (error != null) ...[
+      const SizedBox(height: 16),
+      _notice(
+        context,
+        context.tr(error!),
+        Icons.error_outline,
+        color: scheme.onErrorContainer,
+        contained: true,
+        live: true,
+      ),
+    ],
+  ];
+
+  Widget _submitButton(BuildContext context, AppStrings strings) =>
+      PressableScale(
+        child: FilledButton(
+          onPressed: loading ? null : onSubmit,
+          child: loading
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Text(
+                  selectedMfaMethod == 'webauthn'
+                      ? context.tr('Use passkey')
+                      : strings.verify,
+                ),
+        ),
+      );
 
   /// 内联提示条：品牌/语义色图标 + 文案；`contained` 变体用于错误
   /// （errorContainer 底 + onErrorContainer 前景）。
