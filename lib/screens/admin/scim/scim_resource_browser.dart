@@ -17,6 +17,8 @@ import 'scim_patch_dialog.dart';
 import 'scim_resource_detail_dialog.dart';
 import 'scim_user_dialog.dart';
 
+part 'scim_resource_browser_view.dart';
+
 class ScimResourceBrowser extends StatefulWidget {
   final SnaplinkAdminApi api;
   final ScimResourceKind kind;
@@ -283,137 +285,26 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_unavailable) {
-      return ScimUnavailable(kind: widget.kind, onRetry: _load);
-    }
-    final page = _page;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），操作区仍贴右。
-              Expanded(
-                child: LocalizedText(
-                  widget.kind == ScimResourceKind.users
-                      ? 'SCIM Users'
-                      : 'SCIM Groups',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              IconButton(
-                onPressed: _loading || _mutating ? null : _load,
-                icon: Icon(Icons.refresh, color: _accent),
-                tooltip: 'Refresh'.localized,
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                onPressed: _mutating ? null : _create,
-                icon: const Icon(Icons.add),
-                label: LocalizedText(
-                  'Create ${widget.kind.singular.toLowerCase()}',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ScimQueryBar(
-            kind: widget.kind,
-            filterController: _filterController,
-            startIndexController: _startIndexController,
-            count: _count,
-            sortBy: _sortBy,
-            descending: _descending,
-            busy: _loading || _mutating,
-            onCountChanged: (value) => setState(() => _count = value),
-            onSortChanged: (value) => setState(() => _sortBy = value),
-            onDescendingChanged: (value) => setState(() => _descending = value),
-            onApply: _applyQuery,
-          ),
-          if (_error != null) _errorCard(context),
-          if (_loading && page == null)
-            const Expanded(
-              child: SkeletonListTile(
-                itemCount: 6,
-                delay: Duration(milliseconds: 150),
-              ),
-            )
-          else if (page != null)
-            Expanded(
-              child: Column(
-                children: [
-                  if (_loading) const LinearProgressIndicator(),
-                  Expanded(
-                    child: page.resources.isEmpty
-                        ? _emptyState()
-                        : ScimResourceTable(
-                            kind: widget.kind,
-                            resources: page.resources,
-                            enabled: !_mutating,
-                            onOpen: _showDetail,
-                          ),
-                  ),
-                  // 光标语义：page 传 null（无“Page null”胶囊），
-                  // 汇总文案与现运行格式完全同形（U+2013 en-dash）。
-                  PaginationControls(
-                    page: null,
-                    total: null,
-                    summaryLabel: page.totalResults == 0
-                        ? '0 results'
-                        : '{start}–{end} of {total}',
-                    summaryArgs: page.totalResults == 0
-                        ? null
-                        : {
-                            'start': '${page.startIndex}',
-                            'end':
-                                '${page.itemsPerPage == 0 ? page.startIndex : page.startIndex + page.itemsPerPage - 1}',
-                            'total': '${page.totalResults}',
-                          },
-                    canGoBack: page.hasPrevious && !(_loading || _mutating),
-                    canGoNext: page.hasNext && !(_loading || _mutating),
-                    onPrevious: () =>
-                        _load(startIndex: max(1, page.startIndex - _count)),
-                    onNext: () =>
-                        _load(startIndex: page.startIndex + page.itemsPerPage),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
+  void _setCount(int value) {
+    setState(() => _count = value);
   }
 
-  /// 查询空态：有查询 → noMatch + 清除筛选；无查询 → 空数据。
-  Widget _emptyState() {
-    final querying = _filterController.text.trim().isNotEmpty;
-    if ((_page?.startIndex ?? 1) > 1) {
-      return EmptyPageState(onBackToFirst: () => _load(startIndex: 1));
-    }
-    return EmptyState(
-      variant: querying ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-      title: querying
-          ? 'No resources match this query.'
-          : 'No resources found.',
-      actionLabel: querying ? 'Clear filter' : null,
-      actionIcon: Icons.filter_alt_off,
-      onAction: querying ? _clearFilter : null,
-    );
+  void _setSortBy(String value) {
+    setState(() => _sortBy = value);
   }
+
+  void _setDescending(bool value) {
+    setState(() => _descending = value);
+  }
+
+  @override
+  Widget build(BuildContext context) => _buildScimResourceBrowser(context);
 
   /// 空态“清除筛选”：清空查询框并重新加载。
   void _clearFilter() {
     _filterController.clear();
     _load();
   }
-
-  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。
-  Widget _errorCard(BuildContext context) =>
-      ErrorStateCard(message: _error!, onRetry: _load, retryEnabled: !_loading);
 
   String _errorMessage(SnaplinkAdminApiError error) => context.tr(
     'SCIM request failed ({status}): {error}',
