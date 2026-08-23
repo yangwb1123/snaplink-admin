@@ -60,7 +60,6 @@ filesize:
     # fail the budget) and track the next decomposition opportunities in
     # docs/TECH_DEBT.md rather than silently widening max_lines.
     - "lib/screens/admin/access_policies_tab.dart"
-    - "lib/screens/admin/admin_live_events_tab.dart"
     - "lib/screens/admin/admin_overview_tab.dart"
     - "lib/screens/admin/break_glass_tab.dart"
     - "lib/screens/admin/client_detail_screen.dart"
