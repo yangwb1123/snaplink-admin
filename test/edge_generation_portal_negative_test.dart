@@ -13,7 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// (`grep -rn "auth/login" lib/screens/portal/` and
 /// `grep -rn "auth\.login\.success" lib/`):
 ///
-///  * `auth/login` — `lib/screens/portal/` only, **34 files pinned**. The
+///  * `auth/login` — `lib/screens/portal/` only, **35 files pinned**. The
 ///    route is legitimately emitted outside the module by the console/OIDC
 ///    clients (`lib/api/sso_client.dart:96`, `lib/api/oidc_login_api.dart:51`,
 ///    `lib/screens/oidc_login/*`), so a lib/-wide raw scan would false-hit;
@@ -36,7 +36,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// production directories only, so test scaffolding cannot self-hit.
 void main() {
   const portalDir = 'lib/screens/portal';
-  const portalFileCount = 34;
+  const portalFileCount = 35;
 
   /// Strips quote seams, concatenation operators, whitespace, and
   /// interpolation markers so a split literal that assembles to a needle

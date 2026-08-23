@@ -11,6 +11,8 @@ import 'organization_admin_tab.dart';
 import 'portal_api.dart';
 import 'portal_widgets.dart';
 
+part 'organizations_tab_view.dart';
+
 /// B2B organization membership: list + leave + accept an invitation token.
 /// Ports the "Organizations" card / loadOrganizations() in app.js. app.js
 /// hides the whole card when GET /me/organizations doesn't return 200 (the
@@ -191,130 +193,12 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final managedTenantId = _managedTenantId;
-    if (managedTenantId != null) {
-      return OrganizationAdminPanel(
-        api: widget.api,
-        tenantId: managedTenantId,
-        onClose: () => setState(() => _managedTenantId = null),
-      );
-    }
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Semantics(
-                      container: true,
-                      header: true,
-                      child: Text(
-                        context.strings.organizations,
-                        style: theme.textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      context.tr('Teams and organizations you belong to.'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                tooltip: context.tr('Refresh organizations'),
-                onPressed: _loading || _accepting || _leavingTenantId != null
-                    ? null
-                    : _load,
-                icon: const Icon(Icons.refresh),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: _loading
-              ? const SkeletonListTile(itemCount: 3)
-              : !_available
-              ? const EmptyState(
-                  compact: true,
-                  variant: EmptyStateVariant.notEnabled,
-                  icon: Icons.business_outlined,
-                  title: 'Organizations are not available for this account.',
-                )
-              : _error != null
-              ? PortalErrorCard(message: context.tr(_error!), onRetry: _load)
-              : PullToRefresh(
-                  onRefresh: _load,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    children: [
-                      MessageBanner(_notice, ok: _ok),
-                      if (_orgs.isEmpty)
-                        const EmptyState(
-                          compact: true,
-                          icon: Icons.groups_outlined,
-                          title: 'You are not a member of any organization.',
-                        )
-                      else
-                        PortalCard(
-                          title: 'Your organizations',
-                          children: [
-                            for (final (index, org) in _orgs.indexed)
-                              StaggeredFadeIn(
-                                index: index,
-                                child: _orgRow(org),
-                              ),
-                          ],
-                        ),
-                      PortalCard(
-                        title: 'Accept an invitation',
-                        children: [
-                          TextField(
-                            controller: _inviteCtrl,
-                            enabled: !_accepting,
-                            decoration: InputDecoration(
-                              labelText: context.tr('Invitation token'),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: FilledButton.icon(
-                              onPressed: _accepting ? null : _acceptInvite,
-                              icon: _accepting
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.login_outlined, size: 18),
-                              label: Text(context.tr('Join organization')),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-      ],
-    );
+  void _closeOrganizationAdmin() {
+    setState(() => _managedTenantId = null);
   }
+
+  @override
+  Widget build(BuildContext context) => _buildOrganizationsTab(context);
 
   /// One organization row: brand-tinted tenant icon, tenant id (API value,
   /// raw [Text]), role meta, and trailing Manage (admin only) / danger
