@@ -6,8 +6,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 
-/// 三态门禁（质量门禁固化）：抽查 6 个产品入口的数据区域页面文件，
-/// 静态确认每页包含 loading / empty / error 三态模式：
+/// 三态门禁（质量门禁固化）：抽查 6 个产品入口的数据区域页面 Dart library，
+/// 聚合主文件及其直接声明的 part，静态确认每页包含 loading / empty / error 三态模式：
 /// - loading：SkeletonListTile / (Linear|Circular)ProgressIndicator /
 ///   AsyncView / *_loading / isLoading / *_busy / ConnectionState.waiting；
 /// - empty：EmptyState / EmptyHint / isEmpty；
@@ -27,7 +27,7 @@ void main() {
         missing.add(page);
         continue;
       }
-      final source = File(page).readAsStringSync();
+      final source = _pageLibrarySource(page);
       if (!_dataMachinery.hasMatch(source)) {
         notData.add(page);
       }
@@ -52,7 +52,7 @@ void main() {
       final warnings = <String>[];
       for (final page in _dataPages) {
         if (!File(page).existsSync()) continue;
-        final source = File(page).readAsStringSync();
+        final source = _pageLibrarySource(page);
         final missing = <String>[
           if (!_loadingPattern.hasMatch(source)) 'loading',
           if (!_emptyPattern.hasMatch(source)) 'empty',
@@ -71,6 +71,22 @@ void main() {
       }
     },
   );
+
+  test('page-library source includes directly declared local parts', () {
+    final fixture = Directory.systemTemp.createTempSync('three-state-gate-');
+    addTearDown(() => fixture.deleteSync(recursive: true));
+    final page = File('${fixture.path}/sample_page.dart')
+      ..writeAsStringSync("part 'sample_page_view.dart';\n");
+    File('${fixture.path}/sample_page_view.dart').writeAsStringSync(
+      "part of 'sample_page.dart';\n"
+      'Widget build() => const SkeletonListTile();\n',
+    );
+
+    final source = _pageLibrarySource(page.path);
+
+    expect(source, contains("part of 'sample_page.dart';"));
+    expect(_loadingPattern.hasMatch(source), isTrue);
+  });
 }
 
 // ---------------------------------------------------------------------
@@ -146,3 +162,21 @@ final _errorPattern = RegExp(
   r'catch\s*\(|MessageBanner|requestFailed',
   caseSensitive: false,
 );
+
+final _partDirective = RegExp(
+  r'''^\s*part\s+['"]([^'"]+)['"]\s*;''',
+  multiLine: true,
+);
+
+String _pageLibrarySource(String page) {
+  final libraryFile = File(page);
+  final librarySource = libraryFile.readAsStringSync();
+  final sources = <String>[librarySource];
+  for (final match in _partDirective.allMatches(librarySource)) {
+    final partFile = File.fromUri(
+      libraryFile.absolute.uri.resolve(match.group(1)!),
+    );
+    sources.add(partFile.readAsStringSync());
+  }
+  return sources.join('\n');
+}

@@ -28,6 +28,8 @@ import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'list_metrics.dart';
 
+part 'audit_log_tab_view.dart';
+
 /// Audit log viewer tab — server read.
 ///
 /// Renders the sink's audit events through [AuditReadClient] (sole owner of
@@ -148,6 +150,11 @@ class _AuditLogTabState extends State<AuditLogTab> {
     _searchDebounce = Timer(_debounceWindow, () {
       if (mounted) _refresh();
     });
+  }
+
+  void _onOutcomeFilterChanged(String value) {
+    setState(() => _outcomeFilter = value);
+    _refresh();
   }
 
   void _applyFilter() {
@@ -273,18 +280,6 @@ class _AuditLogTabState extends State<AuditLogTab> {
     _refresh();
   }
 
-  Widget _outcomeCell(AuditEventRow row) {
-    if (row.outcome.isEmpty) return const TableCellText('-', muted: true);
-    // Server vocabulary rendered verbatim (machine data, like EVENT).
-    return StatusChip(
-      label: row.outcome,
-      color: row.outcome == 'success' ? AppColors.success : AppColors.danger,
-      icon: row.outcome == 'success'
-          ? Icons.check_circle_outline
-          : Icons.error_outline,
-    );
-  }
-
   /// Header actions: server-truth count, error-rate badge, refresh/export,
   /// and the debug-only ring copy surface (const-folds out of release).
   List<Widget> _actions(BuildContext context) {
@@ -384,158 +379,6 @@ class _AuditLogTabState extends State<AuditLogTab> {
     );
   }
 
-  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）；错误文本动态 Text（FM-1）。
-  Widget _errorCard(BuildContext context) =>
-      ErrorStateCard(message: _error ?? '', onRetry: _refresh);
-
   @override
-  Widget build(BuildContext context) {
-    // 空态语义：筛选后无可见行（含搜索/outcome 过滤排空）也算“无结果”。
-    final showEmpty =
-        _displayed.isEmpty && !_loading && _error == null && !_notEnabled;
-    return PullToRefresh(
-      onRefresh: _refresh,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const AdminBreadcrumb(),
-          _header(context),
-          if (_notEnabled)
-            const Padding(
-              padding: EdgeInsets.only(top: 24),
-              child: EmptyState(variant: EmptyStateVariant.notEnabled),
-            )
-          else if (_error != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: _errorCard(context),
-            )
-          else ...[
-            AuditMetrics(rows: _rows, persona: widget.persona),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                SizedBox(
-                  width: 300,
-                  // 本地过滤即时生效；网络刷新由 300ms debounce 合并。
-                  child: SearchFilterBar(
-                    debounce: false,
-                    hintText: 'Search...'.localized,
-                    controller: _searchCtrl,
-                    onSearchChanged: _onSearchChanged,
-                  ),
-                ),
-                StatusFilterDropdown(
-                  value: _outcomeFilter,
-                  options: const {
-                    'ALL': 'All',
-                    'success': 'success',
-                    'failure': 'failure',
-                  },
-                  onChanged: (v) {
-                    setState(() => _outcomeFilter = v);
-                    _refresh();
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            SectionHeader('Recent events', count: _rows.length),
-            const SizedBox(height: 8),
-            if (_loading)
-              const SkeletonListTile(itemCount: 4)
-            else if (showEmpty)
-              _searchCtrl.text.trim().isNotEmpty || _outcomeFilter != 'ALL'
-                  ? EmptyState(
-                      variant: EmptyStateVariant.noMatch,
-                      title: 'No matching events.',
-                      actionLabel: 'Clear filter',
-                      actionIcon: Icons.filter_alt_off,
-                      onAction: _clearFilters,
-                    )
-                  : const EmptyState(
-                      variant: EmptyStateVariant.empty,
-                      title: 'No audit events returned by the server yet.',
-                    )
-            else
-              AdminDataTable(
-                density: TableDensity.compact,
-                sortColumn: _sortColumn,
-                sortAscending: _sortAscending,
-                onSort: _onSort,
-                minWidth: 900,
-                columns: [
-                  AdminDataColumn(
-                    id: 'time',
-                    label: 'TIME',
-                    width: 180,
-                    sortable: true,
-                    builder: (c, i) => TableCellText(
-                      _formatTime(_displayed[i].timestamp),
-                      muted: true,
-                    ),
-                  ),
-                  AdminDataColumn(
-                    id: 'type',
-                    label: 'EVENT',
-                    width: 220,
-                    sortable: true,
-                    builder: (c, i) =>
-                        TableCellText(_displayed[i].type, bold: true),
-                  ),
-                  AdminDataColumn(
-                    id: 'outcome',
-                    label: 'OUTCOME',
-                    width: 160,
-                    sortable: true,
-                    builder: (c, i) => _outcomeCell(_displayed[i]),
-                  ),
-                  AdminDataColumn(
-                    id: 'actor',
-                    label: 'ACTOR',
-                    width: 140,
-                    builder: (c, i) => _displayed[i].actorId.isEmpty
-                        ? const TableCellText('-')
-                        : CopyableCell(
-                            text: _displayed[i].actorId,
-                            contextProvider: () => c,
-                          ),
-                  ),
-                  AdminDataColumn(
-                    id: 'tenant',
-                    label: 'TENANT',
-                    width: 140,
-                    builder: (c, i) => _displayed[i].tenantId.isEmpty
-                        ? const TableCellText('-')
-                        : CopyableCell(
-                            text: _displayed[i].tenantId,
-                            contextProvider: () => c,
-                          ),
-                  ),
-                ],
-                itemCount: _displayed.length,
-                rowBuilder: (context, i) => const SizedBox.shrink(),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // Relative labels only — date fallback and '--' stay verbatim.
-  String _formatTime(DateTime? dt) {
-    if (dt == null) return '--';
-    final diff = DateTime.now().difference(dt);
-    if (diff.inSeconds < 60) return context.tr('just now');
-    if (diff.inMinutes < 60) {
-      return context.tr('{count}m ago', {'count': diff.inMinutes});
-    }
-    if (diff.inHours < 24) {
-      return context.tr('{count}h ago', {'count': diff.inHours});
-    }
-    return '${dt.month}/${dt.day} ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
-  }
+  Widget build(BuildContext context) => _buildAuditLogTab(context);
 }

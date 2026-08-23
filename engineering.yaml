@@ -49,7 +49,6 @@ filesize:
     - "lib/screens/device/device_verify_api.dart"
     - "lib/screens/setup/setup_api.dart"
     - "lib/screens/admin/clients_tab.dart"
-    - "lib/screens/admin/audit_log_tab.dart"
     # Dashboard and complex tabs with detail route resolution
     - "lib/screens/admin/dashboard_screen.dart"
     - "lib/screens/admin/token_security_tab.dart"
