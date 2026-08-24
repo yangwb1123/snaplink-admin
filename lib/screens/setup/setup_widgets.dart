@@ -55,10 +55,14 @@ class SetupLoadingPanel extends StatelessWidget {
       children: [
         const SetupLogo(),
         const SizedBox(height: 16),
-        const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
+        Semantics(
+          liveRegion: true,
+          label: strings.checkingSystemStatus,
+          child: const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
         ),
         const SizedBox(height: 16),
         Text(
@@ -95,6 +99,7 @@ class SetupAlreadyInitializedPanel extends StatelessWidget {
       actions: [
         FilledButton(
           onPressed: onContinue,
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
           child: Text(strings.goToAdminConsole),
         ),
       ],
@@ -124,11 +129,13 @@ class SetupUnavailablePanel extends StatelessWidget {
       actions: [
         OutlinedButton.icon(
           onPressed: onRetry,
+          style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
           icon: const Icon(Icons.refresh, size: 18),
           label: Text(strings.retry),
         ),
         FilledButton(
           onPressed: onContinue,
+          style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
           child: Text(strings.goToAdminConsole),
         ),
       ],
@@ -311,10 +318,21 @@ class SetupCredentialValue extends StatelessWidget {
     children: [
       Row(
         children: [
+          if (shownOnce) ...[
+            Icon(
+              Icons.key_outlined,
+              size: 17,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(width: 6),
+          ],
           Expanded(
             child: Text(
               shownOnce ? AppStrings.of(context).shownOnce(label) : label,
-              style: Theme.of(context).textTheme.labelLarge,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: shownOnce ? Theme.of(context).colorScheme.error : null,
+                fontWeight: shownOnce ? FontWeight.w700 : null,
+              ),
             ),
           ),
           IconButton(
@@ -332,8 +350,17 @@ class SetupCredentialValue extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          border: Border.all(color: Theme.of(context).colorScheme.outline),
+          color: shownOnce
+              ? Color.alphaBlend(
+                  Theme.of(context).colorScheme.error.withValues(alpha: 0.08),
+                  Theme.of(context).colorScheme.surfaceContainerHighest,
+                )
+              : Theme.of(context).colorScheme.surfaceContainerHighest,
+          border: Border.all(
+            color: shownOnce
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.outline,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
         child: SelectableText(
@@ -393,11 +420,12 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
           header: true,
           child: Text(
             strings.setupComplete,
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleLarge,
           ),
         ),
         const SizedBox(height: 8),
-        Text(strings.setupCompleteDescription),
+        Text(strings.setupCompleteDescription, textAlign: TextAlign.center),
         if (widget.adminUsername != null) ...[
           const SizedBox(height: 8),
           SetupCredentialValue(
@@ -413,6 +441,7 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
             PressableScale(
               child: OutlinedButton.icon(
                 onPressed: widget.busy ? null : widget.onRetryApplication,
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 48)),
                 icon: widget.busy
                     ? const SizedBox(
                         height: 18,
@@ -453,6 +482,7 @@ class _SetupDonePanelState extends State<SetupDonePanel> {
             onPressed: widget.clientSecret == null || _savedSecret
                 ? widget.onDone
                 : null,
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
             child: Text(strings.goToAdminConsole),
           ),
         ),

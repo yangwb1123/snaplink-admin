@@ -15,44 +15,95 @@ class DeviceRequestPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final strings = AppStrings.of(context);
     final clientName =
         preview['client_name']?.toString() ??
         preview['client_id']?.toString() ??
         '';
+    final rawScopes = preview['scopes'];
+    final scopes = rawScopes is List
+        ? rawScopes
+              .map<String>((scope) => scope.toString().trim())
+              .where((scope) => scope.isNotEmpty)
+              .toList(growable: false)
+        : const <String>[];
+    final scopeSummary = scopes.join(', ');
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.devices_other, color: scheme.primary),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.devices_other, color: scheme.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(clientName, style: theme.textTheme.titleSmall),
+                ),
+              ],
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            if (scopes.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
                 children: [
-                  Text(clientName, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 4),
                   Text(
-                    AppStrings.of(
-                      context,
-                    ).requestedScopes((preview['scopes'] as List).join(', ')),
+                    scopes.length > 1
+                        ? strings.requestedScopes(scopeSummary)
+                        : context.tr('Scope'),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
+                  for (final scope in scopes)
+                    Container(
+                      constraints: const BoxConstraints(minHeight: 28),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: scheme.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: scheme.primary.withValues(alpha: 0.22),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.lock_outline,
+                            size: 15,
+                            color: scheme.primary,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              scope,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -86,7 +137,10 @@ class DeviceDecisionButtons extends StatelessWidget {
           child: PressableScale(
             child: OutlinedButton.icon(
               onPressed: onDeny,
-              style: OutlinedButton.styleFrom(foregroundColor: scheme.error),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: scheme.error,
+                minimumSize: const Size(0, 48),
+              ),
               icon: const Icon(Icons.close, size: 18),
               label: Text(strings.deny),
             ),
@@ -97,6 +151,7 @@ class DeviceDecisionButtons extends StatelessWidget {
           child: PressableScale(
             child: FilledButton.icon(
               onPressed: onApprove,
+              style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               icon: busy && !checking
                   ? const SizedBox(
                       height: 18,

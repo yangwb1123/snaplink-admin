@@ -52,9 +52,8 @@ class SearchFilterBar extends StatefulWidget {
 }
 
 class _SearchFilterBarState extends State<SearchFilterBar> {
-  late final TextEditingController _searchCtrl =
-      widget.controller ?? TextEditingController();
-  late final bool _ownsController = widget.controller == null;
+  late TextEditingController _searchCtrl;
+  bool _ownsController = false;
 
   /// 最近一次挂载的搜索框焦点（全局 Ctrl+F 快捷键定位用）。
   /// 页面同一时刻只渲染一个列表页 → 静态单例足够；dispose 时若仍指向
@@ -67,7 +66,37 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
   @override
   void initState() {
     super.initState();
+    _attachController(widget.controller);
     _activeSearchFocus = _searchFocusNode;
+  }
+
+  void _attachController(TextEditingController? controller) {
+    _searchCtrl = controller ?? TextEditingController();
+    _ownsController = controller == null;
+    _searchCtrl.addListener(_onControllerChanged);
+  }
+
+  void _detachController() {
+    _searchCtrl.removeListener(_onControllerChanged);
+    if (_ownsController) _searchCtrl.dispose();
+  }
+
+  void _onControllerChanged() {
+    // External controllers can be changed by the page (for example when a
+    // filter is cleared outside this widget). Rebuild only the clear affordance
+    // here; the page still owns the decision to submit the new value.
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant SearchFilterBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      _cancelDebounce();
+      _detachController();
+      _attachController(widget.controller);
+    }
+    if (oldWidget.debounce && !widget.debounce) _cancelDebounce();
   }
 
   @override
@@ -76,20 +105,28 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
       _activeSearchFocus = null;
     }
     _searchFocusNode.dispose();
-    _debounceTimer?.cancel();
-    if (_ownsController) _searchCtrl.dispose();
+    _cancelDebounce();
+    _detachController();
     super.dispose();
+  }
+
+  void _cancelDebounce() {
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
   }
 
   void _onSearchChanged(String value) {
     // 清除按钮可见性跟随文本即时更新（不等待防抖窗口）。
     setState(() {});
     if (!widget.debounce) {
+      _cancelDebounce();
       widget.onSearchChanged(value);
       return;
     }
-    _debounceTimer?.cancel();
+    _cancelDebounce();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _debounceTimer = null;
+      if (!mounted) return;
       widget.onSearchChanged(value);
     });
   }
@@ -97,11 +134,11 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
   /// 清除按钮：取消挂起防抖 → 清空文本 → 同步提交空查询（与 Enter 提交
   /// 同语义，见 [onSubmitted]），随后把焦点还给搜索框便于继续输入。
   void _clearSearch() {
-    _debounceTimer?.cancel();
+    _cancelDebounce();
     _searchCtrl.clear();
     widget.onSearchChanged('');
     widget.onSubmitted?.call('');
-    _searchFocusNode.requestFocus();
+    if (mounted) _searchFocusNode.requestFocus();
   }
 
   @override
@@ -133,8 +170,14 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                             icon: const Icon(Icons.close, size: 18),
                             tooltip: context.tr('Clear filter'),
                             onPressed: _clearSearch,
-                            visualDensity: VisualDensity.compact,
+                            // Keep the icon visually compact but retain the
+                            // platform minimum hit area for keyboard/touch.
+                            constraints: const BoxConstraints(
+                              minWidth: kMinInteractiveDimension,
+                              minHeight: kMinInteractiveDimension,
+                            ),
                             padding: EdgeInsets.zero,
+                            visualDensity: VisualDensity.standard,
                           ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -147,6 +190,9 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                   ),
                   onChanged: _onSearchChanged,
                   onSubmitted: (value) {
+                    // Enter is an explicit submit: do not let the keystroke's
+                    // pending debounce fire a second, identical search.
+                    _cancelDebounce();
                     widget.onSubmitted?.call(value);
                     widget.onSearchChanged(value);
                   },
@@ -189,7 +235,9 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                     onSelected: (_) => widget.onFilterChanged?.call(
                       widget.selectedFilter == option ? null : option,
                     ),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    // Keep a padded semantic/touch target even though the
+                    // label itself remains compact.
+                    materialTapTargetSize: MaterialTapTargetSize.padded,
                   ),
               ],
             ),

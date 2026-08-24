@@ -9,6 +9,9 @@ const appPortalSourceZh = <String, String>{
 
   'Multi-factor authentication and the security factors on your account.': '您账户的多因素认证与安全因子。',
   'Browser and device sessions currently signed in with your account.': '当前使用您账户登录的浏览器与设备会话。',
+  'Current': '当前',
+  'Revoked': '已撤销',
+  'Other sessions revoked.': '其他会话已撤销。',
   'Recent sign-in and security events on your account.': '您账户最近的登录与安全事件。',
   'Third-party identities linked to your account for sign-in.': '与您账户关联用于登录的第三方身份。',
   'Applications you have authorized to access your account data.': '您已授权访问账户数据的应用。',
@@ -256,6 +259,8 @@ const appPortalSourceZh = <String, String>{
   'Refresh activity': '刷新活动',
   'Refresh applications': '刷新应用列表',
   'Refresh devices': '刷新设备',
+  'Search devices...': '搜索设备…',
+  'Search sessions...': '搜索会话…',
   'Refresh identities': '刷新关联身份',
   'Refresh organizations': '刷新组织',
   'Refresh sessions': '刷新会话',

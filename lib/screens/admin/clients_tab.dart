@@ -666,7 +666,7 @@ class _ClientsTabState extends State<ClientsTab>
             emptyState ??
             (constraints.maxWidth < 640
                 ? _mobileList(items)
-                : _dataTable(items));
+                : _dataTable(context, items));
         final scale = MediaQuery.textScalerOf(context).scale(1);
         final short = constraints.maxHeight < 380 * scale;
         final content = Column(
@@ -751,7 +751,7 @@ class _ClientsTabState extends State<ClientsTab>
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'CLIENT ID',
+                            AppStrings.of(context).clientId,
                             style: Theme.of(context).textTheme.labelSmall,
                           ),
                           CopyableCell(
@@ -764,7 +764,7 @@ class _ClientsTabState extends State<ClientsTab>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'SECRET',
+                                AppStrings.of(context).clientSecret,
                                 style: Theme.of(context).textTheme.labelSmall,
                               ),
                               const SizedBox(width: 8),
@@ -825,7 +825,10 @@ class _ClientsTabState extends State<ClientsTab>
     ],
   );
 
-  Widget _dataTable(List<Map<String, dynamic>> items) {
+  Widget _dataTable(
+    BuildContext context,
+    List<Map<String, dynamic>> items,
+  ) {
     String cid(int i) => items[i]['id']?.toString() ?? '';
     return AdminDataTable(
       scrollable: true,
@@ -850,7 +853,7 @@ class _ClientsTabState extends State<ClientsTab>
           ),
         AdminDataColumn(
           id: 'id',
-          label: 'CLIENT ID',
+          label: AppStrings.of(context).clientId,
           width: 190,
           sortable: true,
           builder: (context, i) => CopyableCell(
@@ -882,7 +885,7 @@ class _ClientsTabState extends State<ClientsTab>
         // 'Token strategy'（client_detail_screen.dart），列表收进 6 列内。
         AdminDataColumn(
           id: 'expiry',
-          label: 'SECRET',
+          label: AppStrings.of(context).clientSecret,
           width: 170,
           builder: (context, i) => TableCellText(
             clientSecretExpiryLabel(context, items[i]),

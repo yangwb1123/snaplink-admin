@@ -227,6 +227,12 @@ class _AdminDataTableState extends State<AdminDataTable> {
                   : () => widget.onRowLongPress!(i),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
+                // A row-level tap/long-press is itself an action target. Keep
+                // compact read-only rows compact, while guaranteeing the
+                // interactive row does not fall below the 48px touch target.
+                constraints: interactive
+                    ? const BoxConstraints(minHeight: 48)
+                    : null,
                 color: interactive && _hoveredRow == i
                     ? theme.colorScheme.primary.withValues(alpha: 0.05)
                     : i.isEven

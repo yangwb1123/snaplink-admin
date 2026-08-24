@@ -112,13 +112,21 @@ class _DeveloperScreenState extends State<DeveloperScreen>
           controller: _tabController,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
+          labelColor: scheme.primary,
+          unselectedLabelColor: scheme.onSurfaceVariant,
+          indicatorColor: scheme.primary,
+          indicatorWeight: 2,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 12),
           tabs: [
             Tab(
               icon: Icon(Icons.app_registration, color: scheme.primary),
               text: strings.registerNewApp,
             ),
             Tab(
-              icon: Icon(Icons.manage_accounts_outlined, color: scheme.primary),
+              icon: Icon(
+                Icons.manage_accounts_outlined,
+                color: scheme.primary,
+              ),
               text: strings.manageExistingApp,
             ),
           ],
@@ -133,9 +141,12 @@ class _DeveloperScreenState extends State<DeveloperScreen>
               minHeight: 2,
               color: scheme.primary,
               backgroundColor: scheme.surfaceContainerHighest,
+              semanticsLabel: strings.loading,
             ),
           if (_discoveryError != null)
             MaterialBanner(
+              forceActionsBelow: true,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               content: Semantics(
                 liveRegion: true,
                 child: Text(context.tr(_discoveryError!)),

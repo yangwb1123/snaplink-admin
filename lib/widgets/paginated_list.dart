@@ -39,15 +39,24 @@ class PaginationControls extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     child: LayoutBuilder(
       builder: (context, constraints) {
+        // Keep the visible button rhythm, but do not let the shared pager
+        // inherit the app-wide 40px button height: Previous/Next are the
+        // primary touch targets on narrow list pages (48px minimum).
+        final buttonStyle = OutlinedButton.styleFrom(
+          minimumSize: const Size(64, 48),
+          tapTargetSize: MaterialTapTargetSize.padded,
+        );
         final previous = OutlinedButton.icon(
           onPressed: canGoBack ? onPrevious : null,
           icon: const Icon(Icons.chevron_left),
           label: Text(context.tr('Previous')),
+          style: buttonStyle,
         );
         final next = OutlinedButton.icon(
           onPressed: canGoNext ? onNext : null,
           icon: const Icon(Icons.chevron_right),
           label: Text(context.tr('Next')),
+          style: buttonStyle,
         );
         // 当前页胶囊（品牌色高亮）+ 总数/汇总徽章。
         final pill = page == null
@@ -150,6 +159,10 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
   int get currentPage => _pageIndex + 1;
 
   void resetPagination() {
+    // A refresh/filter change starts a new traversal. Without clearing the
+    // guard, reusing the same page object after returning to page one could
+    // incorrectly discard its first Next action.
+    _lastAdvancedPage = _noPageYet;
     _pageTokens
       ..clear()
       ..add(null);
@@ -158,6 +171,7 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
 
   void goPrevious() {
     if (_pageIndex == 0) return;
+    _lastAdvancedPage = _noPageYet;
     setState(() {
       _pageIndex--;
     });
