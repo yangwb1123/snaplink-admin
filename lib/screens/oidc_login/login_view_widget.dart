@@ -287,8 +287,8 @@ class _FocusGlowState extends State<_FocusGlow> {
           boxShadow: _focused
               ? [
                   BoxShadow(
-                    color: primary.withValues(alpha: 0.30),
-                    blurRadius: 14,
+                    color: primary.withValues(alpha: 0.20),
+                    blurRadius: 12,
                     spreadRadius: 0.5,
                   ),
                 ]

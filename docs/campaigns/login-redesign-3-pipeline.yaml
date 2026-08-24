@@ -1,0 +1,152 @@
+# 登录页视觉深化（第三轮）— 构图收敛 / Apple 氛围 / Sentry 交互层级
+#
+# 基础已落地：login-redesign（Apple 光晕 + Sentry 卡片）与
+# login-redesign-2（极光 + 玻璃拟态 + filled 表单）。本轮只解决真实的
+# 视觉收尾问题，不重复堆叠效果：根壳层与 backdrop 的光效层级、卡片内
+# 信息层级、移动端密度、按钮/错误状态的一致性。
+#
+# 不使用远程背景图片：用本地 Flutter 渐变表达 Apple 式氛围，避免外部
+# 资源、CORS、隐私与发布稳定性问题。
+#
+# 运行：
+#   python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/login-redesign-3-pipeline.yaml \
+#     --mode serial --timeout 1800 --log-file logs/login-redesign-3.log
+git_commit: false
+decision_log: docs/ui/login-redesign-2/round-3/DECISIONS.md
+archive_dir: docs/ui/login-redesign-2/round-3/archive
+
+stages:
+  - name: design
+    from_prompt: |
+      你是资深产品视觉设计师。请先完整阅读当前登录页代码，并基于
+      已完成的两轮设计做第三轮“构图收敛”方案，不改代码。
+
+      ## 必读文件
+      - lib/screens/oidc_login/oidc_login_view_flow.dart
+      - lib/screens/oidc_login/login_backdrop.dart
+      - lib/screens/oidc_login/branding_header.dart
+      - lib/screens/oidc_login/login_view_widget.dart
+      - lib/screens/oidc_login/login_view_widget_layout.dart
+      - lib/screens/oidc_login/login_view_widget_subwidgets.dart
+      - lib/widgets/responsive_entry_card.dart
+      - lib/theme/app_theme.dart、lib/theme/app_colors.dart
+      - docs/ui/login-redesign-2/archive/ 下最近的设计/变更/验收文档（若可读）
+
+      ## 当前目标
+      用户希望“登录页面更美观，背景参考 Apple 官网，UI 像 Sentry”。
+      Apple 仅作为视觉参考：大面积克制渐变、空气感、留白、柔和焦点，
+      不下载远程图片；Sentry 作为交互参考：清晰的 auth card、强品牌
+      主按钮、细边框、简洁表单、状态反馈明确。
+
+      ## 本轮重点（必须给出保留/删除/调整证据）
+      1. 光效层级：当前壳层有根 LinearGradient、两个 `_GlowOrb`，还叠加
+         `LoginBackdrop` 的主光斑/四角光斑/顶部带/底部渐隐。判断是否
+         重复、是否造成中心或边缘过亮；给出最小收敛方案（优先删除
+         冗余层，而不是继续加光），暗/亮具体 alpha。
+      2. 卡片构图：检查 520px 宽、顶部主题/语言控件、品牌区、信任提示、
+         登录标题、表单之间的视觉节奏。给出桌面/400px/320px 的间距和
+         断点策略，不能破坏现有下拉 44px 触控目标。
+      3. Sentry 交互层级：检查主按钮、联邦按钮、密码辅助链接、错误
+         banner、provider selector 的权重/高度/对齐；提出最多 3 个高
+         价值且低风险的调整。不要改变认证流程或文案语义。
+      4. 品牌区：租户 logo、默认 logo、品牌色回退、网络图片失败时的
+         布局稳定性；建议保持语义标签与安全 URL 行为。
+      5. 性能与可访问性：保持装饰 IgnorePointer/ExcludeSemantics、无
+         Ticker；BackdropFilter 只能有界；大字体、键盘、窄屏不能溢出。
+
+      ## 输出
+      输出一个可实施的方案，包含：
+      - 现状问题清单（按影响排序）；
+      - 最小改动表（文件/符号/为什么）；
+      - 暗/亮配色与 alpha 表；
+      - 桌面/移动布局表；
+      - 明确“不改”的认证/i18n/a11y 契约；
+      - 视觉验收清单。
+      输出 docs/ui/login-redesign-2/round-3/design.md。
+    output: docs/ui/login-redesign-2/round-3/design.md
+
+  - name: implement
+    from_outputs: design
+    aggregate: true
+    validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/login_header_layout_test.dart test/login_backdrop_test.dart test/login_view_widget_test.dart test/oidc_challenge_flow_test.dart test/native_shell_test.dart test/render_matrix_smoke_test.dart"
+    tasks:
+      - prompt: |
+          按第三轮设计方案实施登录页视觉收尾。STRICT RULES：
+
+          1. 只能修改以下白名单文件（不改测试、不改认证/API/路由）：
+             - lib/screens/oidc_login/login_backdrop.dart
+             - lib/screens/oidc_login/oidc_login_view_flow.dart
+             - lib/screens/oidc_login/branding_header.dart
+             - lib/screens/oidc_login/login_view_widget.dart
+             - lib/screens/oidc_login/login_view_widget_layout.dart
+             - lib/screens/oidc_login/login_view_widget_subwidgets.dart
+             - lib/widgets/responsive_entry_card.dart
+             - lib/theme/app_theme.dart
+             - lib/theme/app_colors.dart
+             如果设计认为无需改某文件，就不要触碰它。
+
+          2. 目标：
+             - Apple 式背景要“克制且有焦点”：收敛重复光效，保留柔和
+               渐变/光晕/留白，不添加远程背景图片，不增加动画；
+             - Sentry 式 auth card：标题、品牌、表单、主按钮、辅助操作
+               的层级清晰，边框/表面/圆角一致；
+             - 桌面、400px、320px 都不溢出；触控目标至少 44px；大字体
+               和键盘滚动安全；
+             - 租户品牌/默认品牌/失败回退视觉稳定。
+
+          3. 必须保持：
+             - OIDC/认证/API/路由/Session/Consent/MFA 语义完全不变；
+             - TextField 的 autofillHints、keyboardType、obscureText、
+               onSubmitted 不变；
+             - `FilledButton` 登录按钮与现有文案不变；
+             - ThemeDropdown/LanguageDropdown 的几何、焦点和禁用语义不变；
+             - 装饰继续 IgnorePointer + ExcludeSemantics + 无 Ticker；
+             - BackdropFilter 只在卡片边界内；不新增依赖或远程资源；
+             - oidc_login 源码中禁止新增 `audit` 文本；文件 ≤400 行。
+
+          4. 运行并修复直到以下命令全绿：
+             flutter analyze --no-fatal-infos --no-fatal-warnings
+             flutter test test/login_header_layout_test.dart
+               test/login_backdrop_test.dart test/login_view_widget_test.dart
+               test/oidc_challenge_flow_test.dart test/native_shell_test.dart
+               test/render_matrix_smoke_test.dart
+
+          5. 不执行 git，不提交。输出变更报告到
+             docs/ui/login-redesign-2/round-3/changes.md：逐项映射设计决策、列出
+             实际修改文件、说明未修改的认证契约与测试结果。
+          {input_content}
+        output: docs/ui/login-redesign-2/round-3/changes.md
+        timeout: 1800
+
+  - name: acceptance
+    from_outputs:
+      - design
+      - implement
+    aggregate: true
+    gate: true
+    tasks:
+      - prompt: |
+          对登录页第三轮视觉收尾做 repository acceptance。不要修改代码。
+
+          检查：
+          - Apple 式背景是否克制、有空气感、中心卡片有明确焦点；是否
+            清除了重复光效而不是继续堆叠；
+          - Sentry 式卡片/表单层级、主按钮、辅助操作、错误状态是否
+            清晰；
+          - 桌面/400px/320px 以及大字体没有溢出；下拉触控目标 ≥44px；
+          - 暗/亮模式对比与品牌紫使用合理；
+          - LoginBackdrop 仍有 IgnorePointer、ExcludeSemantics、无
+            Ticker；BackdropFilter（如存在）有界于卡片；
+          - autofillHints、FilledButton 登录契约、provider/语言/主题
+            下拉焦点与禁用语义未改变；
+          - flutter analyze 与登录相关测试通过；
+          - `git diff --name-only` 的代码修改仅来自白名单。工作区中
+            预先存在的 `web/flutter_bootstrap.js` 未纳入本轮修改可以忽略；
+          - 不检查/不要求远程图片，确认没有新增外部背景资源。
+
+          最后一行必须严格为：
+          VERDICT: PASS - <reason>
+          或
+          VERDICT: FAIL - <blocking issues>
+          {input_content}
+        output: docs/ui/login-redesign-2/round-3/acceptance.md

@@ -4,121 +4,89 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
   Widget _buildShell(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final narrow = MediaQuery.sizeOf(context).width < 768;
     return Scaffold(
-      body: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              (dark ? AppColors.primaryDark : AppColors.primary).withValues(
-                alpha: dark ? 0.45 : 0.16,
-              ),
-              theme.scaffoldBackgroundColor,
-            ],
-          ),
-        ),
-        child: Stack(
-          children: [
-            // 装饰光斑（Vercel 登录质感）：柔和的品牌色光晕，仅装饰。
-            Positioned(
-              top: -80,
-              right: -60,
-              child: _GlowOrb(
-                size: 220,
-                color: (dark ? AppColors.primary : AppColors.primaryTint)
-                    .withValues(alpha: dark ? 0.10 : 0.35),
-              ),
+      body: Stack(
+        children: [
+          // 唯一背景作者：静态极光在父级装饰三原则下运行。
+          Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
+          ResponsiveEntryCard(
+            // 登录头需要容纳主题 + 语言两个自适应下拉并排，默认 440 过窄。
+            maxWidth: 520,
+            useLoginPadding: true,
+            // Sentry 玻璃拟态卡（login-redesign-2 §2）：半透明表面 + 有界 blur，
+            // 1px 边框与圆角 16 保留（kLoginCardBlur 开关）。
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(
+              color: dark
+                  ? Colors.white12
+                  : AppColors.textSubtle.withValues(alpha: 0.14),
+              width: 1,
             ),
-            Positioned(
-              bottom: -100,
-              left: -70,
-              child: _GlowOrb(
-                size: 260,
-                color: AppColors.accentBlue.withValues(
-                  alpha: dark ? 0.08 : 0.18,
-                ),
-              ),
-            ),
-            // 装饰性极光背景（login-redesign-2）——纯装饰，不拦截、无语义。
-            Positioned.fill(child: LoginBackdrop(brightness: theme.brightness)),
-            ResponsiveEntryCard(
-              // 登录头需要容纳主题 + 语言两个自适应下拉并排，默认 440 过窄。
-              maxWidth: 520,
-              // Sentry 玻璃拟态卡（login-redesign-2 §2）：半透明表面 + 有界 blur，
-              // 1px 边框与圆角 16 保留（kLoginCardBlur 开关）。
-              borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: dark
-                    ? Colors.white12
-                    : AppColors.textSubtle.withValues(alpha: 0.14),
-                width: 1,
-              ),
-              surfaceColor: dark
-                  ? AppColors.textMuted.withValues(alpha: 0.75)
-                  : Colors.white.withValues(alpha: 0.85),
-              backdropBlur: kLoginCardBlur ? (dark ? 24 : 20) : null,
-              elevation: dark ? 0 : 1,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // 主题/语言/设置：专项优化区（勿改动）。
-                  Wrap(
-                    alignment: WrapAlignment.spaceBetween,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    runAlignment: WrapAlignment.end,
-                    spacing: 12,
-                    runSpacing: 8,
-                    children: [
-                      _HoverTint(
-                        child: ThemeDropdown(compact: true, enabled: !_loading),
-                      ),
-                      _HoverTint(
-                        child: LanguageDropdown(
-                          compact: true,
-                          enabled: !_loading,
-                        ),
-                      ),
-                      if (!kIsWeb)
-                        IconButton(
-                          onPressed: _loading ? null : _openNativeSettings,
-                          tooltip: AppStrings.of(context).settings,
-                          icon: const Icon(Icons.settings_outlined),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // 品牌区：租户配置优先；仅配置品牌色时落缺省品牌区并着染产品名。
-                  if (_brandName != null || _brandLogoUrl != null)
-                    BrandingHeader(
-                      brandLogoUrl: _brandLogoUrl,
-                      brandName: _brandName,
-                      brandColor: _brandColor,
-                    )
-                  else
-                    _defaultBranding(context, brandColor: _brandColor),
-                  const SizedBox(height: 16),
-                  // 副标语 + 安全徽章：价值主张与信任信号。
-                  _trustSignal(context),
-                  const SizedBox(height: 20),
-                  // 页面过渡：与 admin/portal 壳层同一 PageTransition 约定（200ms fade + 上滑）。
-                  PageTransition(pageKey: ValueKey(_view), child: _buildView()),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.tr('© {year} snaplink · secure identity platform', {
-                      'year': '2026',
-                    }),
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+            surfaceColor: dark
+                ? AppColors.textMuted.withValues(alpha: 0.75)
+                : Colors.white.withValues(alpha: 0.85),
+            backdropBlur: kLoginCardBlur ? (dark ? 24 : 20) : null,
+            elevation: dark ? 0 : 1,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 主题/语言/设置：专项优化区（勿改动）。
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  runAlignment: WrapAlignment.end,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _HoverTint(
+                      child: ThemeDropdown(compact: true, enabled: !_loading),
                     ),
+                    _HoverTint(
+                      child: LanguageDropdown(
+                        compact: true,
+                        enabled: !_loading,
+                      ),
+                    ),
+                    if (!kIsWeb)
+                      IconButton(
+                        onPressed: _loading ? null : _openNativeSettings,
+                        tooltip: AppStrings.of(context).settings,
+                        icon: const Icon(Icons.settings_outlined),
+                      ),
+                  ],
+                ),
+                SizedBox(height: narrow ? 12 : 16),
+                // 品牌区：租户配置优先；仅配置品牌色时落缺省品牌区并着染产品名。
+                if (_brandName != null || _brandLogoUrl != null)
+                  BrandingHeader(
+                    brandLogoUrl: _brandLogoUrl,
+                    brandName: _brandName,
+                    brandColor: _brandColor,
+                  )
+                else
+                  _defaultBranding(context, brandColor: _brandColor),
+                SizedBox(height: narrow ? 12 : 16),
+                // 副标语 + 安全徽章：价值主张与信任信号。
+                _trustSignal(context),
+                SizedBox(height: narrow ? 20 : 24),
+                // 页面过渡：与 admin/portal 壳层同一 PageTransition 约定（200ms fade + 上滑）。
+                PageTransition(pageKey: ValueKey(_view), child: _buildView()),
+                const SizedBox(height: 12),
+                Text(
+                  context.tr('© {year} snaplink · secure identity platform', {
+                    'year': '2026',
+                  }),
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -147,20 +115,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
     final theme = Theme.of(context);
     return Row(
       children: [
-        // logo 发光容器：品牌紫光晕放大品牌块（BrandLogo 自带内阴影）。
-        DecoratedBox(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: theme.colorScheme.primary.withValues(alpha: 0.32),
-                blurRadius: 18,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: const BrandLogo(size: 48, iconSize: 28, radius: 12),
-        ),
+        const BrandLogo(size: 48, iconSize: 28, radius: 12),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -168,9 +123,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
             children: [
               Text(
                 context.tr('snaplink console'),
-                style: theme.textTheme.titleLarge?.copyWith(
+                style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: brandColor ?? theme.colorScheme.primary,
+                  color: BrandingHeader.resolveBrandColor(theme, brandColor),
                 ),
               ),
               const SizedBox(height: 4),
@@ -392,26 +347,6 @@ class _ShellStatus extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 装饰光斑：模糊圆形渐变（仅装饰，不拦截交互）。
-class _GlowOrb extends StatelessWidget {
-  final double size;
-  final Color color;
-
-  const _GlowOrb({required this.size, required this.color});
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
-      ),
-    ),
-  );
 }
 
 /// 悬停/键盘焦点底色：一次性 ≤150ms 颜色过渡；焦点与悬停共用同底，保证键盘反馈。

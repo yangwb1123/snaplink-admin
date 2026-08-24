@@ -3,9 +3,9 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 /// 租户品牌头：logo（网络图片）+ 名称，品牌色可覆盖。
 ///
-/// 回退逻辑保持不变：无 logo 时只渲染名称；名称缺失时 logo 承担语义标签
-/// （Organization logo），名称存在时 logo 视为装饰并从语义中排除；
-/// logo 加载失败静默隐藏（SizedBox.shrink），不打断布局。
+/// 品牌图片始终占据固定 slot；加载失败只替换 slot 内的本地占位，不让
+/// 品牌名称横移。名称存在时 logo 是装饰，名称缺失时 logo 继续承担
+/// `Organization logo` 语义。
 class BrandingHeader extends StatelessWidget {
   final String? brandLogoUrl;
   final String? brandName;
@@ -18,63 +18,94 @@ class BrandingHeader extends StatelessWidget {
     this.brandColor,
   });
 
-  /// logo 尺寸 / 与名称间距（登录卡 440px 内紧凑布局）。
+  /// logo 内容尺寸 / 品牌 slot / 与名称间距。
   static const double _logoSize = 40;
+  static const double _logoSlot = 48;
   static const double _logoGap = 12;
+
+  /// 低对比或带透明度的租户色回退到主题品牌色。
+  static Color resolveBrandColor(ThemeData theme, Color? requested) {
+    final fallback = theme.colorScheme.primary;
+    if (requested == null) return fallback;
+    final visible = Color.alphaBlend(requested, theme.colorScheme.surface);
+    final first = visible.computeLuminance();
+    final second = theme.colorScheme.surface.computeLuminance();
+    final lighter = first > second ? first : second;
+    final darker = first > second ? second : first;
+    final contrast = (lighter + 0.05) / (darker + 0.05);
+    return contrast >= 3 ? requested : fallback;
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // 未指定品牌色时回退品牌主色（login-redesign §3 品牌紫强调）；
-    // dark 下 primary 自动提亮（indigo-400），亮/暗主题均可读。
-    final nameColor = brandColor ?? theme.colorScheme.primary;
+    final hasName = brandName?.trim().isNotEmpty ?? false;
+    final nameColor = resolveBrandColor(theme, brandColor);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (brandLogoUrl != null) ...[
-          // logo 发光容器（login-redesign-2 §3）：品牌紫光晕，凸显品牌块；
-          // 纯装饰不影响语义（名称存在时 logo 语义排除逻辑不变）。
           Container(
+            width: _logoSlot,
+            height: _logoSlot,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.30),
-                  blurRadius: 16,
-                  spreadRadius: 1,
+                  color: theme.colorScheme.primary.withValues(
+                    alpha: theme.brightness == Brightness.dark ? 0.16 : 0.12,
+                  ),
+                  blurRadius: 12,
                 ),
               ],
             ),
-            child: Image.network(
-              brandLogoUrl!,
-              width: _logoSize,
-              height: _logoSize,
-              fit: BoxFit.contain,
-              excludeFromSemantics: brandName != null,
-              semanticLabel: brandName == null
-                  ? context.tr('Organization logo')
-                  : null,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
-          ),
-          const SizedBox(width: _logoGap),
-        ],
-        Expanded(
-          child: Semantics(
-            container: true,
-            // 品牌名作为页面级标题，屏幕阅读器可跳转定位。
-            header: true,
-            child: Text(
-              brandName ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: nameColor,
-                fontWeight: FontWeight.w700,
+            child: Center(
+              child: Image.network(
+                brandLogoUrl!,
+                width: _logoSize,
+                height: _logoSize,
+                fit: BoxFit.contain,
+                excludeFromSemantics: hasName,
+                semanticLabel: hasName ? null : context.tr('Organization logo'),
+                errorBuilder: (_, _, _) => _logoFallback(context),
               ),
             ),
           ),
-        ),
+          if (hasName) const SizedBox(width: _logoGap),
+        ],
+        if (hasName)
+          Expanded(
+            child: Semantics(
+              container: true,
+              header: true,
+              child: Text(
+                brandName!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: nameColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _logoFallback(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
+      ),
+      child: Icon(
+        Icons.business_outlined,
+        size: 20,
+        color: scheme.onSurfaceVariant,
+      ),
     );
   }
 }

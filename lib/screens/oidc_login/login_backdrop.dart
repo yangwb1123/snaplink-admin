@@ -1,15 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 
-/// 登录页装饰性背景（极光层次，login-redesign-2 §1）。
+/// 登录页装饰性背景（构图收敛）：单一、静态的柔和光效系统。
 ///
-/// 纯装饰：不拦截指针（IgnorePointer）、显式排除语义（ExcludeSemantics，
-/// a11y R3）、无模糊/Ticker/Timer/资产/依赖——全层静态渐变，`transientCallbackCount
-/// == 0` 断言天然成立。层次：① 超大主光斑（900px）中央偏上打底，故意落在
-/// 卡片排除带内——玻璃卡需要"背后有光"；② 四角光斑（480/560/340/440px）
-/// 保留，仅微调亮色 α（0.30→0.32 等）；④ 底部渐隐收尾（暗色文本色阶→0.55）；
-/// ⑤ 顶部微光带（900×140 三段线性渐变）。亮色"更清新"= 更高 α + 更浅
-/// 色阶（indigo-400→indigo-200，新增装饰常量 [AppColors.violetTint]）。
+/// 纯装饰：不拦截指针（IgnorePointer）、显式排除语义（ExcludeSemantics），
+/// 无模糊/Ticker/Timer/资产/依赖。主光斑只为卡片提供极弱的背光，四角
+/// 光斑保留空气感，底部渐隐负责收束；没有第二套全屏光源。
 class LoginBackdrop extends StatelessWidget {
   final Brightness brightness;
 
@@ -40,18 +36,18 @@ class LoginBackdrop extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // ① 主光斑打底：中央偏上，暗 0.05 / 亮 0.22，为玻璃卡供光。
+            // 主光斑打底：中央偏上，暗 0.04 / 亮 0.14，为玻璃卡供光。
             _glow(
               size: glowMain,
               color: _tint(AppColors.primaryOnDark, AppColors.primaryTint),
-              alpha: _light ? 0.22 : 0.05,
+              alpha: _light ? 0.14 : 0.04,
               alignment: const Alignment(0, -0.12),
             ),
-            // ② 四角光斑（亮色 α 微调：0.30→0.32 / 0.22→0.24 / 0.16→0.18 / 0.08→0.10）。
+            // 四角环境光：低于卡片与主 CTA 的视觉权重。
             _glow(
               size: glowTopLeft,
               color: _tint(AppColors.primaryOnDark, AppColors.primaryTint),
-              alpha: _light ? 0.32 : 0.14,
+              alpha: _light ? 0.16 : 0.08,
               alignment: const Alignment(-0.55, -0.75),
             ),
             _glow(
@@ -60,24 +56,22 @@ class LoginBackdrop extends StatelessWidget {
                 AppColors.accentBlueBright,
                 AppColors.accentBlueBright,
               ),
-              alpha: _light ? 0.24 : 0.10,
+              alpha: _light ? 0.12 : 0.06,
               alignment: const Alignment(0.65, -0.70),
             ),
             _glow(
               size: glowBottomLeft,
               color: _tint(AppColors.violet, AppColors.violetTint),
-              alpha: _light ? 0.18 : 0.08,
+              alpha: _light ? 0.08 : 0.04,
               alignment: const Alignment(-0.75, 0.85),
             ),
             _glow(
               size: glowBottomRight,
               color: _tint(AppColors.primaryOnDark, AppColors.primaryTint),
-              alpha: _light ? 0.10 : 0.06,
+              alpha: _light ? 0.06 : 0.03,
               alignment: const Alignment(0.70, 0.90),
             ),
-            // ⑤ 顶部微光带：900×140 三段线性渐变（透明—色—透明）。
-            _topBand(),
-            // ④ 底部渐隐收尾：暗 textStrong→0.55 / 亮 →0.10，压暗底缘光斑。
+            // 底部渐隐收尾：压住底缘光斑，但不形成黑色横带。
             _bottomFade(),
           ],
         ),
@@ -108,30 +102,7 @@ class LoginBackdrop extends StatelessWidget {
     ),
   );
 
-  /// 顶部微光带颜色（亮色浅色阶 indigo-200）。
-  Color get _bandColor => _tint(AppColors.primaryOnDark, AppColors.primaryTint);
-
-  /// 顶部微光带：水平三段线性渐变，900×140。
-  Widget _topBand() => Align(
-    alignment: Alignment.topCenter,
-    child: Container(
-      width: 900,
-      height: 140,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            _bandColor.withValues(alpha: 0),
-            _bandColor.withValues(alpha: _light ? 0.30 : 0.08),
-            _bandColor.withValues(alpha: 0),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  /// 底部渐隐：透明 → textStrong（暗 0.55/亮 0.10）收尾，仅装饰。
+  /// 底部渐隐：透明 → textStrong（暗 0.32/亮 0.06）收尾，仅装饰。
   Widget _bottomFade() => Align(
     alignment: Alignment.bottomCenter,
     child: Container(
@@ -142,7 +113,7 @@ class LoginBackdrop extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: [
             AppColors.textStrong.withValues(alpha: 0),
-            AppColors.textStrong.withValues(alpha: _light ? 0.10 : 0.55),
+            AppColors.textStrong.withValues(alpha: _light ? 0.06 : 0.32),
           ],
         ),
       ),

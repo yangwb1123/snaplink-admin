@@ -7,6 +7,7 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
   Widget _buildLoginView(BuildContext context) {
     final theme = Theme.of(context);
     final strings = AppStrings.of(context);
+    final narrow = MediaQuery.sizeOf(context).width < 768;
     final builtinProviders = widget.providers
         .where((item) => item.builtin)
         .toList();
@@ -32,13 +33,15 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
             header: true,
             child: Text(strings.signIn, style: theme.textTheme.titleLarge),
           ),
-          const SizedBox(height: 20),
-          if (builtinProviders.length > 1)
+          SizedBox(height: narrow ? 16 : 20),
+          if (builtinProviders.length > 1) ...[
             _providerSelector(
               strings,
               builtinProviders,
               selectedBuiltin: selectedBuiltin,
             ),
+            const SizedBox(height: 12),
+          ],
           if (widget.signupConfirmed != null)
             _notice(
               context.tr(widget.signupConfirmed!),
@@ -48,12 +51,12 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
             ),
           _providerForm(context, strings, selected),
           if (widget.error != null) _errorNotice(context),
-          const SizedBox(height: 20),
+          SizedBox(height: narrow ? 16 : 20),
           _submitButton(context, strings, selected),
           if (widget.provider == 'password')
             ..._passwordActions(context, strings, theme),
           if (federatedProviders.isNotEmpty)
-            ..._federatedActions(strings, theme, federatedProviders),
+            ..._federatedActions(context, strings, theme, federatedProviders),
         ],
       ),
     );
@@ -76,7 +79,9 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
           : (value) {
               if (value != null) widget.onProviderChanged(value);
             },
-      decoration: InputDecoration(labelText: strings.provider),
+      decoration: InputDecoration(labelText: strings.provider).applyDefaults(
+        AppTheme.loginInputDecoration(Theme.of(context).brightness),
+      ),
     );
   }
 
@@ -134,6 +139,7 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     return PressableScale(
       child: FilledButton(
         onPressed: widget.loading ? null : widget.onSubmit,
+        style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
         child: widget.loading
             ? const SizedBox.square(
                 dimension: 18,
@@ -149,46 +155,61 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     AppStrings strings,
     ThemeData theme,
   ) {
-    return [
-      const SizedBox(height: 16),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final narrow = MediaQuery.sizeOf(context).width < 768;
+    final linkStyle = TextButton.styleFrom(
+      minimumSize: const Size(48, 44),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    );
+
+    Widget linkButton(String label, VoidCallback onPressed) => TextButton(
+      onPressed: widget.loading ? null : onPressed,
+      style: linkStyle,
+      child: Text(label, softWrap: true),
+    );
+
+    final linkCluster = LayoutBuilder(
+      builder: (context, constraints) => Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 8,
+        runSpacing: 0,
         children: [
-          Flexible(
-            child: TextButton(
-              onPressed: widget.loading ? null : widget.onForgotPassword,
-              child: Text(
-                strings.forgotPassword,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+            child: linkButton(strings.forgotPassword, widget.onForgotPassword),
           ),
-          Flexible(
-            child: TextButton(
-              onPressed: widget.loading ? null : widget.onSignUp,
-              child: Text(strings.signUp, overflow: TextOverflow.ellipsis),
-            ),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+            child: linkButton(strings.signUp, widget.onSignUp),
           ),
         ],
       ),
+    );
+
+    return [
+      SizedBox(height: narrow ? 12 : 16),
+      linkCluster,
+      const SizedBox(height: 8),
       Align(
         alignment: Alignment.centerLeft,
         child: TextButton.icon(
           onPressed: widget.loading ? null : widget.onHomeRealm,
+          style: linkStyle,
           icon: Icon(Icons.business_outlined, color: theme.colorScheme.primary),
-          label: Text(context.tr('Use organization sign-in')),
+          label: Text(context.tr('Use organization sign-in'), softWrap: true),
         ),
       ),
     ];
   }
 
   List<Widget> _federatedActions(
+    BuildContext context,
     AppStrings strings,
     ThemeData theme,
     List<LoginProviderDescriptor> providers,
   ) {
+    final narrow = MediaQuery.sizeOf(context).width < 768;
     return [
-      const SizedBox(height: 20),
+      SizedBox(height: narrow ? 16 : 20),
       Row(
         children: [
           const Expanded(child: Divider()),
@@ -199,7 +220,7 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
           const Expanded(child: Divider()),
         ],
       ),
-      const SizedBox(height: 16),
+      SizedBox(height: narrow ? 12 : 16),
       for (final item in providers)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),

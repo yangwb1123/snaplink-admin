@@ -34,6 +34,9 @@ class ResponsiveEntryCard extends StatelessWidget {
   /// 被圆角裁剪，有界于卡片区域（不用于全屏）。
   final double? backdropBlur;
 
+  /// 登录页的连续窄屏留白策略。默认消费方保留既有 compact 断点。
+  final bool useLoginPadding;
+
   const ResponsiveEntryCard({
     super.key,
     required this.child,
@@ -43,6 +46,7 @@ class ResponsiveEntryCard extends StatelessWidget {
     this.surfaceColor,
     this.elevation,
     this.backdropBlur,
+    this.useLoginPadding = false,
   });
 
   @override
@@ -57,8 +61,22 @@ class ResponsiveEntryCard extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 400;
-          final outer = compact ? 12.0 : 24.0;
-          final inner = compact ? 20.0 : 24.0;
+          final outer = useLoginPadding
+              ? constraints.maxWidth < 400
+                    ? 12.0
+                    : constraints.maxWidth < 768
+                    ? 16.0
+                    : 24.0
+              : compact
+              ? 12.0
+              : 24.0;
+          final inner = useLoginPadding
+              ? constraints.maxWidth < 400
+                    ? 20.0
+                    : 24.0
+              : compact
+              ? 20.0
+              : 24.0;
           final minHeight = constraints.hasBoundedHeight
               ? (constraints.maxHeight - outer * 2).clamp(0.0, double.infinity)
               : 0.0;

@@ -15,15 +15,14 @@ class _FederatedProviderButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final color = _parseButtonColor(provider.buttonColor);
-    final foreground = color == null
-        ? null
-        : ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
+    final tint = color?.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.14 : 0.10,
+    );
+    final iconColor = color ?? scheme.primary;
     final iconUrl = provider.safeIconUrl(ProductApiOrigin.baseUri);
-    final iconColor = color == null ? scheme.primary : foreground;
     final icon = iconUrl == null
         ? Icon(Icons.login, color: iconColor)
         : Image.network(
@@ -36,15 +35,20 @@ class _FederatedProviderButton extends StatelessWidget {
 
     return OutlinedButton.icon(
       onPressed: loading ? null : onPressed,
-      style: color == null
-          ? null
-          : OutlinedButton.styleFrom(
-              backgroundColor: color,
-              foregroundColor: foreground,
-              side: BorderSide(color: color),
-            ),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 44),
+        backgroundColor: tint,
+        foregroundColor: scheme.onSurface,
+        side: color == null
+            ? null
+            : BorderSide(color: color.withValues(alpha: 0.65)),
+      ),
       icon: icon,
-      label: Text(context.tr(provider.effectiveButtonLabel)),
+      label: Text(
+        context.tr(provider.effectiveButtonLabel),
+        textAlign: TextAlign.center,
+        softWrap: true,
+      ),
     );
   }
 
@@ -93,6 +97,7 @@ class _InlineNotice extends StatelessWidget {
     );
     final wrapped = contained
         ? Container(
+            constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.errorContainer,
