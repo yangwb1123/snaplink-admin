@@ -1,0 +1,88 @@
+# R76-R80：剩余路由/子菜单与综合终检（小步安全批次）
+# 规则：每轮只改白名单中的现有文件；禁止新建 Dart 文件、part 拆分、整页重写。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r76-r80.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R76：/admin/ Token Security 页面。只阅读并修改现有 token_security_tab.dart，
+    不触碰其余 token 文件。判断风险汇总用 metric/card、密集 token 数据桌面用
+    table、<640px 用 card/list 是否合理；检查类型/状态/租户筛选、搜索/排序/分页、
+    空页/加载更多/失败重试、撤销操作与反馈、移动端筛选/分页器可达性。敏感字段、
+    撤销确认、API/能力语义保持不变。
+
+    只允许一个现有文件；禁止新文件、part 拆分、大重构、新依赖和 git。复用已有
+    AdminDataTable、SearchFilterBar、PaginatedList、EmptyState、StatusChip；低风险
+    UI 修复即可，已有行数超限不通过拆分解决。
+
+    运行 flutter analyze；测试 test/token_security_tab_test.dart
+    test/token_refresh_test.dart test/admin_secondary_tabs2_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r76-admin-token-security.md。
+  output: docs/ui/pages-per-page/r76-admin-token-security.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/token_security_tab_test.dart test/token_refresh_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R77：/portal/ Devices 与 Sessions 子菜单。只阅读并修改现有 devices_tab.dart、
+    sessions_tab.dart。判断设备/会话关系数据桌面 table vs mobile card/list；检查设备
+    类型/状态/最近活动筛选、搜索、分页/加载更多、刷新、空态清除；检查撤销/信任/报失
+    行操作的确认、loading、防重入、成功失败反馈和 320/400px 可达性。保持 Session、
+    PortalApi、登录回跳、安全协议语义。
+
+    只允许上述两个现有文件；禁止新文件、拆分、API/路由改变、新依赖和 git；复用
+    现有 EmptyState、StatusChip、PaginatedList、SearchFilterBar、SkeletonListTile。
+    portal 源码禁止新增英文字样 audit。
+
+    运行 flutter analyze；测试 test/portal_screens_test.dart test/portal_entry_test.dart
+    test/portal_security_contract_test.dart test/portal_security_widgets_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r77-portal-devices-sessions.md。
+  output: docs/ui/pages-per-page/r77-portal-devices-sessions.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_entry_test.dart test/portal_security_contract_test.dart test/portal_security_widgets_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R78：/developer/、/device/verify、/setup/ 入口视觉一致性。只允许修改三个现有
+    壳层文件：developer/developer_screen.dart、device/device_verify_widgets.dart、
+    setup/setup_widgets.dart；不改 API/状态机/路由/表单控制器。
+
+    逐页检查 Developer register/manage 是表单/结果 card 而非 table，Device 的
+    request preview/Scope 是 list，Setup 五步状态是 step/card；检查加载/失败/retry、
+    一次性 secret 视觉层级、错误状态、键盘滚动、320/400px、触控/焦点。只做低风险
+    spacing/层级/现有组件复用，不新增图片/依赖/文件；developer 源码禁止新增 audit。
+
+    运行 flutter analyze；测试 test/developer_api_test.dart test/developer_serving_region_test.dart
+    test/device_verify_widgets_test.dart test/setup_screen_test.dart test/entry_ux_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r78-developer-device-setup.md。
+  output: docs/ui/pages-per-page/r78-developer-device-setup.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/developer_api_test.dart test/developer_serving_region_test.dart test/device_verify_widgets_test.dart test/setup_screen_test.dart test/entry_ux_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R79：共享移动端数据渲染、分页与筛选组件终检。只阅读并修改现有
+    lib/widgets/admin_data_table.dart、lib/widgets/paginated_list.dart、
+    lib/widgets/search_filter_bar.dart 三个文件（如无必要不要修改）。逐项验证：
+    关系型数据桌面 table/窄屏 card、线性数据 list、汇总 metric/card 的边界；
+    分页器在首/末/空页/加载失败状态；搜索防抖与筛选组合；键盘/a11y/触控目标；
+    懒构建和最大数据量。任何修复必须保持现有 public API 和已有页面行为。
+
+    禁止新文件、新依赖、公共 API 破坏、大重构和 git。运行 flutter analyze；测试
+    test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart
+    test/render_matrix_smoke_test.dart test/perf_gates_test.dart。输出
+    docs/ui/pages-per-page/r79-shared-table-list-pagination-filter.md，记录组件矩阵与
+    各路由使用证据。
+  output: docs/ui/pages-per-page/r79-shared-table-list-pagination-filter.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/render_matrix_smoke_test.dart test/perf_gates_test.dart"
+
+- prompt: |
+    R80：全路由/子菜单综合终检（第八轮）。不要大规模重构；只修复已发现的低风险
+    UI 问题，且只能修改 R71-R79 白名单内的现有文件，禁止新文件和 git。
+
+    对照 R71-R79 产物逐页检查 /admin/ 所有 capability 子菜单及详情、/portal/ 所有
+    tab、/developer/ register/manage、/login/（已有 Apple/Sentry 设计）、/device/verify、
+    /setup/：table/list/card 选择，移动端断点，分页/加载更多，搜索/筛选，空/错/加载、
+    行操作和键盘/a11y。执行：flutter analyze、全量 flutter test、browser 关键测试、
+    i18n/spacing/three-state/table/card/density/perf/render gates、python3 cli.py harness；
+    检查 0 字节、test/zz_*、probe 临时文件、新增代码文件 ≤400 行，以及
+    portal/developer/oidc_login 没有新增 audit 文本。
+
+    输出 docs/ui/pages-per-page/r80-final-audit-8.md：路由/子菜单覆盖矩阵、
+    table/list/card 决策、移动端/分页/筛选门禁、测试门禁、残留检查和总结论；最后一行
+    必须为 VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r80-final-audit-8.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"

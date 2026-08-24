@@ -23,26 +23,15 @@ import 'tenant_lifecycle_copy.dart';
 import 'tenants/tenants_batch_bar.dart';
 import 'tenants/tenants_filter_bar.dart';
 import 'tenants/tenants_table.dart';
-
-/// 租户列表页：光标分页 + 排序/每页条数 + 状态筛选 + 批量挂起/激活
-/// + 单行生命周期（suspend/delete 撤销报告），对齐参考页 clients。
-/// 纯 UI 子组件拆在 tenants/ 目录（筛选行/表格+行操作+空态/批量栏）。
 class TenantsTab extends StatefulWidget {
   final SSOAdminClient client;
-
-  /// Persona emphasis (default = no emphasis).
   final OperatorPersona persona;
 
-  const TenantsTab({
-    super.key,
-    required this.client,
-    this.persona = OperatorPersona.general,
-  });
+  const TenantsTab({super.key, required this.client, this.persona = OperatorPersona.general});
 
   @override
   State<TenantsTab> createState() => _TenantsTabState();
 }
-
 class _TenantsTabState extends State<TenantsTab>
     with BatchSelection<TenantsTab>, PaginatedListMixin<TenantsTab> {
   final _filterCtrl = TextEditingController();
@@ -54,8 +43,6 @@ class _TenantsTabState extends State<TenantsTab>
   var _pageSize = 100;
   var _orderBy = 'id';
   late final void Function() _cancelPopState;
-
-  /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.tenants);
 
   @override
@@ -66,21 +53,15 @@ class _TenantsTabState extends State<TenantsTab>
     super.initState();
     _future = _loadPage();
     _handleRoute();
-    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
-      if (mounted) _handleRoute();
-    });
+    _cancelPopState = BrowserNavigation.listenToLocationChange(
+      () { if (mounted) _handleRoute(); },
+    );
   }
-
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'tenants') return;
-    if (route.isNew) {
-      _openForm();
-    } else if (route.isEdit) {
-      _openEditForId(route.resourceId);
-    }
+    if (route.isNew) { _openForm(); } else if (route.isEdit) { _openEditForId(route.resourceId); }
   }
-
   Future<void> _openEditForId(String id) async {
     try {
       final tenant = await widget.client.getTenant(id);
@@ -90,70 +71,40 @@ class _TenantsTabState extends State<TenantsTab>
     }
     if (mounted) AdminRoute.back('tenants');
   }
-
   @override
-  void dispose() {
-    _cancelPopState();
-    _filterCtrl.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _cancelPopState(); _filterCtrl.dispose(); super.dispose(); }
   String get _filterQuery {
     final text = _filterCtrl.text.trim();
-    return _statusFilter == 'all'
-        ? text
-        : '${text.isEmpty ? '' : '$text and '}status:$_statusFilter';
+    return _statusFilter == 'all' ? text : '${text.isEmpty ? '' : '$text and '}status:$_statusFilter';
   }
-
-  void _clearFilter() {
-    _filterCtrl.clear();
-    _statusFilter = 'all';
-    _reload();
-  }
-
+  void _clearFilter() { _filterCtrl.clear(); _statusFilter = 'all'; _reload(); }
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
     final page = await widget.client.listTenants(
-      pageToken: currentPageToken,
-      pageSize: _pageSize,
-      orderBy: _orderBy,
-      filter: _filterQuery,
+      pageToken: currentPageToken, pageSize: _pageSize,
+      orderBy: _orderBy, filter: _filterQuery,
     );
     if (seq == _reqSeq) _lastPage = page;
     return page;
   }
-
   Future<void> _reload() {
     clearSelection();
     setState(() {
-      resetPagination();
-      _future = _loadPage();
+      resetPagination(); _lastPage = null; _future = _loadPage();
     });
     return _future;
   }
-
   void _goPrevious() {
-    if (canGoBack) {
-      setState(() {
-        goPrevious();
-        _future = _loadPage();
-      });
-    }
+    if (!canGoBack) return;
+    goPrevious();
+    setState(() => _future = _loadPage());
   }
-
   void _goNext(SSOAdminListPage page) {
-    if (page.nextPageToken != null) {
-      setState(() {
-        goNext(page.nextPageToken, page: page);
-        _future = _loadPage();
-      });
-    }
+    if (page.nextPageToken == null) return;
+    goNext(page.nextPageToken, page: page);
+    setState(() => _future = _loadPage());
   }
-
-  /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
   void _retryPage() => setState(() => _future = _loadPage());
-
-  /// 批量切换选中租户状态（suspend 或 activate）；逐项汇总失败明细。
   Future<void> _batchSetStatus(String next) async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
@@ -213,8 +164,6 @@ class _TenantsTabState extends State<TenantsTab>
     showBatchResultSnackBar(context, message: message, failures: failures);
     _reload();
   }
-
-  /// 批量操作栏：已选数量 + 批量挂起/激活 + 退出选择（组件拆在 tenants/tenants_batch_bar.dart，确认弹窗语义保留在 [_batchSetStatus]）。
   Widget _batchBar() => TenantsBatchBar(
     selectedCount: selected.length,
     accent: _accent,
@@ -223,8 +172,6 @@ class _TenantsTabState extends State<TenantsTab>
     onActivate: () => _batchSetStatus('active'),
     onClearSelection: clearSelection,
   );
-
-  /// 单条生命周期入口：type-to-confirm → 执行 → 撤销报告 → 刷新（语义逐字保留）。
   Future<void> _runLifecycle({
     required String id,
     required String title,
@@ -267,12 +214,10 @@ class _TenantsTabState extends State<TenantsTab>
       if (mounted) setState(() => _busyId = null);
     }
   }
-
   Widget _lifecycleResult(String action, Map<String, dynamic> response) {
     final copy = TenantLifecycleCopy.resultCopy(action, response);
     return LocalizedText(copy.key, args: copy.args);
   }
-
   void _toggleStatus(String id, String currentStatus) {
     final next = currentStatus == 'suspended' ? 'active' : 'suspended';
     final suspending = next == 'suspended';
@@ -297,7 +242,6 @@ class _TenantsTabState extends State<TenantsTab>
       op: () => widget.client.setTenantStatus(id, next),
     );
   }
-
   void _delete(String id, String label) {
     _runLifecycle(
       id: id,
@@ -314,7 +258,6 @@ class _TenantsTabState extends State<TenantsTab>
       op: () => widget.client.deleteTenant(id),
     );
   }
-
   Future<void> _openForm({Map<String, dynamic>? existing}) async {
     final saved = await showDialog<bool>(
       context: context,
@@ -326,7 +269,6 @@ class _TenantsTabState extends State<TenantsTab>
       if (mounted) AdminRoute.back('tenants');
     }
   }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -353,8 +295,6 @@ class _TenantsTabState extends State<TenantsTab>
       ],
     );
   }
-
-  /// 筛选行（搜索/状态/排序/每页条数）拆在 tenants/tenants_filter_bar.dart。
   Widget _filterBar() => TenantsFilterBar(
     controller: _filterCtrl,
     statusFilter: _statusFilter,
@@ -374,7 +314,6 @@ class _TenantsTabState extends State<TenantsTab>
       _reload();
     },
   );
-
   Widget _listArea(BuildContext context) => FutureBuilder<SSOAdminListPage>(
     future: _future,
     builder: (context, snap) {
@@ -394,7 +333,8 @@ class _TenantsTabState extends State<TenantsTab>
         totalSize: page.totalSize,
         persona: widget.persona,
       );
-      final filtered = _filterCtrl.text.isNotEmpty || _statusFilter != 'all';
+      final filtered =
+          _filterCtrl.text.trim().isNotEmpty || _statusFilter != 'all';
       final list = items.isEmpty
           ? onFirstPage
                 ? TenantsEmptyState(
@@ -435,8 +375,6 @@ class _TenantsTabState extends State<TenantsTab>
       );
     },
   );
-
-  /// 表格 + 行操作菜单 + 空态拆在 tenants/tenants_table.dart。
   Widget _tenantTable(List<Map<String, dynamic>> items) => TenantsTable(
     items: items,
     selecting: selecting,

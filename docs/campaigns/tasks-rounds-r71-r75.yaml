@@ -1,0 +1,92 @@
+# R71-R75：路由/子菜单小步逐页 UI 重构
+# 规则：每轮只改白名单中的现有文件；禁止新建 Dart 文件、part 拆分、重写整页。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r71-r75.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R71：/admin/ Overview 页面。先阅读 admin_overview_tab.dart 与
+    admin_overview_metrics.dart，逐项判断指标卡、趋势/分布、loading/empty/error/
+    retry 的 UI 是否合理；汇总数据不要改成 table，只有关系数据才用 table。
+    检查 320/400/768/桌面宽度、滚动、卡片密度、键盘语义和刷新按钮。
+
+    只允许修改这两个现有文件；禁止创建文件、拆分文件、修改 API/模型/路由/能力
+    语义或引入依赖。只做低风险视觉/布局修复，复用现有 KeyMetricCard、EmptyState、
+    StatusChip、SkeletonList。portal/developer/oidc_login 不新增 audit 文本。
+    文件不超过 400 行；不跑 git、不提交。
+
+    运行 flutter analyze，并运行 test/admin_shell_test.dart test/admin_icon_colors_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r71-admin-overview-navigation.md，
+    写明 table/list/card 决策、是否需要分页/筛选、实际修改和测试结果。
+  output: docs/ui/pages-per-page/r71-admin-overview-navigation.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_shell_test.dart test/admin_icon_colors_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R72：/admin/ Clients 页面。只阅读并改 clients_tab.dart（必要时仅保留现有
+    AdminDataTable/现有组件调用，不得抽取新文件）。判断 Clients 的关系型数据在
+    桌面 table、<640px card/list 的渲染是否合理；检查搜索/筛选/排序/分页组合、
+    过滤无结果清除、空/错/加载/retry、行点击和行内操作、移动端批量/分页器触达。
+    详情/密钥字段不要改成 table，也不要改变 secret 生命周期。
+
+    只允许修改 lib/screens/admin/clients_tab.dart 一个现有文件；禁止新文件、拆分、
+    API/认证/路由/能力语义变化和新依赖。低风险 UI 修复，文件 ≤400 行要求若已有
+    超限不要通过大重构解决。不跑 git、不提交。
+
+    运行 flutter analyze；测试 test/admin_detail_screens_test.dart
+    test/client_form_dialog_test.dart test/client_detail_secret_card_test.dart
+    test/admin_workflows_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r72-admin-identity-directory.md，记录 table/list/card、
+    分页/筛选结论和证据。
+  output: docs/ui/pages-per-page/r72-admin-identity-directory.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/client_form_dialog_test.dart test/client_detail_secret_card_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R73：/admin/ Users 页面。只阅读并改 users_tab.dart。判断用户目录是 table 还是
+    card/list；检查状态/角色筛选、搜索、排序、分页和移动端卡片主字段；确认空态
+    清除筛选、loading/error/retry、详情入口、批量/行操作反馈合理。不要把简单用户
+    详情改成宽表，不改变用户生命周期、MFA、会话或权限语义。
+
+    只允许修改 lib/screens/admin/users_tab.dart 一个现有文件；禁止新文件、part 拆分、
+    大规模重写、API/路由/能力变化、新依赖；复用现有 AdminDataTable、SearchFilterBar、
+    PaginatedList、EmptyState、StatusChip。文件 ≤400 行；不跑 git、不提交。
+
+    运行 flutter analyze；测试 test/admin_detail_screens_test.dart
+    test/user_detail_optional_resources_test.dart test/admin_workflows_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r73-admin-users.md，记录逐项结论和修改证据。
+  output: docs/ui/pages-per-page/r73-admin-users.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/user_detail_optional_resources_test.dart test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R74：/admin/ Tenants 页面及筛选条。阅读 tenants_tab.dart 与 tenants/tenants_filter_bar.dart，
+    只在这两个现有文件中做小修。判断租户关系数据桌面 table、移动 card/list、批量栏、
+    搜索/状态/区域筛选、排序/分页组合是否合理；筛选后回第一页、过滤无结果清除、
+    空/错/加载/retry、移动端触摸操作是否清晰。品牌/区域/ETag/API 语义不得改变。
+
+    只允许修改上述两个现有文件；禁止新文件、拆分、大重构、新依赖和 git。复用现有
+    table/card/filter/pagination/EmptyState/StatusChip；文件 ≤400 行（已有超限不通过
+    拆分解决）。portal/developer/oidc_login 不新增 audit 文本。
+
+    运行 flutter analyze；测试 test/tenant_residency_form_test.dart
+    test/tenant_residency_summary_test.dart test/admin_secondary_tabs_test.dart
+    test/admin_workflows_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r74-admin-tenants.md。
+  output: docs/ui/pages-per-page/r74-admin-tenants.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R75：/admin/ Connections 与 Domains 两个子菜单。只阅读并修改现有
+    connections_tab.dart、domains_tab.dart，禁止触碰 connections/ 子目录和其他文件。
+    逐页判断 provider/domain 数据 table vs card/list；检查类型/状态/健康字段优先级、
+    搜索/筛选/排序/分页、刷新、空态/错误重试、详情/创建/删除操作和窄屏长域名布局。
+    secret 脱敏、URL 校验和能力门控保持不变。
+
+    只允许上述两个文件；禁止新文件、part 拆分、大重构、API/路由/安全语义变化、
+    新依赖、git。复用现有 AdminDataTable、SearchFilterBar、PaginatedList、StatusChip、
+    EmptyState；文件 ≤400 行要求用最小修复处理。
+
+    运行 flutter analyze；测试 test/connection_details_redaction_test.dart
+    test/domains_tab_test.dart test/admin_detail_screens_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r75-admin-connections-domains.md。
+  output: docs/ui/pages-per-page/r75-admin-connections-domains.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/connection_details_redaction_test.dart test/domains_tab_test.dart test/admin_detail_screens_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"

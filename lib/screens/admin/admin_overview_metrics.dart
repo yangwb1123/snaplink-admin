@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/key_metric_card.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
-import 'package:sso_admin/services/operator_persona.dart';
 import 'snaplink_admin_api.dart';
 
-/// Overview hero metric strip (§4.1 of the design).
-///
-/// Four real-value [KeyMetricCard]s in `overviewMetricOrder(persona)`
-/// (design §4.9 T-01). No delta/sparkline anywhere in wave 1 — no series
-/// exist (honesty rule).
+/// Overview metrics are scalar counts/statuses, so cards remain the primary
+/// expression. No trend is shown: this endpoint has no historical series.
 class OverviewMetrics extends StatelessWidget {
   final List<SnaplinkAdminEndpoint> endpoints;
   final int featureGroups;
@@ -17,6 +16,7 @@ class OverviewMetrics extends StatelessWidget {
   final bool commerceAvailable;
   final Object? commerceProbeError;
   final OperatorPersona persona;
+  final bool showValues;
 
   const OverviewMetrics({
     super.key,
@@ -26,13 +26,12 @@ class OverviewMetrics extends StatelessWidget {
     required this.commerceAvailable,
     this.commerceProbeError,
     this.persona = OperatorPersona.general,
+    this.showValues = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Commerce caption from the probe pair: (true, null) → 'Available',
-    // (false, null) → 'Not advertised' (403/404-unavailable),
-    // (_, non-null) → 'Degraded'. No arrow either way.
+    if (!showValues) return StatusChip.unknown(label: context.tr('Unknown'));
     final commerceCaption = commerceProbeError != null
         ? 'Degraded'
         : commerceAvailable
@@ -68,17 +67,21 @@ class OverviewMetrics extends StatelessWidget {
     final ordered = <KeyMetricCard>[
       for (final metric in overviewMetricOrder(persona)) cards[metric.index],
     ];
-    return MetricStrip(cards: ordered);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // A full-width card is easier to scan at 320/400 than a 190px card
+        // floating in a narrow column. Medium and desktop retain the dense
+        // four-card wrap supplied by MetricStrip.
+        final cardWidth = constraints.maxWidth < 420
+            ? constraints.maxWidth
+            : 190.0;
+        return MetricStrip(cards: ordered, cardWidth: cardWidth);
+      },
+    );
   }
 }
 
-/// Persona-driven ordering of the management-domain group cards (§4.1).
-///
-/// Pure: returns the lead-first permutation of the *present* group keys;
-/// a persona whose lead group is absent (or `full`/`general`) keeps the
-/// insertion order (today's rendering). `pathsByGroup` is used only by the
-/// `support` row (groups containing user-support/live-activity endpoints
-/// lead, presence-checked).
+/// Persona ordering changes emphasis only; it never gates a group or route.
 List<String> personaGroupOrder(
   List<String> groupKeys,
   OperatorPersona persona, {

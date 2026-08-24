@@ -9,13 +9,14 @@ import 'package:sso_admin/services/event_bus.dart';
 import 'package:sso_admin/services/export_service.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/app_snackbar.dart';
-import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
+import 'package:sso_admin/widgets/app_snackbar.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/data_emphasis.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/section_header.dart';
@@ -36,27 +37,21 @@ class DomainsTab extends StatefulWidget {
 
 class _DomainsTabState extends State<DomainsTab> {
   static const _path = '/api/v1/admin/domains';
+  static const _pageSize = 25;
   final _formKey = GlobalKey<FormState>();
-  final _hostCtrl = TextEditingController();
-  final _searchCtrl = TextEditingController();
-  List<Map<String, dynamic>> _domains = const [];
-  List<Map<String, dynamic>> _filteredDomains = const [];
-  String? _error;
-  bool _loading = false;
-  bool _mutating = false;
-
-  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
-  int _reqSeq = 0;
-  bool _showForm = false;
+  final _hostCtrl = TextEditingController(), _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _domains = const [], _filteredDomains = const [];
+  String? _error, _statusFilter, _sortColumn;
+  bool _sortAscending = true, _loading = false, _mutating = false, _showForm = false;
   String _searchQuery = '';
+  int _page = 0, _reqSeq = 0;
   late final void Function() _cancelPopState;
-
   late final StreamSubscription<DataChangedEvent> _sub;
 
   bool get _available => widget.capabilities.hasAnyPathPrefix(_path);
-
-  /// 模块强调色（security 组 rose）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('domains');
+  List<Map<String, dynamic>> get _pageDomains => _filteredDomains
+      .skip(_page * _pageSize).take(_pageSize).toList(growable: false);
 
   @override
   void initState() {
@@ -73,75 +68,50 @@ class _DomainsTabState extends State<DomainsTab> {
 
   @override
   void dispose() {
-    _cancelPopState();
-    _sub.cancel();
-    _hostCtrl.dispose();
-    _searchCtrl.dispose();
+    _cancelPopState(); _sub.cancel(); _hostCtrl.dispose(); _searchCtrl.dispose();
     super.dispose();
   }
 
-  void _handleRoute() {
-    final route = AdminRoute.current();
-    setState(() => _showForm = route.isNew);
+  void _handleRoute() => setState(() => _showForm = AdminRoute.current().isNew);
+
+  void _loadError(String message, int seq) {
+    if (mounted && seq == _reqSeq) {
+      setState(() { _error = message; _loading = false; });
+    }
   }
 
   Future<void> _load() async {
     final seq = ++_reqSeq;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
-      final data = await widget.api.getStaleWhileRevalidate(
-        _path,
-        onRefresh: (fresh) {
-          if (mounted && seq == _reqSeq) {
-            setState(() => _applyDomains(fresh));
-          }
-        },
-      );
-      if (!mounted || seq != _reqSeq) return;
-      setState(() {
-        _applyDomains(data);
-        _loading = false;
+      final data = await widget.api.getStaleWhileRevalidate(_path, onRefresh: (fresh) {
+        if (mounted && seq == _reqSeq) setState(() => _applyDomains(fresh));
       });
+      if (!mounted || seq != _reqSeq) return;
+      setState(() { _applyDomains(data); _loading = false; });
     } on SnaplinkAdminApiError catch (e) {
-      if (mounted && seq == _reqSeq) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
+      _loadError(e.toString(), seq);
     } catch (_) {
-      if (mounted && seq == _reqSeq) {
-        setState(() {
-          _error = 'Could not load domains.';
-          _loading = false;
-        });
-      }
+      _loadError('Could not load domains.', seq);
     }
   }
 
-  /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
   void _applyDomains(Map<String, dynamic> data) {
     final items = data['domains'] as List? ?? [];
     _domains = items.map((e) => Map<String, dynamic>.from(e as Map)).toList();
-    _filterDomains();
+    _page = 0; _filterDomains();
   }
 
   Future<void> _create() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final host = _hostCtrl.text.trim();
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+    setState(() { _mutating = true; _error = null; });
     try {
       await widget.api.post(_path, {'hostname': host});
       if (!mounted) return;
       _hostCtrl.clear();
       showAppSnackBar(context, content: LocalizedText('Domain added.'));
-      if (mounted) AdminRoute.go('domains');
+      AdminRoute.go('domains');
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
@@ -150,43 +120,73 @@ class _DomainsTabState extends State<DomainsTab> {
     }
   }
 
+  bool _isVerified(Map<String, dynamic> d) => d['verified'] == true ||
+      d['status']?.toString().trim().toLowerCase() == 'verified';
+
+  String _status(Map<String, dynamic> d) {
+    final status = d['status']?.toString().trim().toLowerCase();
+    return status?.isNotEmpty == true ? status! : _isVerified(d) ? 'verified' : 'pending';
+  }
+
+  String _sortValue(Map<String, dynamic> d, String column) => column == 'verified'
+      ? (_isVerified(d) ? '1' : '0')
+      : column == 'id'
+      ? (d['id']?.toString() ?? '').toLowerCase()
+      : (d['hostname']?.toString() ?? '').toLowerCase();
+
   void _filterDomains() {
-    if (_searchQuery.isEmpty) {
-      _filteredDomains = List.from(_domains);
-    } else {
-      final q = _searchQuery.toLowerCase();
-      _filteredDomains = _domains
-          .where(
-            (d) =>
-                (d['hostname']?.toString() ?? '').toLowerCase().contains(q) ||
-                (d['id']?.toString() ?? '').toLowerCase().contains(q),
-          )
-          .toList();
+    final q = _searchQuery;
+    _filteredDomains = _domains.where((d) {
+      final text = (d['hostname']?.toString() ?? '').toLowerCase().contains(q) ||
+          (d['id']?.toString() ?? '').toLowerCase().contains(q);
+      final status = _statusFilter == null ||
+          (_statusFilter == 'Verified' ? _isVerified(d) : !_isVerified(d));
+      return (q.isEmpty || text) && status;
+    }).toList();
+    final sort = _sortColumn;
+    if (sort != null) {
+      _filteredDomains.sort((a, b) {
+        final result = _sortValue(a, sort).compareTo(_sortValue(b, sort));
+        return _sortAscending ? result : -result;
+      });
     }
   }
 
-  void _onSearchChanged(String query) {
-    setState(() => _searchQuery = query);
-    _filterDomains();
-  }
+  void _onSearchChanged(String query) => setState(() {
+    _searchQuery = query.trim().toLowerCase(); _page = 0; _filterDomains();
+  });
 
-  /// 导出当前筛选结果为 CSV 下载（落盘文件）；空结果由 ExportService 静默跳过。
+  void _onFilterChanged(String? value) => setState(() {
+    _statusFilter = value; _page = 0; _filterDomains();
+  });
+
+  void _onSort(String column) => setState(() {
+    if (_sortColumn == column) {
+      _sortAscending = !_sortAscending;
+    } else {
+      _sortColumn = column; _sortAscending = true;
+    }
+    _page = 0; _filterDomains();
+  });
+
+  void _previousPage() => setState(() { if (_page > 0) _page--; });
+  void _nextPage() => setState(() {
+    if ((_page + 1) * _pageSize < _filteredDomains.length) _page++;
+  });
+
   void _exportCsv() {
     if (_filteredDomains.isEmpty || !mounted) return;
     ExportService.exportCsv(_filteredDomains, 'domains.csv');
-    showAppSnackBar(
-      context,
-      content: LocalizedText(
-        'Exported {n} domains as CSV.',
-        args: {'n': _filteredDomains.length},
-      ),
-    );
+    showAppSnackBar(context, content: LocalizedText(
+      'Exported {n} domains as CSV.', args: {'n': _filteredDomains.length},
+    ));
   }
 
-  /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
   void _clearSearch() {
     _searchCtrl.clear();
-    _onSearchChanged('');
+    setState(() {
+      _searchQuery = ''; _statusFilter = null; _page = 0; _filterDomains();
+    });
   }
 
   Future<void> _delete(String hostname) async {
@@ -194,15 +194,10 @@ class _DomainsTabState extends State<DomainsTab> {
       context,
       title: 'Delete domain?',
       message: context.tr('Delete {hostname}?', {'hostname': hostname}),
-      confirmLabel: 'Delete',
-      destructive: true,
-      confirmText: hostname,
+      confirmLabel: 'Delete', destructive: true, confirmText: hostname,
     );
     if (!confirmed) return;
-    setState(() {
-      _mutating = true;
-      _error = null;
-    });
+    setState(() { _mutating = true; _error = null; });
     try {
       await widget.api.delete('$_path/${Uri.encodeComponent(hostname)}');
       if (!mounted) return;
@@ -217,9 +212,8 @@ class _DomainsTabState extends State<DomainsTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_available) {
-      return const EmptyState(variant: EmptyStateVariant.notEnabled);
-    }
+    if (!_available) return const EmptyState(variant: EmptyStateVariant.notEnabled);
+    final hasFilter = _searchQuery.isNotEmpty || _statusFilter != null;
     return PullToRefresh(
       onRefresh: _load,
       child: ListView(
@@ -230,40 +224,27 @@ class _DomainsTabState extends State<DomainsTab> {
             title: AppStrings.of(context).domains,
             subtitle: 'Manage email domains for home-realm discovery.',
             createTooltip: 'Add domain',
-            onCreate: _showForm
-                ? null
-                : () => AdminRoute.go('domains', action: 'new'),
-            onRefresh: _load,
-            refreshing: _loading,
+            onCreate: _showForm ? null : () => AdminRoute.go('domains', action: 'new'),
+            onRefresh: _load, refreshing: _loading,
           ),
           if (_error != null) ...[
-            ErrorStateCard(
-              message: _error!,
-              onRetry: _load,
-              margin: EdgeInsets.zero,
-            ),
+            ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
             const SizedBox(height: 12),
           ],
           if (_showForm) _buildForm(context),
           if (_domains.isNotEmpty) ...[
             const SizedBox(height: 8),
-            SectionHeader(
-              'Registered domains',
-              count: _filteredDomains.length,
+            SectionHeader('Registered domains', count: _filteredDomains.length,
               action: IconButton(
                 icon: Icon(Icons.file_download_outlined, color: _accent),
-                tooltip: 'Export CSV'.localized,
-                onPressed: _exportCsv,
-              ),
-            ),
+                tooltip: 'Export CSV'.localized, onPressed: _exportCsv,
+              )),
             const SizedBox(height: 8),
             SearchFilterBar(
-              hintText: 'Search domains...'.localized,
-              controller: _searchCtrl,
-              // 本地内存过滤（无请求）：同步即时响应，无需 300ms 防抖（R44）。
-              debounce: false,
-              onSearchChanged: _onSearchChanged,
-              onRefresh: _load,
+              hintText: 'Search domains...'.localized, controller: _searchCtrl,
+              debounce: false, filterOptions: const ['Verified', 'Pending'],
+              selectedFilter: _statusFilter, onSearchChanged: _onSearchChanged,
+              onFilterChanged: _onFilterChanged, onRefresh: _load,
             ),
           ],
           const SizedBox(height: 12),
@@ -271,14 +252,13 @@ class _DomainsTabState extends State<DomainsTab> {
             const SkeletonListTile(itemCount: 3)
           else if (_filteredDomains.isEmpty && !_showForm)
             EmptyState(
-              variant: _searchQuery.isEmpty
-                  ? EmptyStateVariant.empty
-                  : EmptyStateVariant.noMatch,
-              title: _searchQuery.isEmpty ? 'No domains registered.' : null,
-              actionLabel: _searchQuery.isEmpty ? null : 'Clear filter',
-              actionIcon: Icons.filter_alt_off,
-              onAction: _searchQuery.isEmpty ? null : _clearSearch,
+              variant: hasFilter ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+              title: hasFilter ? null : 'No domains registered.',
+              actionLabel: hasFilter ? 'Clear filter' : null,
+              actionIcon: Icons.filter_alt_off, onAction: hasFilter ? _clearSearch : null,
             )
+          else if (_filteredDomains.isNotEmpty && _pageDomains.isEmpty)
+            EmptyPageState(onBackToFirst: _previousPage)
           else if (_filteredDomains.isNotEmpty)
             _buildTable(context),
           if (!_showForm)
@@ -295,65 +275,67 @@ class _DomainsTabState extends State<DomainsTab> {
     );
   }
 
-  /// 域名表格：四列（hostname/id/状态/删除）。
+  Widget _statusChip(BuildContext context, Map<String, dynamic> domain) {
+    final status = _status(domain);
+    if (status == 'verified' || status == 'active') {
+      return StatusChip.active(label: context.tr(status == 'active' ? 'Active' : 'Verified'));
+    }
+    if (status == 'failed' || status == 'error') {
+      return StatusChip.failed(label: context.tr('Failed'));
+    }
+    return StatusChip.pending(label: context.tr('Pending'));
+  }
+
+  Widget _deleteButton(BuildContext context, String hostname) => TextButton(
+    onPressed: _mutating ? null : () => _delete(hostname),
+    style: TextButton.styleFrom(foregroundColor: AppColors.semanticFor(
+      Theme.of(context).brightness, AppColors.danger,
+    )),
+    child: const LocalizedText('Delete'),
+  );
+
   Widget _buildTable(BuildContext context) {
-    return AdminDataTable(
-      minWidth: 720,
-      density: TableDensity.compact,
-      columns: [
-        AdminDataColumn(
-          id: 'hostname',
-          label: 'Hostname',
-          width: 260,
-          cardPrimary: true,
-          builder: (_, i) => TableCellText(
-            _filteredDomains[i]['hostname']?.toString() ?? '',
-            level: DataEmphasisLevel.primary,
+    final rows = _pageDomains;
+    return Column(children: [
+      AdminDataTable(
+        minWidth: 720, density: TableDensity.compact,
+        sortColumn: _sortColumn, sortAscending: _sortAscending, onSort: _onSort,
+        columns: [
+          AdminDataColumn(
+            id: 'hostname', label: 'Hostname', width: 260, sortable: true,
+            cardPrimary: true,
+            builder: (_, i) => TableCellText(
+              rows[i]['hostname']?.toString() ?? '', maxLines: 2,
+              level: DataEmphasisLevel.primary,
+            ),
           ),
-        ),
-        AdminDataColumn(
-          id: 'id',
-          label: 'ID',
-          cardDetail: true,
-          builder: (_, i) => CopyableCell(
-            text: _filteredDomains[i]['id']?.toString() ?? '',
-            contextProvider: () => context,
+          AdminDataColumn(
+            id: 'id', label: 'ID', sortable: true, cardDetail: true,
+            builder: (_, i) => CopyableCell(
+              text: rows[i]['id']?.toString() ?? '', contextProvider: () => context,
+            ),
           ),
+          AdminDataColumn(
+            id: 'verified', label: 'Status', sortable: true, cardDetail: true,
+            builder: (_, i) => _statusChip(context, rows[i]),
+          ),
+          AdminDataColumn(
+            id: 'actions', label: '', width: 110,
+            builder: (_, i) => _deleteButton(
+              context, rows[i]['hostname']?.toString() ?? '',
+            ),
+          ),
+        ],
+        itemCount: rows.length, rowBuilder: (_, _) => const SizedBox.shrink(),
+      ),
+      if (_filteredDomains.length > _pageSize)
+        PaginationControls(
+          page: _page + 1, total: _filteredDomains.length,
+          canGoBack: _page > 0,
+          canGoNext: (_page + 1) * _pageSize < _filteredDomains.length,
+          onPrevious: _previousPage, onNext: _nextPage,
         ),
-        AdminDataColumn(
-          id: 'verified',
-          label: 'Status',
-          cardDetail: true,
-          builder: (_, i) {
-            final verified = _filteredDomains[i]['verified'] == true;
-            return verified
-                ? StatusChip.active(label: context.tr('Verified'))
-                : StatusChip.pending(label: context.tr('Pending'));
-          },
-        ),
-        AdminDataColumn(
-          id: 'actions',
-          label: '',
-          width: 110,
-          builder: (_, i) {
-            final hostname = _filteredDomains[i]['hostname']?.toString() ?? '';
-            return TextButton(
-              onPressed: _mutating ? null : () => _delete(hostname),
-              style: TextButton.styleFrom(
-                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                foregroundColor: AppColors.semanticFor(
-                  Theme.of(context).brightness,
-                  AppColors.danger,
-                ),
-              ),
-              child: const LocalizedText('Delete'),
-            );
-          },
-        ),
-      ],
-      itemCount: _filteredDomains.length,
-      rowBuilder: (_, _) => const SizedBox.shrink(),
-    );
+    ]);
   }
 
   Widget _buildForm(BuildContext context) => Card(
@@ -361,48 +343,34 @@ class _DomainsTabState extends State<DomainsTab> {
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.language, size: 20, color: _accent),
-                const SizedBox(width: 8),
-                LocalizedText(
-                  'Add domain',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ],
+        key: _formKey, autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Icon(Icons.language, size: 20, color: _accent), const SizedBox(width: 8),
+            LocalizedText('Add domain', style: Theme.of(context).textTheme.titleMedium),
+          ]),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _hostCtrl,
+            decoration: InputDecoration(
+              labelText: 'Hostname'.localized, hintText: 'example.com'.localized,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _hostCtrl,
-              decoration: InputDecoration(
-                labelText: 'Hostname'.localized,
-                hintText: 'example.com'.localized,
-              ),
-              validator: (value) => value?.trim().isEmpty == true
-                  ? 'Enter a hostname.'.localized
-                  : null,
+            validator: (value) => value?.trim().isEmpty == true
+                ? 'Enter a hostname.'.localized : null,
+          ),
+          const SizedBox(height: 12),
+          OverflowBar(children: [
+            OutlinedButton(
+              onPressed: () => AdminRoute.go('domains'),
+              child: const LocalizedText('Cancel'),
             ),
-            const SizedBox(height: 12),
-            OverflowBar(
-              children: [
-                OutlinedButton(
-                  onPressed: () => AdminRoute.go('domains'),
-                  child: const LocalizedText('Cancel'),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: _mutating ? null : _create,
-                  child: const LocalizedText('Add domain'),
-                ),
-              ],
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _mutating ? null : _create,
+              child: const LocalizedText('Add domain'),
             ),
-          ],
-        ),
+          ]),
+        ]),
       ),
     ),
   );

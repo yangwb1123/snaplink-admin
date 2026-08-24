@@ -120,15 +120,13 @@ class _ClientsTabState extends State<ClientsTab>
         final active = _statusFilter == 'active';
         items = items.where((c) => (c['active'] == true) == active).toList();
       }
-      if (_orderBy != 'id') {
-        final desc = _orderBy.startsWith('-');
-        final key = desc ? _orderBy.substring(1) : _orderBy;
-        items.sort(
-          (a, b) =>
-              (a[key]?.toString() ?? '').compareTo(b[key]?.toString() ?? ''),
-        );
-        if (desc) items = items.reversed.toList();
-      }
+      final desc = _orderBy.startsWith('-');
+      final key = desc ? _orderBy.substring(1) : _orderBy;
+      items.sort(
+        (a, b) =>
+            (a[key]?.toString() ?? '').compareTo(b[key]?.toString() ?? ''),
+      );
+      if (desc) items = items.reversed.toList();
       final page = SSOAdminListPage(
         items: items,
         nextPageToken: null,
@@ -630,9 +628,11 @@ class _ClientsTabState extends State<ClientsTab>
     Widget metrics,
   ) {
     final filtered =
-        _filterCtrl.text.isNotEmpty || _statusFilter != 'all' || _expiringOnly;
-    final list = items.isEmpty
-        ? onFirstPage
+        _filterCtrl.text.trim().isNotEmpty ||
+        _statusFilter != 'all' ||
+        _expiringOnly;
+    final Widget? emptyState = items.isEmpty
+        ? (onFirstPage
               ? EmptyState(
                   variant: filtered
                       ? EmptyStateVariant.noMatch
@@ -648,8 +648,8 @@ class _ClientsTabState extends State<ClientsTab>
                       ? _clearFilter
                       : () => AdminRoute.go('clients', action: 'new'),
                 )
-              : EmptyPageState(onBackToFirst: _reload)
-        : _dataTable(items);
+              : EmptyPageState(onBackToFirst: _reload))
+        : null;
     final pagination = PaginationControls(
       page: currentPage,
       total: page.totalSize,
@@ -662,6 +662,11 @@ class _ClientsTabState extends State<ClientsTab>
       builder: (context, constraints) {
         // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长，固定 380
         // 会在窄高容器溢出）——文本放大时提前切到整页滚动，不截断不溢出。
+        final list =
+            emptyState ??
+            (constraints.maxWidth < 640
+                ? _mobileList(items)
+                : _dataTable(items));
         final scale = MediaQuery.textScalerOf(context).scale(1);
         final short = constraints.maxHeight < 380 * scale;
         final content = Column(
@@ -684,6 +689,142 @@ class _ClientsTabState extends State<ClientsTab>
     );
   }
 
+  /// Narrow layouts keep each client as one touch target instead of forcing a
+  /// wide relational table into horizontal scrolling. The ID remains copyable,
+  /// while the secret column is represented as a label/value in the card.
+  Widget _mobileList(List<Map<String, dynamic>> items) {
+    String cid(int i) => items[i]['id']?.toString() ?? '';
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, i) {
+        final c = items[i];
+        final id = cid(i);
+        final name = c['name']?.toString() ?? '';
+        final expiry = clientSecretExpiryLabel(context, c);
+        return Card(
+          margin: EdgeInsets.zero,
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => selecting
+                ? toggleSelect(id)
+                : AdminRoute.go('clients', resourceId: id),
+            onLongPress: selecting ? null : () => toggleSelect(id),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 48,
+                    child: Checkbox(
+                      value: selected.contains(id),
+                      onChanged: _busy ? null : (_) => toggleSelect(id),
+                    ),
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              c['active'] == true
+                                  ? StatusChip.active()
+                                  : StatusChip.inactive(),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'CLIENT ID',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          CopyableCell(
+                            text: id,
+                            contextProvider: () => context,
+                            enabled: !selecting,
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'SECRET',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  expiry,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _clientActions(c),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _clientActions(Map<String, dynamic> c) => PopupMenuButton<String>(
+    enabled: !_busy,
+    onSelected: (value) => switch (value) {
+      'edit' => AdminRoute.go(
+        'clients',
+        action: 'edit',
+        resourceId: c['id']?.toString() ?? '',
+      ),
+      'rotate' => _rotateSecret(c),
+      'approve' => _clientAction(c, 'approve'),
+      'reject' => _clientAction(c, 'reject'),
+      'delete' => _clientAction(c, 'delete'),
+      _ => null,
+    },
+    itemBuilder: (context) => [
+      const PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
+      PopupMenuItem(
+        value: 'rotate',
+        enabled: !_secretRotationOutcomeUnknown,
+        child: const LocalizedText('Rotate secret'),
+      ),
+      const PopupMenuItem(value: 'approve', child: LocalizedText('Approve')),
+      const PopupMenuItem(value: 'reject', child: LocalizedText('Reject')),
+      const PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
+    ],
+  );
+
   Widget _dataTable(List<Map<String, dynamic>> items) {
     String cid(int i) => items[i]['id']?.toString() ?? '';
     return AdminDataTable(
@@ -704,9 +845,7 @@ class _ClientsTabState extends State<ClientsTab>
             width: 44,
             builder: (context, i) => Checkbox(
               value: selected.contains(cid(i)),
-              onChanged: (_) {
-                if (!selected.remove(cid(i))) toggleSelect(cid(i));
-              },
+              onChanged: _busy ? null : (_) => toggleSelect(cid(i)),
             ),
           ),
         AdminDataColumn(
@@ -754,47 +893,7 @@ class _ClientsTabState extends State<ClientsTab>
           id: 'actions',
           label: '',
           width: 60,
-          builder: (context, i) {
-            final c = items[i];
-            return PopupMenuButton<String>(
-              enabled: !_busy,
-              onSelected: (value) => switch (value) {
-                'edit' => AdminRoute.go(
-                  'clients',
-                  action: 'edit',
-                  resourceId: c['id']?.toString() ?? '',
-                ),
-                'rotate' => _rotateSecret(c),
-                'approve' => _clientAction(c, 'approve'),
-                'reject' => _clientAction(c, 'reject'),
-                'delete' => _clientAction(c, 'delete'),
-                _ => null,
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'edit',
-                  child: LocalizedText('Edit'),
-                ),
-                PopupMenuItem(
-                  value: 'rotate',
-                  enabled: !_secretRotationOutcomeUnknown,
-                  child: const LocalizedText('Rotate secret'),
-                ),
-                const PopupMenuItem(
-                  value: 'approve',
-                  child: LocalizedText('Approve'),
-                ),
-                const PopupMenuItem(
-                  value: 'reject',
-                  child: LocalizedText('Reject'),
-                ),
-                const PopupMenuItem(
-                  value: 'delete',
-                  child: LocalizedText('Delete'),
-                ),
-              ],
-            );
-          },
+          builder: (context, i) => _clientActions(items[i]),
         ),
       ],
       itemCount: items.length,

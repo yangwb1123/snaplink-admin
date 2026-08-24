@@ -16,6 +16,8 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/search_filter_bar.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
+import 'package:sso_admin/widgets/tight_dropdown.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/user_avatar.dart';
@@ -23,9 +25,7 @@ import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'list_metrics.dart';
 import 'user_form_dialog.dart';
-
-/// Directory user list page: cursor pagination, provider filters, batch
-/// delete, create/edit via [UserFormDialog], drill-in to the detail screen.
+/// Federated directory users: cursor paging, provider search, CRUD and detail drill-in.
 class UsersTab extends StatefulWidget {
   final SSOAdminClient client;
   final OperatorPersona persona;
@@ -43,14 +43,12 @@ class _UsersTabState extends State<UsersTab>
   final _filterCtrl = TextEditingController();
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
-  int _reqSeq = 0; // 过期响应丢弃：仅最新加载写入 _lastPage（R54）。
+  int _reqSeq = 0;
   var _pageSize = 100, _orderBy = 'id';
   String? _sortColumn = 'user';
   bool _sortAscending = true;
-  String? _busyId; // 行级/批量删除进行中：非空即禁用（批量用 '' 哨兵）。
+  String? _busyId;
   late final void Function() _cancelPopState;
-
-  /// 模块强调色（identity 组 indigo-violet）：页内图标统一按组色上色。
   Color get _accent => adminModuleIconColor('users');
   @override
   bool? get canGoNext => _lastPage?.nextPageToken != null;
@@ -64,107 +62,66 @@ class _UsersTabState extends State<UsersTab>
       if (mounted) _handleRoute();
     });
   }
-
   @override
-  void dispose() {
-    _cancelPopState();
-    _filterCtrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _cancelPopState(); _filterCtrl.dispose(); super.dispose(); }
 
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'users') return;
-    if (route.isNew) {
-      _openDialog();
-    } else if (route.isEdit) {
-      _openEditForId(route.resourceId);
-    }
+    if (route.isNew) _openDialog();
+    if (route.isEdit) _openEditForId(route.resourceId);
   }
 
   Future<void> _openEditForId(String id) async {
     try {
       final user = await widget.client.getUser(id);
-      if (!mounted) return;
-      await _openDialog(existing: user);
-    } catch (e) {
-      debugPrint('users_tab edit error: $e');
-    }
+      if (mounted) await _openDialog(existing: user);
+    } catch (e) { debugPrint('users_tab edit error: $e'); }
     if (mounted) AdminRoute.back('users');
   }
 
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
     final page = await widget.client.listUsers(
-      pageToken: currentPageToken,
-      pageSize: _pageSize,
-      orderBy: _orderBy,
-      filter: _filterCtrl.text,
+      pageToken: currentPageToken, pageSize: _pageSize,
+      orderBy: _orderBy, filter: _filterCtrl.text.trim(),
     );
     if (seq == _reqSeq) _lastPage = page;
     return page;
   }
 
-  /// 刷新语义（R5）：保留筛选、清除选择、重置分页；返回加载 Future 供下拉刷新指示器（R56）。
   Future<void> _reload() {
     clearSelection();
-    setState(() {
-      resetPagination();
-      _future = _loadPage();
-    });
+    setState(() { resetPagination(); _future = _loadPage(); });
     return _future;
   }
 
-  /// 空态“清除筛选”：清空搜索框后重载（过滤无结果场景）。
-  void _clearFilter() {
-    _filterCtrl.clear();
-    _reload();
-  }
-
+  void _clearFilter() { _filterCtrl.clear(); _reload(); }
   void _goPrevious() {
-    if (canGoBack) {
-      setState(() {
-        goPrevious();
-        _future = _loadPage();
-      });
-    }
+    if (!canGoBack) return;
+    goPrevious(); setState(() => _future = _loadPage());
   }
-
   void _goNext(SSOAdminListPage page) {
-    if (page.nextPageToken != null) {
-      setState(() {
-        goNext(page.nextPageToken, page: page);
-        _future = _loadPage();
-      });
-    }
+    if (page.nextPageToken == null) return;
+    goNext(page.nextPageToken, page: page);
+    setState(() => _future = _loadPage());
   }
-
-  /// 分页失败重试：保留当前页游标重拉本页（不重置回第一页）。
   void _retryPage() => setState(() => _future = _loadPage());
-
-  /// 列头排序 → 服务端 orderBy（与排序下拉保持同步）；点击三态。
   void _onSort(String column) {
-    final field = switch (column) {
-      'user' => 'id',
-      'provider' => 'provider',
-      _ => null,
-    };
-    if (field == null) return;
+    if (column != 'user' && column != 'provider') return;
     setState(() {
       if (_sortColumn != column) {
-        _sortColumn = column;
-        _sortAscending = true;
+        _sortColumn = column; _sortAscending = true;
       } else if (_sortAscending) {
         _sortAscending = false;
       } else {
-        _sortColumn = null; // 三态：清排序，orderBy 回默认 id（下拉保持有效）
-        _sortAscending = true;
+        _sortColumn = null; _sortAscending = true;
       }
-      _orderBy = (_sortAscending ? '' : '-') + (_sortColumn ?? 'id');
+      _orderBy = (_sortAscending ? '' : '-') +
+          (_sortColumn == 'provider' ? 'provider' : 'id');
     });
     _reload();
   }
-
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
     final changed = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -174,42 +131,45 @@ class _UsersTabState extends State<UsersTab>
     if (changed != null) _reload();
     if (mounted) AdminRoute.back('users');
   }
+  Future<String?> _deleteResult(String id) async {
+    try {
+      await widget.client.deleteUser(id);
+      return null;
+    } catch (e) {
+      return '$id: $e';
+    }
+  }
 
-  /// 批量删除：确认 → 并行执行 → 明细报告；进行中用 _busyId 哨兵禁用按钮。
+  void _showError(Object error) {
+    if (mounted) {
+      showAppSnackBar(
+        context,
+        content: Text('$error'),
+        kind: AppSnackBarKind.error,
+      );
+    }
+  }
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Delete {n} users?', {'n': ids.length}),
-      message: context.tr('This will delete {n} selected users.', {
-        'n': ids.length,
-      }),
+      message: context.tr('This will delete {n} selected users.', {'n': ids.length}),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
     setState(() => _busyId = '');
-    final results = await Future.wait(
-      ids.map((id) async {
-        try {
-          await widget.client.deleteUser(id);
-          return null;
-        } catch (e) {
-          return '$id: $e';
-        }
-      }),
-    );
+    final failures = (await Future.wait(ids.map(_deleteResult)))
+        .whereType<String>()
+        .toList();
     if (!mounted) return;
     setState(() => _busyId = null);
-    final failures = results.whereType<String>().toList();
-    final ok = ids.length - failures.length;
     clearSelection();
+    final ok = ids.length - failures.length;
     final message = failures.isEmpty
-        ? context.tr('Deleted {n} of {total} users.', {
-            'n': ok,
-            'total': ids.length,
-          })
+        ? context.tr('Deleted {n} of {total} users.', {'n': ok, 'total': ids.length})
         : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {
             'action': 'Delete',
             'n': ok,
@@ -217,9 +177,8 @@ class _UsersTabState extends State<UsersTab>
             'details': failures.take(3).join('; '),
           });
     showBatchResultSnackBar(context, message: message, failures: failures);
-    _reload();
+    await _reload();
   }
-
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
     if (id.isEmpty || _busyId != null) return;
@@ -236,316 +195,206 @@ class _UsersTabState extends State<UsersTab>
     );
     if (!confirmed) return;
     setState(() => _busyId = id);
+    var deleted = false;
     try {
       await widget.client.deleteUser(id);
-      if (mounted) {
-        showAppSnackBar(context, content: LocalizedText('User deleted.'));
-      }
-      _reload();
-    } on SSOError catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(
-        context,
-        content: Text(e.toString()),
-        kind: AppSnackBarKind.error,
-      );
+      deleted = true;
+      if (mounted) showAppSnackBar(context, content: LocalizedText('User deleted.'));
+    } catch (e) {
+      _showError(e);
     } finally {
       if (mounted) setState(() => _busyId = null);
     }
+    if (deleted && mounted) await _reload();
   }
+
+  Widget _batchBar() => BatchActionBar(
+    selectedCount: selected.length, accent: _accent, isLoading: _busyId != null,
+    actions: [BatchAction(
+      label: 'Delete', icon: Icons.delete_outline, destructive: true,
+      onPressed: _batchDelete,
+    )],
+    onClearSelection: clearSelection,
+  );
+
+  Widget _loaded(SSOAdminListPage page) => _listBody(page, page.items,
+    UserMetrics(items: page.items, totalSize: page.totalSize, persona: widget.persona));
 
   @override
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      AdminBreadcrumb(),
+      const AdminBreadcrumb(),
       AdminListHeader(
         title: AppStrings.of(context).users,
-        subtitle: 'Directory users across providers.',
-        createTooltip: 'Create user',
-        onCreate: () => AdminRoute.go('users', action: 'new'),
-        onRefresh: _reload,
+        subtitle: 'Directory users across providers.', createTooltip: 'Create user',
+        onCreate: () => AdminRoute.go('users', action: 'new'), onRefresh: _reload,
       ),
-      if (selecting) ...[
-        BatchActionBar(
-          selectedCount: selected.length,
-          accent: _accent,
-          isLoading: _busyId != null,
-          actions: [
-            BatchAction(
-              label: 'Delete',
-              icon: Icons.delete_outline,
-              destructive: true,
-              onPressed: _batchDelete,
-            ),
-          ],
-          onClearSelection: clearSelection,
-        ),
-        const SizedBox(height: 8),
-      ],
-      _filterBar(context),
-      const SizedBox(height: 8),
-      Expanded(
-        child: FutureBuilder<SSOAdminListPage>(
-          future: _future,
-          builder: (context, snap) {
-            if (!snap.hasData) {
-              if (snap.hasError) {
-                return ErrorStateView(
-                  message: '${snap.error}',
-                  onRetry: _retryPage,
-                );
-              }
-              return const SkeletonListTile(
-                itemCount: 6,
-                delay: Duration(milliseconds: 150),
-              );
-            }
-            final page = snap.data!;
-            final items = page.items;
-            return _listBody(
-              context,
-              page,
-              items,
-              UserMetrics(
-                items: items,
-                totalSize: page.totalSize,
-                persona: widget.persona,
-              ),
-            );
-          },
-        ),
-      ),
+      if (selecting) ...[_batchBar(), const SizedBox(height: 8)],
+      _filterBar(context), const SizedBox(height: 8),
+      Expanded(child: FutureBuilder<SSOAdminListPage>(
+        future: _future,
+        builder: (context, snap) => snap.hasError
+            ? ErrorStateView(message: '${snap.error}', onRetry: _retryPage)
+            : snap.hasData ? _loaded(snap.data!) :
+                const SkeletonListTile(itemCount: 6),
+      )),
     ],
   );
 
-  /// 通用下拉（排序/每页条数共用），箭头按组色上色。
-  Widget _menu<T>(
-    T value,
-    List<DropdownMenuItem<T>> items,
-    ValueChanged<T> onPicked,
-  ) => DropdownButton<T>(
-    value: value,
-    items: items,
-    icon: Icon(Icons.arrow_drop_down, color: _accent),
-    onChanged: (v) {
-      if (v == null) return;
-      onPicked(v);
-      _reload();
-    },
-  );
+  void _setOrder(String value) {
+    setState(() {
+      _orderBy = value; _sortAscending = !value.startsWith('-');
+      _sortColumn = value.endsWith('provider') ? 'provider' :
+          value.endsWith('id') ? 'user' : null;
+    });
+    _reload();
+  }
+
+  void _setPageSize(int value) { setState(() => _pageSize = value); _reload(); }
 
   Widget _filterBar(BuildContext context) => Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16),
     child: Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SizedBox(
-          width: 280,
-          child: SearchFilterBar(
-            labelText: 'Filter'.localized,
-            controller: _filterCtrl,
-            debounce: false,
-            onSearchChanged: (_) {},
-            onSubmitted: (_) => _reload(),
-          ),
+        SizedBox(width: 280, child: SearchFilterBar(
+          labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false,
+          onSearchChanged: (_) {}, onSubmitted: (_) => _reload(),
+        )),
+        TightDropdownButton<String>(
+          value: _orderBy, maxWidth: 190,
+          options: const [('id', 'ID ascending'), ('-id', 'ID descending'),
+            ('provider', 'Provider ascending'), ('-provider', 'Provider descending'),
+            ('created_at', 'Created ascending'), ('-created_at', 'Created descending')],
+          onChanged: _setOrder,
         ),
-        _menu<String>(
-          _orderBy,
-          const [
-            DropdownMenuItem(value: 'id', child: LocalizedText('ID ascending')),
-            DropdownMenuItem(
-              value: '-id',
-              child: LocalizedText('ID descending'),
-            ),
-            DropdownMenuItem(
-              value: 'provider',
-              child: LocalizedText('Provider ascending'),
-            ),
-            DropdownMenuItem(
-              value: '-provider',
-              child: LocalizedText('Provider descending'),
-            ),
-            DropdownMenuItem(
-              value: 'created_at',
-              child: LocalizedText('Created ascending'),
-            ),
-            DropdownMenuItem(
-              value: '-created_at',
-              child: LocalizedText('Created descending'),
-            ),
-          ],
-          (v) {
-            _orderBy = v;
-            _sortAscending = !v.startsWith('-');
-            _sortColumn = v.endsWith('provider')
-                ? 'provider'
-                : v.endsWith('id')
-                ? 'user'
-                : null;
-          },
+        TightDropdownButton<int>(
+          value: _pageSize, maxWidth: 150,
+          options: const [(25, '25 per page'), (100, '100 per page'), (250, '250 per page')],
+          onChanged: _setPageSize,
         ),
-        _menu<int>(_pageSize, const [
-          DropdownMenuItem(value: 25, child: LocalizedText('25 per page')),
-          DropdownMenuItem(value: 100, child: LocalizedText('100 per page')),
-          DropdownMenuItem(value: 250, child: LocalizedText('250 per page')),
-        ], (v) => _pageSize = v),
       ],
     ),
   );
 
-  Widget _listBody(
-    BuildContext context,
-    SSOAdminListPage page,
-    List<Map<String, dynamic>> items,
-    Widget metrics,
-  ) {
-    final filtered = _filterCtrl.text.isNotEmpty;
-    // 空态：第一页 → empty/noMatch（文案被测试钉死）；非首页 → 空页提示。
-    final list = items.isEmpty
-        ? onFirstPage
-              ? EmptyState(
-                  variant: filtered
-                      ? EmptyStateVariant.noMatch
-                      : EmptyStateVariant.empty,
-                  icon: filtered ? null : Icons.person,
-                  title: 'No users',
-                  subtitle: 'No users match the current filter.',
-                  actionLabel: filtered ? 'Clear filter' : 'Create user',
-                  actionIcon: filtered ? Icons.filter_alt_off : null,
-                  onAction: filtered
-                      ? _clearFilter
-                      : () => AdminRoute.go('users', action: 'new'),
-                )
-              : EmptyPageState(onBackToFirst: _reload)
-        : _dataTable(items);
+  Widget _emptyState(bool filtered) => EmptyState(
+    variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
+    icon: filtered ? null : Icons.person,
+    title: 'No users',
+    // Keep the established empty-state copy for both an empty first page and
+    // a filtered no-match response; existing consumers and tests rely on the
+    // same explanatory text while the action distinguishes the two states.
+    subtitle: 'No users match the current filter.',
+    actionLabel: filtered ? 'Clear filter' : 'Create user',
+    actionIcon: filtered ? Icons.filter_alt_off : null,
+    onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
+  );
+
+  Widget _listBody(SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
+    final filtered = _filterCtrl.text.trim().isNotEmpty;
+    final list = items.isNotEmpty
+        ? _dataTable(items)
+        : onFirstPage
+        ? _emptyState(filtered)
+        : EmptyPageState(onBackToFirst: _reload);
     final pagination = PaginationControls(
-      page: currentPage,
-      total: page.totalSize,
-      canGoBack: canGoBack,
-      canGoNext: page.nextPageToken != null,
-      onPrevious: _goPrevious,
+      page: currentPage, total: page.totalSize, canGoBack: canGoBack,
+      canGoNext: page.nextPageToken != null, onPrevious: _goPrevious,
       onNext: () => _goNext(page),
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // R29：阈值随字体缩放（1.5x/2.0x 下指标带+分页高度增长）——文本放大时提前切整页滚动。
-        final scale = MediaQuery.textScalerOf(context).scale(1);
-        final short = constraints.maxHeight < 380 * scale;
-        final content = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            metrics,
-            if (short)
-              SizedBox(height: 280, child: list)
-            else
-              Expanded(child: list),
-            pagination,
-          ],
-        );
-        return PullToRefresh(
-          onRefresh: _reload,
-          child: short ? SingleChildScrollView(child: content) : content,
-        );
-      },
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      final short = constraints.maxHeight <
+          380 * MediaQuery.textScalerOf(context).scale(1);
+      final content = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [metrics, if (short) SizedBox(height: 280, child: list) else Expanded(child: list), pagination],
+      );
+      return PullToRefresh(
+        onRefresh: _reload,
+        child: short ? SingleChildScrollView(child: content) : content,
+      );
+    });
   }
 
+  String _id(Map<String, dynamic> user) => user['id']?.toString() ?? '';
+
+  bool _hasStatus(List<Map<String, dynamic>> items) => items.any(
+    (user) => user['status']?.toString().trim().isNotEmpty ?? false,
+  );
+
+  Widget _statusChip(Map<String, dynamic> user) {
+    final raw = user['status']?.toString().trim() ?? '';
+    return switch (raw.toLowerCase()) {
+      'active' => StatusChip.active(label: raw),
+      'suspended' => StatusChip.suspended(label: raw),
+      'pending' => StatusChip.pending(label: raw),
+      'inactive' || 'disabled' || 'revoked' => StatusChip.inactive(label: raw),
+      _ => StatusChip.unknown(label: raw.isEmpty ? 'Unknown' : raw),
+    };
+  }
+
+  Widget _actions(Map<String, dynamic> user) => PopupMenuButton<String>(
+    enabled: _busyId == null,
+    onSelected: (value) => switch (value) {
+      'edit' => AdminRoute.go('users', action: 'edit', resourceId: _id(user)),
+      'delete' => _confirmDelete(user),
+      _ => null,
+    },
+    itemBuilder: (_) => const [
+      PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
+      PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
+    ],
+  );
+
   Widget _dataTable(List<Map<String, dynamic>> items) {
-    String uid(int i) => items[i]['id']?.toString() ?? '';
+    String uid(int i) => _id(items[i]);
+    final hasStatus = _hasStatus(items);
+    final columns = <AdminDataColumn>[
+      if (selecting) AdminDataColumn(
+        id: 'select', label: '', width: 44,
+        builder: (context, i) => Checkbox(
+          value: selected.contains(uid(i)),
+          onChanged: _busyId == null ? (_) => toggleSelect(uid(i)) : null,
+        ),
+      ),
+      AdminDataColumn(
+        id: 'user', label: 'USER', width: 260, sortable: true, cardPrimary: true,
+        builder: (context, i) => Row(children: [
+          UserAvatar(name: uid(i), radius: 14), const SizedBox(width: 8),
+          Flexible(child: CopyableCell(
+            text: uid(i), contextProvider: () => context, enabled: !selecting,
+          )),
+        ]),
+      ),
+      AdminDataColumn(
+        id: 'provider', label: 'PROVIDER', width: 140,
+        sortable: true, cardDetail: true,
+        builder: (context, i) => TableCellText(items[i]['provider']?.toString() ?? '?', muted: true),
+      ),
+      AdminDataColumn(
+        id: 'external', label: 'EXTERNAL ID', cardDetail: true,
+        builder: (context, i) => TableCellText(
+          items[i]['externalId']?.toString() ?? items[i]['external_id']?.toString() ?? '',
+          muted: true, maxLines: 1,
+        ),
+      ),
+      if (hasStatus) AdminDataColumn(
+        id: 'status', label: 'STATUS', width: 130, cardDetail: true,
+        builder: (context, i) => _statusChip(items[i]),
+      ),
+      AdminDataColumn(
+        id: 'actions', label: '', width: 60,
+        builder: (context, i) => _actions(items[i]),
+      ),
+    ];
     return AdminDataTable(
-      scrollable: true,
-      minWidth: 720,
-      sortColumn: _sortColumn,
-      sortAscending: _sortAscending,
-      onSort: _onSort,
-      onRowTap: selecting
-          ? (i) => toggleSelect(uid(i))
-          : (i) => AdminRoute.go('users', resourceId: uid(i)),
+      scrollable: true, minWidth: hasStatus ? 860 : 720,
+      sortColumn: _sortColumn, sortAscending: _sortAscending, onSort: _onSort,
+      onRowTap: selecting ? (i) => toggleSelect(uid(i)) :
+          (i) => AdminRoute.go('users', resourceId: uid(i)),
       onRowLongPress: selecting ? null : (i) => toggleSelect(uid(i)),
-      columns: [
-        if (selecting)
-          AdminDataColumn(
-            id: 'select',
-            label: '',
-            width: 44,
-            builder: (context, i) => Checkbox(
-              value: selected.contains(uid(i)),
-              onChanged: (_) => toggleSelect(uid(i)),
-            ),
-          ),
-        AdminDataColumn(
-          id: 'user',
-          label: 'USER',
-          width: 260,
-          sortable: true,
-          builder: (context, i) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              UserAvatar(name: uid(i), radius: 14),
-              const SizedBox(width: 8),
-              Flexible(
-                child: CopyableCell(
-                  text: uid(i),
-                  contextProvider: () => context,
-                  enabled: !selecting,
-                ),
-              ),
-            ],
-          ),
-        ),
-        AdminDataColumn(
-          id: 'provider',
-          label: 'PROVIDER',
-          width: 140,
-          sortable: true,
-          builder: (context, i) => TableCellText(
-            items[i]['provider']?.toString() ?? '?',
-            muted: true,
-          ),
-        ),
-        AdminDataColumn(
-          id: 'external',
-          label: 'EXTERNAL ID',
-          builder: (context, i) => TableCellText(
-            items[i]['externalId']?.toString() ??
-                items[i]['external_id']?.toString() ??
-                '',
-            muted: true,
-            maxLines: 1,
-          ),
-        ),
-        AdminDataColumn(
-          id: 'actions',
-          label: '',
-          width: 60,
-          builder: (context, i) {
-            final u = items[i];
-            return PopupMenuButton<String>(
-              enabled: _busyId == null,
-              onSelected: (value) {
-                if (value == 'edit') {
-                  AdminRoute.go(
-                    'users',
-                    action: 'edit',
-                    resourceId: u['id']?.toString() ?? '',
-                  );
-                }
-                if (value == 'delete') {
-                  _confirmDelete(u);
-                }
-              },
-              itemBuilder: (context) => const [
-                PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
-                PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
-              ],
-            );
-          },
-        ),
-      ],
-      itemCount: items.length,
+      columns: columns, itemCount: items.length,
       rowBuilder: (context, i) => const SizedBox.shrink(),
     );
   }

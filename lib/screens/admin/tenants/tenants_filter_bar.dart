@@ -54,17 +54,19 @@ class TenantsFilterBar extends StatelessWidget {
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          SizedBox(
-            width: 280,
-            child: SearchFilterBar(
-              labelText: 'Filter'.localized,
-              controller: controller,
-              debounce: false,
-              onSearchChanged: (_) {},
-              onSubmitted: (_) => onSearchSubmitted(),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 280),
+            child: SizedBox(
+              width: double.infinity,
+              child: SearchFilterBar(
+                labelText: 'Filter'.localized,
+                controller: controller,
+                debounce: false,
+                onSearchChanged: (_) {},
+                onSubmitted: (_) => onSearchSubmitted(),
+              ),
             ),
           ),
-          const SizedBox(width: 12),
           StatusFilterDropdown(
             value: statusFilter,
             options: const {
