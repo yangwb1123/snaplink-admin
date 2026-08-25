@@ -1,24 +1,24 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
-import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
-import 'package:sso_admin/widgets/data_emphasis.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/paginated_list.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
-import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
-/// Token policy governance view tab.
-///
-/// 只读策略列表页：GET /api/v1/admin/token-policies → 策略 name/effect/
-/// priority/description。用量/Subject 统计属 usage-analytics 模块，不在本页。
+/// Read-only token policy collection. Usage/subject analytics belong to the
+/// usage-analytics module and are deliberately not inferred here.
 class TokenPoliciesTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -33,35 +33,42 @@ class TokenPoliciesTab extends StatefulWidget {
 
 class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
   static const _path = '/api/v1/admin/token-policies';
+  static const _pageSize = 25;
+  final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _policies = const [];
-  String? _error;
-  bool _loading = false;
+  String? _error, _sortColumn;
+  bool _loading = false, _sortAscending = true;
+  int _page = 1, _reqSeq = 0;
 
-  /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
-  int _reqSeq = 0;
-
-  /// 模块强调色（security 组 rose）：页内图标/刷新统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.tokenPolicies);
-
   bool get _available =>
       widget.capabilities.hasAnyPathPrefix(_path) ||
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_path);
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   Future<void> _load() async {
     final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
+      _policies = const [];
+      _page = 1;
     });
     try {
       final data = await widget.api.get(_path);
-      final items =
+      final raw =
           data['policies'] as List? ?? data['token_policies'] as List? ?? [];
+      final policies = raw
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
       if (!mounted || seq != _reqSeq) return;
       setState(() {
-        _policies = items
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList();
+        _policies = policies;
         _loading = false;
       });
     } on SnaplinkAdminApiError catch (e) {
@@ -81,11 +88,59 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
     }
   }
 
+  List<Map<String, dynamic>> _visible() {
+    final query = _searchCtrl.text.trim().toLowerCase();
+    final rows = _policies.where((row) {
+      if (query.isEmpty) return true;
+      return row.values
+          .map((v) => v.toString())
+          .join(' ')
+          .toLowerCase()
+          .contains(query);
+    }).toList();
+    final sort = _sortColumn;
+    if (sort != null) {
+      rows.sort((a, b) {
+        final result = _sortValue(a, sort).compareTo(_sortValue(b, sort));
+        return _sortAscending ? result : -result;
+      });
+    }
+    return rows;
+  }
+
+  List<Map<String, dynamic>> _pageRows(
+    List<Map<String, dynamic>> rows,
+    int page,
+  ) {
+    final start = (page - 1) * _pageSize;
+    if (start >= rows.length) return const [];
+    return rows.sublist(start, math.min(start + _pageSize, rows.length));
+  }
+
+  void _search(String _) => setState(() => _page = 1);
+
+  void _sort(String column) => setState(() {
+    if (_sortColumn == column) {
+      _sortAscending = !_sortAscending;
+    } else {
+      _sortColumn = column;
+      _sortAscending = true;
+    }
+    _page = 1;
+  });
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    setState(() => _page = 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_available) {
       return const EmptyState(variant: EmptyStateVariant.notEnabled);
     }
+    final rows = _visible();
+    final error = _error;
     return PullToRefresh(
       onRefresh: _load,
       child: ListView(
@@ -104,10 +159,20 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
               ),
             ],
           ),
-          if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: SearchFilterBar(
+              labelText: 'Filter policies',
+              controller: _searchCtrl,
+              onSearchChanged: _search,
+              onSubmitted: _search,
+            ),
+          ),
+          if (error != null)
             ErrorStateCard(
-              message: _error!,
+              message: error,
               onRetry: _load,
+              retryEnabled: !_loading,
               margin: EdgeInsets.zero,
             ),
           if (_loading)
@@ -115,95 +180,181 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
               padding: EdgeInsets.only(top: 16),
               child: SkeletonListTile(itemCount: 3),
             ),
-          if (!_loading && _policies.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
+          if (!_loading && error == null && _policies.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
               child: EmptyState(
                 compact: true,
                 variant: EmptyStateVariant.empty,
                 title: 'No token policies configured.',
                 subtitle:
-                    'Token policies are managed server-side; this page reflects the active policy set.'
-                        .localized,
+                    'Token policies are managed server-side; this page reflects the active policy set.',
               ),
             ),
-          if (!_loading && _policies.isNotEmpty) _policiesCard(context),
+          if (!_loading &&
+              error == null &&
+              _policies.isNotEmpty &&
+              rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: EmptyState(
+                compact: true,
+                variant: EmptyStateVariant.noMatch,
+                title: 'No matches',
+                actionLabel: 'Clear filter',
+                actionIcon: Icons.filter_alt_off,
+                onAction: _clearSearch,
+              ),
+            ),
+          if (!_loading && error == null && rows.isNotEmpty)
+            _table(context, rows),
         ],
       ),
     );
   }
 
-  /// 策略卡：组色图标 + SectionHeader（含策略数）+ AdminDataTable(compact)。
-  Widget _policiesCard(BuildContext context) {
-    final rows = _policies;
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
+  Widget _table(BuildContext context, List<Map<String, dynamic>> rows) {
+    final pageCount = math.max(1, (rows.length + _pageSize - 1) ~/ _pageSize);
+    final page = _page.clamp(1, pageCount);
+    final pageRows = _pageRows(rows, page);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Card(
+          margin: const EdgeInsets.only(top: 12),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.policy_outlined, size: 20, color: _accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SectionHeader('Token policies', count: rows.length),
+                Row(
+                  children: [
+                    Icon(Icons.policy_outlined, size: 20, color: _accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SectionHeader(
+                        'Token policies',
+                        count: rows.length,
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 12),
+                if (pageRows.isEmpty)
+                  EmptyPageState(onBackToFirst: () => setState(() => _page = 1))
+                else
+                  AdminDataTable(
+                    density: TableDensity.compact,
+                    sortColumn: _sortColumn,
+                    sortAscending: _sortAscending,
+                    onSort: _sort,
+                    minWidth: 820,
+                    columns: _columns(context, rows, pageRows),
+                    itemCount: pageRows.length,
+                    rowBuilder: (_, _) => const SizedBox.shrink(),
+                  ),
               ],
             ),
-            const SizedBox(height: 12),
-            AdminDataTable(
-              density: TableDensity.compact,
-              columns: [
-                AdminDataColumn(
-                  id: 'policy',
-                  label: 'Policy'.localized,
-                  width: 220,
-                  cardPrimary: true,
-                  builder: (_, i) => TableCellText(
-                    rows[i]['name']?.toString() ??
-                        rows[i]['id']?.toString() ??
-                        '',
-                    level: DataEmphasisLevel.primary,
-                  ),
-                ),
-                AdminDataColumn(
-                  id: 'effect',
-                  label: 'Effect'.localized,
-                  cardDetail: true, // R52：allow/deny 效果卡片必备（原先被漏）。
-                  builder: (_, i) => _effectCell(rows[i]),
-                ),
-                AdminDataColumn(
-                  id: 'description',
-                  label: 'Description'.localized,
-                  width: 260, // R52：两行描述列 260 才合理（ID 窄、描述宽）。
-                  cardDetail: true,
-                  builder: (_, i) => TableCellText(
-                    rows[i]['description']?.toString() ?? '',
-                    muted: true,
-                    maxLines: 2,
-                  ),
-                ),
-              ],
-              itemCount: rows.length,
-              rowBuilder: (_, _) => const SizedBox.shrink(),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (rows.length > _pageSize)
+          PaginationControls(
+            page: page,
+            total: rows.length,
+            canGoBack: page > 1,
+            canGoNext: page < pageCount,
+            onPrevious: () => setState(() => _page = page - 1),
+            onNext: () => setState(() => _page = page + 1),
+          ),
+      ],
     );
   }
 
-  /// Effect 单元格：StatusChip 表达 allow/deny 语义色（X9）；effect 与
-  /// priority 均来自 API，走纯 Text（X1/X10 合规）。
-  Widget _effectCell(Map<String, dynamic> policy) {
-    final effect = (policy['effect'] ?? policy['action'] ?? 'allow').toString();
-    final priority = policy['priority']?.toString() ?? '';
-    final chip = switch (effect.toLowerCase()) {
-      'allow' || 'permit' => StatusChip.active(label: effect),
-      'deny' || 'block' => StatusChip.failed(label: effect),
-      _ => StatusChip.info(label: effect),
+  List<AdminDataColumn> _columns(
+    BuildContext context,
+    List<Map<String, dynamic>> rows,
+    List<Map<String, dynamic>> pageRows,
+  ) {
+    AdminDataColumn col(
+      String id,
+      String label,
+      double width,
+      Widget Function(BuildContext, int) builder, {
+      bool primary = false,
+    }) => AdminDataColumn(
+      id: id,
+      label: context.tr(label),
+      width: width,
+      sortable: true,
+      cardPrimary: primary,
+      cardDetail: !primary,
+      builder: builder,
+    );
+    final columns = <AdminDataColumn>[
+      col(
+        'policy',
+        'Policy',
+        220,
+        (_, i) => TableCellText(
+          _field(pageRows[i], const ['name', 'id']),
+          bold: true,
+        ),
+        primary: true,
+      ),
+    ];
+    final facets = [
+      ('type', 'Type', 140.0, const ['type', 'policy_type']),
+      ('status', 'Status', 140.0, const ['status', 'state']),
+      ('tenant', 'Tenant', 180.0, const ['tenant_id', 'tenant']),
+    ];
+    for (final (id, label, width, keys) in facets) {
+      if (!_has(rows, keys)) continue;
+      columns.add(
+        col(
+          id,
+          label,
+          width,
+          (_, i) => id == 'status'
+              ? _status(pageRows[i])
+              : TableCellText(_field(pageRows[i], keys), muted: true),
+        ),
+      );
+    }
+    columns.addAll([
+      col('effect', 'Effect', 170, (c, i) => _effect(c, pageRows[i])),
+      col(
+        'description',
+        'Description',
+        260,
+        (_, i) => TableCellText(
+          _field(pageRows[i], const ['description']),
+          muted: true,
+          maxLines: 2,
+        ),
+      ),
+    ]);
+    return columns;
+  }
+
+  Widget _status(Map<String, dynamic> row) {
+    final value = _field(row, const ['status', 'state']);
+    return switch (value.toLowerCase()) {
+      'active' || 'enabled' => StatusChip.active(label: value),
+      'suspended' || 'pending' => StatusChip.pending(label: value),
+      'inactive' ||
+      'disabled' ||
+      'revoked' => StatusChip.inactive(label: value),
+      _ => StatusChip.unknown(label: value.isEmpty ? 'Unknown' : value),
+    };
+  }
+
+  Widget _effect(BuildContext context, Map<String, dynamic> row) {
+    final value = (row['effect'] ?? row['action'] ?? 'allow').toString();
+    final priority = row['priority']?.toString() ?? '';
+    final chip = switch (value.toLowerCase()) {
+      'allow' || 'permit' => StatusChip.active(label: value),
+      'deny' || 'block' => StatusChip.failed(label: value),
+      _ => StatusChip.info(label: value),
     };
     return Row(
       children: [
@@ -223,4 +374,26 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
       ],
     );
   }
+
+  static String _field(Map<String, dynamic> row, List<String> keys) {
+    for (final key in keys) {
+      final value = row[key]?.toString().trim();
+      if (value != null && value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
+  static bool _has(List<Map<String, dynamic>> rows, List<String> keys) =>
+      rows.any((row) => _field(row, keys).isNotEmpty);
+
+  static String _sortValue(Map<String, dynamic> row, String column) =>
+      switch (column) {
+        'policy' => _field(row, const ['name', 'id']),
+        'type' => _field(row, const ['type', 'policy_type']),
+        'status' => _field(row, const ['status', 'state']),
+        'tenant' => _field(row, const ['tenant_id', 'tenant']),
+        'effect' => (row['effect'] ?? row['action'] ?? 'allow').toString(),
+        'description' => _field(row, const ['description']),
+        _ => '',
+      }.toLowerCase();
 }

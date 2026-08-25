@@ -1,0 +1,83 @@
+# R86-R90：Admin 运维 + Portal 剩余子菜单 + 综合终检
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r86-r90.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R86：/admin/ Live Activity 与 Health 子菜单。
+    阅读 admin_live_events_tab.dart、admin_live_events_tab_view.dart、health_tab.dart、
+    distributed_cluster_panel*.dart。判断 SSE/事件流应使用可取消 list/timeline 而非静态
+    table；健康汇总用 metric/card/distribution，集群明细才用 table；检查过滤/搜索、刷新/
+    取消、loading/empty/error/retry、窄屏事件行和键盘语义。不要把实时流伪造成分页数据。
+
+    只允许修改 admin_live_events_tab.dart、admin_live_events_tab_view.dart、health_tab.dart
+    中低风险 UI；禁止新文件、API/SSE/健康状态语义变化、新依赖和 git。运行 flutter analyze；
+    测试 test/admin_live_events_detail_read_test.dart test/admin_health_breakglass_test.dart
+    test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r86-admin-live-health.md。
+  output: docs/ui/pages-per-page/r86-admin-live-health.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_live_events_detail_read_test.dart test/admin_health_breakglass_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R87：/admin/ Change Approvals、Recovery Releases、Privacy/Usage 子菜单审查。
+    阅读 change_approvals_tab.dart、recovery_releases_tab.dart、privacy_compliance_tab.dart、
+    usage_analytics_tab.dart 及现有 widgets。判断审批/恢复记录是 list/timeline/table，
+    合规与用量汇总是 metric/card；检查筛选/分页、部分成功/结果未知、危险确认、空错加载态、
+    移动端审批按钮和长文案。已有大文件只做审查，最多修改 change_approvals_tab.dart 的
+    低风险布局，不新增结构。
+
+    禁止新文件、API/高风险/隐私/恢复语义变化、新依赖和 git。运行 flutter analyze；测试
+    test/change_approval_models_test.dart test/recovery_releases_partial_failure_test.dart
+    test/admin_governance_security_test.dart test/usage_analytics_contract_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r87-admin-approvals-recovery-privacy.md，
+    说明 table/list/card 选择及是否修改。
+  output: docs/ui/pages-per-page/r87-admin-approvals-recovery-privacy.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/change_approval_models_test.dart test/recovery_releases_partial_failure_test.dart test/admin_governance_security_test.dart test/usage_analytics_contract_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R88：/portal/ Overview 与 Identities 子菜单。
+    只阅读并修改现有 portal/overview_tab.dart、portal/identities_tab.dart。判断资料/属性/
+    授权披露用 card/list，关联身份集合桌面是否需要 table、移动端是否应 card/list；检查
+    空态/错误/retry、身份筛选/分页（若已有）、unlink 操作确认/反馈、长属性与窄屏滚动。
+    不为静态资料伪造 table/pagination。
+
+    禁止新文件、part 拆分、PortalApi/Session/安全协议变化、新依赖和 git；portal 源码
+    禁止新增 audit 文本。复用 EmptyState、StatusChip、SkeletonListTile、SearchFilterBar。
+    运行 flutter analyze；测试 test/portal_screens_test.dart test/portal_entry_test.dart
+    test/portal_security_contract_test.dart test/portal_security_widgets_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r88-portal-overview-identities.md。
+  output: docs/ui/pages-per-page/r88-portal-overview-identities.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_entry_test.dart test/portal_security_contract_test.dart test/portal_security_widgets_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R89：/portal/ Security、Consents、Notifications 子菜单。
+    只阅读并修改现有 security_tab.dart、consents_tab.dart、notifications_tab.dart（及其
+    已存在的 notifications_tab_view.dart 若确有必要）。判断 MFA factor/授权应用/通知是
+    card/list/timeline 还是 table；检查筛选/分页/刷新/空态、撤销/删除/已读操作的确认与
+    防重入、错误重试、移动端触控目标和长文案。安全因子/Consent 详情不要展开成过宽 table。
+
+    禁止新文件、API/Session/MFA/Consent/通知语义变化、新依赖和 git；portal 源码禁止新增
+    audit 文本。运行 flutter analyze；测试 test/portal_screens_test.dart
+    test/portal_notifications_test.dart test/portal_security_contract_test.dart
+    test/portal_security_widgets_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r89-portal-security-consents-notifications.md。
+  output: docs/ui/pages-per-page/r89-portal-security-consents-notifications.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_notifications_test.dart test/portal_security_contract_test.dart test/portal_security_widgets_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R90：全路由/子菜单综合终检（第九轮）。不要大规模重构；只修复已发现的低风险
+    UI 问题，且只能修改 R81-R89 白名单内的现有文件；禁止新文件和 git。
+
+    对照 R81-R89 产物逐个检查 /admin/ 所有 module/详情、/portal/ 所有 tab、/developer/
+    register/manage、/login/、/device/verify、/setup/：UI 元素是否合理；关系数据桌面
+    table/移动 card、线性数据 list、汇总 metric/card；分页器首末/空页/失败；搜索/筛选
+    组合；空/错/加载/retry；行操作/危险确认；键盘/a11y；320/400/640/768/桌面布局。
+
+    执行 flutter analyze、全量 flutter test、browser 关键测试、i18n/spacing/three-state/
+    table-card-density/perf/render gates、python3 cli.py harness；检查 test/zz_*、probe、
+    0 字节、代码文件预算、portal/developer/oidc_login 新增 audit 文本。输出
+    docs/ui/pages-per-page/r90-final-audit-9.md（覆盖矩阵、table/list/card 决策、分页筛选
+    矩阵、门禁、残留、总结论），最后一行严格为 VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r90-final-audit-9.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/spacing_tokens_gate_test.dart test/three_state_gate_test.dart test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/perf_gates_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"

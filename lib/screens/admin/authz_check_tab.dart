@@ -334,9 +334,14 @@ class _CheckCard extends StatelessWidget {
               color: accent.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: SelectableText(
-              const JsonEncoder.withIndent('  ').convert(data),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 280),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  const JsonEncoder.withIndent('  ').convert(data),
+                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
             ),
           ),
         ],

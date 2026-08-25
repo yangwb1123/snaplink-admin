@@ -22,13 +22,7 @@ extension _PermissionsTabView on _PermissionsTabState {
     const SizedBox(height: 4),
     _permissionsHeader(context, accent),
     const SizedBox(height: 16),
-    PermissionsClientSelector(
-      controller: _clientCtrl,
-      clientId: clientId,
-      loading: _loading,
-      onSearch: _load,
-      onSubmitted: _handleRoute,
-    ),
+    _clientSelector(accent),
     if (_error != null) ...[const SizedBox(height: 8), _errorBanner(context)],
     if (clientId != null) ...[
       const SizedBox(height: 12),
@@ -40,6 +34,55 @@ extension _PermissionsTabView on _PermissionsTabState {
     ],
     if (clientId != null && !_loading) ..._loadedPermissionSections(),
   ];
+
+  Widget _clientSelector(Color accent) => LayoutBuilder(
+    builder: (context, constraints) {
+      final clientId = _clientId;
+      if (constraints.maxWidth >= 520) {
+        return PermissionsClientSelector(
+          controller: _clientCtrl,
+          clientId: clientId,
+          loading: _loading,
+          onSearch: _searchClient,
+          onSubmitted: _searchClient,
+        );
+      }
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: constraints.maxWidth,
+            child: TextField(
+              controller: _clientCtrl,
+              decoration: InputDecoration(
+                labelText: 'Client ID'.localized,
+                hintText: 'Enter client ID and press Search'.localized,
+                prefixIcon: Icon(
+                  Icons.business_outlined,
+                  size: 18,
+                  color: accent,
+                ),
+              ),
+              onSubmitted: (_) => _searchClient(),
+            ),
+          ),
+          FilledButton.icon(
+            onPressed: _loading ? null : _searchClient,
+            icon: const Icon(Icons.search, size: 18),
+            label: const LocalizedText('Search'),
+          ),
+          if (clientId case final value?)
+            Chip(
+              avatar: Icon(Icons.check_circle, size: 16, color: accent),
+              label: Text(value),
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+      );
+    },
+  );
 
   Widget _permissionsHeader(BuildContext context, Color accent) {
     final theme = Theme.of(context);

@@ -72,7 +72,6 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void initState() {
     super.initState();
     _handleRoute();
-    if (_clientId != null) _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
     });
@@ -81,12 +80,44 @@ class _PermissionsTabState extends State<PermissionsTab> {
   void _handleRoute() {
     final route = AdminRoute.current();
     if (route.module != 'permissions') return;
-    if (route.resourceId.isNotEmpty && route.resourceId != _clientCtrl.text) {
-      _clientCtrl.text = route.resourceId;
-    }
+    final routeClientId = route.resourceId;
+    final clientChanged = routeClientId != _clientCtrl.text;
+    if (clientChanged) _clientCtrl.text = routeClientId;
     _currentSection = route.subresource.isNotEmpty ? route.subresource : 'all';
-    if (_clientId != null) _load();
+    if (clientChanged) {
+      if (_clientId != null) {
+        _load();
+      } else {
+        _roles = const [];
+        _assignments = const [];
+        _error = null;
+      }
+    }
     if (mounted) setState(() {});
+  }
+
+  /// Search and keyboard submit share one action and keep the selected client
+  /// in the URL without causing the location listener to load twice.
+  void _searchClient() {
+    final clientId = _clientId;
+    if (clientId == null) {
+      _load();
+      return;
+    }
+    final section = _currentSection == 'all' ? '' : _currentSection;
+    final route = AdminRoute.current();
+    if (route.module != 'permissions' ||
+        route.resourceId != clientId ||
+        route.subresource != section) {
+      BrowserNavigation.replaceState(
+        AdminRoute.url(
+          'permissions',
+          resourceId: clientId,
+          subresource: section,
+        ),
+      );
+    }
+    _load();
   }
 
   void _selectSection(String section) {
@@ -134,12 +165,20 @@ class _PermissionsTabState extends State<PermissionsTab> {
     widget.api.skipCache();
     final clientId = _clientId;
     if (clientId == null) {
-      setState(() => _error = 'Enter a client ID first.');
+      setState(() {
+        _error = 'Enter a client ID first.';
+        _roles = const [];
+        _assignments = const [];
+      });
       return;
     }
     setState(() {
       _loading = true;
       _error = null;
+      // Do not show a previous client's relationships under a new loading or
+      // error state; the table must represent this request only.
+      _roles = const [];
+      _assignments = const [];
     });
     try {
       final jobs = <Future>[
@@ -283,7 +322,12 @@ class _PermissionsTabState extends State<PermissionsTab> {
     final cid = _clientId;
     if (cid == null) return;
     try {
-      final menus = jsonDecode(_menusCtrl.text) as List;
+      final decoded = jsonDecode(_menusCtrl.text);
+      if (decoded is! List) {
+        if (mounted) setState(() => _error = 'Invalid JSON in menus field.');
+        return;
+      }
+      final menus = decoded;
       if (!await _confirm(
         context.tr('Save menus?'),
         context.tr('Update navigation tree?'),
@@ -318,7 +362,10 @@ class _PermissionsTabState extends State<PermissionsTab> {
   );
 
   Future<void> _write(Future<void> Function() fn, String okMsg) async {
-    setState(() => _mutating = true);
+    setState(() {
+      _mutating = true;
+      _error = null;
+    });
     try {
       await fn();
       if (!mounted) return;

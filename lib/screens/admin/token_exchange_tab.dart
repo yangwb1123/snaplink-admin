@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -5,6 +7,7 @@ import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/admin_list_header.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/section_header.dart';
@@ -163,6 +166,10 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
             onPressed: _loading ? null : _load,
             icon: Icon(Icons.search, color: _accent),
             tooltip: 'Search'.localized,
+            constraints: const BoxConstraints(
+              minWidth: kMinInteractiveDimension,
+              minHeight: kMinInteractiveDimension,
+            ),
           ),
         ],
       ),
@@ -183,15 +190,47 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
         ),
       );
     }
+    final subjects = {
+      for (final hop in hops) _pick(hop, ['subject', 'sub']),
+    }..removeWhere((value) => value.isEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        MetricStrip(
+          cards: [
+            KeyMetricCard(
+              label: 'Exchange chain',
+              value: hops.length,
+              icon: Icons.swap_horiz_outlined,
+              color: _accent,
+            ),
+            KeyMetricCard(
+              label: 'Subject',
+              value: subjects.length,
+              icon: Icons.person_outline,
+              color: _accent,
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Icon(Icons.swap_horiz_outlined, size: 20, color: _accent),
             const SizedBox(width: 8),
             Expanded(
-              child: SectionHeader('Exchange chain', count: hops.length),
+              child: SectionHeader(
+                'Exchange chain',
+                count: hops.length,
+                action: IconButton(
+                  onPressed: () => _showJson(context, data),
+                  icon: const Icon(Icons.data_object_outlined),
+                  tooltip: context.tr('JSON object'),
+                  constraints: const BoxConstraints(
+                    minWidth: kMinInteractiveDimension,
+                    minHeight: kMinInteractiveDimension,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -285,6 +324,37 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     final scopes = entry['scopes'];
     if (scopes is List) return scopes.join(', ');
     return entry['scope']?.toString() ?? '';
+  }
+
+  Future<void> _showJson(
+    BuildContext context,
+    Map<String, dynamic> data,
+  ) async {
+    final json = JsonEncoder.withIndent('  ').convert(data);
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(dialogContext.tr('JSON object')),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 720,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * 0.65,
+          ),
+          child: SingleChildScrollView(
+            child: SelectableText(
+              json,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(dialogContext.strings.cancel),
+          ),
+        ],
+      ),
+    );
   }
 }
 

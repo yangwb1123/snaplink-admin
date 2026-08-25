@@ -46,63 +46,92 @@ class ScimDirectoryTab extends StatelessWidget {
           const AdminBreadcrumb(overrideModule: 'SCIM Directory'),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  backgroundColor: Theme.of(
-                    context,
-                  ).colorScheme.primaryContainer,
-                  child: Icon(Icons.account_tree_outlined, color: accent),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Semantics(
-                        container: true,
-                        header: true,
-                        child: LocalizedText(
-                          'SCIM 2.0 Directory',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final intro = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
+                      child: Icon(Icons.account_tree_outlined, color: accent),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Semantics(
+                            container: true,
+                            header: true,
+                            child: LocalizedText(
+                              'SCIM 2.0 Directory',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const LocalizedText(
+                            'Discover provider capabilities, reconcile users and '
+                            'groups, and run bounded provisioning batches.',
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      const LocalizedText(
-                        'Discover provider capabilities, reconcile users and '
-                        'groups, and run bounded provisioning batches.',
-                      ),
-                    ],
-                  ),
-                ),
-                const Chip(
+                    ),
+                  ],
+                );
+                const chip = Chip(
                   avatar: Icon(Icons.admin_panel_settings_outlined, size: 16),
                   label: LocalizedText('admin:read / admin:write'),
+                );
+                if (constraints.maxWidth < 560) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      intro,
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerLeft, child: chip),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: intro),
+                    chip,
+                  ],
+                );
+              },
+            ),
+          ),
+          LayoutBuilder(
+            builder: (context, constraints) => TabBar(
+              // Four destinations fit in the normal phone width when each
+              // tab owns an equal slot; Bulk therefore stays visible instead
+              // of requiring a horizontal tab-bar swipe.
+              isScrollable: constraints.maxWidth >= 600,
+              labelPadding: constraints.maxWidth < 600
+                  ? const EdgeInsets.symmetric(horizontal: 4)
+                  : null,
+              tabs: [
+                Tab(
+                  icon: Icon(Icons.info_outline, color: accent),
+                  text: context.tr('Overview'),
+                ),
+                Tab(
+                  icon: Icon(Icons.people_outline, color: accent),
+                  text: context.tr('Users'),
+                ),
+                Tab(
+                  icon: Icon(Icons.groups_outlined, color: accent),
+                  text: context.tr('Groups'),
+                ),
+                Tab(
+                  icon: Icon(Icons.layers_outlined, color: accent),
+                  text: context.tr('Bulk'),
                 ),
               ],
             ),
-          ),
-          TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(
-                icon: Icon(Icons.info_outline, color: accent),
-                text: context.tr('Overview'),
-              ),
-              Tab(
-                icon: Icon(Icons.people_outline, color: accent),
-                text: context.tr('Users'),
-              ),
-              Tab(
-                icon: Icon(Icons.groups_outlined, color: accent),
-                text: context.tr('Groups'),
-              ),
-              Tab(
-                icon: Icon(Icons.layers_outlined, color: accent),
-                text: context.tr('Bulk'),
-              ),
-            ],
           ),
           Expanded(
             child: TabBarView(

@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
@@ -306,8 +307,14 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
     _load();
   }
 
-  String _errorMessage(SnaplinkAdminApiError error) => context.tr(
-    'SCIM request failed ({status}): {error}',
-    {'status': '${error.status}', 'error': error.toString()},
-  );
+  String _errorMessage(SnaplinkAdminApiError error) {
+    final detail = context.tr('SCIM request failed ({status}): {error}', {
+      'status': '${error.status}',
+      'error': error.toString(),
+    });
+    if (error.status == 412) {
+      return '$detail ${context.tr('The data may have changed since you last loaded this page.')}';
+    }
+    return detail;
+  }
 }

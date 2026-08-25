@@ -1,0 +1,87 @@
+# R81-R85：剩余 Admin 子菜单逐页 UI 重构（安全小步）
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 已超过 400 行的遗留页只做审查/报告，不继续膨胀。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r81-r85.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R81：/admin/ Permissions 与 Authorization Checks 子菜单。
+    阅读 permissions_tab.dart、permissions_tab_view.dart、permissions_cards.dart、
+    permissions_workspace_widgets.dart、authz_check_tab.dart、permission_detail_screen.dart。
+    判断角色/分配/授权检查的关系数据是否应使用 table、card 或 list；检查桌面/移动端、
+    空/错/加载/retry、角色筛选、详情层级、JSON/策略结果的可读性、按钮/确认/焦点语义。
+    复杂关系才用 table，摘要和检查结果用 card/list，不伪造分页数据。
+
+    只允许修改现有 permissions_tab.dart、permissions_tab_view.dart、authz_check_tab.dart
+    （若无明确低风险问题则不改）；禁止新文件/拆分/API/能力/授权语义变化和新依赖。
+    文件超过 400 行不要通过继续添加内容解决；不跑 git、不提交。
+    运行 flutter analyze；测试 test/admin_governance_security_test.dart
+    test/admin_secondary_tabs2_test.dart test/admin_workflows_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r81-admin-permissions-authz.md，
+    记录 table/list/card、分页/筛选判断和实际变更。
+  output: docs/ui/pages-per-page/r81-admin-permissions-authz.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/admin_secondary_tabs2_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R82：/admin/ SCIM Directory 子菜单。
+    阅读 scim/scim_directory_tab.dart、scim_resource_browser.dart、
+    scim_resource_browser_view.dart、scim_bulk_panel.dart、scim_bulk_panel_view.dart。
+    逐页判断 SCIM User/Group 目录桌面 table、移动 card/list；schema/discovery 是 card/list；
+    检查 filter/sort/page、空态/能力关闭/错误 retry、详情 dialog、Bulk 逐项结果、
+    PATCH/If-Match 冲突和操作反馈；移动端不能把 Bulk 操作藏在横向表格外。
+
+    只允许修改 scim_directory_tab.dart、scim_resource_browser.dart、
+    scim_resource_browser_view.dart（必要时仅低风险 UI）；禁止新文件、拆分、SCIM wire/API/
+    If-Match 语义变化、新依赖和 git；portal/developer/oidc_login 不新增 audit 文本。
+    运行 flutter analyze；测试 test/scim_directory_contract_test.dart
+    test/scim_bulk_panel_test.dart test/scim_models_test.dart test/oidc_views_scim_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r82-admin-scim.md。
+  output: docs/ui/pages-per-page/r82-admin-scim.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/scim_directory_contract_test.dart test/scim_bulk_panel_test.dart test/scim_models_test.dart test/oidc_views_scim_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R83：/admin/ Token Policies 与 Token Exchange 子菜单。
+    阅读 token_policies_tab.dart、token_exchange_tab.dart 及现有共享组件调用。判断策略
+    列表/交换链追踪是 table、timeline、card 还是 list；检查 type/status/tenant 等筛选、
+    排序/分页、空页/错误 retry、JSON/链路详情、危险操作确认与移动端按钮可达性。
+    汇总使用 metric/card，长链路不要挤成宽 table。
+
+    只允许修改这两个现有文件；禁止新文件、拆分、API/Token 语义变化、新依赖和 git。
+    复用 AdminDataTable、SearchFilterBar、PaginatedList、EmptyState、StatusChip；文件
+    不得继续膨胀。运行 flutter analyze；测试 test/token_policies_tab_test.dart
+    test/token_exchange_tab_test.dart test/admin_secondary_tabs2_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r83-admin-token-policies-exchange.md。
+  output: docs/ui/pages-per-page/r83-admin-token-policies-exchange.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/token_policies_tab_test.dart test/token_exchange_tab_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R84：/admin/ Network Policies 与 Access Policies 子菜单。
+    阅读 network_policies_tab.dart、access_policies_tab.dart、access_policies_tab_view.dart、
+    network_policy_dialog.dart。判断策略集合桌面 table、移动 card/list；分类/状态/网络范围
+    筛选、搜索/分页/排序、创建/编辑/删除确认、空/错/加载/retry、长 CIDR/规则在手机的
+    展示是否合理。规则详情用 card/list，不强制宽表。
+
+    只允许修改 network_policies_tab.dart、access_policies_tab.dart、access_policies_tab_view.dart
+    中已有代码；禁止新文件、拆分、API/策略语义变化、新依赖和 git。文件 >400 行只做
+    低风险修复，不再增加结构。运行 flutter analyze；测试 test/admin_secondary_tabs2_test.dart
+    test/admin_governance_security_test.dart test/admin_workflows_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r84-admin-network-access-policies.md。
+  output: docs/ui/pages-per-page/r84-admin-network-access-policies.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_secondary_tabs2_test.dart test/admin_governance_security_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R85：/admin/ Threat Policies 子菜单与安全大页结构审查。
+    阅读 threat_policies_tab.dart、dr_mode_tab.dart、crypto_keys_tab.dart、credentials_tab.dart。
+    逐页评估 threat/DR/keys/credentials 的 table/list/card/metric 选择、筛选/分页/空错加载态、
+    风险操作确认、一次性密钥/凭据展示和移动端操作可达性。Threat/crypto 等已有大文件
+    只记录问题与证据，不做大规模拆分或追加结构；若有低风险现有布局修复，仅改
+    threat_policies_tab.dart 或 dr_mode_tab.dart。
+
+    禁止新文件、API/安全/secret 生命周期变化、新依赖和 git。运行 flutter analyze；测试
+    test/admin_secondary_tabs2_test.dart test/admin_governance_security_test.dart
+    test/admin_workflows_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r85-admin-threat-crypto-credentials.md，明确哪些页面修改、
+    哪些仅审查及原因。
+  output: docs/ui/pages-per-page/r85-admin-threat-crypto-credentials.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_secondary_tabs2_test.dart test/admin_governance_security_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
