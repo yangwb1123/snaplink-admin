@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
+import 'package:sso_admin/widgets/pull_to_refresh.dart';
 
 import 'passkey_enrollment_card.dart';
 import 'security_account_credentials.dart';
@@ -25,6 +26,8 @@ class _SecurityTabState extends State<SecurityTab> {
   // --- MFA factor list ---
   bool _mfaLoading = true;
   bool _mfaBusy = false;
+  bool _mfaRequestInFlight = false;
+  bool _factorConfirming = false;
   bool _mfaError = false;
   bool _mfaNotEnabled = false;
   bool _mfaOk = false;
@@ -56,12 +59,16 @@ class _SecurityTabState extends State<SecurityTab> {
   }
 
   Future<void> _loadMfa() async {
-    setState(() {
-      _mfaLoading = true;
-      _mfaError = false;
-      _mfaNotEnabled = false;
-      _mfaEmptyHint = null;
-    });
+    if (_mfaRequestInFlight) return;
+    _mfaRequestInFlight = true;
+    if (mounted) {
+      setState(() {
+        _mfaLoading = true;
+        _mfaError = false;
+        _mfaNotEnabled = false;
+        _mfaEmptyHint = null;
+      });
+    }
     try {
       final r = await widget.api.get('/me/mfa');
       if (!mounted) return;
@@ -70,7 +77,6 @@ class _SecurityTabState extends State<SecurityTab> {
           _factors = const [];
           _mfaEmptyHint = 'Factor management is not enabled.';
           _mfaNotEnabled = true;
-          _mfaLoading = false;
         });
         return;
       }
@@ -79,16 +85,24 @@ class _SecurityTabState extends State<SecurityTab> {
           _factors = const [];
           _mfaEmptyHint = 'Could not load your second factors.';
           _mfaError = true;
-          _mfaLoading = false;
         });
         return;
       }
       final d = PortalApi.decode(r);
-      final list = (d['factors'] as List?) ?? const [];
+      final list = ((d['factors'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((factor) {
+            final normalized = Map<String, dynamic>.from(factor);
+            if (!normalized.containsKey('method') &&
+                normalized['type'] != null) {
+              normalized['method'] = normalized['type'];
+            }
+            return normalized;
+          })
+          .toList(growable: false);
       setState(() {
         _factors = list;
         _mfaEmptyHint = list.isEmpty ? 'No second factors registered.' : null;
-        _mfaLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
@@ -96,13 +110,16 @@ class _SecurityTabState extends State<SecurityTab> {
         _factors = const [];
         _mfaEmptyHint = 'Could not load your second factors.';
         _mfaError = true;
-        _mfaLoading = false;
       });
+    } finally {
+      _mfaRequestInFlight = false;
+      if (mounted) setState(() => _mfaLoading = false);
     }
   }
 
   Future<void> _removeFactor(String id) async {
-    if (id.isEmpty || _mfaBusy) return;
+    if (id.isEmpty || _mfaBusy || _totpBusy || _factorConfirming) return;
+    setState(() => _factorConfirming = true);
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Remove second factor?',
@@ -111,7 +128,8 @@ class _SecurityTabState extends State<SecurityTab> {
       confirmLabel: 'Remove',
       destructive: true,
     );
-    if (!confirmed || !mounted) return;
+    if (mounted) setState(() => _factorConfirming = false);
+    if (!confirmed || !mounted || _mfaBusy || _totpBusy) return;
     setState(() {
       _mfaBusy = true;
       _mfaMessage = null;
@@ -144,6 +162,7 @@ class _SecurityTabState extends State<SecurityTab> {
   }
 
   Future<void> _beginTotp() async {
+    if (_totpBusy || _mfaBusy || _mfaRequestInFlight) return;
     setState(() {
       _totpMsg = null;
       _totpPanelOpen = true;
@@ -194,6 +213,7 @@ class _SecurityTabState extends State<SecurityTab> {
   }
 
   Future<void> _confirmTotp() async {
+    if (_totpBusy) return;
     final code = _totpCodeCtrl.text.trim();
     if (_pendingSecret.isEmpty || code.isEmpty) {
       setState(() => _totpMsg = 'Enter the 6-digit code.');
@@ -239,55 +259,78 @@ class _SecurityTabState extends State<SecurityTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Semantics(
-          container: true,
-          header: true,
-          child: Text(
-            context.strings.security,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.3,
+    return PullToRefresh(
+      onRefresh: _refreshMfa,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Semantics(
+            container: true,
+            header: true,
+            child: Text(
+              context.strings.security,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 4),
-        LocalizedText(
-          'Multi-factor authentication and the security factors on your account.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: LocalizedText(
+                  'Multi-factor authentication and the security factors on your account.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: context.tr('Retry'),
+                onPressed:
+                    _mfaLoading || _mfaBusy || _totpBusy || _factorConfirming
+                    ? null
+                    : _loadMfa,
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 12),
-        SecurityMfaCard(
-          mfaLoading: _mfaLoading,
-          mfaError: _mfaError,
-          mfaNotEnabled: _mfaNotEnabled,
-          factors: _factors,
-          mfaEmptyHint: _mfaEmptyHint,
-          mfaMessage: _mfaMessage,
-          mfaOk: _mfaOk,
-          mfaBusy: _mfaBusy,
-          totpPanelOpen: _totpPanelOpen,
-          totpBusy: _totpBusy,
-          totpMsg: _totpMsg,
-          pendingSecret: _pendingSecret,
-          pendingUri: _pendingUri,
-          totpLabelCtrl: _totpLabelCtrl,
-          totpCodeCtrl: _totpCodeCtrl,
-          onBeginTotp: _beginTotp,
-          onConfirmTotp: _confirmTotp,
-          onCancelTotp: _cancelTotp,
-          onRetry: _loadMfa,
-          onRemoveFactor: (id) => _removeFactor(id),
-        ),
-        PasskeyEnrollmentCard(api: widget.api, onEnrolled: _loadMfa),
-        RecoveryCodesCard(api: widget.api),
-        TrustedDevicesCard(api: widget.api),
-        SecurityAccountCredentials(api: widget.api),
-      ],
+          const SizedBox(height: 12),
+          SecurityMfaCard(
+            mfaLoading: _mfaLoading,
+            mfaError: _mfaError,
+            mfaNotEnabled: _mfaNotEnabled,
+            factors: _factors,
+            mfaEmptyHint: _mfaEmptyHint,
+            mfaMessage: _mfaMessage,
+            mfaOk: _mfaOk,
+            mfaBusy: _mfaBusy || _totpBusy || _mfaLoading || _factorConfirming,
+            totpPanelOpen: _totpPanelOpen,
+            totpBusy: _totpBusy,
+            totpMsg: _totpMsg,
+            pendingSecret: _pendingSecret,
+            pendingUri: _pendingUri,
+            totpLabelCtrl: _totpLabelCtrl,
+            totpCodeCtrl: _totpCodeCtrl,
+            onBeginTotp: _beginTotp,
+            onConfirmTotp: _confirmTotp,
+            onCancelTotp: _cancelTotp,
+            onRetry: _loadMfa,
+            onRemoveFactor: (id) => _removeFactor(id),
+          ),
+          PasskeyEnrollmentCard(api: widget.api, onEnrolled: _loadMfa),
+          RecoveryCodesCard(api: widget.api),
+          TrustedDevicesCard(api: widget.api),
+          SecurityAccountCredentials(api: widget.api),
+        ],
+      ),
     );
+  }
+
+  Future<void> _refreshMfa() async {
+    if (_mfaBusy || _totpBusy || _factorConfirming) return;
+    await _loadMfa();
   }
 }

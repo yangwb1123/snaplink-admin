@@ -43,6 +43,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
 
   final _typesCtrl = TextEditingController();
   final _tenantCtrl = TextEditingController();
+  final _searchCtrl = TextEditingController();
   final _events = <SnaplinkAdminEvent>[];
   StreamSubscription<SnaplinkAdminEvent>? _subscription;
   Timer? _reconnectTimer;
@@ -69,6 +70,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     _subscription?.cancel();
     _typesCtrl.dispose();
     _tenantCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
@@ -82,7 +84,11 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
   Future<void> _openConnection({bool clearError = false}) async {
     final generation = ++_connectionGeneration;
     await _subscription?.cancel();
-    if (!mounted) return;
+    // Disconnect may be pressed while cancellation is still awaiting the
+    // browser reader. Do not resurrect a connection from that stale open.
+    if (!mounted || generation != _connectionGeneration || !_reconnectWanted) {
+      return;
+    }
     setState(() {
       _connecting = true;
       _connected = false;
@@ -170,11 +176,16 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     _reconnectTimer = null;
     await _subscription?.cancel();
     _subscription = null;
-    if (mounted) setState(() => _connected = false);
+    if (mounted) {
+      setState(() {
+        _connecting = false;
+        _connected = false;
+      });
+    }
   }
 
   Future<void> _showDetail(SnaplinkAdminEvent event) async {
-    final id = event.id ?? event.data['id']?.toString();
+    final id = _eventId(event);
     if (id == null || id.isEmpty) return;
     try {
       final detail = await widget.api.get(
@@ -203,6 +214,33 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     }
+  }
+
+  String? _eventId(SnaplinkAdminEvent event) =>
+      event.id ?? event.data['id']?.toString();
+
+  List<SnaplinkAdminEvent> get _visibleEvents {
+    final query = _searchCtrl.text.trim().toLowerCase();
+    if (query.isEmpty) return _events;
+    return _events
+        .where((event) {
+          final haystack = <String>[
+            event.id ?? '',
+            event.type,
+            event.data.toString(),
+          ].join(' ').toLowerCase();
+          return haystack.contains(query);
+        })
+        .toList(growable: false);
+  }
+
+  void _clearSearch() {
+    _searchCtrl.clear();
+    if (mounted) setState(() {});
+  }
+
+  void _onSearchChanged(String _) {
+    if (mounted) setState(() {});
   }
 
   String _summary(SnaplinkAdminEvent event) {

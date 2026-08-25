@@ -9,6 +9,8 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/format_helpers.dart';
+import 'package:sso_admin/widgets/distribution_bar.dart';
+import 'package:sso_admin/widgets/key_metric_card.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -36,6 +38,7 @@ class _HealthTabState extends State<HealthTab> {
   Map<String, dynamic>? _federationHealth;
   String? _error;
   bool _loading = false;
+  int _refreshGeneration = 0;
   Timer? _autoRefresh;
 
   /// 模块组色（overview → sky）：页头与卡片图标统一按组色上色（X7）。
@@ -45,10 +48,7 @@ class _HealthTabState extends State<HealthTab> {
   void initState() {
     super.initState();
     _refresh();
-    _autoRefresh = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _refresh(),
-    );
+    _autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
 
   @override
@@ -57,18 +57,25 @@ class _HealthTabState extends State<HealthTab> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _quiet(String path) =>
-      widget.api.get(path).catchError((_) => <String, dynamic>{});
+  Future<Map<String, dynamic>> _quiet(String path) => widget.api.get(path).catchError((_) => <String, dynamic>{});
 
   Future<void> _refresh() async {
-    setState(() => _loading = true);
+    if (!mounted || _loading) return;
+    final generation = ++_refreshGeneration;
+    // Refresh is an operator request (and the 30s poll should be fresh too),
+    // not a read of the short-lived response cache.
+    widget.api.skipCache();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final results = await Future.wait([
         widget.api.get('/health'),
         _quiet('/api/v1/admin/storage-health'),
         _quiet('/api/v1/admin/federation/health'),
       ]);
-      if (!mounted) return;
+      if (!mounted || generation != _refreshGeneration) return;
       setState(() {
         _health = results[0] as Map<String, dynamic>?;
         _storageHealth = results[1] as Map<String, dynamic>?;
@@ -77,7 +84,7 @@ class _HealthTabState extends State<HealthTab> {
         _loading = false;
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted && generation == _refreshGeneration) {
         setState(() {
           _error = e.toString();
           _loading = false;
@@ -96,9 +103,7 @@ class _HealthTabState extends State<HealthTab> {
   @override
   Widget build(BuildContext context) {
     final hasData =
-        _health?.isNotEmpty == true ||
-        _storageHealth?.isNotEmpty == true ||
-        _federationHealth?.isNotEmpty == true;
+        _health?.isNotEmpty == true || _storageHealth?.isNotEmpty == true || _federationHealth?.isNotEmpty == true;
     return PullToRefresh(
       onRefresh: _refresh,
       child: ListView(
@@ -106,44 +111,32 @@ class _HealthTabState extends State<HealthTab> {
         children: [
           const AdminBreadcrumb(),
           _header(context),
-          // 健康总览（异常优先）：三个子系统状态一眼可见。
-          _overview(context),
-          const SizedBox(height: 12),
+          if (hasData) ...[
+            // 健康汇总是指标/分布，不是把三个状态压成静态表格。
+            _overview(context),
+            const SizedBox(height: 12),
+          ],
+          if (_loading && hasData)
+            const Padding(padding: EdgeInsets.only(bottom: 12), child: LinearProgressIndicator(minHeight: 2)),
           // 三态：loading → 骨架；error → 卡片 + Retry；empty → EmptyState。
           if (_loading && _health == null)
-            const SkeletonListTile(
-              itemCount: 3,
-              variant: SkeletonVariant.card,
-              delay: Duration(milliseconds: 150),
-            )
+            const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150))
           else if (_error != null && _health == null)
             _errorCard(context)
           else if (!hasData)
-            const EmptyState(
-              variant: EmptyStateVariant.empty,
-              title: 'No health data returned by the server yet.',
-            )
+            const EmptyState(variant: EmptyStateVariant.empty, title: 'No health data returned by the server yet.')
           else ...[
+            if (_error != null) ...[_errorCard(context), const SizedBox(height: 12)],
             _serverCard(context),
             const SizedBox(height: 12),
             DistributedClusterPanel(api: widget.api),
             if (_storageHealth?.isNotEmpty ?? false) ...[
               const SizedBox(height: 12),
-              _dataCard(
-                context,
-                'Storage Health',
-                _storageHealth!,
-                Icons.storage_outlined,
-              ),
+              _dataCard(context, 'Storage Health', _storageHealth!, Icons.storage_outlined),
             ],
             if (_federationHealth?.isNotEmpty ?? false) ...[
               const SizedBox(height: 12),
-              _dataCard(
-                context,
-                'Federation Health',
-                _federationHealth!,
-                Icons.lan_outlined,
-              ),
+              _dataCard(context, 'Federation Health', _federationHealth!, Icons.lan_outlined),
             ],
           ],
           const SizedBox(height: 12),
@@ -172,18 +165,13 @@ class _HealthTabState extends State<HealthTab> {
                   header: true,
                   child: LocalizedText(
                     'System Health',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
-                    ),
+                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600, letterSpacing: -0.3),
                   ),
                 ),
                 const SizedBox(height: 4),
                 LocalizedText(
                   'Health checks aggregate runtime reachability of the server, storage and cluster.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -202,39 +190,70 @@ class _HealthTabState extends State<HealthTab> {
   /// 健康总览：子系统状态徽章组（StatusChip 双编码 + 异常优先）。
   Widget _overview(BuildContext context) {
     final serverOk = _health?['status']?.toString() == 'ok';
-    final storageOk =
-        _storageHealth?.isNotEmpty == true && _statusOk(_storageHealth!);
-    final federationOk =
-        _federationHealth?.isNotEmpty == true && _statusOk(_federationHealth!);
+    final storageOk = _storageHealth?.isNotEmpty == true && _statusOk(_storageHealth!);
+    final federationOk = _federationHealth?.isNotEmpty == true && _statusOk(_federationHealth!);
     final anyDown = !serverOk || !storageOk || !federationOk;
-    final icon = anyDown
-        ? Icons.warning_amber_outlined
-        : Icons.verified_user_outlined;
-    final title = anyDown
-        ? 'A subsystem needs attention'
-        : 'All subsystems healthy';
+    final icon = anyDown ? Icons.warning_amber_outlined : Icons.verified_user_outlined;
+    final title = anyDown ? 'A subsystem needs attention' : 'All subsystems healthy';
+    final healthy = [serverOk, storageOk, federationOk].where((value) => value).length;
+    final attention = 3 - healthy;
+    final metrics = [
+      KeyMetricCard(
+        label: 'Healthy',
+        value: healthy,
+        caption: title,
+        icon: Icons.verified_user_outlined,
+        color: AppColors.success,
+      ),
+      KeyMetricCard(
+        label: 'Unhealthy',
+        value: attention,
+        caption: title,
+        icon: Icons.warning_amber_outlined,
+        color: attention == 0 ? AppColors.success : AppColors.warning,
+      ),
+      KeyMetricCard(
+        label: 'Total',
+        value: 3,
+        caption: 'Health checks aggregate runtime reachability of the server, storage and cluster.',
+        icon: Icons.monitor_heart_outlined,
+        color: _accent,
+      ),
+    ];
     return Card(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, color: anyDown ? AppColors.warning : AppColors.success),
-            const SizedBox(width: 8),
-            Expanded(
-              child: LocalizedText(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
+            Row(
+              children: [
+                Icon(icon, color: anyDown ? AppColors.warning : AppColors.success),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LocalizedText(
+                    title,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: [
-                _badge('Server', serverOk),
-                _badge('Storage', storageOk),
-                _badge('Federation', federationOk),
+              children: [_badge('Server', serverOk), _badge('Storage', storageOk), _badge('Federation', federationOk)],
+            ),
+            const Divider(),
+            LayoutBuilder(
+              builder: (context, constraints) =>
+                  MetricStrip(cards: metrics, cardWidth: constraints.maxWidth < 420 ? constraints.maxWidth : 190),
+            ),
+            const SizedBox(height: 12),
+            DistributionBar(
+              segments: [
+                DistributionSegment(label: 'Healthy', value: healthy, color: AppColors.success),
+                DistributionSegment(label: 'Unhealthy', value: attention, color: AppColors.warning),
               ],
             ),
           ],
@@ -251,17 +270,12 @@ class _HealthTabState extends State<HealthTab> {
   );
 
   /// 总览徽章：子系统名 + ok/down 详情提示。
-  Widget _badge(String label, bool ok) => Tooltip(
-    message: '$label: ${ok ? 'ok' : 'down'}',
-    child: _statusChip(ok, context.tr(label)),
-  );
+  Widget _badge(String label, bool ok) =>
+      Tooltip(message: '$label: ${ok ? 'ok' : 'down'}', child: _statusChip(ok, context.tr(label)));
 
   /// 错误区：统一 ErrorStateCard（标题 + 明细 + Retry）；错误文本动态 Text（FM-1）。
-  Widget _errorCard(BuildContext context) => ErrorStateCard(
-    title: 'Cannot reach backend',
-    message: _error ?? '',
-    onRetry: _refresh,
-  );
+  Widget _errorCard(BuildContext context) =>
+      ErrorStateCard(title: 'Cannot reach backend', message: _error ?? '', onRetry: _refresh);
 
   /// 服务器卡片：状态徽章（状态值 verbatim，X10）+ 版本信息。
   Widget _serverCard(BuildContext context) {
@@ -269,9 +283,7 @@ class _HealthTabState extends State<HealthTab> {
     final status = h['status']?.toString() ?? 'unknown';
     final isOk = status == 'ok';
     final revision = h['vcs_revision']?.toString() ?? '';
-    final revisionShort = revision.length >= 12
-        ? revision.substring(0, 12)
-        : (revision.isEmpty ? '—' : revision);
+    final revisionShort = revision.length >= 12 ? revision.substring(0, 12) : (revision.isEmpty ? '—' : revision);
     return _cardShell(
       context,
       icon: Icons.dns_outlined,
@@ -287,12 +299,7 @@ class _HealthTabState extends State<HealthTab> {
   }
 
   /// 子系统数据卡：标题 + 健康徽章 + 键值行（键名 verbatim Text，X10）。
-  Widget _dataCard(
-    BuildContext context,
-    String title,
-    Map<String, dynamic> data,
-    IconData icon,
-  ) {
+  Widget _dataCard(BuildContext context, String title, Map<String, dynamic> data, IconData icon) {
     final ok = _statusOk(data);
     return _cardShell(
       context,
@@ -318,10 +325,7 @@ class _HealthTabState extends State<HealthTab> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          ActionChip(
-            label: const LocalizedText('Audit Log'),
-            onPressed: () => AdminRoute.go('audit-log'),
-          ),
+          ActionChip(label: const LocalizedText('Audit Log'), onPressed: () => AdminRoute.go('audit-log')),
           ActionChip(
             label: const LocalizedText('Refresh Cache'),
             onPressed: () {
@@ -329,10 +333,7 @@ class _HealthTabState extends State<HealthTab> {
               showAppSnackBar(context, content: LocalizedText('Cache cleared'));
             },
           ),
-          ActionChip(
-            label: const LocalizedText('Test Connection'),
-            onPressed: _refresh,
-          ),
+          ActionChip(label: const LocalizedText('Test Connection'), onPressed: _refresh),
         ],
       ),
     ],
@@ -356,12 +357,7 @@ class _HealthTabState extends State<HealthTab> {
               Icon(icon, size: 24, color: _accent),
               const SizedBox(width: 8),
               // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），trailing 仍贴右。
-              Expanded(
-                child: LocalizedText(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-              ),
+              Expanded(child: LocalizedText(title, style: Theme.of(context).textTheme.titleMedium)),
               ?trailing,
             ],
           ),
@@ -374,10 +370,7 @@ class _HealthTabState extends State<HealthTab> {
 
   /// 键值行：字面量标签走 i18n（localized: true）；API 键/值 verbatim。
   Widget _row(String label, String value, {bool localized = false}) {
-    final labelStyle = const TextStyle(
-      fontWeight: FontWeight.w500,
-      fontSize: 13,
-    );
+    final labelStyle = const TextStyle(fontWeight: FontWeight.w500, fontSize: 13);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -385,9 +378,7 @@ class _HealthTabState extends State<HealthTab> {
         children: [
           SizedBox(
             width: 120,
-            child: localized
-                ? LocalizedText(label, style: labelStyle)
-                : Text(label, style: labelStyle),
+            child: localized ? LocalizedText(label, style: labelStyle) : Text(label, style: labelStyle),
           ),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 13))),
         ],

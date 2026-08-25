@@ -162,7 +162,7 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
           Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: SearchFilterBar(
-              labelText: 'Filter policies',
+              labelText: AppStrings.of(context).filter,
               controller: _searchCtrl,
               onSearchChanged: _search,
               onSubmitted: _search,

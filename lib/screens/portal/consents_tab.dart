@@ -30,9 +30,11 @@ class ConsentsTab extends StatefulWidget {
 
 class _ConsentsTabState extends State<ConsentsTab> {
   bool _loading = true;
+  bool _loadInFlight = false;
   List<Map<String, dynamic>> _consents = const [];
   String? _error;
   String? _notice;
+  String? _pendingClientId;
   String? _revokingClientId;
 
   @override
@@ -42,11 +44,15 @@ class _ConsentsTabState extends State<ConsentsTab> {
   }
 
   Future<void> _load({bool preserveNotice = false}) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      if (!preserveNotice) _notice = null;
-    });
+    if (_loadInFlight) return;
+    _loadInFlight = true;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        if (!preserveNotice) _notice = null;
+      });
+    }
     try {
       final response = await widget.api.get('/consents/me');
       if (!mounted) return;
@@ -71,12 +77,18 @@ class _ConsentsTabState extends State<ConsentsTab> {
         setState(() => _error = 'Connected applications are not available.');
       }
     } finally {
+      _loadInFlight = false;
       if (mounted) setState(() => _loading = false);
     }
   }
 
   Future<void> _revoke(String clientId) async {
-    if (clientId.isEmpty) return;
+    if (clientId.isEmpty ||
+        _pendingClientId != null ||
+        _revokingClientId != null) {
+      return;
+    }
+    setState(() => _pendingClientId = clientId);
     final confirmed = await ConfirmDialog.show(
       context,
       title: 'Revoke application access?',
@@ -88,6 +100,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
       confirmLabel: 'Revoke',
       destructive: true,
     );
+    if (mounted) setState(() => _pendingClientId = null);
     if (confirmed != true || !mounted) return;
     setState(() {
       _revokingClientId = clientId;
@@ -103,20 +116,10 @@ class _ConsentsTabState extends State<ConsentsTab> {
         setState(() => _notice = 'Application access revoked.');
         await _load(preserveNotice: true);
       } else {
-        showAppSnackBar(
-          context,
-          content: Text(context.tr('Could not revoke application access.')),
-          kind: AppSnackBarKind.error,
-        );
+        _revokeError(clientId);
       }
     } catch (_) {
-      if (mounted) {
-        showAppSnackBar(
-          context,
-          content: Text(context.tr('Could not revoke application access.')),
-          kind: AppSnackBarKind.error,
-        );
-      }
+      if (mounted) _revokeError(clientId);
     } finally {
       if (mounted) setState(() => _revokingClientId = null);
     }
@@ -134,68 +137,109 @@ class _ConsentsTabState extends State<ConsentsTab> {
         .map((scope) => scope.toString())
         .join(' ');
     final busy = _revokingClientId == clientId;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(Icons.apps_outlined, size: 17, color: accent),
+    final action = TextButton(
+      onPressed:
+          busy ||
+              clientId.isEmpty ||
+              _pendingClientId != null ||
+              (_revokingClientId != null && !busy)
+          ? null
+          : () => _revoke(clientId),
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.danger,
+        minimumSize: const Size(72, 48),
+      ),
+      child: busy
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(context.tr('Revoke')),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          clientId.isEmpty ? context.tr('Unknown') : clientId,
+          softWrap: true,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  clientId.isEmpty ? context.tr('Unknown') : clientId,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+        ),
+        if (scopes.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                Icons.lock_outline,
+                size: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  scopes,
+                  softWrap: true,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                if (scopes.isNotEmpty)
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.lock_outline,
-                        size: 13,
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          scopes,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: busy || clientId.isEmpty
-                ? null
-                : () => _revoke(clientId),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(context.tr('Revoke')),
+              ),
+            ],
           ),
         ],
+      ],
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 420;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.apps_outlined, size: 19, color: accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: narrow
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          details,
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: action,
+                          ),
+                        ],
+                      )
+                    : details,
+              ),
+              if (!narrow) ...[const SizedBox(width: 8), action],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _revokeError(String clientId) {
+    showAppSnackBar(
+      context,
+      content: Text(context.tr('Could not revoke application access.')),
+      kind: AppSnackBarKind.error,
+      action: SnackBarAction(
+        label: context.tr('Retry'),
+        onPressed: () => _revoke(clientId),
       ),
     );
   }
@@ -240,7 +284,13 @@ class _ConsentsTabState extends State<ConsentsTab> {
               ),
               IconButton(
                 tooltip: context.tr('Refresh applications'),
-                onPressed: _loading || _revokingClientId != null ? null : _load,
+                onPressed:
+                    _loading ||
+                        _loadInFlight ||
+                        _pendingClientId != null ||
+                        _revokingClientId != null
+                    ? null
+                    : _load,
                 icon: const Icon(Icons.refresh),
               ),
             ],

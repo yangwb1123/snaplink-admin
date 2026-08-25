@@ -35,11 +35,7 @@ class ChangeApprovalsTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
 
-  const ChangeApprovalsTab({
-    super.key,
-    required this.api,
-    required this.capabilities,
-  });
+  const ChangeApprovalsTab({super.key, required this.api, required this.capabilities});
 
   @override
   State<ChangeApprovalsTab> createState() => _ChangeApprovalsTabState();
@@ -66,9 +62,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
 
   List<Map<String, dynamic>> get _visible => _status == ChangeStatus.all
       ? _changes
-      : _changes
-            .where((change) => change['status']?.toString() == _status)
-            .toList(growable: false);
+      : _changes.where((change) => change['status']?.toString() == _status).toList(growable: false);
 
   @override
   void initState() {
@@ -106,10 +100,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
   /// 缓存先渲染：命中时立即展示缓存行，后台刷新到位后再次渲染（R2）。
   void _applyChanges(Map<String, dynamic> data) {
     final values = data['changes'] as List? ?? const [];
-    _changes = values
-        .whereType<Map>()
-        .map(normalizeChangeApproval)
-        .toList(growable: false);
+    _changes = values.whereType<Map>().map(normalizeChangeApproval).toList(growable: false);
   }
 
   Future<void> _propose() async {
@@ -118,10 +109,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
       builder: (_) => const ChangeApprovalProposalDialog(),
     );
     if (draft == null || !mounted) return;
-    await _write(
-      () => widget.api.post(_basePath, draft.body),
-      'Change proposed for second-admin approval.',
-    );
+    await _write(() => widget.api.post(_basePath, draft.body), 'Change proposed for second-admin approval.');
   }
 
   Future<void> _decide(Map<String, dynamic> change, bool approve) async {
@@ -137,25 +125,19 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
               'Approval may immediately apply {action}. You must be a different administrator from the proposer.',
               {'action': actionName},
             )
-          : context.tr('Reject {action}? It will never be applied.', {
-              'action': actionName,
-            }),
+          : context.tr('Reject {action}? It will never be applied.', {'action': actionName}),
       confirmLabel: approve ? 'Approve' : 'Reject',
       destructive: true,
       confirmText: id,
     );
     if (!confirmed) return;
     await _write(
-      () =>
-          widget.api.post('$_basePath/${Uri.encodeComponent(id)}/$action', {}),
+      () => widget.api.post('$_basePath/${Uri.encodeComponent(id)}/$action', {}),
       approve ? 'Change approved.' : 'Change rejected.',
     );
   }
 
-  Future<void> _write(
-    Future<Map<String, dynamic>> Function() operation,
-    String success,
-  ) async {
+  Future<void> _write(Future<Map<String, dynamic>> Function() operation, String success) async {
     setState(() {
       _mutating = true;
       _error = null;
@@ -188,8 +170,7 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
           const AdminBreadcrumb(),
           AdminListHeader(
             title: AppStrings.of(context).changeApprovals,
-            subtitle:
-                'High-impact changes require an independent administrator to approve them before application.',
+            subtitle: 'High-impact changes require an independent administrator to approve them before application.',
             onRefresh: _load,
             actions: [
               FilledButton.icon(
@@ -206,43 +187,28 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             ],
           ),
           _statusFilter(context),
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: SkeletonListTile(itemCount: 3),
-            ),
+          if (_loading) const Padding(padding: EdgeInsets.only(top: 16), child: SkeletonListTile(itemCount: 3)),
           if (!_loading && _error != null)
             Padding(
               padding: const EdgeInsets.only(top: 12),
-              child: ErrorStateCard(
-                message: _error!,
-                onRetry: _load,
-                margin: EdgeInsets.zero,
-              ),
+              child: ErrorStateCard(message: _error!, onRetry: _load, margin: EdgeInsets.zero),
             ),
           if (!_loading && _error == null && _visible.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 12),
               child: EmptyState(
                 compact: true,
-                variant: _status == ChangeStatus.all
-                    ? EmptyStateVariant.empty
-                    : EmptyStateVariant.noMatch,
+                variant: _status == ChangeStatus.all ? EmptyStateVariant.empty : EmptyStateVariant.noMatch,
                 title: 'No change requests',
                 subtitle: _status == ChangeStatus.all
                     ? 'No governed changes have been proposed.'
                     : 'No requests currently have this status.',
-                actionLabel: _status == ChangeStatus.all
-                    ? null
-                    : 'Clear filter',
+                actionLabel: _status == ChangeStatus.all ? null : 'Clear filter',
                 actionIcon: Icons.filter_alt_off,
-                onAction: _status == ChangeStatus.all
-                    ? null
-                    : () => setState(() => _status = ChangeStatus.all),
+                onAction: _status == ChangeStatus.all ? null : () => setState(() => _status = ChangeStatus.all),
               ),
             ),
-          if (!_loading && _error == null && _visible.isNotEmpty)
-            _changeList(context),
+          if (!_loading && _error == null && _visible.isNotEmpty) _changeList(context),
         ],
       ),
     );
@@ -319,11 +285,9 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SelectableText(
-            const JsonEncoder.withIndent('  ').convert(
-              SensitiveData.redact(
-                change['payload'] ?? const <String, dynamic>{},
-              ),
-            ),
+            const JsonEncoder.withIndent(
+              '  ',
+            ).convert(SensitiveData.redact(change['payload'] ?? const <String, dynamic>{})),
             style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
           ),
           if (change['failure_note']?.toString().isNotEmpty == true) ...[
@@ -331,37 +295,55 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
             Text(
               change['failure_note'].toString(),
               // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-              style: TextStyle(
-                color: AppColors.semanticFor(
-                  Theme.of(context).brightness,
-                  AppColors.danger,
-                ),
-              ),
+              style: TextStyle(color: AppColors.semanticFor(Theme.of(context).brightness, AppColors.danger)),
             ),
           ],
           const SizedBox(height: 12),
           Text(
             [
-              if (createdAt.isNotEmpty)
-                context.tr('Created {date}', {'date': createdAt}),
-              if (decidedBy.isNotEmpty)
-                context.tr('Decided by {user}', {'user': decidedBy}),
+              if (createdAt.isNotEmpty) context.tr('Created {date}', {'date': createdAt}),
+              if (decidedBy.isNotEmpty) context.tr('Decided by {user}', {'user': decidedBy}),
             ].join(' · '),
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (pending) ...[
             const SizedBox(height: 12),
-            OverflowBar(
-              children: [
-                OutlinedButton(
+            // Keep both decisions reachable at a comfortable touch size. On
+            // narrow cards, stack them so long translations cannot compress
+            // or push an approval action off-screen; wider cards preserve the
+            // existing horizontal action rhythm.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final reject = OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(96, 48),
+                    tapTargetSize: MaterialTapTargetSize.padded,
+                  ),
                   onPressed: _mutating ? null : () => _decide(change, false),
                   child: const LocalizedText('Reject'),
-                ),
-                FilledButton(
+                );
+                final approve = FilledButton(
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(96, 48),
+                    tapTargetSize: MaterialTapTargetSize.padded,
+                  ),
                   onPressed: _mutating ? null : () => _decide(change, true),
                   child: const LocalizedText('Approve'),
-                ),
-              ],
+                );
+                if (constraints.maxWidth < 420) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [reject, const SizedBox(height: 8), approve],
+                  );
+                }
+                return OverflowBar(
+                  spacing: 8,
+                  overflowSpacing: 8,
+                  alignment: MainAxisAlignment.start,
+                  overflowAlignment: OverflowBarAlignment.start,
+                  children: [reject, approve],
+                );
+              },
             ),
           ],
         ],
@@ -377,8 +359,6 @@ class _ChangeApprovalsTabState extends State<ChangeApprovalsTab> {
     'applied' => StatusChip.active(label: context.tr('Applied')),
     'rejected' => StatusChip.failed(label: context.tr('Rejected')),
     'failed' => StatusChip.failed(label: context.tr('Failed')),
-    _ => StatusChip.unknown(
-      label: status.isEmpty ? context.tr('unknown') : status,
-    ),
+    _ => StatusChip.unknown(label: status.isEmpty ? context.tr('unknown') : status),
   };
 }

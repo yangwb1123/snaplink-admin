@@ -66,10 +66,7 @@ class _OverviewTabState extends State<OverviewTab> {
     try {
       final me = await widget.api.fetchMe();
       final roles = await widget.api.fetchListOrEmpty('/roles/me', 'roles');
-      final permissions = await widget.api.fetchListOrEmpty(
-        '/permissions/me',
-        'permissions',
-      );
+      final permissions = await widget.api.fetchListOrEmpty('/permissions/me', 'permissions');
       final menus = await widget.api.fetchListOrEmpty('/menus/me', 'menus');
 
       final user = (me['user'] as Map?) ?? const {};
@@ -81,9 +78,7 @@ class _OverviewTabState extends State<OverviewTab> {
       }
       _attrCtrls = {
         for (final entry in rawAttrs.entries)
-          entry.key.toString(): TextEditingController(
-            text: entry.value?.toString() ?? '',
-          ),
+          entry.key.toString(): TextEditingController(text: entry.value?.toString() ?? ''),
       };
 
       if (!mounted) return;
@@ -183,10 +178,7 @@ class _OverviewTabState extends State<OverviewTab> {
                 child: Semantics(
                   container: true,
                   header: true,
-                  child: Text(
-                    context.strings.overview,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
+                  child: Text(context.strings.overview, style: Theme.of(context).textTheme.headlineSmall),
                 ),
               ),
               IconButton(
@@ -199,11 +191,7 @@ class _OverviewTabState extends State<OverviewTab> {
         ),
         Expanded(
           child: _loading
-              ? const SkeletonListTile(
-                  itemCount: 4,
-                  variant: SkeletonVariant.card,
-                  delay: Duration(milliseconds: 150),
-                )
+              ? const SkeletonListTile(itemCount: 4, variant: SkeletonVariant.card, delay: Duration(milliseconds: 150))
               : _loadError != null
               ? PortalErrorCard(message: _loadError!, onRetry: _load)
               : _buildContent(context),
@@ -222,8 +210,7 @@ class _OverviewTabState extends State<OverviewTab> {
       MapEntry('Connected apps', _me['granted_apps']?.toString() ?? ''),
     ].where((e) => e.value.isNotEmpty).toList();
 
-    final anyAuthz =
-        _roles.isNotEmpty || _permissions.isNotEmpty || _menus.isNotEmpty;
+    final anyAuthz = _roles.isNotEmpty || _permissions.isNotEmpty || _menus.isNotEmpty;
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -235,57 +222,67 @@ class _OverviewTabState extends State<OverviewTab> {
           title: 'Profile',
           children: [
             if (rows.isEmpty)
-              const EmptyState(
-                compact: true,
-                icon: Icons.person_outline,
-                title: 'No profile data.',
-              )
+              const EmptyState(compact: true, icon: Icons.person_outline, title: 'No profile data.')
             else
               for (final r in rows) KvRow(r.key, r.value),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _nameCtrl,
-                    decoration: InputDecoration(
-                      labelText: context.tr('Display name'),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                _saveButton(
-                  saving: _nameSaving,
-                  onPressed: _saveName,
-                  label: 'Save name',
-                ),
-              ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final field = TextField(
+                  controller: _nameCtrl,
+                  decoration: InputDecoration(labelText: context.tr('Display name')),
+                );
+                final save = _saveButton(saving: _nameSaving, onPressed: _saveName, label: 'Save name');
+                // Keep the action reachable on phones instead of forcing a
+                // text field and button into one narrow row.
+                if (constraints.maxWidth < 460) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      field,
+                      const SizedBox(height: 12),
+                      Align(alignment: Alignment.centerLeft, child: save),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(child: field),
+                    const SizedBox(width: 12),
+                    save,
+                  ],
+                );
+              },
             ),
             MessageBanner(_nameMsg, ok: _nameOk),
           ],
         ),
-        if (_attrCtrls.isNotEmpty)
-          PortalCard(
-            title: 'Custom attributes',
-            children: [
+        PortalCard(
+          title: 'Custom attributes',
+          children: [
+            if (_attrCtrls.isEmpty)
+              EmptyState(compact: true, icon: Icons.tune_outlined, title: AppStrings.of(context).noData)
+            else ...[
               for (final entry in _attrCtrls.entries) ...[
+                // Multiline fields wrap long values and cap their own height;
+                // the surrounding ListView remains the page scroll surface.
                 TextField(
                   controller: entry.value,
+                  minLines: 1,
+                  maxLines: 4,
+                  keyboardType: TextInputType.multiline,
                   decoration: InputDecoration(labelText: entry.key),
                 ),
                 const SizedBox(height: 12),
               ],
               Align(
                 alignment: Alignment.centerLeft,
-                child: _saveButton(
-                  saving: _attrsSaving,
-                  onPressed: _saveAttrs,
-                  label: 'Save attributes',
-                ),
+                child: _saveButton(saving: _attrsSaving, onPressed: _saveAttrs, label: 'Save attributes'),
               ),
               MessageBanner(_attrsMsg, ok: _attrsOk),
             ],
-          ),
+          ],
+        ),
         PortalMetricsStrip(
           activeSessions: (_me['active_sessions'] as num?)?.toInt() ?? 0,
           connectedApps: (_me['granted_apps'] as num?)?.toInt() ?? 0,
@@ -325,19 +322,11 @@ class _OverviewTabState extends State<OverviewTab> {
     );
   }
 
-  Widget _saveButton({
-    required bool saving,
-    required VoidCallback onPressed,
-    required String label,
-  }) {
+  Widget _saveButton({required bool saving, required VoidCallback onPressed, required String label}) {
     return FilledButton(
       onPressed: saving ? null : onPressed,
       child: saving
-          ? const SizedBox(
-              height: 16,
-              width: 16,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
+          ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
           : Text(context.tr(label)),
     );
   }
@@ -357,21 +346,11 @@ class _OverviewTabState extends State<OverviewTab> {
           children: [
             Icon(icon, size: 16, color: theme.colorScheme.primary),
             const SizedBox(width: 8),
-            Text(
-              context.tr(title),
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            Text(context.tr(title), style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
           ],
         ),
       ),
-      for (final raw in items)
-        PortalAuthzRow(
-          icon: icon,
-          title: titleOf(raw)?.toString() ?? '',
-          meta: metaOf(raw),
-        ),
+      for (final raw in items) PortalAuthzRow(icon: icon, title: titleOf(raw)?.toString() ?? '', meta: metaOf(raw)),
     ];
   }
 }

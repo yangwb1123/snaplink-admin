@@ -5,7 +5,9 @@ import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
+import 'package:sso_admin/widgets/search_filter_bar.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
+import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'portal_api.dart';
 import 'portal_widgets.dart';
@@ -33,6 +35,42 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
   String? _error;
   String? _notice;
   String? _busyId;
+  final TextEditingController _filterCtrl = TextEditingController();
+  String _query = '';
+  String? _providerFilter;
+
+  List<String> get _providerOptions {
+    final providers = _identities
+        .map((identity) => identity['provider']?.toString() ?? '')
+        .where((provider) => provider.isNotEmpty)
+        .toSet()
+        .toList();
+    providers.sort();
+    return providers;
+  }
+
+  List<Map<String, dynamic>> get _filteredIdentities {
+    final query = _query.trim().toLowerCase();
+    return _identities
+        .where((identity) {
+          final provider = identity['provider']?.toString() ?? '';
+          final subject = identity['subject']?.toString() ?? '';
+          final linkedAt = identity['linked_at']?.toString() ?? '';
+          final id = identity['id']?.toString() ?? '';
+          final matchesProvider =
+              _providerFilter == null || provider == _providerFilter;
+          final matchesQuery =
+              query.isEmpty ||
+              [
+                provider,
+                subject,
+                linkedAt,
+                id,
+              ].any((value) => value.toLowerCase().contains(query));
+          return matchesProvider && matchesQuery;
+        })
+        .toList(growable: false);
+  }
 
   @override
   void initState() {
@@ -40,9 +78,28 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _filterCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _query = value);
+  }
+
+  void _clearFilters() {
+    _filterCtrl.clear();
+    setState(() {
+      _query = '';
+      _providerFilter = null;
+    });
+  }
+
   Future<void> _load({bool preserveNotice = false}) async {
     setState(() {
       _loading = true;
+      _available = true;
       _error = null;
       if (!preserveNotice) _notice = null;
     });
@@ -189,6 +246,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final filteredIdentities = _filteredIdentities;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -250,6 +308,27 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     children: [
                       MessageBanner(_notice, ok: true),
+                      if (_identities.isNotEmpty) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: StatusChip(
+                            label: context.tr('Linked identities'),
+                            color: AppColors.accentBlue,
+                            icon: Icons.link,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SearchFilterBar(
+                          controller: _filterCtrl,
+                          hintText: context.strings.search,
+                          filterOptions: _providerOptions,
+                          selectedFilter: _providerFilter,
+                          onSearchChanged: _onSearchChanged,
+                          onFilterChanged: (value) =>
+                              setState(() => _providerFilter = value),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (_identities.isEmpty)
                         const EmptyState(
                           compact: true,
@@ -258,11 +337,21 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                               'No external identities are linked to this '
                               'account.',
                         )
+                      else if (filteredIdentities.isEmpty)
+                        EmptyState(
+                          compact: true,
+                          variant: EmptyStateVariant.noMatch,
+                          title: 'No matches',
+                          actionLabel: 'Clear filter',
+                          actionIcon: Icons.filter_alt_off,
+                          onAction: _clearFilters,
+                        )
                       else
                         PortalCard(
                           title: 'External sign-in methods',
                           children: [
-                            for (final (index, identity) in _identities.indexed)
+                            for (final (index, identity)
+                                in filteredIdentities.indexed)
                               StaggeredFadeIn(
                                 index: index,
                                 child: _identityRow(context, identity),

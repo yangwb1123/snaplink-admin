@@ -21,12 +21,7 @@ class NotificationsTab extends StatefulWidget {
   final VoidCallback? onChanged;
   final ValueChanged<Map<String, dynamic>>? onOpen;
 
-  const NotificationsTab({
-    super.key,
-    required this.api,
-    this.onChanged,
-    this.onOpen,
-  });
+  const NotificationsTab({super.key, required this.api, this.onChanged, this.onOpen});
 
   @override
   State<NotificationsTab> createState() => _NotificationsTabState();
@@ -35,11 +30,17 @@ class NotificationsTab extends StatefulWidget {
 class _NotificationsTabState extends State<NotificationsTab> {
   List<Map<String, dynamic>> _items = const [];
   List<Map<String, dynamic>> _preferences = const [];
+  bool _preferencesError = false;
+  bool _preferencesLoading = false;
   bool _loading = true;
   bool _loadingMore = false, _saving = false;
+  bool _loadInFlight = false;
+  bool _markingAll = false;
+  final Set<String> _markingReadIds = <String>{};
   bool _hasMore = false;
   int _unread = 0;
   String? _error;
+  String? _loadMoreError;
 
   @override
   void initState() {
@@ -47,43 +48,50 @@ class _NotificationsTabState extends State<NotificationsTab> {
     _load();
   }
 
-  void _snack(String key, {AppSnackBarKind kind = AppSnackBarKind.success}) {
-    showAppSnackBar(context, content: Text(context.tr(key)), kind: kind);
+  void _snack(String key, {AppSnackBarKind kind = AppSnackBarKind.success, SnackBarAction? action}) {
+    showAppSnackBar(context, content: Text(context.tr(key)), kind: kind, action: action);
   }
 
   Future<void> _load({bool more = false}) async {
+    if (_loadInFlight || _markingAll || _markingReadIds.isNotEmpty || _saving || _preferencesLoading) {
+      return;
+    }
+    _loadInFlight = true;
     if (!more) {
       setState(() {
         _loading = true;
         _error = null;
+        _loadMoreError = null;
       });
     } else {
-      setState(() => _loadingMore = true);
+      setState(() {
+        _loadingMore = true;
+        _loadMoreError = null;
+      });
     }
     try {
-      final before = more && _items.isNotEmpty
-          ? _items.last['id']?.toString()
-          : null;
-      final query = <String, String>{
-        'limit': '20',
-        if (before?.isNotEmpty ?? false) 'before_id': before!,
-      };
-      final inbox = await widget.api.get(
-        Uri(path: '/me/notifications', queryParameters: query).toString(),
-      );
+      final before = more && _items.isNotEmpty ? _items.last['id']?.toString() : null;
+      final query = <String, String>{'limit': '20', if (before?.isNotEmpty ?? false) 'before_id': before!};
+      final inbox = await widget.api.get(Uri(path: '/me/notifications', queryParameters: query).toString());
       if (inbox.statusCode != 200) throw PortalApiError(inbox.statusCode);
       final body = PortalApi.decode(inbox);
       final incoming = _objects(body['notifications']);
       if (!mounted) return;
       setState(() {
-        _items = more ? [..._items, ...incoming] : incoming;
+        _items = more ? _mergeItems(_items, incoming) : incoming;
         _unread = (body['unread_count'] as num?)?.toInt() ?? 0;
         _hasMore = body['has_more'] == true;
       });
       if (!more) await _loadPreferences();
     } catch (_) {
-      if (mounted) setState(() => _error = 'Notifications are not available.');
+      if (mounted) {
+        setState(
+          () =>
+              more ? _loadMoreError = 'Notifications are not available.' : _error = 'Notifications are not available.',
+        );
+      }
     } finally {
+      _loadInFlight = false;
       if (mounted) {
         setState(() {
           _loading = false;
@@ -94,11 +102,23 @@ class _NotificationsTabState extends State<NotificationsTab> {
   }
 
   Future<void> _loadPreferences() async {
-    final response = await widget.api.get('/me/notifications/preferences');
-    if (response.statusCode != 200 || !mounted) return;
-    setState(
-      () => _preferences = _objects(PortalApi.decode(response)['preferences']),
-    );
+    if (!mounted || _preferencesLoading) return;
+    _preferencesLoading = true;
+    setState(() => _preferencesError = false);
+    try {
+      final response = await widget.api.get('/me/notifications/preferences');
+      if (!mounted) return;
+      if (response.statusCode != 200) {
+        setState(() => _preferencesError = true);
+        return;
+      }
+      setState(() => _preferences = _objects(PortalApi.decode(response)['preferences']));
+    } catch (_) {
+      if (mounted) setState(() => _preferencesError = true);
+    } finally {
+      _preferencesLoading = false;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _markRead(Map<String, dynamic> item) async {
@@ -106,74 +126,111 @@ class _NotificationsTabState extends State<NotificationsTab> {
       widget.onOpen?.call(item);
       return;
     }
+    if (_markingAll) return;
     final id = item['id']?.toString() ?? '';
-    if (id.isEmpty) return;
-    final response = await widget.api.post('/me/notifications/$id/read');
-    if (response.statusCode != 200 || !mounted) return;
-    setState(() {
-      item['read_at'] = DateTime.now().toUtc().toIso8601String();
-      if (_unread > 0) _unread--;
-    });
-    widget.onChanged?.call();
-    widget.onOpen?.call(item);
+    if (id.isEmpty || _markingReadIds.contains(id)) return;
+    setState(() => _markingReadIds.add(id));
+    try {
+      final response = await widget.api.post('/me/notifications/$id/read');
+      if (response.statusCode != 200) {
+        if (mounted) _readError(item);
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        item['read_at'] = DateTime.now().toUtc().toIso8601String();
+        if (_unread > 0) _unread--;
+      });
+      widget.onChanged?.call();
+      widget.onOpen?.call(item);
+    } catch (_) {
+      if (mounted) _readError(item);
+    } finally {
+      if (mounted) setState(() => _markingReadIds.remove(id));
+    }
+  }
+
+  void _readError(Map<String, dynamic> item) {
+    _snack(
+      'Some notifications could not be marked as read.',
+      kind: AppSnackBarKind.error,
+      action: SnackBarAction(label: context.tr('Retry'), onPressed: () => _markRead(item)),
+    );
   }
 
   Future<void> _markAllRead() async {
-    List<Map<String, dynamic>> unread;
-    try {
-      unread = await _allUnread();
-    } catch (_) {
+    if (_markingAll || _loading || _loadingMore || _saving || _markingReadIds.isNotEmpty || _preferencesLoading) {
       return;
     }
-    if (unread.isEmpty || !mounted) return;
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: context.tr('Mark all as read?'),
-      message: context.tr('This will mark {n} notifications as read.', {
-        'n': '${unread.length}',
-      }),
-      confirmLabel: context.tr('Mark all'),
-    );
-    if (!confirmed) return;
-    var failed = false;
-    // Parallel mark-read: independent per-id posts (N+1 fix).
-    final now = DateTime.now().toUtc().toIso8601String();
-    final results = await Future.wait(
-      unread.map((item) async {
-        final id = item['id']?.toString() ?? '';
-        if (id.isEmpty) return false;
-        try {
-          final response = await widget.api.post('/me/notifications/$id/read');
-          if (response.statusCode != 200) return false;
-          item['read_at'] = now;
-          return true;
-        } catch (_) {
-          failed = true;
-          return false;
+    setState(() => _markingAll = true);
+    try {
+      List<Map<String, dynamic>> unread;
+      try {
+        unread = await _allUnread();
+      } catch (_) {
+        if (mounted) {
+          _snack(
+            'Some notifications could not be marked as read.',
+            kind: AppSnackBarKind.error,
+            action: SnackBarAction(label: context.tr('Retry'), onPressed: () => _markAllRead()),
+          );
         }
-      }),
-    );
-    final marked = results.where((ok) => ok).length;
-    if (!mounted) return;
-    setState(() {
-      final markedIDs = unread
-          .where((item) => item['read_at'] != null)
-          .map((item) => item['id']?.toString())
-          .toSet();
-      for (final item in _items) {
-        if (markedIDs.contains(item['id']?.toString())) {
-          item['read_at'] = DateTime.now().toUtc().toIso8601String();
-        }
+        return;
       }
-      final remaining = _unread - marked;
-      _unread = remaining < 0 ? 0 : remaining;
-    });
-    widget.onChanged?.call();
-    if (failed) {
-      _snack(
-        'Some notifications could not be marked as read.',
-        kind: AppSnackBarKind.error,
+      if (unread.isEmpty || !mounted) return;
+      final confirmed = await ConfirmDialog.show(
+        context,
+        title: context.tr('Mark all as read?'),
+        message: context.tr('This will mark {n} notifications as read.', {'n': '${unread.length}'}),
+        confirmLabel: context.tr('Mark all'),
       );
+      if (!confirmed || !mounted) return;
+      var failed = false;
+      // Parallel mark-read: independent per-id posts (N+1 fix).
+      final now = DateTime.now().toUtc().toIso8601String();
+      final results = await Future.wait(
+        unread.map((item) async {
+          final id = item['id']?.toString() ?? '';
+          if (id.isEmpty) {
+            failed = true;
+            return false;
+          }
+          try {
+            final response = await widget.api.post('/me/notifications/$id/read');
+            if (response.statusCode != 200) {
+              failed = true;
+              return false;
+            }
+            item['read_at'] = now;
+            return true;
+          } catch (_) {
+            failed = true;
+            return false;
+          }
+        }),
+      );
+      final marked = results.where((ok) => ok).length;
+      if (!mounted) return;
+      setState(() {
+        final markedIDs = unread.where((item) => item['read_at'] != null).map((item) => item['id']?.toString()).toSet();
+        for (final item in _items) {
+          if (markedIDs.contains(item['id']?.toString())) {
+            item['read_at'] = now;
+          }
+        }
+        final remaining = _unread - marked;
+        _unread = remaining < 0 ? 0 : remaining;
+      });
+      if (marked > 0) widget.onChanged?.call();
+      if (failed) {
+        _snack(
+          'Some notifications could not be marked as read.',
+          kind: AppSnackBarKind.error,
+          action: SnackBarAction(label: context.tr('Retry'), onPressed: () => _markAllRead()),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _markingAll = false);
     }
   }
 
@@ -187,14 +244,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
     String? before;
     final cursors = <String>{};
     while (true) {
-      final query = <String, String>{
-        'limit': '100',
-        'unread_only': 'true',
-        'before_id': ?before,
-      };
-      final response = await widget.api.get(
-        Uri(path: '/me/notifications', queryParameters: query).toString(),
-      );
+      final query = <String, String>{'limit': '100', 'unread_only': 'true', 'before_id': ?before};
+      final response = await widget.api.get(Uri(path: '/me/notifications', queryParameters: query).toString());
       if (response.statusCode != 200) throw PortalApiError(response.statusCode);
       final body = PortalApi.decode(response);
       final page = _objects(body['notifications']);
@@ -210,12 +261,11 @@ class _NotificationsTabState extends State<NotificationsTab> {
   }
 
   Future<void> _savePreferences() async {
+    if (_saving) return;
     setState(() => _saving = true);
     var ok = false;
     try {
-      final response = await widget.api.put('/me/notifications/preferences', {
-        'preferences': _preferences,
-      });
+      final response = await widget.api.put('/me/notifications/preferences', {'preferences': _preferences});
       if (response.statusCode != 200) throw PortalApiError(response.statusCode);
       ok = true;
     } catch (_) {
@@ -223,10 +273,9 @@ class _NotificationsTabState extends State<NotificationsTab> {
     }
     if (mounted) {
       _snack(
-        ok
-            ? 'Notification preferences saved.'
-            : 'Could not save notification preferences.',
+        ok ? 'Notification preferences saved.' : 'Could not save notification preferences.',
         kind: ok ? AppSnackBarKind.success : AppSnackBarKind.error,
+        action: ok ? null : SnackBarAction(label: context.tr('Retry'), onPressed: () => _savePreferences()),
       );
       setState(() => _saving = false);
     }
@@ -244,7 +293,8 @@ class _NotificationsTabState extends State<NotificationsTab> {
 class _NotificationTile extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onTap;
-  const _NotificationTile({required this.item, required this.onTap});
+  final bool busy;
+  const _NotificationTile({required this.item, required this.onTap, this.busy = false});
 
   @override
   Widget build(BuildContext context) {
@@ -254,7 +304,8 @@ class _NotificationTile extends StatelessWidget {
     final (icon, color, label) = _severityStyle(severity);
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      onTap: onTap,
+      isThreeLine: true,
+      onTap: busy ? null : onTap,
       leading: Container(
         width: 40,
         height: 40,
@@ -262,34 +313,33 @@ class _NotificationTile extends StatelessWidget {
           color: unread ? color.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: unread ? color : theme.colorScheme.outline,
-        ),
+        child: Icon(icon, size: 20, color: unread ? color : theme.colorScheme.outline),
       ),
       title: Text(
         item['title']?.toString() ?? context.tr('Security notification'),
+        softWrap: true,
         style: TextStyle(fontWeight: unread ? FontWeight.w700 : null),
       ),
-      subtitle: Text(
-        _join(
-          item['body'],
-          item['created_at'] == null
-              ? null
-              : formatServerTime(item['created_at']),
-        ),
-      ),
-      trailing: StatusChip(label: context.tr(label), color: color, icon: icon),
+      subtitle: Text(_join(item['body'], item['created_at'] == null ? null : formatServerTime(item['created_at']))),
+      trailing: busy
+          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+          : StatusChip(label: context.tr(label), color: color, icon: icon),
     );
   }
 }
 
+List<Map<String, dynamic>> _mergeItems(List<Map<String, dynamic>> existing, List<Map<String, dynamic>> incoming) {
+  final result = [...existing];
+  final ids = existing.map((item) => item['id']?.toString()).whereType<String>().toSet();
+  for (final item in incoming) {
+    final id = item['id']?.toString();
+    if (id == null || id.isEmpty || ids.add(id)) result.add(item);
+  }
+  return result;
+}
+
 List<Map<String, dynamic>> _objects(Object? value) => value is List
-    ? value
-          .whereType<Map>()
-          .map((item) => Map<String, dynamic>.from(item))
-          .toList()
+    ? value.whereType<Map>().map((item) => Map<String, dynamic>.from(item)).toList()
     : <Map<String, dynamic>>[];
 String _join(Object? first, Object? second) =>
     [first, second].where((v) => v?.toString().isNotEmpty == true).join(' · ');
