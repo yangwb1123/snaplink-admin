@@ -1,0 +1,88 @@
+# R106-R110：Portal/OIDC/Device/Setup/共享状态组件 + 终检
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 认证/Session/Consent/MFA/设备码/Checkout 语义必须保持不变。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r106-r110.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R106：/portal/security 的 Activity、MFA、passkey 子卡。
+    阅读 security_activity_tab.dart、security_mfa_card.dart、security_factor_tile.dart、
+    passkey_enrollment_card.dart、recovery_codes_card.dart、trusted_devices_card.dart。
+    factor/passkey/recovery/trusted device 是 card/list/timeline，不要做成过宽 table；检查
+    loading/empty/error/retry、启用/禁用能力、enroll/remove/revoke/rotate 确认、secret/QR/恢复码
+    一次性显示、busy 防重入、窄屏内容和键盘语义。
+
+    只允许修改 security_activity_tab.dart、security_mfa_card.dart 中低风险 UI；其他子卡只
+    审查。禁止新文件、PortalApi/Session/MFA/passkey/recovery code 语义变化、新依赖和 git；
+    portal 源码不得新增英文字样 audit。运行 flutter analyze；测试 test/portal_screens_test.dart
+    test/portal_security_widgets_test.dart test/portal_security_contract_test.dart
+    test/portal_security_web_test.dart test/portal_entry_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r106-portal-security-cards.md。
+  output: docs/ui/pages-per-page/r106-portal-security-cards.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_security_widgets_test.dart test/portal_security_contract_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R107：OIDC 登录 MFA view 与 Consent view 的 UI 层级。
+    阅读 oidc_login/mfa_view.dart、consent_view.dart、consent_models.dart、trusted_device_token.dart。
+    MFA method picker/verification code/trust device 是 form/card；Consent scopes/resources 是
+    list/card，长 scope 可换行；检查 loading/error/disabled/back、autofill、键盘提交、焦点、
+    320/400px、danger/deny/allow 按钮层级与可读性。只做展示层，不改变 challenge/consent
+    state machine、redirect、Session、MFA 或授权协议。
+
+    只允许修改 mfa_view.dart、consent_view.dart 中低风险 UI；禁止新文件、新依赖、网络/认证/
+    Consent 语义和 git。oidc_login 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/consent_view_test.dart test/oidc_challenge_flow_test.dart test/oidc_account_flow_test.dart
+    test/authorization_delivery_test.dart test/oidc_authorization_delivery_test.dart
+    test/login_view_widget_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r107-oidc-mfa-consent.md。
+  output: docs/ui/pages-per-page/r107-oidc-mfa-consent.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/consent_view_test.dart test/oidc_challenge_flow_test.dart test/oidc_account_flow_test.dart test/authorization_delivery_test.dart test/oidc_authorization_delivery_test.dart test/login_view_widget_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R108：OIDC account/challenge flow shell 的窄屏状态审查。
+    阅读 oidc_account_flow.dart、oidc_challenge_flow.dart、account_flow_views.dart、
+    authorization_delivery.dart。只关注已存在的 loading/error/success/card/form 状态、
+    back/retry/submit affordance、焦点和 320/400px 布局；业务状态机和协议步骤不可改变。
+    account_flow_views.dart 已超过 400 行，只审查，不追加内容。
+
+    只允许修改 oidc_account_flow.dart、oidc_challenge_flow.dart 中明确低风险的展示层代码；
+    禁止新文件、新依赖、认证/Session/redirect/authorization delivery 语义变化和 git；
+    oidc_login 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/oidc_account_flow_test.dart test/oidc_challenge_flow_test.dart
+    test/oidc_authorization_delivery_test.dart test/authorization_delivery_test.dart
+    test/oidc_login_screen_client_id_test.dart test/oidc_login_handle_success_census_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r108-oidc-flow-shell.md。
+  output: docs/ui/pages-per-page/r108-oidc-flow-shell.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/oidc_account_flow_test.dart test/oidc_challenge_flow_test.dart test/oidc_authorization_delivery_test.dart test/authorization_delivery_test.dart test/oidc_login_screen_client_id_test.dart test/oidc_login_handle_success_census_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R109：/device/verify 与 /setup 的状态卡审查。
+    阅读 device_verify_widgets.dart、device_verify_screen.dart、setup_screen.dart、
+    setup_validation.dart。设备码 request preview/scope/terminal state 用 card/list；setup 用
+    step/card，不伪造 table 或分页。检查 loading/unavailable/error/retry、一次性 code/secret
+    显示、copy/confirm、键盘焦点、按钮防重入和 320/400px 文本换行。
+
+    只允许修改 device_verify_widgets.dart、setup_screen.dart 中低风险展示层；setup_widgets.dart
+    已超过 400 行只审查。禁止新文件、device code/Session/setup API/secret 语义变化、新依赖和
+    git。运行 flutter analyze；测试 test/device_verify_api_test.dart test/device_verify_widgets_test.dart
+    test/setup_api_test.dart test/setup_screen_test.dart test/entry_ux_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r109-device-setup-states.md。
+  output: docs/ui/pages-per-page/r109-device-setup-states.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/device_verify_api_test.dart test/device_verify_widgets_test.dart test/setup_api_test.dart test/setup_screen_test.dart test/entry_ux_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R110：共享状态组件与全站第十轮终检。不要大规模重构；只修复明确的低风险 UI 问题，
+    且只能修改 async_view.dart、empty_state.dart、pull_to_refresh.dart、responsive_navigation_scaffold.dart
+    中最多两个现有文件；无明确问题则只产出报告。
+    检查 three-state loading/error/empty/retry、pull refresh 防重入、EmptyState action/focus、
+    responsive navigation 在 320/400/640/768/桌面、keyboard/a11y、动画 lifecycle、table/card
+    与 list 的组合。不改变任何 API、Session、认证、MFA、Consent、设备码或 Checkout 语义。
+
+    对照 R101-R109 产物覆盖所有 admin/portal/developer/oidc/device/setup/settings/login 路由；
+    portal/developer/oidc_login 源码不得新增英文字样 audit。运行 flutter analyze、轻量 gates 和
+    python3 cli.py harness，输出 docs/ui/pages-per-page/r110-final-audit-11.md，记录覆盖矩阵、
+    table/list/card、分页/筛选、状态/响应式/a11y、结构预算与残留；不在本任务运行全量 build。
+    最后一行严格为 VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r110-final-audit-11.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/async_view_test.dart test/empty_state_variants_test.dart test/pull_to_refresh_test.dart test/responsive_navigation_scaffold_test.dart test/three_state_gate_test.dart test/spacing_tokens_gate_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"

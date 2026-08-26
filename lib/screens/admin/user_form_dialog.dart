@@ -106,21 +106,32 @@ class _UserFormDialogState extends State<UserFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    // Keep the form usable above a software keyboard without changing the
+    // fields, payload, or save/create behaviour.
+    final maxContentHeight = screenHeight > 240
+        ? screenHeight - 180
+        : screenHeight;
+
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       title: LocalizedText(_isEditing ? 'Edit User' : 'Create user'),
-      content: SizedBox(
-        width: 560,
+      content: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 560, maxHeight: maxContentHeight),
         child: Form(
           key: _formKey,
           autovalidateMode: AutovalidateMode.onUserInteraction,
           child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextFormField(
                   controller: _idController,
                   enabled: !_isEditing,
                   autofocus: !_isEditing,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(labelText: 'ID'.localized),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
@@ -128,6 +139,7 @@ class _UserFormDialogState extends State<UserFormDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _externalIdController,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'External ID'.localized,
                     helperText:
@@ -138,11 +150,16 @@ class _UserFormDialogState extends State<UserFormDialog> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _providerController,
+                  textInputAction: TextInputAction.next,
                   decoration: InputDecoration(labelText: 'Provider'.localized),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _attributesController,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    if (!_submitting) _submit();
+                  },
                   decoration: InputDecoration(
                     labelText: 'Attributes (one key=value per line)'.localized,
                     helperText: 'Optional; free-form key=value map.'.localized,

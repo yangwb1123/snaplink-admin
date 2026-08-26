@@ -1,0 +1,91 @@
+# R101-R105：Admin 资源详情与 Portal 组织/安全子页
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 超过 400 行或接近预算的主页面只审查，不通过追加内容解决。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r101-r105.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R101：/admin/tenants/{id}/branding 与 /admin/local-users 子菜单审查。
+    阅读 tenant_branding_tab.dart、tenant_branding_tab_view.dart、tenant_branding_preview.dart、
+    tenant_branding_draft.dart；同时审查 local_users_tab.dart 的 table/card/筛选/分页结构。
+    Branding 是编辑 form + preview card，不是 table；检查 loading/unavailable/error/retry、
+    If-Match 冲突、unknown outcome、JSON/颜色/URL 输入、预览与保存确认、窄屏字段换行。
+    Local Users 已超过 400 行，只记录现状，不追加结构。
+
+    只允许修改 tenant_branding_tab.dart、tenant_branding_tab_view.dart 中低风险 UI；不得
+    改变 If-Match、branding API、tenant 语义、secret/URL 校验、能力门控或新增依赖；不新增
+    英文 audit 文本。运行 flutter analyze；测试 test/tenant_branding_safety_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+    test/admin_contract_consistency_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r101-admin-branding-local-users.md。
+  output: docs/ui/pages-per-page/r101-admin-branding-local-users.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/tenant_branding_safety_test.dart test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/admin_contract_consistency_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R102：/admin/device-security 子菜单。
+    阅读 device_security_tab.dart、device_security_dashboard_widgets.dart、
+    device_security_activity_dialog.dart、device_security_widgets.dart、device_bulk_revoke_dialog.dart。
+    Device fleet 是桌面 table/移动 card，stats 是 metric/distribution，security activity 是
+    timeline/list，bulk revoke 是明确危险 action card。检查 user/platform/IP/type/trust/
+    suspicious 筛选、刷新竞态、缓存 stale-while-revalidate、部分失败、loading/empty/error/
+    retry、详情 dialog、bulk 确认和窄屏触控。
+
+    只允许修改 device_security_dashboard_widgets.dart、device_security_activity_dialog.dart；
+    主 tab/其他大 widget 只审查。禁止新文件、API/能力/设备撤销语义变化、新依赖和 git；文件
+    不得超过 400 行。运行 flutter analyze；测试 test/admin_governance_security_test.dart
+    test/device_security_models_test.dart test/device_bulk_revoke_dialog_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r102-admin-device-security.md。
+  output: docs/ui/pages-per-page/r102-admin-device-security.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/device_security_models_test.dart test/device_bulk_revoke_dialog_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R103：/admin/tenants/{id}/organizations 与 residency 子页。
+    阅读 tenant_organizations_tab.dart、tenant_organization_cards.dart、tenant_residency_fields.dart、
+    tenant_residency_summary.dart、tenant_detail_tabs.dart。组织成员/区域关系数据应使用
+    table/card，residency 汇总用 metric/card，编辑字段用 form；检查长 tenant/region 文案、
+    capability disabled、loading/empty/error、导出/保存确认、窄屏字段和操作按钮。TenantOrganizationsTab
+    接近 400 行，只审查主结构。
+
+    只允许修改 tenant_residency_fields.dart、tenant_residency_summary.dart 的低风险 UI；
+    tenant organizations 主页只审查。禁止新文件、tenant/API/residency/数据驻留语义变化、新
+    依赖和 git；不新增英文 audit 文本。运行 flutter analyze；测试
+    test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart
+    test/tenant_branding_safety_test.dart test/admin_detail_screens_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r103-admin-tenant-residency.md。
+  output: docs/ui/pages-per-page/r103-admin-tenant-residency.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart test/tenant_branding_safety_test.dart test/admin_detail_screens_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R104：/admin/users/{id} User Detail 与编辑 dialog。
+    阅读 user_detail_screen.dart、user_detail_widgets.dart、user_form_dialog.dart、
+    user_device_security_panel.dart。详情 tabs（sessions/consents/MFA/lifecycle/device）是
+    card/list/timeline，不要把可选资源拼成宽 table；检查 capability inventory、URL 子资源
+    tab、部分失败、loading/empty/error/retry、危险用户操作确认、长 ID、tab overflow、键盘
+    和窄屏。编辑 dialog 是 form，不改变字段/保存语义。
+
+    只允许修改 user_detail_widgets.dart、user_form_dialog.dart 中低风险 UI；user_detail_screen.dart
+    只审查，避免超过 400 行。禁止新文件、API/用户/MFA/Session/Consent/能力语义变化、新依赖
+    和 git。运行 flutter analyze；测试 test/user_detail_optional_resources_test.dart
+    test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart
+    test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r104-admin-user-detail.md。
+  output: docs/ui/pages-per-page/r104-admin-user-detail.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/user_detail_optional_resources_test.dart test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart test/admin_workflows_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R105：/portal/organizations/{tenant}/manage 组织管理子页。
+    阅读 organization_admin_tab.dart、organization_admin_widgets.dart、member_row_tile.dart。
+    成员 roster 是 table/card，邀请和 pending invitation 是 list/card；role/remove/revoke/invite
+    是逐项 action。检查 403/404 not-enabled、成员/邀请部分失败、loading/error/retry、role
+    dropdown、ConfirmDialog、全局 busy、防重复点击、长 email/tenant、窄屏触控和键盘语义。
+    不新增分页，不暴露 invitation token。
+
+    只允许修改 organization_admin_tab.dart、organization_admin_widgets.dart 中低风险 UI；
+    禁止新文件、PortalApi/组织权限/邀请/role/remove 语义变化、新依赖和 git；portal 源码不得
+    新增英文字样 audit。运行 flutter analyze；测试 test/organization_admin_tab_test.dart
+    test/portal_screens_test.dart test/portal_entry_test.dart test/portal_security_contract_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r105-portal-organization-admin.md。
+  output: docs/ui/pages-per-page/r105-portal-organization-admin.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/organization_admin_tab_test.dart test/portal_screens_test.dart test/portal_entry_test.dart test/portal_security_contract_test.dart test/render_matrix_smoke_test.dart"

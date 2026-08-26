@@ -7,6 +7,7 @@ import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_preview.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
@@ -38,6 +39,8 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
   final _languages = TextEditingController();
   final _advanced = TextEditingController(text: '{}');
   String? _error;
+  String? _loadError;
+  String? _notice;
   bool _loading = true;
   bool _saving = false;
   bool _unavailable = false;
@@ -66,6 +69,8 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     setState(() {
       _loading = true;
       _error = null;
+      _loadError = null;
+      _notice = null;
       _unavailable = false;
       _version = null;
     });
@@ -101,11 +106,17 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       if (!mounted) return false;
       setState(() {
         _unavailable = error.status == 404 || error.status == 501;
-        _error = _unavailable ? null : error.toString();
+        _loadError = _unavailable ? null : error.toString();
+        _error = _unavailable ? null : _loadError;
       });
       return false;
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() {
+          _loadError = error.toString();
+          _error = _loadError;
+        });
+      }
       return false;
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -146,12 +157,14 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         _outcomeUnknown = false;
         _unknownOperation = null;
         _unknownStatus = null;
-        _error =
+        _error = null;
+        _notice =
             '$operation result is unknown $reason. A safe GET refreshed '
             'the authoritative current branding. The current state is now '
             'reconciled and branding mutations are unlocked.';
       } else {
         _outcomeUnknown = true;
+        _notice = null;
         _error =
             '$operation result is unknown $reason. The server may have '
             'applied the change, and the safe GET refresh failed'
@@ -175,12 +188,18 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
         languages: _languages.text,
       );
     } on FormatException catch (error) {
-      setState(() => _error = error.message);
+      setState(() {
+        _error = error.message;
+        _loadError = null;
+        _notice = null;
+      });
       return;
     }
     setState(() {
       _saving = true;
       _error = null;
+      _loadError = null;
+      _notice = null;
     });
     try {
       await widget.api.mutateIfMatch(
@@ -201,7 +220,11 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       } else if (_couldHaveApplied(error)) {
         await _reconcileUnknownOutcome('Branding save', status: error.status);
       } else if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() {
+          _error = error.toString();
+          _loadError = null;
+          _notice = null;
+        });
       }
     } catch (_) {
       await _reconcileUnknownOutcome('Branding save');
@@ -228,6 +251,8 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     setState(() {
       _saving = true;
       _error = null;
+      _loadError = null;
+      _notice = null;
     });
     try {
       await widget.api.mutateIfMatch(
@@ -243,7 +268,11 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
       } else if (_couldHaveApplied(error)) {
         await _reconcileUnknownOutcome('Branding reset', status: error.status);
       } else if (mounted) {
-        setState(() => _error = error.toString());
+        setState(() {
+          _error = error.toString();
+          _loadError = null;
+          _notice = null;
+        });
       }
     } catch (_) {
       await _reconcileUnknownOutcome('Branding reset');
@@ -256,11 +285,21 @@ class _TenantBrandingTabState extends State<TenantBrandingTab> {
     final refreshed = await _load();
     if (!mounted) return;
     setState(() {
-      _error = refreshed
-          ? 'Branding changed on the server. The latest version is loaded; '
-                'review it before saving again.'
-          : 'Branding changed on the server and the latest version could not '
-                'be loaded. Refresh before saving.';
+      if (refreshed) {
+        _error = null;
+        _notice =
+            'Branding changed on the server. The latest version is loaded; '
+            'review it before saving again.';
+      } else {
+        // A failed conflict refresh must remain visible as a retryable
+        // conflict, even if the server answered with optional-resource 404.
+        _unavailable = false;
+        _notice = null;
+        _error =
+            'Branding changed on the server and the latest version could not '
+            'be loaded. Refresh before saving.';
+        _loadError = _error;
+      }
     });
   }
 

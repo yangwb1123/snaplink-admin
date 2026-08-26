@@ -38,12 +38,14 @@ class TenantResidencyFields extends StatelessWidget {
       TextFormField(
         key: const ValueKey('tenant-home-region'),
         controller: homeRegionController,
+        textInputAction: TextInputAction.next,
         decoration: InputDecoration(
           labelText: 'Home region'.localized,
           helperText:
               'Primary region for tenant data. Leave blank for unconstrained residency.'
                   .localized,
-          helperMaxLines: 2,
+          helperMaxLines: 3,
+          errorMaxLines: 3,
         ),
         validator: (value) {
           if (enforceWrites && (value == null || value.trim().isEmpty)) {
@@ -57,14 +59,17 @@ class TenantResidencyFields extends StatelessWidget {
       TextFormField(
         key: const ValueKey('tenant-allowed-regions'),
         controller: allowedRegionsController,
+        keyboardType: TextInputType.multiline,
+        minLines: 2,
+        maxLines: 4,
         decoration: InputDecoration(
+          alignLabelWithHint: true,
           labelText: 'Allowed serving regions'.localized,
           helperText:
               'One per line or comma-separated; duplicates drop and the home region is always allowed.'
                   .localized,
-          helperMaxLines: 3,
+          helperMaxLines: 4,
         ),
-        maxLines: 2,
       ),
       SwitchListTile(
         key: const ValueKey('tenant-enforce-writes'),

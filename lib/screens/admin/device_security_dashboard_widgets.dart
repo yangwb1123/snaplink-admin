@@ -11,6 +11,29 @@ import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'device_security_models.dart';
 
+num? _asFiniteNumber(Object? value) {
+  if (value is num) return value.isFinite ? value : null;
+  final text = value?.toString().trim();
+  return text == null || text.isEmpty ? null : num.tryParse(text);
+}
+
+int _safeCount(Object? value) {
+  final number = _asFiniteNumber(value);
+  if (number == null || number <= 0) return 0;
+  return number.toInt();
+}
+
+String _normaliseStatKey(Object? value) =>
+    value.toString().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+
+Object? _statValue(Map values, String key) {
+  final wanted = _normaliseStatKey(key);
+  for (final entry in values.entries) {
+    if (_normaliseStatKey(entry.key) == wanted) return entry.value;
+  }
+  return null;
+}
+
 class DeviceStatsCards extends StatelessWidget {
   final Map<String, dynamic> stats;
   final int fleetTotal;
@@ -23,16 +46,35 @@ class DeviceStatsCards extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trust = stats['trust_levels'] as Map? ?? const {};
-    final risky =
-        (trust['Very Low'] as num?)?.toInt() ??
-        (trust['very_low'] as num?)?.toInt() ??
-        0;
-    final values = [
-      ('Fleet devices', stats['total'] ?? fleetTotal, Icons.devices),
-      ('Suspicious', stats['suspicious'] ?? 0, Icons.warning_amber_outlined),
-      ('Very low trust', risky, Icons.shield_outlined),
-      ('Platforms', (stats['platforms'] as Map?)?.length ?? 0, Icons.computer),
+    final trust = stats['trust_levels'];
+    final veryLowValue = trust is Map
+        ? _asFiniteNumber(_statValue(trust, 'very_low'))
+        : null;
+    final totalValue = _safeCount(
+      _asFiniteNumber(stats['total']) ?? fleetTotal,
+    );
+    final suspiciousValue = _asFiniteNumber(stats['suspicious']);
+    // Keep partial responses useful without turning an unavailable field into
+    // a false zero. The device endpoint still supplies the fleet count.
+    final suspiciousKnown = suspiciousValue != null;
+    final suspiciousCount = suspiciousKnown
+        ? _safeCount(suspiciousValue).clamp(0, totalValue)
+        : 0;
+    final platformValue = stats['platforms'];
+    final platformCount = platformValue is Map ? platformValue.length : null;
+    final distributionTotal = suspiciousKnown && totalValue > 0
+        ? totalValue
+        : 0;
+    final riskyFraction = distributionTotal > 0
+        ? suspiciousCount / distributionTotal
+        : 0.0;
+    final values = <(String, int, IconData)>[
+      ('Fleet devices', totalValue, Icons.devices),
+      if (suspiciousKnown)
+        ('Suspicious', suspiciousCount, Icons.warning_amber_outlined),
+      if (veryLowValue != null)
+        ('Very low trust', _safeCount(veryLowValue), Icons.shield_outlined),
+      if (platformCount != null) ('Platforms', platformCount, Icons.computer),
     ];
     final palette = <Color>[
       AppColors.primary,
@@ -40,12 +82,7 @@ class DeviceStatsCards extends StatelessWidget {
       AppColors.danger,
       AppColors.accentBlue,
     ];
-    final total = stats['total'] ?? fleetTotal;
-    final suspiciousCount = stats['suspicious'] ?? 0;
-    final totalValue = total is num && total > 0 ? total.toInt() : 0;
-    final riskyFraction = total is num && total > 0
-        ? (suspiciousCount is num ? suspiciousCount : 0) / total.toDouble()
-        : 0.0;
+    final distributionAvailable = distributionTotal > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -59,30 +96,35 @@ class DeviceStatsCards extends StatelessWidget {
               // R33：标签 Expanded（窄屏/字号缩放换行而非溢出），占比仍贴右。
               Expanded(
                 child: LocalizedText(
-                  'Fleet trust distribution',
+                  distributionAvailable
+                      ? 'Fleet trust distribution'
+                      : 'Fleet trust distribution unavailable',
                   style: Theme.of(
                     context,
                   ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-              LocalizedText(
-                '{percent}% suspicious',
-                args: {'percent': (riskyFraction * 100).round()},
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  // R29：dark 下语义色提亮（danger 2.26 / success 3.88
-                  // → 5.29-7.61 ≥AA 正文），浅色恒等。
-                  color: AppColors.semanticFor(
-                    Theme.of(context).brightness,
-                    riskyFraction > 0.2
-                        ? AppColors.danger
-                        : riskyFraction > 0.05
-                        ? AppColors.warning
-                        : AppColors.success,
+              if (distributionAvailable)
+                LocalizedText(
+                  '{percent}% suspicious',
+                  args: {'percent': (riskyFraction * 100).round()},
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    // R29：dark 下语义色提亮（danger 2.26 / success 3.88
+                    // → 5.29-7.61 ≥AA 正文），浅色恒等。
+                    color: AppColors.semanticFor(
+                      Theme.of(context).brightness,
+                      riskyFraction > 0.2
+                          ? AppColors.danger
+                          : riskyFraction > 0.05
+                          ? AppColors.warning
+                          : AppColors.success,
+                    ),
                   ),
-                ),
-              ),
+                )
+              else
+                const LocalizedText('Unavailable'),
             ],
           ),
         ),
@@ -94,18 +136,16 @@ class DeviceStatsCards extends StatelessWidget {
             segments: [
               DistributionSegment(
                 label: 'Suspicious',
-                value: suspiciousCount is num ? suspiciousCount.toInt() : 0,
+                value: suspiciousCount,
                 color: AppColors.danger,
               ),
               DistributionSegment(
                 label: 'Trusted',
-                value: (totalValue - suspiciousCount)
-                    .clamp(0, totalValue)
-                    .toInt(),
+                value: (totalValue - suspiciousCount).clamp(0, totalValue),
                 color: AppColors.success,
               ),
             ],
-            total: totalValue,
+            total: distributionTotal,
           ),
         ),
         Wrap(
@@ -211,7 +251,9 @@ class DeviceFleetFilters extends StatelessWidget {
         width: width,
         child: TextField(
           controller: controller,
-          onSubmitted: (_) => onApply(),
+          onSubmitted: (_) {
+            if (!loading) onApply();
+          },
           decoration: InputDecoration(labelText: label.localized),
         ),
       );

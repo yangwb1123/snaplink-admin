@@ -4,9 +4,14 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
   Widget _buildTenantBrandingTab(BuildContext context) {
     if (_loading) return const SkeletonListTile(itemCount: 4);
     if (_unavailable) {
-      return const EmptyState(
+      return EmptyState(
         variant: EmptyStateVariant.notEnabled,
         title: 'Branding is not enabled on this Snaplink deployment.',
+        actionLabel: 'Retry',
+        actionIcon: Icons.refresh,
+        onAction: () {
+          _load();
+        },
       );
     }
     return ListView(
@@ -23,7 +28,7 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
         ),
         ..._brandingStatusWidgets(context),
         const SizedBox(height: 12),
-        _brandingEditorCard(),
+        _brandingEditorAndPreview(),
         const SizedBox(height: 12),
         _advancedSettingsCard(),
         const SizedBox(height: 12),
@@ -33,7 +38,18 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
   }
 
   List<Widget> _brandingStatusWidgets(BuildContext context) => [
-    if (_error != null) ...[
+    if (_error != null && _outcomeUnknown) ...[
+      const SizedBox(height: 12),
+      ErrorStateCard(message: _error!, margin: EdgeInsets.zero),
+    ] else if (_error != null && _loadError != null) ...[
+      const SizedBox(height: 12),
+      ErrorStateCard(
+        message: _error!,
+        onRetry: _load,
+        retryEnabled: !_loading,
+        margin: EdgeInsets.zero,
+      ),
+    ] else if (_error != null) ...[
       const SizedBox(height: 12),
       Text(
         _error!,
@@ -46,6 +62,13 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
         ),
       ),
     ],
+    if (_notice != null) ...[
+      const SizedBox(height: 12),
+      Text(
+        _notice!,
+        style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+      ),
+    ],
     if (_outcomeUnknown) ...[
       const SizedBox(height: 12),
       FilledButton.tonalIcon(
@@ -55,6 +78,26 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
       ),
     ],
   ];
+
+  Widget _brandingEditorAndPreview() => LayoutBuilder(
+    builder: (context, constraints) {
+      final editor = _brandingEditorCard();
+      final preview = _brandingPreviewCard();
+      // Keep the form and its preview together on desktop, but stack them
+      // before the fields become too narrow for localized labels and hints.
+      if (constraints.maxWidth >= 840) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: editor),
+            const SizedBox(width: 12),
+            Expanded(child: preview),
+          ],
+        );
+      }
+      return Column(children: [editor, const SizedBox(height: 12), preview]);
+    },
+  );
 
   Widget _brandingEditorCard() => Card(
     child: Padding(
@@ -83,6 +126,7 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
             decoration: InputDecoration(
               labelText: 'Logo URL'.localized,
               hintText: 'https://cdn.example.com/logo.svg'.localized,
+              hintMaxLines: 2,
             ),
           ),
           const SizedBox(height: 12),
@@ -92,19 +136,25 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
             decoration: InputDecoration(
               labelText: 'Languages'.localized,
               hintText: 'Comma-separated BCP-47 tags (e.g. en,zh,ja)'.localized,
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 预览只依赖这三个控制器：局部监听，不再每次按键整页重建。
-          ListenableBuilder(
-            listenable: Listenable.merge([_brandName, _primaryColor, _logoUrl]),
-            builder: (context, _) => TenantBrandingPreview(
-              brandName: _brandName.text.trim(),
-              primaryColor: _primaryColor.text.trim(),
-              logoUrl: _logoUrl.text.trim(),
+              hintMaxLines: 2,
             ),
           ),
         ],
+      ),
+    ),
+  );
+
+  Widget _brandingPreviewCard() => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(16),
+      // 预览只依赖这三个控制器：局部监听，不再每次按键整页重建。
+      child: ListenableBuilder(
+        listenable: Listenable.merge([_brandName, _primaryColor, _logoUrl]),
+        builder: (context, _) => TenantBrandingPreview(
+          brandName: _brandName.text.trim(),
+          primaryColor: _primaryColor.text.trim(),
+          logoUrl: _logoUrl.text.trim(),
+        ),
       ),
     ),
   );
@@ -130,6 +180,8 @@ extension _TenantBrandingTabView on _TenantBrandingTabState {
   );
 
   Widget _brandingActions() => OverflowBar(
+    spacing: 8,
+    overflowSpacing: 8,
     children: [
       OutlinedButton(
         onPressed: _saving || _outcomeUnknown || _version == null
