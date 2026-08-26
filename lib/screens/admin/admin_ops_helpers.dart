@@ -187,11 +187,17 @@ class AdminOpsHelpers {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(Icons.sync_problem_outlined, color: scheme.error),
                   const SizedBox(width: 12),
-                  const Expanded(
-                    child: LocalizedText('Previous write outcome is unknown'),
+                  Expanded(
+                    child: Semantics(
+                      header: true,
+                      child: const LocalizedText(
+                        'Previous write outcome is unknown',
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -201,11 +207,13 @@ class AdminOpsHelpers {
                 'use the dedicated resource screen, then explicitly '
                 'acknowledge reconciliation.',
               ),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
+              const SizedBox(height: 4),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
                   onPressed: onAcknowledge,
-                  child: const LocalizedText('I reconciled server state'),
+                  icon: const Icon(Icons.fact_check_outlined),
+                  label: const LocalizedText('I reconciled server state'),
                 ),
               ),
             ],
@@ -229,10 +237,10 @@ class AdminOpsHelpers {
             Icon(Icons.error_outline, color: scheme.error),
             const SizedBox(width: 12),
             Expanded(
-              child: LocalizedText(
-                error,
-                style: TextStyle(color: scheme.error),
-              ),
+              // Backend error text is runtime data, not an i18n key. Keeping
+              // it as Text also prevents an error that happens to match a
+              // catalog entry from being silently rewritten.
+              child: Text(error, style: TextStyle(color: scheme.error)),
             ),
           ],
         ),

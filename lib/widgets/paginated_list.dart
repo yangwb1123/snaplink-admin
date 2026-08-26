@@ -110,6 +110,24 @@ class PaginationControls extends StatelessWidget {
             children: children,
           );
         }
+        // A few legacy list shells put the pager in a non-flex Row, which
+        // gives LayoutBuilder an unbounded width. At a narrow viewport a
+        // horizontal intrinsic row can then overflow before Wrap gets a
+        // finite width; stack it instead. Bounded hosts keep the existing
+        // Wrap layout and desktop hosts keep the existing Row layout.
+        if (!constraints.hasBoundedWidth &&
+            MediaQuery.sizeOf(context).width < 560) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                children[i],
+              ],
+            ],
+          );
+        }
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

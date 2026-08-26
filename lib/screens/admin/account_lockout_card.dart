@@ -31,6 +31,7 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
   }
 
   Future<void> _clear() async {
+    if (_mutating) return;
     final clientId = _clientController.text.trim();
     final identifier = _identifierController.text.trim();
     if (clientId.isEmpty || identifier.isEmpty) {
@@ -48,8 +49,9 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
         'clientId': clientId,
       }),
       confirmLabel: 'Clear lockout',
+      destructive: true,
     );
-    if (!confirmed) return;
+    if (!confirmed || !mounted) return;
     setState(() {
       _error = null;
       _mutating = true;
@@ -67,6 +69,15 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       );
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
+    } catch (_) {
+      // A transport failure is not a success signal; keep the action visible
+      // and tell the operator that the server outcome was not confirmed.
+      if (mounted) {
+        setState(
+          () => _error =
+              context.tr('Request failed.'),
+        );
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -80,9 +91,27 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          LocalizedText(
-            'Account lockout recovery',
-            style: Theme.of(context).textTheme.titleMedium,
+          Semantics(
+            container: true,
+            header: true,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lock_open_outlined,
+                  color: AppColors.semanticFor(
+                    Theme.of(context).brightness,
+                    AppColors.warning,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: LocalizedText(
+                    'Account lockout recovery',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           const LocalizedText(
@@ -93,12 +122,21 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
           TextField(
             key: const Key('lockout-client-id'),
             controller: _clientController,
+            enabled: !_mutating,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
             decoration: InputDecoration(labelText: 'Client ID'.localized),
           ),
           const SizedBox(height: 12),
           TextField(
             key: const Key('lockout-identifier'),
             controller: _identifierController,
+            enabled: !_mutating,
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _clear(),
             decoration: InputDecoration(
               labelText: 'Login identifier'.localized,
             ),
@@ -107,18 +145,27 @@ class _AccountLockoutCardState extends State<AccountLockoutCard> {
           FilledButton.icon(
             key: const Key('clear-account-lockout'),
             onPressed: _mutating ? null : _clear,
-            icon: const Icon(Icons.lock_open),
+            icon: _mutating
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.lock_open),
             label: const LocalizedText('Clear account lockout'),
           ),
           if (_error != null) ...[
             const SizedBox(height: 8),
-            LocalizedText(
-              _error!,
-              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-              style: TextStyle(
-                color: AppColors.semanticFor(
-                  Theme.of(context).brightness,
-                  AppColors.danger,
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                _error!,
+                // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                style: TextStyle(
+                  color: AppColors.semanticFor(
+                    Theme.of(context).brightness,
+                    AppColors.danger,
+                  ),
                 ),
               ),
             ),

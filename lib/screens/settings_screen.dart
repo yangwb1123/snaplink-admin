@@ -181,7 +181,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   controller: _baseUrlController,
                   enabled: !kIsWeb,
                   keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.done,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onFieldSubmitted: (_) => _saveBaseUrl(),
                   decoration: InputDecoration(
                     helperText: strings.ssoBaseUrlHint,
                   ),
@@ -198,7 +200,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           description: strings.translate(
             'Current local timezone of this device.',
           ),
-          control: Text(DateTime.now().timeZoneName),
+          control: Semantics(
+            readOnly: true,
+            child: Text(DateTime.now().timeZoneName),
+          ),
         ),
       ],
     );

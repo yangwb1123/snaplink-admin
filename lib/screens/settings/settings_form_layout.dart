@@ -10,21 +10,24 @@ class SettingsGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        child: Column(
-          children: [
-            for (final (index, child) in children.indexed) ...[
-              if (index > 0)
-                Divider(
-                  height: 1,
-                  indent: 32, // 对齐 label 起点（icon 20 + gap 12）
-                ),
-              child,
+    return Semantics(
+      container: true,
+      child: Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Column(
+            children: [
+              for (final (index, child) in children.indexed) ...[
+                if (index > 0)
+                  Divider(
+                    height: 1,
+                    indent: 32, // 对齐 label 起点（icon 20 + gap 12）
+                  ),
+                child,
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -93,7 +96,13 @@ class SettingsFormItem extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                control,
+                // A fixed-width field (for example the native SSO origin)
+                // must still obey the card's width when the row stacks.
+                // Without this clamp it overflows the 320/400px layouts.
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+                  child: control,
+                ),
               ],
             );
           }

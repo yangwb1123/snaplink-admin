@@ -126,7 +126,7 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
     _cancelDebounce();
     _debounceTimer = Timer(const Duration(milliseconds: 300), () {
       _debounceTimer = null;
-      if (!mounted) return;
+      if (!mounted || _searchCtrl.text != value) return;
       widget.onSearchChanged(value);
     });
   }
