@@ -1,0 +1,84 @@
+# R126-R130：预算优先拆分剩余历史单体页
+# 仅搬移现有代码，不新增业务功能。允许同目录新增 Dart part/view 文件；每个 Dart 文件 <=400 行。
+# API、路由、能力门控、认证、Session、MFA、Consent、设备码、Checkout 语义必须不变。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r126-r130.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R126：预算优先拆分 lib/screens/admin/governance_widgets.dart（当前约 580 行）。只做
+    结构搬移，不新增 UI 或业务逻辑。保留 GovernanceSection/Card/JsonCard/ErrorBanner/
+    ReadSection/AuditPanel 现有代码在原文件；将 GovernanceWritePanel 及其 State（从现有
+    class 开始到文件结尾）原样移动到新文件 governance_write_panel.dart，并在原文件加入
+    part 声明。Dart part 共享私有 helper/import，不复制逻辑；治理 API、敏感字段过滤、
+    confirmation、unknown outcome、错误和 i18n 完全不变。
+
+    原文件和新文件都必须 <=400 行，新增文件只能是该页面的结构分片；不要改 governance_tab.dart
+    或其他文件，不跑 git。运行 dart format --set-exit-if-changed（相关文件）、flutter analyze；
+    测试 test/admin_governance_security_test.dart test/admin_operations_unknown_outcome_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r126-admin-governance-budget-split.md。
+  output: docs/ui/pages-per-page/r126-admin-governance-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/admin_operations_unknown_outcome_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R127：预算优先拆分 lib/screens/admin/admin_operations_tab.dart（当前约 512 行）。只搬移
+    现有 rendering，不新增业务。保留 _AdminOperationsTabState 的字段、endpoint picker、
+    confirmation、run/reconcile/copy 状态与 API 语义；将 build、_emptyState、_workbench、
+    _header、_picker、_availability、_runButton、_field、_copyResponse 原样移动到新
+    admin_operations_tab_view.dart，通过 part 共享私有状态。
+
+    root 和新 view 都必须 <=400 行；不要复制 controller/状态，不改变 GET/写入、unknown
+    outcome、retry、JSON/clipboard、能力门控或按钮语义。只允许修改 root 并新增该 part 文件，
+    不跑 git。运行 dart format、flutter analyze；测试 test/admin_operations_unknown_outcome_test.dart
+    test/admin_support_tabs_test.dart test/admin_governance_security_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r127-admin-operations-budget-split.md。
+  output: docs/ui/pages-per-page/r127-admin-operations-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_operations_unknown_outcome_test.dart test/admin_support_tabs_test.dart test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R128：预算优先拆分 lib/screens/admin/recovery_releases_tab.dart（当前约 502 行）。只搬移
+    现有 view。保留 snapshots/releases/operations load、write、partial failure、unknown outcome、
+    restore/register/backup 语义；将 build、header、errorCard、reportCard 原样移动到新
+    recovery_releases_tab_view.dart，并通过 part 共享私有状态和 imports。
+
+    root 和新文件都必须 <=400 行；不要改变 Recovery API、确认、结果未知不重放、retry 只读
+    GET、下载或 capability 行为。只允许修改 root 并新增该 part 文件，不跑 git。运行 dart
+    format、flutter analyze；测试 test/recovery_releases_partial_failure_test.dart
+    test/recovery_dialogs_test.dart test/admin_secondary_tabs_test.dart
+    test/admin_health_breakglass_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r128-admin-recovery-budget-split.md。
+  output: docs/ui/pages-per-page/r128-admin-recovery-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/recovery_releases_partial_failure_test.dart test/recovery_dialogs_test.dart test/admin_secondary_tabs_test.dart test/admin_health_breakglass_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R129：预算优先拆分 lib/screens/admin/user_support_cards.dart（当前约 459 行）。只搬移
+    现有卡片，不新增功能。保留 _card、SessionsCard、ConsentsCard、MfaFactorsCard、
+    LifecycleCard；将 CredentialRecoveryCard 与 DangerAction 原样移动到新
+    user_support_recovery_card.dart，并在原文件加入 part 声明。part 共享私有 helper/import，
+    不改 user_support_tab.dart、lockout/support API、危险确认、MFA/Session/Consent 字段。
+
+    原文件和新文件均必须 <=400 行；只允许修改 root 并新增该 part 文件，不跑 git。运行 dart
+    format、flutter analyze；测试 test/user_support_lockout_test.dart test/admin_support_tabs_test.dart
+    test/admin_detail_screens_test.dart test/admin_governance_security_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r129-admin-support-budget-split.md。
+  output: docs/ui/pages-per-page/r129-admin-support-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/user_support_lockout_test.dart test/admin_support_tabs_test.dart test/admin_detail_screens_test.dart test/admin_governance_security_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R130：预算拆分终检与全站 UI 状态审查。不要新增业务；只允许修改
+    governance_write_panel.dart、admin_operations_tab_view.dart、recovery_releases_tab_view.dart、
+    user_support_recovery_card.dart 这四个本批新增文件中的纯结构问题；若无问题只生成报告。
+    检查每个 Dart 文件 <=400 行，part 引用无重复实现，所有页面仍保持 table/card/list/timeline/
+    metric 合理层级；复核 <640px card、分页/筛选边界、loading/empty/error/retry、busy/确认、
+    keyboard/a11y、reduced-motion 和 320/400/640/768/桌面布局。对照 R121-R129 产物覆盖
+    admin/portal/developer/oidc/device/setup/settings/login/oidc 路由。
+
+    禁止改变任何 API、路由、能力门控、认证、Session、MFA、Consent、设备码、Checkout 或
+    security semantics；不新增英文 audit 文本到 portal/developer/oidc_login；不跑 git。运行
+    flutter analyze、结构/轻量 gates、python3 cli.py harness，输出
+    docs/ui/pages-per-page/r130-final-audit-13.md；最后一行严格为 VERDICT: PASS - ... 或
+    VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r130-final-audit-13.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/admin_operations_unknown_outcome_test.dart test/recovery_releases_partial_failure_test.dart test/user_support_lockout_test.dart test/shared_widgets_test.dart test/admin_data_table_cards_test.dart test/three_state_gate_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"

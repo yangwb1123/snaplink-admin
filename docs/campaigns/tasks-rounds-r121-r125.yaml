@@ -1,0 +1,107 @@
+# R121-R125：历史超预算 Admin 单体页的预算优先拆分
+# 允许新增与页面同目录的 Dart view/section 文件，仅用于搬移现有 UI；禁止新依赖、API/路由/状态语义变化和 git。
+# 每个 Dart 文件必须 <=400 行；若无法安全拆分则只报告，不强行追加。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r121-r125.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R121：拆分 lib/screens/admin/clients_tab.dart（当前约 906 行）。这是预算优先的纯结构
+    重构，不新增功能。保留 ClientsTab、_ClientsTabState、字段、分页/筛选/排序、批量动作、
+    secret rotation、AdminRoute 和 SSOAdminClient 调用完全不变。
+
+    将现有 rendering 方法通过 part 拆到两个新文件：
+    - clients_tab_view.dart：build、_menu、_filterBar、_listBody、_batchBar；
+    - clients_tab_sections.dart：_mobileList、_clientActions、_dataTable。
+    在 root 添加 part 声明，删除被搬移的原方法，利用 Dart part 共享私有成员；不要复制
+    state/逻辑。root 和两个新文件都必须 <=400 行，文件名和 part 关系清晰。
+    保留 AdminDataTable 的桌面 table/<640px card、分页、筛选回第一页、空态、a11y 和
+    i18n；禁止改变 API、筛选 query、CSV、确认、批量或 secret 生命周期。
+
+    只允许修改 clients_tab.dart 并新增 clients_tab_view.dart、clients_tab_sections.dart；
+    不改其他文件，不跑 git。运行 dart format（仅这些文件）、flutter analyze；测试
+    test/admin_workflows_test.dart test/admin_shell_test.dart test/admin_secondary_tabs_test.dart
+    test/client_id_contract_test.dart test/client_secret_lifecycle_api_test.dart
+    test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r121-admin-clients-budget-split.md。
+  output: docs/ui/pages-per-page/r121-admin-clients-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_workflows_test.dart test/admin_shell_test.dart test/admin_secondary_tabs_test.dart test/client_id_contract_test.dart test/client_secret_lifecycle_api_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R122：拆分 lib/screens/admin/token_security_tab.dart（当前约 946 行）。纯结构重构；保留
+    TokenSecurityTab、_TokenSecurityTabState、所有 controllers、paths、capability checks、
+    route section、read/write/reconcile/revoke/temp-token 状态和 API 调用不变。
+
+    添加 part 文件并搬移现有 UI 方法，不复制私有状态：
+    - token_security_tab_view.dart：build、_card、_tableCard、_listCard、_cell、各 columns；
+    - token_security_tab_action_views.dart：_portfolioCard、_bulkRevokeCard、_tempTokenCard、
+      _revokeTokenCard、_securitySummary。
+    root 只保留 widget/state、load/write/action/route 逻辑；三个文件均 <=400 行。只移动
+    现有代码并修正 import/format，不调整 table/card 选择、一次性 token、危险确认、unknown
+    outcome 或 capability 语义。
+
+    只允许修改 token_security_tab.dart 并新增上述两个文件；不改其他文件，不跑 git。运行
+    dart format、flutter analyze；测试 test/token_security_tab_test.dart
+    test/token_refresh_test.dart test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart
+    test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r122-admin-token-security-budget-split.md。
+  output: docs/ui/pages-per-page/r122-admin-token-security-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/token_security_tab_test.dart test/token_refresh_test.dart test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R123：拆分 lib/screens/admin/webhooks_tab.dart（当前约 660 行）。纯结构重构；保留
+    WebhooksTab、_WebhooksTabState、subscription/dead-letter load sequence、capability checks、
+    create/delete/replay mutation、secret/url/event payload 语义不变。
+
+    通过 part 拆出两个新 UI 文件：
+    - webhooks_tab_view.dart：build、_header、_errorCard、_createCard、_field；
+    - webhooks_tab_sections.dart：_visibleSubscriptions、_subscriptionsHealth、_table、
+      _statusChip、_section、_subscriptionsCard、_deadLettersCard。
+    root 保留状态/API/mutation 方法；不要复制数据或修改 query/endpoint。root 和新文件均
+    <=400 行。保留桌面 table/<640px card 约定、delivery list/detail、empty/error/retry、
+    busy/confirmation 和键盘语义。
+
+    只允许修改 webhooks_tab.dart 并新增两个 part 文件；不改 webhook detail 或其他文件，
+    不跑 git。运行 dart format、flutter analyze；测试 test/webhooks_tab_test.dart
+    test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r123-admin-webhooks-budget-split.md。
+  output: docs/ui/pages-per-page/r123-admin-webhooks-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/webhooks_tab_test.dart test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R124：拆分 lib/screens/admin/usage_analytics_tab.dart（当前约 582 行）。纯结构重构；保留
+    UsageAnalyticsTab、所有 controllers/load sequence、subject inspect、capability checks、
+    API paths 和 error/partial-data 语义不变。
+
+    添加 part 'usage_analytics_tab_view.dart'，把现有 build、_filters、_errorCard、_metricStrip、
+    _tenantLeaderboard、_tokenBuckets、_subjectInspector、_table、_empty、_section、_jsonResult
+    搬到新文件；root 仅保留 state/read/action 逻辑。root 与新文件均 <=400 行，不复制私有
+    状态或改 endpoint/query。保留 metric/card、leaderboard table/card、subject detail、
+    loading/empty/error/retry、窄屏和 i18n。
+
+    只允许修改 usage_analytics_tab.dart 并新增 usage_analytics_tab_view.dart；不改 contract/API，
+    不跑 git。运行 dart format、flutter analyze；测试 test/usage_analytics_contract_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart
+    test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r124-admin-usage-budget-split.md。
+  output: docs/ui/pages-per-page/r124-admin-usage-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/usage_analytics_contract_test.dart test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R125：拆分 lib/screens/admin/local_users_tab.dart（当前约 534 行）。纯结构重构；保留
+    LocalUsersTab、_LocalUsersTabState、load/page/mutation/selection/filter/capability/API 语义
+    不变。
+
+    添加 part 'local_users_dialog.dart'，将现有 _LocalUserDraft、_LocalUserDialog 和其 State
+    原样搬到新文件；root 保留列表 state、load、openForm、delete/batch、build、table。不要
+    复制 validation/body，也不要改变 form 字段、分页或确认流程。root 和新文件均 <=400 行。
+    保留桌面 table/<640px card、空态、筛选/分页、busy、防重入和 i18n。
+
+    只允许修改 local_users_tab.dart 并新增 local_users_dialog.dart；不改 API/其他文件，不跑
+    git。运行 dart format、flutter analyze；测试 test/local_user_validation_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+    test/admin_dialogs_final_test.dart test/admin_data_table_cards_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r125-admin-local-users-budget-split.md。
+  output: docs/ui/pages-per-page/r125-admin-local-users-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/local_user_validation_test.dart test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/admin_dialogs_final_test.dart test/admin_data_table_cards_test.dart test/render_matrix_smoke_test.dart"
