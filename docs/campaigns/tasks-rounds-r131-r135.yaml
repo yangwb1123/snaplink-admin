@@ -1,0 +1,89 @@
+# R131-R135：剩余超预算页面的纯结构拆分
+# 允许新增同目录 Dart part/view 文件；只搬移既有代码，不新增功能。
+# 每个 Dart 文件 <=400 行；禁止 API、路由、状态、能力门控和安全语义变化。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r131-r135.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R131：拆分 lib/screens/admin/commerce/commerce_tab.dart（当前约 431 行）。纯结构搬移，
+    不改变 CommerceTab、_CommerceTabState、plans/subscriptions/orders/events/wallet/checkout
+    state、CommerceAdminApi、幂等键、价格、支付或 capability 语义。
+
+    添加 part 'commerce_tab_view.dart'，将现有 build 方法原样移动到新文件；保留 _refresh 与
+    _revision 及所有 load/mutate/action 方法在 root。利用 part 共享私有状态，不复制逻辑；root
+    和新文件都 <=400 行。现有 commerce_checkout_flow.dart part 不得破坏。只允许修改
+    commerce_tab.dart 并新增 commerce_tab_view.dart，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/commerce_api_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r131-admin-commerce-budget-split.md。
+  output: docs/ui/pages-per-page/r131-admin-commerce-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/commerce_api_test.dart test/admin_secondary_tabs_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R132：拆分 lib/screens/admin/tenant_detail_screen.dart（当前约 432 行）。纯结构搬移，
+    保留 TenantDetailScreen、_TenantDetailScreenState、load/optionalGet、tab route、member/
+    invitation mutation、API 和 capability 语义。
+
+    添加 part 'tenant_detail_view.dart'，将 build、_errorState、_buildContent、_miniStrip、
+    _tenantHeader、_tabBar、_countForTab、_tabContent 原样移动；_removeMember、_resendInvitation、
+    _revokeInvitation、_editTenant 等 action 逻辑留在 root。不要复制 state/API；root 和新文件
+    均 <=400 行。只允许修改 root 并新增该 part，不跑 git；不改 tenant semantics。
+
+    运行 dart format、flutter analyze；测试 test/admin_detail_screens_test.dart
+    test/tenant_branding_safety_test.dart test/tenant_residency_form_test.dart
+    test/tenant_residency_summary_test.dart test/admin_dialogs_final_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r132-admin-tenant-detail-budget-split.md。
+  output: docs/ui/pages-per-page/r132-admin-tenant-detail-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/tenant_branding_safety_test.dart test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R133：拆分 lib/screens/admin/break_glass_tab.dart（当前约 437 行）。纯结构搬移，保留
+    load/create/approve/revoke/impersonate、unknown outcome、confirmation、one-time token 和
+    capability/API 语义。
+
+    添加 part 'break_glass_tab_view.dart'，将现有 build 方法及其全部现有 UI 原样移动到新
+    文件；root 保留 state 和 mutation methods。part 共享私有字段/helper，不复制逻辑；root
+    和新文件均 <=400 行。只允许修改 root 并新增该 part，不跑 git；不改 break-glass detail
+    或 API。
+
+    运行 dart format、flutter analyze；测试 test/break_glass_tab_test.dart
+    test/admin_health_breakglass_test.dart test/admin_dialogs_final_test.dart
+    test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r133-admin-break-glass-budget-split.md。
+  output: docs/ui/pages-per-page/r133-admin-break-glass-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/break_glass_tab_test.dart test/admin_health_breakglass_test.dart test/admin_dialogs_final_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R134：拆分 lib/screens/admin/crypto_keys_tab.dart（当前约 483 行）。纯结构搬移，保留
+    _CryptoKeysTabState 的 key load、compromise/rotate mutation、confirmation、route、secret
+    handling 和 capability/API 语义。
+
+    添加 part 'crypto_keys_tab_view.dart'，将 build、_keysCard、_statusChip、_buildRotateConfirm
+    原样移动到新文件；_onPopState/_handleRoute 和所有 state/action 留在 root。root 和新文件
+    均 <=400 行，不复制私有状态。只允许修改 root 并新增该 part，不跑 git；不改 crypto API、
+    key rotation、compromise 或 secret 生命周期。
+
+    运行 dart format、flutter analyze；测试 test/crypto_keys_tab_test.dart
+    test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart
+    test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r134-admin-crypto-keys-budget-split.md。
+  output: docs/ui/pages-per-page/r134-admin-crypto-keys-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/crypto_keys_tab_test.dart test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R135：拆分 lib/screens/setup/setup_widgets.dart（当前约 492 行）。纯结构搬移，保留
+    SetupNotice/Loading/AlreadyInitialized/Unavailable/Logo/StepDots/OptionalTag/InlineNotice/
+    CredentialValue 现有实现与 secret copy/clear 语义。
+
+    添加 part 'setup_done_panel.dart'，将现有 SetupDonePanel 及其 State 原样移动到新文件；
+    root 保留其他 setup widgets。part 共享私有 helper/import，不复制逻辑；root 和新文件均
+    <=400 行。只允许修改 setup_widgets.dart 并新增 setup_done_panel.dart，不跑 git；不改
+    setup API、完成跳转、secret lifecycle 或 validation。
+
+    运行 dart format、flutter analyze；测试 test/setup_screen_test.dart test/setup_api_test.dart
+    test/entry_ux_test.dart test/device_verify_widgets_test.dart test/admin_secondary_tabs_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r135-setup-widgets-budget-split.md。
+  output: docs/ui/pages-per-page/r135-setup-widgets-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/setup_screen_test.dart test/setup_api_test.dart test/entry_ux_test.dart test/device_verify_widgets_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"

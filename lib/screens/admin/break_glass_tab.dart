@@ -16,6 +16,8 @@ import 'admin_navigation.dart';
 import 'admin_ops_helpers.dart';
 import 'break_glass_widgets.dart';
 
+part 'break_glass_tab_view.dart';
+
 /// Break Glass (emergency access) management tab.
 ///
 /// Allows operators to create, list, approve, revoke, and impersonate
@@ -34,21 +36,32 @@ class BreakGlassTab extends StatefulWidget {
   State<BreakGlassTab> createState() => _BreakGlassTabState();
 }
 
-class _BreakGlassTabState extends State<BreakGlassTab> {
+class _BreakGlassTabState extends State<BreakGlassTab> with _BreakGlassTabView {
   static const _basePath = '/api/v1/admin/break-glass';
 
+  @override
   final _targetCtrl = TextEditingController();
+  @override
   final _reasonCtrl = TextEditingController();
+  @override
   String _scope = 'readonly';
+  @override
   String? _ttl;
+  @override
   bool _requireApproval = false;
   String? _tenantId;
 
+  @override
   List<Map<String, dynamic>> _sessions = const [];
+  @override
   String? _loadError; // 加载错误 → 带 Retry 的横幅（X4）
+  @override
   String? _actionError; // 校验/提交错误 → 表单内联提示
+  @override
   bool _loading = false;
+  @override
   bool _mutating = false;
+  @override
   bool _mutationOutcomeUnknown = false;
 
   /// 请求序号：快速连续刷新时丢弃过期响应（R12 竞态防护）。
@@ -56,8 +69,10 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
   late final void Function() _cancelPopState;
 
   /// 模块强调色（security 组 rose）：页内图标统一按组色上色（X7）。
+  @override
   Color get _accent => adminModuleIconColor(AdminModuleId.emergencyAccess);
 
+  @override
   bool get _available => widget.capabilities.hasAnyPathPrefix(_basePath);
 
   @override
@@ -88,6 +103,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     super.dispose();
   }
 
+  @override
   Future<void> _load() async {
     final seq = ++_reqSeq;
     setState(() {
@@ -179,6 +195,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     }
   }
 
+  @override
   Future<void> _approve(String id) async {
     if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
@@ -206,6 +223,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     }
   }
 
+  @override
   Future<void> _revoke(String id) async {
     if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
@@ -239,6 +257,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     }
   }
 
+  @override
   Future<void> _impersonate(String id) async {
     if (_mutationOutcomeUnknown) return;
     final confirmed = await ConfirmDialog.show(
@@ -333,6 +352,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
     });
   }
 
+  @override
   Future<void> _acknowledgeUnknownOutcome() async {
     final confirmed = await ConfirmDialog.show(
       context,
@@ -350,88 +370,5 @@ class _BreakGlassTabState extends State<BreakGlassTab> {
         'Break-glass reconciliation acknowledged. Review the target before sending another write.',
       );
     });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_available) {
-      return const EmptyState(
-        variant: EmptyStateVariant.notEnabled,
-        title: 'Break-glass access is not enabled on this replica.',
-      );
-    }
-    return PullToRefresh(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const AdminBreadcrumb(),
-          AdminListHeader(
-            title: AppStrings.of(context).emergencyAccess,
-            subtitle:
-                'Create audited, time-bound emergency access to user accounts.',
-            onRefresh: _load,
-            actions: [
-              IconButton(
-                onPressed: _loading ? null : _load,
-                icon: Icon(Icons.refresh, color: _accent),
-                tooltip: context.strings.refresh,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const LocalizedText(
-              'Requests are time-bound and reason-required; every request and session is recorded.',
-            ),
-          ),
-          const SizedBox(height: 12),
-          BreakGlassRequestCard(
-            targetController: _targetCtrl,
-            reasonController: _reasonCtrl,
-            scope: _scope,
-            requireApproval: _requireApproval,
-            mutating: _mutating || _mutationOutcomeUnknown,
-            accent: _accent,
-            formError: _actionError,
-            onScopeChanged: (value) => setState(() => _scope = value),
-            onTtlChanged: (value) => _ttl = value,
-            onRequireApprovalChanged: (value) =>
-                setState(() => _requireApproval = value),
-            onCreate: () => AdminRoute.go('emergency-access', action: 'new'),
-          ),
-          const SizedBox(height: 16),
-          if (_mutationOutcomeUnknown)
-            AdminOpsHelpers.unknownOutcomeCard(
-              context,
-              onAcknowledge: _mutating ? null : _acknowledgeUnknownOutcome,
-            ),
-          if (_mutationOutcomeUnknown) const SizedBox(height: 12),
-          if (_loadError != null)
-            ErrorStateCard(
-              message: _loadError!,
-              onRetry: _load,
-              margin: EdgeInsets.zero,
-            )
-          else
-            BreakGlassSessionsList(
-              sessions: _sessions,
-              loading: _loading,
-              mutating: _mutating || _mutationOutcomeUnknown,
-              accent: _accent,
-              onRefresh: _load,
-              onOpen: (id) => AdminRoute.go('emergency-access', resourceId: id),
-              onApprove: _approve,
-              onImpersonate: _impersonate,
-              onRevoke: _revoke,
-            ),
-        ],
-      ),
-    );
   }
 }

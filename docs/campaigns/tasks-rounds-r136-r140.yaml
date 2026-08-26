@@ -1,0 +1,86 @@
+# R136-R140：剩余 Admin/Developer 单体页拆分与终检
+# 允许新增同目录 Dart part/view 文件；只搬移既有代码，不新增功能。
+# 每个 Dart 文件 <=400 行；禁止 API、路由、认证和安全语义变化。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r136-r140.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R136：拆分 lib/screens/admin/governance_tab.dart（当前约 415 行）。纯结构搬移，保留
+    GovernanceTab、audit query、facets/events wire、read/write sections、safe JSON、
+    capability checks、confirmation、unknown outcome 和 route section 语义。
+
+    添加 part 'governance_tab_view.dart'，将现有 build、_readSection、_auditPanel、_writePanel
+    原样移动；root 只保留 state、load/read/query/write/route 逻辑。root 和新文件均 <=400 行，
+    不复制私有状态/API，不改变 server limit 或日志协议。只允许修改 root 并新增 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/admin_governance_security_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart
+    test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r136-admin-governance-budget-split.md。
+  output: docs/ui/pages-per-page/r136-admin-governance-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/admin_secondary_tabs_test.dart test/admin_support_tabs_test.dart test/audit_log_tab_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R137：拆分 lib/screens/admin/threat_policies_tab.dart（当前约 418 行）。纯结构搬移，保留
+    threat policy load/save/delete、form validation、capability、route、confirmation 和 API
+    语义不变。
+
+    添加 part 'threat_policies_tab_view.dart'，将 build、_policiesCard、_buildForm 原样移动；
+    root 保留 controllers、load/save/delete、route和 state。root 与新文件均 <=400 行；不复制
+    state，不改变规则 JSON、危险操作、筛选或空错加载行为。只允许修改 root 并新增 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/threat_policies_tab_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart
+    test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r137-admin-threat-budget-split.md。
+  output: docs/ui/pages-per-page/r137-admin-threat-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/threat_policies_tab_test.dart test/admin_secondary_tabs_test.dart test/admin_governance_security_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R138：拆分 lib/screens/admin/user_support_tab.dart（当前约 407 行）。纯结构搬移，保留
+    user search/load、optional resource reads、lockout、credential recovery、lifecycle mutation、
+    capability and error semantics.
+
+    添加 part 'user_support_tab_view.dart'，将 build、_header、_consentsCard、_mfaCard、
+    _lifecycleCard、_credentialRecoveryCard 原样移动；root 保留 state/API/action。root 和新
+    文件均 <=400 行；不复制 DangerAction、controller 或 API。只允许修改 root 并新增 part，
+    不跑 git；不改用户支持、MFA、Session 或 lockout 语义。
+
+    运行 dart format、flutter analyze；测试 test/user_support_lockout_test.dart
+    test/admin_support_tabs_test.dart test/admin_detail_screens_test.dart
+    test/admin_governance_security_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r138-admin-user-support-budget-split.md。
+  output: docs/ui/pages-per-page/r138-admin-user-support-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/user_support_lockout_test.dart test/admin_support_tabs_test.dart test/admin_detail_screens_test.dart test/admin_governance_security_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R139：拆分 Developer Manage 与 Admin Users 两个接近预算页，纯结构搬移。
+    1) manage_panel.dart（约 402 行）：添加 manage_panel_view.dart，把 build、_buildCredentialCard、
+    _buildStatusArea 原样搬移，保留 DCR load/save/delete、secret/token lifecycle 和 API。
+    2) users_tab.dart（约 401 行）：添加 users_tab_view.dart，把 build、_loaded、_filterBar、
+    _emptyState、_listBody、_statusChip、_actions、_dataTable 原样搬移，保留分页/筛选/批量
+    delete/API/route 逻辑。每个 root/new file <=400 行，不复制私有状态。
+
+    只允许修改这两个 root 并新增两个同目录 part 文件；不改其他文件、API、DCR、secret、用户
+    语义和 git。developer 源码不得新增英文字样 audit。运行 dart format、flutter analyze；测试
+    test/developer_api_test.dart test/dcr_models_test.dart test/dcr_widgets_test.dart
+    test/developer_forge_invisibility_test.dart test/admin_workflows_test.dart
+    test/admin_shell_test.dart test/admin_secondary_tabs_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r139-developer-users-budget-split.md。
+  output: docs/ui/pages-per-page/r139-developer-users-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/developer_api_test.dart test/dcr_models_test.dart test/dcr_widgets_test.dart test/developer_forge_invisibility_test.dart test/admin_workflows_test.dart test/admin_shell_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R140：结构预算与全站终检。只允许修改 R131-R139 新增的 part/view 文件中的纯结构问题；
+    无明确问题则只生成报告。检查所有 Dart 文件 <=400 行，part 引用唯一、无重复实现、
+    root 仍保留 state/API/action；对照 R131-R139 复核所有 Admin/Portal/Developer/OIDC/
+    Device/Setup/Settings/Login 路由的 table/card/list/timeline/metric 选择、<640px card、
+    分页筛选边界、loading/empty/error/retry、busy/确认、keyboard/a11y 和响应式断点。
+
+    禁止新文件、业务改动、API/路由/能力门控/认证/Session/MFA/Consent/设备码/Checkout/secret
+    语义变化和 git；portal/developer/oidc_login 源码不得新增英文字样 audit。运行 flutter analyze、
+    全量 structure/轻量回归和 python3 cli.py harness，输出 docs/ui/pages-per-page/r140-final-audit-14.md，
+    最后一行严格为 VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r140-final-audit-14.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/admin_data_table_cards_test.dart test/three_state_gate_test.dart test/i18n_coverage_test.dart test/admin_icon_colors_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"
