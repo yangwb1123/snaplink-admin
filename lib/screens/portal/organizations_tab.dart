@@ -45,6 +45,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   final TextEditingController _inviteCtrl = TextEditingController();
   bool _accepting = false;
   String? _leavingTenantId;
+  String? _leavePendingTenantId;
   String? _managedTenantId;
 
   @override
@@ -62,6 +63,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   Future<void> _load({bool preserveNotice = false}) async {
     setState(() {
       _loading = true;
+      _available = true;
       _error = null;
       if (!preserveNotice) {
         _notice = null;
@@ -71,11 +73,15 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     try {
       final r = await widget.api.get('/me/organizations');
       if (!mounted) return;
-      if (r.statusCode != 200) {
+      if (r.statusCode == 404) {
         setState(() {
           _available = false;
           _orgs = const [];
         });
+        return;
+      }
+      if (r.statusCode != 200) {
+        setState(() => _error = 'Could not load your organizations.');
         return;
       }
       final d = PortalApi.decode(r);
@@ -98,24 +104,35 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   }
 
   Future<void> _leave(String tenantId) async {
-    final confirmed = await ConfirmDialog.show(
-      context,
-      title: 'Leave organization?',
-      message: context.tr(
-        'You will lose access to {tenantId} and its organization resources '
-        'until an administrator invites you again.',
-        {'tenantId': tenantId},
-      ),
-      confirmLabel: 'Leave',
-      destructive: true,
-    );
-    if (confirmed != true || !mounted) return;
-    setState(() {
-      _leavingTenantId = tenantId;
-      _notice = null;
-      _ok = false;
-    });
+    // Mark the row busy before opening confirmation as well. This closes the
+    // small double-tap window between the row tap and the dialog result.
+    if (tenantId.isEmpty ||
+        _leavingTenantId != null ||
+        _leavePendingTenantId != null) {
+      return;
+    }
+    // Keep the lock separate from the spinner: a pending confirmation must
+    // not leave an indeterminate progress animation behind the dialog.
+    setState(() => _leavePendingTenantId = tenantId);
     try {
+      final confirmed = await ConfirmDialog.show(
+        context,
+        title: 'Leave organization?',
+        message: context.tr(
+          'You will lose access to {tenantId} and its organization resources '
+          'until an administrator invites you again.',
+          {'tenantId': tenantId},
+        ),
+        confirmLabel: 'Leave',
+        destructive: true,
+      );
+      if (confirmed != true || !mounted) return;
+      setState(() {
+        _leavePendingTenantId = null;
+        _leavingTenantId = tenantId;
+        _notice = null;
+        _ok = false;
+      });
       final response = await widget.api.delete(
         '/me/organizations/${Uri.encodeComponent(tenantId)}',
       );
@@ -140,11 +157,18 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
         });
       }
     } finally {
-      if (mounted) setState(() => _leavingTenantId = null);
+      if (mounted &&
+          (_leavingTenantId == tenantId || _leavePendingTenantId == tenantId)) {
+        setState(() {
+          _leavingTenantId = null;
+          _leavePendingTenantId = null;
+        });
+      }
     }
   }
 
   Future<void> _acceptInvite() async {
+    if (_accepting) return;
     final token = _inviteCtrl.text.trim();
     if (token.isEmpty) {
       setState(() {
@@ -200,9 +224,9 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
   @override
   Widget build(BuildContext context) => _buildOrganizationsTab(context);
 
-  /// One organization row: brand-tinted tenant icon, tenant id (API value,
-  /// raw [Text]), role meta, and trailing Manage (admin only) / danger
-  /// Leave actions with a per-row busy spinner.
+  /// One organization row. Desktop keeps the compact relationship row; below
+  /// 640 logical pixels it becomes an outlined card with a separate action
+  /// line, so long tenant ids and both buttons never compete for one line.
   Widget _orgRow(Map<String, dynamic> org) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
@@ -210,78 +234,136 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
     final role = org['role']?.toString() ?? 'member';
     final canManage = role == 'admin' && tenantId.isNotEmpty;
     final leaving = _leavingTenantId == tenantId;
+    final actions = <Widget>[
+      if (canManage)
+        TextButton.icon(
+          onPressed: _leavingTenantId != null || _leavePendingTenantId != null
+              ? null
+              : () => setState(() => _managedTenantId = tenantId),
+          icon: const Icon(Icons.settings_outlined, size: 16),
+          label: Text(context.tr('Manage')),
+        ),
+      TextButton.icon(
+        onPressed:
+            tenantId.isEmpty ||
+                _leavingTenantId != null ||
+                _leavePendingTenantId != null
+            ? null
+            : () => _leave(tenantId),
+        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+        icon: leaving
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.logout, size: 16),
+        label: Text(context.tr('Leave')),
+      ),
+    ];
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          tenantId.isEmpty ? context.tr('Unknown') : tenantId,
+          softWrap: true,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.badge_outlined,
+              size: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                context.tr(role),
+                softWrap: true,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    final icon = Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        canManage
+            ? Icons.admin_panel_settings_outlined
+            : Icons.business_outlined,
+        size: 17,
+        color: accent,
+      ),
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              canManage
-                  ? Icons.admin_panel_settings_outlined
-                  : Icons.business_outlined,
-              size: 17,
-              color: accent,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tenantId.isEmpty ? context.tr('Unknown') : tenantId,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final narrow = constraints.maxWidth < 640;
+          if (narrow) {
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.55,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.badge_outlined,
-                      size: 13,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      context.tr(role),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (canManage)
-            TextButton.icon(
-              onPressed: () => setState(() => _managedTenantId = tenantId),
-              icon: const Icon(Icons.settings_outlined, size: 16),
-              label: Text(context.tr('Manage')),
-            ),
-          TextButton.icon(
-            onPressed: tenantId.isEmpty || _leavingTenantId != null
-                ? null
-                : () => _leave(tenantId),
-            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            icon: leaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.logout, size: 16),
-            label: Text(context.tr('Leave')),
-          ),
-        ],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      icon,
+                      const SizedBox(width: 12),
+                      Expanded(child: details),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: actions,
+                  ),
+                ],
+              ),
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(child: details),
+              const SizedBox(width: 8),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 4,
+                runSpacing: 4,
+                children: actions,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

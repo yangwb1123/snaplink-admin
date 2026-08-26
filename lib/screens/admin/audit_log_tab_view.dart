@@ -1,6 +1,76 @@
 part of 'audit_log_tab.dart';
 
 extension _AuditLogTabView on _AuditLogTabState {
+  /// 页头：宽屏横排，窄屏把操作区放到标题下，避免操作按钮挤压标题。
+  Widget _header(BuildContext context) {
+    final theme = Theme.of(context);
+    final heading = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(Icons.receipt_long_outlined, color: _accent, size: 28),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                container: true,
+                header: true,
+                child: Text(
+                  context.tr('Audit Log'),
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.tr(
+                  'All authentication and administrative events recorded by the server.',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final actions = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: _actions(context),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 720;
+        return Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 12),
+          child: narrow
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    heading,
+                    const SizedBox(height: 12),
+                    actions,
+                  ],
+                )
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: heading),
+                    const SizedBox(width: 12),
+                    Flexible(child: actions),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
   Widget _buildAuditLogTab(BuildContext context) {
     // 空态语义：筛选后无可见行（含搜索/outcome 过滤排空）也算“无结果”。
     final showEmpty =
@@ -31,38 +101,45 @@ extension _AuditLogTabView on _AuditLogTabState {
   List<Widget> _loadedAuditWidgets(BuildContext context, bool showEmpty) => [
     AuditMetrics(rows: _rows, persona: widget.persona),
     const SizedBox(height: 8),
-    _auditFilters(),
+    _auditFilters(context),
     const SizedBox(height: 16),
     SectionHeader('Recent events', count: _rows.length),
     const SizedBox(height: 8),
     _auditResults(context, showEmpty),
   ];
 
-  Widget _auditFilters() => Wrap(
-    spacing: 12,
-    runSpacing: 8,
-    crossAxisAlignment: WrapCrossAlignment.center,
-    children: [
-      SizedBox(
-        width: 300,
-        // 本地过滤即时生效；网络刷新由 300ms debounce 合并。
-        child: SearchFilterBar(
-          debounce: false,
-          hintText: 'Search...'.localized,
-          controller: _searchCtrl,
-          onSearchChanged: _onSearchChanged,
-        ),
-      ),
-      StatusFilterDropdown(
-        value: _outcomeFilter,
-        options: const {
-          'ALL': 'All',
-          'success': 'success',
-          'failure': 'failure',
-        },
-        onChanged: _onOutcomeFilterChanged,
-      ),
-    ],
+  Widget _auditFilters(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final searchWidth = constraints.maxWidth < 300
+          ? constraints.maxWidth
+          : 300.0;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: searchWidth,
+            // 本地过滤即时生效；网络刷新由 300ms debounce 合并。
+            child: SearchFilterBar(
+              debounce: false,
+              hintText: 'Search...'.localized,
+              controller: _searchCtrl,
+              onSearchChanged: _onSearchChanged,
+            ),
+          ),
+          StatusFilterDropdown(
+            value: _outcomeFilter,
+            options: const {
+              'ALL': 'All',
+              'success': 'success',
+              'failure': 'failure',
+            },
+            onChanged: _onOutcomeFilterChanged,
+          ),
+        ],
+      );
+    },
   );
 
   Widget _auditResults(BuildContext context, bool showEmpty) {
@@ -96,6 +173,7 @@ extension _AuditLogTabView on _AuditLogTabState {
         label: 'TIME',
         width: 180,
         sortable: true,
+        cardDetail: true,
         builder: (cellContext, index) => TableCellText(
           _formatTime(cellContext, _displayed[index].timestamp),
           muted: true,
@@ -106,20 +184,38 @@ extension _AuditLogTabView on _AuditLogTabState {
         label: 'EVENT',
         width: 220,
         sortable: true,
-        builder: (_, index) =>
-            TableCellText(_displayed[index].type, bold: true),
+        cardPrimary: true,
+        builder: (_, index) => TableCellText(
+          _displayed[index].type,
+          bold: true,
+          maxLines: 2,
+        ),
       ),
       AdminDataColumn(
         id: 'outcome',
         label: 'OUTCOME',
         width: 160,
         sortable: true,
+        cardDetail: true,
         builder: (_, index) => _outcomeCell(_displayed[index]),
+      ),
+      AdminDataColumn(
+        id: 'id',
+        label: 'ID',
+        width: 180,
+        cardDetail: true,
+        builder: (cellContext, index) => _displayed[index].id.isEmpty
+            ? const TableCellText('-')
+            : CopyableCell(
+                text: _displayed[index].id,
+                contextProvider: () => cellContext,
+              ),
       ),
       AdminDataColumn(
         id: 'actor',
         label: 'ACTOR',
         width: 140,
+        cardDetail: true,
         builder: (cellContext, index) => _displayed[index].actorId.isEmpty
             ? const TableCellText('-')
             : CopyableCell(
@@ -128,9 +224,22 @@ extension _AuditLogTabView on _AuditLogTabState {
               ),
       ),
       AdminDataColumn(
+        id: 'client',
+        label: 'CLIENT',
+        width: 140,
+        cardDetail: true,
+        builder: (cellContext, index) => _displayed[index].clientId.isEmpty
+            ? const TableCellText('-')
+            : CopyableCell(
+                text: _displayed[index].clientId,
+                contextProvider: () => cellContext,
+              ),
+      ),
+      AdminDataColumn(
         id: 'tenant',
         label: 'TENANT',
         width: 140,
+        cardDetail: true,
         builder: (cellContext, index) => _displayed[index].tenantId.isEmpty
             ? const TableCellText('-')
             : CopyableCell(

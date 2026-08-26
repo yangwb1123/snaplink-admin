@@ -52,7 +52,11 @@ extension _OrganizationsTabView on _OrganizationsTabState {
           ),
           IconButton(
             tooltip: context.tr('Refresh organizations'),
-            onPressed: _loading || _accepting || _leavingTenantId != null
+            onPressed:
+                _loading ||
+                    _accepting ||
+                    _leavingTenantId != null ||
+                    _leavePendingTenantId != null
                 ? null
                 : _load,
             icon: const Icon(Icons.refresh),
@@ -108,25 +112,39 @@ extension _OrganizationsTabView on _OrganizationsTabState {
   Widget _invitationCard(BuildContext context) => PortalCard(
     title: 'Accept an invitation',
     children: [
-      TextField(
-        controller: _inviteCtrl,
-        enabled: !_accepting,
-        decoration: InputDecoration(labelText: context.tr('Invitation token')),
+      ValueListenableBuilder<TextEditingValue>(
+        valueListenable: _inviteCtrl,
+        builder: (context, value, _) => TextField(
+          controller: _inviteCtrl,
+          enabled: !_accepting,
+          textInputAction: TextInputAction.done,
+          onSubmitted: _accepting ? null : (_) => _acceptInvite(),
+          decoration: InputDecoration(
+            labelText: context.tr('Invitation token'),
+            suffixIcon: value.text.isEmpty
+                ? null
+                : IconButton(
+                    tooltip: context.tr('Clear'),
+                    onPressed: _accepting ? null : _inviteCtrl.clear,
+                    icon: const Icon(Icons.clear),
+                  ),
+          ),
+        ),
       ),
       const SizedBox(height: 12),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: FilledButton.icon(
-          onPressed: _accepting ? null : _acceptInvite,
-          icon: _accepting
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.login_outlined, size: 18),
-          label: Text(context.tr('Join organization')),
-        ),
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final button = FilledButton.icon(
+            onPressed: _accepting ? null : _acceptInvite,
+            icon: _accepting
+                ? portalSpinner(Theme.of(context).colorScheme.onPrimary)
+                : const Icon(Icons.login_outlined, size: 18),
+            label: Text(context.tr('Join organization')),
+          );
+          return constraints.maxWidth < 640
+              ? SizedBox(width: double.infinity, child: button)
+              : Align(alignment: Alignment.centerLeft, child: button);
+        },
       ),
     ],
   );

@@ -164,6 +164,8 @@ class _CredentialsTabState extends State<CredentialsTab> {
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _error = e.toString());
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not load credentials.');
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -224,8 +226,9 @@ class _CredentialsTabState extends State<CredentialsTab> {
               padding: EdgeInsets.only(top: 8),
               child: EmptyState(compact: true, title: 'No credentials found.'),
             ),
-          if (!_loading && _error == null && _credentials.isNotEmpty)
-            _credentialsCard(context),
+          // Keep an already loaded inventory visible beside a mutation or
+          // refresh error; Retry remains available without losing context.
+          if (!_loading && _credentials.isNotEmpty) _credentialsCard(context),
         ],
       ),
     );
@@ -356,6 +359,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
             ),
             const SizedBox(height: 12),
             OverflowBar(
+              overflowAlignment: OverflowBarAlignment.start,
               children: [
                 OutlinedButton(
                   onPressed: () => AdminRoute.go('credentials'),

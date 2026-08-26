@@ -24,35 +24,55 @@ class CommerceTenantSelector extends StatelessWidget {
   Widget build(BuildContext context) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(
-            width: 320,
-            child: TextField(
-              controller: tenant,
-              decoration: InputDecoration(labelText: 'Tenant ID'.localized),
-            ),
-          ),
-          SizedBox(
-            width: 140,
-            child: TextField(
-              controller: currency,
-              textCapitalization: TextCapitalization.characters,
-              decoration: InputDecoration(labelText: 'Currency'.localized),
-            ),
-          ),
-          FilledButton.icon(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final tenantField = TextField(
+            controller: tenant,
+            textInputAction: TextInputAction.next,
+            decoration: InputDecoration(labelText: 'Tenant ID'.localized),
+          );
+          final currencyField = TextField(
+            controller: currency,
+            textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            onSubmitted: enabled ? (_) => onLoad() : null,
+            decoration: InputDecoration(labelText: 'Currency'.localized),
+          );
+          final loadButton = FilledButton.icon(
             onPressed: enabled ? onLoad : null,
+            style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
             icon: Icon(
               Icons.search,
               color: adminModuleIconColor(AdminModuleId.commerce),
             ),
             label: const LocalizedText('Load tenant commerce'),
-          ),
-        ],
+          );
+
+          // Fixed-width children in the old Wrap could exceed a phone's
+          // inner width (and leave the load action partly off-screen).
+          if (constraints.maxWidth < 700) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                tenantField,
+                const SizedBox(height: 12),
+                currencyField,
+                const SizedBox(height: 12),
+                loadButton,
+              ],
+            );
+          }
+          return Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              SizedBox(width: 320, child: tenantField),
+              SizedBox(width: 140, child: currencyField),
+              loadButton,
+            ],
+          );
+        },
       ),
     ),
   );

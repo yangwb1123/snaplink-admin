@@ -161,6 +161,10 @@ class _DRModeTabState extends State<DRModeTab> {
       await _load();
     } on SnaplinkAdminApiError catch (e) {
       if (mounted) setState(() => _formError = e.toString());
+    } catch (_) {
+      if (mounted) {
+        setState(() => _formError = 'Could not load DR mode status.');
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }
@@ -216,6 +220,18 @@ class _DRModeTabState extends State<DRModeTab> {
     );
   }
 
+  StatusChip _modeStatusChip(BuildContext context, String mode) =>
+      switch (mode) {
+        'normal' => StatusChip.active(label: context.tr('Normal')),
+        'read_only' ||
+        'auth_only' ||
+        'local_only' ||
+        'maintenance' => StatusChip.degraded(label: context.tr('Degraded')),
+        _ => StatusChip.unknown(
+          label: mode.isEmpty ? context.tr('unknown') : mode,
+        ),
+      };
+
   /// 状态卡：组色图标 + SectionHeader（当前模式 chip）+ 目标模式选择表单。
   Widget _statusCard(BuildContext context) {
     final mode = _currentMode ?? 'normal';
@@ -233,9 +249,7 @@ class _DRModeTabState extends State<DRModeTab> {
                 Expanded(
                   child: SectionHeader(
                     'Current service mode',
-                    action: mode == 'normal'
-                        ? StatusChip.active(label: context.tr('Normal'))
-                        : StatusChip.degraded(label: context.tr('Degraded')),
+                    action: _modeStatusChip(context, mode),
                   ),
                 ),
               ],

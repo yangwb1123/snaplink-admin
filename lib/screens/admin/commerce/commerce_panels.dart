@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -57,12 +58,21 @@ class CommercePlansPanel extends StatelessWidget {
   Widget _planTile(BuildContext context, Map<String, dynamic> plan) {
     final features = _map(plan['features']);
     final limits = _map(plan['limits']);
-    final price = commerceMinorUnits(_map(plan['price']));
+    final rawPrice = plan['price'];
+    final price = rawPrice is Map
+        ? commerceMinorUnits(Map<String, dynamic>.from(rawPrice))
+        : '—';
     final statusLabel = plan['status']?.toString() ?? 'unknown';
-    final subtitle =
-        '${plan['billing_interval'] ?? 'none'} · $price · '
-        '${features.values.where((value) => value == true).length} enabled features · '
-        '${limits.length} quota grants';
+    final interval = plan['billing_interval']?.toString() ?? 'none';
+    final subtitle = LocalizedText(
+      '{interval} · {price} · {features} enabled features · {limits} quota grants',
+      args: {
+        'interval': context.tr(interval),
+        'price': price,
+        'features': features.values.where((value) => value == true).length,
+        'limits': limits.length,
+      },
+    );
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(
@@ -72,7 +82,7 @@ class CommercePlansPanel extends StatelessWidget {
         color: adminModuleIconColor(AdminModuleId.commerce),
       ),
       title: Text(commercePlanLabel(plan)),
-      subtitle: Text(subtitle),
+      subtitle: subtitle,
       trailing: StatusChip(
         label: statusLabel,
         color: plan['status'] == 'active'
@@ -143,12 +153,9 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
     final plan = commercePlanRef(subscription);
     final revision = subscription['revision']?.toString() ?? '—';
     final isLive = commerceSubscriptionIsLive(subscription);
-    final title =
-        '${subscription['status'] ?? 'unknown'} · ${plan['id'] ?? '—'} v${plan['version'] ?? '—'}';
-    final period =
-        'Period: ${formatServerTime(subscription['current_period_start'])} → ${formatServerTime(subscription['current_period_end'])}';
-    final provider =
-        'Provider reference: ${subscription['provider'] ?? '—'} / ${subscription['provider_subscription_id'] ?? '—'}';
+    final status = subscription['status']?.toString() ?? 'unknown';
+    final planID = plan['id']?.toString() ?? '—';
+    final planVersion = plan['version'] ?? '—';
     return Card.outlined(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -158,9 +165,14 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: LocalizedText(
+                    '{status} · {plan} v{version}',
                     style: Theme.of(context).textTheme.titleMedium,
+                    args: {
+                      'status': context.tr(status),
+                      'plan': planID,
+                      'version': planVersion,
+                    },
                   ),
                 ),
                 Chip(
@@ -173,8 +185,20 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             ),
             SelectableText(subscription['id']?.toString() ?? '—'),
             const SizedBox(height: 4),
-            Text(period),
-            Text(provider),
+            LocalizedText(
+              'Period: {start} → {end}',
+              args: {
+                'start': formatServerTime(subscription['current_period_start']),
+                'end': formatServerTime(subscription['current_period_end']),
+              },
+            ),
+            LocalizedText(
+              'Provider reference: {provider} / {providerID}',
+              args: {
+                'provider': subscription['provider'] ?? '—',
+                'providerID': subscription['provider_subscription_id'] ?? '—',
+              },
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -239,10 +263,6 @@ class CommerceEntitlementPanel extends StatelessWidget {
   Widget _summary(BuildContext context) {
     final plan = _map(entitlement!['plan']);
     final stateLabel = entitlement!['active'] == true ? 'Active' : 'Inactive';
-    final summary =
-        '$stateLabel · '
-        '${plan['id'] ?? '—'} v${plan['version'] ?? '—'} · '
-        'revision ${entitlement!['revision'] ?? '—'}';
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -254,7 +274,16 @@ class CommerceEntitlementPanel extends StatelessWidget {
               ? AppColors.success
               : AppColors.warning,
         ),
-        Text(summary, style: Theme.of(context).textTheme.titleMedium),
+        LocalizedText(
+          '{active} · {plan} v{version} · revision {revision}',
+          style: Theme.of(context).textTheme.titleMedium,
+          args: {
+            'active': context.tr(stateLabel),
+            'plan': plan['id'] ?? '—',
+            'version': plan['version'] ?? '—',
+            'revision': entitlement!['revision'] ?? '—',
+          },
+        ),
         LocalizedText(
           'Expires: {time}',
           args: {'time': formatServerTime(entitlement!['expires_at'])},
@@ -313,11 +342,20 @@ class CommerceEntitlementPanel extends StatelessWidget {
               dense: true,
               contentPadding: EdgeInsets.zero,
               title: Text(entry.key),
-              subtitle: Text(commerceGrant(entry.value)),
+              subtitle: _grantText(entry.value),
               trailing: _grantIcon(context, entry.value),
             ),
           ),
       ],
+    );
+  }
+
+  Widget _grantText(Object? value) {
+    final grant = _map(value);
+    if (grant['unlimited'] == true) return const LocalizedText('Unlimited');
+    return LocalizedText(
+      'Hard {hard} · soft {soft}',
+      args: {'hard': grant['hard'] ?? 0, 'soft': grant['soft'] ?? 0},
     );
   }
 

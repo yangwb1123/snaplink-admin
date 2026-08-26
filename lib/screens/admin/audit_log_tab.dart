@@ -139,6 +139,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
 
   /// 空态“清除筛选”：清空搜索与 outcome 筛选后刷新（过滤无结果场景）。
   void _clearFilters() {
+    _searchDebounce?.cancel();
     _searchCtrl.clear();
     _outcomeFilter = 'ALL';
     _refresh();
@@ -198,10 +199,13 @@ class _AuditLogTabState extends State<AuditLogTab> {
   /// 列头排序三态：升序 → 降序 → 无（清除后保持服务端原始顺序）。
   void _onSort(String column) {
     setState(() {
-      if (_sortColumn == column && _sortAscending) {
+      if (_sortColumn != column) {
+        _sortColumn = column;
+        _sortAscending = true;
+      } else if (_sortAscending) {
         _sortAscending = false;
       } else {
-        _sortColumn = _sortColumn == column ? null : column; // 三态：第三次清排序
+        _sortColumn = null;
         _sortAscending = true;
       }
       _applyFilter();
@@ -309,7 +313,7 @@ class _AuditLogTabState extends State<AuditLogTab> {
       IconButton(
         icon: const Icon(Icons.file_download_outlined),
         tooltip: 'Export CSV'.localized,
-        onPressed: _exportCsv,
+        onPressed: _loading ? null : _exportCsv,
       ),
       if (kDebugMode && AuditLogService.ringCopyEnabled) ...[
         StatusChip(
@@ -326,57 +330,6 @@ class _AuditLogTabState extends State<AuditLogTab> {
         ),
       ],
     ];
-  }
-
-  /// 页头：图标按模块组色上色（X7），标题/副标题走 i18n 字面量。
-  Widget _header(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.receipt_long_outlined, color: _accent, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  container: true,
-                  header: true,
-                  child: Text(
-                    context.tr('Audit Log'),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr(
-                    'All authentication and administrative events recorded by the server.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: _actions(context),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   @override

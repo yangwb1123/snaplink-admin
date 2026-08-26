@@ -1,0 +1,87 @@
+# R91-R95：未覆盖 Admin/Portal 页面逐页 UI 推进
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 超过 400 行的页面只审查，不通过继续追加内容解决结构问题。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r91-r95.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R91：/admin/audit-log 审计日志子菜单，并顺带审查 /admin/user-support 的现有布局。
+    阅读 audit_log_tab.dart、audit_log_tab_view.dart、audit_event_row.dart 及已有测试。
+    判断日志关系数据桌面 table、窄屏 card/list；检查 server read、搜索/outcome 筛选、
+    排序、刷新、加载/空/错误、复制详情、tenant/trace 上下文和键盘焦点。不能把 server
+    limit 冒充客户端分页，不能改变 AuditReadClient 路径或查询语义。User Support 大页
+    只记录 table/list/card 和窄屏问题，不扩张 >400 行文件。
+
+    只允许修改现有 audit_log_tab.dart、audit_log_tab_view.dart 中低风险 UI；禁止新文件、
+    API/审计协议/能力门控/敏感字段语义变化、新依赖和 git。运行 flutter analyze；测试
+    test/audit_log_tab_test.dart test/audit_event_row_test.dart test/audit_query_test.dart
+    test/audit_read_client_test.dart test/user_support_lockout_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r91-admin-audit-log-support.md。
+  output: docs/ui/pages-per-page/r91-admin-audit-log-support.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/audit_log_tab_test.dart test/audit_event_row_test.dart test/audit_query_test.dart test/audit_read_client_test.dart test/user_support_lockout_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R92：/admin/dr-mode、/admin/credentials 与 Emergency Access 的低风险视觉审查。
+    阅读 dr_mode_tab.dart、credentials_tab.dart、break_glass_request_card_view.dart、
+    break_glass_widgets.dart。DR 状态/操作使用 metric/card/list；凭据库存关系数据桌面
+    table、移动 card；break-glass 请求使用 card/list，不要隐藏一次性 token。检查能力关闭、
+    loading/empty/error/retry、危险操作确认、复制/显示一次、状态 chip、窄屏按钮和焦点。
+
+    只允许修改现有 dr_mode_tab.dart、credentials_tab.dart；break-glass 文件只审查。
+    禁止新文件、API/secret/紧急访问/能力门控语义变化、新依赖和 git；文件不能超过 400
+    行，接近预算只做小改。运行 flutter analyze；测试 test/credentials_tab_test.dart
+    test/crypto_keys_tab_test.dart test/break_glass_tab_test.dart
+    test/admin_health_breakglass_test.dart test/admin_secondary_tabs2_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r92-admin-dr-credentials-emergency.md。
+  output: docs/ui/pages-per-page/r92-admin-dr-credentials-emergency.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/credentials_tab_test.dart test/crypto_keys_tab_test.dart test/break_glass_tab_test.dart test/admin_health_breakglass_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R93：/admin/commerce 子菜单的桌面/移动 UI 评估与低风险修复。
+    阅读 commerce/commerce_tab.dart、commerce_panels.dart、commerce_selector.dart、
+    commerce_plan_dialog.dart、commerce_subscription_dialogs.dart。CommerceTab 已超过 400
+    行，只审查其结构；只修改 commerce_panels.dart、commerce_selector.dart。判断计划/订阅/
+    钱包/checkout 汇总使用 metric/card，订单/订阅关系数据才用 table/card；检查币种/金额
+    文案、availability error、加载/空/失败、确认、移动端横向滚动和触控目标。不得改变
+    Checkout、价格、幂等键、授权或支付语义。
+
+    禁止新文件、拆分 commerce_tab.dart、API/Checkout/货币语义变化、新依赖和 git；不新增
+    英文 audit 文本。运行 flutter analyze；测试 test/commerce_api_test.dart
+    test/admin_workflows_test.dart
+    test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r93-admin-commerce.md。
+  output: docs/ui/pages-per-page/r93-admin-commerce.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/commerce_api_test.dart test/admin_workflows_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R94：/portal/organizations 子菜单。
+    阅读 organizations_tab.dart、organizations_tab_view.dart、organization_admin_tab.dart、
+    organization_admin_widgets.dart。组织关系用桌面 table 或清晰 row/card，<640px 自动
+    card/list；邀请接受、leave、manage 是动作卡/行操作。检查 loading/empty/not-enabled/error
+    retry、邀请 token 输入与清除、每行 busy、防重复点击、长 tenant id、窄屏按钮和焦点。
+    不为静态组织资料伪造分页。
+
+    只允许修改 organizations_tab.dart、organizations_tab_view.dart；organization admin
+    只审查。禁止新文件、PortalApi/Session/组织权限/邀请/leave 语义变化、新依赖和 git；
+    portal 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/organization_admin_tab_test.dart test/portal_screens_test.dart test/portal_entry_test.dart
+    test/portal_security_contract_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r94-portal-organizations.md。
+  output: docs/ui/pages-per-page/r94-portal-organizations.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/organization_admin_tab_test.dart test/portal_screens_test.dart test/portal_entry_test.dart test/portal_security_contract_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R95：/portal/privacy 子菜单。
+    阅读 privacy_tab.dart、portal_export_download.dart、portal_widgets.dart。判断数据导出是
+    action card/metric，账户删除是高风险分阶段 card/list；检查 enabled/404、loading/失败/
+    成功、download fallback、dry-run 预览、精确 subject 确认、按钮防重入、secret/PII 文案
+    处理、键盘焦点和 320/400px 窄屏布局。不得把高风险删除动作做成无确认 row action。
+
+    只允许修改现有 privacy_tab.dart 中低风险 UI；禁止新文件、API/Session/账户删除/导出
+    语义变化、新依赖和 git；portal 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/portal_screens_test.dart test/portal_security_contract_test.dart
+    test/portal_security_web_test.dart test/portal_security_widgets_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r95-portal-privacy.md。
+  output: docs/ui/pages-per-page/r95-portal-privacy.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_security_contract_test.dart test/portal_security_web_test.dart test/portal_security_widgets_test.dart test/render_matrix_smoke_test.dart"

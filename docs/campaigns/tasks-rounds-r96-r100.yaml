@@ -1,0 +1,90 @@
+# R96-R100：Settings/详情页/Developer/共享列表控件 + 综合终检
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 400 行以上页面只审查；接近预算不继续追加结构。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r96-r100.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R96：/settings/ 设置页与子控件。
+    阅读 settings_screen.dart、settings/settings_form_layout.dart、settings_theme_picker.dart、
+    language_selector.dart、theme_selector.dart。检查设置分组、SSO base URL 表单、换源清会话
+    警示、语言/主题/导航模式控件、只读时区在 320/400/640/桌面下的布局；检查键盘焦点、
+    validator、禁用状态、保存反馈和高文字缩放。设置页是 form/list，不是 table；不要改变
+    AppSettings、Session、BrowserNavigation 或 URL 校验语义。
+
+    只允许修改 settings_screen.dart、settings/settings_form_layout.dart 中低风险布局/a11y；
+    其余文件只审查。禁止新文件、API/Session/设置语义变化、新依赖和 git。运行 flutter
+    analyze；测试 test/settings_form_layout_test.dart test/settings_screen_test.dart
+    test/theme_picker_test.dart test/theme_selector_test.dart test/language_selector_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r96-settings.md。
+  output: docs/ui/pages-per-page/r96-settings.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/settings_form_layout_test.dart test/settings_screen_test.dart test/theme_picker_test.dart test/theme_selector_test.dart test/language_selector_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R97：/admin/webhooks 与 Webhook detail 子页面。
+    阅读 webhooks_tab.dart、webhook_detail_screen.dart、webhook_detail_widgets.dart。WebhooksTab
+    已超过 400 行，只审查其列表/筛选/分页/重试/删除结构；只允许低风险修改 detail screen
+    和 detail widgets。判断 webhook 关系数据桌面 table、<640px card；delivery attempts
+    使用 timeline/list；事件 payload 用可复制 code/card。检查 secret 脱敏、状态/attempt
+    筛选、loading/empty/error/retry、重试/删除确认、每项 busy、长 URL 和窄屏操作。
+    不改变签名、重试、删除、endpoint 或 secret 生命周期语义。
+
+    禁止新文件、拆分 webhooks_tab.dart、API/能力门控/安全语义变化、新依赖和 git；文件
+    不得超过 400 行。运行 flutter analyze；测试 test/webhooks_tab_test.dart
+    test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart
+    test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r97-admin-webhooks.md。
+  output: docs/ui/pages-per-page/r97-admin-webhooks.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/webhooks_tab_test.dart test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart test/admin_secondary_tabs2_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R98：/admin/operations 与 /admin/user-support 结构审查。
+    阅读 admin_operations_tab.dart、admin_ops_helpers.dart、user_support_tab.dart、
+    user_support_cards.dart、account_lockout_card.dart。Operations 大页和 UserSupport 大页
+    超过/接近 400 行，只审查主结构；只允许修改 admin_ops_helpers.dart、account_lockout_card.dart
+    的低风险 UI。判断运维动作/unknown outcome 使用 timeline/list/card，支持/锁定使用
+    status card/list；检查状态筛选、retry、危险确认、结果未知不可伪造成功、per-action busy、
+    PII/长文案、移动端按钮和键盘语义。
+
+    禁止新文件、扩张两个大页、API/支持/锁定/unknown-outcome 语义变化、新依赖和 git。
+    运行 flutter analyze；测试 test/admin_operations_unknown_outcome_test.dart
+    test/user_support_lockout_test.dart test/admin_support_tabs_test.dart
+    test/admin_governance_security_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r98-admin-operations-support.md，明确哪些仅审查及原因。
+  output: docs/ui/pages-per-page/r98-admin-operations-support.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_operations_unknown_outcome_test.dart test/user_support_lockout_test.dart test/admin_support_tabs_test.dart test/admin_governance_security_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R99：/developer/register 与 /developer/manage 的表单/结果 UI。
+    阅读 register_panel.dart、manage_panel.dart、dcr_metadata_form.dart、dcr_credentials.dart、
+    dcr_round_trip_notice.dart。检查 DCR 表单是否是分组 form/list，metadata scope/redirect
+    长值是否在窄屏可读；注册结果、一次性 client secret、registration token、manage/update/
+    delete 操作是否使用明确 card、复制/隐藏/清除和确认；loading/error/retry、焦点、autofill、
+    键盘提交和 320/400px 布局。不得显示一次性凭据超过协议允许生命周期。
+
+    只允许修改 register_panel.dart、dcr_metadata_form.dart 的低风险 UI；manage_panel 已接近
+    预算只审查。禁止新文件、DCR/API/secret/registration token 语义变化、新依赖和 git；
+    developer 源码不要新增英文字样 audit。运行 flutter analyze；测试
+    test/dcr_models_test.dart test/dcr_widgets_test.dart test/developer_api_test.dart
+    test/developer_forge_invisibility_test.dart test/developer_ring_isolation_test.dart
+    test/developer_serving_region_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r99-developer-dcr.md。
+  output: docs/ui/pages-per-page/r99-developer-dcr.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/dcr_models_test.dart test/dcr_widgets_test.dart test/developer_api_test.dart test/developer_forge_invisibility_test.dart test/developer_ring_isolation_test.dart test/developer_serving_region_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R100：共享列表/分页/筛选与全站终检。不要大规模重构；只修复已发现的低风险
+    UI 问题，且只能修改 paginated_list.dart、search_filter_bar.dart；若无明确问题则只产出报告。
+    阅读 AdminDataTable 及其 card/header/table-cell 子组件作为上下文，逐项检查：
+    <640px table→card、分页首末/空页、Load more 防重入、搜索 debounce/controller dispose、
+    筛选清除回第一页、键盘/a11y、触控目标、lazy build、320/400/640/768/桌面布局。
+    对照 R91-R99 产物检查所有 admin/portal/developer/settings/device/setup/login 路由。
+
+    禁止新文件、API/Session/安全/Checkout/能力门控语义变化、新依赖和 git；portal、developer、
+    oidc_login 源码不得新增英文字样 audit。运行 flutter analyze；仅执行轻量门禁并输出
+    docs/ui/pages-per-page/r100-final-audit-10.md，报告覆盖矩阵、table/list/card 决策、
+    分页筛选矩阵、结构预算和残留，不在本任务内运行全量 build。最后一行严格为
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r100-final-audit-10.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && python3 cli.py harness"
