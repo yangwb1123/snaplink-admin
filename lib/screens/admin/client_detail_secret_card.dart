@@ -50,7 +50,7 @@ Future<void> showRotatedClientSecret(
   ),
 );
 
-class ClientSecretDialog extends StatelessWidget {
+class ClientSecretDialog extends StatefulWidget {
   final String secret;
   final String introKey;
   final String acknowledgeKey;
@@ -67,20 +67,46 @@ class ClientSecretDialog extends StatelessWidget {
   });
 
   @override
+  State<ClientSecretDialog> createState() => _ClientSecretDialogState();
+}
+
+class _ClientSecretDialogState extends State<ClientSecretDialog> {
+  // Reveal by default so the existing one-time delivery remains immediately
+  // usable. Hiding is local presentation only; acknowledgement still clears
+  // the card by closing this blocking dialog.
+  bool _revealed = true;
+
+  void _toggleVisibility() => setState(() => _revealed = !_revealed);
+
+  Future<void> _copySecret(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: widget.secret));
+    if (!context.mounted) return;
+    showCopySnackBar(
+      context,
+      content: const LocalizedText('Copied to clipboard'),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return PopScope(
       canPop: false,
       child: AlertDialog(
+        // Keep the action reachable when the keyboard or a very small window
+        // reduces the available height. The content remains one scrollable
+        // secret card; no secret/lifecycle behaviour is changed.
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        scrollable: true,
         title: const LocalizedText('New client secret'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            LocalizedText(introKey),
-            if (expiryLabel != null) ...[
+            LocalizedText(widget.introKey),
+            if (widget.expiryLabel != null) ...[
               const SizedBox(height: 12),
-              Text(expiryLabel!, style: theme.textTheme.bodySmall),
+              Text(widget.expiryLabel!, style: theme.textTheme.bodySmall),
             ],
             const SizedBox(height: 12),
             Container(
@@ -89,23 +115,44 @@ class ClientSecretDialog extends StatelessWidget {
               decoration: BoxDecoration(
                 color: theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: SelectableText(secret)),
-                  if (copyable)
+                  Expanded(
+                    child: _revealed
+                        ? SelectableText(
+                            widget.secret,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontFamily: 'monospace',
+                            ),
+                          )
+                        : ExcludeSemantics(
+                            child: Text(
+                              '••••••••••••',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      _revealed
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    tooltip: (_revealed ? 'Hide' : 'Show').localized,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: _toggleVisibility,
+                  ),
+                  if (widget.copyable)
                     IconButton(
                       icon: const Icon(Icons.copy_outlined),
                       tooltip: 'Copy to clipboard'.localized,
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: secret));
-                        if (context.mounted) {
-                          showCopySnackBar(
-                            context,
-                            content: LocalizedText('Copied to clipboard'),
-                          );
-                        }
-                      },
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _copySecret(context),
                     ),
                 ],
               ),
@@ -114,9 +161,10 @@ class ClientSecretDialog extends StatelessWidget {
         ),
         actions: [
           FilledButton.icon(
+            autofocus: true,
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.check),
-            label: LocalizedText(acknowledgeKey),
+            label: LocalizedText(widget.acknowledgeKey),
           ),
         ],
       ),

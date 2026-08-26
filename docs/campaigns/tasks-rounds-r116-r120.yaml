@@ -1,0 +1,93 @@
+# R116-R120：Portal/OIDC/设备详情/共享 chrome + 终检
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 认证、Session、MFA、Consent、设备码、Checkout 和 API 语义保持不变。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r116-r120.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R116：/portal/security account credential 与 factor 子卡。
+    阅读 security_account_credentials.dart、security_change_email_card.dart、
+    security_change_password_card.dart、passkey_enrollment_card.dart、recovery_codes_card.dart、
+    trusted_devices_card.dart。密码/email/passkey/recovery/trusted device 均用分组 form/card/list；
+    检查 loading/error/success、按钮防重入、确认、精确输入、一次性恢复码/secret 显示、copy/
+    clear、窄屏字段与键盘。不要将高风险 account action 变成无确认 row action。
+
+    只允许修改 security_account_credentials.dart、passkey_enrollment_card.dart 的低风险 UI；
+    其余子卡只审查。禁止新文件、PortalApi/Session/MFA/passkey/recovery 语义变化、新依赖和
+    git；portal 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/portal_screens_test.dart test/portal_security_widgets_test.dart
+    test/portal_security_contract_test.dart test/portal_security_web_test.dart
+    test/portal_entry_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r116-portal-security-account.md。
+  output: docs/ui/pages-per-page/r116-portal-security-account.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/portal_security_widgets_test.dart test/portal_security_contract_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R117：/portal/devices detail/action 与 /portal/sessions 行操作。
+    阅读 device_detail_dialog.dart、device_action_dialogs.dart、devices_tab.dart、sessions_tab.dart、
+    session_list_rows.dart。设备关系数据桌面 table、移动 card；detail/action 是 card/dialog；
+    sessions 是 list/timeline。检查搜索/type/status/activity 筛选、desktop pagination/mobile
+    load more、detail loading/error/retry、trust/report/delete/revoke 确认、busy 防重入、长
+    device name/IP、窄屏 dialog 和 keyboard。
+
+    只允许修改 device_detail_dialog.dart、device_action_dialogs.dart 的低风险 UI；devices/sessions
+    主页只审查。禁止新文件、PortalApi/Session/trusted-device/physical-device 语义变化、新依赖和
+    git。运行 flutter analyze；测试 test/portal_screens_test.dart test/device_bulk_revoke_dialog_test.dart
+    test/session_list_rows_test.dart test/portal_security_contract_test.dart
+    test/portal_entry_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r117-portal-device-session-detail.md。
+  output: docs/ui/pages-per-page/r117-portal-device-session-detail.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_screens_test.dart test/device_bulk_revoke_dialog_test.dart test/session_list_rows_test.dart test/portal_security_contract_test.dart test/portal_entry_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R118：OIDC Provider/Hosted Login/forwarded sign-in UI。
+    阅读 oidc_provider_flow.dart、federated_login.dart、login_view_widget_layout.dart、
+    hosted_login_models.dart、federated_login.dart。Provider discovery/choice 用 card/list，
+    hosted/federated state 用 form/status card；检查 provider loading/error/retry、disabled/
+    fallback、back/submit、long provider label、narrow layout、autofill/focus/keyboard。只做
+    presentation/accessibility 层，不改变 provider selection、redirect、PAR/JAR/JARM、Session
+    或 authorization delivery state machine。
+
+    只允许修改 oidc_provider_flow.dart、login_view_widget_layout.dart 的低风险 UI；federated
+    and model files 只审查。禁止新文件、新依赖、认证/redirect/authorization 语义变化和 git；
+    oidc_login 源码不得新增英文字样 audit。运行 flutter analyze；测试
+    test/federated_login_web_test.dart test/hosted_login_models_test.dart
+    test/oidc_login_api_test.dart test/oidc_login_screen_client_id_test.dart
+    test/login_view_widget_test.dart test/login_header_layout_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r118-oidc-provider-hosted.md。
+  output: docs/ui/pages-per-page/r118-oidc-provider-hosted.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/federated_login_web_test.dart test/hosted_login_models_test.dart test/oidc_login_api_test.dart test/oidc_login_screen_client_id_test.dart test/login_view_widget_test.dart test/login_header_layout_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R119：共享 Skeleton/Timeline/PullRefresh/Responsive Navigation chrome。
+    阅读 skeleton_list.dart、timeline_list.dart、pull_to_refresh.dart、
+    responsive_navigation_scaffold.dart、session_list_rows.dart。检查 loading skeleton 的
+    reduced-motion/semantics、timeline listItem/empty、pull refresh 防重入/短列表、drawer↔rail
+    breakpoint、selected destination、keyboard/focus 和 320/400/640/768/桌面。共享 chrome
+    只服务布局，不引入业务分页。
+
+    只允许修改 skeleton_list.dart、timeline_list.dart 中明确低风险 UI；pull/navigation 只审查。
+    禁止新文件、API/Session/路由语义变化、新依赖和 git。运行 flutter analyze；测试
+    test/shared_widgets_test.dart test/async_view_test.dart test/empty_state_variants_test.dart
+    test/pull_to_refresh_test.dart test/responsive_navigation_scaffold_test.dart
+    test/session_list_rows_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r119-shared-skeleton-timeline.md。
+  output: docs/ui/pages-per-page/r119-shared-skeleton-timeline.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/shared_widgets_test.dart test/async_view_test.dart test/empty_state_variants_test.dart test/pull_to_refresh_test.dart test/responsive_navigation_scaffold_test.dart test/session_list_rows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R120：全站第十一轮综合终检。不要大规模重构；只修复明确低风险 UI 问题，且只能修改
+    skeleton_list.dart、timeline_list.dart；无明确问题则只生成报告。
+    对照 R111-R119 产物，覆盖所有 /admin/ 模块和详情、/portal/ tabs/detail、/developer/、
+    /oidc login/MFA/Consent、/device/verify、/setup、/settings、/login/。复核 table/card/list/
+    timeline/metric 选择，<640px card，分页首末/空页/筛选回第一页，loading/empty/error/retry，
+    busy/确认、keyboard/a11y、reduced-motion、320/400/640/768/桌面。portal/developer/oidc_login
+    源码不得新增英文字样 audit。
+
+    禁止新文件、API/Session/认证/MFA/Consent/设备码/Checkout/能力门控语义变化、新依赖和 git。
+    运行 flutter analyze、共享轻量 gates、python3 cli.py harness，输出
+    docs/ui/pages-per-page/r120-final-audit-12.md；不在任务内运行全量 build。最后一行严格为
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r120-final-audit-12.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/shared_widgets_test.dart test/async_view_test.dart test/empty_state_variants_test.dart test/pull_to_refresh_test.dart test/responsive_navigation_scaffold_test.dart test/admin_data_table_cards_test.dart test/three_state_gate_test.dart test/render_matrix_smoke_test.dart && python3 cli.py harness"

@@ -163,9 +163,41 @@ class _ClientFormDialogState extends State<ClientFormDialog> {
         content: Text(e.toString()),
         kind: AppSnackBarKind.error,
       );
+    } catch (e) {
+      // Keep transport/unexpected failures recoverable in the dialog instead
+      // of leaving Save disabled indefinitely. The request body and API
+      // contract remain unchanged; a later tap is an explicit retry.
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      showAppSnackBar(
+        context,
+        content: Text(e.toString()),
+        kind: AppSnackBarKind.error,
+      );
     }
   }
 
   @override
-  Widget build(BuildContext context) => _buildClientFormDialog(context);
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final availableWidth = mediaQuery.size.width - 32;
+    final maxWidth = availableWidth < 560 ? availableWidth : 560.0;
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.viewInsets.vertical - 48;
+    final maxHeight = availableHeight > 160 ? availableHeight : 160.0;
+
+    // The view keeps its existing fields and payload semantics. These outer
+    // constraints make its scroll view usable above a keyboard and on narrow
+    // windows, while the traversal group gives keyboard users a stable order.
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: maxWidth > 0 ? maxWidth : 0,
+          maxHeight: maxHeight,
+        ),
+        child: _buildClientFormDialog(context),
+      ),
+    );
+  }
 }

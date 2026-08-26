@@ -1,0 +1,94 @@
+# R111-R115：Admin 详情页与大页边界审查
+# 规则：只改白名单内现有文件；禁止新 Dart 文件、part 拆分、大重构和 git。
+# 超过 400 行的主页面只审查，不通过追加内容解决预算。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r111-r115.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R111：/admin/clients/{id} Client Detail、secret card 与 form dialog。
+    阅读 client_detail_screen.dart、client_detail_secret_card.dart、client_form_dialog.dart、
+    client_form_dialog_view.dart、client_secret_lifecycle.dart。Client detail 主文件超过 400
+    行只审查；关系/资源使用 card/list，secret 生命周期使用一次性 action card，form 使用
+    分组 form。检查 capability/404/error/retry、loading、copy/hide/clear secret、rotate/delete
+    确认、长 redirect/metadata、窄屏 dialog 和键盘焦点。不得改变 OAuth client、secret、PKCE、
+    redirect URI 或 API 语义。
+
+    只允许修改 client_detail_secret_card.dart、client_form_dialog.dart 中低风险 UI；主 detail
+    只审查。禁止新文件、API/secret 生命周期/能力门控变化、新依赖和 git；文件不得超过 400
+    行。运行 flutter analyze；测试 test/client_detail_secret_card_test.dart
+    test/client_form_dialog_test.dart test/admin_detail_screens_test.dart
+    test/admin_dialogs_final_test.dart test/admin_workflows_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r111-admin-client-detail.md。
+  output: docs/ui/pages-per-page/r111-admin-client-detail.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/client_detail_secret_card_test.dart test/client_form_dialog_test.dart test/admin_detail_screens_test.dart test/admin_dialogs_final_test.dart test/admin_workflows_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R112：/admin/tenants/{id} Tenant Detail、tenant tabs、form 与组织/residency summary。
+    阅读 tenant_detail_screen.dart、tenant_detail_tabs.dart、tenant_form_dialog.dart、
+    tenant_organization_cards.dart、tenant_residency_summary.dart。Tenant detail 主文件超过
+    400 行只审查；资源关联使用 card/list，residency 使用 metric/card，编辑使用 form。检查
+    loading/partial error/retry、tab overflow、capability unavailable、export/branding/residency
+    入口、危险 tenant 操作确认、长 region/domain、320/400px 布局和 focus。
+
+    只允许修改 tenant_detail_tabs.dart、tenant_form_dialog.dart 中低风险展示层；主 detail、
+    organization/residency summary 只审查。禁止新文件、tenant/API/residency/branding/export
+    语义变化、新依赖和 git；不新增英文 audit 文本。运行 flutter analyze；测试
+    test/admin_detail_screens_test.dart test/tenant_branding_safety_test.dart
+    test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart
+    test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r112-admin-tenant-detail.md。
+  output: docs/ui/pages-per-page/r112-admin-tenant-detail.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/tenant_branding_safety_test.dart test/tenant_residency_form_test.dart test/tenant_residency_summary_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R113：/admin/emergency-access 与 /admin/crypto-keys 子菜单审查。
+    阅读 break_glass_tab.dart、break_glass_detail_screen.dart、break_glass_widgets.dart、
+    break_glass_request_card_view.dart、crypto_keys_tab.dart。Emergency access 请求/授权用
+    card/list/timeline，crypto key inventory 用 table/card，secret/impersonation 用一次性
+    action card。检查 capability unavailable、loading/empty/error/retry、pending/approved/
+    expired 状态、强确认、token 一次性显示、copy、窄屏按钮和 keyboard。
+
+    crypto_keys_tab.dart 与 break_glass_tab.dart 超过 400 行只审查；只允许修改
+    break_glass_widgets.dart、break_glass_request_card_view.dart 的低风险 UI。禁止新文件、
+    API/secret/emergency-access 语义变化、新依赖和 git。运行 flutter analyze；测试
+    test/break_glass_tab_test.dart test/admin_health_breakglass_test.dart
+    test/crypto_keys_tab_test.dart test/admin_governance_security_test.dart
+    test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r113-admin-emergency-crypto.md。
+  output: docs/ui/pages-per-page/r113-admin-emergency-crypto.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/break_glass_tab_test.dart test/admin_health_breakglass_test.dart test/crypto_keys_tab_test.dart test/admin_governance_security_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R114：/admin/governance、privacy-compliance、usage-analytics 大页审查。
+    阅读 governance_tab.dart、governance_widgets.dart、privacy_compliance_tab.dart、
+    usage_analytics_tab.dart、usage_analytics_contract.dart。治理/合规/用量汇总用 metric/card/
+    distribution；事件/结果用 list/timeline；不要把 JSON/report/unknown outcome 伪造成 table。
+    重点检查能力关闭、部分数据失败、loading/empty/error/retry、筛选/时间范围、导出/危险
+    写操作确认、长 labels 和 320/400px。所有主文件超过 400 行，只审查，不追加结构。
+
+    本轮只允许修改 usage_analytics_contract.dart 中纯展示契约注释或低风险常量（通常不需要
+    改代码）；禁止新文件、API/隐私/治理/usage 语义变化、新依赖和 git。运行 flutter analyze；
+    测试 test/admin_governance_security_test.dart test/usage_analytics_contract_test.dart
+    test/admin_secondary_tabs_test.dart test/admin_operations_unknown_outcome_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r114-admin-governance-usage.md，
+    明确仅审查及原因。
+  output: docs/ui/pages-per-page/r114-admin-governance-usage.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_governance_security_test.dart test/usage_analytics_contract_test.dart test/admin_secondary_tabs_test.dart test/admin_operations_unknown_outcome_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R115：/admin/local-users、/admin/webhooks、/admin/operations 遗留大页终审。
+    阅读 local_users_tab.dart、webhooks_tab.dart、webhook_detail_screen.dart、
+    admin_operations_tab.dart、admin_ops_helpers.dart。三大主页均超过 400 行，只检查已有
+    table/card/list、分页/筛选、空错加载、retry、busy、unknown outcome、secret/URL 脱敏与
+    移动端操作；不要通过追加结构修复。若发现明确问题，只允许在 admin_ops_helpers.dart
+    做低风险展示修复；否则只产出报告。
+
+    禁止新文件、主页面拆分、API/secret/unknown-outcome/能力语义变化、新依赖和 git；不新增
+    英文 audit 文本。运行 flutter analyze；测试 test/local_user_validation_test.dart
+    test/webhooks_tab_test.dart test/admin_operations_unknown_outcome_test.dart
+    test/admin_support_tabs_test.dart test/admin_secondary_tabs_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r115-admin-large-pages.md，
+    明确 local-users/webhooks/operations 的预算与残留。
+  output: docs/ui/pages-per-page/r115-admin-large-pages.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/local_user_validation_test.dart test/webhooks_tab_test.dart test/admin_operations_unknown_outcome_test.dart test/admin_support_tabs_test.dart test/admin_secondary_tabs_test.dart test/render_matrix_smoke_test.dart"

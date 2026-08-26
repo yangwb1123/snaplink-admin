@@ -87,8 +87,48 @@ class AdminOpsHelpers {
       status == 408 || status == 429 || status >= 500;
 
   /// Sanitize a generic response before it is retained, rendered, or copied.
-  static Map<String, dynamic> redactResponse(Map<String, dynamic> response) =>
-      Map<String, dynamic>.from(SensitiveData.redact(response)! as Map);
+  static Map<String, dynamic> redactResponse(Map<String, dynamic> response) {
+    final redacted = SensitiveData.redact(response);
+    return Map<String, dynamic>.from(_redactUriValues(redacted)! as Map);
+  }
+
+  static Object? _redactUriValues(Object? value) {
+    if (value is Map) {
+      return <String, dynamic>{
+        for (final entry in value.entries)
+          entry.key.toString(): _redactUriValues(entry.value),
+      };
+    }
+    if (value is Iterable) {
+      return value.map(_redactUriValues).toList(growable: false);
+    }
+    if (value is String) return _redactUri(value);
+    return value;
+  }
+
+  static String _redactUri(String value) {
+    final uri = Uri.tryParse(value);
+    if (uri == null) return value;
+    var changed = uri.userInfo.isNotEmpty;
+    final queryParameters = <String, dynamic>{};
+    for (final entry in uri.queryParametersAll.entries) {
+      final sensitive = SensitiveData.isSensitiveKey(entry.key);
+      changed = changed || sensitive;
+      queryParameters[entry.key] = entry.value.length == 1
+          ? (sensitive ? SensitiveData.redacted : entry.value.single)
+          : [
+              for (final item in entry.value)
+                sensitive ? SensitiveData.redacted : item,
+            ];
+    }
+    if (!changed) return value;
+    return uri
+        .replace(
+          userInfo: uri.userInfo.isEmpty ? null : SensitiveData.redacted,
+          queryParameters: queryParameters,
+        )
+        .toString();
+  }
 
   /// 请求体/查询 JSON 解析：必须解码为 JSON 对象。
   static Map<String, dynamic> parseJsonObject(String value, String label) {

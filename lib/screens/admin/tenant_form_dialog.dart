@@ -98,95 +98,119 @@ class _TenantFormDialogState extends State<TenantFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      icon: Icon(
-        Icons.business,
-        color: adminModuleIconColor(AdminModuleId.tenants),
-      ),
-      title: LocalizedText(_isEdit ? 'Edit tenant' : 'Create tenant'),
-      content: SizedBox(
-        width: 560,
-        child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: _idController,
-                  enabled: !_isEdit,
-                  autofocus: !_isEdit,
-                  decoration: InputDecoration(labelText: 'ID'.localized),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
-                TextFormField(
-                  controller: _slugController,
-                  decoration: InputDecoration(
-                    labelText: 'Slug'.localized,
-                    helperText: 'URL-safe identifier; immutable after creation.'
-                        .localized,
+    final mediaQuery = MediaQuery.of(context);
+    final availableWidth = mediaQuery.size.width - 32;
+    final maxWidth = (availableWidth < 560 ? availableWidth : 560.0)
+        .clamp(0.0, 560.0)
+        .toDouble();
+    final availableHeight =
+        mediaQuery.size.height - mediaQuery.viewInsets.vertical - 176;
+    final maxContentHeight = availableHeight.clamp(160.0, 640.0).toDouble();
+
+    // 让表单在 320/400px 视口及软键盘上方保持可滚动，并为键盘用户
+    // 固定字段 → 操作按钮的遍历顺序；不改变字段或提交 payload。
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        icon: Icon(
+          Icons.business,
+          color: adminModuleIconColor(AdminModuleId.tenants),
+        ),
+        title: LocalizedText(_isEdit ? 'Edit tenant' : 'Create tenant'),
+        content: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth,
+            maxHeight: maxContentHeight,
+          ),
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _idController,
+                    enabled: !_isEdit,
+                    autofocus: !_isEdit,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(labelText: 'ID'.localized),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
-                ),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(labelText: 'Name'.localized),
-                ),
-                if (!_isEdit) ...[
-                  const SizedBox(height: 8),
-                  // R31：2 项短枚举 → SegmentedButton（替代 Status 下拉）。
-                  LocalizedText(
-                    'Status',
-                    style: Theme.of(context).textTheme.labelLarge,
+                  TextFormField(
+                    controller: _slugController,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(
+                      labelText: 'Slug'.localized,
+                      helperText:
+                          'URL-safe identifier; immutable after creation.'
+                              .localized,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(
-                        value: 'active',
-                        label: LocalizedText('active'),
-                      ),
-                      ButtonSegment(
-                        value: 'suspended',
-                        label: LocalizedText('suspended'),
-                      ),
-                    ],
-                    selected: {_status},
-                    showSelectedIcon: false,
-                    onSelectionChanged: (selection) =>
-                        setState(() => _status = selection.first),
+                  TextFormField(
+                    controller: _nameController,
+                    textInputAction: TextInputAction.next,
+                    decoration: InputDecoration(labelText: 'Name'.localized),
+                  ),
+                  if (!_isEdit) ...[
+                    const SizedBox(height: 8),
+                    // R31：2 项短枚举 → SegmentedButton（替代 Status 下拉）。
+                    LocalizedText(
+                      'Status',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(
+                          value: 'active',
+                          label: LocalizedText('active'),
+                        ),
+                        ButtonSegment(
+                          value: 'suspended',
+                          label: LocalizedText('suspended'),
+                        ),
+                      ],
+                      selected: {_status},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (selection) =>
+                          setState(() => _status = selection.first),
+                    ),
+                  ],
+                  TenantResidencyFields(
+                    homeRegionController: _homeRegionController,
+                    allowedRegionsController: _allowedRegionsController,
+                    enforceWrites: _enforceWrites,
+                    onEnforceWritesChanged: (value) {
+                      setState(() => _enforceWrites = value);
+                    },
                   ),
                 ],
-                TenantResidencyFields(
-                  homeRegionController: _homeRegionController,
-                  allowedRegionsController: _allowedRegionsController,
-                  enforceWrites: _enforceWrites,
-                  onEnforceWritesChanged: (value) {
-                    setState(() => _enforceWrites = value);
-                  },
-                ),
-              ],
+              ),
             ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : () => Navigator.pop(context, false),
+            child: const LocalizedText('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _saving ? null : _submit,
+            child: _saving
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : LocalizedText(_isEdit ? 'Save' : 'Create'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context, false),
-          child: const LocalizedText('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _saving ? null : _submit,
-          child: _saving
-              ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : LocalizedText(_isEdit ? 'Save' : 'Create'),
-        ),
-      ],
     );
   }
 }

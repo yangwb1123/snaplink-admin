@@ -166,23 +166,32 @@ class BreakGlassSessionsList extends StatelessWidget {
             AdminDataColumn(
               id: 'details',
               label: 'Details',
-              width: 260, // R52：多段明细（原因/发起人/范围/ID）两行省略，260 才不挤。
+              width: 260, // R52：多段明细（原因/发起人/范围）两行省略，260 才不挤。
               cardDetail: true,
               builder: (_, i) {
                 final session = sessions[i];
-                final id = session['id']?.toString() ?? '';
                 final reason = session['reason']?.toString() ?? '';
                 final createdBy = session['created_by']?.toString() ?? '';
                 final scope = session['scope']?.toString() ?? 'readonly';
                 return TableCellText(
                   [
                     if (reason.isNotEmpty) reason,
-                    'by $createdBy · scope: $scope · $id',
+                    'by $createdBy · scope: $scope',
                   ].join('\n'),
                   muted: true,
                   maxLines: 2,
                 );
               },
+            ),
+            AdminDataColumn(
+              id: 'id',
+              label: 'ID',
+              width: 180,
+              cardDetail: true,
+              builder: (_, i) => CopyableCell(
+                text: sessions[i]['id']?.toString() ?? '',
+                contextProvider: () => context,
+              ),
             ),
             AdminDataColumn(
               id: 'actions',
@@ -193,32 +202,42 @@ class BreakGlassSessionsList extends StatelessWidget {
                 final status = sessions[i]['status']?.toString() ?? 'unknown';
                 final pending = status == 'pending';
                 final active = status == 'active';
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (pending)
-                      TextButton(
-                        onPressed: mutating ? null : () => onApprove(id),
-                        child: const LocalizedText('Approve'),
-                      ),
-                    if (active)
-                      TextButton(
-                        onPressed: mutating ? null : () => onImpersonate(id),
-                        child: const LocalizedText('Impersonate'),
-                      ),
-                    if (pending || active)
-                      TextButton(
-                        onPressed: mutating ? null : () => onRevoke(id),
-                        style: TextButton.styleFrom(
-                          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                          foregroundColor: AppColors.semanticFor(
-                            Theme.of(context).brightness,
-                            AppColors.danger,
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 4,
+                      runSpacing: 0,
+                      children: [
+                        if (pending)
+                          TextButton(
+                            onPressed: mutating ? null : () => onApprove(id),
+                            child: const LocalizedText('Approve'),
                           ),
-                        ),
-                        child: const LocalizedText('Revoke'),
-                      ),
-                  ],
+                        if (active)
+                          TextButton(
+                            onPressed: mutating
+                                ? null
+                                : () => onImpersonate(id),
+                            child: const LocalizedText('Impersonate'),
+                          ),
+                        if (pending || active)
+                          TextButton(
+                            onPressed: mutating ? null : () => onRevoke(id),
+                            style: TextButton.styleFrom(
+                              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+                              foregroundColor: AppColors.semanticFor(
+                                Theme.of(context).brightness,
+                                AppColors.danger,
+                              ),
+                            ),
+                            child: const LocalizedText('Revoke'),
+                          ),
+                      ],
+                    ),
+                  ),
                 );
               },
             ),
@@ -232,9 +251,11 @@ class BreakGlassSessionsList extends StatelessWidget {
 
   StatusChip _sessionStatusChip(String status) => switch (status) {
     'pending' => StatusChip.pending(label: 'Pending'),
+    'approved' => StatusChip.active(label: 'Approved'),
     'active' => StatusChip.active(label: 'Active'),
     'revoked' => StatusChip.inactive(label: 'Revoked'),
     'expired' => StatusChip.inactive(label: 'Expired'),
+    'rejected' => StatusChip.failed(label: 'Rejected'),
     _ => StatusChip.unknown(label: status),
   };
 }
