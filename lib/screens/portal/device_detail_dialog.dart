@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/theme/app_colors.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/error_boundary.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
@@ -46,6 +47,9 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   String? _detailError;
   String? _activityError;
   String? _sessionsError;
+  int _detailRequest = 0;
+  int _activityRequest = 0;
+  int _sessionsRequest = 0;
 
   String get _id => widget.device['id']?.toString() ?? '';
 
@@ -58,92 +62,150 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
   }
 
   Future<void> _loadDetail() async {
+    final request = ++_detailRequest;
     try {
       final response = await widget.api.get(PortalSecurityPaths.device(_id));
-      if (!mounted) return;
+      if (!mounted || request != _detailRequest) return;
       if (response.statusCode == 200) {
-        setState(() => _detail = PortalApi.decode(response));
+        setState(() {
+          _detail = PortalApi.decode(response);
+          _detailError = null;
+        });
       } else {
         setState(() => _detailError = 'Device details are unavailable.');
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && request == _detailRequest) {
         setState(() => _detailError = 'Device details are unavailable.');
       }
     } finally {
-      if (mounted) setState(() => _detailLoading = false);
+      if (mounted && request == _detailRequest) {
+        setState(() => _detailLoading = false);
+      }
     }
   }
 
   Future<void> _loadActivity() async {
+    final request = ++_activityRequest;
     try {
       final response = await widget.api.get(
         PortalSecurityPaths.deviceActivity(_id),
       );
-      if (!mounted) return;
+      if (!mounted || request != _activityRequest) return;
       if (response.statusCode == 200) {
         setState(() {
           _activity = portalObjectList(PortalApi.decode(response), 'activity');
+          _activityError = null;
         });
       } else {
         setState(() => _activityError = 'Activity is not available.');
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && request == _activityRequest) {
         setState(() => _activityError = 'Activity is not available.');
       }
     } finally {
-      if (mounted) setState(() => _activityLoading = false);
+      if (mounted && request == _activityRequest) {
+        setState(() => _activityLoading = false);
+      }
     }
   }
 
   Future<void> _loadSessions() async {
+    final request = ++_sessionsRequest;
     try {
       final response = await widget.api.get(
         PortalSecurityPaths.deviceSessions(_id),
       );
-      if (!mounted) return;
+      if (!mounted || request != _sessionsRequest) return;
       if (response.statusCode == 200) {
         setState(() {
           _sessions = portalObjectList(PortalApi.decode(response), 'sessions');
+          _sessionsError = null;
         });
       } else {
         setState(() => _sessionsError = 'Sessions are not available.');
       }
     } catch (_) {
-      if (mounted) {
+      if (mounted && request == _sessionsRequest) {
         setState(() => _sessionsError = 'Sessions are not available.');
       }
     } finally {
-      if (mounted) setState(() => _sessionsLoading = false);
+      if (mounted && request == _sessionsRequest) {
+        setState(() => _sessionsLoading = false);
+      }
     }
+  }
+
+  void _retryDetail() {
+    if (!mounted || _detailLoading) return;
+    setState(() {
+      _detailLoading = true;
+      _detailError = null;
+    });
+    _loadDetail();
+  }
+
+  void _retryActivity() {
+    if (!mounted || _activityLoading) return;
+    setState(() {
+      _activityLoading = true;
+      _activityError = null;
+    });
+    _loadActivity();
+  }
+
+  void _retrySessions() {
+    if (!mounted || _sessionsLoading) return;
+    setState(() {
+      _sessionsLoading = true;
+      _sessionsError = null;
+    });
+    _loadSessions();
   }
 
   @override
   Widget build(BuildContext context) {
     final device = <String, dynamic>{...widget.device, ...?_detail};
+    final size = MediaQuery.sizeOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    // AlertDialog adds its own content padding. Reserve that padding when
+    // sizing the child so long names and narrow/keyboard viewports stay inside
+    // the dialog instead of forcing an overflow.
+    final contentWidth = (size.width - 80).clamp(160.0, 680.0).toDouble();
+    final contentHeight = (size.height - viewInsets.vertical - 176)
+        .clamp(80.0, 560.0)
+        .toDouble();
     // 详情对话框级边界：内容构建崩溃 → 兜底 UI + 重载，不破坏所在 tab 页。
     return ErrorBoundary(
       child: AlertDialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        constraints: BoxConstraints(maxWidth: contentWidth + 48),
         title: Text(
           device['device_name']?.toString().isNotEmpty == true
               ? device['device_name'].toString()
               : context.tr('Device details'),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
-        // 评估为无需 lazy：详情/活动/活跃会话三类区块均为小条目数（活跃会话
-        // 天然个位数），且处于对话框内无界高度滚动容器，lazy 需 shrinkWrap。
+        // 评估为无需 lazy：详情/活动/活跃会话三类 payload 均为小条目数；
+        // 有界滚动容器同时保证窄屏与键盘出现时仍能访问 Close。
         content: SizedBox(
-          width: 680,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _detailsSection(device),
-                const Divider(height: 32),
-                _activitySection(),
-                const Divider(height: 32),
-                _sessionsSection(),
-              ],
+          width: contentWidth,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: contentHeight),
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _detailsSection(device),
+                  const Divider(height: 32),
+                  _activitySection(),
+                  const Divider(height: 32),
+                  _sessionsSection(),
+                ],
+              ),
             ),
           ),
         ),
@@ -184,7 +246,9 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
               ),
           ],
         ),
-        if (_detailError != null) MessageBanner(_detailError),
+        if (_detailError != null) _sectionError(_detailError!, _retryDetail),
+        if (device['device_name']?.toString().isNotEmpty == true)
+          KvRow('Device name', device['device_name'].toString()),
         KvRow('Device ID', _id),
         if (device['type'] != null) KvRow('Type', '${device['type']}'),
         if (device['platform'] != null)
@@ -228,7 +292,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
             child: LinearProgressIndicator(),
           )
         else if (_activityError != null)
-          MessageBanner(_activityError)
+          _sectionError(_activityError!, _retryActivity)
         else if (_activity.isEmpty)
           const EmptyState(
             compact: true,
@@ -277,7 +341,7 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
             child: LinearProgressIndicator(),
           )
         else if (_sessionsError != null)
-          MessageBanner(_sessionsError)
+          _sectionError(_sessionsError!, _retrySessions)
         else if (_sessions.isEmpty)
           const EmptyState(
             compact: true,
@@ -304,6 +368,12 @@ class _DeviceDetailDialogState extends State<DeviceDetailDialog> {
       ],
     );
   }
+
+  Widget _sectionError(String error, VoidCallback onRetry) => ErrorStateCard(
+    message: context.tr(error),
+    onRetry: onRetry,
+    margin: const EdgeInsets.only(top: 12),
+  );
 }
 
 String _parts(Iterable<Object?> values) => values

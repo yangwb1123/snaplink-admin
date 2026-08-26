@@ -31,51 +31,76 @@ class _DeviceEditDialogState extends State<_DeviceEditDialog> {
     super.dispose();
   }
 
+  void _submit() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    Navigator.of(context).pop(
+      DeviceMetadataUpdate(name: _name.text.trim(), notes: _notes.text.trim()),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(context.tr('Edit device')),
-    content: SizedBox(
-      width: 440,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _name,
-              maxLength: 120,
-              autofocus: true,
-              decoration: InputDecoration(labelText: context.tr('Device name')),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _notes,
-              maxLength: 500,
-              maxLines: 3,
-              decoration: InputDecoration(
-                labelText: context.tr('Private notes'),
-                hintText: context.tr('For example: work laptop'),
-              ),
-            ),
-          ],
-        ),
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final viewInsets = MediaQuery.viewInsetsOf(context);
+    // Account for AlertDialog's horizontal content padding. This keeps the
+    // form usable on a phone instead of allowing its nominal width to overflow.
+    final contentWidth = (size.width - 80).clamp(160.0, 440.0).toDouble();
+    final contentHeight = (size.height - viewInsets.vertical - 176)
+        .clamp(120.0, 360.0)
+        .toDouble();
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      constraints: BoxConstraints(maxWidth: contentWidth + 48),
+      title: Text(
+        context.tr('Edit device'),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.of(context).pop(),
-        child: Text(context.strings.cancel),
-      ),
-      FilledButton(
-        onPressed: () => Navigator.of(context).pop(
-          DeviceMetadataUpdate(
-            name: _name.text.trim(),
-            notes: _notes.text.trim(),
+      content: SizedBox(
+        width: contentWidth,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: contentHeight),
+          child: SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: _name,
+                  maxLength: 120,
+                  autofocus: true,
+                  textInputAction: TextInputAction.next,
+                  onSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Device name'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _notes,
+                  maxLength: 500,
+                  maxLines: 3,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                  decoration: InputDecoration(
+                    labelText: context.tr('Private notes'),
+                    hintText: context.tr('For example: work laptop'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-        child: Text(context.strings.save),
       ),
-    ],
-  );
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.strings.cancel),
+        ),
+        FilledButton(onPressed: _submit, child: Text(context.strings.save)),
+      ],
+    );
+  }
 }
 
 Future<DeviceMetadataUpdate?> showDeviceEditDialog(
@@ -161,7 +186,8 @@ extension _DeviceFiltering on _DevicesTabState {
   bool _matchesDevice(Map<String, dynamic> device) {
     final type = _deviceType(device).toLowerCase();
     final status = _deviceStatus(device).toLowerCase();
-    return (_searchQuery.isEmpty || _deviceSearchText(device).contains(_searchQuery)) &&
+    return (_searchQuery.isEmpty ||
+            _deviceSearchText(device).contains(_searchQuery)) &&
         (_typeFilter == null || type == _typeFilter!.toLowerCase()) &&
         (_statusFilter == null || status == _statusFilter!.toLowerCase()) &&
         _matchesActivity(device);
@@ -171,8 +197,12 @@ extension _DeviceFiltering on _DevicesTabState {
     final filter = _activityFilter;
     if (filter == null) return true;
     final activity = _activityDate(device);
-    if (filter == 'Last 24 hours') return _within(activity, const Duration(hours: 24));
-    if (filter == 'Last 7 days') return _within(activity, const Duration(days: 7));
+    if (filter == 'Last 24 hours') {
+      return _within(activity, const Duration(hours: 24));
+    }
+    if (filter == 'Last 7 days') {
+      return _within(activity, const Duration(days: 7));
+    }
     if (activity == null) return true;
     return DateTime.now().toUtc().difference(activity.toUtc()) >
         const Duration(days: 7);

@@ -45,6 +45,7 @@ class _SecurityAccountCredentialsState
   }
 
   Future<void> _changePassword() async {
+    if (_passwordBusy) return;
     final current = _currentPassword.text;
     final next = _newPassword.text;
     if (current.isEmpty || next.isEmpty) {
@@ -108,6 +109,7 @@ class _SecurityAccountCredentialsState
   }
 
   Future<void> _sendEmailCode() async {
+    if (_emailBusy) return;
     final value = _newEmail.text.trim();
     if (value.isEmpty) {
       setState(() {
@@ -159,6 +161,7 @@ class _SecurityAccountCredentialsState
   }
 
   Future<void> _verifyEmailCode() async {
+    if (_emailBusy) return;
     final token = _emailToken.text.trim();
     if (token.isEmpty) {
       setState(() {
@@ -209,26 +212,28 @@ class _SecurityAccountCredentialsState
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      SecurityChangePasswordCard(
-        curPwCtrl: _currentPassword,
-        newPwCtrl: _newPassword,
-        pwBusy: _passwordBusy,
-        pwMsg: _passwordMessage,
-        pwOk: _passwordOk,
-        onChangePassword: _changePassword,
-      ),
-      SecurityChangeEmailCard(
-        newEmailCtrl: _newEmail,
-        emailTokenCtrl: _emailToken,
-        emailBusy: _emailBusy,
-        emailVerifyVisible: _emailVerifyVisible,
-        emailMsg: _emailMessage,
-        emailOk: _emailOk,
-        onSendCode: _sendEmailCode,
-        onVerifyCode: _verifyEmailCode,
-      ),
-    ],
+  Widget build(BuildContext context) => AutofillGroup(
+    child: Column(
+      children: [
+        SecurityChangePasswordCard(
+          curPwCtrl: _currentPassword,
+          newPwCtrl: _newPassword,
+          pwBusy: _passwordBusy,
+          pwMsg: _passwordMessage,
+          pwOk: _passwordOk,
+          onChangePassword: _changePassword,
+        ),
+        SecurityChangeEmailCard(
+          newEmailCtrl: _newEmail,
+          emailTokenCtrl: _emailToken,
+          emailBusy: _emailBusy,
+          emailVerifyVisible: _emailVerifyVisible,
+          emailMsg: _emailMessage,
+          emailOk: _emailOk,
+          onSendCode: _sendEmailCode,
+          onVerifyCode: _verifyEmailCode,
+        ),
+      ],
+    ),
   );
 }

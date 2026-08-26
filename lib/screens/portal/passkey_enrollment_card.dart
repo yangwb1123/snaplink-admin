@@ -36,6 +36,7 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
   }
 
   Future<void> _enroll() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _message = null;
@@ -46,6 +47,7 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
         if (_nameCtrl.text.trim().isNotEmpty)
           'display_name': _nameCtrl.text.trim(),
       });
+      if (!mounted) return;
       if (begin.statusCode == 404 || begin.statusCode == 501) {
         setState(() => _message = 'Passkey enrollment is not enabled.');
         return;
@@ -64,13 +66,14 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
         return;
       }
       final credential = await WebAuthnRegistration.create(options);
+      if (!mounted) return;
       final finish = await widget.api.post(
         '/me/mfa/webauthn/finish?session_id=${Uri.encodeComponent(sessionId)}',
         credential,
       );
+      if (!mounted) return;
       if (finish.statusCode == 201) {
         _nameCtrl.clear();
-        if (!mounted) return;
         setState(() {
           _ok = true;
           _message = 'Passkey added.';
@@ -105,6 +108,11 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
         const SizedBox(height: 12),
         TextField(
           controller: _nameCtrl,
+          autocorrect: false,
+          enableSuggestions: false,
+          textCapitalization: TextCapitalization.words,
+          textInputAction: TextInputAction.done,
+          keyboardType: TextInputType.name,
           decoration: InputDecoration(
             labelText: context.tr('Passkey name (optional)'),
             prefixIcon: const Icon(Icons.fingerprint),

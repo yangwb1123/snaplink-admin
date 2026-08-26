@@ -49,10 +49,7 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
               top: 12,
               live: true,
             ),
-          _providerForm(context, strings, selected),
-          if (widget.error != null) _errorNotice(context),
-          SizedBox(height: narrow ? 16 : 20),
-          _submitButton(context, strings, selected),
+          _providerPanel(context, strings, selected),
           if (widget.provider == 'password')
             ..._passwordActions(context, strings, theme),
           if (federatedProviders.isNotEmpty)
@@ -67,20 +64,80 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     List<LoginProviderDescriptor> providers, {
     required bool selectedBuiltin,
   }) {
-    return DropdownButtonFormField<String>(
-      initialValue: selectedBuiltin ? widget.provider : null,
-      hint: Text(strings.provider),
-      items: [
-        for (final item in providers)
-          DropdownMenuItem(value: item.id, child: Text(item.displayName)),
-      ],
-      onChanged: widget.loading
-          ? null
-          : (value) {
-              if (value != null) widget.onProviderChanged(value);
-            },
-      decoration: InputDecoration(labelText: strings.provider).applyDefaults(
-        AppTheme.loginInputDecoration(Theme.of(context).brightness),
+    final scheme = Theme.of(context).colorScheme;
+    final selectedProvider = selectedBuiltin ? widget.provider : null;
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Semantics(
+        container: true,
+        child: RadioGroup<String>(
+          groupValue: selectedProvider,
+          onChanged: widget.loading
+              ? (_) {}
+              : (value) {
+                  if (value != null) widget.onProviderChanged(value);
+                },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Text(
+                  strings.provider,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              for (final item in providers)
+                RadioListTile<String>(
+                  value: item.id,
+                  enabled: !widget.loading,
+                  selected: selectedProvider == item.id,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  activeColor: scheme.primary,
+                  title: Text(item.displayName, softWrap: true),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _providerPanel(
+    BuildContext context,
+    AppStrings strings,
+    LoginProviderDescriptor selected,
+  ) {
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Semantics(
+                container: true,
+                child: IgnorePointer(
+                  ignoring: widget.loading,
+                  child: _providerForm(context, strings, selected),
+                ),
+              ),
+              if (widget.error != null) ...[
+                const SizedBox(height: 16),
+                _errorNotice(context),
+              ],
+              const SizedBox(height: 16),
+              _submitButton(context, strings, selected),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -115,7 +172,6 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     return _notice(
       context.tr(widget.error!),
       Icons.error_outline,
-      top: 16,
       // Sentry error banner: explicit semantic foreground over the M3
       // error-container background.
       color: Theme.of(context).brightness == Brightness.dark
@@ -141,11 +197,14 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
         onPressed: widget.loading ? null : widget.onSubmit,
         style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
         child: widget.loading
-            ? const SizedBox.square(
-                dimension: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+            ? Semantics(
+                label: strings.loading,
+                child: const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               )
-            : Text(label),
+            : Text(label, softWrap: true, textAlign: TextAlign.center),
       ),
     );
   }
@@ -201,6 +260,80 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     ];
   }
 
+  Widget _federatedProviderButton(
+    BuildContext context,
+    LoginProviderDescriptor provider,
+  ) {
+    // Keep the existing compact renderer for ordinary labels. Long labels
+    // use the explicit flexible row below so the icon never competes with an
+    // unbounded Text child on a narrow viewport.
+    if (provider.effectiveButtonLabel.length <= 40) {
+      return _FederatedProviderButton(
+        provider: provider,
+        loading: widget.loading,
+        onPressed: () => widget.onFederatedSignIn(provider.id),
+      );
+    }
+
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final color = _parseFederatedButtonColor(provider.buttonColor);
+    final tint = color?.withValues(
+      alpha: theme.brightness == Brightness.dark ? 0.14 : 0.10,
+    );
+    final iconColor = color ?? scheme.primary;
+    final iconUrl = provider.safeIconUrl(ProductApiOrigin.baseUri);
+    final icon = iconUrl == null
+        ? Icon(Icons.login, color: iconColor)
+        : Image.network(
+            iconUrl,
+            width: 20,
+            height: 20,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => Icon(Icons.login, color: iconColor),
+          );
+
+    return OutlinedButton(
+      onPressed: widget.loading
+          ? null
+          : () => widget.onFederatedSignIn(provider.id),
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(48, 44),
+        backgroundColor: tint,
+        foregroundColor: scheme.onSurface,
+        side: color == null
+            ? null
+            : BorderSide(color: color.withValues(alpha: 0.65)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(width: 24, height: 24, child: Center(child: icon)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              context.tr(provider.effectiveButtonLabel),
+              textAlign: TextAlign.center,
+              softWrap: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color? _parseFederatedButtonColor(String raw) {
+    final match = RegExp(
+      r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$',
+    ).firstMatch(raw.trim());
+    if (match == null) return null;
+    final hex = match.group(1)!;
+    final flutterHex = hex.length == 6
+        ? 'ff$hex'
+        : '${hex.substring(6)}${hex.substring(0, 6)}';
+    return Color(int.parse(flutterHex, radix: 16));
+  }
+
   List<Widget> _federatedActions(
     BuildContext context,
     AppStrings strings,
@@ -222,12 +355,18 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
       ),
       SizedBox(height: narrow ? 12 : 16),
       for (final item in providers)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _FederatedProviderButton(
-            provider: item,
-            loading: widget.loading,
-            onPressed: () => widget.onFederatedSignIn(item.id),
+        Card(
+          margin: const EdgeInsets.only(bottom: 12),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: SizedBox(
+              width: double.infinity,
+              child: Semantics(
+                container: true,
+                child: _federatedProviderButton(context, item),
+              ),
+            ),
           ),
         ),
     ];

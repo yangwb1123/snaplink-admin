@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/app_strings.dart';
 
 /// 骨架屏形态：与真实内容形状匹配（列表行 / 指标卡）。
 ///
@@ -15,7 +16,8 @@ enum SkeletonVariant {
 }
 
 /// Skeleton loading placeholder for list items.
-/// Shows animated grey rectangles while content is loading.
+/// Shows animated grey rectangles while content is loading; reduced-motion
+/// settings keep the placeholder static and expose one loading status.
 ///
 /// 主题化骨架底色（onSurface 低 alpha，深浅色模式自适应）；列表、网格与
 /// 指标卡三种形态，均不可滚动（shrinkWrap），置于数据加载区域原位占位。
@@ -59,7 +61,7 @@ class _SkeletonListTileState extends State<SkeletonListTile>
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
+    );
     _animation = Tween<double>(begin: 0.3, end: 0.7).animate(_controller);
     if (widget.delay > Duration.zero) {
       _delayTimer = Timer(widget.delay, () {
@@ -67,6 +69,24 @@ class _SkeletonListTileState extends State<SkeletonListTile>
       });
     } else {
       _revealed = true;
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    // Control the controller from this State rather than relying on a child
+    // TickerMode: the provider lives on this element, above that child.
+    if (reduceMotion) {
+      _controller.stop();
+      // Reduced motion also skips the anti-flash delay: a loading state should
+      // be available immediately when animation is disabled.
+      _delayTimer?.cancel();
+      _delayTimer = null;
+      _revealed = true;
+    } else if (!_controller.isAnimating) {
+      _controller.repeat(reverse: true);
     }
   }
 
@@ -79,19 +99,28 @@ class _SkeletonListTileState extends State<SkeletonListTile>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
     final content = widget.crossAxis
         ? _buildGrid()
         : widget.variant == SkeletonVariant.card
         ? _buildCards()
         : _buildList();
-    // 快速加载防闪：delay 期间占位但不可见，超时后淡入；数据先到则整个
-    // 骨架从未可见，零闪屏且布局不跳变。
-    if (widget.delay == Duration.zero) return content;
-    return AnimatedOpacity(
-      opacity: _revealed ? 1 : 0,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-      child: content,
+    // Loading placeholders are decorative. Expose one localized status node
+    // instead of making every rectangle a separate screen-reader stop.
+    final visibleContent = reduceMotion || widget.delay == Duration.zero
+        ? content
+        : AnimatedOpacity(
+            opacity: _revealed ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: content,
+          );
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: context.strings.loading,
+      excludeSemantics: true,
+      child: visibleContent,
     );
   }
 
@@ -161,12 +190,17 @@ class _SkeletonListTileState extends State<SkeletonListTile>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Container(
-                      height: 10,
-                      width: 200,
-                      decoration: BoxDecoration(
-                        color: block(factor: 0.245),
-                        borderRadius: BorderRadius.circular(8),
+                    ConstrainedBox(
+                      // Keep the shortened line at 200px on roomy layouts,
+                      // but let it shrink inside nested cards at 320/400px.
+                      constraints: const BoxConstraints(maxWidth: 200),
+                      child: Container(
+                        width: double.infinity,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: block(factor: 0.245),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ],

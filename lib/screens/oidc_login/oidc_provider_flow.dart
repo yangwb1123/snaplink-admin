@@ -182,7 +182,13 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       }
 
       final rawProviders = outcome.data['providers'];
-      if (rawProviders is! List) return;
+      if (rawProviders is! List) {
+        // A non-discovery response is still a terminal best-effort probe:
+        // keep the built-in fallback usable instead of leaving the UI in an
+        // indeterminate discovery state.
+        _update(() => _providerDiscoveryComplete = true);
+        return;
+      }
       final seen = <String>{};
       final descriptors = rawProviders
           .map(LoginProviderDescriptor.fromWire)
@@ -205,6 +211,11 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       });
     } catch (_) {
       // Discovery is best-effort; direct login still owns the final decision.
+      // Mark the probe settled so the existing built-in fallback remains a
+      // deliberate, stable UI state rather than an indefinite loading state.
+      if (mounted) {
+        _update(() => _providerDiscoveryComplete = true);
+      }
     }
   }
 
