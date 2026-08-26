@@ -266,23 +266,7 @@ extension _UsageAnalyticsTabView on _UsageAnalyticsTabState {
               label: 'COUNT',
               width: 140,
               cardDetail: true,
-              builder: (context, i) {
-                final count = (rows[i]['count'] as num?) ?? 0;
-                final peak = i < 3 && count > 0;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (peak)
-                      StatusChip(
-                        label: 'Peak',
-                        color: AppColors.danger,
-                        icon: Icons.local_fire_department,
-                      ),
-                    const SizedBox(width: 8),
-                    Text(formatCount(count)),
-                  ],
-                );
-              },
+              builder: (context, i) => _tokenCountCell(rows[i], i),
             ),
           ],
         ),
@@ -293,6 +277,24 @@ extension _UsageAnalyticsTabView on _UsageAnalyticsTabState {
           ),
       ],
     ], icon: Icons.electric_bolt_outlined);
+  }
+
+  Widget _tokenCountCell(Map row, int index) {
+    final count = (row['count'] as num?) ?? 0;
+    final peak = index < 3 && count > 0;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (peak)
+          StatusChip(
+            label: 'Peak',
+            color: AppColors.danger,
+            icon: Icons.local_fire_department,
+          ),
+        const SizedBox(width: 8),
+        Text(formatCount(count)),
+      ],
+    );
   }
 
   Widget _subjectInspector(

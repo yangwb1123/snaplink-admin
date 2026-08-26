@@ -46,27 +46,7 @@ class TenantResidencySummary extends StatelessWidget {
             // card remains a metric/card surface while long tenant and region
             // values receive the full available width below the header.
             if (constraints.maxWidth < 560) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.business, size: 48),
-                      const SizedBox(width: 16),
-                      Expanded(child: details),
-                    ],
-                  ),
-                  ...residency,
-                  if (status case final chip?) ...[
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: chip,
-                    ),
-                  ],
-                ],
-              );
+              return _mobileSummary(details, residency, status);
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,6 +67,29 @@ class TenantResidencySummary extends StatelessWidget {
       ),
     );
   }
+
+  Widget _mobileSummary(
+    Widget details,
+    List<Widget> residency,
+    StatusChip? status,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.business, size: 48),
+          const SizedBox(width: 16),
+          Expanded(child: details),
+        ],
+      ),
+      ...residency,
+      if (status case final chip?) ...[
+        const SizedBox(height: 12),
+        Align(alignment: AlignmentDirectional.centerStart, child: chip),
+      ],
+    ],
+  );
 
   Widget _tenantDetails(
     BuildContext context,

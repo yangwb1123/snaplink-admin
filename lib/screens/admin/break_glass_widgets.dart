@@ -168,20 +168,7 @@ class BreakGlassSessionsList extends StatelessWidget {
               label: 'Details',
               width: 260, // R52：多段明细（原因/发起人/范围）两行省略，260 才不挤。
               cardDetail: true,
-              builder: (_, i) {
-                final session = sessions[i];
-                final reason = session['reason']?.toString() ?? '';
-                final createdBy = session['created_by']?.toString() ?? '';
-                final scope = session['scope']?.toString() ?? 'readonly';
-                return TableCellText(
-                  [
-                    if (reason.isNotEmpty) reason,
-                    'by $createdBy · scope: $scope',
-                  ].join('\n'),
-                  muted: true,
-                  maxLines: 2,
-                );
-              },
+              builder: (_, i) => _sessionDetails(sessions[i]),
             ),
             AdminDataColumn(
               id: 'id',
@@ -197,49 +184,8 @@ class BreakGlassSessionsList extends StatelessWidget {
               id: 'actions',
               label: '',
               width: 360,
-              builder: (_, i) {
-                final id = sessions[i]['id']?.toString() ?? '';
-                final status = sessions[i]['status']?.toString() ?? 'unknown';
-                final pending = status == 'pending';
-                final active = status == 'active';
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 260),
-                    child: Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: 4,
-                      runSpacing: 0,
-                      children: [
-                        if (pending)
-                          TextButton(
-                            onPressed: mutating ? null : () => onApprove(id),
-                            child: const LocalizedText('Approve'),
-                          ),
-                        if (active)
-                          TextButton(
-                            onPressed: mutating
-                                ? null
-                                : () => onImpersonate(id),
-                            child: const LocalizedText('Impersonate'),
-                          ),
-                        if (pending || active)
-                          TextButton(
-                            onPressed: mutating ? null : () => onRevoke(id),
-                            style: TextButton.styleFrom(
-                              // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                              foregroundColor: AppColors.semanticFor(
-                                Theme.of(context).brightness,
-                                AppColors.danger,
-                              ),
-                            ),
-                            child: const LocalizedText('Revoke'),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              builder: (_, i) =>
+                  _sessionActions(context, sessions[i], mutating: mutating),
             ),
           ],
           itemCount: sessions.length,
@@ -248,6 +194,80 @@ class BreakGlassSessionsList extends StatelessWidget {
         ),
     ],
   );
+
+  Widget _sessionDetails(Map<String, dynamic> session) {
+    final reason = session['reason']?.toString() ?? '';
+    final createdBy = session['created_by']?.toString() ?? '';
+    final scope = session['scope']?.toString() ?? 'readonly';
+    return TableCellText(
+      [
+        if (reason.isNotEmpty) reason,
+        'by $createdBy · scope: $scope',
+      ].join('\n'),
+      muted: true,
+      maxLines: 2,
+    );
+  }
+
+  List<Widget> _sessionActionWidgets(
+    BuildContext context, {
+    required String id,
+    required bool pending,
+    required bool active,
+    required bool mutating,
+  }) => [
+    if (pending)
+      TextButton(
+        onPressed: mutating ? null : () => onApprove(id),
+        child: const LocalizedText('Approve'),
+      ),
+    if (active)
+      TextButton(
+        onPressed: mutating ? null : () => onImpersonate(id),
+        child: const LocalizedText('Impersonate'),
+      ),
+    if (pending || active)
+      TextButton(
+        onPressed: mutating ? null : () => onRevoke(id),
+        style: TextButton.styleFrom(
+          // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+          foregroundColor: AppColors.semanticFor(
+            Theme.of(context).brightness,
+            AppColors.danger,
+          ),
+        ),
+        child: const LocalizedText('Revoke'),
+      ),
+  ];
+
+  Widget _sessionActions(
+    BuildContext context,
+    Map<String, dynamic> session, {
+    required bool mutating,
+  }) {
+    final id = session['id']?.toString() ?? '';
+    final status = session['status']?.toString() ?? 'unknown';
+    final pending = status == 'pending';
+    final active = status == 'active';
+    return Align(
+      alignment: Alignment.centerRight,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 4,
+          runSpacing: 0,
+          children: _sessionActionWidgets(
+            context,
+            id: id,
+            pending: pending,
+            active: active,
+            mutating: mutating,
+          ),
+        ),
+      ),
+    );
+  }
 
   StatusChip _sessionStatusChip(String status) => switch (status) {
     'pending' => StatusChip.pending(label: 'Pending'),

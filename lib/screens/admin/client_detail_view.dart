@@ -34,23 +34,7 @@ extension _ClientDetailScreenView on _ClientDetailScreenState {
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _infoCard(context),
-                        if (_secretRotationOutcomeUnknown)
-                          AdminOpsHelpers.unknownOutcomeCard(
-                            context,
-                            onAcknowledge: _mutating
-                                ? null
-                                : _acknowledgeSecretRotation,
-                          ),
-                        if (_error != null) ErrorStateCard(message: _error!),
-                        if (_client != null) ...[
-                          const SizedBox(height: 16),
-                          _miniStrip(context),
-                        ],
-                        const SizedBox(height: 16),
-                        _actionsCard(context),
-                      ],
+                      children: _detailSections(context),
                     ),
                   ),
                 ),
@@ -62,6 +46,19 @@ extension _ClientDetailScreenView on _ClientDetailScreenState {
   /// 加载失败三态之一：统一 ErrorStateView（图标 + 标题 + 明细 + 重试）。
   Widget _errorState(String error) =>
       ErrorStateView(message: error, onRetry: _load);
+
+  List<Widget> _detailSections(BuildContext context) => [
+    _infoCard(context),
+    if (_secretRotationOutcomeUnknown)
+      AdminOpsHelpers.unknownOutcomeCard(
+        context,
+        onAcknowledge: _mutating ? null : _acknowledgeSecretRotation,
+      ),
+    if (_error != null) ErrorStateCard(message: _error!),
+    if (_client != null) ...[const SizedBox(height: 16), _miniStrip(context)],
+    const SizedBox(height: 16),
+    _actionsCard(context),
+  ];
 
   /// 真实值 mini strip（grant types / scopes / secret expiry），顺序按
   /// `clientDetailMetricOrder(persona)`（设计 §4.9 T-06）。无箭头。

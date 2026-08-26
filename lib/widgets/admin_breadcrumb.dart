@@ -161,16 +161,23 @@ class AdminBreadcrumb extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Icon(
-            Icons.chevron_right,
-            size: 16,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 4),
-          ...crumbs,
-        ],
+      // Resource ids and nested sub-resources can exceed a phone width. Keep
+      // the breadcrumb as one navigable trail, but make the trail itself
+      // horizontally scrollable instead of letting a long deep link overflow
+      // the page.
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Icon(
+              Icons.chevron_right,
+              size: 16,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 4),
+            ...crumbs,
+          ],
+        ),
       ),
     );
   }

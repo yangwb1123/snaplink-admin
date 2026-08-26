@@ -6,6 +6,8 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 
+part 'user_detail_lifecycle_view.dart';
+
 /// 模块强调色（identity 组 indigo-violet）：详情头部与子资源图标统一按组色上色。
 Color _userAccent() => adminModuleIconColor('users');
 
@@ -19,38 +21,83 @@ String _short(String value, {int max = 120}) =>
 /// complete value when a narrow card has to ellipsize it.
 Widget _longValue(String value, {bool bold = false}) => Tooltip(
   message: value,
-  child: Text(value, maxLines: 2, overflow: TextOverflow.ellipsis,
-      style: bold ? const TextStyle(fontWeight: FontWeight.w600) : null),
+  child: Text(
+    value,
+    maxLines: 2,
+    overflow: TextOverflow.ellipsis,
+    style: bold ? const TextStyle(fontWeight: FontWeight.w600) : null,
+  ),
 );
-Widget _resourceCard(BuildContext context, {required String title,
-  required IconData icon, int? count, required List<Widget> children}) => Card(
-  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 12), child: Row(
-      children: [Icon(icon, size: 20, color: _userAccent()),
-        const SizedBox(width: 8), Expanded(child: LocalizedText(title,
-          maxLines: 2, overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleMedium)),
-        if (count != null) ...[const SizedBox(width: 8),
-          Chip(label: Text('$count'), visualDensity: VisualDensity.compact)],
-      ],
-    )),
-    const Divider(height: 1), ...children,
-  ]),
+Widget _resourceCard(
+  BuildContext context, {
+  required String title,
+  required IconData icon,
+  int? count,
+  required List<Widget> children,
+}) => Card(
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _userAccent()),
+            const SizedBox(width: 8),
+            Expanded(
+              child: LocalizedText(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            if (count != null) ...[
+              const SizedBox(width: 8),
+              Chip(label: Text('$count'), visualDensity: VisualDensity.compact),
+            ],
+          ],
+        ),
+      ),
+      const Divider(height: 1),
+      ...children,
+    ],
+  ),
 );
 
 Widget _avatar(IconData icon) => CircleAvatar(
   backgroundColor: _userAccent().withValues(alpha: 0.12),
-  foregroundColor: _userAccent(), child: Icon(icon, size: 20));
+  foregroundColor: _userAccent(),
+  child: Icon(icon, size: 20),
+);
 
-Widget _dangerButton(BuildContext context, String label, VoidCallback? action) =>
-    TextButton(onPressed: action, style: TextButton.styleFrom(
-      foregroundColor: AppColors.semanticFor(Theme.of(context).brightness,
-          AppColors.danger)), child: LocalizedText(label));
+Widget _dangerButton(
+  BuildContext context,
+  String label,
+  VoidCallback? action,
+) => TextButton(
+  onPressed: action,
+  style: TextButton.styleFrom(
+    foregroundColor: AppColors.semanticFor(
+      Theme.of(context).brightness,
+      AppColors.danger,
+    ),
+  ),
+  child: LocalizedText(label),
+);
 
 Widget _emptyResource(IconData icon, String title) => ListView(
   padding: const EdgeInsets.all(16),
-  children: [Card(child: EmptyState(variant: EmptyStateVariant.empty,
-    icon: icon, title: title, compact: true))],
+  children: [
+    Card(
+      child: EmptyState(
+        variant: EmptyStateVariant.empty,
+        icon: icon,
+        title: title,
+        compact: true,
+      ),
+    ),
+  ],
 );
 
 /// Shared card/list shell for optional user resources.
@@ -59,17 +106,32 @@ class _UserResourceList extends StatelessWidget {
   final IconData icon;
   final List<dynamic> items;
   final Widget Function(BuildContext, dynamic) itemBuilder;
-  const _UserResourceList({required this.title, required this.emptyTitle,
-    required this.icon, required this.items, required this.itemBuilder});
+  const _UserResourceList({
+    required this.title,
+    required this.emptyTitle,
+    required this.icon,
+    required this.items,
+    required this.itemBuilder,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return _emptyResource(icon, emptyTitle);
-    return ListView(padding: const EdgeInsets.all(16), children: [
-      _resourceCard(context, title: title, icon: icon, count: items.length,
-        children: ListTile.divideTiles(context: context,
-          tiles: [for (final item in items) itemBuilder(context, item)]).toList()),
-    ]);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _resourceCard(
+          context,
+          title: title,
+          icon: icon,
+          count: items.length,
+          children: ListTile.divideTiles(
+            context: context,
+            tiles: [for (final item in items) itemBuilder(context, item)],
+          ).toList(),
+        ),
+      ],
+    );
   }
 }
 
@@ -100,8 +162,21 @@ class UserDetailHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _longValue(_value(user?['id']), bold: true),
-                LocalizedText('Provider: {provider}', args: {'provider': user?['provider'] ?? ''}, maxLines: 2, overflow: TextOverflow.ellipsis),
-                LocalizedText('External ID: {external_id}', args: {'external_id': user?['externalId'] ?? user?['external_id'] ?? ''}, maxLines: 2, overflow: TextOverflow.ellipsis),
+                LocalizedText(
+                  'Provider: {provider}',
+                  args: {'provider': user?['provider'] ?? ''},
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                LocalizedText(
+                  'External ID: {external_id}',
+                  args: {
+                    'external_id':
+                        user?['externalId'] ?? user?['external_id'] ?? '',
+                  },
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
@@ -122,8 +197,12 @@ class UserDetailTabBar extends StatelessWidget {
   final List<String> labels;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
-  const UserDetailTabBar({super.key, required this.labels,
-    required this.selectedIndex, required this.onSelected});
+  const UserDetailTabBar({
+    super.key,
+    required this.labels,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
 
   @override
   Widget build(BuildContext context) => FocusTraversalGroup(
@@ -270,130 +349,5 @@ class UserMfaView extends StatelessWidget {
         ),
       );
     },
-  );
-}
-
-/// Lifecycle is a small vertical timeline of current state and transitions.
-class UserLifecycleView extends StatelessWidget {
-  final Map<String, dynamic> lifecycle;
-  final bool showBackButton;
-  final VoidCallback onBack;
-  const UserLifecycleView({
-    super.key,
-    required this.lifecycle,
-    required this.showBackButton,
-    required this.onBack,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final state = lifecycle['state']?.toString() ?? 'active';
-    final transitions =
-        (lifecycle['allowed_transitions'] as List?)
-            ?.map((item) => item.toString())
-            .toList() ??
-        [];
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _resourceCard(
-          context,
-          title: 'Account lifecycle',
-          icon: Icons.route,
-          children: [
-            _timelineStep(
-              context,
-              icon: Icons.radio_button_checked,
-              isLast: transitions.isEmpty,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  LocalizedText(
-                    'Current state: {state}',
-                    args: {'state': state},
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  StatusChip.info(label: state),
-                ],
-              ),
-            ),
-            if (transitions.isNotEmpty)
-              _timelineStep(
-                context,
-                icon: Icons.alt_route,
-                isLast: true,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const LocalizedText('Allowed transitions:'),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final transition in transitions)
-                          Tooltip(
-                            message: transition,
-                            child: Chip(
-                              label: Text(
-                                transition,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-        if (showBackButton) ...[
-          const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: onBack,
-            icon: const Icon(Icons.arrow_back),
-            label: const LocalizedText('Back to user list'),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-Widget _timelineStep(
-  BuildContext context, {
-  required IconData icon,
-  required bool isLast,
-  required Widget child,
-}) {
-  final line = Theme.of(context).colorScheme.outlineVariant;
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      SizedBox(
-        width: 32,
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            if (!isLast)
-              Positioned(
-                top: 16,
-                bottom: 0,
-                child: Container(width: 2, color: line),
-              ),
-            Icon(icon, size: 22, color: _userAccent()),
-          ],
-        ),
-      ),
-      Expanded(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 12, 16, 16),
-          child: child,
-        ),
-      ),
-    ],
   );
 }

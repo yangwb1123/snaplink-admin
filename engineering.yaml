@@ -20,7 +20,7 @@ filesize:
     - "windows/"
     - "web/"
   exemptions:
-    # Complex screens that genuinely need more lines
+    # Application entrypoint retained as an explicit exemption.
     - "lib/main.dart"
     # i18n 数据表：翻译键值数据表（Map 字面量），拆分会破坏合并架构
     # （snaplink i18n catalog 按源文件合并生成），故登记豁免、不拆分。
@@ -28,18 +28,9 @@ filesize:
     - "lib/i18n/app_strings_source_admin_core.dart"
     - "lib/i18n/app_strings_source_admin_features.dart"
     - "lib/i18n/app_strings_source_portal.dart"
-    # 2026-08 pages-ui refactor: componentized lists/status/empty states
-    # pushed these pages just past the budget (1-38 lines over)
-    - "lib/screens/admin/device_security_widgets.dart"
-    - "lib/screens/admin/recovery_releases_tab.dart"
-    # API client files (dense with docs and methods)
+    # API client exceeding the 400-line budget (dense with docs and methods).
     - "lib/api/sso_client.dart"
-    - "lib/api/snaplink_admin_types.dart"
-    - "lib/api/portal_api.dart"
-    - "lib/api/oidc_login_api.dart"
-    - "lib/api/device_verify_api.dart"
-    - "lib/api/setup_api.dart"
-    # Legacy re-export forwarders (thin, will be removed)
+    # Legacy re-export forwarders (thin compatibility layers; will be removed).
     - "lib/sso_client.dart"
     - "lib/screens/admin/snaplink_admin_api.dart"
     - "lib/screens/admin/snaplink_admin_types.dart"
@@ -47,39 +38,6 @@ filesize:
     - "lib/screens/oidc_login/oidc_login_api.dart"
     - "lib/screens/device/device_verify_api.dart"
     - "lib/screens/setup/setup_api.dart"
-    - "lib/screens/admin/clients_tab.dart"
-    # Dashboard and complex tabs with detail route resolution
-    - "lib/screens/admin/dashboard_screen.dart"
-    - "lib/screens/admin/token_security_tab.dart"
-    - "lib/screens/admin/governance_tab.dart"
-    - "lib/screens/admin/admin_operations_tab.dart"
-    # 2026-08 continuation: cohesive stateful screens remain intentionally
-    # over the generic 400-line budget while their behavior-heavy sections
-    # are being componentized. Keep these entries explicit (new files still
-    # fail the budget) and track the next decomposition opportunities in
-    # docs/TECH_DEBT.md rather than silently widening max_lines.
-    - "lib/screens/admin/admin_overview_tab.dart"
-    - "lib/screens/admin/break_glass_tab.dart"
-    - "lib/screens/admin/client_detail_screen.dart"
-    - "lib/screens/admin/commerce/commerce_tab.dart"
-    - "lib/screens/admin/connections_tab.dart"
-    - "lib/screens/admin/crypto_keys_tab.dart"
-    - "lib/screens/admin/domains_tab.dart"
-    - "lib/screens/admin/governance_widgets.dart"
-    - "lib/screens/admin/local_users_tab.dart"
-    - "lib/screens/admin/privacy_compliance_tab.dart"
-    - "lib/screens/admin/tenant_detail_screen.dart"
-    - "lib/screens/admin/tenants_tab.dart"
-    - "lib/screens/admin/threat_policies_tab.dart"
-    - "lib/screens/admin/usage_analytics_tab.dart"
-    - "lib/screens/admin/user_support_cards.dart"
-    - "lib/screens/admin/user_support_tab.dart"
-    - "lib/screens/admin/users_tab.dart"
-    - "lib/screens/admin/webhooks_tab.dart"
-    - "lib/screens/developer/manage_panel.dart"
-    - "lib/screens/oidc_login/account_flow_views.dart"
-    - "lib/screens/oidc_login/oidc_login_view_flow.dart"
-    - "lib/screens/setup/setup_widgets.dart"
   required_exemptions:
     - "lib/main.dart"
 

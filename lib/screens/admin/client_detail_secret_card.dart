@@ -87,6 +87,16 @@ class _ClientSecretDialogState extends State<ClientSecretDialog> {
     );
   }
 
+  List<Widget> _copyAction(BuildContext context) => [
+    if (widget.copyable)
+      IconButton(
+        icon: const Icon(Icons.copy_outlined),
+        tooltip: 'Copy to clipboard'.localized,
+        visualDensity: VisualDensity.compact,
+        onPressed: () => _copySecret(context),
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -147,13 +157,7 @@ class _ClientSecretDialogState extends State<ClientSecretDialog> {
                     visualDensity: VisualDensity.compact,
                     onPressed: _toggleVisibility,
                   ),
-                  if (widget.copyable)
-                    IconButton(
-                      icon: const Icon(Icons.copy_outlined),
-                      tooltip: 'Copy to clipboard'.localized,
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () => _copySecret(context),
-                    ),
+                  ..._copyAction(context),
                 ],
               ),
             ),

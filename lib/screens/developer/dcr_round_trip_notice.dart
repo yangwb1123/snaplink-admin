@@ -76,23 +76,7 @@ class DcrRoundTripNotice extends StatelessWidget {
                     ).textTheme.bodySmall?.copyWith(color: foreground),
                   )
                 else
-                  for (final warning in safety.warnings)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.info_outline, size: 14, color: foreground),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              context.tr(warning),
-                              style: TextStyle(color: foreground),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                  ..._roundTripWarnings(context, safety.warnings, foreground),
               ],
             ),
           ),
@@ -101,6 +85,30 @@ class DcrRoundTripNotice extends StatelessWidget {
     );
   }
 }
+
+List<Widget> _roundTripWarnings(
+  BuildContext context,
+  List<String> warnings,
+  Color foreground,
+) => [
+  for (final warning in warnings)
+    Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 14, color: foreground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.tr(warning),
+              style: TextStyle(color: foreground),
+            ),
+          ),
+        ],
+      ),
+    ),
+];
 
 /// Branded banner for the manage tab: icon tile + RFC 7592 management
 /// posture (RAT-authenticated read/update/delete of a registered client).

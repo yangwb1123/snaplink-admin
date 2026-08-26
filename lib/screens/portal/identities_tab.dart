@@ -243,6 +243,61 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
     );
   }
 
+  List<Widget> _identityListChildren(
+    BuildContext context,
+    List<Map<String, dynamic>> identities,
+  ) => [
+    MessageBanner(_notice, ok: true),
+    if (_identities.isNotEmpty) ...[
+      Align(
+        alignment: Alignment.centerLeft,
+        child: StatusChip(
+          label: context.tr('Linked identities'),
+          color: AppColors.accentBlue,
+          icon: Icons.link,
+        ),
+      ),
+      const SizedBox(height: 8),
+      SearchFilterBar(
+        controller: _filterCtrl,
+        hintText: context.strings.search,
+        filterOptions: _providerOptions,
+        selectedFilter: _providerFilter,
+        onSearchChanged: _onSearchChanged,
+        onFilterChanged: (value) => setState(() => _providerFilter = value),
+      ),
+      const SizedBox(height: 12),
+    ],
+    if (_identities.isEmpty)
+      const EmptyState(
+        compact: true,
+        icon: Icons.link_outlined,
+        title: 'No external identities are linked to this account.',
+      )
+    else if (identities.isEmpty)
+      EmptyState(
+        compact: true,
+        variant: EmptyStateVariant.noMatch,
+        title: 'No matches',
+        actionLabel: 'Clear filter',
+        actionIcon: Icons.filter_alt_off,
+        onAction: _clearFilters,
+      )
+    else
+      PortalCard(
+        title: 'External sign-in methods',
+        children: _identityRows(context, identities),
+      ),
+  ];
+
+  List<Widget> _identityRows(
+    BuildContext context,
+    List<Map<String, dynamic>> identities,
+  ) => [
+    for (final (index, identity) in identities.indexed)
+      StaggeredFadeIn(index: index, child: _identityRow(context, identity)),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -306,59 +361,10 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
                   onRefresh: _load,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    children: [
-                      MessageBanner(_notice, ok: true),
-                      if (_identities.isNotEmpty) ...[
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: StatusChip(
-                            label: context.tr('Linked identities'),
-                            color: AppColors.accentBlue,
-                            icon: Icons.link,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        SearchFilterBar(
-                          controller: _filterCtrl,
-                          hintText: context.strings.search,
-                          filterOptions: _providerOptions,
-                          selectedFilter: _providerFilter,
-                          onSearchChanged: _onSearchChanged,
-                          onFilterChanged: (value) =>
-                              setState(() => _providerFilter = value),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-                      if (_identities.isEmpty)
-                        const EmptyState(
-                          compact: true,
-                          icon: Icons.link_outlined,
-                          title:
-                              'No external identities are linked to this '
-                              'account.',
-                        )
-                      else if (filteredIdentities.isEmpty)
-                        EmptyState(
-                          compact: true,
-                          variant: EmptyStateVariant.noMatch,
-                          title: 'No matches',
-                          actionLabel: 'Clear filter',
-                          actionIcon: Icons.filter_alt_off,
-                          onAction: _clearFilters,
-                        )
-                      else
-                        PortalCard(
-                          title: 'External sign-in methods',
-                          children: [
-                            for (final (index, identity)
-                                in filteredIdentities.indexed)
-                              StaggeredFadeIn(
-                                index: index,
-                                child: _identityRow(context, identity),
-                              ),
-                          ],
-                        ),
-                    ],
+                    children: _identityListChildren(
+                      context,
+                      filteredIdentities,
+                    ),
                   ),
                 ),
         ),

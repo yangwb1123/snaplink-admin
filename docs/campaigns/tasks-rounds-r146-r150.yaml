@@ -1,0 +1,78 @@
+# R146-R150：预算豁免收口、技术债同步与全站终检
+# R141-R145 已完成页面拆分；本批不新增业务功能，不改变 API/路由/安全语义。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r146-r150.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R146：收口 engineering.yaml 中已过时的 UI filesize 豁免。先读取当前
+    engineering.yaml 与实际 Dart 行数，确认 R121-R145 已将页面 root/part 控制在
+    400 行以内。只修改 engineering.yaml：移除已经 <=400 行的 lib/screens 页面豁免，
+    包括旧的 device_security_widgets、recovery_releases_tab，以及 R121-R145 已收敛的
+    admin/commerce、admin detail、governance、threat、support、users、dashboard、
+    oidc account flow、setup 等页面条目；保留真正 >400 的 i18n 数据表、API client、
+    main.dart 和明确仍属兼容转发层的豁免，并保留 required_exemptions/main.dart。
+
+    不修改任何 lib/test/API/路由文件，不扩大 max_lines，不新增豁免，不改变业务语义。
+    保持 YAML 注释准确，运行 python3 checks/filesize.py、python3 checks/directory_fanout.py、
+    dart format --output=none --set-exit-if-changed（仅检查已有 Dart），输出
+    docs/ui/pages-per-page/r146-engineering-exemptions-cleanup.md。
+  output: docs/ui/pages-per-page/r146-engineering-exemptions-cleanup.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && dart format --output=none --set-exit-if-changed lib/screens"
+
+- prompt: |
+    R147：同步 docs/TECH_DEBT.md 的结构债台账。读取当前工作树与 engineering.yaml，准确更新
+    P2 上帝文件数量、实际 >400 Dart 文件、已完成 R121-R145 的拆分范围、剩余有意豁免（i18n/API）
+    和严格结构扫描的非阻塞 heuristic warning；不要保留“33 个超预算页面”这类已过时数字，
+    不要把 i18n Map 数据表/API client 误报成 UI 页面债。保留已清零的历史项目与统一模式债说明，
+    记录 Developer census、OIDC 文案边界、part budget 和 400 行边界。
+
+    只允许修改已跟踪的 docs/TECH_DEBT.md，不修改 lib/test/engineering.yaml，不新增功能。文档必须
+    与当前代码核对，运行 git diff --check 和 python3 checks/filesize.py；输出
+    docs/ui/pages-per-page/r147-tech-debt-reconciliation.md。
+  output: docs/ui/pages-per-page/r147-tech-debt-reconciliation.md
+  validate: "cd {cwd} && git diff --check && python3 checks/filesize.py"
+
+- prompt: |
+    R148：严格结构与组件使用审查。读取当前 lib/screens 全部页面和已有 part/view，运行
+    python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib/screens --strict --json，
+    将 warning 区分为可安全提取的控制流嵌套/决策点与有意保留的 API-call/复杂表单/服务协议。
+    只在有明确、纯结构收益时修改现有 screen/part：提取私有纯展示 helper 或同 library
+    part，保持 widget tree、顺序、文案、状态、API、路由、认证、Session、MFA、Consent、
+    设备码、Checkout、secret、unknown-outcome、分页筛选和 table/card/list/timeline 语义完全不变；
+    没有明确收益则不改代码。所有新 Dart 文件 <=400 行。
+
+    严禁新增功能、依赖、测试、英文 `audit` 到 portal/developer/oidc_login 源码，严禁修改
+    lib/api 和工程阈值。运行 dart format、flutter analyze；输出
+    docs/ui/pages-per-page/r148-strict-structure-review.md，列出修改或明确保留的 warning。
+  output: docs/ui/pages-per-page/r148-strict-structure-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && python3 checks/filesize.py"
+
+- prompt: |
+    R149：路由/子菜单 UI 回归审查。对照实际实现复核 Admin、Portal、Developer、OIDC、Device、
+    Setup、Settings、Login 的入口和子菜单：桌面关系数据使用 table、<640px 使用 card，线性流
+    使用 list/timeline，汇总使用 metric/card；检查 deep link、rail/drawer、SectionSelector、
+    capability loading/unknown/unavailable、分页首末/非首页空页、搜索筛选回第一页、loading/
+    empty/error/retry、busy/确认、keyboard/a11y、320/400/640/768/桌面响应式行为。
+
+    只允许修复明确的纯 UI 结构问题，且只能修改已有 UI 文件或同目录 part；不得改变 API、路由、
+    能力门控、认证、Session、MFA、Consent、设备码、Checkout、secret、导出和安全协议语义，
+    portal/developer/oidc_login 源码不得新增英文字样 audit。若无明确问题只输出报告。运行
+    flutter analyze、受影响测试和 git diff --check，输出
+    docs/ui/pages-per-page/r149-route-submenu-regression.md。
+  output: docs/ui/pages-per-page/r149-route-submenu-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_shell_test.dart test/admin_nav_mode_test.dart test/portal_entry_test.dart test/developer_api_test.dart test/oidc_account_flow_test.dart test/setup_screen_test.dart test/settings_screen_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R150：最终质量门禁。读取 R146-R149 报告与当前工作树；若存在明确的纯结构问题，只能修复
+    本批允许范围内的问题，不得新增业务/测试/依赖，不得修改 API、路由、认证、安全协议或
+    portal/developer/oidc_login 的英文 `audit` 边界。检查所有 Dart 文件的 filesize（400 行；
+    engineering.yaml 中仅保留有理由的豁免）、part 引用唯一性、docs/ui 顶层 fan-out <=12、
+    Developer 13-file census、OIDC client_id 单一来源、spacing/icon/i18n/三态门禁。
+
+    运行 dart format、flutter analyze、全量 flutter test、browser smoke、make build-prod、
+    make release-artifact-check、Python unit、python3 cli.py harness；输出
+    docs/ui/pages-per-page/r150-final-audit-16.md。最后一行严格为 VERDICT: PASS - ... 或
+    VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r150-final-audit-16.md
+  validate: "cd {cwd} && python3 checks/filesize.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"

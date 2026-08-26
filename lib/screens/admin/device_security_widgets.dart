@@ -132,23 +132,7 @@ class DeviceListPanel extends StatelessWidget {
               AdminDataColumn(
                 id: 'trust',
                 label: 'Trust',
-                builder: (_, i) {
-                  final device = devices[i];
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      _TrustChip(device: device),
-                      if (device['suspicious'] == true)
-                        StatusChip(
-                          label: 'Suspicious',
-                          color: AppColors.warning,
-                          icon: Icons.warning_amber_outlined,
-                        ),
-                    ],
-                  );
-                },
+                builder: (_, i) => _trustCell(devices[i]),
               ),
               AdminDataColumn(
                 id: 'actions',
@@ -168,6 +152,21 @@ class DeviceListPanel extends StatelessWidget {
           ),
       ],
     ),
+  );
+
+  Widget _trustCell(DeviceJson device) => Wrap(
+    spacing: 8,
+    runSpacing: 4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      _TrustChip(device: device),
+      if (device['suspicious'] == true)
+        StatusChip(
+          label: 'Suspicious',
+          color: AppColors.warning,
+          icon: Icons.warning_amber_outlined,
+        ),
+    ],
   );
 
   Widget _deviceAvatar(BuildContext context, DeviceJson device) {

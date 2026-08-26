@@ -232,6 +232,26 @@ class _ConsentsTabState extends State<ConsentsTab> {
     );
   }
 
+  List<Widget> _consentListChildren(BuildContext context) => [
+    MessageBanner(_notice, ok: true),
+    if (_consents.isEmpty)
+      const EmptyState(
+        compact: true,
+        icon: Icons.apps_outlined,
+        title: 'No connected applications.',
+      )
+    else
+      PortalCard(
+        title: 'Authorized applications',
+        children: _consentRows(context),
+      ),
+  ];
+
+  List<Widget> _consentRows(BuildContext context) => [
+    for (final (index, consent) in _consents.indexed)
+      StaggeredFadeIn(index: index, child: _consentRow(context, consent)),
+  ];
+
   void _revokeError(String clientId) {
     showAppSnackBar(
       context,
@@ -305,26 +325,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
                   onRefresh: _load,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                    children: [
-                      MessageBanner(_notice, ok: true),
-                      if (_consents.isEmpty)
-                        const EmptyState(
-                          compact: true,
-                          icon: Icons.apps_outlined,
-                          title: 'No connected applications.',
-                        )
-                      else
-                        PortalCard(
-                          title: 'Authorized applications',
-                          children: [
-                            for (final (index, consent) in _consents.indexed)
-                              StaggeredFadeIn(
-                                index: index,
-                                child: _consentRow(context, consent),
-                              ),
-                          ],
-                        ),
-                    ],
+                    children: _consentListChildren(context),
                   ),
                 ),
         ),

@@ -67,6 +67,32 @@ class SettingsThemeOptionTile extends StatefulWidget {
 class _SettingsThemeOptionTileState extends State<SettingsThemeOptionTile> {
   bool _focused = false;
 
+  List<Widget> _tileChildren(BuildContext context, ColorScheme colorScheme) => [
+    Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(widget.icon, size: 20, color: widget.iconColor),
+        const SizedBox(height: 4),
+        Text(
+          widget.caption,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: widget.selected
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
+    ),
+    if (widget.selected)
+      Positioned(
+        right: 0,
+        top: 0,
+        child: Icon(Icons.check_circle, size: 14, color: colorScheme.primary),
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -103,37 +129,7 @@ class _SettingsThemeOptionTileState extends State<SettingsThemeOptionTile> {
             child: InkWell(
               onTap: widget.onTap,
               onFocusChange: (focused) => setState(() => _focused = focused),
-              child: Stack(
-                children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(widget.icon, size: 20, color: widget.iconColor),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.caption,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: widget.selected
-                              ? colorScheme.primary
-                              : colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (widget.selected)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      child: Icon(
-                        Icons.check_circle,
-                        size: 14,
-                        color: colorScheme.primary,
-                      ),
-                    ),
-                ],
-              ),
+              child: Stack(children: _tileChildren(context, colorScheme)),
             ),
           ),
         ),

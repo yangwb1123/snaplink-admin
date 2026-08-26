@@ -46,16 +46,20 @@ extension _PortalScreenShell on _PortalScreenState {
   ];
 
   /// 各 tab 的组归属（与 _destinations 顺序一致，用组标签作 key）。
+  /// Tab 顺序保留既有 deep-link 索引：notifications 位于 organizations
+  /// 之后，因此不能按连续区间推导 Connections/Data。
   static const _portalTabGroups = [
     'Account', 'Account', 'Account', 'Account', 'Account', // overview..activity
-    'Connections', 'Connections', 'Connections', // identities..notifications
-    'Data', 'Data', // organizations, privacy
+    'Connections', 'Connections', // identities, connected apps
+    'Data', // organizations
+    'Connections', // notifications
+    'Data', // privacy
   ];
 
   static const _portalGroupTabs = <String, List<int>>{
     'Account': [0, 1, 2, 3, 4],
-    'Connections': [5, 6, 7],
-    'Data': [8, 9],
+    'Connections': [5, 6, 8],
+    'Data': [7, 9],
   };
 
   void _selectDestination(int index) {

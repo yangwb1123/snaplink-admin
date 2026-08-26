@@ -158,24 +158,7 @@ mixin _CryptoKeysTabView on State<CryptoKeysTab> {
                   id: 'actions',
                   label: '',
                   width: 120,
-                  builder: (_, i) {
-                    final status = _value(i, ['status']);
-                    final id = _value(i, ['id', 'kid']);
-                    if (status == 'compromised' || status == 'expired') {
-                      return const SizedBox.shrink();
-                    }
-                    return TextButton(
-                      onPressed: _mutating ? null : () => _compromise(id),
-                      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
-                      style: TextButton.styleFrom(
-                        foregroundColor: AppColors.semanticFor(
-                          Theme.of(context).brightness,
-                          AppColors.danger,
-                        ),
-                      ),
-                      child: const LocalizedText('Compromise'),
-                    );
-                  },
+                  builder: (_, i) => _keyAction(context, i),
                 ),
               ],
               itemCount: keys.length,
@@ -184,6 +167,25 @@ mixin _CryptoKeysTabView on State<CryptoKeysTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _keyAction(BuildContext context, int index) {
+    final status = _value(index, ['status']);
+    final id = _value(index, ['id', 'kid']);
+    if (status == 'compromised' || status == 'expired') {
+      return const SizedBox.shrink();
+    }
+    return TextButton(
+      onPressed: _mutating ? null : () => _compromise(id),
+      // R29：dark 下提亮（2.26→5.29:1 ≥AA），浅色恒等。
+      style: TextButton.styleFrom(
+        foregroundColor: AppColors.semanticFor(
+          Theme.of(context).brightness,
+          AppColors.danger,
+        ),
+      ),
+      child: const LocalizedText('Compromise'),
     );
   }
 
