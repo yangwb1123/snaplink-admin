@@ -128,9 +128,9 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
     ),
   );
 
-  String _countForTab(int i) => switch (i) {
-    0 => '${_members.length}',
-    1 => '${_invitations.length}',
+  String _countForTab(int i) => switch (_tabs[i].$1) {
+    'members' => '${_members.length}',
+    'invitations' => '${_invitations.length}',
     _ => '',
   };
 

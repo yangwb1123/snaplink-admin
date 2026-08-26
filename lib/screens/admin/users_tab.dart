@@ -25,6 +25,9 @@ import 'admin_module_groups.dart';
 import 'admin_route.dart';
 import 'list_metrics.dart';
 import 'user_form_dialog.dart';
+
+part 'users_tab_view.dart';
+
 /// Federated directory users: cursor paging, provider search, CRUD and detail drill-in.
 class UsersTab extends StatefulWidget {
   final SSOAdminClient client;
@@ -39,14 +42,20 @@ class UsersTab extends StatefulWidget {
 }
 
 class _UsersTabState extends State<UsersTab>
-    with BatchSelection<UsersTab>, PaginatedListMixin<UsersTab> {
+    with BatchSelection<UsersTab>, PaginatedListMixin<UsersTab>, _UsersTabView {
+  @override
   final _filterCtrl = TextEditingController();
+  @override
   late Future<SSOAdminListPage> _future;
   SSOAdminListPage? _lastPage;
   int _reqSeq = 0;
+  @override
   var _pageSize = 100, _orderBy = 'id';
+  @override
   String? _sortColumn = 'user';
+  @override
   bool _sortAscending = true;
+  @override
   String? _busyId;
   late final void Function() _cancelPopState;
   Color get _accent => adminModuleIconColor('users');
@@ -62,8 +71,13 @@ class _UsersTabState extends State<UsersTab>
       if (mounted) _handleRoute();
     });
   }
+
   @override
-  void dispose() { _cancelPopState(); _filterCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _cancelPopState();
+    _filterCtrl.dispose();
+    super.dispose();
+  }
 
   void _handleRoute() {
     final route = AdminRoute.current();
@@ -76,52 +90,76 @@ class _UsersTabState extends State<UsersTab>
     try {
       final user = await widget.client.getUser(id);
       if (mounted) await _openDialog(existing: user);
-    } catch (e) { debugPrint('users_tab edit error: $e'); }
+    } catch (e) {
+      debugPrint('users_tab edit error: $e');
+    }
     if (mounted) AdminRoute.back('users');
   }
 
   Future<SSOAdminListPage> _loadPage() async {
     final seq = ++_reqSeq;
     final page = await widget.client.listUsers(
-      pageToken: currentPageToken, pageSize: _pageSize,
-      orderBy: _orderBy, filter: _filterCtrl.text.trim(),
+      pageToken: currentPageToken,
+      pageSize: _pageSize,
+      orderBy: _orderBy,
+      filter: _filterCtrl.text.trim(),
     );
     if (seq == _reqSeq) _lastPage = page;
     return page;
   }
 
+  @override
   Future<void> _reload() {
     clearSelection();
-    setState(() { resetPagination(); _future = _loadPage(); });
+    setState(() {
+      resetPagination();
+      _future = _loadPage();
+    });
     return _future;
   }
 
-  void _clearFilter() { _filterCtrl.clear(); _reload(); }
+  @override
+  void _clearFilter() {
+    _filterCtrl.clear();
+    _reload();
+  }
+
+  @override
   void _goPrevious() {
     if (!canGoBack) return;
-    goPrevious(); setState(() => _future = _loadPage());
+    goPrevious();
+    setState(() => _future = _loadPage());
   }
+
+  @override
   void _goNext(SSOAdminListPage page) {
     if (page.nextPageToken == null) return;
     goNext(page.nextPageToken, page: page);
     setState(() => _future = _loadPage());
   }
+
+  @override
   void _retryPage() => setState(() => _future = _loadPage());
+  @override
   void _onSort(String column) {
     if (column != 'user' && column != 'provider') return;
     setState(() {
       if (_sortColumn != column) {
-        _sortColumn = column; _sortAscending = true;
+        _sortColumn = column;
+        _sortAscending = true;
       } else if (_sortAscending) {
         _sortAscending = false;
       } else {
-        _sortColumn = null; _sortAscending = true;
+        _sortColumn = null;
+        _sortAscending = true;
       }
-      _orderBy = (_sortAscending ? '' : '-') +
+      _orderBy =
+          (_sortAscending ? '' : '-') +
           (_sortColumn == 'provider' ? 'provider' : 'id');
     });
     _reload();
   }
+
   Future<void> _openDialog({Map<String, dynamic>? existing}) async {
     final changed = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -131,6 +169,7 @@ class _UsersTabState extends State<UsersTab>
     if (changed != null) _reload();
     if (mounted) AdminRoute.back('users');
   }
+
   Future<String?> _deleteResult(String id) async {
     try {
       await widget.client.deleteUser(id);
@@ -149,27 +188,33 @@ class _UsersTabState extends State<UsersTab>
       );
     }
   }
+
   Future<void> _batchDelete() async {
     final ids = selected.toList();
     if (ids.isEmpty) return;
     final confirmed = await ConfirmDialog.show(
       context,
       title: context.tr('Delete {n} users?', {'n': ids.length}),
-      message: context.tr('This will delete {n} selected users.', {'n': ids.length}),
+      message: context.tr('This will delete {n} selected users.', {
+        'n': ids.length,
+      }),
       confirmLabel: 'Delete users',
       destructive: true,
     );
     if (!confirmed) return;
     setState(() => _busyId = '');
-    final failures = (await Future.wait(ids.map(_deleteResult)))
-        .whereType<String>()
-        .toList();
+    final failures = (await Future.wait(
+      ids.map(_deleteResult),
+    )).whereType<String>().toList();
     if (!mounted) return;
     setState(() => _busyId = null);
     clearSelection();
     final ok = ids.length - failures.length;
     final message = failures.isEmpty
-        ? context.tr('Deleted {n} of {total} users.', {'n': ok, 'total': ids.length})
+        ? context.tr('Deleted {n} of {total} users.', {
+            'n': ok,
+            'total': ids.length,
+          })
         : context.tr('{action}: {n} succeeded, {failed} failed. {details}', {
             'action': 'Delete',
             'n': ok,
@@ -179,6 +224,8 @@ class _UsersTabState extends State<UsersTab>
     showBatchResultSnackBar(context, message: message, failures: failures);
     await _reload();
   }
+
+  @override
   Future<void> _confirmDelete(Map<String, dynamic> user) async {
     final id = user['id']?.toString() ?? '';
     if (id.isEmpty || _busyId != null) return;
@@ -199,7 +246,9 @@ class _UsersTabState extends State<UsersTab>
     try {
       await widget.client.deleteUser(id);
       deleted = true;
-      if (mounted) showAppSnackBar(context, content: LocalizedText('User deleted.'));
+      if (mounted) {
+        showAppSnackBar(context, content: LocalizedText('User deleted.'));
+      }
     } catch (e) {
       _showError(e);
     } finally {
@@ -208,194 +257,47 @@ class _UsersTabState extends State<UsersTab>
     if (deleted && mounted) await _reload();
   }
 
+  @override
   Widget _batchBar() => BatchActionBar(
-    selectedCount: selected.length, accent: _accent, isLoading: _busyId != null,
-    actions: [BatchAction(
-      label: 'Delete', icon: Icons.delete_outline, destructive: true,
-      onPressed: _batchDelete,
-    )],
+    selectedCount: selected.length,
+    accent: _accent,
+    isLoading: _busyId != null,
+    actions: [
+      BatchAction(
+        label: 'Delete',
+        icon: Icons.delete_outline,
+        destructive: true,
+        onPressed: _batchDelete,
+      ),
+    ],
     onClearSelection: clearSelection,
   );
 
-  Widget _loaded(SSOAdminListPage page) => _listBody(page, page.items,
-    UserMetrics(items: page.items, totalSize: page.totalSize, persona: widget.persona));
-
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const AdminBreadcrumb(),
-      AdminListHeader(
-        title: AppStrings.of(context).users,
-        subtitle: 'Directory users across providers.', createTooltip: 'Create user',
-        onCreate: () => AdminRoute.go('users', action: 'new'), onRefresh: _reload,
-      ),
-      if (selecting) ...[_batchBar(), const SizedBox(height: 8)],
-      _filterBar(context), const SizedBox(height: 8),
-      Expanded(child: FutureBuilder<SSOAdminListPage>(
-        future: _future,
-        builder: (context, snap) => snap.hasError
-            ? ErrorStateView(message: '${snap.error}', onRetry: _retryPage)
-            : snap.hasData ? _loaded(snap.data!) :
-                const SkeletonListTile(itemCount: 6),
-      )),
-    ],
-  );
-
   void _setOrder(String value) {
     setState(() {
-      _orderBy = value; _sortAscending = !value.startsWith('-');
-      _sortColumn = value.endsWith('provider') ? 'provider' :
-          value.endsWith('id') ? 'user' : null;
+      _orderBy = value;
+      _sortAscending = !value.startsWith('-');
+      _sortColumn = value.endsWith('provider')
+          ? 'provider'
+          : value.endsWith('id')
+          ? 'user'
+          : null;
     });
     _reload();
   }
 
-  void _setPageSize(int value) { setState(() => _pageSize = value); _reload(); }
-
-  Widget _filterBar(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: Wrap(
-      spacing: 12, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        SizedBox(width: 280, child: SearchFilterBar(
-          labelText: 'Filter'.localized, controller: _filterCtrl, debounce: false,
-          onSearchChanged: (_) {}, onSubmitted: (_) => _reload(),
-        )),
-        TightDropdownButton<String>(
-          value: _orderBy, maxWidth: 190,
-          options: const [('id', 'ID ascending'), ('-id', 'ID descending'),
-            ('provider', 'Provider ascending'), ('-provider', 'Provider descending'),
-            ('created_at', 'Created ascending'), ('-created_at', 'Created descending')],
-          onChanged: _setOrder,
-        ),
-        TightDropdownButton<int>(
-          value: _pageSize, maxWidth: 150,
-          options: const [(25, '25 per page'), (100, '100 per page'), (250, '250 per page')],
-          onChanged: _setPageSize,
-        ),
-      ],
-    ),
-  );
-
-  Widget _emptyState(bool filtered) => EmptyState(
-    variant: filtered ? EmptyStateVariant.noMatch : EmptyStateVariant.empty,
-    icon: filtered ? null : Icons.person,
-    title: 'No users',
-    // Keep the established empty-state copy for both an empty first page and
-    // a filtered no-match response; existing consumers and tests rely on the
-    // same explanatory text while the action distinguishes the two states.
-    subtitle: 'No users match the current filter.',
-    actionLabel: filtered ? 'Clear filter' : 'Create user',
-    actionIcon: filtered ? Icons.filter_alt_off : null,
-    onAction: filtered ? _clearFilter : () => AdminRoute.go('users', action: 'new'),
-  );
-
-  Widget _listBody(SSOAdminListPage page, List<Map<String, dynamic>> items, Widget metrics) {
-    final filtered = _filterCtrl.text.trim().isNotEmpty;
-    final list = items.isNotEmpty
-        ? _dataTable(items)
-        : onFirstPage
-        ? _emptyState(filtered)
-        : EmptyPageState(onBackToFirst: _reload);
-    final pagination = PaginationControls(
-      page: currentPage, total: page.totalSize, canGoBack: canGoBack,
-      canGoNext: page.nextPageToken != null, onPrevious: _goPrevious,
-      onNext: () => _goNext(page),
-    );
-    return LayoutBuilder(builder: (context, constraints) {
-      final short = constraints.maxHeight <
-          380 * MediaQuery.textScalerOf(context).scale(1);
-      final content = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [metrics, if (short) SizedBox(height: 280, child: list) else Expanded(child: list), pagination],
-      );
-      return PullToRefresh(
-        onRefresh: _reload,
-        child: short ? SingleChildScrollView(child: content) : content,
-      );
-    });
+  @override
+  void _setPageSize(int value) {
+    setState(() => _pageSize = value);
+    _reload();
   }
 
+  @override
   String _id(Map<String, dynamic> user) => user['id']?.toString() ?? '';
 
+  @override
   bool _hasStatus(List<Map<String, dynamic>> items) => items.any(
     (user) => user['status']?.toString().trim().isNotEmpty ?? false,
   );
-
-  Widget _statusChip(Map<String, dynamic> user) {
-    final raw = user['status']?.toString().trim() ?? '';
-    return switch (raw.toLowerCase()) {
-      'active' => StatusChip.active(label: raw),
-      'suspended' => StatusChip.suspended(label: raw),
-      'pending' => StatusChip.pending(label: raw),
-      'inactive' || 'disabled' || 'revoked' => StatusChip.inactive(label: raw),
-      _ => StatusChip.unknown(label: raw.isEmpty ? 'Unknown' : raw),
-    };
-  }
-
-  Widget _actions(Map<String, dynamic> user) => PopupMenuButton<String>(
-    enabled: _busyId == null,
-    onSelected: (value) => switch (value) {
-      'edit' => AdminRoute.go('users', action: 'edit', resourceId: _id(user)),
-      'delete' => _confirmDelete(user),
-      _ => null,
-    },
-    itemBuilder: (_) => const [
-      PopupMenuItem(value: 'edit', child: LocalizedText('Edit')),
-      PopupMenuItem(value: 'delete', child: LocalizedText('Delete')),
-    ],
-  );
-
-  Widget _dataTable(List<Map<String, dynamic>> items) {
-    String uid(int i) => _id(items[i]);
-    final hasStatus = _hasStatus(items);
-    final columns = <AdminDataColumn>[
-      if (selecting) AdminDataColumn(
-        id: 'select', label: '', width: 44,
-        builder: (context, i) => Checkbox(
-          value: selected.contains(uid(i)),
-          onChanged: _busyId == null ? (_) => toggleSelect(uid(i)) : null,
-        ),
-      ),
-      AdminDataColumn(
-        id: 'user', label: 'USER', width: 260, sortable: true, cardPrimary: true,
-        builder: (context, i) => Row(children: [
-          UserAvatar(name: uid(i), radius: 14), const SizedBox(width: 8),
-          Flexible(child: CopyableCell(
-            text: uid(i), contextProvider: () => context, enabled: !selecting,
-          )),
-        ]),
-      ),
-      AdminDataColumn(
-        id: 'provider', label: 'PROVIDER', width: 140,
-        sortable: true, cardDetail: true,
-        builder: (context, i) => TableCellText(items[i]['provider']?.toString() ?? '?', muted: true),
-      ),
-      AdminDataColumn(
-        id: 'external', label: 'EXTERNAL ID', cardDetail: true,
-        builder: (context, i) => TableCellText(
-          items[i]['externalId']?.toString() ?? items[i]['external_id']?.toString() ?? '',
-          muted: true, maxLines: 1,
-        ),
-      ),
-      if (hasStatus) AdminDataColumn(
-        id: 'status', label: 'STATUS', width: 130, cardDetail: true,
-        builder: (context, i) => _statusChip(items[i]),
-      ),
-      AdminDataColumn(
-        id: 'actions', label: '', width: 60,
-        builder: (context, i) => _actions(items[i]),
-      ),
-    ];
-    return AdminDataTable(
-      scrollable: true, minWidth: hasStatus ? 860 : 720,
-      sortColumn: _sortColumn, sortAscending: _sortAscending, onSort: _onSort,
-      onRowTap: selecting ? (i) => toggleSelect(uid(i)) :
-          (i) => AdminRoute.go('users', resourceId: uid(i)),
-      onRowLongPress: selecting ? null : (i) => toggleSelect(uid(i)),
-      columns: columns, itemCount: items.length,
-      rowBuilder: (context, i) => const SizedBox.shrink(),
-    );
-  }
 }

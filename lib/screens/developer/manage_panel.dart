@@ -185,8 +185,6 @@ class ManagePanelState extends State<ManagePanel> {
       _applyLoaded(projection.wire, safetyOverride: projection.safety);
 
       if (rotatedToken.isNotEmpty) {
-        // RFC 7592 RAT rotation: block dismissal until the replacement token
-        // is confirmed saved, then persist it for the next request.
         await showDialog<void>(
           context: context,
           barrierDismissible: false,
