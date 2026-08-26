@@ -15,6 +15,8 @@ import 'admin_navigation.dart';
 import 'recovery_dialogs.dart';
 import 'recovery_release_widgets.dart';
 
+part 'recovery_releases_tab_view.dart';
+
 /// Snapshot, backup, and paired frontend/backend release lifecycle.
 /// Mutations are durable (server-journaled under an operation id); a failed
 /// or unknown write result is never replayed — reconcile first.
@@ -375,128 +377,5 @@ class _RecoveryReleasesTabState extends State<RecoveryReleasesTab> {
   }
 
   @override
-  Widget build(BuildContext context) => PullToRefresh(
-    onRefresh: _load,
-    child: ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const AdminBreadcrumb(),
-        _header(context),
-        if (_error != null) ...[const SizedBox(height: 4), _errorCard(context)],
-        if (_loading) ...[
-          const SizedBox(height: 12),
-          const SkeletonListTile(itemCount: 3),
-        ],
-        const SizedBox(height: 12),
-        if (_drStatus != null) RecoveryStatusCard(status: _drStatus!),
-        const SizedBox(height: 12),
-        RecoverySnapshotsCard(
-          snapshots: _snapshots,
-          canCreate: _has('POST', _snapshotsPath),
-          mutating: _mutating,
-          onCreate: _createSnapshot,
-          onRestore: _restore,
-          onDelete: _deleteSnapshot,
-        ),
-        const SizedBox(height: 12),
-        RecoveryReleasesCard(
-          releases: _releases,
-          current: _currentRelease,
-          canRegister: _has('POST', _releasesPath),
-          mutating: _mutating,
-          onRegister: _registerRelease,
-          onAction: _releaseAction,
-        ),
-        const SizedBox(height: 12),
-        RecoveryOperationsCard(operations: _operations),
-        if (_lastReport?.isNotEmpty == true) ...[
-          const SizedBox(height: 12),
-          _reportCard(context),
-        ],
-      ],
-    ),
-  );
-
-  /// 页头：图标按模块组色上色（X7）；标题/副标题走 i18n 字面量。
-  Widget _header(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.restore_outlined, color: _accent, size: 28),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Semantics(
-                  container: true,
-                  header: true,
-                  child: Text(
-                    context.tr('Recovery and releases'),
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  context.tr(
-                    'Manage encrypted state snapshots and coordinated frontend/backend release pins.',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              IconButton(
-                onPressed: _loading || _mutating ? null : _load,
-                icon: const Icon(Icons.refresh),
-                tooltip: 'Refresh'.localized,
-              ),
-              if (_has('POST', '/api/v1/admin/backup'))
-                FilledButton.icon(
-                  onPressed: _mutating ? null : _backup,
-                  icon: const Icon(Icons.backup_outlined),
-                  label: const LocalizedText('Online backup'),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 错误区：统一 ErrorStateCard（图标 + 明细 + Retry）。Retry 只重放安全
-  /// 读取（GET）——不会重放上次写入，结果未知不重放的语义保持不变。
-  Widget _errorCard(BuildContext context) => ErrorStateCard(
-    message: _error ?? '',
-    onRetry: _load,
-    retryEnabled: !_loading,
-  );
-
-  Widget _reportCard(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SectionHeader('Last operation report'),
-          const SizedBox(height: 8),
-          SelectableText(_lastReport.toString()),
-        ],
-      ),
-    ),
-  );
+  Widget build(BuildContext context) => _buildRecoveryReleasesTab(context);
 }
