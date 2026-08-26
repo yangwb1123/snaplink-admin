@@ -63,6 +63,7 @@ class SecurityMfaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = theme.colorScheme.primary;
+    final canBeginTotp = !mfaBusy && !mfaLoading && !mfaError && !mfaNotEnabled;
     return PortalCard(
       title: 'Two-factor methods',
       children: [
@@ -107,7 +108,7 @@ class SecurityMfaCard extends StatelessWidget {
         MessageBanner(mfaMessage, ok: mfaOk),
         const SizedBox(height: 8),
         OutlinedButton.icon(
-          onPressed: mfaBusy ? null : onBeginTotp,
+          onPressed: canBeginTotp ? onBeginTotp : null,
           icon: const Icon(Icons.phone_android_outlined),
           label: Text(context.tr('Add authenticator app')),
         ),
@@ -122,17 +123,30 @@ class SecurityMfaCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          if (pendingSecret.isNotEmpty) _SecretBox(secret: pendingSecret),
+          if (pendingSecret.isNotEmpty)
+            Semantics(
+              container: true,
+              label: context.tr('One-time secret'),
+              child: _SecretBox(secret: pendingSecret),
+            ),
           if (pendingUri.isNotEmpty) ...[
             const SizedBox(height: 8),
-            SelectableText(
-              pendingUri,
-              style: TextStyle(color: accent, fontSize: 12),
+            Semantics(
+              container: true,
+              label: context.tr('Authenticator setup link'),
+              child: SelectableText(
+                pendingUri,
+                textWidthBasis: TextWidthBasis.parent,
+                style: TextStyle(color: accent, fontSize: 12),
+              ),
             ),
           ],
           const SizedBox(height: 12),
           TextField(
             controller: totpLabelCtrl,
+            textCapitalization: TextCapitalization.words,
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
             decoration: InputDecoration(
               labelText: context.tr('Device name (optional)'),
               prefixIcon: const Icon(Icons.devices_outlined),
@@ -144,8 +158,14 @@ class SecurityMfaCard extends StatelessWidget {
             decoration: InputDecoration(
               labelText: context.tr('6-digit code'),
               prefixIcon: const Icon(Icons.pin_outlined),
+              counterText: '',
             ),
             keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            autocorrect: false,
+            maxLength: 6,
+            onSubmitted: (_) => onConfirmTotp(),
           ),
           const SizedBox(height: 12),
           Align(
@@ -154,7 +174,9 @@ class SecurityMfaCard extends StatelessWidget {
               spacing: 8,
               children: [
                 FilledButton.icon(
-                  onPressed: totpBusy ? null : onConfirmTotp,
+                  onPressed: totpBusy || pendingSecret.isEmpty
+                      ? null
+                      : onConfirmTotp,
                   icon: totpBusy
                       ? const SizedBox(
                           height: 16,
@@ -198,23 +220,26 @@ class _FactorStateHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              context.tr(text),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.tr(text),
+                style: theme.textTheme.bodyMedium?.copyWith(color: color),
               ),
             ),
-          ),
-          if (onRetry != null)
-            TextButton(onPressed: onRetry, child: Text(context.tr('Retry'))),
-        ],
+            if (onRetry != null)
+              TextButton(onPressed: onRetry, child: Text(context.tr('Retry'))),
+          ],
+        ),
       ),
     );
   }

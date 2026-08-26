@@ -60,49 +60,65 @@ class MfaView extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final strings = AppStrings.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Semantics(
-          container: true,
-          header: true,
-          child: Text(
-            strings.verifyIdentity,
-            style: theme.textTheme.titleLarge,
-          ),
+    return AutofillGroup(
+      child: Form(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              container: true,
+              header: true,
+              child: Text(
+                strings.verifyIdentity,
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+            const SizedBox(height: 16),
+            _methodPicker(strings, scheme),
+            ..._methodChallengeWidgets(context, strings, scheme),
+            if (allowTrustDevice) _trustDeviceTile(context, scheme),
+            ..._errorWidgets(context, scheme),
+            const SizedBox(height: 20),
+            _submitButton(context, strings),
+            TextButton(
+              onPressed: loading ? null : onBack,
+              style: TextButton.styleFrom(minimumSize: const Size(48, 44)),
+              child: Text(strings.back),
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        _methodPicker(strings, scheme),
-        ..._methodChallengeWidgets(context, strings, scheme),
-        if (allowTrustDevice) _trustDeviceTile(context, scheme),
-        ..._errorWidgets(context, scheme),
-        const SizedBox(height: 20),
-        _submitButton(context, strings),
-        TextButton(
-          onPressed: loading ? null : onBack,
-          child: Text(strings.back),
-        ),
-      ],
+      ),
     );
   }
 
-  Widget _methodPicker(AppStrings strings, ColorScheme scheme) => Wrap(
-    spacing: 8,
-    runSpacing: 4,
-    children: mfaMethods.map((method) {
-      final selected = selectedMfaMethod == method;
-      return ChoiceChip(
-        avatar: Icon(
-          _methodIcon(method),
-          size: 18,
-          color: selected ? scheme.primary : scheme.onSurfaceVariant,
+  Widget _methodPicker(AppStrings strings, ColorScheme scheme) => Card(
+    margin: EdgeInsets.zero,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: LayoutBuilder(
+        builder: (context, constraints) => Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: mfaMethods.map((method) {
+            final selected = selectedMfaMethod == method;
+            return ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth),
+              child: ChoiceChip(
+                avatar: Icon(
+                  _methodIcon(method),
+                  size: 18,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
+                ),
+                label: Text(_label(strings, method), softWrap: true),
+                selected: selected,
+                onSelected: loading ? null : (_) => onMethodChanged(method),
+              ),
+            );
+          }).toList(),
         ),
-        label: Text(_label(strings, method)),
-        selected: selected,
-        onSelected: loading ? null : (_) => onMethodChanged(method),
-      );
-    }).toList(),
+      ),
+    ),
   );
 
   List<Widget> _methodChallengeWidgets(
@@ -124,28 +140,38 @@ class MfaView extends StatelessWidget {
         ),
       ],
       if (acceptsCode) ...[
-        const SizedBox(height: 16),
-        TextField(
-          controller: mfaCodeCtrl,
-          enabled: !loading,
-          autocorrect: false,
-          enableSuggestions: false,
-          keyboardType: selectedMfaMethod == 'recovery'
-              ? TextInputType.visiblePassword
-              : TextInputType.number,
-          autofillHints: selectedMfaMethod == 'recovery'
-              ? const []
-              : const [AutofillHints.oneTimeCode],
-          textInputAction: TextInputAction.done,
-          decoration: InputDecoration(
-            labelText: selectedMfaMethod == 'recovery'
-                ? context.tr('Recovery code')
-                : strings.verificationCode,
-            prefixIcon: Icon(Icons.pin_outlined, color: scheme.primary),
+        const SizedBox(height: 12),
+        Card(
+          margin: EdgeInsets.zero,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: TextField(
+              controller: mfaCodeCtrl,
+              enabled: !loading,
+              autocorrect: false,
+              enableSuggestions: false,
+              keyboardType: selectedMfaMethod == 'recovery'
+                  ? TextInputType.visiblePassword
+                  : TextInputType.number,
+              autofillHints: selectedMfaMethod == 'recovery'
+                  ? const []
+                  : const [AutofillHints.oneTimeCode],
+              textInputAction: TextInputAction.done,
+              decoration: InputDecoration(
+                labelText: selectedMfaMethod == 'recovery'
+                    ? context.tr('Recovery code')
+                    : strings.verificationCode,
+                prefixIcon: Icon(Icons.pin_outlined, color: scheme.primary),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: scheme.primary, width: 1.6),
+                ),
+              ),
+              onSubmitted: (_) {
+                if (!loading) onSubmit();
+              },
+            ),
           ),
-          onSubmitted: (_) {
-            if (!loading) onSubmit();
-          },
         ),
       ],
       if (selectedMfaMethod == 'webauthn') ...[
@@ -167,16 +193,18 @@ class MfaView extends StatelessWidget {
     ];
   }
 
-  Widget _trustDeviceTile(BuildContext context, ColorScheme scheme) =>
-      CheckboxListTile(
-        contentPadding: EdgeInsets.zero,
-        controlAffinity: ListTileControlAffinity.trailing,
-        secondary: Icon(Icons.verified_user_outlined, color: scheme.primary),
-        title: Text(context.tr('Trust this device')),
-        subtitle: Text(context.tr('Skip future MFA when allowed.')),
-        value: trustThisDevice,
-        onChanged: loading ? null : onTrustChanged,
-      );
+  Widget _trustDeviceTile(BuildContext context, ColorScheme scheme) => Card(
+    margin: const EdgeInsets.only(top: 12),
+    child: CheckboxListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      controlAffinity: ListTileControlAffinity.trailing,
+      secondary: Icon(Icons.verified_user_outlined, color: scheme.primary),
+      title: Text(context.tr('Trust this device')),
+      subtitle: Text(context.tr('Skip future MFA when allowed.')),
+      value: trustThisDevice,
+      onChanged: loading ? null : onTrustChanged,
+    ),
+  );
 
   List<Widget> _errorWidgets(BuildContext context, ColorScheme scheme) => [
     if (error != null) ...[
@@ -196,11 +224,15 @@ class MfaView extends StatelessWidget {
       PressableScale(
         child: FilledButton(
           onPressed: loading ? null : onSubmit,
+          style: FilledButton.styleFrom(minimumSize: const Size(48, 48)),
           child: loading
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+              ? Semantics(
+                  label: strings.loading,
+                  child: const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 )
               : Text(
                   selectedMfaMethod == 'webauthn'
@@ -233,6 +265,7 @@ class MfaView extends StatelessWidget {
     );
     final wrapped = contained
         ? Container(
+            constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: scheme.errorContainer,

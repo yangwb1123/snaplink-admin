@@ -31,7 +31,7 @@ class DeviceRequestPreview extends StatelessWidget {
     return Card(
       margin: EdgeInsets.zero,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -55,53 +55,56 @@ class DeviceRequestPreview extends StatelessWidget {
             ),
             if (scopes.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  Text(
-                    scopes.length > 1
-                        ? strings.requestedScopes(scopeSummary)
-                        : context.tr('Scope'),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
+              Text(
+                scopes.length > 1
+                    ? strings.requestedScopes(scopeSummary)
+                    : context.tr('Scope'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+                softWrap: true,
+              ),
+              const SizedBox(height: 6),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  primary: false,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: scopes.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: scheme.outlineVariant,
                   ),
-                  for (final scope in scopes)
-                    Container(
-                      constraints: const BoxConstraints(minHeight: 28),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: scheme.primary.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: scheme.primary.withValues(alpha: 0.22),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 1),
+                          child: Icon(
                             Icons.lock_outline,
-                            size: 15,
+                            size: 17,
                             color: scheme.primary,
                           ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              scope,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall,
-                            ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            scopes[index],
+                            softWrap: true,
+                            style: theme.textTheme.bodySmall,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                ],
+                  ),
+                ),
               ),
             ],
           ],
@@ -136,7 +139,7 @@ class DeviceDecisionButtons extends StatelessWidget {
         Expanded(
           child: PressableScale(
             child: OutlinedButton.icon(
-              onPressed: onDeny,
+              onPressed: busy ? null : onDeny,
               style: OutlinedButton.styleFrom(
                 foregroundColor: scheme.error,
                 minimumSize: const Size(0, 48),
@@ -150,7 +153,7 @@ class DeviceDecisionButtons extends StatelessWidget {
         Expanded(
           child: PressableScale(
             child: FilledButton.icon(
-              onPressed: onApprove,
+              onPressed: busy ? null : onApprove,
               style: FilledButton.styleFrom(minimumSize: const Size(0, 48)),
               icon: busy && !checking
                   ? const SizedBox(
@@ -224,9 +227,9 @@ class DeviceStatusBlock extends StatelessWidget {
   }
 }
 
-/// 内联提示条：图标 + 文案（品牌/语义色），替代手写 `Text` + `SizedBox`
-/// 模板。`contained` 变体用于错误——`errorContainer` 底 + `onErrorContainer`
-/// 前景，与 consent/mfa 视图同风格。
+/// 状态卡：图标 + 可换行文案（品牌/语义色），替代手写 `Text` +
+/// `SizedBox` 模板。`contained` 变体用于错误——`errorContainer` 底 +
+/// `onErrorContainer` 前景，与 consent/mfa 视图同风格。
 class DeviceInlineNotice extends StatelessWidget {
   final String text;
   final IconData icon;
@@ -245,13 +248,19 @@ class DeviceInlineNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final notice = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 18, color: color),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: TextStyle(color: color)),
+          child: Text(
+            text,
+            softWrap: true,
+            style: theme.textTheme.bodyMedium?.copyWith(color: color),
+          ),
         ),
       ],
     );
@@ -259,12 +268,19 @@ class DeviceInlineNotice extends StatelessWidget {
         ? Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.errorContainer,
+              color: scheme.errorContainer,
               borderRadius: BorderRadius.circular(8),
             ),
             child: notice,
           )
-        : notice;
+        : Card(
+            margin: EdgeInsets.zero,
+            color: scheme.surfaceContainerLow,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              child: notice,
+            ),
+          );
     return liveRegion ? Semantics(liveRegion: true, child: wrapped) : wrapped;
   }
 }

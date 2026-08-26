@@ -111,7 +111,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       _update(() => _error = 'Enter the verification code.');
       return;
     }
-
+    FocusManager.instance.primaryFocus?.unfocus();
     _update(() {
       _loading = true;
       _error = null;
@@ -213,7 +213,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       );
       return;
     }
-
+    FocusManager.instance.primaryFocus?.unfocus();
     final transactionId = _loginTransactionId;
     final challengeId = _consentChallengeId;
     _update(() {

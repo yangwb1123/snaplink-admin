@@ -52,6 +52,32 @@ class EmptyState extends StatelessWidget {
     final (defaultIcon, defaultTitle) = _variantDefaults;
     final resolvedIcon = icon ?? defaultIcon;
     final resolvedTitle = title ?? defaultTitle;
+    final iconContainer = Container(
+      width: compact ? 48 : 72,
+      height: compact ? 48 : 72,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primary.withValues(alpha: 0.16),
+            scheme.primary.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(compact ? 16 : 24),
+      ),
+      child: Icon(resolvedIcon, size: compact ? 22 : 32, color: scheme.primary),
+    );
+    final iconWidget = MediaQuery.disableAnimationsOf(context)
+        ? iconContainer
+        : TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 260),
+            curve: Curves.easeOutBack,
+            builder: (context, value, child) =>
+                Transform.scale(scale: 0.82 + 0.18 * value, child: child),
+            child: iconContainer,
+          );
     return Center(
       child: SingleChildScrollView(
         padding: EdgeInsets.all(compact ? 24 : 32),
@@ -59,33 +85,7 @@ class EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）+ 入场弹入。
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutBack,
-              builder: (context, value, child) =>
-                  Transform.scale(scale: 0.82 + 0.18 * value, child: child),
-              child: Container(
-                width: compact ? 48 : 72,
-                height: compact ? 48 : 72,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      scheme.primary.withValues(alpha: 0.16),
-                      scheme.primary.withValues(alpha: 0.04),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(compact ? 16 : 24),
-                ),
-                child: Icon(
-                  resolvedIcon,
-                  size: compact ? 22 : 32,
-                  color: scheme.primary,
-                ),
-              ),
-            ),
+            iconWidget,
             const SizedBox(height: 16),
             Text(
               context.tr(resolvedTitle),

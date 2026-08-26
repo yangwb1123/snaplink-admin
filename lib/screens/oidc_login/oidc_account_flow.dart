@@ -10,6 +10,7 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       });
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     _update(() {
       _loading = true;
       _error = null;
@@ -62,6 +63,7 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       return;
     }
 
+    FocusManager.instance.primaryFocus?.unfocus();
     _scrubOneTimeLoginData();
     _update(() {
       _resetToken = null;
@@ -110,6 +112,7 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       return;
     }
 
+    FocusManager.instance.primaryFocus?.unfocus();
     _update(() {
       _loading = true;
       _error = null;
@@ -170,6 +173,7 @@ extension _OidcAccountFlow on _OidcLoginScreenState {
       _update(() => _error = 'This verification link is missing its token.');
       return;
     }
+    FocusManager.instance.primaryFocus?.unfocus();
     _scrubOneTimeLoginData();
     _update(() {
       _verificationToken = null;

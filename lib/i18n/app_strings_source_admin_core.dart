@@ -83,6 +83,7 @@ const appAdminCoreSourceZh = <String, String>{
   'Peak': '峰值',
   'Platform health': '平台健康',
   'Fleet trust distribution': '设备信任分布',
+  'Unavailable': '不可用',
   'Connections health': '连接健康',
   'Compliance': '合规',
   'Compliance evidence': '合规证据',

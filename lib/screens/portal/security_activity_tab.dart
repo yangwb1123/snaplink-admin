@@ -22,6 +22,9 @@ class SecurityActivityTab extends StatefulWidget {
 class _SecurityActivityTabState extends State<SecurityActivityTab> {
   bool _activityLoading = true;
   bool _historyLoading = true;
+  bool _activityUnavailable = false;
+  bool _historyUnavailable = false;
+  bool _refreshInFlight = false;
   List<Map<String, dynamic>> _events = const [];
   List<Map<String, dynamic>> _history = const [];
   String? _activityError;
@@ -33,15 +36,21 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
     _loadAll();
   }
 
-  void _loadAll() {
-    _loadActivity();
-    _loadHistory();
+  Future<void> _loadAll() async {
+    if (_refreshInFlight) return;
+    _refreshInFlight = true;
+    try {
+      await Future.wait([_loadActivity(), _loadHistory()]);
+    } finally {
+      _refreshInFlight = false;
+    }
   }
 
   Future<void> _loadActivity() async {
     setState(() {
       _activityLoading = true;
       _activityError = null;
+      _activityUnavailable = false;
     });
     try {
       final response = await widget.api.get(
@@ -51,9 +60,13 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
       if (response.statusCode == 200) {
         setState(() {
           _events = portalObjectList(PortalApi.decode(response), 'events');
+          _activityUnavailable = false;
         });
       } else if (response.statusCode == 404 || response.statusCode == 501) {
-        setState(() => _activityError = 'Security activity is not enabled.');
+        setState(() {
+          _activityError = 'Security activity is not enabled.';
+          _activityUnavailable = true;
+        });
       } else {
         setState(() => _activityError = 'Could not load security activity.');
       }
@@ -70,6 +83,7 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
     setState(() {
       _historyLoading = true;
       _historyError = null;
+      _historyUnavailable = false;
     });
     try {
       final response = await widget.api.get(PortalSecurityPaths.loginHistory);
@@ -80,9 +94,13 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
             PortalApi.decode(response),
             'login_history',
           );
+          _historyUnavailable = false;
         });
       } else if (response.statusCode == 404 || response.statusCode == 501) {
-        setState(() => _historyError = 'Login history is not enabled.');
+        setState(() {
+          _historyError = 'Login history is not enabled.';
+          _historyUnavailable = true;
+        });
       } else {
         setState(() => _historyError = 'Could not load login history.');
       }
@@ -138,7 +156,9 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
             ),
             IconButton(
               tooltip: context.tr('Refresh activity'),
-              onPressed: _activityLoading || _historyLoading ? null : _loadAll,
+              onPressed: _refreshInFlight || _activityLoading || _historyLoading
+                  ? null
+                  : _loadAll,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -150,7 +170,11 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
             if (_activityLoading)
               const LinearProgressIndicator()
             else if (_activityError != null)
-              MessageBanner(_activityError)
+              _ActivityStateHint(
+                text: _activityError!,
+                unavailable: _activityUnavailable,
+                onRetry: _activityUnavailable ? null : _loadActivity,
+              )
             else if (_events.isEmpty)
               const EmptyHint('No security events have been recorded.')
             else
@@ -165,7 +189,11 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
             if (_historyLoading)
               const LinearProgressIndicator()
             else if (_historyError != null)
-              MessageBanner(_historyError)
+              _ActivityStateHint(
+                text: _historyError!,
+                unavailable: _historyUnavailable,
+                onRetry: _historyUnavailable ? null : _loadHistory,
+              )
             else if (_history.isEmpty)
               const EmptyHint('No login history has been recorded.')
             else
@@ -177,6 +205,52 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
       ],
     ),
   );
+}
+
+class _ActivityStateHint extends StatelessWidget {
+  final String text;
+  final bool unavailable;
+  final VoidCallback? onRetry;
+
+  const _ActivityStateHint({
+    required this.text,
+    required this.unavailable,
+    this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = unavailable ? AppColors.muted : AppColors.danger;
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              unavailable
+                  ? Icons.toggle_off_outlined
+                  : Icons.cloud_off_outlined,
+              size: 18,
+              color: color,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                context.tr(text),
+                style: theme.textTheme.bodyMedium?.copyWith(color: color),
+              ),
+            ),
+            if (onRetry != null)
+              TextButton(onPressed: onRetry, child: Text(context.tr('Retry'))),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// 事件 → 时间线条目（语义色编码：新设备/新位置 = 警告）。

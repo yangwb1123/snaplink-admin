@@ -66,14 +66,26 @@ class AsyncView<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      if (useSkeleton) {
-        return SkeletonListTile(itemCount: 5, delay: skeletonDelay);
-      }
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: CircularProgressIndicator(),
-        ),
+      final reduceMotion = MediaQuery.disableAnimationsOf(context);
+      final loadingContent = useSkeleton
+          ? TickerMode(
+              enabled: !reduceMotion,
+              child: SkeletonListTile(
+                itemCount: 5,
+                delay: reduceMotion ? Duration.zero : skeletonDelay,
+              ),
+            )
+          : const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: CircularProgressIndicator(),
+              ),
+            );
+      return Semantics(
+        container: true,
+        liveRegion: true,
+        label: context.strings.loading,
+        child: loadingContent,
       );
     }
 

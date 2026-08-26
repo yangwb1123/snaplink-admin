@@ -65,6 +65,7 @@ const appPortalSourceZh = <String, String>{
   'Add another sign-in method before unlinking this identity.':
       '请先添加另一种登录方式，再解除此身份关联。',
   'Add authenticator app': '添加身份验证器应用',
+  'Authenticator setup link': '身份验证器设置链接',
   '6-digit code': '6 位验证码',
   'Add this secret to your authenticator app, then enter the 6-digit code to confirm.':
       '将此密钥添加到身份验证器应用，然后输入 6 位验证码进行确认。',
@@ -281,6 +282,7 @@ const appPortalSourceZh = <String, String>{
   'Save these codes now. They cannot be shown again.': '请立即保存这些代码，它们不会再次显示。',
   'Second factor removed.': '双因素验证方式已移除。',
   'Secret': '密钥',
+  'One-time secret': '一次性密钥',
   'Security activity': '安全活动',
   'Security activity is not enabled.': '安全活动功能未启用。',
   'Security timeline': '安全时间线',

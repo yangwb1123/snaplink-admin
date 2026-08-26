@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/pressable_scale.dart';
 import 'package:sso_admin/widgets/section_header.dart';
 
@@ -36,13 +37,17 @@ class ConsentView extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          context.tr('{application} wants access', {
-            'application': appName.isNotEmpty
-                ? appName
-                : context.tr('This application'),
-          }),
-          style: theme.textTheme.titleMedium,
+        Semantics(
+          container: true,
+          header: true,
+          child: Text(
+            context.tr('{application} wants access', {
+              'application': appName.isNotEmpty
+                  ? appName
+                  : context.tr('This application'),
+            }),
+            style: theme.textTheme.titleMedium,
+          ),
         ),
         const SizedBox(height: 8),
         Text(context.tr('Review every permission before you continue.')),
@@ -50,7 +55,7 @@ class ConsentView extends StatelessWidget {
           const SizedBox(height: 20),
           SectionHeader(strings.permissions, count: summary.scopes.length),
           const SizedBox(height: 8),
-          for (final scope in summary.scopes) _ScopeRow(scope: scope),
+          _ScopeListCard(scopes: summary.scopes),
         ],
         if (summary.authorizationDetails.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -94,7 +99,10 @@ class ConsentView extends StatelessWidget {
               child: PressableScale(
                 child: OutlinedButton(
                   onPressed: loading ? null : onDeny,
-                  child: Text(strings.deny),
+                  style: AppColors.dangerOutlinedStyle(context).copyWith(
+                    minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
+                  ),
+                  child: Text(strings.deny, softWrap: true),
                 ),
               ),
             ),
@@ -103,13 +111,19 @@ class ConsentView extends StatelessWidget {
               child: PressableScale(
                 child: FilledButton(
                   onPressed: loading || !summary.canAuthorize ? null : onAllow,
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                  ),
                   child: loading
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                      ? Semantics(
+                          label: strings.loading,
+                          child: const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
                         )
-                      : Text(context.tr('Allow')),
+                      : Text(context.tr('Allow'), softWrap: true),
                 ),
               ),
             ),
@@ -142,6 +156,7 @@ class ConsentView extends StatelessWidget {
     );
     final wrapped = contained
         ? Container(
+            constraints: const BoxConstraints(minHeight: 44),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: scheme.errorContainer,
@@ -152,6 +167,26 @@ class ConsentView extends StatelessWidget {
         : row;
     return live ? Semantics(liveRegion: true, child: wrapped) : wrapped;
   }
+}
+
+class _ScopeListCard extends StatelessWidget {
+  final List<ConsentScopeDescriptor> scopes;
+
+  const _ScopeListCard({required this.scopes});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    margin: EdgeInsets.zero,
+    child: Column(
+      children: [
+        for (var index = 0; index < scopes.length; index++) ...[
+          _ScopeRow(scope: scopes[index]),
+          if (index < scopes.length - 1)
+            const Divider(height: 1, indent: 44, endIndent: 12),
+        ],
+      ],
+    ),
+  );
 }
 
 class _ScopeRow extends StatelessWidget {
@@ -166,7 +201,7 @@ class _ScopeRow extends StatelessWidget {
         ? scope.description
         : context.tr(_fallbackScopeLabel(scope.scope));
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -183,9 +218,10 @@ class _ScopeRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(description),
+                Text(description, softWrap: true),
                 Text(
                   context.tr('Scope: {scope}', {'scope': scope.scope}),
+                  softWrap: true,
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 class TenantResidencySummary extends StatelessWidget {
@@ -135,7 +136,11 @@ class TenantResidencySummary extends StatelessWidget {
             if (homeRegion.isNotEmpty)
               _boundedChip(
                 maxWidth: maxWidth,
-                avatar: const Icon(Icons.home_outlined, size: 18),
+                avatar: Icon(
+                  Icons.home_outlined,
+                  size: 18,
+                  color: AppColors.groupTenants,
+                ),
                 label: Text(
                   context.tr('Home region: {region}', {'region': homeRegion}),
                   maxLines: 3,
@@ -145,7 +150,11 @@ class TenantResidencySummary extends StatelessWidget {
             if (allowedRegions.isNotEmpty)
               _boundedChip(
                 maxWidth: maxWidth,
-                avatar: const Icon(Icons.public, size: 18),
+                avatar: Icon(
+                  Icons.public,
+                  size: 18,
+                  color: AppColors.groupTenants,
+                ),
                 label: Text(
                   context.tr('Allowed serving regions: {regions}', {
                     'regions': allowedRegions.join(', '),
@@ -157,7 +166,11 @@ class TenantResidencySummary extends StatelessWidget {
             if (enforceWrites && homeRegion.isNotEmpty)
               _boundedChip(
                 maxWidth: maxWidth,
-                avatar: const Icon(Icons.lock_outline, size: 18),
+                avatar: Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                  color: AppColors.groupTenants,
+                ),
                 label: const LocalizedText(
                   'Write enforcement enabled',
                   maxLines: 2,
