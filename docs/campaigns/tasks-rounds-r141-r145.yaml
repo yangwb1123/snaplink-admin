@@ -1,0 +1,95 @@
+# R141-R145：最后四个超预算页面与全站终检
+# 允许新增同目录 Dart part/view 文件；只搬移既有代码，不新增功能。
+# 每个 Dart 文件 <=400 行；禁止 API、路由、能力门控、认证和安全语义变化。
+#
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r141-r145.yaml --mode serial --timeout 900
+
+tasks:
+- prompt: |
+    R141：拆分 lib/screens/admin/client_detail_screen.dart（当前约 522 行）。纯结构搬移，
+    保留 ClientDetailScreen 的 load/didUpdate、secret rotation、unknown outcome、approve/reject、
+    edit、confirm、API 与 route 语义。
+
+    添加 part 'client_detail_view.dart'，用既有项目惯例 extension 将 build、_errorState、
+    _miniStrip、_infoCard、_statusChip、_actionsCard、_actionButton 原样移动；root 只保留
+    widget/state、load 和 mutation/action 方法，build 可保留一行 forwarding wrapper。root 与
+    part 均 <=400 行；不得复制字段、controller、API 或改变 one-time secret/确认/失败重试行为。
+    只允许修改该 root 并新增同目录 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/admin_detail_screens_test.dart
+    test/data_role_ux_wave1_test.dart test/client_detail_secret_card_test.dart
+    test/client_form_dialog_test.dart test/client_secret_lifecycle_api_test.dart
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r141-admin-client-detail-budget-split.md。
+  output: docs/ui/pages-per-page/r141-admin-client-detail-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/data_role_ux_wave1_test.dart test/client_detail_secret_card_test.dart test/client_form_dialog_test.dart test/client_secret_lifecycle_api_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R142：拆分 lib/screens/admin/dashboard_screen.dart（当前约 437 行）。纯结构搬移，保留
+    capability refresh/probe generation、route sync、admin navigation mode、persona rebinding、
+    shortcuts、logout、deep-link fallback 和 UI shell 语义。
+
+    添加 part 'dashboard_screen_navigation_view.dart'。为保持既有 spacing gate，
+    `leadingWidth: 80` 必须继续出现在 dashboard_screen.dart root，不能把该 AppBar literal
+    搬走。将 _initShortcuts、_localLogout、_switchModuleByNumber 的既有实现搬到 part 的
+    state extension，并在 root 保留最薄 forwarding wrapper（或等价不变结构）；root/part
+    均 <=400 行。不复制 state/API，不改变 URL source-of-truth、快捷键、能力门控或 rail/drawer
+    行为。只允许修改该 root 并新增同目录 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/admin_shell_test.dart
+    test/admin_nav_mode_test.dart test/admin_navigation_test.dart test/admin_screen_vm_import_test.dart
+    test/spacing_tokens_gate_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r142-admin-dashboard-budget-split.md。
+  output: docs/ui/pages-per-page/r142-admin-dashboard-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_shell_test.dart test/admin_nav_mode_test.dart test/admin_navigation_test.dart test/admin_screen_vm_import_test.dart test/spacing_tokens_gate_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R143：拆分 lib/screens/oidc_login/account_flow_views.dart（当前约 408 行）。纯结构搬移，
+    保留 ForgotPasswordView、ResetPasswordView、SignupView、EmailVerificationView 的字段、
+    autofill、keyboard、loading、token availability、error/message、防枚举和回调语义。
+
+    添加 part 'account_flow_layout.dart'，将底部共用 _AccountFlowLayout 与 _field 原样搬移；
+    root 保留各账户流 view，part 只包含同一 library 的展示 helper，不复制 controller/API。
+    root 与 part 均 <=400 行。OIDC source（root 与新 part）禁止新增英文字样 audit；不得改变
+    authorization/login/consent/MFA/one-time token 路径。只允许修改该 root 并新增同目录 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/oidc_views_scim_test.dart
+    test/oidc_account_flow_test.dart test/oidc_account_action_web_test.dart
+    test/oidc_login_api_test.dart test/login_view_widget_test.dart
+    test/oidc_login_ring_isolation_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r143-oidc-account-flow-budget-split.md。
+  output: docs/ui/pages-per-page/r143-oidc-account-flow-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/oidc_views_scim_test.dart test/oidc_account_flow_test.dart test/oidc_account_action_web_test.dart test/oidc_login_api_test.dart test/login_view_widget_test.dart test/oidc_login_ring_isolation_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R144：拆分 lib/screens/admin/privacy_compliance_tab.dart（当前约 404 行）。纯结构搬移，
+    保留 subject validation、export direct download、preview-first erasure、retention dry-run/
+    confirm、capability checks、retry closure、busy/error 语义和 compliance API 路径。
+
+    添加 part 'privacy_compliance_tab_view.dart'，将 build、_errorCard、_subjectCard、
+    _retentionCard、_section、_reportCard 原样移动；root 保留 fields/state、subject/action、
+    _run 和 API/mutation 逻辑，build 可用一行 forwarding wrapper。root/part 均 <=400 行；
+    不把敏感 export 放入 widget state，不改变 erase/retention payload、确认文案或失败处理。
+    只允许修改该 root 并新增同目录 part，不跑 git。
+
+    运行 dart format、flutter analyze；测试 test/admin_secondary_tabs2_test.dart
+    test/three_state_gate_test.dart test/admin_governance_security_test.dart
+    test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart。输出
+    docs/ui/pages-per-page/r144-admin-privacy-compliance-budget-split.md。
+  output: docs/ui/pages-per-page/r144-admin-privacy-compliance-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_secondary_tabs2_test.dart test/three_state_gate_test.dart test/admin_governance_security_test.dart test/admin_dialogs_final_test.dart test/render_matrix_smoke_test.dart"
+
+- prompt: |
+    R145：R141-R144 终检。只允许修改本批新增 part/view 文件中的纯结构问题；无明确问题则
+    只生成报告。检查 lib/screens 下所有 Dart 文件 <=400 行（允许既有 400 行边界），part 引用
+    唯一且无重复实现，root 仍保留状态/API/action；检查 dashboard spacing exemption、OIDC
+    无新增英文字样 audit、Developer 13-file census、三态门禁和 docs/ui 顶层 fan-out <=12。
+
+    对照全站复核 Admin/Portal/Developer/OIDC/Device/Setup/Settings/Login 的 table/card/list/
+    timeline/metric 选择、<640px card、分页筛选边界、loading/empty/error/retry、busy/确认、
+    keyboard/a11y、响应式断点。禁止业务/API/路由/能力门控/认证/Session/MFA/Consent/设备码/
+    Checkout/secret/unknown-outcome/导出安全语义变化和 git。运行 dart format、flutter analyze、
+    全量 flutter test、browser smoke、make build-prod、make release-artifact-check、Python unit
+    和 python3 cli.py harness。输出 docs/ui/pages-per-page/r145-final-audit-15.md，最后一行严格为
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r145-final-audit-15.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"
