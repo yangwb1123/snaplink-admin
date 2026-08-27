@@ -297,6 +297,32 @@ void main() {
       expect(navigation.supportsUserSupport, isTrue);
     });
 
+    test('uses segment-aware capability prefix matching', () {
+      final lookalikes = AdminNavigationCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/domains-x',
+          feature: 'custom',
+        ),
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/devices-evil',
+          feature: 'custom',
+        ),
+      ], documentedEndpoints: const []);
+      expect(lookalikes.supportsDomains, isFalse);
+      expect(lookalikes.supportsDeviceSecurity, isFalse);
+
+      final customVerb = AdminNavigationCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'POST',
+          path: '/api/v1/admin/users/{user_id}:suspend',
+          feature: 'custom',
+        ),
+      ], documentedEndpoints: const []);
+      expect(customVerb.supportsUserSupport, isTrue);
+    });
+
     test('recognizes a partial runtime SCIM deployment', () {
       final navigation = AdminNavigationCapabilities(const [
         SnaplinkAdminEndpoint(

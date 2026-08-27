@@ -100,11 +100,18 @@ class SnaplinkAdminCapabilities {
     );
   }
 
-  bool hasAnyPathPrefix(String prefix) {
-    final expected = _normalizePath(prefix);
-    return endpoints.any(
-      (endpoint) => _normalizePath(endpoint.path).startsWith(expected),
-    );
+  bool hasAnyPathPrefix(String prefix) =>
+      endpoints.any((endpoint) => matchesPathPrefix(endpoint.path, prefix));
+
+  /// Segment-aware path-family matching; a trailing `/` keeps subtree behavior.
+  static bool matchesPathPrefix(String path, String prefix) {
+    final actual = _normalizePath(path);
+    final wanted = _normalizePath(prefix);
+    if (wanted.endsWith('/')) return actual.startsWith(wanted);
+    if (actual == wanted || actual.startsWith('$wanted/')) return true;
+    return wanted.endsWith(':param') &&
+        actual.startsWith('$wanted:') &&
+        RegExp(r'^:[A-Za-z][\w-]*$').hasMatch(actual.substring(wanted.length));
   }
 
   Map<String, int> get featureCounts {

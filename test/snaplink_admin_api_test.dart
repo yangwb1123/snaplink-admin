@@ -41,6 +41,59 @@ void main() {
       expect(capabilities.featureCounts, {'admin_api': 2});
     });
 
+    test('matches only complete path segments', () {
+      final exact = SnaplinkAdminCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/domains',
+          feature: 'admin_api',
+        ),
+      ]);
+      expect(
+        exact.hasAnyPathPrefix('/api/v1/admin/domains'),
+        isTrue,
+        reason: 'the exact route is a capability hit',
+      );
+
+      final child = SnaplinkAdminCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/domains/example.test',
+          feature: 'admin_api',
+        ),
+      ]);
+      expect(child.hasAnyPathPrefix('/api/v1/admin/domains'), isTrue);
+      expect(child.hasAnyPathPrefix('/api/v1/admin/domains/'), isTrue);
+
+      final customVerb = SnaplinkAdminCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'POST',
+          path: '/api/v1/admin/tenants/{tenant_id}:set-status',
+          feature: 'admin_api',
+        ),
+      ]);
+      expect(
+        customVerb.hasAnyPathPrefix('/api/v1/admin/tenants/:id'),
+        isTrue,
+        reason: 'custom verbs may follow a normalized parameter segment',
+      );
+
+      final lookalikes = SnaplinkAdminCapabilities(const [
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/domains-x',
+          feature: 'admin_api',
+        ),
+        SnaplinkAdminEndpoint(
+          method: 'GET',
+          path: '/api/v1/admin/devices-evil',
+          feature: 'admin_api',
+        ),
+      ]);
+      expect(lookalikes.hasAnyPathPrefix('/api/v1/admin/domains'), isFalse);
+      expect(lookalikes.hasAnyPathPrefix('/api/v1/admin/devices'), isFalse);
+    });
+
     test(
       'resolves only documented path parameters and URL-encodes their values',
       () {
@@ -73,6 +126,40 @@ void main() {
       expect(
         endpoint.resolvePath({'id': 'acme'}),
         '/api/v1/admin/tenants/acme:set-status',
+      );
+    });
+
+    test('matches documented prefixes only at segment boundaries', () {
+      expect(
+        SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+          '/api/v1/admin/domains',
+        ),
+        isTrue,
+      );
+      expect(
+        SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+          '/api/v1/admin/domains/',
+        ),
+        isTrue,
+      );
+      expect(
+        SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+          '/api/v1/admin/domains-x',
+        ),
+        isFalse,
+      );
+      expect(
+        SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+          '/api/v1/admin/devices-evil',
+        ),
+        isFalse,
+      );
+      expect(
+        SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(
+          '/api/v1/admin/tenants/:id',
+        ),
+        isTrue,
+        reason: 'documented parameter/custom-verb routes remain discoverable',
       );
     });
 

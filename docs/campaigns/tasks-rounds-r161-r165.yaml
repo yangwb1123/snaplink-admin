@@ -1,0 +1,97 @@
+# R161-R165：Admin capability path-boundary hardening
+# 只修正已有 capability/catalog prefix 的 segment boundary；不新增 endpoint 或能力。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r161-r165.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R161：修复 Admin capability prefix 的边界匹配。完整读取
+    lib/api/snaplink_admin_types.dart、lib/api/snaplink_admin_catalog.dart、
+    lib/screens/admin/admin_navigation.dart 及相关 tests。当前
+    SnaplinkAdminCapabilities.hasAnyPathPrefix、
+    SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix 和
+    AdminNavigationCapabilities._hasAnyPathPrefix 直接使用 startsWith；这会把
+    `/api/v1/admin/domains-x`、`/api/v1/admin/devices-evil` 等非同一路径段误判为
+    `/domains`、`/devices` 能力。
+
+    将 prefix 语义收敛为 segment-aware：prefix 以 `/` 结尾时保留现有 subtree
+    语义；否则只接受 exact path、prefix + `/` 子路径，以及已有 OpenAPI custom-verb
+    形式在参数段后的 `:verb`（若当前实现/调用确实需要）。保留现有 `{id}`/`:id`
+    normalization、大小写、method exact-match、documented/runtime merge 和
+    catalog fallback 语义。AdminNavigationCapabilities 应复用修正后的
+    SnaplinkAdminCapabilities 行为，避免三套边界规则继续漂移；保留其
+    `_normalizedPath` 仅用于 merge key（若仍被需要）。
+
+    不修改 routes 字符串、OpenAPI、screen/API 请求、能力名称、认证、Session、
+    401/403 或服务器裁决；不新增依赖。增加最小单元回归：exact、合法子路径、
+    parameter/custom verb、lookalike sibling（如 `domains-x`/`devices-evil`）分别
+    断言；catalog helper 同样覆盖正反例。优先修改 test/snaplink_admin_api_test.dart
+    或已有 admin contract test，不复制大段生产 route 表。运行 dart format、
+    flutter analyze、test/snaplink_admin_api_test.dart test/admin_navigation_test.dart
+    test/admin_contract_consistency_test.dart 及 python3 checks/filesize.py、
+    git diff --check。输出 docs/ui/pages-per-page/r161-capability-path-boundary.md。
+  output: docs/ui/pages-per-page/r161-capability-path-boundary.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R162：复核所有 Admin navigation capability consumers 的边界一致性。读取 R161
+    报告与 diff，查找 `hasAnyPathPrefix`、`hasDocumentedPathPrefix`、
+    `stateForAnyPathPrefix`、`canUseAnyPathPrefix` 的全部生产调用和测试。只在
+    test/ 中补充针对至少一个 runtime-only `AdminNavigationCapabilities` 的
+    negative lookalike case（例如 inventory 只有 `/api/v1/admin/connections-evil`
+    时 supportsConnections 必须为 false；合法 `/connections/{id}` 必须为 true），
+    以及 catalog-only lookalike 不得开启 documented fallback 的 case。
+
+    不把 prefix 语义改成 exact endpoint：合法的 descendants、parameterized
+    routes、trailing-slash family 和现有 normalization 必须继续通过。不得修改
+    screens、API wire、routes、i18n、认证或安全流程；如 R161 已覆盖这些反例，
+    只输出审查报告，不重复测试。运行 admin navigation/contract tests、analyze、
+    filesize、directory fan-out、diff check。输出
+    docs/ui/pages-per-page/r162-capability-boundary-regression.md。
+  output: docs/ui/pages-per-page/r162-capability-boundary-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/admin_shell_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R163：Admin capability path-boundary structure audit。读取 R161-R162 报告和
+    完整 diff，确认修复只影响 prefix classification，不改变
+    `SnaplinkAdminCapabilities.has` 的 exact method/path contract，不改变
+    `SnaplinkAdminOperationCatalog` route 内容，不改变 runtime/documented merge、
+    unknown/unavailable/available 三态或页面请求。核对 custom-verb、OpenAPI
+    `{param}`、runtime `:param` normalization 与 trailing slash 语义。
+
+    默认不修改源码；只有发现本批直接造成的明确编译/契约问题，才在同一匹配 helper
+    或对应 test 中修复。不要机械处理 32 条前端 heuristic warning，不新增 endpoint、
+    dependency、UI 文案或 `portal/developer/oidc_login` audit 字样。若需要同步
+    `docs/TECH_DEBT.md`，只记录 capability prefix false-positive hardening 与新增
+    regression coverage，不改变 filesize 统计。输出
+    docs/ui/pages-per-page/r163-capability-structure-audit.md。
+  output: docs/ui/pages-per-page/r163-capability-structure-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/admin_shell_test.dart test/admin_governance_security_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R164：同步技术台账并做契约边界终检。读取 R161-R163 报告和当前实际行数；若
+    `docs/TECH_DEBT.md` 仍是上一快照，只更新一小节说明 capability prefix 现已
+    segment-aware、合法 descendants/custom verbs 保留、lookalike siblings 不再
+    误开能力，以及对应测试范围。不要把这项修复写成新增后端能力或 endpoint；不
+    修改 engineering.yaml 阈值/豁免，不改生产业务代码（除 R161 helper）。
+
+    同时核对 Developer 13-file census、OIDC firstPartyClientId 单一来源、
+    `portal/developer/oidc_login` audit 边界、Portal path ownership guard、audit
+    ring seam、i18n coverage 与 docs/ui fan-out。输出
+    docs/ui/pages-per-page/r164-capability-ledger.md。
+  output: docs/ui/pages-per-page/r164-capability-ledger.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/portal_security_contract_test.dart test/audit_contract_guard_test.dart test/oidc_login_handle_success_census_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R165：R161-R164 最终门禁。读取本批报告与当前工作树；没有明确回归不改源码。
+    运行受影响文件 dart format、flutter analyze、全量 flutter test、Chrome smoke、
+    make build-prod、make release-artifact-check、Python unit 和
+    python3 cli.py harness。复核全部 Dart <=400（只保留真实 catalog/main/forwarder
+    豁免）、architecture/fan-out、Admin capability prefix boundary、Portal path
+    guard、Developer 13-file census、OIDC client_id、i18n EN/ZH 与 audit ring。
+
+    不修改 API wire、路由、认证、Session、MFA、Consent、设备码、Checkout、secret、
+    导出、安全协议或任何 SSE reconnect 策略；不新增依赖、endpoint、业务能力。
+    输出 docs/ui/pages-per-page/r165-final-audit-19.md，最后一行严格使用
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r165-final-audit-19.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"

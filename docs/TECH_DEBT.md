@@ -46,6 +46,12 @@
 - R158 的 `test/portal_notifications_test.dart` 当前为 9/9：覆盖 SSE bearer/multiline parse、初始 401（expiry hook exactly once）、403/500（不触发 hook）、有限 event 后正常 done（无重连/重复订阅），以及 Portal bell 的 event/unread 状态保留。该回归不声称 mark-read 的取消/重订阅语义。
 - R159 复核：Portal contract/notification/audit guard tests、`flutter analyze`、filesize、directory fan-out 与 `git diff --check` 通过；没有修改 API client、认证、路由或安全协议。
 
+## R161-R164 Admin capability prefix 边界台账
+
+- R161 的 prefix classification 现为 segment-aware：保留 exact、合法 descendants、trailing-slash subtree、参数段后的 custom verbs，以及既有 normalization；`domains-x`、`devices-evil` 等 lookalike sibling 不再误开已有能力。
+- R161-R163 只复用既有 runtime/catalog 路径判定，不新增后端能力、endpoint、route 或 API wire；`has` 的 exact method/path contract、runtime/documented merge 与三态语义保持不变。
+- 回归范围为 `test/snaplink_admin_api_test.dart` 的 exact/descendant/custom-verb/lookalike 与 documented-prefix 正反例、`test/admin_navigation_test.dart` 的 runtime-only lookalike，以及 `test/admin_contract_consistency_test.dart` 的全量 flag/catalog 一致性。
+
 ## R151-R152 已完成的非 UI 预算拆分
 
 两轮均保持 `max_lines: 400`，只做同一 library 内的纯结构拆分，不把 API client 或 catalog Map 计作 UI 页面债：

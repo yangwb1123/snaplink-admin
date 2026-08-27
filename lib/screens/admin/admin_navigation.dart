@@ -196,9 +196,8 @@ class AdminNavigationCapabilities {
 
   bool _has(String method, String path) => capabilities.has(method, path);
 
-  bool _hasAnyPathPrefix(String prefix) => capabilities.endpoints.any(
-    (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
-  );
+  bool _hasAnyPathPrefix(String prefix) =>
+      capabilities.hasAnyPathPrefix(prefix);
 
   static String _normalizedPath(String path) => path.replaceAllMapped(
     RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}'),

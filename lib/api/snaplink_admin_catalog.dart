@@ -38,7 +38,8 @@ class SnaplinkAdminOperationCatalog {
   /// Whether a documented route family is available even when an older
   /// runtime inventory omits its gRPC-gateway registration.
   static bool hasDocumentedPathPrefix(String prefix) => endpoints.any(
-    (endpoint) => _normalizedPath(endpoint.path).startsWith(prefix),
+    (endpoint) =>
+        SnaplinkAdminCapabilities.matchesPathPrefix(endpoint.path, prefix),
   );
 
   static String _key(SnaplinkAdminEndpoint endpoint) =>
