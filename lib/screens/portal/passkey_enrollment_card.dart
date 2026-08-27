@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/webauthn_registration.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Authenticated passkey enrollment, kept separate from TOTP management so a
@@ -43,7 +44,7 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
       _ok = false;
     });
     try {
-      final begin = await widget.api.post('/me/mfa/webauthn/begin', {
+      final begin = await widget.api.post(PortalPaths.webauthnBegin, {
         if (_nameCtrl.text.trim().isNotEmpty)
           'display_name': _nameCtrl.text.trim(),
       });
@@ -68,7 +69,7 @@ class _PasskeyEnrollmentCardState extends State<PasskeyEnrollmentCard> {
       final credential = await WebAuthnRegistration.create(options);
       if (!mounted) return;
       final finish = await widget.api.post(
-        '/me/mfa/webauthn/finish?session_id=${Uri.encodeComponent(sessionId)}',
+        PortalPaths.webauthnFinish(sessionId),
         credential,
       );
       if (!mounted) return;

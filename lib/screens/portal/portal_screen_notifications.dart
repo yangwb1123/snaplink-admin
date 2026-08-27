@@ -8,7 +8,12 @@ extension _PortalScreenNotifications on _PortalScreenState {
   Future<void> _initializeNotifications() async {
     await _notificationSubscription?.cancel();
     try {
-      final response = await _api.get('/me/notifications?limit=5');
+      final response = await _api.get(
+        Uri(
+          path: PortalPaths.notifications,
+          queryParameters: const {'limit': '5'},
+        ).toString(),
+      );
       if (response.statusCode != 200 || !mounted) return;
       final body = PortalApi.decode(response);
       final items = _notificationObjects(body['notifications']);
@@ -60,7 +65,7 @@ extension _PortalScreenNotifications on _PortalScreenState {
 
   Future<void> _markNotificationRead(String id) async {
     try {
-      final response = await _api.post('/me/notifications/$id/read');
+      final response = await _api.post(PortalPaths.notificationRead(id));
       if (response.statusCode == 200 && mounted) {
         _update(() {
           final now = DateTime.now().toUtc().toIso8601String();

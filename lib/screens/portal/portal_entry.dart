@@ -3,6 +3,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 
 /// Builds the hosted-login location for an unauthenticated portal visit.
 ///
@@ -114,8 +115,8 @@ class PortalActionRoute {
   bool get isAvailable => kind != null && token.isNotEmpty;
 
   String get endpoint => switch (kind) {
-    PortalActionKind.changeEmail => '/me/email/verify',
-    PortalActionKind.invitation => '/me/invitations/accept',
+    PortalActionKind.changeEmail => PortalPaths.emailVerify,
+    PortalActionKind.invitation => PortalPaths.invitationAccept,
     null => '',
   };
 

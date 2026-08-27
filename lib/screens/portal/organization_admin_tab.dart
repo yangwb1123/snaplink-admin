@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 
 import 'portal_api.dart';
 import 'organization_admin_widgets.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 import 'member_row_tile.dart';
 
@@ -55,9 +56,6 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
   String? _message;
   bool _ok = false;
 
-  String get _base =>
-      '/me/organizations/${Uri.encodeComponent(widget.tenantId)}';
-
   @override
   void initState() {
     super.initState();
@@ -81,7 +79,9 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
       }
     });
     try {
-      final members = await widget.api.get('$_base/members');
+      final members = await widget.api.get(
+        PortalPaths.organizationMembers(widget.tenantId),
+      );
       if (!mounted || seq != _reqSeq) return;
       if (members.statusCode == 403) {
         setState(() {
@@ -96,7 +96,9 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         return;
       }
       final roster = organizationRecords(PortalApi.decode(members)['members']);
-      final invitations = await widget.api.get('$_base/invitations');
+      final invitations = await widget.api.get(
+        PortalPaths.organizationInvitations(widget.tenantId),
+      );
       if (!mounted || seq != _reqSeq) return;
       if (invitations.statusCode == 403 || invitations.statusCode == 404) {
         setState(() {
@@ -195,7 +197,7 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         destructive: true,
       ),
       request: () => widget.api.put(
-        '$_base/members/${Uri.encodeComponent(userId)}',
+        PortalPaths.organizationMember(widget.tenantId, userId),
         {'role': role},
       ),
       success: 'Member role updated.',
@@ -221,8 +223,9 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         confirmText: userId,
         destructive: true,
       ),
-      request: () =>
-          widget.api.delete('$_base/members/${Uri.encodeComponent(userId)}'),
+      request: () => widget.api.delete(
+        PortalPaths.organizationMember(widget.tenantId, userId),
+      ),
       success: 'Member removed.',
       failure: (status) => status == 409
           ? 'Last admin protected.'
@@ -251,10 +254,10 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         }),
         'Send invitation',
       ),
-      request: () => widget.api.post('$_base/invitations', {
-        'email': email,
-        'role': _inviteRole,
-      }),
+      request: () => widget.api.post(
+        PortalPaths.organizationInvitations(widget.tenantId),
+        {'email': email, 'role': _inviteRole},
+      ),
       success: 'Invitation sent. Snaplink never exposes its token here.',
       failure: (status) => status == 409
           ? 'Duplicate or protected.'
@@ -278,8 +281,9 @@ class _OrganizationAdminPanelState extends State<OrganizationAdminPanel> {
         confirmText: email,
         destructive: true,
       ),
-      request: () =>
-          widget.api.delete('$_base/invitations/${Uri.encodeComponent(email)}'),
+      request: () => widget.api.delete(
+        PortalPaths.organizationInvitation(widget.tenantId, email),
+      ),
       success: 'Invitation revoked.',
       failure: (status) => status == 409
           ? 'Duplicate or protected.'

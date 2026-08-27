@@ -6,6 +6,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Recovery-code lifecycle. Plaintext codes are intentionally rendered only
@@ -36,7 +37,7 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
 
   Future<void> _loadCount() async {
     try {
-      final response = await widget.api.get('/me/mfa/recovery-codes');
+      final response = await widget.api.get(PortalPaths.mfaRecoveryCodes);
       if (!mounted) {
         return;
       }
@@ -78,7 +79,7 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
       _newCodes = null;
     });
     try {
-      final response = await widget.api.post('/me/mfa/recovery-codes');
+      final response = await widget.api.post(PortalPaths.mfaRecoveryCodes);
       if (!mounted) {
         return;
       }
@@ -159,7 +160,8 @@ class _RecoveryCodesCardState extends State<RecoveryCodesCard> {
               child: FilledButton.icon(
                 onPressed: () => setState(() {
                   _newCodes = null;
-                  _message = 'Recovery codes hidden. Keep your saved copy secure.';
+                  _message =
+                      'Recovery codes hidden. Keep your saved copy secure.';
                 }),
                 icon: const Icon(Icons.save_outlined),
                 label: Text(context.tr('I have saved these codes')),

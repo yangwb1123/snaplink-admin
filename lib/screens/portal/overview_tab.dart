@@ -4,6 +4,7 @@ import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Account summary + editable display name + editable custom attributes +
@@ -65,9 +66,9 @@ class _OverviewTabState extends State<OverviewTab> {
     });
     try {
       final me = await widget.api.fetchMe();
-      final roles = await widget.api.fetchListOrEmpty('/roles/me', 'roles');
-      final permissions = await widget.api.fetchListOrEmpty('/permissions/me', 'permissions');
-      final menus = await widget.api.fetchListOrEmpty('/menus/me', 'menus');
+      final roles = await widget.api.fetchListOrEmpty(PortalPaths.roles, 'roles');
+      final permissions = await widget.api.fetchListOrEmpty(PortalPaths.permissions, 'permissions');
+      final menus = await widget.api.fetchListOrEmpty(PortalPaths.menus, 'menus');
 
       final user = (me['user'] as Map?) ?? const {};
       _nameCtrl.text = (user['name'] ?? '').toString();
@@ -104,7 +105,7 @@ class _OverviewTabState extends State<OverviewTab> {
       _nameMsg = null;
     });
     try {
-      final response = await widget.api.patch('/me', {'name': _nameCtrl.text});
+      final response = await widget.api.patch(PortalPaths.me, {'name': _nameCtrl.text});
       if (response.statusCode < 200 || response.statusCode >= 300) {
         setState(() {
           _nameMsg = 'Could not save your display name.';
@@ -136,7 +137,7 @@ class _OverviewTabState extends State<OverviewTab> {
       _attrsMsg = null;
     });
     try {
-      final r = await widget.api.patch('/me', {'attributes': attrs});
+      final r = await widget.api.patch(PortalPaths.me, {'attributes': attrs});
       if (r.statusCode == 404) {
         setState(() {
           _attrsMsg = 'Profile editing is not available.';

@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/brand_logo.dart';
 import 'package:sso_admin/widgets/page_transition.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'overview_tab.dart';
 import 'identities_tab.dart';
 import 'security_tab.dart';

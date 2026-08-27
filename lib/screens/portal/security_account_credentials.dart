@@ -3,6 +3,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 import '../oidc_login/trusted_device_token.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'security_change_email_card.dart';
 import 'security_change_password_card.dart';
 
@@ -60,7 +61,7 @@ class _SecurityAccountCredentialsState
       _passwordMessage = null;
     });
     try {
-      final response = await widget.api.post('/me/password', {
+      final response = await widget.api.post(PortalPaths.password, {
         'current_password': current,
         'new_password': next,
       });
@@ -123,7 +124,7 @@ class _SecurityAccountCredentialsState
       _emailMessage = null;
     });
     try {
-      final response = await widget.api.post('/me/email/change', {
+      final response = await widget.api.post(PortalPaths.emailChange, {
         'new_email': value,
       });
       if (!mounted) return;
@@ -175,7 +176,7 @@ class _SecurityAccountCredentialsState
       _emailMessage = null;
     });
     try {
-      final response = await widget.api.post('/me/email/verify', {
+      final response = await widget.api.post(PortalPaths.emailVerify, {
         'token': token,
       });
       if (!mounted) return;

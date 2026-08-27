@@ -8,6 +8,7 @@ import 'passkey_enrollment_card.dart';
 import 'security_account_credentials.dart';
 import 'security_mfa_card.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'recovery_codes_card.dart';
 import 'trusted_devices_card.dart';
 
@@ -70,7 +71,7 @@ class _SecurityTabState extends State<SecurityTab> {
       });
     }
     try {
-      final r = await widget.api.get('/me/mfa');
+      final r = await widget.api.get(PortalPaths.mfa);
       if (!mounted) return;
       if (r.statusCode == 404) {
         setState(() {
@@ -136,9 +137,7 @@ class _SecurityTabState extends State<SecurityTab> {
       _mfaOk = false;
     });
     try {
-      final response = await widget.api.delete(
-        '/me/mfa/${Uri.encodeComponent(id)}',
-      );
+      final response = await widget.api.delete(PortalPaths.mfaFactor(id));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (mounted) {
           setState(() => _mfaMessage = 'Could not remove this second factor.');
@@ -172,7 +171,7 @@ class _SecurityTabState extends State<SecurityTab> {
       _totpCodeCtrl.clear();
     });
     try {
-      final r = await widget.api.post('/me/mfa/totp/begin');
+      final r = await widget.api.post(PortalPaths.totpBegin);
       if (!mounted) return;
       if (r.statusCode == 200) {
         final d = PortalApi.decode(r);
@@ -221,7 +220,7 @@ class _SecurityTabState extends State<SecurityTab> {
     }
     setState(() => _totpBusy = true);
     try {
-      final r = await widget.api.post('/me/mfa/totp/confirm', {
+      final r = await widget.api.post(PortalPaths.totpConfirm, {
         'secret': _pendingSecret,
         'code': code,
         'label': _totpLabelCtrl.text,

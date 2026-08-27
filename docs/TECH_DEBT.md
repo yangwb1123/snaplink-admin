@@ -1,6 +1,6 @@
-# 技术债清单（R153 reconciliation）
+# 技术债清单（R159 reconciliation）
 
-> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R153 对账 R151/R152 完成后的非 UI filesize 预算，只同步工程豁免与台账，不改变 Dart、测试、API、路由、阈值或架构配置。
+> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R159 对账 R156-R158 的 Portal 路径契约、ownership guard 与 SSE 回归覆盖，只同步台账，不改变 Dart、测试阈值、API、路由或架构配置。
 
 ## P2 结构债（当前快照）
 
@@ -38,6 +38,13 @@
 | R131-R135 | Commerce：349 / 88；Tenant Detail：306 / 166；Break Glass：374 / 108；Crypto Keys：272 / 241；Setup Widgets：375 / 120。 |
 | R136-R140 | Governance：295 / 127；Threat Policies：206 / 249；User Support：224 / 239；Admin Users：303 / 281。Developer Manage 保持单文件 400 行，以满足 13-file census 和固定 wire-site 约束。 |
 | R141-R145 | Client Detail：227 / 302；Dashboard：379 / 70；OIDC account flow：268 / 143；Privacy/Compliance：190 / 222；R145 复核所有 root/part、唯一 part 引用和既有结构门禁。 |
+
+## R156-R159 Portal 路径与 SSE 回归台账
+
+- `lib/screens/portal/portal_security_contract.dart` 保留 `PortalSecurityPaths`，并集中既有 Portal root/resource paths 到 `PortalPaths`；资源 id 与 WebAuthn `session_id` 仍在 wire 位置使用 `Uri.encodeComponent`。既有 query、body、headers、Session/Consent/MFA/secret 行为和 action route index 不因 R156-R159 改动。
+- R157 的 VM ownership guard 位于 `test/portal_security_contract_test.dart`：轻量 Dart lexer 先跳过行/块注释，只扫描 `lib/screens/portal` 的字符串字面量；动态 server data、display prose 和 `/portal` UI route 不会成为 API literal。唯一 owner 是 contract 与既有 re-export shim；`lib/api/portal_api.dart` 保持未修改。
+- R158 的 `test/portal_notifications_test.dart` 当前为 9/9：覆盖 SSE bearer/multiline parse、初始 401（expiry hook exactly once）、403/500（不触发 hook）、有限 event 后正常 done（无重连/重复订阅），以及 Portal bell 的 event/unread 状态保留。该回归不声称 mark-read 的取消/重订阅语义。
+- R159 复核：Portal contract/notification/audit guard tests、`flutter analyze`、filesize、directory fan-out 与 `git diff --check` 通过；没有修改 API client、认证、路由或安全协议。
 
 ## R151-R152 已完成的非 UI 预算拆分
 

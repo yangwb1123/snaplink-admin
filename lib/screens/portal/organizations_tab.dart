@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'organization_admin_tab.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 part 'organizations_tab_view.dart';
@@ -71,7 +72,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
       }
     });
     try {
-      final r = await widget.api.get('/me/organizations');
+      final r = await widget.api.get(PortalPaths.organizations);
       if (!mounted) return;
       if (r.statusCode == 404) {
         setState(() {
@@ -134,7 +135,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
         _ok = false;
       });
       final response = await widget.api.delete(
-        '/me/organizations/${Uri.encodeComponent(tenantId)}',
+        PortalPaths.organization(tenantId),
       );
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -183,7 +184,7 @@ class _OrganizationsTabState extends State<OrganizationsTab> {
       _ok = false;
     });
     try {
-      final r = await widget.api.post('/me/invitations/accept', {
+      final r = await widget.api.post(PortalPaths.invitationAccept, {
         'token': token,
       });
       if (!mounted) return;

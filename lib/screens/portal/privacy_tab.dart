@@ -4,6 +4,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 
 import 'portal_api.dart';
 import 'portal_export_download.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// GDPR data export + account deletion (Art. 17). Ports the "Download your
@@ -55,7 +56,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
       _exportOk = false;
     });
     try {
-      final r = await widget.api.get('/me/data-export');
+      final r = await widget.api.get(PortalPaths.dataExport);
       if (r.statusCode == 404) {
         setState(() {
           _exportMsg = 'Data export is not enabled.';
@@ -94,7 +95,9 @@ class _PrivacyTabState extends State<PrivacyTab> {
       _eraseMsg = null;
     });
     try {
-      final r = await widget.api.post('/me/account/erase', {'dry_run': true});
+      final r = await widget.api.post(PortalPaths.accountErase, {
+        'dry_run': true,
+      });
       if (r.statusCode == 404) {
         setState(() => _eraseMsg = 'Account deletion is not enabled.');
         return;
@@ -144,7 +147,7 @@ class _PrivacyTabState extends State<PrivacyTab> {
       _eraseMsg = null;
     });
     try {
-      final r = await widget.api.post('/me/account/erase', {
+      final r = await widget.api.post(PortalPaths.accountErase, {
         'confirm': confirm,
         'dry_run': false,
       });

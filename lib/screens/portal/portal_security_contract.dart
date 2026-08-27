@@ -21,6 +21,61 @@ abstract final class PortalSecurityPaths {
   static String deviceLost(String id) => '${device(id)}/lost';
 }
 
+/// Root-level self-service portal paths mounted by Snaplink. Keep these
+/// values aligned with the existing wire contract; resource helpers encode
+/// opaque identifiers before placing them in a path segment or query value.
+abstract final class PortalPaths {
+  static const me = '/me';
+  static const identities = '/me/identities';
+  static const organizations = '/me/organizations';
+  static const notifications = '/me/notifications';
+  static const notificationPreferences = '/me/notifications/preferences';
+  static const notificationStream = '/me/notifications/stream';
+  static const mfa = '/me/mfa';
+  static const mfaRecoveryCodes = '/me/mfa/recovery-codes';
+  static const webauthnBegin = '/me/mfa/webauthn/begin';
+  static const totpBegin = '/me/mfa/totp/begin';
+  static const totpConfirm = '/me/mfa/totp/confirm';
+  static const password = '/me/password';
+  static const emailChange = '/me/email/change';
+  static const emailVerify = '/me/email/verify';
+  static const dataExport = '/me/data-export';
+  static const accountErase = '/me/account/erase';
+  static const consents = '/consents/me';
+  static const roles = '/roles/me';
+  static const permissions = '/permissions/me';
+  static const menus = '/menus/me';
+  static const invitationAccept = '/me/invitations/accept';
+
+  static String identity(String id) => '$identities/${Uri.encodeComponent(id)}';
+
+  static String organization(String tenantId) =>
+      '$organizations/${Uri.encodeComponent(tenantId)}';
+
+  static String organizationMembers(String tenantId) =>
+      '${organization(tenantId)}/members';
+
+  static String organizationMember(String tenantId, String userId) =>
+      '${organizationMembers(tenantId)}/${Uri.encodeComponent(userId)}';
+
+  static String organizationInvitations(String tenantId) =>
+      '${organization(tenantId)}/invitations';
+
+  static String organizationInvitation(String tenantId, String email) =>
+      '${organizationInvitations(tenantId)}/${Uri.encodeComponent(email)}';
+
+  static String notificationRead(String id) =>
+      '$notifications/${Uri.encodeComponent(id)}/read';
+
+  static String consent(String clientId) =>
+      '$consents/${Uri.encodeComponent(clientId)}';
+
+  static String mfaFactor(String id) => '$mfa/${Uri.encodeComponent(id)}';
+
+  static String webauthnFinish(String sessionId) =>
+      '/me/mfa/webauthn/finish?session_id=${Uri.encodeComponent(sessionId)}';
+}
+
 enum PortalDeviceCollectionKind { empty, physical, trustedGrants, ambiguous }
 
 /// Physical-device records carry posture/fingerprint fields. Classification

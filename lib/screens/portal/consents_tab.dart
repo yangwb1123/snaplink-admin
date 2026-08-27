@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Connected applications (OAuth consents) list + per-app revoke. Ports the
@@ -54,7 +55,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
       });
     }
     try {
-      final response = await widget.api.get('/consents/me');
+      final response = await widget.api.get(PortalPaths.consents);
       if (!mounted) return;
       if (response.statusCode == 401) {
         setState(() => _error = 'Your session has expired.');
@@ -108,9 +109,7 @@ class _ConsentsTabState extends State<ConsentsTab> {
       _error = null;
     });
     try {
-      final response = await widget.api.delete(
-        '/consents/me/${Uri.encodeComponent(clientId)}',
-      );
+      final response = await widget.api.delete(PortalPaths.consent(clientId));
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() => _notice = 'Application access revoked.');

@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 /// Linked external identities for the current account. Ports the
@@ -104,7 +105,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
       if (!preserveNotice) _notice = null;
     });
     try {
-      final response = await widget.api.get('/me/identities');
+      final response = await widget.api.get(PortalPaths.identities);
       if (!mounted) return;
       if (response.statusCode == 404) {
         setState(() {
@@ -154,9 +155,7 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
       _error = null;
     });
     try {
-      final response = await widget.api.delete(
-        '/me/identities/${Uri.encodeComponent(id)}',
-      );
+      final response = await widget.api.delete(PortalPaths.identity(id));
       if (!mounted) return;
       if (response.statusCode >= 200 && response.statusCode < 300) {
         setState(() => _notice = 'Identity unlinked.');

@@ -10,6 +10,7 @@ import 'package:sso_admin/widgets/format_helpers.dart';
 import 'package:sso_admin/widgets/staggered_fade_in.dart';
 import '../../i18n/app_strings.dart';
 import 'portal_api.dart';
+import 'portal_security_contract.dart';
 import 'portal_widgets.dart';
 
 part 'notifications_tab_view.dart';
@@ -72,7 +73,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     try {
       final before = more && _items.isNotEmpty ? _items.last['id']?.toString() : null;
       final query = <String, String>{'limit': '20', if (before?.isNotEmpty ?? false) 'before_id': before!};
-      final inbox = await widget.api.get(Uri(path: '/me/notifications', queryParameters: query).toString());
+      final inbox = await widget.api.get(Uri(path: PortalPaths.notifications, queryParameters: query).toString());
       if (inbox.statusCode != 200) throw PortalApiError(inbox.statusCode);
       final body = PortalApi.decode(inbox);
       final incoming = _objects(body['notifications']);
@@ -106,7 +107,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     _preferencesLoading = true;
     setState(() => _preferencesError = false);
     try {
-      final response = await widget.api.get('/me/notifications/preferences');
+      final response = await widget.api.get(PortalPaths.notificationPreferences);
       if (!mounted) return;
       if (response.statusCode != 200) {
         setState(() => _preferencesError = true);
@@ -131,7 +132,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     if (id.isEmpty || _markingReadIds.contains(id)) return;
     setState(() => _markingReadIds.add(id));
     try {
-      final response = await widget.api.post('/me/notifications/$id/read');
+      final response = await widget.api.post(PortalPaths.notificationRead(id));
       if (response.statusCode != 200) {
         if (mounted) _readError(item);
         return;
@@ -196,7 +197,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
             return false;
           }
           try {
-            final response = await widget.api.post('/me/notifications/$id/read');
+            final response = await widget.api.post(PortalPaths.notificationRead(id));
             if (response.statusCode != 200) {
               failed = true;
               return false;
@@ -245,7 +246,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     final cursors = <String>{};
     while (true) {
       final query = <String, String>{'limit': '100', 'unread_only': 'true', 'before_id': ?before};
-      final response = await widget.api.get(Uri(path: '/me/notifications', queryParameters: query).toString());
+      final response = await widget.api.get(Uri(path: PortalPaths.notifications, queryParameters: query).toString());
       if (response.statusCode != 200) throw PortalApiError(response.statusCode);
       final body = PortalApi.decode(response);
       final page = _objects(body['notifications']);
@@ -265,7 +266,7 @@ class _NotificationsTabState extends State<NotificationsTab> {
     setState(() => _saving = true);
     var ok = false;
     try {
-      final response = await widget.api.put('/me/notifications/preferences', {'preferences': _preferences});
+      final response = await widget.api.put(PortalPaths.notificationPreferences, {'preferences': _preferences});
       if (response.statusCode != 200) throw PortalApiError(response.statusCode);
       ok = true;
     } catch (_) {

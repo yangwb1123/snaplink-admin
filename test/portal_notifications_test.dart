@@ -7,6 +7,7 @@ import 'package:http/testing.dart';
 import 'package:sso_admin/screens/portal/notification_bell.dart';
 import 'package:sso_admin/screens/portal/notifications_tab.dart';
 import 'package:sso_admin/screens/portal/portal_api.dart';
+import 'package:sso_admin/screens/portal/portal_screen.dart';
 
 void main() {
   test(
@@ -43,6 +44,122 @@ void main() {
       expect(streamRequest.headers['last-event-id'], 'event-0');
     },
   );
+
+  for (final status in [401, 403, 500]) {
+    test(
+      'notification stream HTTP $status has the expected session hook behavior',
+      () async {
+        var requests = 0;
+        var expiryHookCalls = 0;
+        final api = PortalApi(
+          httpClient: MockClient((request) async {
+            requests++;
+            if (request.url.path == '/me') return http.Response('{}', 200);
+            return http.Response('', status);
+          }),
+        );
+        api.onSessionExpired = () => expiryHookCalls++;
+
+        await api.login('portal-token');
+        await expectLater(
+          api.notificationEvents(),
+          emitsError(
+            isA<PortalApiError>().having(
+              (error) => error.status,
+              'status',
+              status,
+            ),
+          ),
+        );
+
+        expect(requests, 2, reason: 'one login probe and one stream request');
+        expect(expiryHookCalls, status == 401 ? 1 : 0);
+      },
+    );
+  }
+
+  test(
+    'notification stream event then done can be drained exactly once',
+    () async {
+      var streamRequests = 0;
+      final api = PortalApi(
+        httpClient: MockClient((request) async {
+          if (request.url.path == '/me') return http.Response('{}', 200);
+          streamRequests++;
+          return http.Response(
+            'data: {"id":"notification-live","title":"Live sign-in"}\n\n',
+            200,
+            headers: {'content-type': 'text/event-stream'},
+          );
+        }),
+      );
+
+      await api.login('portal-token');
+      final events = await api.notificationEvents().toList();
+
+      expect(events, [
+        {'id': 'notification-live', 'title': 'Live sign-in'},
+      ]);
+      expect(streamRequests, 1, reason: 'a normal done must not reconnect');
+    },
+  );
+
+  testWidgets('normal stream completion preserves the portal bell state', (
+    tester,
+  ) async {
+    var streamRequests = 0;
+    final api = PortalApi(
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/me') {
+          return http.Response('{"sub":"user-1"}', 200);
+        }
+        if (request.url.path == '/me/notifications') {
+          return http.Response(
+            jsonEncode({
+              'notifications': [
+                {
+                  'id': 'notification-existing',
+                  'title': 'Existing sign-in',
+                  'body': 'Existing notification',
+                  'read_at': null,
+                },
+              ],
+              'unread_count': 1,
+            }),
+            200,
+          );
+        }
+        if (request.url.path == '/me/notifications/stream') {
+          streamRequests++;
+          return http.Response(
+            'data: {"id":"notification-live","title":"Live sign-in"}\n\n',
+            200,
+            headers: {'content-type': 'text/event-stream'},
+          );
+        }
+        return http.Response('{}', 404);
+      }),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PortalScreen(api: api, redirectMissingSessionToLogin: false),
+      ),
+    );
+    await tester.pump();
+    await tester.enterText(find.byType(TextField), 'portal-token');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    final bell = tester.widget<NotificationBell>(find.byType(NotificationBell));
+    expect(streamRequests, 1);
+    expect(bell.unreadCount, 2);
+    expect(bell.recent.map((item) => item['id']), [
+      'notification-live',
+      'notification-existing',
+    ]);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('notification inbox marks read and saves preferences', (
     tester,

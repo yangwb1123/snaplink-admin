@@ -1,0 +1,102 @@
+# R156-R160：Portal 路径契约与生命周期回归
+# 只集中已有 Portal wire path literals、补回归测试；不改后端 API、认证、Session、MFA、安全语义。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r156-r160.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R156：集中 Portal 自助端已有的 wire path literals。先完整读取
+    lib/screens/portal/portal_security_contract.dart、portal_api.dart、所有 Portal
+    tabs/cards/entry 及 portal 相关测试。PortalSecurityPaths 已是安全资源的单一
+    合约；在同一文件增加一个只含既有路径的 PortalPaths 合约，或在同目录新增
+    portal_paths.dart（优先复用现有 contract 文件），覆盖已有的 /me、/me/identities、
+    /me/organizations、/me/notifications、preferences/read/stream、/me/mfa、
+    webauthn/totp、password/email、data-export/account-erase、/consents/me、
+    /roles/me、/permissions/me、/menus/me、邀请和 email action 路径，并为资源 id
+    提供 Uri.encodeComponent 的函数 helper。
+
+    只把生产代码中已存在的等价字符串替换为这些常量/helper：
+    lib/screens/portal/*.dart 及其同目录 view/widget/entry 文件。保留
+    PortalSecurityPaths 的既有成员和 enriched→legacy fallback 顺序；保留
+    notifications 的 Uri query 参数构造，只替换 path 常量；保留 action route 的
+    navigationIndex、flow/token 校验和所有 API 方法/headers/body/错误处理。不得修改
+    lib/api/portal_api.dart、lib/screens/portal/portal_api.dart re-export、任何后端
+    endpoint、路由、Session、认证或安全逻辑。注释中的路径无需机械改写。
+
+    在 test/portal_security_contract_test.dart 增加每个 PortalPaths 成员及动态 id
+    编码的精确 wire pin；必要时只更新 portal 相关测试中的重复 fixture 字符串以引用
+    contract，不改变断言含义。禁止新增依赖、英文 UI 文案或 portal/developer/
+    oidc_login 中的 audit 字样。运行 dart format、flutter analyze，以及
+    test/portal_security_contract_test.dart test/portal_screens_test.dart
+    test/portal_entry_test.dart test/portal_notifications_test.dart
+    test/portal_security_widgets_test.dart test/portal_api_test.dart。输出
+    docs/ui/pages-per-page/r156-portal-path-contract.md。
+  output: docs/ui/pages-per-page/r156-portal-path-contract.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_security_contract_test.dart test/portal_screens_test.dart test/portal_entry_test.dart test/portal_notifications_test.dart test/portal_security_widgets_test.dart test/portal_api_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R157：为 Portal 路径集中化加一个窄而可靠的 ownership guard。读取 R156 报告、
+    contract 文件和当前 diff。只在 test/ 中新增或扩展 guard（优先
+    test/portal_security_contract_test.dart），扫描 lib/screens/portal 的 Dart 源码，
+    确认受 PortalPaths/PortalSecurityPaths 管辖的既有根路径字符串不再散落在消费方；
+    contract 文件是唯一 allowlist，portal_api.dart 只能保持现有 re-export。guard
+    必须不把注释、动态服务端数据或合法的 /portal UI route 当成 API literal，且在
+    当前源码上稳定通过。若 R156 已采用单独 contract 文件，allowlist 只允许该文件
+    和既有 re-export shim，不扩大到任意消费文件。
+
+    同时复核 R156 没有改变通知 query、encoded id、enriched/legacy fallback、
+    PortalActionRoute endpoint/navigationIndex、PortalApi byte identity 或
+    portal 的 audit 边界。只修复由 R156 直接造成的明确测试/guard 问题；不进行
+    第二次重构，不修改 lib/api/portal_api.dart，不新增 endpoint/依赖/功能/文案。
+    运行相关 portal tests、audit_contract_guard_test.dart、flutter analyze、
+    python3 checks/filesize.py、python3 checks/directory_fanout.py 和 git diff --check。
+    输出 docs/ui/pages-per-page/r157-portal-path-ownership-guard.md。
+  output: docs/ui/pages-per-page/r157-portal-path-ownership-guard.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_security_contract_test.dart test/portal_screens_test.dart test/portal_entry_test.dart test/portal_notifications_test.dart test/portal_security_widgets_test.dart test/audit_contract_guard_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R158：补齐 Portal notification SSE 生命周期的测试覆盖，只做 test-only 变更。
+    读取 lib/api/portal_api.dart、portal_screen_notifications.dart、portal_screen.dart
+    和现有 test/portal_notifications_test.dart。保持当前已实现行为：SSE 初始非 2xx
+    的 401 通过 onSessionExpired 触发一次 hook 后抛出 PortalApiError；403/500 不触发
+    expiry hook；正常流关闭不会自动重连或重复订阅；已有事件和 unread/bell 状态
+    不因正常 stream end 被清空。不得为了测试改变生产代码。
+
+    增加稳定的 VM/widget regression cases：401 stream hook exactly once；正常
+    event 后 done 可被 drain 且无未处理异常；如果现有 NotificationTab harness
+    能可靠观察 mark-read 重订阅，则断言一次取消+一次新订阅，否则只覆盖前两个
+    可确定契约并在报告明确未声称 reconnect 语义。不要使用真实网络、sleep 或
+    永不完成的 future；不改测试 runner 配置，不新增依赖，不在 portal 文案中加入
+    audit。运行 dart format、flutter analyze、test/portal_notifications_test.dart
+    test/portal_entry_test.dart test/portal_api_test.dart 和 full VM smoke。输出
+    docs/ui/pages-per-page/r158-portal-sse-lifecycle.md。
+  output: docs/ui/pages-per-page/r158-portal-sse-lifecycle.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_notifications_test.dart test/portal_entry_test.dart test/portal_api_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R159：最终结构审查与台账同步。读取 R156-R158 报告和完整 git diff，核对 Portal
+    path contract/ownership guard 没有误把注释或 display data 当 wire，未引入重复
+    state/API，未改变 encoded resource ids、query/body/header、401/403、SSE done、
+    action routing、Session/Consent/MFA/secret 语义。若实现与报告不一致，只允许做
+    同目录 contract/test 的明确修正；否则只更新 docs/TECH_DEBT.md，准确记录
+    Portal path ownership guard 与 SSE regression coverage，不修改阈值、API、路由或
+    生产能力。不要为了减少 heuristic 数字机械拆分。检查 Developer 13-file census、
+    OIDC client_id 单一来源、portal/developer/oidc_login 无 audit、docs/ui 顶层
+    fan-out <=12。输出 docs/ui/pages-per-page/r159-portal-structure-audit.md。
+  output: docs/ui/pages-per-page/r159-portal-structure-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_security_contract_test.dart test/portal_screens_test.dart test/portal_entry_test.dart test/portal_notifications_test.dart test/portal_security_widgets_test.dart test/portal_api_test.dart test/app_router_client_id_wiring_test.dart test/oidc_login_handle_success_census_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R160：R156-R159 最终门禁。读取所有本批报告与当前工作树；没有明确回归就不改
+    源码。运行受影响文件 dart format、flutter analyze、全量 flutter test、Chrome
+    smoke、make build-prod、make release-artifact-check、Python unit 和
+    python3 cli.py harness。复核全部 Dart <=400（只保留真实 catalog/main/forwarder
+    豁免）、Portal path guard、architecture/fan-out、Developer 13-file census、
+    OIDC client_id 单一来源、i18n EN/ZH coverage、audit ring storage seam 和
+    portal/developer/oidc_login audit 边界。
+
+    禁止修改 API wire、认证、Session、MFA、Consent、设备码、Checkout、secret、导出、
+    SSE reconnect 策略或安全协议；不新增依赖/endpoint/业务能力。输出
+    docs/ui/pages-per-page/r160-final-audit-18.md，最后一行严格使用
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r160-final-audit-18.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"
