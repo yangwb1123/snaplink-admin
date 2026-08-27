@@ -1,0 +1,94 @@
+# R151-R155：非 UI 大文件的预算优先结构收口
+# 只搬移既有代码到同目录 part/extension；不改变 API、wire、路由、安全或文案数据。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r151-r155.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R151：拆分 lib/api/sso_client.dart 的纯结构。先完整读取 SSOError、SSOAdminListPage、
+    SSOAdminClient、所有测试和现有 api part 模式。当前文件约 621 行，是唯一真正超过
+    400 行的 API client 豁免；通过同目录 Dart part + extension 搬移既有方法，令 root
+    和每个新 part 都 <=400 行。
+
+    root 继续保留 SSOError、SSOAdminListPage、SSOAdminClient 的字段、构造器、
+    sameOrigin/withToken、nativeDefaultBaseUrl、firstPartyClientId、登录状态字段和
+    必要的最小初始化；把既有 login/logout/probe、资源 CRUD/集合读取、分页 helper 和
+    HTTP transport 按内聚职责搬到 2-3 个同目录 part 文件。可参考
+    snaplink_admin_api_request.dart 的 part-of extension 方式；part 共享库私有成员，
+    不复制 state、方法或 API。
+
+    强约束：所有 public 方法名、签名、返回值、异常、请求路径、query/body/header、
+    timeout/retry/401/403 语义、cache 无关性、firstPartyClientId 单一来源和
+    `client_id` wire 完全不变；不得新增依赖、测试、endpoint 或日志。不得改
+    app_router、screens、i18n、engineering.yaml 或已有测试。新文件只可放在 lib/api。
+    运行 dart format、flutter analyze，并执行 test/sso_client_test.dart、
+    test/sso_client_login_exactly_once_test.dart、test/admin_workflows_test.dart、
+    test/client_id_contract_test.dart、test/app_router_client_id_wiring_test.dart。
+    输出 docs/ui/pages-per-page/r151-sso-client-budget-split.md。
+  output: docs/ui/pages-per-page/r151-sso-client-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/sso_client_test.dart test/sso_client_login_exactly_once_test.dart test/admin_workflows_test.dart test/client_id_contract_test.dart test/app_router_client_id_wiring_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R152：拆分 lib/i18n/app_strings.dart 的实例访问器，保持 i18n 行为字节级等价。
+    当前文件约 410 行，静态 `_table` 是 typed EN/ZH catalog，不能移动或重写：
+    test/i18n_catalog_uniqueness_test.dart 会读取该文件的 key 源码并校验目录边界。
+
+    仅新增同目录 lib/i18n/app_strings_accessors.dart，并在 app_strings.dart 增加唯一
+    part 声明；将 Login、Settings、Dashboard、Admin、Portal、Developer、Setup、
+    Device authorization 既有实例 getter/方法原样搬入一个 `part of 'app_strings.dart'`
+    的 `extension ... on AppStrings`。保留 AppStrings 构造器、of/forLocale、`_t`、
+    `_table`、`_sourceTranslations` 和 app_strings_context.dart 的 part 关系。扩展
+    成员必须继续提供完全相同的 public API（例如 `AppStrings.of(context).signIn`、
+    `stepOf`、`translate`），不得改 key、EN/ZH value、fallback、插值、排序或调用方。
+
+    不新增依赖、测试或英文 UI 文案，不修改 screens/widgets/API。root 与新 part 均
+    <=400 行，part 引用唯一。运行 dart format、flutter analyze，以及
+    test/app_strings_test.dart、test/i18n_catalog_uniqueness_test.dart、
+    test/i18n_coverage_test.dart、test/language_catalog_test.dart、
+    test/render_matrix_smoke_test.dart。输出 docs/ui/pages-per-page/r152-app-strings-budget-split.md。
+  output: docs/ui/pages-per-page/r152-app-strings-budget-split.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/app_strings_test.dart test/i18n_catalog_uniqueness_test.dart test/i18n_coverage_test.dart test/language_catalog_test.dart test/render_matrix_smoke_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R153：同步非 UI filesize 豁免和 TECH_DEBT 台账。读取当前实际行数、engineering.yaml、
+    R151/R152 报告和 git diff。若 sso_client.dart 与 app_strings.dart 已均 <=400，
+    只从 engineering.yaml 移除这两个已不需要的豁免；保留仍真正超过 400 行的四个
+    i18n catalog 数据表、main.dart 和兼容 re-export forwarder，不扩大 max_lines、不
+    新增豁免。准确更新 docs/TECH_DEBT.md：生产 Dart >400 的数量、文件清单、UI 0/248、
+    R151/R152 已完成范围，不能把 catalog Map 当页面债；严格 heuristic 仍按实测记录。
+
+    只允许修改 engineering.yaml 与 docs/TECH_DEBT.md，不修改 lib/test/API/路由，
+    不改变阈值和架构配置。运行 python3 checks/filesize.py、python3 checks/directory_fanout.py、
+    git diff --check；输出 docs/ui/pages-per-page/r153-non-ui-budget-reconciliation.md。
+  output: docs/ui/pages-per-page/r153-non-ui-budget-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R154：非 UI 结构与契约回归审查。读取 R151-R153 报告和实际 diff，核对 part/extension
+    是否唯一、无重复实现、无公共 API 漂移；核对 sso_client 的 login client_id 单一来源、
+    请求路径/body/header/重试和 401/403 语义；核对 AppStrings 所有 accessor、typed
+    catalog key、EN/ZH fallback、插值 pattern 和 i18n coverage。也复核此前已落地的
+    audit ring seam、F12 query dedup、Portal 子菜单索引和 Admin breadcrumb 修复没有被
+    间接改变。
+
+    默认只输出审查报告，不修改生产代码或测试；只有发现本批结构拆分直接造成的明确
+    编译/契约问题才允许在同目录 part 中修复。禁止新增依赖、endpoint、文案、功能、
+    `audit` 到 portal/developer/oidc_login，禁止改 API wire 和安全语义。运行
+    flutter analyze、相关 contract tests、python3 checks/filesize.py 和 git diff --check。
+    输出 docs/ui/pages-per-page/r154-non-ui-structure-audit.md。
+  output: docs/ui/pages-per-page/r154-non-ui-structure-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/sso_client_test.dart test/sso_client_login_exactly_once_test.dart test/client_id_contract_test.dart test/app_router_client_id_wiring_test.dart test/app_strings_test.dart test/i18n_catalog_uniqueness_test.dart test/i18n_coverage_test.dart test/audit_log_service_test.dart test/audit_log_tab_test.dart test/portal_entry_test.dart test/admin_support_tabs_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R155：最终门禁。读取 R151-R154 报告与当前工作树，只处理本批结构拆分直接造成的
+    明确门禁问题；没有问题就不改源码。检查全部 Dart filesize（400 行边界、只保留有
+    理由豁免）、part 引用唯一性、architecture/fan-out、Developer 13-file census、
+    OIDC client_id 单一来源、i18n EN/ZH coverage、audit ring storage seam、Portal/
+    Developer/OIDC audit 边界、spacing/icon/three-state 门禁。
+
+    运行 dart format（受影响文件）、flutter analyze、全量 flutter test、browser smoke、
+    make build-prod、make release-artifact-check、Python unit 和 python3 cli.py harness。
+    不修改 API、路由、认证、Session、MFA、Consent、设备码、Checkout、secret、导出或
+    安全协议，不新增依赖/测试/业务能力。输出 docs/ui/pages-per-page/r155-final-audit-17.md，
+    最后一行严格为 VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r155-final-audit-17.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"

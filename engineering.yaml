@@ -24,12 +24,9 @@ filesize:
     - "lib/main.dart"
     # i18n 数据表：翻译键值数据表（Map 字面量），拆分会破坏合并架构
     # （snaplink i18n catalog 按源文件合并生成），故登记豁免、不拆分。
-    - "lib/i18n/app_strings.dart"
     - "lib/i18n/app_strings_source_admin_core.dart"
     - "lib/i18n/app_strings_source_admin_features.dart"
     - "lib/i18n/app_strings_source_portal.dart"
-    # API client exceeding the 400-line budget (dense with docs and methods).
-    - "lib/api/sso_client.dart"
     # Legacy re-export forwarders (thin compatibility layers; will be removed).
     - "lib/sso_client.dart"
     - "lib/screens/admin/snaplink_admin_api.dart"

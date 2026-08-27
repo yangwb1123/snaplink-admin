@@ -1,6 +1,6 @@
-# 技术债清单（R147 reconciliation）
+# 技术债清单（R153 reconciliation）
 
-> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R147 只同步台账，不改变 Dart、测试、API、路由或工程阈值。
+> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R153 对账 R151/R152 完成后的非 UI filesize 预算，只同步工程豁免与台账，不改变 Dart、测试、API、路由、阈值或架构配置。
 
 ## P2 结构债（当前快照）
 
@@ -8,22 +8,22 @@
 
 | 检查口径 | 当前数量 | 台账解释 |
 |---|---:|---|
-| UI 上帝文件：`lib/screens/**/*.dart` `>400` | **0 / 248** | R121-R145 已将页面 root/part 收敛到 400 行以内；不把数据表或 API client 算作 UI 页面。 |
-| 生产 Dart：`lib/**/*.dart` `>400` | **5 / 386** | 4 个 i18n Map/catalog 数据表 + 1 个 API client，均为有理由的显式豁免，不是 UI 页面债。 |
-| 全仓 Dart（含 `test/`）`>400` | **29 / 559** | 其中生产代码为上面的 5 个，另有 24 个 `_test.dart`；`_test.dart` 是 `engineering.yaml` 的既定 ignore，不计入生产 P2。 |
-| 严格前端结构扫描的 heuristic warning | **32 条 / 32 个文件** | 扫描 `lib/screens` 的 248 个文件；这是复杂度/耦合提示，不是 filesize 失败，也不等于 32 个页面债。 |
+| UI 上帝文件：`lib/screens/**/*.dart` `>400` | **0 / 248** | R121-R145 已将页面 root/part 收敛到 400 行以内；不把 catalog Map 或 API client 算作 UI 页面。 |
+| 生产 Dart：`lib/**/*.dart` `>400` | **3 / 390** | 3 个 i18n Map/catalog 数据表，均为有理由的显式豁免；没有超预算 API client，也不是 UI 页面债。 |
+| 全仓 Dart（`lib/` + `test/`，排除 `.dart_tool/`、`build/`）`>400` | **27 / 563** | 其中生产代码为上面的 3 个，另有 24 个 `_test.dart`；`_test.dart` 是 `engineering.yaml` 的既定 ignore，不计入生产 P2。 |
+| 严格前端结构扫描的 heuristic warning | **32 条 / 28 个文件** | 扫描 `lib/screens` 的 248 个文件；32 条是实测 warning records，4 个文件命中两个类别。这是复杂度/耦合提示，不是 filesize 失败，也不等于页面债。 |
 
 ### 400 行边界与有意豁免
 
-当前实际超过 400 行的生产文件只有：
+原登记的四份 i18n catalog 数据表中，当前实际仍超过 400 行的只有以下 3 个：
 
-- i18n 数据表：`lib/i18n/app_strings.dart`（410）、
-  `lib/i18n/app_strings_source_admin_core.dart`（752）、
+- i18n catalog 数据表：`lib/i18n/app_strings_source_admin_core.dart`（752）、
   `lib/i18n/app_strings_source_admin_features.dart`（480）、
   `lib/i18n/app_strings_source_portal.dart`（418）。这些是按源文件合并的 Map/catalog，拆分会破坏既有 catalog 合并方式，因此保留显式豁免，不作为 UI 页面债。
-- API client：`lib/api/sso_client.dart`（621）。这是密集的文档与 client method 集合，保留 API 层显式豁免；R146 已移除其余已降到预算内的 API 条目。
 
-此外，`engineering.yaml` 仍明确登记 `lib/main.dart`（56 行、required exemption）和 7 个 3 行兼容 re-export forwarder；它们既未超过 400 行，也不是 UI 页面。当前没有为超预算 `lib/screens` 实现保留的 filesize 豁免。
+`lib/i18n/app_strings.dart` 是同一 catalog 架构中的另一份入口数据表，R152 后为 **206 行**，已不再需要 filesize 豁免；它仍包含 catalog Map，但 catalog Map 不等于页面债。`lib/api/sso_client.dart` 经 R151 后为 **100 行**，也已不再需要 API 层豁免。
+
+此外，`engineering.yaml` 仍明确登记 `lib/main.dart`（56 行、required exemption）和 7 个 3 行兼容 re-export forwarder：`lib/sso_client.dart`、`lib/screens/admin/snaplink_admin_api.dart`、`lib/screens/admin/snaplink_admin_types.dart`、`lib/screens/portal/portal_api.dart`、`lib/screens/oidc_login/oidc_login_api.dart`、`lib/screens/device/device_verify_api.dart`、`lib/screens/setup/setup_api.dart`。它们既未超过 400 行，也不是 UI 页面。当前没有为超预算 `lib/screens` 实现保留的 filesize 豁免。
 
 所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；51 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。
 
@@ -39,6 +39,15 @@
 | R136-R140 | Governance：295 / 127；Threat Policies：206 / 249；User Support：224 / 239；Admin Users：303 / 281。Developer Manage 保持单文件 400 行，以满足 13-file census 和固定 wire-site 约束。 |
 | R141-R145 | Client Detail：227 / 302；Dashboard：379 / 70；OIDC account flow：268 / 143；Privacy/Compliance：190 / 222；R145 复核所有 root/part、唯一 part 引用和既有结构门禁。 |
 
+## R151-R152 已完成的非 UI 预算拆分
+
+两轮均保持 `max_lines: 400`，只做同一 library 内的纯结构拆分，不把 API client 或 catalog Map 计作 UI 页面债：
+
+| 轮次 | 已完成范围（当前行数） |
+|---|---|
+| R151 | `lib/api/sso_client.dart`：100；新增 `lib/api/sso_client_session.dart`：34、`lib/api/sso_client_resources.dart`：371、`lib/api/sso_client_transport.dart`：129。原 621 行 client 的 session、resource 和 transport 方法按 part 搬移，认证、请求、错误、超时与缓存语义保持不变。 |
+| R152 | `lib/i18n/app_strings.dart`：206；新增 `lib/i18n/app_strings_accessors.dart`：208。root 保留 catalog、构造器、fallback、`_t`、`_sourceTranslations` 与 context part 关系，访问器移至 extension，i18n 行为保持等价。 |
+
 ### Developer census
 
 `lib/screens/developer` 当前固定为 **13 个 Dart 文件**：`dcr_credentials`、`dcr_delete_dialog`、`dcr_form_controller`、`dcr_metadata_form`、`dcr_models`、`dcr_round_trip_notice`、`dcr_update_projection`、`dcr_validation`、`developer_api`、`developer_screen`、`discovery_region_notice`、`manage_panel`、`register_panel`。R139 的 part 实验会把目录扩大到 14 个并移动固定 wire-site，因此已回退；后续若拆分 Manage，必须维持 13-file census、400 行边界及 `manage_panel.dart:57` 的 `client_id` wire-site。
@@ -49,7 +58,7 @@
 
 ## 严格结构扫描：非阻塞 heuristic warning
 
-执行 `python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib/screens --strict --json` 的当前结果为 32 条 warning records（9 nesting、11 decision、12 API-call）。该工具的严格模式会把 warning 报为 violation，但这些规则是缩进、正则和调用次数 heuristic；R150 不把它们当作页面 filesize blocker。控制流 warning 仅作为未来可安全提取的候选，必须先证明不会改变状态、表单、分页、能力门控或协议语义。
+执行 `python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib/screens --strict --json` 的当前实测结果为 32 条 warning records（9 nesting、11 decision、12 API-call），涉及 28 个文件。该工具的严格模式会把 warning 报为 violation，但这些规则是缩进、正则和调用次数 heuristic；R153 不把它们当作页面 filesize blocker。控制流 warning 仅作为未来可安全提取的候选，必须先证明不会改变状态、表单、分页、能力门控或协议语义。
 
 - **控制流嵌套候选（9，阈值 >8）**：`dashboard_screen` 11、`governance_tab` 9、`permissions_cards` 13、`tenant_form_dialog` 9、`user_form_dialog` 10、`register_panel` 10、`device_verify_screen` 9、`login_view_widget_layout` 9、`oidc_login_view_flow` 10。多数是 Flutter widget tree；OIDC/device/表单项还带协议或状态语义，不能为降低数字而机械拆分。
 - **决策点候选（11，阈值 >30）**：`clients_tab` 32、`connections_tab` 31、`permissions_tab` 34、`token_security_tab` 39、`jarm_completion` 40、`oauth_params` 32、`oidc_authorization_flow` 33、`oidc_provider_flow` 39、`device_detail_dialog` 35、`devices_tab` 31、`notifications_tab` 47。它们是分页/能力/授权/协议/结果分支的审查提示；若无纯展示 helper 的明确收益则保留。
@@ -78,4 +87,4 @@
 
 ## 既有测试失败（历史记录）
 
-- `setup_screen_test` / `oidc_account_flow_test` 两个既有失败已在此前并行提交中修复；R145 报告记录的全量 VM、browser 与 harness 门禁通过。此处不把历史验证数字当作本次 R147 的新测试结果。
+- `setup_screen_test` / `oidc_account_flow_test` 两个既有失败已在此前并行提交中修复；R145 报告记录的全量 VM、browser 与 harness 门禁通过。此处不把历史验证数字当作本次 R153 的新测试结果。
