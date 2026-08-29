@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
@@ -38,10 +39,8 @@ class TenantOrganizationsTab extends StatefulWidget {
 }
 
 class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
-  static const _membersPath = '/api/v1/admin/tenants/:id/members';
-  static const _memberPath = '/api/v1/admin/tenants/:id/members/:user_id';
-  static const _invitationsPath = '/api/v1/admin/tenants/:id/invitations';
-  static const _invitationPath = '/api/v1/admin/tenants/:id/invitations/:email';
+  static const _membersPath = AdminPaths.tenantMembersTemplate;
+  static const _invitationsPath = AdminPaths.tenantInvitationsTemplate;
   static const _exportPath = '/api/v1/admin/tenants/:id/export';
 
   final _tenantCtrl = TextEditingController();
@@ -67,10 +66,9 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
   // route family, so availability is deliberately prefix-based; the server
   // remains authoritative for each operation's method-level authorization.
   bool get _supportsMembers =>
-      widget.capabilities.hasAnyPathPrefix('/api/v1/admin/tenants/:id/members');
-  bool get _supportsInvitations => widget.capabilities.hasAnyPathPrefix(
-    '/api/v1/admin/tenants/:id/invitations',
-  );
+      widget.capabilities.hasAnyPathPrefix(_membersPath);
+  bool get _supportsInvitations =>
+      widget.capabilities.hasAnyPathPrefix(_invitationsPath);
   // The current Snaplink endpoint inventory omits this route even when its
   // tenant-user store mounted it. Keep the documented control available and
   // let the server report a genuinely unwired feature at request time.
@@ -91,15 +89,8 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     return value.isEmpty ? null : value;
   }
 
-  String _path(
-    String template,
-    String tenantId, {
-    String? userId,
-    String? email,
-  }) => template
-      .replaceAll(':id', Uri.encodeComponent(tenantId))
-      .replaceAll(':user_id', Uri.encodeComponent(userId ?? ''))
-      .replaceAll(':email', Uri.encodeComponent(email ?? ''));
+  String _exportWirePath(String tenantId) =>
+      '/api/v1/admin/tenants/${Uri.encodeComponent(tenantId)}/export';
 
   Future<void> _load() async {
     final tenantId = _tenantId;
@@ -116,10 +107,10 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     try {
       final jobs = <Future<Map<String, dynamic>>>[];
       if (_supportsMembers) {
-        jobs.add(widget.api.get(_path(_membersPath, tenantId)));
+        jobs.add(widget.api.get(AdminPaths.tenantMembers(tenantId)));
       }
       if (_supportsInvitations) {
-        jobs.add(widget.api.get(_path(_invitationsPath, tenantId)));
+        jobs.add(widget.api.get(AdminPaths.tenantInvitations(tenantId)));
       }
       final results = await Future.wait(jobs);
       var resultIndex = 0;
@@ -163,7 +154,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       return;
     }
     await _mutate(
-      () => widget.api.put(_path(_memberPath, tenantId, userId: userId), {
+      () => widget.api.put(AdminPaths.tenantMember(tenantId, userId), {
         'role': _memberRole,
       }),
       success: 'Membership saved.',
@@ -185,7 +176,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       return;
     }
     await _mutate(
-      () => widget.api.delete(_path(_memberPath, tenantId, userId: userId)),
+      () => widget.api.delete(AdminPaths.tenantMember(tenantId, userId)),
       success: 'Member removed.',
     );
   }
@@ -200,7 +191,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       return;
     }
     await _mutate(
-      () => widget.api.post(_path(_invitationsPath, tenantId), {
+      () => widget.api.post(AdminPaths.tenantInvitations(tenantId), {
         'email': email,
         'role': _inviteRole,
       }),
@@ -223,7 +214,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
       return;
     }
     await _mutate(
-      () => widget.api.delete(_path(_invitationPath, tenantId, email: email)),
+      () => widget.api.delete(AdminPaths.tenantInvitation(tenantId, email)),
       success: 'Invitation revoked.',
     );
   }
@@ -236,9 +227,7 @@ class _TenantOrganizationsTabState extends State<TenantOrganizationsTab> {
     }
     setState(() => _mutating = true);
     try {
-      final export = await widget.api.postDownload(
-        _path(_exportPath, tenantId),
-      );
+      final export = await widget.api.postDownload(_exportWirePath(tenantId));
       if (!mounted) return;
       downloadTenantExport(export, tenantId);
       showAppSnackBar(

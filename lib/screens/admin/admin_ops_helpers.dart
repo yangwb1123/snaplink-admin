@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/services/sensitive_data.dart';
@@ -29,7 +30,7 @@ class AdminOpsHelpers {
       RegExp(r'\{[^}]+\}'),
       (_) => ':id',
     );
-    if (path == '/api/v1/admin/branding' ||
+    if (path == AdminPaths.branding ||
         path == '/api/v1/scim/v2/Bulk' ||
         path == '/api/v1/admin/devices/bulk-revoke' ||
         path == '/api/v1/admin/tokens/bulk-revoke' ||
@@ -39,10 +40,22 @@ class AdminOpsHelpers {
       return true;
     }
     if (endpoint.method == 'GET') return false;
-    return path.startsWith('/api/v1/admin/snapshots') ||
-        path.startsWith('/api/v1/admin/releases') ||
-        path.startsWith('/api/v1/admin/break-glass') ||
-        path.startsWith('/api/v1/admin/changes');
+    return SnaplinkAdminCapabilities.matchesPathPrefix(
+          path,
+          '/api/v1/admin/snapshots',
+        ) ||
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          path,
+          '/api/v1/admin/releases',
+        ) ||
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          path,
+          '/api/v1/admin/break-glass',
+        ) ||
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          path,
+          '/api/v1/admin/changes',
+        );
   }
 
   /// Whether the endpoint returns a subject export (handled as download, not JSON).

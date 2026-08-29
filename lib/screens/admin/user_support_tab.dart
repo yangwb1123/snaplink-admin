@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
@@ -81,8 +82,7 @@ class _UserSupportTabState extends State<UserSupportTab>
       _hasOperation('POST', _accountLockoutPath);
 
   @override
-  String _userPath(String suffix) =>
-      '/api/v1/admin/users/${Uri.encodeComponent(_userId!)}$suffix';
+  String _userPath(String suffix) => AdminPaths.userResource(_userId!, suffix);
 
   @override
   void initState() {

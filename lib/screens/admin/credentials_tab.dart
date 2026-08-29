@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -37,7 +38,7 @@ class CredentialsTab extends StatefulWidget {
 }
 
 class _CredentialsTabState extends State<CredentialsTab> {
-  static const _credsPath = '/api/v1/admin/credentials';
+  static const _credsPath = AdminPaths.credentials;
 
   List<Map<String, dynamic>> _credentials = const [];
   String? _error;
@@ -155,9 +156,7 @@ class _CredentialsTabState extends State<CredentialsTab> {
       _error = null;
     });
     try {
-      await widget.api.post(
-        '/api/v1/admin/credentials/${Uri.encodeComponent(type)}/compromise',
-      );
+      await widget.api.post(AdminPaths.credentialCompromise(type));
       if (!mounted) return;
       _typeCtrl.clear();
       showAppSnackBar(context, content: LocalizedText('Compromise reported.'));

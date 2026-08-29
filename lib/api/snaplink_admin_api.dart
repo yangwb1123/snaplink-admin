@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:http/http.dart' as http;
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/data_cache.dart';
 import 'package:sso_admin/api/snaplink_admin_download_transport.dart';
 import 'package:sso_admin/api/snaplink_admin_error.dart';
@@ -128,7 +129,7 @@ class SnaplinkAdminApi {
   }
 
   Future<List<SnaplinkAdminEndpoint>> listEndpoints() async {
-    final response = await get('/api/v1/admin/endpoints');
+    final response = await get(AdminPaths.endpointInventory);
     final values = response['endpoints'];
     if (values is! List) return const [];
     return values

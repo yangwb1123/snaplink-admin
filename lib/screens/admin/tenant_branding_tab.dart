@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_draft.dart';
 import 'package:sso_admin/screens/admin/tenant_branding_preview.dart';
@@ -31,7 +32,7 @@ class TenantBrandingTab extends StatefulWidget {
 }
 
 class _TenantBrandingTabState extends State<TenantBrandingTab> {
-  static const _path = '/api/v1/admin/branding';
+  static const _path = AdminPaths.branding;
 
   final _brandName = TextEditingController();
   final _primaryColor = TextEditingController();

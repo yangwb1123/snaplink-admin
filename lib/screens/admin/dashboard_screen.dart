@@ -4,6 +4,7 @@ import '../../i18n/app_strings.dart';
 import '../../session.dart';
 import '../../sso_client.dart';
 import '../settings_screen.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/services/shortcut_service.dart';
@@ -127,7 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _probeCommerce() async {
     try {
-      await _api.get('/api/v1/admin/commerce/plans', forceRefresh: true);
+      await _api.get(AdminPaths.commercePlans, forceRefresh: true);
       if (mounted) {
         setState(() {
           _commerceAvailable = true;

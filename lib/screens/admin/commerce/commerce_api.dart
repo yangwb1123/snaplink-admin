@@ -1,3 +1,4 @@
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 
 enum CommerceProbeState { available, unavailable, degraded }
@@ -42,10 +43,10 @@ class CommerceAdminApi {
   const CommerceAdminApi(this._api);
 
   Future<Map<String, dynamic>> listPlans() =>
-      _api.get('/api/v1/admin/commerce/plans', forceRefresh: true);
+      _api.get(AdminPaths.commercePlans, forceRefresh: true);
 
   Future<Map<String, dynamic>> publishPlan(Map<String, dynamic> body) =>
-      _api.post('/api/v1/admin/commerce/plans', body);
+      _api.post(AdminPaths.commercePlans, body);
 
   Future<Map<String, dynamic>> listSubscriptions(String tenantID) =>
       _api.get('${_tenantPath(tenantID)}/subscriptions', forceRefresh: true);

@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -22,7 +23,7 @@ import 'admin_navigation.dart';
 
 part 'access_policies_tab_view.dart';
 
-const accessPoliciesPath = '/api/v1/admin/access-policies';
+const accessPoliciesPath = AdminPaths.accessPolicies;
 const accessPolicyConvergePath = '$accessPoliciesPath/converge';
 
 String accessPolicyVerdict(Map<String, dynamic> policy) {

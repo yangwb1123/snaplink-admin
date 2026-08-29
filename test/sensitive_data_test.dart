@@ -122,7 +122,12 @@ void main() {
       ('DELETE', '/api/v1/admin/branding'),
       ('POST', '/api/v1/scim/v2/Bulk'),
       ('POST', '/api/v1/admin/snapshots/{id}:restore'),
+      ('POST', '/api/v1/admin/releases/{id}:pin'),
       ('POST', '/api/v1/admin/releases/{id}:rollback'),
+      ('POST', '/api/v1/admin/break-glass/{id}/approve'),
+      ('POST', '/api/v1/admin/break-glass/{id}/impersonate'),
+      ('POST', '/api/v1/admin/changes/{id}/approve'),
+      ('POST', '/api/v1/admin/changes/{id}/reject'),
       ('POST', '/api/v1/admin/devices/bulk-revoke'),
       ('POST', '/api/v1/admin/tokens/bulk-revoke'),
       ('POST', '/api/v1/admin/compliance/retention-sweep'),
@@ -151,5 +156,26 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('dedicated family matching rejects lookalike siblings', () {
+    for (final path in const [
+      '/api/v1/admin/snapshots-evil',
+      '/api/v1/admin/releases-evil/{id}:rollback',
+      '/api/v1/admin/break-glass-evil/{id}/approve',
+      '/api/v1/admin/changes-evil/{id}/approve',
+    ]) {
+      expect(
+        AdminOpsHelpers.requiresDedicatedWorkflow(
+          SnaplinkAdminEndpoint(
+            method: 'POST',
+            path: path,
+            feature: 'documented',
+          ),
+        ),
+        isFalse,
+        reason: path,
+      );
+    }
   });
 }

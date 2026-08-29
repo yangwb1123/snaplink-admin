@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -36,7 +37,7 @@ class DomainsTab extends StatefulWidget {
 }
 
 class _DomainsTabState extends State<DomainsTab> {
-  static const _path = '/api/v1/admin/domains';
+  static const _path = AdminPaths.domains;
   static const _pageSize = 25;
   final _formKey = GlobalKey<FormState>();
   final _hostCtrl = TextEditingController(), _searchCtrl = TextEditingController();
@@ -199,7 +200,7 @@ class _DomainsTabState extends State<DomainsTab> {
     if (!confirmed) return;
     setState(() { _mutating = true; _error = null; });
     try {
-      await widget.api.delete('$_path/${Uri.encodeComponent(hostname)}');
+      await widget.api.delete(AdminPaths.domain(hostname));
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Domain deleted.'));
       await _load();

@@ -52,6 +52,13 @@
 - R161-R163 只复用既有 runtime/catalog 路径判定，不新增后端能力、endpoint、route 或 API wire；`has` 的 exact method/path contract、runtime/documented merge 与三态语义保持不变。
 - 回归范围为 `test/snaplink_admin_api_test.dart` 的 exact/descendant/custom-verb/lookalike 与 documented-prefix 正反例、`test/admin_navigation_test.dart` 的 runtime-only lookalike，以及 `test/admin_contract_consistency_test.dart` 的全量 flag/catalog 一致性。
 
+## R166-R170 Admin wire-path owner 台账
+
+- `lib/api/admin_paths.dart` 集中已重复的 Admin wire path constants/builders；opaque identifier 继续单次 `Uri.encodeComponent`，模板只用于 capability/catalog matching。未复制 generated `routes` catalog，也未迁移 Portal、checkout、SCIM、audit、device 或 attachment/dedicated workflow owner。
+- Admin API clients、navigation、operations、tenant/user detail、webhook、break-glass、credential、crypto、domain、permission、threat、branding 与 commerce plans consumer 仅替换既有 path 来源，最终 method/query/body/header/cache/error/认证语义保持不变。
+- `AdminOpsHelpers` 与 Operations selector 复用 R161 segment-aware matcher；合法 descendants/custom verbs 保留，`auditx`、`snapshots-evil` 等 sibling 不再误分类。
+- R166-R170 通过 path builder、wire-equivalence、selector、dedicated workflow、navigation/catalog、security、Portal ownership、Developer census、filesize/fan-out 与最终全量门禁；无新增 endpoint、route、依赖或业务能力。
+
 ## R151-R152 已完成的非 UI 预算拆分
 
 两轮均保持 `max_lines: 400`，只做同一 library 内的纯结构拆分，不把 API client 或 catalog Map 计作 UI 页面债：

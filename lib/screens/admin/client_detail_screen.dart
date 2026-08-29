@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/operator_persona.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -195,7 +196,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     setState(() => _mutating = true);
     try {
       await widget.api.post(
-        '/api/v1/admin/clients/${Uri.encodeComponent(widget.clientId)}/$action',
+        AdminPaths.clientReview(widget.clientId, action),
         {},
       );
       if (!mounted) return;

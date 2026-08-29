@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -36,7 +37,7 @@ class CryptoKeysTab extends StatefulWidget {
 }
 
 class _CryptoKeysTabState extends State<CryptoKeysTab> with _CryptoKeysTabView {
-  static const _keysPath = '/api/v1/admin/crypto/keys';
+  static const _keysPath = AdminPaths.cryptoKeys;
   static const _rotatePath = '/api/v1/admin/keys/rotate';
   @override
   List<Map<String, dynamic>> _keys = const [];
@@ -142,7 +143,7 @@ class _CryptoKeysTabState extends State<CryptoKeysTab> with _CryptoKeysTabView {
     });
     try {
       final response = await widget.api.post(
-        '$_keysPath/${Uri.encodeComponent(id)}/compromise',
+        AdminPaths.cryptoKeyCompromise(id),
         {'reason': reason},
       );
       if (!mounted) return;

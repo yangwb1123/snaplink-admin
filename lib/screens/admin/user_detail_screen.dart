@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -54,22 +55,22 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       'Sessions',
       Icons.devices,
       'GET',
-      '/api/v1/admin/users/:id/sessions',
+      AdminPaths.userSessionsTemplate,
     ),
     (
       'consents',
       'Consents',
       Icons.checklist,
       'GET',
-      '/api/v1/admin/users/:id/consents',
+      AdminPaths.userConsentsTemplate,
     ),
-    ('mfa', 'MFA', Icons.security, 'GET', '/api/v1/admin/users/:id/mfa'),
+    ('mfa', 'MFA', Icons.security, 'GET', AdminPaths.userMfaTemplate),
     (
       'lifecycle',
       'Lifecycle',
       Icons.route,
       'GET',
-      '/api/v1/admin/users/:id/lifecycle',
+      AdminPaths.userLifecycleTemplate,
     ),
     (
       'device-security',
@@ -129,16 +130,11 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     });
     try {
       final user = await widget.client.getUser(widget.userId);
-      final uid = Uri.encodeComponent(widget.userId);
       // 各 tab 端点并行加载（Future.wait，_optionalGet 内部容错）。
       final tabFutures = <String, Future<Map<String, dynamic>>>{};
       for (final tab in _tabs) {
         if (tab.$1 == 'device-security') continue; // self-loading panel
-        final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        tabFutures[tab.$1] = _optionalGet(
-          tab.$1,
-          spec.$5.replaceAll(':id', uid),
-        );
+        tabFutures[tab.$1] = _optionalGet(tab.$1, _userTabPath(tab.$1));
       }
       final tabResults = await Future.wait(tabFutures.values);
       final sections = <String, Map<String, dynamic>>{
@@ -163,6 +159,14 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       }
     }
   }
+
+  String _userTabPath(String tab) => switch (tab) {
+    'sessions' => AdminPaths.userSessions(widget.userId),
+    'consents' => AdminPaths.userConsents(widget.userId),
+    'mfa' => AdminPaths.userMfa(widget.userId),
+    'lifecycle' => AdminPaths.userLifecycle(widget.userId),
+    _ => throw ArgumentError.value(tab, 'tab', 'Unsupported user tab'),
+  };
 
   Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
     try {
@@ -333,9 +337,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete(
-        '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/consents/${Uri.encodeComponent(clientId)}',
-      );
+      await widget.api.delete(AdminPaths.userConsent(widget.userId, clientId));
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Consent revoked'));
       _load();
@@ -365,7 +367,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
     setState(() => _mutating = true);
     try {
       await widget.api.delete(
-        '/api/v1/admin/users/${Uri.encodeComponent(widget.userId)}/mfa/${Uri.encodeComponent(factorId)}',
+        AdminPaths.userMfaFactor(widget.userId, factorId),
       );
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('MFA factor removed'));

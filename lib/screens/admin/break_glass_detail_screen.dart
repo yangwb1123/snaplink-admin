@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/app_snackbar.dart';
@@ -85,7 +86,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     // Snaplink publishes only the collection GET for break-glass sessions;
     // there is no detail GET. Filter the collection instead of issuing a
     // guaranteed 404 before every detail view.
-    final response = await widget.api.get('/api/v1/admin/break-glass');
+    final response = await widget.api.get(AdminPaths.breakGlass);
     final raw =
         response['sessions'] ??
         response['grants'] ??
@@ -298,10 +299,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.post(
-        '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}/approve',
-        {},
-      );
+      await widget.api.post(AdminPaths.approveBreakGlass(widget.sessionId), {});
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Approved'));
       _load();
@@ -331,7 +329,7 @@ class _BreakGlassDetailScreenState extends State<BreakGlassDetailScreen> {
     setState(() => _mutating = true);
     try {
       final response = await widget.api.delete(
-        '/api/v1/admin/break-glass/${Uri.encodeComponent(widget.sessionId)}',
+        AdminPaths.breakGlassSession(widget.sessionId),
       );
       if (!mounted) return;
       final copy = BreakGlassRevocationCopy.resultCopy(response);

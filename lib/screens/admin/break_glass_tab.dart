@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -37,7 +38,7 @@ class BreakGlassTab extends StatefulWidget {
 }
 
 class _BreakGlassTabState extends State<BreakGlassTab> with _BreakGlassTabView {
-  static const _basePath = '/api/v1/admin/break-glass';
+  static const _basePath = AdminPaths.breakGlass;
 
   @override
   final _targetCtrl = TextEditingController();
@@ -212,7 +213,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> with _BreakGlassTabView {
       _actionError = null;
     });
     try {
-      await widget.api.post('$_basePath/${Uri.encodeComponent(id)}/approve');
+      await widget.api.post(AdminPaths.approveBreakGlass(id));
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Break-glass approved.'));
       await _load();
@@ -241,7 +242,7 @@ class _BreakGlassTabState extends State<BreakGlassTab> with _BreakGlassTabView {
     });
     try {
       final response = await widget.api.delete(
-        '$_basePath/${Uri.encodeComponent(id)}',
+        AdminPaths.breakGlassSession(id),
       );
       if (!mounted) return;
       final copy = BreakGlassRevocationCopy.resultCopy(response);

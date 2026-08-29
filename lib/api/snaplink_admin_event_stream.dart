@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_error.dart';
 import 'package:sso_admin/api/snaplink_admin_types.dart';
 
@@ -38,7 +39,7 @@ class SnaplinkAdminEventStream {
         http.Request(
             'GET',
             Uri.parse(
-              '$baseUrl/api/v1/admin/events/stream',
+              '$baseUrl${AdminPaths.adminEventStream}',
             ).replace(queryParameters: query.isEmpty ? null : query),
           )
           ..headers.addAll({

@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/app_snackbar.dart';
 import 'package:sso_admin/widgets/section_selector.dart';
 import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/confirm_dialog.dart';
 import 'admin_module_groups.dart';
@@ -34,10 +35,10 @@ class PermissionsTab extends StatefulWidget {
 }
 
 class _PermissionsTabState extends State<PermissionsTab> {
-  static const _basePath = '/api/v1/admin/permissions/:client_id';
-  static const _rolesPath = '$_basePath/roles';
+  static const _basePath = AdminPaths.permissionBaseTemplate;
+  static const _rolesPath = AdminPaths.permissionRolesTemplate;
   static const _rolePath = '$_rolesPath/:role_code';
-  static const _assignmentsPath = '$_basePath/assignments';
+  static const _assignmentsPath = AdminPaths.permissionAssignmentsTemplate;
   static const _unassignPath = '$_assignmentsPath/:user_id/unassign';
   static const _menusPath = '$_basePath/menus';
   static const _policyBundlePath = '/api/v1/admin/authz/policy-bundle';
@@ -183,9 +184,9 @@ class _PermissionsTabState extends State<PermissionsTab> {
     try {
       final jobs = <Future>[
         if (_supportsRoles)
-          widget.api.get(_path(_rolesPath, {'client_id': clientId})),
+          widget.api.get(AdminPaths.permissionRoles(clientId)),
         if (_supportsAssignments)
-          widget.api.get(_path(_assignmentsPath, {'client_id': clientId})),
+          widget.api.get(AdminPaths.permissionAssignments(clientId)),
       ];
       final results = await Future.wait(jobs);
       var idx = 0;

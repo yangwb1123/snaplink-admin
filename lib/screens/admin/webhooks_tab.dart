@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -33,8 +34,8 @@ class WebhooksTab extends StatefulWidget {
 }
 
 class _WebhooksTabState extends State<WebhooksTab> {
-  static const _subsPath = '/api/v1/admin/webhooks/subscriptions';
-  static const _deadPath = '/api/v1/admin/webhooks/deadletters';
+  static const _subsPath = AdminPaths.webhookSubscriptions;
+  static const _deadPath = AdminPaths.webhookDeadletters;
   final _urlCtrl = TextEditingController();
   final _eventsCtrl = TextEditingController();
   final _secretCtrl = TextEditingController();
@@ -217,7 +218,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     );
     if (!confirmed) return;
     await _mutate('Subscription deleted.', () async {
-      await widget.api.delete('$_subsPath/${Uri.encodeComponent(id)}');
+      await widget.api.delete(AdminPaths.webhookSubscription(id));
       await _load();
     });
   }
@@ -238,7 +239,7 @@ class _WebhooksTabState extends State<WebhooksTab> {
     });
     try {
       final response = await widget.api.post(
-        '$_deadPath/${Uri.encodeComponent(id)}/replay',
+        AdminPaths.webhookDeadletterReplay(id),
       );
       if (!mounted) return;
       await _load();

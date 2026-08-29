@@ -7,7 +7,7 @@ extension SSOAdminClientResources on SSOAdminClient {
     String? orderBy,
     String? filter,
   }) => _listPage(
-    '/api/v1/admin/clients',
+    AdminPaths.clients,
     'clients',
     pageToken: pageToken,
     pageSize: pageSize,
@@ -55,7 +55,7 @@ extension SSOAdminClientResources on SSOAdminClient {
 
   Future<Map<String, dynamic>> createClient(Map<String, dynamic> client) async {
     final data =
-        await _post('/api/v1/admin/clients', client) as Map<String, dynamic>;
+        await _post(AdminPaths.clients, client) as Map<String, dynamic>;
     return (data['client'] as Map<String, dynamic>?) ?? const {};
   }
 
@@ -64,13 +64,12 @@ extension SSOAdminClientResources on SSOAdminClient {
     Map<String, dynamic> client,
   ) async {
     final data =
-        await _put('/api/v1/admin/clients/${Uri.encodeComponent(id)}', client)
-            as Map<String, dynamic>;
+        await _put(AdminPaths.client(id), client) as Map<String, dynamic>;
     return (data['client'] as Map<String, dynamic>?) ?? const {};
   }
 
   Future<void> deleteClient(String id) async {
-    await _delete('/api/v1/admin/clients/${Uri.encodeComponent(id)}');
+    await _delete(AdminPaths.client(id));
   }
 
   Future<Map<String, dynamic>> rotateClientSecretWithPolicy(
@@ -82,10 +81,7 @@ extension SSOAdminClientResources on SSOAdminClient {
     if (overlap != null) body['overlap_seconds'] = overlap.inSeconds;
     if (lifetime != null) body['lifetime_seconds'] = lifetime.inSeconds;
     final data =
-        await _post(
-              '/api/v1/admin/clients/${Uri.encodeComponent(id)}/rotate-secret',
-              body,
-            )
+        await _post('${AdminPaths.client(id)}/rotate-secret', body)
             as Map<String, dynamic>;
     return data;
   }
@@ -97,7 +93,7 @@ extension SSOAdminClientResources on SSOAdminClient {
     Duration? within,
   }) async {
     final query = within == null ? '' : '?within_seconds=${within.inSeconds}';
-    final data = await _get('/api/v1/admin/clients/expiring$query');
+    final data = await _get('${AdminPaths.clients}/expiring$query');
     final rows = data is Map ? data['clients'] : null;
     return rows is List
         ? rows.whereType<Map>().map(Map<String, dynamic>.from).toList()
@@ -105,23 +101,15 @@ extension SSOAdminClientResources on SSOAdminClient {
   }
 
   Future<void> approveClient(String id) async {
-    await _post(
-      '/api/v1/admin/clients/${Uri.encodeComponent(id)}/approve',
-      const {},
-    );
+    await _post(AdminPaths.clientApprove(id), const {});
   }
 
   Future<void> rejectClient(String id) async {
-    await _post(
-      '/api/v1/admin/clients/${Uri.encodeComponent(id)}/reject',
-      const {},
-    );
+    await _post(AdminPaths.clientReject(id), const {});
   }
 
   Future<Map<String, dynamic>> getClient(String id) async {
-    final data =
-        await _get('/api/v1/admin/clients/${Uri.encodeComponent(id)}')
-            as Map<String, dynamic>;
+    final data = await _get(AdminPaths.client(id)) as Map<String, dynamic>;
     return (data['client'] as Map<String, dynamic>?) ?? data;
   }
 
@@ -197,7 +185,7 @@ extension SSOAdminClientResources on SSOAdminClient {
   /// Fetch a single break-glass session from the list-only API.
   Future<Map<String, dynamic>> getBreakGlassSession(String id) async {
     return _getCollectionItem(
-      path: '/api/v1/admin/break-glass',
+      path: AdminPaths.breakGlass,
       collectionKey: 'sessions',
       id: id,
       identityKeys: const ['id', 'session_id'],
@@ -208,7 +196,7 @@ extension SSOAdminClientResources on SSOAdminClient {
   /// Fetch a single webhook subscription from the list-only API.
   Future<Map<String, dynamic>> getWebhookSubscription(String id) async {
     return _getCollectionItem(
-      path: '/api/v1/admin/webhooks/subscriptions',
+      path: AdminPaths.webhookSubscriptions,
       collectionKey: 'subscriptions',
       id: id,
       identityKeys: const ['id'],
@@ -218,16 +206,14 @@ extension SSOAdminClientResources on SSOAdminClient {
 
   /// Fetch a single domain by hostname.
   Future<Map<String, dynamic>> getDomain(String hostname) async {
-    final data = await _get(
-      '/api/v1/admin/domains/${Uri.encodeComponent(hostname)}',
-    );
+    final data = await _get(AdminPaths.domain(hostname));
     return data as Map<String, dynamic>;
   }
 
   /// Fetch the active entry for a credential type from the inventory.
   Future<Map<String, dynamic>> getCredential(String type) async {
     return _getCollectionItem(
-      path: '/api/v1/admin/credentials',
+      path: AdminPaths.credentials,
       collectionKey: 'credentials',
       id: type,
       identityKeys: const ['type', 'id'],
@@ -239,7 +225,7 @@ extension SSOAdminClientResources on SSOAdminClient {
   /// Fetch a single crypto key from the read-only inventory.
   Future<Map<String, dynamic>> getCryptoKey(String id) async {
     return _getCollectionItem(
-      path: '/api/v1/admin/crypto/keys',
+      path: AdminPaths.cryptoKeys,
       collectionKey: 'keys',
       id: id,
       identityKeys: const ['key_id', 'kid', 'id'],
@@ -250,7 +236,7 @@ extension SSOAdminClientResources on SSOAdminClient {
   /// Fetch a single access policy from the list-only governance API.
   Future<Map<String, dynamic>> getAccessPolicy(String id) async {
     return _getCollectionItem(
-      path: '/api/v1/admin/access-policies',
+      path: AdminPaths.accessPolicies,
       collectionKey: 'policies',
       id: id,
       identityKeys: const ['name', 'id'],
@@ -260,9 +246,7 @@ extension SSOAdminClientResources on SSOAdminClient {
 
   /// Fetch a single threat policy by id.
   Future<Map<String, dynamic>> getThreatPolicy(String id) async {
-    final data = await _get(
-      '/api/v1/admin/threat-policies/${Uri.encodeComponent(id)}',
-    );
+    final data = await _get(AdminPaths.threatPolicy(id));
     return data as Map<String, dynamic>;
   }
 
@@ -292,15 +276,13 @@ extension SSOAdminClientResources on SSOAdminClient {
   Future<Map<String, dynamic>> createBreakGlassSession(
     Map<String, dynamic> session,
   ) async {
-    final data = await _post('/api/v1/admin/break-glass', session);
+    final data = await _post(AdminPaths.breakGlass, session);
     return data as Map<String, dynamic>;
   }
 
   /// Delete a break-glass session by id.
   Future<Map<String, dynamic>> deleteBreakGlassSession(String id) async {
-    final data = await _delete(
-      '/api/v1/admin/break-glass/${Uri.encodeComponent(id)}',
-    );
+    final data = await _delete(AdminPaths.breakGlassSession(id));
     return data is Map ? Map<String, dynamic>.from(data) : const {};
   }
 
@@ -308,36 +290,28 @@ extension SSOAdminClientResources on SSOAdminClient {
   Future<Map<String, dynamic>> createWebhookSubscription(
     Map<String, dynamic> sub,
   ) async {
-    final data = await _post('/api/v1/admin/webhooks/subscriptions', sub);
+    final data = await _post(AdminPaths.webhookSubscriptions, sub);
     return data as Map<String, dynamic>;
   }
 
   /// Delete a webhook subscription by id.
   Future<void> deleteWebhookSubscription(String id) async {
-    await _delete(
-      '/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(id)}',
-    );
+    await _delete(AdminPaths.webhookSubscription(id));
   }
 
   /// Delete a domain by hostname.
   Future<void> deleteDomain(String hostname) async {
-    await _delete('/api/v1/admin/domains/${Uri.encodeComponent(hostname)}');
+    await _delete(AdminPaths.domain(hostname));
   }
 
   /// Report credential compromise by type.
   Future<void> reportCredentialCompromise(String type) async {
-    await _post(
-      '/api/v1/admin/credentials/${Uri.encodeComponent(type)}/compromise',
-      {},
-    );
+    await _post(AdminPaths.credentialCompromise(type), {});
   }
 
   /// Mark a crypto key as compromised.
   Future<void> compromiseCryptoKey(String id) async {
-    await _post(
-      '/api/v1/admin/crypto/keys/${Uri.encodeComponent(id)}/compromise',
-      {},
-    );
+    await _post(AdminPaths.cryptoKeyCompromise(id), {});
   }
 
   Future<Map<String, dynamic>> _getCollectionItem({

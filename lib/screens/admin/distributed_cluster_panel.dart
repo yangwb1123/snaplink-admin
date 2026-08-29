@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/app_settings.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
@@ -123,7 +124,7 @@ class _PanelState extends State<DistributedClusterPanel> {
     // replicas may disagree about this token's key (not an N+1 list).
     for (var i = 0; i < 5; i++) {
       try {
-        await widget.api.get('/api/v1/admin/endpoints');
+        await widget.api.get(AdminPaths.endpointInventory);
       } catch (_) {
         unauthorized++;
       }

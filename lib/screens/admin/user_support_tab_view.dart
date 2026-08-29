@@ -128,9 +128,7 @@ mixin _UserSupportTabView on State<UserSupportTab> {
       onRevoke: (clientId) => _mutate(
         'Revoke consent?',
         'Remove this application grant for {userId}?',
-        () => widget.api.delete(
-          '${_userPath('/consents')}/${Uri.encodeComponent(clientId)}',
-        ),
+        () => widget.api.delete(AdminPaths.userConsent(_userId!, clientId)),
         args: {'userId': _userId!},
         success: 'Consent revoked.',
       ),
@@ -146,9 +144,7 @@ mixin _UserSupportTabView on State<UserSupportTab> {
       onRemove: (factorId) => _mutate(
         'Remove second factor?',
         'The user will no longer be able to use this factor.',
-        () => widget.api.delete(
-          '${_userPath('/mfa')}/${Uri.encodeComponent(factorId)}',
-        ),
+        () => widget.api.delete(AdminPaths.userMfaFactor(_userId!, factorId)),
         success: 'Second factor removed.',
       ),
       onResetRecoveryCodes: () => _mutate(

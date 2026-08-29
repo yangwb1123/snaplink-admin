@@ -29,6 +29,6 @@ extension SSOAdminClientSession on SSOAdminClient {
   /// Verifies the bearer has read access to the admin control plane without
   /// coupling entry authorization to any managed resource collection.
   Future<void> probeAdminAccess() async {
-    await _get('/api/v1/admin/endpoints');
+    await _get(AdminPaths.endpointInventory);
   }
 }

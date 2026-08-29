@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -38,7 +39,7 @@ class ThreatPoliciesTab extends StatefulWidget {
 
 class _ThreatPoliciesTabState extends State<ThreatPoliciesTab>
     with _ThreatPoliciesTabView {
-  static const _path = '/api/v1/admin/threat-policies';
+  static const _path = AdminPaths.threatPolicies;
   @override
   final _formKey = GlobalKey<FormState>();
   @override
@@ -163,7 +164,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab>
     setState(() => _mutating = true);
     try {
       final pathName = _editing && _editId != null ? _editId! : name;
-      await widget.api.put('$_path/${Uri.encodeComponent(pathName)}', body);
+      await widget.api.put(AdminPaths.threatPolicy(pathName), body);
       if (!mounted) return;
       showAppSnackBar(
         context,
@@ -193,7 +194,7 @@ class _ThreatPoliciesTabState extends State<ThreatPoliciesTab>
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete('$_path/${Uri.encodeComponent(id)}');
+      await widget.api.delete(AdminPaths.threatPolicy(id));
       if (!mounted) return;
       showAppSnackBar(context, content: LocalizedText('Policy deleted.'));
       await _load();

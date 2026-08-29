@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
@@ -66,8 +67,8 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     });
     try {
       final results = await Future.wait([
-        widget.api.get('/api/v1/admin/webhooks/subscriptions'),
-        widget.api.get('/api/v1/admin/webhooks/deadletters'),
+        widget.api.get(AdminPaths.webhookSubscriptions),
+        widget.api.get(AdminPaths.webhookDeadletters),
       ]);
       final subscriptions = results.first['subscriptions'] as List? ?? const [];
       final sub = subscriptions
@@ -231,7 +232,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     setState(() => _mutating = true);
     try {
       final response = await widget.api.post(
-        '/api/v1/admin/webhooks/deadletters/${Uri.encodeComponent(dlId)}/replay',
+        AdminPaths.webhookDeadletterReplay(dlId),
         {},
       );
       if (!mounted) return;
@@ -285,8 +286,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
       ids.map((id) async {
         try {
           final response = await widget.api.post(
-            '/api/v1/admin/webhooks/deadletters/'
-            '${Uri.encodeComponent(id)}/replay',
+            AdminPaths.webhookDeadletterReplay(id),
             {},
           );
           return (
@@ -365,9 +365,7 @@ class _WebhookDetailScreenState extends State<WebhookDetailScreen> {
     if (!confirmed) return;
     setState(() => _mutating = true);
     try {
-      await widget.api.delete(
-        '/api/v1/admin/webhooks/subscriptions/${Uri.encodeComponent(widget.subId)}',
-      );
+      await widget.api.delete(AdminPaths.webhookSubscription(widget.subId));
       if (!context.mounted) return;
       // ignore: use_build_context_synchronously
       showAppSnackBar(context, content: LocalizedText('Deleted'));

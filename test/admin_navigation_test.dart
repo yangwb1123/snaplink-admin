@@ -323,6 +323,44 @@ void main() {
       expect(customVerb.supportsUserSupport, isTrue);
     });
 
+    test('keeps descendants, custom verbs, and slash subtrees bounded', () {
+      expect(
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          '/api/v1/admin/snapshots/{id}:restore',
+          '/api/v1/admin/snapshots',
+        ),
+        isTrue,
+      );
+      expect(
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          '/api/v1/admin/releases/{id}:pin',
+          '/api/v1/admin/releases',
+        ),
+        isTrue,
+      );
+      expect(
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          '/api/v1/audit/events',
+          '/api/v1/audit',
+        ),
+        isTrue,
+      );
+      expect(
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          '/api/v1/auditx/events',
+          '/api/v1/audit',
+        ),
+        isFalse,
+      );
+      expect(
+        SnaplinkAdminCapabilities.matchesPathPrefix(
+          '/api/v1/scim/v2/Users/42',
+          '/api/v1/scim/',
+        ),
+        isTrue,
+      );
+    });
+
     test('recognizes a partial runtime SCIM deployment', () {
       final navigation = AdminNavigationCapabilities(const [
         SnaplinkAdminEndpoint(

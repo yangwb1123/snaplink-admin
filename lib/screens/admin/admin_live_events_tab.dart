@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -61,7 +62,7 @@ class _AdminLiveEventsTabState extends State<AdminLiveEventsTab> {
   bool get _advertised => widget.endpoints.any(
     (endpoint) =>
         endpoint.method == 'GET' &&
-        endpoint.path == '/api/v1/admin/events/stream',
+        endpoint.path == AdminPaths.adminEventStream,
   );
 
   @override

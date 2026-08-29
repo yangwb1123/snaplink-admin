@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
@@ -58,10 +59,9 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       _error = null;
     });
     try {
-      final cid = Uri.encodeComponent(widget.clientId);
       final results = await Future.wait([
-        widget.api.get('/api/v1/admin/permissions/$cid/roles'),
-        widget.api.get('/api/v1/admin/permissions/$cid/assignments'),
+        widget.api.get(AdminPaths.permissionRoles(widget.clientId)),
+        widget.api.get(AdminPaths.permissionAssignments(widget.clientId)),
       ]);
       if (!mounted) return;
       setState(() {

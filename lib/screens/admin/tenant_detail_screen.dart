@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_colors.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -73,14 +74,14 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
       'Members',
       Icons.people,
       'GET',
-      '/api/v1/admin/tenants/:id/members',
+      AdminPaths.tenantMembersTemplate,
     ),
     (
       'invitations',
       'Invitations',
       Icons.mail_outline,
       'GET',
-      '/api/v1/admin/tenants/:id/invitations',
+      AdminPaths.tenantInvitationsTemplate,
     ),
     (
       'usage',
@@ -94,7 +95,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
       'Branding',
       Icons.palette_outlined,
       'GET',
-      '/api/v1/admin/branding',
+      AdminPaths.branding,
     ),
   ];
 
@@ -157,14 +158,12 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
       _error = null;
     });
     try {
-      final tid = Uri.encodeComponent(widget.tenantId);
       final tenant = await widget.client.getTenant(widget.tenantId);
       // 各 tab 数据端点并行加载（Future.wait，_optionalGet 内部容错）。
       final futures = <String, Future<Map<String, dynamic>>>{};
       for (final tab in _tabs) {
         if (tab.$1 == 'branding') continue; // self-loading tab
-        final spec = _tabSpecs.firstWhere((s) => s.$1 == tab.$1);
-        futures[tab.$1] = _optionalGet(tab.$1, spec.$5.replaceAll(':id', tid));
+        futures[tab.$1] = _optionalGet(tab.$1, _tabPath(tab.$1));
       }
       final results = await Future.wait(futures.values);
       if (!mounted) return;
@@ -188,6 +187,14 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
       }
     }
   }
+
+  String _tabPath(String tab) => switch (tab) {
+    'members' => AdminPaths.tenantMembers(widget.tenantId),
+    'invitations' => AdminPaths.tenantInvitations(widget.tenantId),
+    'usage' =>
+      '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/usage',
+    _ => throw ArgumentError.value(tab, 'tab', 'Unsupported tenant tab'),
+  };
 
   Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
     try {
@@ -231,9 +238,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
     );
     if (!confirmed) return;
     try {
-      await widget.api.delete(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/members/${Uri.encodeComponent(userId)}',
-      );
+      await widget.api.delete(AdminPaths.tenantMember(widget.tenantId, userId));
       if (!mounted) return;
       _snack('Removed {userId}', {'userId': userId});
       _load();
@@ -258,10 +263,10 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
     );
     if (!confirmed) return;
     try {
-      await widget.api.post(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations',
-        {'email': email, 'role': invitation['role']?.toString() ?? 'member'},
-      );
+      await widget.api.post(AdminPaths.tenantInvitations(widget.tenantId), {
+        'email': email,
+        'role': invitation['role']?.toString() ?? 'member',
+      });
       if (!mounted) return;
       _snack('Invitation resent');
       await _load();
@@ -284,7 +289,7 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
     if (!confirmed) return;
     try {
       await widget.api.delete(
-        '/api/v1/admin/tenants/${Uri.encodeComponent(widget.tenantId)}/invitations/${Uri.encodeComponent(email)}',
+        AdminPaths.tenantInvitation(widget.tenantId, email),
       );
       if (!mounted) return;
       _snack('Invitation revoked');

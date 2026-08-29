@@ -1,0 +1,108 @@
+# R166-R170：Admin wire-path ownership and prefix-classifier follow-up
+# 目标：集中已有 Admin wire literals，修正同一批次发现的 prefix classification；不改 API 语义。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r166-r170.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R166：做一次 Admin wire-path ownership audit，先不修改源码。完整读取当前
+    `git status`、R161-R165 报告、`lib/api/sso_client*.dart`、
+    `lib/api/snaplink_admin_*.dart`、`lib/screens/admin/**/*.dart` 中的 API path
+    literal，以及 `test/api_paths_test.dart`、Admin contract tests、
+    `/home/u1/workspace/demo/snaplink/docs/openapi.yaml` 对应段落。
+
+    建立一份精确的重复路径清单：区分 (a) 已有 owner（例如
+    `DeviceSecurityPaths`、`AuditReadClient`、SCIM model），(b) 可安全集中到新的
+    `lib/api/admin_paths.dart` 的既有 Admin wire paths，(c) 必须保留局部模板/协议
+    catalog 的 literal。只选择已在多个生产 consumer 中重复、且可由纯替换证明 wire
+    等价的路径；不要为了数字减少而重写 `routes` catalog、测试 fixture、Portal
+    API、OpenAPI 或每个局部 screen 的独有 endpoint。
+
+    特别检查 `AdminOpsHelpers.requiresDedicatedWorkflow`、
+    `AdminOperationsTab._adminEndpoints` 等仍直接 `startsWith` 的 Admin path
+    classifier：记录是否会把 `snapshots-evil`、`auditx` 等 sibling 混入；提出
+    与 R161 `SnaplinkAdminCapabilities.matchesPathPrefix` 对齐的最小修复方案。
+    确认参数模板（`:id`/`{id}`）、custom verb、Uri.encodeComponent、method
+    exact-match、runtime/documented merge、能力三态、认证/Session/安全流程都不能
+    改变。输出 `docs/ui/pages-per-page/r166-admin-path-ownership-audit.md`，报告
+    必须给出建议 owner、迁移 consumer 和明确不迁移的边界。
+  output: docs/ui/pages-per-page/r166-admin-path-ownership-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R167：根据 R166 审计实施最小 Admin path owner。读取报告、当前 diff 和全部
+    相关文件；仅新增同目录可复用的 `lib/api/admin_paths.dart`（或报告证明更合适
+    的同层 owner），并把选定的、已重复的既有 Admin wire literals 替换为常量/编码
+    builder。至少覆盖 R166 证明重复且不含 Portal 的 collection/detail families；
+    可以覆盖 endpoint inventory 和 admin event stream，但不得把 generated
+    `routes` catalog 或 `/home/u1/workspace/demo/snaplink/docs/openapi.yaml` 改成
+    第二份可执行 spec。
+
+    所有 dynamic id/hostname/email/type 必须继续先 `Uri.encodeComponent`；模板路径
+    继续使用 `:id`/`{id}` 仅用于 capability/catalog matching，不得把模板直接当
+    wire path 发送。保留现有 query 拼接、content type、cache key、error、audit
+    record、retry、onUnauthorized 和 response parsing。禁止修改 `lib/api/portal_api.dart`
+    及 Portal re-export shim，禁止新增依赖、endpoint、route、能力或 i18n 文案。
+
+    迁移 `sso_client`/admin API 与 screen consumer 时优先引用 owner，不复制状态/API；
+    如某个路径具有独有协议语义则保留其既有局部常量并在报告中说明。为 owner
+    builder 增加最小纯 Dart/Flutter contract tests，覆盖固定 wire 值和含空格、斜杠、
+    加号的 opaque identifier 编码。运行 dart format、analyze、受影响 API/Admin
+    tests、filesize、diff check。输出 `docs/ui/pages-per-page/r167-admin-path-owner.md`。
+  output: docs/ui/pages-per-page/r167-admin-path-owner.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed $(git diff --name-only -- '*.dart' | grep -v '^lib/screens/admin/domains_tab.dart$') lib/api/admin_paths.dart test/admin_paths_test.dart test/admin_operations_selector_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/api_paths_test.dart test/sso_client_test.dart test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/admin_detail_screens_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R168：完成 Admin consumer 迁移与 prefix classifier 对齐。读取 R166-R167 报告和
+    diff，检查 `rg -n "startsWith\\(" lib/api lib/screens/admin` 的 API/path 用法。
+    对 R166 已确认的 Admin family classifier（尤其
+    `AdminOpsHelpers.requiresDedicatedWorkflow` 与 `AdminOperationsTab` 的 endpoint
+    family filter）复用 `SnaplinkAdminCapabilities.matchesPathPrefix` 或等价的
+    segment-aware helper；保留 trailing slash subtree、合法 descendants、参数段
+    custom verb，拒绝 `*-evil`/`auditx` sibling。`/api/v1/scim/` 等已有 trailing
+    slash prefix 不要无谓改写。
+
+    只替换既有 wire literals 为 R167 owner 常量/builder，不改页面结构、API 方法、
+    body/query、能力 gate 或服务端契约。新增/调整最小回归测试：owner builder wire
+    equivalence、operations selector 不混入 lookalike、dedicated-workflow 不误分类
+    sibling、合法 snapshot/release/break-glass/change descendants 仍被保护。若
+    R167 已覆盖 classifier，保持源码不变并只补缺失断言。不得修改 Portal API/shim、
+    catalog routes、OpenAPI、认证、Session、MFA、Consent、Checkout、SSE reconnect
+    或 audit storage gate。输出 `docs/ui/pages-per-page/r168-admin-path-consumers.md`。
+  output: docs/ui/pages-per-page/r168-admin-path-consumers.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed $(git diff --name-only -- '*.dart' | grep -v '^lib/screens/admin/domains_tab.dart$') lib/api/admin_paths.dart test/admin_paths_test.dart test/admin_operations_selector_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_operations_selector_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/api_paths_test.dart test/sso_client_test.dart test/snaplink_admin_api_test.dart test/admin_secondary_tabs_test.dart test/admin_health_breakglass_test.dart test/sensitive_data_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R169：做结构/契约审查，不进行机械重构。读取 R166-R168 报告和完整 diff，验证
+    `AdminApiPaths`（若落地）是纯 wire-path owner，没有复制 catalog Map、没有更改
+    path values、没有暴露 unencoded identifier builder；同一 owner 的 constants 与
+    builders 不会产生双重编码。检查所有替换 consumer 的最终 request URL 与之前
+    完全一致，特别是 client/tenant/user ids、webhook/break-glass/domain/credential
+    values、custom-verb paths、endpoint inventory 和 event stream。
+
+    验证 AdminOperations classification 的 segment boundary 与 R161 helper 一致，
+    但不把 unrelated string prefixes（sort、SSE frame、Portal/admin browser UI）
+    改成 API matcher。核对 `has` exact method/path、catalog count/route set、
+    runtime/documented merge、unknown/unavailable/available 三态、Developer 13-file
+    census、OIDC client_id、Portal path ownership、audit ring seam、i18n coverage、
+    filesize 与 docs/ui fan-out。只有发现本批直接造成的明确问题才修正；不处理既有
+    heuristic warning，不新增 endpoint/dependency/UI 文案。输出
+    `docs/ui/pages-per-page/r169-admin-path-structure-audit.md`。
+  output: docs/ui/pages-per-page/r169-admin-path-structure-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/api_paths_test.dart test/snaplink_admin_api_test.dart test/admin_navigation_test.dart test/admin_contract_consistency_test.dart test/admin_operations_selector_test.dart test/sensitive_data_test.dart test/portal_security_contract_test.dart test/audit_contract_guard_test.dart test/oidc_login_handle_success_census_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R170：最终门禁。读取 R166-R169 报告和当前工作树；若没有明确回归不修改源码。
+    运行受影响文件 dart format、`flutter analyze`、全量 `flutter test`、Chrome smoke、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`。
+    复核所有 `lib/screens` Dart ≤400 行（仅保留真实 catalog/main/forwarder 豁免）、
+    Admin path owner/consumer census、segment-boundary classifier、API route catalog
+    count、Portal ownership、Developer 13-file census、固定 client_id、i18n EN/ZH、
+    audit ring 与 docs fan-out。
+
+    绝不修改 API wire 的值、路由、认证、Session、MFA、Consent、设备码、Checkout、
+    secret、导出、安全协议或 SSE reconnect 策略；path centralization 只能替换既有
+    literals。保持 `web/flutter_bootstrap.js` 作为预先存在的未跟踪文件。输出
+    `docs/ui/pages-per-page/r170-final-audit-20.md`，最后一行严格使用
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`。
+  output: docs/ui/pages-per-page/r170-final-audit-20.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"

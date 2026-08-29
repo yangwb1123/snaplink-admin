@@ -1,3 +1,4 @@
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/audit_read_client.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/app_settings.dart';
@@ -117,8 +118,8 @@ class AdminNavigationCapabilities {
       );
 
   bool get supportsOrganizations =>
-      _hasAnyPathPrefix('/api/v1/admin/tenants/:id/members') ||
-      _hasAnyPathPrefix('/api/v1/admin/tenants/:id/invitations') ||
+      _hasAnyPathPrefix(AdminPaths.tenantMembersTemplate) ||
+      _hasAnyPathPrefix(AdminPaths.tenantInvitationsTemplate) ||
       _hasAnyPathPrefix('/api/v1/admin/tenants/:id/export');
 
   bool get supportsLocalUsers => _hasAnyPathPrefix('/api/v1/admin/local-users');
@@ -162,32 +163,30 @@ class AdminNavigationCapabilities {
       _has('GET', '/api/v1/admin/rebac/check') ||
       _has('POST', '/api/v1/admin/wasmauthz/check');
 
-  bool get supportsDomains => _hasAnyPathPrefix('/api/v1/admin/domains');
+  bool get supportsDomains => _hasAnyPathPrefix(AdminPaths.domains);
 
   bool get supportsAccessPolicies =>
-      _hasAnyPathPrefix('/api/v1/admin/access-policies');
+      _hasAnyPathPrefix(AdminPaths.accessPolicies);
 
   bool get supportsDrMode => _hasAnyPathPrefix('/api/v1/admin/dr/mode');
 
   bool get supportsThreatPolicies =>
-      _hasAnyPathPrefix('/api/v1/admin/threat-policies');
+      _hasAnyPathPrefix(AdminPaths.threatPolicies);
 
-  bool get supportsCryptoKeys => _hasAnyPathPrefix('/api/v1/admin/crypto/keys');
+  bool get supportsCryptoKeys => _hasAnyPathPrefix(AdminPaths.cryptoKeys);
 
-  bool get supportsCredentials =>
-      _hasAnyPathPrefix('/api/v1/admin/credentials');
+  bool get supportsCredentials => _hasAnyPathPrefix(AdminPaths.credentials);
 
   bool get supportsWebhooks =>
-      _hasAnyPathPrefix('/api/v1/admin/webhooks/subscriptions');
+      _hasAnyPathPrefix(AdminPaths.webhookSubscriptions);
 
-  bool get supportsEmergencyAccess =>
-      _hasAnyPathPrefix('/api/v1/admin/break-glass');
+  bool get supportsEmergencyAccess => _hasAnyPathPrefix(AdminPaths.breakGlass);
 
   bool get supportsUserSupport => _hasAnyPathPrefix('/api/v1/admin/users/:id');
 
   bool get supportsPermissions =>
       _has('GET', '/api/v1/admin/authz/policy-bundle') ||
-      _hasAnyPathPrefix('/api/v1/admin/permissions/');
+      _hasAnyPathPrefix(AdminPaths.permissionBaseTemplate);
 
   bool get supportsConnections =>
       _hasAnyPathPrefix('/api/v1/admin/connections');

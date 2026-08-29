@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
@@ -59,7 +60,10 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
                 !AdminOpsHelpers.requiresDedicatedWorkflow(endpoint) &&
                 (endpoint.path.startsWith('/api/v1/admin/') ||
                     endpoint.path.startsWith('/api/v1/clients/') ||
-                    endpoint.path.startsWith('/api/v1/audit') ||
+                    SnaplinkAdminCapabilities.matchesPathPrefix(
+                      endpoint.path,
+                      '/api/v1/audit',
+                    ) ||
                     endpoint.path.startsWith('/api/v1/compliance/') ||
                     endpoint.path.startsWith('/api/v1/scim/') ||
                     endpoint.path.startsWith('/api/v1/netpolicy/')),
@@ -84,7 +88,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     return _adminEndpoints.firstWhere(
       (endpoint) =>
           endpoint.method == 'GET' &&
-          endpoint.path == '/api/v1/admin/endpoints',
+          endpoint.path == AdminPaths.endpointInventory,
       orElse: () => _adminEndpoints.first,
     );
   }
@@ -153,7 +157,7 @@ class _AdminOperationsTabState extends State<AdminOperationsTab> {
     if (endpoint == null) return;
     final blocked = endpoint.method != 'GET' && _mutationOutcomeUnknown
         ? 'Reconcile the previous write against authoritative server state before authorizing another mutation.'
-        : endpoint.path == '/api/v1/admin/events/stream'
+        : endpoint.path == AdminPaths.adminEventStream
         ? 'Use Live audit activity for the authenticated, cancellable event stream.'
         : null;
     if (blocked != null) {
