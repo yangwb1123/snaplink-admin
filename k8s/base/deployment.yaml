@@ -35,9 +35,26 @@ spec:
         fsGroup: 65532
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile: { type: RuntimeDefault }
+      initContainers:
+        - name: nginx-conf-permissions
+          image: snaplink/sso-console:v1
+          command: ["/bin/sh", "-ec"]
+          args:
+            - chown 65532:65532 /etc/nginx/conf.d && chmod 0755 /etc/nginx/conf.d
+          securityContext:
+            runAsNonRoot: false
+            runAsUser: 0
+            runAsGroup: 0
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL], add: [CHOWN, FOWNER] }
+          volumeMounts:
+            - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
       containers:
         - name: sso-console
           image: snaplink/sso-console:v1
+          command: ["nginx"]
+          args: ["-g", "daemon off;"]
           imagePullPolicy: IfNotPresent
           env:
             - name: SNAPLINK_UPSTREAM
@@ -77,7 +94,7 @@ spec:
             # and also needs writable cache/pid directories.
             - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
             - { name: nginx-cache, mountPath: /var/cache/nginx }
-            - { name: nginx-run, mountPath: /var/run }
+            - { name: nginx-run, mountPath: /run }
             - name: billing-ca
               mountPath: /etc/snaplink-billing/ca
               readOnly: true

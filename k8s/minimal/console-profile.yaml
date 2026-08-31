@@ -22,6 +22,9 @@ spec:
             - name: SNAPLINK_STRIPE_ADAPTER_CA
               value: /etc/ssl/certs/ca-certificates.crt
           volumeMounts:
+            - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
+            - { name: nginx-cache, mountPath: /var/cache/nginx }
+            - { name: nginx-run, mountPath: /run }
             - name: billing-ca
               $patch: delete
             - name: stripe-adapter-ca

@@ -41,6 +41,10 @@ RUN flutter build web --release --base-href=/app/ \
 # ── Production stage ──
 FROM nginx:alpine
 
+# The non-root runtime writes the nginx PID into the writable cache volume.
+# Keep the stock entrypoint and its environment templating intact.
+RUN sed -i 's#^pid .*#pid /var/cache/nginx/nginx.pid;#' /etc/nginx/nginx.conf
+
 ENV SNAPLINK_UPSTREAM=http://snaplink:8080
 ENV SNAPLINK_SERVER_NAME=snaplink
 ENV SNAPLINK_CA=/etc/ssl/certs/ca-certificates.crt
