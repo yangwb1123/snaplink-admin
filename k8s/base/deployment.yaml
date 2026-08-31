@@ -53,8 +53,7 @@ spec:
       containers:
         - name: sso-console
           image: snaplink/sso-console:v1
-          command: ["nginx"]
-          args: ["-g", "daemon off;"]
+          args: ["nginx", "-g", "daemon off;"]
           imagePullPolicy: IfNotPresent
           env:
             - name: SNAPLINK_UPSTREAM
