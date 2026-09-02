@@ -34,6 +34,54 @@ class RobustProxyRoutingTest(unittest.TestCase):
             robust_proxy.BACKEND,
         )
 
+    def test_audit_compatibility_paths_rewrite_request_targets(self):
+        governance = 'http://audit-governance.example.test:8089'
+        with patch.object(
+            robust_proxy,
+            'AUDIT_GOVERNANCE_BACKEND',
+            governance,
+        ):
+            cases = {
+                '/api/v1/audit/events':
+                    f'{governance}/api/v1/compat/snaplink/audit/events',
+                '/api/v1/audit/events?limit=1&cursor=%2F':
+                    f'{governance}/api/v1/compat/snaplink/audit/events?limit=1&cursor=%2F',
+                '/api/v1/audit/events/event%2Fid?tenant=t%2F1&empty=':
+                    f'{governance}/api/v1/compat/snaplink/audit/events/event%2Fid?tenant=t%2F1&empty=',
+                '/api/v1/audit/facets?outcome=success':
+                    f'{governance}/api/v1/compat/snaplink/audit/facets?outcome=success',
+            }
+            for request_path, expected_url in cases.items():
+                with self.subTest(request_path=request_path):
+                    url, query = robust_proxy._build_backend_url(request_path)
+                    self.assertEqual(url, expected_url)
+                    self.assertEqual(query, request_path.split('?', 1)[1] if '?' in request_path else '')
+                    self.assertEqual(
+                        robust_proxy.backend_for(request_path), governance
+                    )
+
+            # The compatibility locations are exact/segment-bounded, matching
+            # nginx rather than capturing lookalikes or an empty detail segment.
+            for request_path in (
+                '/api/v1/audit/events-evil?limit=1',
+                '/api/v1/audit/events/',
+                '/api/v1/audit/facets/',
+            ):
+                with self.subTest(non_route=request_path):
+                    url, _ = robust_proxy._build_backend_url(request_path)
+                    self.assertEqual(url, f'{robust_proxy.BACKEND}{request_path}')
+                    self.assertEqual(
+                        robust_proxy.backend_for(request_path), robust_proxy.BACKEND
+                    )
+
+        # An absent optional upstream must fail closed, never become the core
+        # Snaplink backend through an implicit fallback.
+        with patch.object(robust_proxy, 'AUDIT_GOVERNANCE_BACKEND', ''):
+            self.assertNotEqual(
+                robust_proxy.backend_for('/api/v1/audit/events'),
+                robust_proxy.BACKEND,
+            )
+
     def test_static_assets_support_production_app_prefix(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()

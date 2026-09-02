@@ -1,0 +1,92 @@
+# R181-R185：Audit/部署安全契约冻结后的持续回归与最终门禁
+# 目标：在 R176-R180 后验证 audit read、debug ring、部署 non-root、路径 owner 与结构预算无漂移。
+# 只在发现本批直接引入的明确回归时做最小修复，不猜测后端契约。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r181-r185.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r181-r185.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R181：Audit read contract 冻结审计（默认只读）。完整读取当前 `git status`、`git diff`、
+    `lib/api/audit_read_client.dart`、`lib/api/audit_query.dart`、`lib/api/audit_event_row.dart`、
+    `lib/api/snaplink_admin_api.dart`、`lib/screens/admin/audit_log_tab.dart`、
+    `test/audit_read_client_test.dart`、`test/audit_query_test.dart`、`test/audit_event_row_test.dart`、
+    `test/audit_log_tab_test.dart`、`test/audit_contract_guard_test.dart` 以及 R156-R180 相关报告。
+
+    逐项核对：(a) audit trio 的既有 path literals 仍单一归属，event id 仅单次
+    `Uri.encodeComponent`；(b) `AuditQuery` 默认 wire 仍精确为 `{'limit': '100'}`，
+    tenant_id/trace_id 仅在调用方显式提供且非空时转发，cursor/event_type/outcome 的
+    现有 key 与过滤语义不被猜测修改；(c) `AuditEventRow` 仍是 redact-first、allowlist、
+    never-throws 的 server shape mapper；(d) AuditLogTab 只渲染服务端读取结果，能力门控、
+    loading/error/empty、导出与 Session/认证行为不变；(e) 没有把 BFF 注入的 tenant_id/trace_id
+    来源臆造到 console。只输出 `docs/ui/pages-per-page/r181-audit-read-contract-freeze.md`，
+    不修改 lib、test、API、路由或安全语义。
+  output: docs/ui/pages-per-page/r181-audit-read-contract-freeze.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/audit_read_client_test.dart test/audit_query_test.dart test/audit_event_row_test.dart test/audit_contract_guard_test.dart test/audit_log_tab_test.dart && git diff --check"
+
+- prompt: |
+    R182：AuditLogService release/forgery boundary 审计（默认只读）。读取
+    `lib/services/audit_log_service.dart`、`lib/api/snaplink_admin_api.dart`、
+    `lib/screens/admin/audit_log_tab.dart`、所有 `test/*audit*`、
+    `test/developer_forge_invisibility_test.dart`、`test/oidc_login_ring_isolation_test.dart`、
+    `checks/b6_1b_gates.py`、`Makefile`、`engineering.yaml` 与 R175/R180 最终报告。
+
+    核对 `_storageKey = 'sso_audit_log'` 仍只在 service owner，`kDebugMode` guards、
+    `_storageEnabled` seam、release DCE、ring copy surface、server-truth rendering、
+    forged local ring 不可见和 GET 不写 ring 等不变量；核对 release artifact needles/masks
+    与当前部署构建一致。不得因已有 heuristic 或未来 BFF/backend 提案修改 production。
+    只有本批直接引入的明确安全回归才做最小修复，否则只输出
+    `docs/ui/pages-per-page/r182-audit-ring-release-boundary.md`，并明确区分 in-repo proof
+    与 `[PROPOSED]` 后端语义。
+  output: docs/ui/pages-per-page/r182-audit-ring-release-boundary.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/audit_log_service_test.dart test/audit_log_tab_test.dart test/audit_contract_guard_test.dart test/developer_forge_invisibility_test.dart test/oidc_login_ring_isolation_test.dart && python3 checks/b6_1b_gates.py && git diff --check"
+
+- prompt: |
+    R183：部署与 non-root 运行契约回归（仅在明确不一致时最小修复）。读取
+    `Dockerfile`、`k8s/base/deployment.yaml`、`k8s/minimal/console-profile.yaml`、
+    `k8s/full/kustomization.yaml`、`nginx.conf`、`Makefile`、`tests/unit/test_deployment_contracts.py`、
+    `tests/unit/test_robust_proxy.py`、`tests/unit/test_integration_config.py`、
+    `tests/integration/test_config.py` 与最近 R175/R180 报告。
+
+    验证非 root UID/securityContext、read-only root filesystem、`/run` nginx writable
+    volume、`/etc/nginx/conf.d`/`/var/cache/nginx` mounts、探针、audit-gov upstream、
+    OAuth resource 默认值、nginx exact audit routes/compatibility breaks、proxy path routing
+    及 Python contract tests 的同一现有 wire/deployment contract。不要把既有 `/run` 契约
+    回退成 `/var/run`，不修改 API、路由、认证、Session、MFA、Consent、Checkout、secret、
+    导出或审计后端语义。输出 `docs/ui/pages-per-page/r183-deployment-contract-review.md`。
+  output: docs/ui/pages-per-page/r183-deployment-contract-review.md
+  validate: "cd {cwd} && python3 -m unittest tests.unit.test_deployment_contracts tests.unit.test_robust_proxy tests.unit.test_integration_config && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R184：全仓结构与 owner/census 对账（默认只读）。读取 R181-R183 报告、`docs/TECH_DEBT.md`、
+    `engineering.yaml`、`lib/screens/**/*.dart`、`lib/api/admin_paths.dart`、
+    `lib/screens/portal/portal_security_contract.dart`、`lib/screens/developer/**/*.dart`、
+    `lib/screens/oidc_login/**/*.dart`、`lib/app_router.dart`、`test/*census*`、
+    `test/*path*`、`test/*security*` 及 `docs/ui` 目录清单。
+
+    实测并记录：(a) `lib/screens` 每个 Dart `<=400` 且 part 引用唯一无重复实现；
+    (b) Developer census 仍为 13，固定 `client_id` wire-site 与 Dashboard `leadingWidth: 80`
+    保留；(c) AdminPaths/PortalPaths owner、segment-aware matcher、动态 identifier 单次编码、
+    Portal/Developer/OIDC audit 文案负边界保持；(d) i18n source catalog identity pattern 为 0、
+    EN/ZH placeholder 对齐；(e) `docs/ui` 顶层 fan-out <=12，pages-per-page 平铺不误报。
+    仅必要时更新 `docs/TECH_DEBT.md` 的实测数字；不机械拆分协议流程、catalog Map 或
+    安全状态机，不修改 API、路由、能力、认证或阈值。输出
+    `docs/ui/pages-per-page/r184-structure-owner-census-review.md`。
+  output: docs/ui/pages-per-page/r184-structure-owner-census-review.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/portal_security_contract_test.dart test/edge_generation_portal_negative_test.dart test/admin_paths_test.dart test/admin_navigation_test.dart && git diff --check"
+
+- prompt: |
+    R185：最终门禁。读取 R181-R184 报告与当前工作树，完整审阅所有 diff；只允许修复本批
+    直接引入的明确回归。再次确认不触碰 API wire、路由 catalog、能力门控、认证、Session、
+    MFA、Consent、设备码、Checkout、secret、导出、Portal path owner、Admin path owner、
+    BFF tenant_id/trace_id 来源或 SSE reconnect 语义；`web/flutter_bootstrap.js` 必须仍为
+    预先存在的未跟踪文件。
+
+    运行并记录：受影响 Dart 文件的 format 检查（已知 baseline 未格式化 catalog 不纳入新增
+    formatting diff）、`flutter analyze --no-fatal-infos --no-fatal-warnings`、全量 `flutter test`、
+    Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、
+    `python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、
+    `git diff --check`。输出 `docs/ui/pages-per-page/r185-final-audit-23.md`，最后一行必须严格
+    匹配 `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`；只有全部门禁通过才能使用 PASS。
+  output: docs/ui/pages-per-page/r185-final-audit-23.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r185-final-audit-23.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

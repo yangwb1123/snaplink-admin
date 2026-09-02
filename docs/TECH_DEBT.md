@@ -21,11 +21,11 @@
   `lib/i18n/app_strings_source_admin_features.dart`（480）、
   `lib/i18n/app_strings_source_portal.dart`（418）。这些是按源文件合并的 Map/catalog，拆分会破坏既有 catalog 合并方式，因此保留显式豁免，不作为 UI 页面债。
 
-`lib/i18n/app_strings.dart` 是同一 catalog 架构中的另一份入口数据表，R152 后为 **206 行**，已不再需要 filesize 豁免；它仍包含 catalog Map，但 catalog Map 不等于页面债。`lib/api/sso_client.dart` 经 R151 后为 **100 行**，也已不再需要 API 层豁免。
+`lib/i18n/app_strings.dart` 是同一 catalog 架构中的另一份入口数据表，R152 后为 **206 行**，已不再需要 filesize 豁免；它仍包含 catalog Map，但 catalog Map 不等于页面债。`lib/api/sso_client.dart` 经 R151 后为 **101 行**，也已不再需要 API 层豁免。
 
 此外，`engineering.yaml` 仍明确登记 `lib/main.dart`（56 行、required exemption）和 7 个 3 行兼容 re-export forwarder：`lib/sso_client.dart`、`lib/screens/admin/snaplink_admin_api.dart`、`lib/screens/admin/snaplink_admin_types.dart`、`lib/screens/portal/portal_api.dart`、`lib/screens/oidc_login/oidc_login_api.dart`、`lib/screens/device/device_verify_api.dart`、`lib/screens/setup/setup_api.dart`。它们既未超过 400 行，也不是 UI 页面。当前没有为超预算 `lib/screens` 实现保留的 filesize 豁免。
 
-所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；52 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。R179 重新扫描结果为 **0 / 248** 个 `lib/screens` 文件超 400 行。
+所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；56 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。R189 重新扫描结果为 **0 / 248** 个 `lib/screens` 文件超 400 行。
 
 ## R121-R145 已完成的预算拆分范围
 
@@ -58,7 +58,7 @@
 - Admin API clients、navigation、operations、tenant/user detail、webhook、break-glass、credential、crypto、domain、permission、threat、branding 与 commerce plans consumer 仅替换既有 path 来源，最终 method/query/body/header/cache/error/认证语义保持不变。
 - `AdminOpsHelpers` 与 Operations selector 复用 R161 segment-aware matcher；合法 descendants/custom verbs 保留，`auditx`、`snapshots-evil` 等 sibling 不再误分类。
 - R166-R170 通过 path builder、wire-equivalence、selector、dedicated workflow、navigation/catalog、security、Portal ownership、Developer census、filesize/fan-out 与最终全量门禁；无新增 endpoint、route、依赖或业务能力。
-- R179 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **254** 个报告文件、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
+- R189 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **264** 个报告文件、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
 
 ## R151-R152 已完成的非 UI 预算拆分
 
@@ -87,11 +87,11 @@
 
 ## i18n 对账（覆盖清零；identity pattern 已清理）
 
-- EN/ZH catalog 覆盖：`appAdditionalStrings` 的 EN/ZH key 集为 **106 / 106** 且一致；`lib/i18n/app_strings_source_*.dart` 的 canonical EN key 集与 `appSourceStrings['zh']` 的对应 key 集均为 **2312**，2312 个 ZH 值全部非空，插值占位符集合 **2312 / 2312** 一致；`i18n_catalog_uniqueness_test.dart` 通过且 `appAdminUxSourceZh` 已接入 `appSourceStrings`。
+- EN/ZH catalog 覆盖：`appAdditionalStrings` 的 EN/ZH key 集为 **105 / 105** 且一致；`lib/i18n/app_strings_source_*.dart` 的 canonical EN key 集与 `appSourceStrings['zh']` 的对应 key 集均为 **2313**，2313 个 ZH 值全部非空，插值占位符集合 **2313 / 2313** 一致；`i18n_catalog_uniqueness_test.dart` 通过且 `appAdminUxSourceZh` 已接入 `appSourceStrings`。
 - 静态文案缺失：`test/i18n_coverage_test.dart` 当前实测 **0** 条缺失（raw `Text`/localized call/property/helper 及 command palette 均通过）。英文是 source key/fallback，中文覆盖由同一测试直接核验。
 - 动态消息模板化：历史基线 50 → **0 条有骨架**（5 轮 60+ 处；`{n}` 模板 + args + zh 注册）。LocalizedText 支持 args 透传；操作反馈、计数、错误前缀、详情页标题和状态行均已覆盖。
 - 纯数据展示（`'$e'` 错误原文、`'{index + 1}'` 序号、计数、动态字段名）没有可复用的自然语言骨架，保持原文不模板化；错误正文保持 API 原文是刻意设计。
-- R179 复核 `lib/i18n/*.dart` 的 source-pattern 输入：共 **310** 个真实模板条目，identity source-pattern 为 **0**；2312 个条目的 key/value 插值占位符集合均一致。R177 已移除经 R176 证明为纯数据的 6 个 identity 条目，R178 回归确认没有误删中文模板；纯数据展示继续使用 `Text`，不为降低计数拆 catalog Map。
+- R189 复核 `lib/i18n/*.dart` 的 source-pattern 输入：共 **315** 个真实模板条目，identity source-pattern 为 **0**；2313 个条目的 key/value 插值占位符集合均一致。R177 已移除经 R176 证明为纯数据的 6 个 identity 条目，R178 回归确认没有误删中文模板；纯数据展示继续使用 `Text`，不为降低计数拆 catalog Map。
 - `test/i18n_coverage_test.dart` 持续阻止新增未注册的直接英文界面文案；R179 目标回归套件共 **78** 项通过（含 i18n、结构、path ownership、client_id 与 audit 边界）。
 
 ## 统一模式债（已评估）

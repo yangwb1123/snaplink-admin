@@ -1,0 +1,90 @@
+# R186-R190：robust proxy 审计兼容路径与跨层部署契约收敛
+# 目标：补齐 R183 发现的 audit upstream 路由与 nginx compatibility rewrite 的本地代理一致性。
+# 不改变 console API wire、路由、认证或后端协议；只修复已由仓库配置证明的代理转发行为。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r186-r190.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r186-r190.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R186：robust_proxy audit compatibility rewrite 审计与最小修复。读取当前 `git status`、
+    `git diff`、`tools/robust_proxy.py`、`tests/unit/test_robust_proxy.py`、`nginx.conf`、
+    `docker-compose.yml`、`Dockerfile`、`tests/unit/test_deployment_contracts.py` 与 R183-R185 报告。
+
+    仓库证据表明 nginx 将浏览器的既有路径精确改写为 Audit Governance 的兼容路径：
+    `/api/v1/audit/events` → `/api/v1/compat/snaplink/audit/events`、
+    `/api/v1/audit/events/{non-empty-id}` → 对应 detail 兼容路径、
+    `/api/v1/audit/facets` → `/api/v1/compat/snaplink/audit/facets`；query string 和
+    percent-encoded identifier 必须原样保留。检查 R183 新增的 `AUDIT_GOVERNANCE_UPSTREAM`
+    选择是否只切换 upstream 而漏掉了该 rewrite。若确实漏掉，最小修改
+    `tools/robust_proxy.py` 的 backend URL/path construction，使 `serve`/`proxy_request`
+    与 nginx 的 exact/segment-bounded rewrite 一致；不要 unquote、double-encode、吞 query，
+    不要把 `/events/`、`events-evil`、`facets/` sibling 路由误送治理 upstream。
+
+    在 `tests/unit/test_robust_proxy.py` 增加实际 `_build_backend_url`/等价 helper 的请求目标
+    断言，覆盖 collection、detail、facets、query、encoded id 和 lookalike/empty boundaries；
+    保留 R183 的 fail-closed 缺失 upstream 断言。不得修改 nginx 的既有路径、Dart API、路由、
+    认证、Session、MFA、Consent、Checkout、secret、导出、audit read client 或 SSE 语义。
+    输出 `docs/ui/pages-per-page/r186-proxy-audit-compatibility-rewrite.md`。
+  output: docs/ui/pages-per-page/r186-proxy-audit-compatibility-rewrite.md
+  validate: "cd {cwd} && python3 -m unittest tests.unit.test_robust_proxy && git diff --check"
+
+- prompt: |
+    R187：代理路径边界与部署契约回归（默认只读）。读取 R186 报告、`tools/robust_proxy.py`、
+    `tests/unit/test_robust_proxy.py`、`nginx.conf`、`tests/unit/test_deployment_contracts.py`、
+    `tests/unit/test_robust_proxy.py`、`docker-compose.yml` 和 `Makefile`。
+
+    证明：(a) browser-facing audit trio 仍是 `/api/v1/audit/events`, `/facets`, `/events/{id}`，
+    upstream-facing target 仅是 nginx 已声明的 `/api/v1/compat/snaplink/audit/*`；(b) exact
+    collection/facets、non-empty detail segment、query preservation 和 encoded id 一致；
+    (c) `events-evil`、`events/`、`facets/` 不会被错误分类；(d) `AUDIT_GOVERNANCE_UPSTREAM`
+    缺失时不回退 core；(e) checkout、普通 admin API、静态资源、设备验证路径保持原有 routing。
+    仅当发现 R186 直接引入的明确回归才最小修复，否则不改代码。输出
+    `docs/ui/pages-per-page/r187-proxy-boundary-regression.md`。
+  output: docs/ui/pages-per-page/r187-proxy-boundary-regression.md
+  validate: "cd {cwd} && python3 -m unittest tests.unit.test_robust_proxy tests.unit.test_deployment_contracts tests.unit.test_integration_config && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R188：Audit/Portal/Developer/路由安全边界复核（只读）。读取 R186-R187 报告、当前 diff、
+    `lib/api/audit_read_client.dart`、`lib/api/audit_query.dart`、`lib/services/audit_log_service.dart`、
+    `lib/screens/admin/audit_log_tab.dart`、`lib/screens/portal/portal_security_contract.dart`、
+    `lib/screens/developer/**/*.dart`、`lib/screens/oidc_login/**/*.dart`、`lib/app_router.dart`、
+    `test/audit_contract_guard_test.dart`、`test/portal_security_contract_test.dart`、
+    `test/oidc_login_handle_success_census_test.dart`、`test/app_router_client_id_wiring_test.dart`。
+
+    核对 robust proxy 的兼容路径修复没有把 server compatibility path 泄漏进 Dart owner、
+    没有新增 audit endpoint、没有让 Portal/Developer/OIDC 获得 audit surface，且既有
+    tenant_id/trace_id optional forwarding、debug ring release boundary、固定
+    `client_id`、Developer 13-file census、Dashboard `leadingWidth: 80` 均不变。不要修改
+    API、wire、路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+    输出 `docs/ui/pages-per-page/r188-cross-boundary-review.md`。
+  output: docs/ui/pages-per-page/r188-cross-boundary-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/audit_contract_guard_test.dart test/audit_read_client_test.dart test/audit_query_test.dart test/portal_security_contract_test.dart test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart && git diff --check"
+
+- prompt: |
+    R189：台账对账（仅必要时更新 `docs/TECH_DEBT.md`）。读取 R186-R188 报告、当前 diff、
+    `docs/TECH_DEBT.md`、`engineering.yaml`、`tools/robust_proxy.py`、`lib/screens`、
+    `lib/i18n` 和 `docs/ui` 目录清单。重新实测并只更新确实过期的数字：
+    `lib/screens` <=400、生产超预算豁免、source catalog 2312/identity pattern 0、
+    Developer census 13、Admin/Portal owner、docs/ui 顶层 fan-out <=12 与 pages-per-page
+    当前报告数。保留 `/run` non-root、AUDIT_GOVERNANCE_UPSTREAM 专用 upstream、heuristic
+    warning 非阻塞和 BFF tenant_id/trace_id `[PROPOSED]` 说明。不要修改 Dart、API、路由、阈值
+    或安全状态机。输出 `docs/ui/pages-per-page/r189-ledger-reconciliation.md`。
+  output: docs/ui/pages-per-page/r189-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R190：最终门禁。读取 R186-R189 报告与全部当前 diff，确认只保留 robust proxy 的兼容路径
+    转发修复、其回归测试、必要台账和 campaign YAML；拒绝任何无证据的重构或契约改变。
+    绝不改变 API wire、Dart 路由、能力门控、认证、Session、MFA、Consent、设备码、Checkout、
+    secret、导出、Portal/Admin path literals、BFF context 来源或 SSE reconnect；保持
+    `web/flutter_bootstrap.js` 预先存在且未跟踪。
+
+    运行并记录：受影响 Python/Dart format 检查（既有 baseline formatting 不纳入新增 diff）、
+    `flutter analyze --no-fatal-infos --no-fatal-warnings`、全量 `flutter test`、Chrome smoke
+    `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、
+    `python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、
+    `git diff --check`。输出 `docs/ui/pages-per-page/r190-final-audit-24.md`，文件最后一行必须
+    严格匹配 `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`；全部门禁通过才可写 PASS。
+  output: docs/ui/pages-per-page/r190-final-audit-24.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r190-final-audit-24.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

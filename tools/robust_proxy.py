@@ -15,8 +15,14 @@ BACKEND = os.environ.get(
     'BACKEND',
     os.environ.get('SNAPLINK_API_URL', 'http://localhost:8080'),
 ).rstrip('/')
+# Audit reads have a dedicated deployment upstream; unlike the historical
+# local checkout helper, they must not silently fall through to the core
+# backend.
 STRIPE_ADAPTER_BACKEND = os.environ.get(
     'SNAPLINK_STRIPE_ADAPTER_URL', BACKEND,
+).rstrip('/')
+AUDIT_GOVERNANCE_BACKEND = os.environ.get(
+    'AUDIT_GOVERNANCE_UPSTREAM', ''
 ).rstrip('/')
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(
@@ -207,14 +213,34 @@ def resolve_static_file(path):
         return None
     return STATIC / 'index.html'
 
+def _audit_compatibility_path(path: str) -> str:
+    """Rewrite the Console audit paths to Audit Governance compatibility paths.
+
+    Match the exact and segment-bounded locations in ``nginx.conf``.  The
+    request path is deliberately treated as an opaque string: identifiers may
+    contain percent-encoded octets, which must reach the upstream unchanged.
+    """
+    collection = '/api/v1/audit/events'
+    detail_prefix = f'{collection}/'
+    facets = '/api/v1/audit/facets'
+    compat_collection = '/api/v1/compat/snaplink/audit/events'
+    compat_facets = '/api/v1/compat/snaplink/audit/facets'
+
+    if path == collection:
+        return compat_collection
+    if path.startswith(detail_prefix) and len(path) > len(detail_prefix):
+        return f'{compat_collection}{path[len(collection):]}'
+    if path == facets:
+        return compat_facets
+    return path
+
+
 def _build_backend_url(path: str) -> tuple[str, str]:
-    """Split the raw request path into (backend_url, query_string)."""
+    """Build the upstream URL while preserving the raw query string."""
+    request_path, separator, qs = path.partition('?')
     backend = backend_for(path)
-    qs = ''
-    if '?' in path:
-        path, qs = path.split('?', 1)
-    url = f"{backend}{path}"
-    if qs:
+    url = f"{backend}{_audit_compatibility_path(request_path)}"
+    if separator:
         url += f'?{qs}'
     return url, qs
 
@@ -270,10 +296,19 @@ def proxy_request(conn, method, path, headers, body):
         send_error(conn, 502, f'Proxy error: {e}')
 
 def backend_for(path):
-    """Resolve the explicitly separate same-origin Checkout upstream."""
+    """Resolve the same-origin service upstream for a request path."""
     clean_path = urllib.parse.urlsplit(path).path
     if clean_path == '/api/v1/checkout/sessions':
         return STRIPE_ADAPTER_BACKEND
+    audit_event_detail_prefix = '/api/v1/audit/events/'
+    if clean_path in {
+        '/api/v1/audit/events',
+        '/api/v1/audit/facets',
+    } or (
+        clean_path.startswith(audit_event_detail_prefix)
+        and len(clean_path) > len(audit_event_detail_prefix)
+    ):
+        return AUDIT_GOVERNANCE_BACKEND
     return BACKEND
 
 def handle(conn):
