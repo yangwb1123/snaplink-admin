@@ -190,10 +190,17 @@ For example:
   minimal standalone example of the same fallback).
 - **Caddy**: `file_server` with `try_files {path} /index.html`.
 - **Repository development proxy** (quick local testing):
+  replace `<your-audit-governance-origin>` with the deployed Audit Governance
+  HTTP(S) origin, then run:
   `SNAPLINK_API_URL=http://localhost:8080 SNAPLINK_PROXY_PORT=4444
   SNAPLINK_STRIPE_ADAPTER_URL=http://localhost:8091
+  AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>'
   python3 tools/robust_proxy.py`.
-  It supplies both SPA fallback and the same-origin API proxy. Python's plain
+  Audit reads require this explicit upstream; if it is unset, the proxy fails
+  closed and never falls back to the core Snaplink backend. The proxy inherits
+  this environment variable when started directly, through `make serve` or
+  `./dev.sh`, and from integration subprocesses. It supplies both SPA fallback
+  and the same-origin API proxy. Python's plain
   `http.server` is not suitable for deep-link testing because it returns 404
   instead of `index.html` for unknown routes.
 

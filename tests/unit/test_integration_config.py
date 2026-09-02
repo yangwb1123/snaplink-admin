@@ -31,9 +31,11 @@ class IntegrationConfigTest(unittest.TestCase):
             'SNAPLINK_TEST_PASSWORD': 'test-only-secret',
             'SNAPLINK_TEST_CLIENT_ID': 'console-e2e',
             'SNAPLINK_TEST_USER_ID': 'user-42',
+            'AUDIT_GOVERNANCE_UPSTREAM': 'https://audit-governance.example.test/',
         }
         with patch.dict(os.environ, values, clear=True):
             config = config_module.IntegrationConfig.from_environment()
+            proxy_environment = config.proxy_environment()
 
         self.assertEqual(config.api_admin_url, 'https://api.example.test/api/v1/admin')
         self.assertEqual(config.proxy_host, '127.0.0.1')
@@ -41,7 +43,11 @@ class IntegrationConfigTest(unittest.TestCase):
         self.assertEqual(config.login_payload()['credential']['username'], 'operator')
         self.assertEqual(config.login_payload()['client_id'], 'console-e2e')
         self.assertEqual(config.user_id, 'user-42')
-        self.assertEqual(config.proxy_environment()['BACKEND'], config.api_url)
+        self.assertEqual(proxy_environment['BACKEND'], config.api_url)
+        self.assertEqual(
+            proxy_environment['AUDIT_GOVERNANCE_UPSTREAM'],
+            'https://audit-governance.example.test/',
+        )
         self.assertTrue(config.manages_local_proxy)
 
     def test_invalid_origins_fail_before_network_access(self):

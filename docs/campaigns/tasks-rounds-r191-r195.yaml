@@ -1,0 +1,95 @@
+# R191-R195：文档契约、开发代理配置与结构/i18n 台账收敛
+# 目标：在 R190 后消除已证实的文档漂移，并为本地代理/route catalog 增加轻量回归保护。
+# 不改变 API wire、后端路由、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE 语义。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r191-r195.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r191-r195.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R191：route catalog 与功能覆盖文档的精确计数对账。读取
+    `lib/api/snaplink_admin_types.dart` 的 `routes`、`lib/api/snaplink_admin_catalog.dart`、
+    `test/admin_contract_consistency_test.dart`、`docs/FEATURE_COVERAGE.md`、
+    `docs/TECH_DEBT.md` 以及 `docs/openapi.yaml` 的真实位置（若需要，读取同工作区
+    `/home/u1/workspace/demo/snaplink/docs/openapi.yaml`，只读）。当前 FEATURE_COVERAGE
+    声称“管理、审计、合规、网络策略及 SCIM 目录共 197 个”——必须从当前 `routes` 原文
+    逐项计算，不凭印象替换数字；按该句明确的 scope 统计 `/api/v1/admin/`、`/api/v1/audit/`、
+    `/api/v1/compliance/`、`/api/v1/netpolicy/`、`/api/v1/scim/`，不要把 scope 外的
+    `/api/v1/clients/{id}` 或全部 OpenAPI 服务端路径混入。若证据确认漂移，最小更新
+    `docs/FEATURE_COVERAGE.md` 为实测值（当前预期为 214，但以代码实测为准），并说明
+    routes catalog 的全量值若有必要；绝不改 `routes`、OpenAPI 或任何生产请求。
+
+    增加一个小型 `tests/unit/test_documentation_contracts.py`（或同等最小测试）保护该
+    计数：从 `routes` block 解析方法/路径，计算上述 scope，并断言 FEATURE_COVERAGE
+    包含同一精确计数。不要用脆弱的行号，也不要锁死无关 prose；测试不得生成/修改 API。
+    输出 `docs/ui/pages-per-page/r191-route-catalog-coverage-reconciliation.md`。
+  output: docs/ui/pages-per-page/r191-route-catalog-coverage-reconciliation.md
+  validate: "cd {cwd} && python3 -m unittest tests.unit.test_documentation_contracts tests.unit.test_deployment_contracts && git diff --check"
+
+- prompt: |
+    R192：本地 robust proxy 的 Audit Governance 配置可发现性与环境继承回归。读取
+    `README.md`、`DEPLOY.md`、`Makefile`、`dev.sh`、`tools/robust_proxy.py`、
+    `tests/integration/test_config.py`、`tests/unit/test_integration_config.py`、
+    `tests/unit/test_robust_proxy.py` 与 R186-R191 报告。
+
+    R186 已让 `AUDIT_GOVERNANCE_UPSTREAM` 缺失时 fail closed，并将 browser-facing
+    `/api/v1/audit/events`, `/api/v1/audit/facets`, `/api/v1/audit/events/{id}` 改写为
+    nginx 证明的 compatibility paths。确认 `make serve`、`dev.sh` 和 integration
+    subprocess 均不会丢失用户显式设置的该环境变量；确认 README/DEPLOY 的本地代理
+    示例明确说明 audit reads 需要显式设置该 upstream，未设置时不会回退 core，而不是
+    给出一个未经证明的默认服务地址。必要时只更新文档，并在
+    `tests/unit/test_integration_config.py` 增加一个环境继承断言；不要修改 proxy
+    routing、API、认证或 upstream fallback 逻辑。输出
+    `docs/ui/pages-per-page/r192-local-proxy-audit-configuration.md`。
+  output: docs/ui/pages-per-page/r192-local-proxy-audit-configuration.md
+  validate: "cd {cwd} && python3 -m unittest tests.unit.test_integration_config tests.unit.test_robust_proxy tests.unit.test_documentation_contracts && git diff --check"
+
+- prompt: |
+    R193：API/route/auth 安全边界复核（默认只读）。读取当前 diff、R191-R192 报告、
+    `lib/api/audit_read_client.dart`、`lib/api/audit_query.dart`、`lib/api/audit_event_row.dart`、
+    `lib/services/audit_log_service.dart`、`lib/screens/admin/audit_log_tab.dart`、
+    `lib/api/admin_paths.dart`、`lib/screens/portal/portal_security_contract.dart`、
+    `lib/app_router.dart`、`tests/unit/test_documentation_contracts.py`、
+    `test/audit_contract_guard_test.dart`、`test/portal_security_contract_test.dart`、
+    `test/app_router_client_id_wiring_test.dart`。
+
+    证明文档计数/本地代理测试没有引入或暗示新的 endpoint；Dart 仍只消费
+    browser-facing audit paths，compatibility rewrite 只属于 proxy/deployment owner；
+    tenant_id/trace_id 仍是调用方显式可选输入，debug ring/release DCE、Portal/Admin
+    ownership、segment-aware matching、单次编码、固定 `client_id` 和 SSE 生命周期均不变。
+    只有发现 R191/R192 直接引入的明确回归才最小修复，否则不改生产代码。输出
+    `docs/ui/pages-per-page/r193-api-route-security-boundary-review.md`。
+  output: docs/ui/pages-per-page/r193-api-route-security-boundary-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/audit_contract_guard_test.dart test/audit_read_client_test.dart test/audit_query_test.dart test/portal_security_contract_test.dart test/app_router_client_id_wiring_test.dart && python3 -m unittest tests.unit.test_documentation_contracts tests.unit.test_robust_proxy && git diff --check"
+
+- prompt: |
+    R194：结构/i18n/docs fan-out 台账对账。读取 R191-R193 报告、`docs/TECH_DEBT.md`、
+    `engineering.yaml`、`lib/screens`、`lib/i18n`、`lib/api/sso_client.dart`、
+    `lib/api/admin_paths.dart`、Developer census 相关测试、`test/i18n_coverage_test.dart`、
+    `test/i18n_catalog_uniqueness_test.dart` 和 `docs/ui` 目录清单。
+
+    重新实测并只同步已过门禁的当前值：全部 `lib/screens` Dart <=400 且 248 文件、
+    超预算生产 catalog 豁免、Developer 13 文件、source/ZH catalog 2313/2313、
+    identity pattern 0、`appAdditionalStrings` 105/105、docs/ui 顶层 <=12、
+    pages-per-page 平铺报告数量（R191-R194 新报告也计入）。保留 `routes` 全量 215
+    与 R191 scoped count 的区别、`/run` non-root、AUDIT_GOVERNANCE_UPSTREAM 专用
+    upstream、BFF tenant_id/trace_id `[PROPOSED]` 和 heuristic warning 非阻塞说明。
+    只更新 `docs/TECH_DEBT.md` 中确实过期的实测数字/轮次，不拆 catalog Map、安全状态机
+    或页面，不修改 API、路由、阈值。输出 `docs/ui/pages-per-page/r194-ledger-reconciliation.md`。
+  output: docs/ui/pages-per-page/r194-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R195：最终门禁。读取 R191-R194 报告和完整当前 diff，确认只保留已证明的
+    FEATURE_COVERAGE 计数/文档修正、本地代理配置说明、环境继承回归测试、route-doc
+    regression test、必要 TECH_DEBT 对账与 campaign YAML。拒绝无证据的路由/API/认证改动。
+    保持 `web/flutter_bootstrap.js` 预先存在且未跟踪。
+
+    运行并记录：受影响 Dart/Python format 检查（既有 baseline catalog formatting 不扩散）、
+    `flutter analyze --no-fatal-infos --no-fatal-warnings`、全量 `flutter test`、Chrome smoke
+    `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、
+    `python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、
+    `git diff --check`。输出 `docs/ui/pages-per-page/r195-final-audit-25.md`，最后一行必须严格
+    匹配 `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`；只有全部门禁通过才能写 PASS。
+  output: docs/ui/pages-per-page/r195-final-audit-25.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r195-final-audit-25.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

@@ -82,13 +82,17 @@ flutter pub get
 python3 -m pip install -r requirements-dev.txt
 
 # 启动开发代理；地址可通过 SNAPLINK_API_URL/SNAPLINK_PROXY_PORT 覆盖
-make serve
+# 将占位符替换为已部署的 Audit Governance HTTP(S) origin；不要省略此设置
+AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>' make serve
 
 # 另一个终端构建 Web 产物
 make build
 ```
 
-控制台默认通过 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
+`make serve` 和 `./dev.sh` 都会继承当前 shell 中显式设置的
+`AUDIT_GOVERNANCE_UPSTREAM`。Audit reads 必须显式指向 Audit Governance；未设置时
+本地代理 fail closed，不会回退到 core Snaplink。上面的占位符不能原样使用，需替换为
+实际部署的 origin。控制台默认通过 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
 所连接的 Snaplink 部署决定，不应在前端仓库中保存默认生产凭据。
 
 ## 质量门禁
