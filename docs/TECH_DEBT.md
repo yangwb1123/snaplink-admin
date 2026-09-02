@@ -1,4 +1,4 @@
-# 技术债清单（R194 structure / i18n / docs fan-out ledger reconciliation）
+# 技术债清单（R200 structure / i18n / docs fan-out ledger reconciliation）
 
 > 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R173-R179 对账 R166-R178 的 census、i18n、docs fan-out 与最终门禁，只同步已验证的台账数字，不改变 Dart API、路由或架构阈值。
 
@@ -25,7 +25,7 @@
 
 此外，`engineering.yaml` 仍明确登记 `lib/main.dart`（56 行、required exemption）和 7 个 3 行兼容 re-export forwarder：`lib/sso_client.dart`、`lib/screens/admin/snaplink_admin_api.dart`、`lib/screens/admin/snaplink_admin_types.dart`、`lib/screens/portal/portal_api.dart`、`lib/screens/oidc_login/oidc_login_api.dart`、`lib/screens/device/device_verify_api.dart`、`lib/screens/setup/setup_api.dart`。它们既未超过 400 行，也不是 UI 页面。当前没有为超预算 `lib/screens` 实现保留的 filesize 豁免。
 
-所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；56 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。R194 重新扫描结果为 **0 / 248** 个 `lib/screens` 文件超 400 行。
+所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；56 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。R199 重新扫描结果为 **0 / 248** 个 `lib/screens` 文件超 400 行。
 
 ## R121-R145 已完成的预算拆分范围
 
@@ -58,7 +58,7 @@
 - Admin API clients、navigation、operations、tenant/user detail、webhook、break-glass、credential、crypto、domain、permission、threat、branding 与 commerce plans consumer 仅替换既有 path 来源，最终 method/query/body/header/cache/error/认证语义保持不变。
 - `AdminOpsHelpers` 与 Operations selector 复用 R161 segment-aware matcher；合法 descendants/custom verbs 保留，`auditx`、`snapshots-evil` 等 sibling 不再误分类。
 - R166-R170 通过 path builder、wire-equivalence、selector、dedicated workflow、navigation/catalog、security、Portal ownership、Developer census、filesize/fan-out 与最终全量门禁；无新增 endpoint、route、依赖或业务能力。
-- R194 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **269** 个报告文件、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
+- R200 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **275** 个报告文件、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
 
 ## R151-R152 已完成的非 UI 预算拆分
 
@@ -91,7 +91,7 @@
 - 静态文案缺失：`test/i18n_coverage_test.dart` 当前实测 **0** 条缺失（raw `Text`/localized call/property/helper 及 command palette 均通过）。英文是 source key/fallback，中文覆盖由同一测试直接核验。
 - 动态消息模板化：历史基线 50 → **0 条有骨架**（5 轮 60+ 处；`{n}` 模板 + args + zh 注册）。LocalizedText 支持 args 透传；操作反馈、计数、错误前缀、详情页标题和状态行均已覆盖。
 - 纯数据展示（`'$e'` 错误原文、`'{index + 1}'` 序号、计数、动态字段名）没有可复用的自然语言骨架，保持原文不模板化；错误正文保持 API 原文是刻意设计。
-- R194 复核 `lib/i18n/*.dart` 的 source-pattern 输入：共 **315** 个真实模板条目，identity source-pattern 为 **0**；2313 个条目的 key/value 插值占位符集合均一致。R177 已移除经 R176 证明为纯数据的 6 个 identity 条目，R178 回归确认没有误删中文模板；纯数据展示继续使用 `Text`，不为降低计数拆 catalog Map。
+- R199 复核 `lib/i18n/*.dart` 的 source-pattern 输入：共 **315** 个真实模板条目，identity source-pattern 为 **0**；2313 个条目的 key/value 插值占位符集合均一致。R177 已移除经 R176 证明为纯数据的 6 个 identity 条目，R178 回归确认没有误删中文模板；纯数据展示继续使用 `Text`，不为降低计数拆 catalog Map。
 - `test/i18n_coverage_test.dart` 持续阻止新增未注册的直接英文界面文案；R179 目标回归套件共 **78** 项通过（含 i18n、结构、path ownership、client_id 与 audit 边界）。
 
 ## 统一模式债（已评估）

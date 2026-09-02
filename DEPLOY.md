@@ -191,11 +191,16 @@ For example:
 - **Caddy**: `file_server` with `try_files {path} /index.html`.
 - **Repository development proxy** (quick local testing):
   replace `<your-audit-governance-origin>` with the deployed Audit Governance
-  HTTP(S) origin, then run:
-  `SNAPLINK_API_URL=http://localhost:8080 SNAPLINK_PROXY_PORT=4444
-  SNAPLINK_STRIPE_ADAPTER_URL=http://localhost:8091
-  AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>'
-  python3 tools/robust_proxy.py`.
+  HTTP(S) origin, then run this single, copyable shell command:
+
+  ```bash
+  SNAPLINK_API_URL=http://localhost:8080 \
+  SNAPLINK_PROXY_PORT=4444 \
+  SNAPLINK_STRIPE_ADAPTER_URL=http://localhost:8091 \
+  AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>' \
+  python3 tools/robust_proxy.py
+  ```
+
   Audit reads require this explicit upstream; if it is unset, the proxy fails
   closed and never falls back to the core Snaplink backend. The proxy inherits
   this environment variable when started directly, through `make serve` or
