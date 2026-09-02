@@ -42,7 +42,6 @@ const appCommerceSourceZh = <String, String>{
   '{interval} · {price} · {features} enabled features · {limits} quota grants':
       '{interval} · {price} · 已启用 {features} 项功能 · {limits} 项额度授权',
   '{currency} {amount} minor units': '{currency} {amount} 最小货币单位',
-  '{status} · {plan} v{version}': '{status} · {plan} v{version}',
   'Revision {revision}': '修订版 {revision}',
   'Period: {start} → {end}': '周期：{start} → {end}',
   'Provider reference: {provider} / {providerID}':

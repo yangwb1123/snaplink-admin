@@ -74,7 +74,6 @@ const appAdminDynamicSourceZh = <String, String>{
   'Failed: {error}': '失败：{error}',
   'Grant {requester} access?': '授予 {requester} 访问权限？',
   'ID: {id}': 'ID：{id}',
-  'IP {address}': 'IP {address}',
   'IP: {address}  UA: {agent}': 'IP：{address}  用户代理：{agent}',
   'Last seen {time}': '最近出现：{time}',
   'Method: {method}': '方式：{method}',
@@ -108,7 +107,6 @@ const appAdminDynamicSourceZh = <String, String>{
   'Rollback frontend and backend to {id}? {warning}':
       '将前端和后端回滚到 {id}？{warning}',
   'Run {method}': '运行 {method}',
-  'SCIM {collection}': 'SCIM {collection}',
   'SCIM request failed ({status}): {error}': 'SCIM 请求失败（{status}）：{error}',
   'Send a new invitation message to {email}. Any previously issued invitation remains governed by the server.':
       '向 {email} 发送新的邀请消息。以前签发的邀请仍由服务器管理。',
@@ -136,7 +134,6 @@ const appAdminDynamicSourceZh = <String, String>{
   'User {userId}': '用户 {userId}',
   'User: {userId}': '用户：{userId}',
   'Verify {domain}?': '验证 {domain}？',
-  'Webhook #{id}': 'Webhook #{id}',
   'Webhook details': 'Webhook 详情',
   'Webhook: {id}': 'Webhook：{id}',
   'The write result is unknown (HTTP {status}). Reconcile token and session state before retrying.':

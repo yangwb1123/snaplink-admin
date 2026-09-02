@@ -1,0 +1,91 @@
+# R176-R180：i18n source-pattern 污染清理与最终回归
+# 目标：处理 R173 明确登记的 6 个 key=value source-pattern 占位项，保持显示、API、路由与安全语义不变。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r176-r180.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r176-r180.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R176：i18n source-pattern 影响审计（只读，不改源码）。读取当前 `git status`、`git diff`、
+    `docs/TECH_DEBT.md`、`lib/i18n/app_strings_context.dart`、所有
+    `lib/i18n/app_strings_source*.dart`、`lib/screens/admin/commerce/commerce_panels.dart`、
+    `test/i18n_coverage_test.dart`、`test/i18n_catalog_uniqueness_test.dart`、
+    `test/localized_text_test.dart` 与 R173-R175 报告。
+
+    精确核对 R173 登记的 6 个 key=value 条目：
+    `{algorithm} · {status}`、`{targetUser} · {status}`、`IP {address}`、
+    `SCIM {collection}`、`Webhook #{id}`、`{status} · {plan} v{version}`。
+    用全仓搜索确认每一项的真实 consumer、`LocalizedText`/`context.tr` 调用、
+    source-pattern 排序和 fallback 行为，区分纯数据展示与真正需要翻译的自然语言骨架。
+    评估移除这些 identity translations 是否会改变 EN/ZH 显示；特别核对 commerce
+    subscription card 的 status 翻译、plan id、version、分隔符和 widget 语义。
+    不修改 `lib/`、`test/`、API、路由、协议或台账；输出
+    `docs/ui/pages-per-page/r176-i18n-pattern-impact-audit.md`，列出每项的结论与安全的最小修复边界。
+  output: docs/ui/pages-per-page/r176-i18n-pattern-impact-audit.md
+  validate: "cd {cwd} && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/localized_text_test.dart && git diff --check"
+
+- prompt: |
+    R177：按 R176 结论做最小 source-pattern 清理（允许修改源码与测试，但不得改变产品契约）。
+    先读取 `docs/ui/pages-per-page/r176-i18n-pattern-impact-audit.md` 和当前 diff。
+    仅处理被证明安全的 identity translations：从对应 `lib/i18n/app_strings_source*.dart`
+    移除不承载中文自然语言的 6 个 key=value 条目；不要改通用
+    `app_strings_context.dart` matcher，不要改任何非目标 catalog entry。
+
+    对 `lib/screens/admin/commerce/commerce_panels.dart` 的 subscription summary，若 R176
+    确认它是纯数据展示，改用普通 `Text`/等价纯展示 widget，保留现有
+    `context.tr(status)`、plan id、version、顺序、分隔符、样式和可访问文本；不得引入
+    raw API 值变化、额外请求、状态复制或新依赖。不要机械修改其它 LocalizedText。
+    在现有 i18n catalog test 或最小同目录测试中增加回归断言，证明 identity translations
+    不再进入 source-pattern registry，且 EN/ZH 对真实模板与 status 显示保持正确。
+    不修改 API wire、路由、认证、Session、MFA、Consent、设备码、Checkout、secret、导出、
+    SSE reconnect、Portal path owner 或 Admin path owner。输出
+    `docs/ui/pages-per-page/r177-i18n-pattern-cleanup.md`，报告精确文件、行为等价性和测试结果。
+  output: docs/ui/pages-per-page/r177-i18n-pattern-cleanup.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/i18n/app_strings_source_admin_dynamic.dart lib/i18n/app_strings_source_commerce.dart lib/screens/admin/commerce/commerce_panels.dart test/i18n_catalog_uniqueness_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/localized_text_test.dart && git diff --check"
+
+- prompt: |
+    R178：清理后的 i18n 与 UI 契约回归（默认只读）。读取 R176-R177 报告、当前 diff、
+    所有目标 catalog、`app_strings_context.dart`、`commerce_panels.dart`、
+    `lib/i18n/localized_text.dart` 及相关 tests。
+
+    证明：(a) 6 个 identity source-pattern 条目已全部移除且没有误删其它中文模板；
+    (b) `_buildSourcePatterns` 的真实自然语言模板仍按 specificity 匹配，未知动态数据仍
+    fallback 原文，插值 args 行为不变；(c) commerce subscription summary 在 EN/ZH 下保留
+    status 翻译、plan/version 数据、样式与 semantics；(d) i18n static coverage、catalog
+    uniqueness、LocalizedText 行为没有回归；(e) 没有修改 API、wire、路由、能力门控、认证、
+    Session、MFA、Consent、Checkout、secret、导出或 SSE 生命周期。仅发现本批直接引入的
+    明确回归时做最小修复，否则不改代码。输出
+    `docs/ui/pages-per-page/r178-i18n-pattern-regression.md`。
+  output: docs/ui/pages-per-page/r178-i18n-pattern-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/localized_text_test.dart test/admin_detail_screens_test.dart test/admin_workflows_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R179：台账与结构安全复核（仅更新必要的 `docs/TECH_DEBT.md` 与审计报告）。读取
+    R176-R178 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、所有 `lib/i18n/*.dart`、
+    `lib/screens`、`test/` 相关回归测试和 `docs/ui` fan-out。
+
+    重新实测并对账：source catalog EN/ZH key 集、非空值、插值占位符、identity
+    source-pattern 数量、`lib/screens` `<=400`、生产超预算豁免、Developer 13-file census、
+    Admin `leadingWidth: 80`、固定 `client_id`、Portal/OIDC audit 文案边界、Admin/Portal path
+    ownership 与 docs 顶层 fan-out <=12。只把已经验证的数字写入台账；保留 heuristic warning
+    为非阻塞参考，不为降数字拆协议流程或 catalog Map。不要修改 Dart API、测试阈值、路由、
+    OpenAPI 或任何认证/安全语义。输出 `docs/ui/pages-per-page/r179-ledger-structure-review.md`。
+  output: docs/ui/pages-per-page/r179-ledger-structure-review.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/language_catalog_test.dart && git diff --check"
+
+- prompt: |
+    R180：最终门禁（仅在明确回归时做最小修复）。读取 R176-R179 报告与当前工作树，复核
+    所有 diff，特别是 source catalogs、commerce summary、i18n tests 与 `docs/TECH_DEBT.md`。
+    确认未触碰既有 API wire、路由、能力门控、认证、Session、MFA、Consent、设备码、Checkout、
+    secret、导出、Portal/admin path literals 或 SSE reconnect 语义；确认
+    `web/flutter_bootstrap.js` 仍是预先存在的未跟踪文件。
+
+    运行并记录：`dart format --output=none --set-exit-if-changed`（仅本批受影响 Dart 文件）、
+    `flutter analyze --no-fatal-infos --no-fatal-warnings`、全量 `flutter test`、Chrome smoke
+    `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、
+    `python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、
+    `git diff --check`。不因历史 baseline formatting 或 heuristic warning 阻断；但任何真实失败
+    必须修复或明确报告。输出 `docs/ui/pages-per-page/r180-final-audit-22.md`，最后一行严格使用
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`。
+  output: docs/ui/pages-per-page/r180-final-audit-22.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check"

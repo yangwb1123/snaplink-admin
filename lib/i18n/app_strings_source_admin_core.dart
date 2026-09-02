@@ -13,8 +13,6 @@ const appAdminCoreSourceZh = <String, String>{
   '{count} more results are present in the copied JSON.':
       '复制的 JSON 中另有 {count} 条结果。',
 
-  '{algorithm} · {status}': '{algorithm} · {status}',
-  '{targetUser} · {status}': '{targetUser} · {status}',
   '{id}\ncreated: {createdAt}': '{id}\n创建于 {createdAt}',
   '{reason}\nby {createdBy} · scope: {scope} · {id}':
       '{reason}\n发起人 {createdBy} · 范围 {scope} · {id}',

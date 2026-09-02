@@ -165,14 +165,9 @@ class CommerceSubscriptionsPanel extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: LocalizedText(
-                    '{status} · {plan} v{version}',
+                  child: Text(
+                    '${context.tr(status)} · $planID v$planVersion',
                     style: Theme.of(context).textTheme.titleMedium,
-                    args: {
-                      'status': context.tr(status),
-                      'plan': planID,
-                      'version': planVersion,
-                    },
                   ),
                 ),
                 Chip(
