@@ -1,0 +1,104 @@
+# R171-R175：Admin/Portal 契约收敛后的回归与台账闭环
+# 目标：不改 API wire 值，验证 R166-R170 后的契约、结构、i18n、census 与门禁保持不变。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r171-r175.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r171-r175.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R171：Admin wire-path 收敛后的回归审计（只读，不改源码）。完整读取当前
+    `git status`、`git diff`、`lib/api/admin_paths.dart`、`lib/api/api.dart`、
+    `lib/api/sso_client*.dart`、`lib/api/snaplink_admin_*.dart`、
+    `lib/screens/admin/**/*.dart` 的最终 request URL 拼接、
+    `test/admin_paths_test.dart`、`test/admin_operations_selector_test.dart`、
+    `test/admin_navigation_test.dart`、`test/sensitive_data_test.dart`、
+    `docs/ui/pages-per-page/r166-admin-path-ownership-audit.md` 至
+    `r170-final-audit-20.md`、`docs/TECH_DEBT.md` 与 `engineering.yaml`。
+
+    逐项核对：(a) `AdminPaths` 仅承载既有 Admin wire literals，模板仍只用于
+    capability/catalog matching，实际请求使用 builder 且单次 `Uri.encodeComponent`；
+    (b) 所有 consumer 的最终 URL、method、query/body/header/cache/error 与提交前
+    完全一致；(c) `AdminOpsHelpers.requiresDedicatedWorkflow` 与
+    `AdminOperationsTab` 的 family classifier 已与
+    `SnaplinkAdminCapabilities.matchesPathPrefix` segment-aware 对齐，拒绝
+    `auditx`/`snapshots-evil` sibling，保留合法 descendants/custom verbs；
+    (d) 未复制 generated routes catalog，未修改 `lib/api/portal_api.dart`、Portal
+    re-export shim、OpenAPI、认证/Session/MFA/Consent/Checkout/SSE reconnect。
+    输出 `docs/ui/pages-per-page/r171-admin-path-followup-audit.md`，明确列出已验证
+    owner、consumer、分类器和未变更边界。
+  output: docs/ui/pages-per-page/r171-admin-path-followup-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_paths_test.dart test/admin_operations_selector_test.dart test/admin_navigation_test.dart test/sensitive_data_test.dart && python3 checks/filesize.py && python3 checks/directory_fanout.py && git diff --check"
+
+- prompt: |
+    R172：Portal/Developer 契约与 census 回归（默认不改源码）。读取
+    `lib/screens/portal/portal_security_contract.dart`、`lib/api/portal_api.dart`、
+    `lib/screens/portal/**/*.dart`、`lib/screens/developer/**/*.dart`、
+    `lib/screens/oidc_login/**/*.dart`、`lib/api/admin_paths.dart`、
+    `test/portal_security_contract_test.dart`、`test/portal_security_web_test.dart`、
+    `test/developer_*.dart`、`test/oidc_login_handle_success_census_test.dart`、
+    `test/oidc_login_audit_visibility_guard_test.dart`、
+    `test/developer_audit_visibility_guard_test.dart` 与
+    `test/device_audit_visibility_guard_test.dart`。
+
+    验证：(a) Portal path ownership 仍仅由 contract 与既有 shim 持有，
+    `lib/api/portal_api.dart` 未被修改，动态段仍 `Uri.encodeComponent`；
+    (b) Developer 目录保持 13 文件 census，`manage_panel.dart:57` 的
+    `client_id` wire-site 未移动；
+    (c) `portal/developer/oidc_login` 的面向用户英文文案未新增 `audit` 字样；
+    (d) Admin `Dashboard leadingWidth: 80` 保留。只有发现本批直接造成的明确
+    契约或 census 回归才在最小范围修复，否则只输出报告。
+    输出 `docs/ui/pages-per-page/r172-portal-developer-contract-audit.md`。
+  output: docs/ui/pages-per-page/r172-portal-developer-contract-audit.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/portal_security_contract_test.dart test/developer_login_attribution_census_test.dart test/oidc_login_handle_success_census_test.dart test/developer_audit_visibility_guard_test.dart test/oidc_login_audit_visibility_guard_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R173：i18n、TECH_DEBT 与 docs fan-out 对账（仅在台账层面修改）。读取
+    `engineering.yaml`、`checks/filesize.py`、`checks/directory_fanout.py`、
+    `lib/i18n/*.dart`、`docs/TECH_DEBT.md`、R151-R152 拆分报告、
+    `test/i18n_coverage_test.dart`、`test/i18n_catalog_uniqueness_test.dart`、
+    `test/language_catalog_test.dart`、`docs/ui/pages-per-page/` 目录清单。
+
+    核对：(a) `lib/screens` 全部 `<=400` 行，生产 `>400` 仅为 3 个 i18n catalog
+    数据表的显式豁免，不把 catalog Map 误作页面债；
+    (b) `docs/ui` 顶层 fan-out `<=12`，`docs/ui/pages-per-page` 不作为 fan-out
+    违规；（c) EN/ZH 覆盖、`_sourcePatterns` 无值等于 key 的占位翻译污染，缺失
+    文案为 0；（d) `TECH_DEBT.md` 中 R166-R170 台账与当前行数/census/fan-out
+    一致。若发现台账数字或豁免清单与实测不一致，仅更新 `docs/TECH_DEBT.md`
+    与必要的 `docs/ui/pages-per-page` 报告，不改 `lib/`、`test/`、API、路由或
+    阈值。输出 `docs/ui/pages-per-page/r173-techdebt-i18n-fanout-reconciliation.md`。
+  output: docs/ui/pages-per-page/r173-techdebt-i18n-fanout-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/language_catalog_test.dart && git diff --check"
+
+- prompt: |
+    R174：结构与安全契约审查（只读，默认不重构）。读取 R171-R173 报告与当前 diff，
+    运行 `python3 tools/ai-dev-gates/check-frontend-quality.py --dir lib/screens --strict --json`
+    的实测 32 条 heuristic records 作为非阻塞参考，不为降数字而拆分协议流程或
+    catalog Map。逐项复核：Admin `has` exact method/path、runtime/documented merge
+    与三态、能力 LEDGER、SCIM trailing-slash、SSE frame、Portal/admin browser UI
+    等非 Admin 前缀不被 `matchesPathPrefix` 机械改写；`audit_log_service`
+    的 `sso_audit_log` release seam 与 `AuditReadClient` 的可选
+    `tenant_id`/`trace_id` 保持原有 BFF 注入契约；`web/flutter_bootstrap.js`
+    仍为预先存在的未跟踪文件。
+
+    仅当发现本批直接引入的明确编译/契约/安全回归时，才在同目录内做最小修复；
+    不处理既有 heuristic warning，不新增 endpoint/dependency/route/文案。
+    输出 `docs/ui/pages-per-page/r174-structure-security-review.md`。
+  output: docs/ui/pages-per-page/r174-structure-security-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/snaplink_admin_api_test.dart test/admin_contract_consistency_test.dart test/audit_contract_guard_test.dart test/audit_log_service_test.dart test/sensitive_data_test.dart && python3 checks/filesize.py && git diff --check"
+
+- prompt: |
+    R175：最终门禁（仅在明确回归时修改源码）。读取 R171-R174 报告与当前工作树，
+    复核所有 `lib/screens` Dart `<=400` 行（仅保留真实 catalog/main/forwarder 豁免）、
+    Admin/Portal path owner census、segment-boundary classifier、API route catalog count、
+    Developer 13-file census、固定 `client_id`、Dashboard `leadingWidth:80`、i18n EN/ZH、
+    audit ring 与 docs fan-out。
+
+    运行：受影响文件 `dart format`（排除 `lib/screens/admin/domains_tab.dart` 的
+    基线差异）、`flutter analyze`、全量 `flutter test`、Chrome smoke
+    `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、`make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、`python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+
+    绝不修改 API wire 值、路由、认证、Session、MFA、Consent、设备码、Checkout、
+    secret、导出、安全协议或 SSE reconnect。保持 `web/flutter_bootstrap.js` 未跟踪。
+    输出 `docs/ui/pages-per-page/r175-final-audit-21.md`，最后一行严格使用
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`。
+  output: docs/ui/pages-per-page/r175-final-audit-21.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness"

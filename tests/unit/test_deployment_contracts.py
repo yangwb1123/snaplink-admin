@@ -109,7 +109,7 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('readinessProbe', container)
         self.assertIn('livenessProbe', container)
         self.assertTrue(
-            {'/etc/nginx/conf.d', '/var/cache/nginx', '/var/run'} <= mounts
+            {'/etc/nginx/conf.d', '/var/cache/nginx', '/run'} <= mounts
         )
         self.assertGreaterEqual(deployment['spec']['replicas'], 3)
         self.assertEqual(deployment['spec']['strategy']['rollingUpdate']['maxUnavailable'], 0)

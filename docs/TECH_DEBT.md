@@ -1,16 +1,16 @@
-# 技术债清单（R159 reconciliation）
+# 技术债清单（R175 final i18n / fan-out / census reconciliation）
 
-> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R159 对账 R156-R158 的 Portal 路径契约、ownership guard 与 SSE 回归覆盖，只同步台账，不改变 Dart、测试阈值、API、路由或架构配置。
+> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R173-R175 对账 R166-R170 的 census、i18n、docs fan-out 与最终门禁，只同步台账和必要的既有部署测试契约，不改变 Dart API、路由或架构阈值。
 
 ## P2 结构债（当前快照）
 
-`engineering.yaml` 的 `filesize.max_lines` 仍为 **400**，且边界是 `<=400`（400 行本身通过）。`lib/screens` 当前有 **248** 个 Dart 文件，页面/组件的 `>400` 上帝文件数量为 **0**。
+`engineering.yaml` 的 `filesize.max_lines` 仍为 **400**，且边界是 `<=400`（400 行本身通过）。`lib/screens` 当前有 **248** 个 Dart 文件，页面/组件的 `>400` 上帝文件数量为 **0**。R173 实测 `lib` 共 **391** 个生产 Dart 文件；`lib/main.dart` 仍计入该 census，但不影响超预算结论。
 
 | 检查口径 | 当前数量 | 台账解释 |
 |---|---:|---|
 | UI 上帝文件：`lib/screens/**/*.dart` `>400` | **0 / 248** | R121-R145 已将页面 root/part 收敛到 400 行以内；不把 catalog Map 或 API client 算作 UI 页面。 |
-| 生产 Dart：`lib/**/*.dart` `>400` | **3 / 390** | 3 个 i18n Map/catalog 数据表，均为有理由的显式豁免；没有超预算 API client，也不是 UI 页面债。 |
-| 全仓 Dart（`lib/` + `test/`，排除 `.dart_tool/`、`build/`）`>400` | **27 / 563** | 其中生产代码为上面的 3 个，另有 24 个 `_test.dart`；`_test.dart` 是 `engineering.yaml` 的既定 ignore，不计入生产 P2。 |
+| 生产 Dart：`lib/**/*.dart` `>400` | **3 / 391** | 3 个 i18n Map/catalog 数据表，均为有理由的显式豁免；没有超预算 API client，也不是 UI 页面债。 |
+| 全仓 Dart（`lib/` + `test/`，排除 `.dart_tool/`、`build/`）`>400` | **29 / 566** | 其中生产代码为上面的 3 个，另有 26 个 `_test.dart`；`_test.dart` 是 `engineering.yaml` 的既定 ignore，不计入生产 P2。 |
 | 严格前端结构扫描的 heuristic warning | **32 条 / 28 个文件** | 扫描 `lib/screens` 的 248 个文件；32 条是实测 warning records，4 个文件命中两个类别。这是复杂度/耦合提示，不是 filesize 失败，也不等于页面债。 |
 
 ### 400 行边界与有意豁免
@@ -25,7 +25,7 @@
 
 此外，`engineering.yaml` 仍明确登记 `lib/main.dart`（56 行、required exemption）和 7 个 3 行兼容 re-export forwarder：`lib/sso_client.dart`、`lib/screens/admin/snaplink_admin_api.dart`、`lib/screens/admin/snaplink_admin_types.dart`、`lib/screens/portal/portal_api.dart`、`lib/screens/oidc_login/oidc_login_api.dart`、`lib/screens/device/device_verify_api.dart`、`lib/screens/setup/setup_api.dart`。它们既未超过 400 行，也不是 UI 页面。当前没有为超预算 `lib/screens` 实现保留的 filesize 豁免。
 
-所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；51 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。
+所有 `lib/screens` root/part 均通过 400 行预算：恰好位于边界的 root 是 `lib/screens/developer/dcr_credentials.dart` 和 `lib/screens/developer/manage_panel.dart`（均 400 行）；52 个 screen part 中最大为 `lib/screens/oidc_login/oidc_login_view_flow.dart`（392 行）。R173 重新扫描结果仍为 **0 / 248** 个 `lib/screens` 文件超 400 行。
 
 ## R121-R145 已完成的预算拆分范围
 
@@ -58,6 +58,7 @@
 - Admin API clients、navigation、operations、tenant/user detail、webhook、break-glass、credential、crypto、domain、permission、threat、branding 与 commerce plans consumer 仅替换既有 path 来源，最终 method/query/body/header/cache/error/认证语义保持不变。
 - `AdminOpsHelpers` 与 Operations selector 复用 R161 segment-aware matcher；合法 descendants/custom verbs 保留，`auditx`、`snapshots-evil` 等 sibling 不再误分类。
 - R166-R170 通过 path builder、wire-equivalence、selector、dedicated workflow、navigation/catalog、security、Portal ownership、Developer census、filesize/fan-out 与最终全量门禁；无新增 endpoint、route、依赖或业务能力。
+- R173 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **250** 个报告文件、**0** 个子目录，不构成 fan-out 违规；R173 对账时的快照为 248。`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
 
 ## R151-R152 已完成的非 UI 预算拆分
 
@@ -84,13 +85,14 @@
 - **决策点候选（11，阈值 >30）**：`clients_tab` 32、`connections_tab` 31、`permissions_tab` 34、`token_security_tab` 39、`jarm_completion` 40、`oauth_params` 32、`oidc_authorization_flow` 33、`oidc_provider_flow` 39、`device_detail_dialog` 35、`devices_tab` 31、`notifications_tab` 47。它们是分页/能力/授权/协议/结果分支的审查提示；若无纯展示 helper 的明确收益则保留。
 - **API-call/coupling warning（12，阈值 >5）**：`admin_ops_helpers` 6、`commerce/commerce_api` 15、`connections_tab` 9、`governance_tab` 6、`permissions_tab` 9、`recovery_releases_tab` 8、`scim/scim_resource_browser` 7、`tenant_organizations_tab` 7、`user_support_tab_view` 6、`portal/notifications_tab` 6、`portal/organization_admin_tab` 6、`portal/overview_tab` 6。它们是多端点页面编排、SCIM/Commerce 适配或复杂表单状态的有意聚合；`commerce_api.dart` 也不是 `lib/api/sso_client.dart`，不能将该 heuristic 误报成 UI 大文件债。除非发现重复同用途调用，否则不为满足计数阈值抽取。
 
-## i18n 债（历史项目已清零）
+## i18n 对账（覆盖清零；发现 pattern 污染）
 
-- 静态文案缺失：历史基线 431 → **0**（spread catalog 逐文件扫描修正）。
+- EN/ZH catalog 覆盖：`appAdditionalStrings` 的 EN/ZH key 集一致；source catalog 共 **2318** 个键值对，值非空且插值占位符集合保持一致；`i18n_catalog_uniqueness_test.dart` 通过且 `appAdminUxSourceZh` 已接入 `appSourceStrings`。
+- 静态文案缺失：`test/i18n_coverage_test.dart` 当前实测 **0** 条缺失（raw `Text`/localized call/property/helper 及 command palette 均通过）。英文是 source key/fallback，中文覆盖由同一测试直接核验。
 - 动态消息模板化：历史基线 50 → **0 条有骨架**（5 轮 60+ 处；`{n}` 模板 + args + zh 注册）。LocalizedText 支持 args 透传；操作反馈、计数、错误前缀、详情页标题和状态行均已覆盖。
 - 纯数据展示（`'$e'` 错误原文、`'{index + 1}'` 序号、计数、动态字段名）没有可复用的自然语言骨架，保持原文不模板化；错误正文保持 API 原文是刻意设计。
-- 值等于 key 的占位翻译会污染 `_sourcePatterns` 匹配（例如 `Page 3 · 12 users` 被 `{x} · {y}` 截获）；纯数据一律使用 Text，不使用 LocalizedText。
-- `test/i18n_coverage_test.dart` 持续阻止新增未注册的直接英文界面文案。
+- R173 对 `lib/i18n/*.dart` 的 `_sourcePatterns` 输入发现 **6** 个“值等于 key”的占位翻译，仍可能污染 pattern 匹配，故本节不能宣称 i18n 债完全清零：`app_strings_source_admin_core.dart:16` `{algorithm} · {status}`、`:17` `{targetUser} · {status}`；`app_strings_source_admin_dynamic.dart:77` `IP {address}`、`:111` `SCIM {collection}`、`:139` `Webhook #{id}`；`app_strings_source_commerce.dart:45` `{status} · {plan} v{version}`。本轮按范围只更新台账/报告，未改 `lib/` 或 `test/`；后续应在 catalog/source-pattern owner 层清理这些条目，纯数据展示继续使用 `Text` 而非 `LocalizedText`。
+- `test/i18n_coverage_test.dart` 持续阻止新增未注册的直接英文界面文案；本次四个 i18n/language test files 共 **25** 项通过。
 
 ## 统一模式债（已评估）
 
