@@ -292,7 +292,7 @@ class _AdminDataTableCardState extends State<AdminDataTableCard> {
       tooltip: context.tr('Click to copy'),
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+      constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
       icon: Icon(
         Icons.copy_outlined,
         size: 14,

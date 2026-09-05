@@ -41,6 +41,8 @@ void main() {
     List<AdminDataColumn>? cols,
     ValueChanged<String>? onSort,
     void Function(int)? onRowTap,
+    void Function(int)? onRowLongPress,
+    TableDensity density = TableDensity.comfortable,
     Widget? host,
   }) async {
     tester.view.physicalSize = Size(width, 900);
@@ -52,6 +54,8 @@ void main() {
       rowBuilder: (context, i) => const SizedBox.shrink(),
       onSort: onSort,
       onRowTap: onRowTap,
+      onRowLongPress: onRowLongPress,
+      density: density,
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -203,6 +207,79 @@ void main() {
     await tester.pump();
     expect(checked, isTrue);
     handle.dispose();
+  });
+
+  testWidgets('R201: narrow copy controls keep a 48px target and semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final tapped = <int>[];
+    final longPressed = <int>[];
+    final cols = [
+      AdminDataColumn(
+        id: 'id',
+        label: 'ID',
+        builder: (context, i) =>
+            CopyableCell(text: 'id-$i', contextProvider: () => context),
+      ),
+      AdminDataColumn(
+        id: 'kind',
+        label: 'Kind',
+        builder: (context, i) => TableCellText('kind-$i'),
+      ),
+    ];
+
+    for (final density in TableDensity.values) {
+      await pumpTable(
+        tester,
+        width: 600,
+        cols: cols,
+        density: density,
+        onRowTap: tapped.add,
+        onRowLongPress: longPressed.add,
+      );
+      await tester.pumpAndSettle();
+
+      final controls = find.byType(IconButton);
+      expect(controls, findsNWidgets(itemCount));
+      for (final control in controls.evaluate()) {
+        final size = tester.getSize(
+          find.byElementPredicate((element) => element == control),
+        );
+        expect(size.width, greaterThanOrEqualTo(kMinInteractiveDimension));
+        expect(size.height, greaterThanOrEqualTo(kMinInteractiveDimension));
+      }
+      expect(find.byTooltip('Click to copy'), findsNWidgets(itemCount));
+      for (final control in controls.evaluate()) {
+        expect(
+          tester.getSemantics(
+            find.byElementPredicate((element) => element == control),
+          ),
+          matchesSemantics(
+            tooltip: 'Click to copy',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+      }
+
+      // The copy action remains an independent target; its IconButton callback
+      // continues to be wired to CopyableCell.copy in the production widget.
+      tapped.clear();
+      await tester.tap(find.text('Kind: kind-1'));
+      await tester.pump();
+      expect(tapped, [1]);
+
+      longPressed.clear();
+      await tester.longPress(find.text('id-1'));
+      await tester.pump();
+      expect(longPressed, [1]);
+    }
+    semantics.dispose();
   });
 
   testWidgets('cardPrimary/cardDetail flags override auto-derivation', (

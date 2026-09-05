@@ -1,0 +1,83 @@
+# R201-R205：共享数据视图的移动端触达与语义回归
+# 目标：修复经证据确认的 AdminDataTable 卡片复制 affordance 触控尺寸问题，并完成共享组件门禁。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r201-r205.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r201-r205.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R201：AdminDataTable 窄屏卡片复制 affordance 的触控/a11y 最小修复。读取
+    `lib/widgets/admin_data_table.dart`、`lib/widgets/admin_data_table/card_mode.dart`、
+    `lib/widgets/admin_data_table/table_cells.dart`、`test/admin_data_table_cards_test.dart`、
+    `test/admin_data_table_density_test.dart` 和相关 R41/R51/R58 报告。重点核对
+    `_copyableCardCell` 的复制 `IconButton` 当前显式 `minWidth/minHeight: 28` 是否低于
+    Flutter 平台最小交互尺寸（48），以及它在行级 Semantics、整卡 tap/long-press、
+    `CopyableCell.copy`、comfortable/compact density 下是否仍独立可达。若实测为低于
+    48，只增大 hit target（保留 icon 14px、视觉 padding/density、文本布局、复制反馈和
+    行级语义），并在 `test/admin_data_table_cards_test.dart` 增加回归断言：窄屏
+    CopyableCell 的 copy control 实际尺寸两个轴均 >= `kMinInteractiveDimension`，仍有
+    copy tooltip/独立 semantics；不要改变 API 或数据 wire。若证据显示已满足，则只报告
+    不修改代码。输出 `docs/ui/pages-per-page/r201-table-card-copy-target.md`。
+  output: docs/ui/pages-per-page/r201-table-card-copy-target.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/widgets/admin_data_table/card_mode.dart test/admin_data_table_cards_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart && git diff --check"
+
+- prompt: |
+    R202：共享数据视图语义/状态回归（默认只读，只有明确直接回归才修复）。读取 R201 报告与
+    当前 diff、`lib/widgets/admin_data_table.dart`、`lib/widgets/admin_data_table/card_mode.dart`、
+    `lib/widgets/admin_data_table/header_cell.dart`、`lib/widgets/empty_state.dart`、
+    `lib/widgets/async_view.dart`、`lib/widgets/skeleton_list.dart`、`lib/widgets/search_filter_bar.dart`、
+    `test/admin_data_table_cards_test.dart`、`test/admin_data_table_density_test.dart`、
+    `test/empty_state_variants_test.dart`、`test/list_chrome_test.dart`。
+
+    核对：<640px 关系数据仍 card、>=640px table、unbounded horizontal host 仍 table；
+    row/list semantics 不重复朗读且 checkbox/copy/action 独立可达；排序/筛选/clear/retry
+    不重复请求；loading/empty/no-match/not-enabled/error 文案经 i18n 且 reduced-motion
+    不崩；comfortable/compact 只影响间距，不缩小交互 hit target。不要为 heuristic warning
+    机械拆分、不要改变 endpoint、query、路由、认证或状态机。输出
+    `docs/ui/pages-per-page/r202-shared-data-view-semantics.md`。
+  output: docs/ui/pages-per-page/r202-shared-data-view-semantics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/empty_state_variants_test.dart test/list_chrome_test.dart test/shared_widgets_test.dart test/responsive_navigation_scaffold_test.dart && git diff --check"
+
+- prompt: |
+    R203：跨页面响应式/a11y 轻量回归。读取 R201-R202 报告、当前 diff、`test/render_matrix_smoke_test.dart`、
+    `test/admin_widgets_final_test.dart`、`test/admin_data_table_cards_test.dart`、
+    `test/admin_data_table_density_test.dart`、`test/portal_screens_test.dart`、
+    `test/portal_security_web_test.dart`、`lib/widgets/responsive_navigation_scaffold.dart`、
+    `lib/widgets/admin_data_table.dart` 和 `lib/widgets/empty_state.dart`。
+
+    用现有测试/矩阵证明 320/400/640/768/桌面关键宽度下没有横向溢出或不可达复制/筛选/
+    排序/刷新动作，Portal/Admin 的 table/list/card 决策仍符合约定；browser/VM 适配层不
+    混入路由或安全变化。只有发现本批直接引入的明确回归才最小修复，否则只输出
+    `docs/ui/pages-per-page/r203-responsive-a11y-regression.md`。
+  output: docs/ui/pages-per-page/r203-responsive-a11y-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/render_matrix_smoke_test.dart test/admin_widgets_final_test.dart test/admin_data_table_cards_test.dart test/admin_data_table_density_test.dart test/portal_screens_test.dart && flutter test --platform chrome test/portal_security_web_test.dart && git diff --check"
+
+- prompt: |
+    R204：结构/组件/i18n 台账复核。读取 R201-R203 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、共享 widgets、Developer census 测试、`test/i18n_coverage_test.dart`、
+    `test/i18n_catalog_uniqueness_test.dart` 与 `docs/ui` 清单。实测并只同步必要数字：
+    lib/screens 248 且全部 <=400、Developer 13、source/ZH 2313/2313、identity pattern 0、
+    appAdditionalStrings 105/105、AdminDataTable 主文件/part 结构、docs/ui 顶层 <=12、
+    pages-per-page 当前报告数（R201-R204 已生成的报告计入）。保留 routes 215/scoped 214、
+    /run non-root、专用 audit upstream、BFF `[PROPOSED]` 与 heuristic 非阻塞说明。
+    不修改 API、路由、阈值、安全状态机或 catalog Map。输出
+    `docs/ui/pages-per-page/r204-component-ledger-reconciliation.md`。
+  output: docs/ui/pages-per-page/r204-component-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart && git diff --check"
+
+- prompt: |
+    R205：最终门禁。读取 R201-R204 报告和完整当前 diff，确认只保留 AdminDataTable 卡片
+    copy hit-target 的最小实现/回归（若确有）、必要台账、campaign YAML；拒绝任何无证据
+    UI 重构或 API/route/security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file
+    census、固定 `client_id`、Portal/Admin owner、SSE、`web/flutter_bootstrap.js` 未跟踪均不变。
+
+    运行并记录：受影响 Dart format 检查、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、`python3 -m unittest discover -s tests/unit -p 'test_*.py'`、
+    `python3 cli.py harness`、`python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、
+    `git diff --check`。若 R204 报告数因 R205 新报告增加，最后仅同步 TECH_DEBT 的报告数字。
+    输出 `docs/ui/pages-per-page/r205-final-audit-27.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`（不要加 Markdown backticks）；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r205-final-audit-27.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r205-final-audit-27.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"
