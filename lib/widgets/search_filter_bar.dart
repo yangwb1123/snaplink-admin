@@ -17,6 +17,11 @@ class SearchFilterBar extends StatefulWidget {
   final bool debounce;
 
   final List<String> filterOptions;
+
+  /// Filter labels are source copy by default. Set false when options are
+  /// API/resource values (for example provider names) and must remain raw.
+  final bool translateFilterOptions;
+
   final String? selectedFilter;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String?>? onFilterChanged;
@@ -32,6 +37,7 @@ class SearchFilterBar extends StatefulWidget {
     this.controller,
     this.debounce = true,
     this.filterOptions = const [],
+    this.translateFilterOptions = true,
     this.selectedFilter,
     required this.onSearchChanged,
     this.onFilterChanged,
@@ -228,7 +234,9 @@ class _SearchFilterBarState extends State<SearchFilterBar> {
                 for (final option in widget.filterOptions)
                   FilterChip(
                     label: Text(
-                      context.tr(option),
+                      widget.translateFilterOptions
+                          ? context.tr(option)
+                          : option,
                       style: const TextStyle(fontSize: 12),
                     ),
                     selected: widget.selectedFilter == option,

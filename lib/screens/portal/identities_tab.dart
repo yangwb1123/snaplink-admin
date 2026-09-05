@@ -261,6 +261,8 @@ class _IdentitiesTabState extends State<IdentitiesTab> {
         controller: _filterCtrl,
         hintText: context.strings.search,
         filterOptions: _providerOptions,
+        // Provider names are API values, not source strings.
+        translateFilterOptions: false,
         selectedFilter: _providerFilter,
         onSearchChanged: _onSearchChanged,
         onFilterChanged: (value) => setState(() => _providerFilter = value),

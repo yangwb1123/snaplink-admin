@@ -81,6 +81,10 @@ class AsyncView<T> extends StatelessWidget {
                 child: CircularProgressIndicator(),
               ),
             );
+      // SkeletonListTile already exposes the single loading live region for
+      // its placeholder tree. Do not wrap it in a second live region, which
+      // would announce loading twice to assistive technology.
+      if (useSkeleton) return loadingContent;
       return Semantics(
         container: true,
         liveRegion: true,
@@ -92,6 +96,8 @@ class AsyncView<T> extends StatelessWidget {
     if (error != null) {
       return ErrorStateView(
         title: errorTitle,
+        // Preserve source-string translations; unknown API/exception details
+        // fall back verbatim in AppStrings.translate.
         message: context.tr(error!),
         onRetry: onRetry,
       );
@@ -131,7 +137,8 @@ class ErrorStateView extends StatelessWidget {
   /// Headline; defaults to 'Failed to load' (already in the EN/ZH catalog).
   final String? title;
 
-  /// Failure detail rendered under the headline.
+  /// Failure detail rendered under the headline. This is display text, not an
+  /// i18n source key; API and exception details must remain verbatim.
   final String message;
 
   /// Optional retry action; omitting it hides the button.
@@ -235,40 +242,68 @@ class ErrorStateCard extends StatelessWidget {
         ? SelectableText(message, style: messageStyle)
         : Text(message, style: messageStyle);
     final detail = title == null
-        ? Expanded(child: messageWidget)
-        : Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  context.tr(title!),
-                  style: messageStyle.copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 4),
-                messageWidget,
-              ],
-            ),
+        ? messageWidget
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                context.tr(title!),
+                style: messageStyle.copyWith(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 4),
+              messageWidget,
+            ],
+          );
+    final retry = onRetry == null
+        ? null
+        : TextButton.icon(
+            onPressed: retryEnabled ? onRetry : null,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: Text(context.strings.retry),
           );
     return Card(
       color: scheme.errorContainer.withValues(alpha: 0.45),
       margin: margin,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Icon(Icons.error_outline, color: scheme.error),
-            const SizedBox(width: 12),
-            detail,
-            if (onRetry != null) ...[
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: retryEnabled ? onRetry : null,
-                icon: const Icon(Icons.refresh, size: 18),
-                label: Text(context.strings.retry),
-              ),
-            ],
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // SelectableText can become excessively tall when it shares a
+            // very narrow horizontal Row with the action. Stack the action
+            // below the detail on phones; the wider layout is unchanged.
+            final narrow = constraints.maxWidth < 360;
+            if (narrow) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.error_outline, color: scheme.error),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        detail,
+                        if (retry != null) ...[
+                          const SizedBox(height: 8),
+                          retry,
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Row(
+              children: [
+                Icon(Icons.error_outline, color: scheme.error),
+                const SizedBox(width: 12),
+                Expanded(child: detail),
+                if (retry != null) ...[const SizedBox(width: 8), retry],
+              ],
+            );
+          },
         ),
       ),
     );

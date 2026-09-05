@@ -1,0 +1,78 @@
+# R221-R225：共享异步状态在窄屏下的可用性与语义回归
+# 目标：审计 ErrorStateCard/EmptyState/AsyncView 的窄屏 action 布局，仅修复实测直接回归。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r221-r225.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r221-r225.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R221：ErrorStateCard 窄屏 action 布局最小修复。读取
+    `lib/widgets/async_view.dart`、`test/async_view_test.dart`、`test/list_chrome_test.dart`、
+    `test/shared_widgets_test.dart` 以及所有 ErrorStateCard callers。用 240/320/400/640 宽度
+    探针覆盖短/长 error message、可选 title、selectable message、retryEnabled=false 和
+    retry action，检查 RenderFlex overflow、retry button 实际触控尺寸与语义。若窄屏确实
+    出现横向溢出，只对 ErrorStateCard action/detail 做最小响应式调整（例如在窄宽度合理
+    换行/堆叠），保留错误文案、retry callback 单次派发、disabled 语义、颜色和 API；
+    补充 `test/async_view_test.dart` 回归测试。若实测无问题则只报告不修改。输出
+    `docs/ui/pages-per-page/r221-error-state-card-responsive.md`。
+  output: docs/ui/pages-per-page/r221-error-state-card-responsive.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/widgets/async_view.dart test/async_view_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/async_view_test.dart test/list_chrome_test.dart test/shared_widgets_test.dart && git diff --check"
+
+- prompt: |
+    R222：EmptyState/AsyncView action 与 reduced-motion 语义回归（默认只读）。读取 R221 报告与当前 diff、
+    `lib/widgets/empty_state.dart`、`lib/widgets/async_view.dart`、`lib/widgets/skeleton_list.dart`、
+    `test/empty_state_variants_test.dart`、`test/async_view_test.dart`、`test/list_chrome_test.dart`。
+
+    核对 empty/noMatch/notEnabled/error 四变体标题/副标题/操作 i18n，action button 独立
+    semantics 与 >=44px 触控目标，loading live region，skeleton 在 `disableAnimations` 下
+    不启动动画，以及 error/retry 不重复请求。只修复本批直接引入的明确回归，不机械拆分、
+    不增加依赖、不改变 endpoint/query/路由/认证/安全状态机。输出
+    `docs/ui/pages-per-page/r222-async-state-semantics.md`。
+  output: docs/ui/pages-per-page/r222-async-state-semantics.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/empty_state_variants_test.dart test/async_view_test.dart test/list_chrome_test.dart test/shared_widgets_test.dart && git diff --check"
+
+- prompt: |
+    R223：共享状态组件跨页面边界复核。读取 R221-R222 报告、完整当前 diff、`lib/widgets/async_view.dart`、
+    `lib/widgets/empty_state.dart`、`lib/widgets/search_filter_bar.dart`、Admin/Portal 的主要
+    three-state callers、`test/admin_shell_test.dart`、`test/portal_screens_test.dart`、
+    `test/portal_security_widgets_test.dart`、`test/sensitive_data_test.dart`。
+
+    证明本批只涉及共享状态布局/回归测试：loading/error/empty/not-enabled 不改变能力门控、
+    no-request/fail-closed 语义；动态 API/error 文本不被错误翻译或泄漏；Portal 不新增
+    `audit` 字样；Admin/Portal ownership、client_id、audit paths/upstream、SSE、single
+    encode 和 segment-aware prefix matching 均不变。发现问题时仅作最小修复，否则只输出
+    `docs/ui/pages-per-page/r223-shared-state-boundary-review.md`。
+  output: docs/ui/pages-per-page/r223-shared-state-boundary-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_shell_test.dart test/portal_screens_test.dart test/portal_security_widgets_test.dart test/sensitive_data_test.dart test/empty_state_variants_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R224：结构/台账复核。读取 R221-R223 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、shared widgets 与 `docs/ui` 清单。实测并只同步必要数字：lib/screens 仍
+    248 且全部 <=400 行，Developer census 13，source/ZH 2313/2313，identity pattern 0，
+    appAdditionalStrings 105/105，`docs/ui` 顶层 <=12，pages-per-page 当前报告数
+    （R221-R224 已生成的报告计入），async/empty widgets 结构无机械拆分；保留 routes
+    215/scoped 214、/run non-root、显式 `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF
+    `[PROPOSED]` 与 heuristic 非阻塞说明。输出
+    `docs/ui/pages-per-page/r224-ledger-reconciliation.md`，不修改 API、路由、阈值、安全
+    状态机或 catalog Map。
+  output: docs/ui/pages-per-page/r224-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R225：最终门禁。读取 R221-R224 报告和完整当前 diff，确认只保留 ErrorStateCard/EmptyState
+    的必要最小实现/回归（若确有）、台账、campaign YAML；拒绝无证据 UI 重构和任何
+    API/route/security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file census、
+    固定 `client_id`、Portal/Admin owner、SSE、audit browser paths/upstream、secret
+    redaction/one-time acknowledge、breadcrumb/InfoRow/secret hit-target 语义，以及预先
+    存在的 `web/flutter_bootstrap.js` 未跟踪文件不变。
+
+    运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    若最终报告新增导致 TECH_DEBT 数字变化，仅同步报告数字和轮次标题。输出
+    `docs/ui/pages-per-page/r225-final-audit-31.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`，不要加 Markdown backticks；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r225-final-audit-31.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r225-final-audit-31.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

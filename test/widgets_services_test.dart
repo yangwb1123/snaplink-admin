@@ -259,6 +259,25 @@ void main() {
       expect(emitted, ['ab']);
     });
 
+    testWidgets('keeps API filter option labels verbatim', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('zh'),
+          home: Scaffold(
+            body: SearchFilterBar(
+              filterOptions: const ['Error'],
+              translateFilterOptions: false,
+              onSearchChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byTooltip('Toggle filters'));
+      await tester.pumpAndSettle();
+      expect(find.text('Error'), findsOneWidget);
+      expect(find.text('错误'), findsNothing);
+    });
+
     testWidgets('toggles filter chips and refreshes', (tester) async {
       String? selected;
       final changed = <String?>[];
