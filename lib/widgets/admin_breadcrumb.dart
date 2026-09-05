@@ -105,7 +105,9 @@ class AdminBreadcrumb extends StatelessWidget {
           onPressed: () => AdminRoute.go(route.module),
           style: TextButton.styleFrom(
             padding: EdgeInsets.zero,
-            minimumSize: Size.zero,
+            // Keep the compact visual styling, but retain a 44px square
+            // interactive target for keyboard, touch, and assistive input.
+            minimumSize: const Size(44, 44),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             foregroundColor: theme.colorScheme.primary,
           ),
@@ -223,7 +225,8 @@ class AdminBreadcrumb extends StatelessWidget {
       onPressed: onTap,
       style: TextButton.styleFrom(
         padding: const EdgeInsets.symmetric(horizontal: 4),
-        minimumSize: Size.zero,
+        // The text remains compact; the button's effective target is not.
+        minimumSize: const Size(44, 44),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
       ),

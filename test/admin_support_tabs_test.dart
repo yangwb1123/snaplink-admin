@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/screens/admin/admin_route.dart';
 import 'package:sso_admin/screens/admin/audit_log_tab.dart';
 import 'package:sso_admin/screens/admin/change_approvals_tab.dart';
 import 'package:sso_admin/screens/admin/tenant_detail_tabs.dart';
@@ -48,6 +49,84 @@ void main() {
       );
       expect(find.byType(AdminBreadcrumb), findsOneWidget);
     });
+
+    testWidgets(
+      'module and resource links have 44px targets, button semantics, and route',
+      (tester) async {
+        AdminRoute.go(
+          'clients',
+          resourceId: 'client-1',
+          subresource: 'sessions',
+        );
+        await tester.pumpWidget(
+          const MaterialApp(home: Scaffold(body: AdminBreadcrumb())),
+        );
+        await tester.pump();
+
+        final moduleLink = find.widgetWithText(TextButton, 'Clients');
+        final resourceLink = find.widgetWithText(TextButton, 'client-1');
+        expect(moduleLink, findsOneWidget);
+        expect(resourceLink, findsOneWidget);
+        expect(tester.getSize(moduleLink).width, greaterThanOrEqualTo(44));
+        expect(tester.getSize(moduleLink).height, greaterThanOrEqualTo(44));
+        expect(tester.getSize(resourceLink).width, greaterThanOrEqualTo(44));
+        expect(tester.getSize(resourceLink).height, greaterThanOrEqualTo(44));
+        expect(find.text('Sessions'), findsOneWidget);
+        expect(find.widgetWithText(TextButton, 'Sessions'), findsNothing);
+        expect(
+          tester
+              .widget<SingleChildScrollView>(find.byType(SingleChildScrollView))
+              .scrollDirection,
+          Axis.horizontal,
+        );
+
+        final semantics = tester.ensureSemantics();
+        expect(
+          tester.getSemantics(moduleLink),
+          matchesSemantics(
+            label: 'Clients',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+        expect(
+          tester.getSemantics(resourceLink),
+          matchesSemantics(
+            label: 'client-1',
+            isButton: true,
+            hasEnabledState: true,
+            isEnabled: true,
+            isFocusable: true,
+            hasTapAction: true,
+            hasFocusAction: true,
+          ),
+        );
+
+        await tester.tap(moduleLink);
+        await tester.pump();
+        expect(BrowserNavigation.currentUri.path, '/admin/clients');
+
+        // Restore the detail route through the existing route API before
+        // exercising the resource link; no URL construction is duplicated.
+        AdminRoute.go(
+          'clients',
+          resourceId: 'client-1',
+          subresource: 'sessions',
+        );
+        await tester.pumpWidget(
+          const MaterialApp(home: Scaffold(body: AdminBreadcrumb())),
+        );
+        await tester.pump();
+        await tester.tap(find.widgetWithText(TextButton, 'client-1'));
+        await tester.pump();
+        expect(BrowserNavigation.currentUri.path, '/admin/clients/client-1');
+        semantics.dispose();
+      },
+    );
   });
 
   group('ShortcutsDialog', () {

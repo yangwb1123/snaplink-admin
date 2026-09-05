@@ -1,0 +1,82 @@
+# R216-R220：Admin breadcrumb 导航触控目标与路由回归
+# 目标：审计并在有证据时修复面包屑可点击链接的过小触控区域。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r216-r220.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r216-r220.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R216：AdminBreadcrumb 可点击链接触控/a11y 最小修复。读取
+    `lib/widgets/admin_breadcrumb.dart`、`test/admin_support_tabs_test.dart`、`test/admin_route_test.dart`、
+    `lib/services/browser_navigation.dart`、`lib/screens/admin/admin_route.dart` 及既有
+    quality-a11y/quality-responsive 报告。实测模块链接与资源/父级链接当前
+    `minimumSize: Size.zero` + `MaterialTapTargetSize.shrinkWrap` 的实际尺寸，对照既有
+    触控目标基线 44px；确认非链接当前 crumb、水平滚动 trail、i18n 标签和
+    `AdminRoute.go` 目标不受影响。若可点击链接实际任一轴低于 44，只调整按钮的有效
+    hit target（保留 13px 字体、文字 padding、颜色、分隔符、单行水平滚动布局），并在
+    `test/admin_support_tabs_test.dart` 增加断言覆盖 module/resource links 的实际尺寸、
+    button semantics 及点击仍走既有 route；不要改变 URL 生成、path ownership 或 API。
+    若实测已满足，则只报告不修改代码。输出
+    `docs/ui/pages-per-page/r216-breadcrumb-touch-target.md`。
+  output: docs/ui/pages-per-page/r216-breadcrumb-touch-target.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/widgets/admin_breadcrumb.dart test/admin_support_tabs_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_support_tabs_test.dart test/admin_route_test.dart test/admin_shell_test.dart && git diff --check"
+
+- prompt: |
+    R217：Breadcrumb 响应式/路由边界回归（默认只读）。读取 R216 报告与当前 diff、
+    `lib/widgets/admin_breadcrumb.dart`、`test/admin_support_tabs_test.dart`、
+    `test/admin_route_test.dart`、`test/admin_paths_test.dart`、`test/portal_security_widgets_test.dart`。
+
+    用 240/320/400/640/768/桌面宽度探针确认长 resource id、nested subresource、edit/new、
+    overrideModule 与 trailing crumbs 仍水平可滚动而不造成页面横溢出；确认 module/resource
+    点击的既有 `/admin/...` 目标、segment-aware prefix/ownership、Portal/Admin 边界不变。
+    只修复本批直接引入的明确回归，不机械拆分、不增加依赖、不改 endpoint/query/认证/
+    安全状态机。输出 `docs/ui/pages-per-page/r217-breadcrumb-responsive-regression.md`。
+  output: docs/ui/pages-per-page/r217-breadcrumb-responsive-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_support_tabs_test.dart test/admin_route_test.dart test/admin_paths_test.dart test/admin_shell_test.dart test/portal_security_widgets_test.dart && git diff --check"
+
+- prompt: |
+    R218：Breadcrumb 语义/i18n/导航契约复核。读取 R216-R217 报告、完整当前 diff、
+    `lib/widgets/admin_breadcrumb.dart`、`lib/i18n`、`test/i18n_coverage_test.dart`、
+    `test/i18n_catalog_uniqueness_test.dart`、`test/app_router_client_id_wiring_test.dart`、
+    `test/portal_security_widgets_test.dart`。
+
+    证明本批仅改变交互尺寸/回归测试/台账：可点击 crumb 有可辨识 link/button semantics，
+    当前 crumb 不伪装成 link，标签仍按既有 LocalizedText/原始 resource id 规则渲染；不新增
+    source catalog key，不进入 portal/developer/oidc_login 的 `audit` 文案，不改变
+    client_id、Portal/Admin owner、audit paths/upstream、SSE、single encode 或 prefix matching。
+    发现问题时仅作最小修复，否则只输出
+    `docs/ui/pages-per-page/r218-breadcrumb-contract-review.md`。
+  output: docs/ui/pages-per-page/r218-breadcrumb-contract-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/app_router_client_id_wiring_test.dart test/portal_security_widgets_test.dart test/admin_route_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R219：结构/台账复核。读取 R216-R218 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、shared widgets 与 `docs/ui` 清单。实测并只同步必要数字：lib/screens 仍
+    248 且全部 <=400 行，Developer census 13，source/ZH 2313/2313，identity pattern 0，
+    appAdditionalStrings 105/105，`docs/ui` 顶层 <=12，pages-per-page 当前报告数
+    （R216-R219 已生成的报告计入），breadcrumb 文件仍符合结构预算；保留 routes 215/
+    scoped 214、/run non-root、显式 `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF
+    `[PROPOSED]` 与 heuristic 非阻塞说明。输出
+    `docs/ui/pages-per-page/r219-ledger-reconciliation.md`，不修改 API、路由、阈值、安全
+    状态机或 catalog Map。
+  output: docs/ui/pages-per-page/r219-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R220：最终门禁。读取 R216-R219 报告和完整当前 diff，确认只保留 AdminBreadcrumb hit-target
+    的最小实现/回归（若确有）、必要台账、campaign YAML；拒绝无证据 UI 重构和任何
+    API/route/security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file census、
+    固定 `client_id`、Portal/Admin owner、SSE、audit browser paths/upstream、secret
+    redaction/one-time acknowledge 语义，以及预先存在的 `web/flutter_bootstrap.js` 未跟踪
+    文件不变。
+
+    运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    若最终报告新增导致 TECH_DEBT 数字变化，仅同步报告数字和轮次标题。输出
+    `docs/ui/pages-per-page/r220-final-audit-30.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`，不要加 Markdown backticks；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r220-final-audit-30.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r220-final-audit-30.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"
