@@ -88,7 +88,10 @@ class InfoRow extends StatelessWidget {
               tooltip: 'Copy to clipboard'.localized,
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              // VisualDensity.compact subtracts from these constraints. Keep the
+              // explicit minimum at 56 so the effective touch target remains
+              // at least kMinInteractiveDimension (48) on both axes.
+              constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
               onPressed: () async {
                 await Clipboard.setData(ClipboardData(text: copyValue!));
                 if (!context.mounted) return;

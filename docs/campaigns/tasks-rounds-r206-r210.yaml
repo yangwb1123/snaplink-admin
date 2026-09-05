@@ -1,0 +1,80 @@
+# R206-R210：详情信息行复制操作的可达性与回归
+# 目标：修复经证据确认的 InfoRow 复制按钮触控尺寸问题，完成共享详情组件门禁。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r206-r210.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r206-r210.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R206：InfoRow 窄屏复制 affordance 的触控/a11y 最小修复。读取
+    `lib/widgets/info_row.dart`、`lib/widgets/app_snackbar.dart`、`lib/i18n/localized_text.dart`、
+    详情页 callers 与现有 detail/widget tests。重点核对带 `copyValue` 的 `IconButton` 当前
+    `VisualDensity.compact` + `minWidth/minHeight: 28` 的实际 hit target 是否低于
+    Flutter 的 `kMinInteractiveDimension` 48；确认 tooltip、LocalizedText 文案、Clipboard
+    行为、SnackBar、value 文本、danger/level/icon 和窄屏 Row 布局都保持不变。若实测低于
+    48，只调整约束以使实际两个轴 >=48（可像 AdminDataTable card copy 一样用 56 约束抵消
+    compact density），保留 16px icon、视觉紧凑性与现有 API；新增最小 widget 回归测试，
+    覆盖 copy control 实际尺寸、tooltip/独立 button semantics 和窄屏无溢出。不要改变
+    copy 文案或敏感值处理。输出 `docs/ui/pages-per-page/r206-info-row-copy-target.md`。
+  output: docs/ui/pages-per-page/r206-info-row-copy-target.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/widgets/info_row.dart test/info_row_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/info_row_test.dart test/shared_widgets_test.dart test/connection_details_redaction_test.dart && git diff --check"
+
+- prompt: |
+    R207：详情共享组件响应式/语义回归（默认只读）。读取 R206 报告与当前 diff、
+    `lib/widgets/info_row.dart`、`lib/widgets/admin_data_table/card_mode.dart`、
+    `lib/widgets/empty_state.dart`、`lib/widgets/responsive_entry_card.dart`、
+    `lib/screens/admin/client_detail_view.dart`、`lib/screens/admin/connection_detail_screen.dart`、
+    `lib/screens/admin/break_glass_detail_screen.dart`、`lib/screens/admin/webhook_detail_widgets.dart`、
+    `test/info_row_test.dart`、`test/admin_detail_screens_test.dart`、`test/final_widgets_test.dart`。
+
+    核对 320/400/640/768/桌面宽度下 label/value/copy 不横溢出，copy control/row actions
+    独立可达，value 仍作为原始 API/资源文本渲染；确认关系数据 table/card、详情信息 list
+    约定不被改变。只修复本批直接引入的明确回归，不机械拆分、不增加依赖、不改变 endpoint、
+    query、路由、认证或安全状态机。输出 `docs/ui/pages-per-page/r207-detail-responsive-regression.md`。
+  output: docs/ui/pages-per-page/r207-detail-responsive-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/info_row_test.dart test/admin_detail_screens_test.dart test/final_widgets_test.dart test/connection_details_redaction_test.dart test/client_detail_secret_card_test.dart && git diff --check"
+
+- prompt: |
+    R208：共享组件 API/i18n/敏感数据边界复核。读取 R206-R207 报告、完整当前 diff、
+    `lib/widgets/info_row.dart`、`lib/widgets/admin_data_table/table_cells.dart`、
+    `lib/widgets/app_snackbar.dart`、`lib/i18n`、`test/i18n_coverage_test.dart`、
+    `test/sensitive_data_test.dart`、`test/connection_details_redaction_test.dart`、
+    `test/client_detail_secret_card_test.dart`、`test/api_paths_test.dart`。
+
+    证明本批仅改变交互尺寸/测试/台账：不新增 source catalog key，不把动态 API 值翻译，
+    不暴露 secret/token，Clipboard 与 SnackBar 语义不变；Admin/Portal ownership、固定
+    `client_id`、audit paths/upstream、SSE、single encode 和 segment-aware prefix matching
+    均无变化。发现问题时仅作最小修复，否则只报告。输出
+    `docs/ui/pages-per-page/r208-shared-component-contract-review.md`。
+  output: docs/ui/pages-per-page/r208-shared-component-contract-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/sensitive_data_test.dart test/connection_details_redaction_test.dart test/client_detail_secret_card_test.dart test/api_paths_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R209：结构/台账复核。读取 R206-R208 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens` 与 widgets 清单。实测并只同步必要数字：lib/screens 仍 248 且全部 <=400 行，
+    Developer census 13，source/ZH 2313/2313，identity pattern 0，appAdditionalStrings
+    105/105，`docs/ui` 顶层 <=12，pages-per-page 当前报告数（R206-R209 已生成的报告计入），
+    AdminDataTable/card mode 与 InfoRow 结构无机械拆分；保留 routes 215/scoped 214、/run
+    non-root、显式 `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF `[PROPOSED]` 和 heuristic
+    非阻塞说明。输出 `docs/ui/pages-per-page/r209-ledger-reconciliation.md`，不修改 API、
+    路由、阈值、安全状态机或 catalog Map。
+  output: docs/ui/pages-per-page/r209-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R210：最终门禁。读取 R206-R209 报告和完整当前 diff，确认只保留 InfoRow copy hit-target
+    的最小实现/回归（若确有）、必要台账、campaign YAML；拒绝无证据 UI 重构和任何 API/route/
+    security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file census、固定
+    `client_id`、Portal/Admin owner、SSE、audit browser paths/upstream、以及预先存在的
+    `web/flutter_bootstrap.js` 未跟踪文件不变。
+
+    运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    若最终报告新增导致 TECH_DEBT 数字变化，仅同步报告数字和轮次标题。输出
+    `docs/ui/pages-per-page/r210-final-audit-28.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`，不要加 Markdown backticks；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r210-final-audit-28.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r210-final-audit-28.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"
