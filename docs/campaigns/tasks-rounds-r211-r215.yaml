@@ -1,0 +1,81 @@
+# R211-R215：一次性 secret dialog 操作的可达性与安全回归
+# 目标：审计并在有证据时修复 ClientSecretDialog 中 compact IconButton 的触控尺寸。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r211-r215.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r211-r215.yaml --mode serial --no-git-commit --timeout 900
+
+tasks:
+- prompt: |
+    R211：ClientSecretDialog 的 reveal/copy 操作触控/a11y 最小修复。读取
+    `lib/screens/admin/client_detail_secret_card.dart`、`test/client_detail_secret_card_test.dart`、
+    `lib/widgets/info_row.dart`、`lib/widgets/app_snackbar.dart`、`lib/i18n/localized_text.dart`。
+    实测两个 `VisualDensity.compact` IconButton（visibility 与可选 copy）的实际 hit target，
+    对照 `kMinInteractiveDimension`；重点确认其 tooltip/semantics 独立可达、secret 默认
+    reveal/本地 hide-show、copy Clipboard/SnackBar、一次性确认关闭和敏感值不暴露语义均不变。
+    若实际尺寸低于 48，只为这两个操作增加抵消 compact density 的显式约束（参考已验证的
+    56 -> effective 48 方案），保留 icon 视觉尺寸、紧凑布局和现有 API；补充或扩展
+    `test/client_detail_secret_card_test.dart` 回归断言，覆盖 copyable false/true、两个
+    control 的实际尺寸与 button semantics，且测试不把真实 secret 写入日志。若实测已满足，
+    只报告不修改生产代码。输出 `docs/ui/pages-per-page/r211-secret-dialog-targets.md`。
+  output: docs/ui/pages-per-page/r211-secret-dialog-targets.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/screens/admin/client_detail_secret_card.dart test/client_detail_secret_card_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/client_detail_secret_card_test.dart test/sensitive_data_test.dart && git diff --check"
+
+- prompt: |
+    R212：secret dialog 窄屏与生命周期回归（默认只读）。读取 R211 报告、当前 diff、
+    `lib/screens/admin/client_detail_secret_card.dart`、`test/client_detail_secret_card_test.dart`、
+    `test/client_detail_secret_card_layout_test.dart`（若存在）、`test/admin_detail_screens_test.dart`、
+    `test/connection_details_redaction_test.dart`。
+
+    用现有 VM/widget 测试及 240/320/400/640 宽度探针确认两个操作不横溢出、仍可键盘/语义
+    触达，copyable false 不渲染 copy，secret 的 reveal/hide/copy/acknowledge 行为与
+    PopScope 一次性语义不变。只修复本批直接引入的明确回归，不机械拆分、不增加依赖、
+    不改变 endpoint/query/路由/认证/敏感数据状态机。输出
+    `docs/ui/pages-per-page/r212-secret-dialog-responsive-regression.md`。
+  output: docs/ui/pages-per-page/r212-secret-dialog-responsive-regression.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/client_detail_secret_card_test.dart test/admin_detail_screens_test.dart test/connection_details_redaction_test.dart test/sensitive_data_test.dart && git diff --check"
+
+- prompt: |
+    R213：secret/i18n/API 边界复核。读取 R211-R212 报告、完整当前 diff、
+    `lib/screens/admin/client_detail_secret_card.dart`、`lib/i18n`、`test/i18n_coverage_test.dart`、
+    `test/i18n_catalog_uniqueness_test.dart`、`test/sensitive_data_test.dart`、
+    `test/client_detail_secret_card_test.dart`、`test/api_paths_test.dart`。
+
+    证明本批仅改变交互尺寸/回归测试/台账：不新增 source catalog key，不翻译动态 secret，
+    不改变 Clipboard payload、SnackBar 文案、secret reveal 默认值、acknowledge/PopScope、
+    Admin/Portal ownership、固定 client_id、audit upstream/paths、SSE、single encode 或
+    segment-aware prefix matching。发现问题时仅作最小修复，否则只输出
+    `docs/ui/pages-per-page/r213-secret-contract-review.md`。
+  output: docs/ui/pages-per-page/r213-secret-contract-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/sensitive_data_test.dart test/client_detail_secret_card_test.dart test/api_paths_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R214：结构/台账复核。读取 R211-R213 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、shared widgets 与 `docs/ui` 清单。实测并只同步必要数字：lib/screens 仍
+    248 且全部 <=400 行，Developer census 13，source/ZH 2313/2313，identity pattern 0，
+    appAdditionalStrings 105/105，`docs/ui` 顶层 <=12，pages-per-page 当前报告数
+    （R211-R214 已生成的报告计入），secret dialog 文件仍符合结构预算；保留 routes 215/
+    scoped 214、/run non-root、显式 `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF
+    `[PROPOSED]` 与 heuristic 非阻塞说明。输出
+    `docs/ui/pages-per-page/r214-ledger-reconciliation.md`，不修改 API、路由、阈值、安全
+    状态机或 catalog Map。
+  output: docs/ui/pages-per-page/r214-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R215：最终门禁。读取 R211-R214 报告和完整当前 diff，确认只保留 ClientSecretDialog
+    hit-target 的最小实现/回归（若确有）、必要台账、campaign YAML；拒绝无证据 UI 重构和
+    任何 API/route/security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file
+    census、固定 `client_id`、Portal/Admin owner、SSE、audit browser paths/upstream、
+    secret redaction/one-time acknowledge 语义，以及预先存在的 `web/flutter_bootstrap.js`
+    未跟踪文件不变。
+
+    运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    若最终报告新增导致 TECH_DEBT 数字变化，仅同步报告数字和轮次标题。输出
+    `docs/ui/pages-per-page/r215-final-audit-29.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`，不要加 Markdown backticks；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r215-final-audit-29.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r215-final-audit-29.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

@@ -93,6 +93,9 @@ class _ClientSecretDialogState extends State<ClientSecretDialog> {
         icon: const Icon(Icons.copy_outlined),
         tooltip: 'Copy to clipboard'.localized,
         visualDensity: VisualDensity.compact,
+        // Compact density subtracts 8px from each axis; 56 therefore keeps
+        // this control at the 48px minimum interactive dimension.
+        constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
         onPressed: () => _copySecret(context),
       ),
   ];
@@ -155,6 +158,12 @@ class _ClientSecretDialogState extends State<ClientSecretDialog> {
                     ),
                     tooltip: (_revealed ? 'Hide' : 'Show').localized,
                     visualDensity: VisualDensity.compact,
+                    // Keep the compact layout and icon size while preserving a
+                    // 48px touch target (56px constraint minus compact density).
+                    constraints: const BoxConstraints(
+                      minWidth: 56,
+                      minHeight: 56,
+                    ),
                     onPressed: _toggleVisibility,
                   ),
                   ..._copyAction(context),
