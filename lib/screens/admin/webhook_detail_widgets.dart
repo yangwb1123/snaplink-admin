@@ -171,23 +171,34 @@ class WebhookDeadLetterSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: onToggle,
-            child: Row(
-              children: [
-                // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），展开指示仍贴右。
-                Expanded(
-                  child: LocalizedText(
-                    'Dead Letters ({count})',
-                    args: {'count': deadLetters.length},
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+          Semantics(
+            button: true,
+            toggled: expanded,
+            expanded: expanded,
+            child: ConstrainedBox(
+              // The compact title row is 24px tall; keep its visual styling
+              // while giving the whole disclosure a 44px touch/focus target.
+              constraints: const BoxConstraints(minHeight: 44),
+              child: InkWell(
+                key: const ValueKey('webhook-dead-letters-toggle'),
+                onTap: onToggle,
+                child: Row(
+                  children: [
+                    // R33：标题 Expanded（窄屏/字号缩放换行而非溢出），展开指示仍贴右。
+                    Expanded(
+                      child: LocalizedText(
+                        'Dead Letters ({count})',
+                        args: {'count': deadLetters.length},
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    Icon(
+                      expanded ? Icons.expand_less : Icons.expand_more,
+                      color: adminModuleIconColor(AdminModuleId.webhooks),
+                    ),
+                  ],
                 ),
-                Icon(
-                  expanded ? Icons.expand_less : Icons.expand_more,
-                  color: adminModuleIconColor(AdminModuleId.webhooks),
-                ),
-              ],
+              ),
             ),
           ),
           if (expanded) ...[

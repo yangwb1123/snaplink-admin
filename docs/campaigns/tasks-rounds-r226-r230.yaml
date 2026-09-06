@@ -1,0 +1,79 @@
+# R226-R230：自定义可点击详情表面触控与语义回归
+# 目标：审计 Connection/Webhook 详情中的 InkWell toggle，修复经实测确认的低触控目标。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、Checkout、secret、导出或 SSE。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r226-r230.yaml --mode serial --no-git-commit --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r226-r230.yaml --mode serial --no-git-commit --timeout 900 --agent-bin /usr/local/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+
+tasks:
+- prompt: |
+    R226：详情折叠 InkWell 的触控/a11y 最小修复。读取
+    `lib/screens/admin/connection_detail_screen.dart`、`lib/screens/admin/webhook_detail_widgets.dart`、
+    `test/admin_detail_screens_test.dart`、`test/connection_details_redaction_test.dart`、
+    `test/webhooks_tab_test.dart`。实测 Configuration 与 Dead Letters 折叠标题的实际
+    interactive bounds；核对当前/展开状态、键盘焦点、button/toggle semantics、箭头图标、
+    redacted config/dead-letter 数据、既有 onToggle callback 是否保持。若任一可点击
+    surface 小于既有 44px 基线，只增加其有效 hit target（保留文字/图标/颜色/间距的视觉
+    设计，可用最小高度约束或等价 Semantics/InkWell 包装），并在
+    `test/admin_detail_screens_test.dart` 增加尺寸、语义、展开/收起回归；不要改变 API、
+    endpoint、路由、redaction 或 replay 语义。若实测已满足则只报告不修改。输出
+    `docs/ui/pages-per-page/r226-detail-toggle-targets.md`。
+  output: docs/ui/pages-per-page/r226-detail-toggle-targets.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/screens/admin/connection_detail_screen.dart lib/screens/admin/webhook_detail_widgets.dart test/admin_detail_screens_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/connection_details_redaction_test.dart test/webhooks_tab_test.dart && git diff --check"
+
+- prompt: |
+    R227：自定义详情交互响应式回归（默认只读）。读取 R226 报告与当前 diff、相关详情文件、
+    `test/admin_detail_screens_test.dart`、`test/final_widgets_test.dart`、`test/admin_shell_test.dart`。
+    用 240/320/400/640/768/桌面宽度探针确认折叠 header、长连接名、长 webhook dead-letter
+    内容和表格/card body 不横溢出；确认 44px target 在窄屏仍可见且不遮挡文本，keyboard/focus
+    与展开状态不丢失。只修复本批直接引入的明确回归，不机械拆分、不增加依赖、不改
+    endpoint/query/route/auth/security state machine。输出
+    `docs/ui/pages-per-page/r227-detail-toggle-responsive.md`。
+  output: docs/ui/pages-per-page/r227-detail-toggle-responsive.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_detail_screens_test.dart test/final_widgets_test.dart test/admin_shell_test.dart test/connection_details_redaction_test.dart && git diff --check"
+
+- prompt: |
+    R228：详情折叠语义、i18n、敏感数据与路由边界复核。读取 R226-R227 报告、完整当前 diff、
+    `lib/i18n`、`test/i18n_coverage_test.dart`、`test/i18n_catalog_uniqueness_test.dart`、
+    `test/sensitive_data_test.dart`、`test/connection_details_redaction_test.dart`、
+    `test/admin_paths_test.dart`、`test/app_router_client_id_wiring_test.dart`。
+
+    证明本批仅改变交互尺寸/语义/回归测试：折叠状态和 API values 不被翻译，redacted config
+    仍不暴露 secret/token，Dead Letters replay IDs/body 和 connection wire 不变；不新增
+    source catalog key，不进入 portal/developer/oidc_login 的 `audit` 文案；Portal/Admin
+    ownership、client_id、audit paths/upstream、SSE、single encode、segment-aware prefix
+    matching 均无变化。发现问题时仅作最小修复，否则只报告
+    `docs/ui/pages-per-page/r228-detail-toggle-contract-review.md`。
+  output: docs/ui/pages-per-page/r228-detail-toggle-contract-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/sensitive_data_test.dart test/connection_details_redaction_test.dart test/admin_paths_test.dart test/app_router_client_id_wiring_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R229：结构/台账复核。读取 R226-R228 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、shared widgets 与 `docs/ui` 清单。实测并只同步必要数字：lib/screens 仍
+    248 且全部 <=400 行，Developer census 13，source/ZH 2313/2313，identity pattern 0，
+    appAdditionalStrings 105/105，`docs/ui` 顶层 <=12，pages-per-page 当前报告数
+    （R226-R229 已生成的报告计入），connection/webhook 详情结构无机械拆分；保留 routes
+    215/scoped 214、/run non-root、显式 `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF
+    `[PROPOSED]` 与 heuristic 非阻塞说明。输出
+    `docs/ui/pages-per-page/r229-ledger-reconciliation.md`，不修改 API、路由、阈值、安全
+    状态机或 catalog Map。
+  output: docs/ui/pages-per-page/r229-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R230：最终门禁。读取 R226-R229 报告和完整当前 diff，确认只保留详情折叠 toggle hit-target
+    的最小实现/回归（若确有）、台账、campaign YAML；拒绝无证据 UI 重构和任何
+    API/route/security 变化。确认 Dashboard `leadingWidth: 80`、Developer 13-file census、
+    固定 `client_id`、Portal/Admin owner、SSE、audit browser paths/upstream、secret
+    redaction/one-time acknowledge、InfoRow/secret/breadcrumb/async-state 语义，以及预先
+    存在的 `web/flutter_bootstrap.js` 未跟踪文件不变。
+
+    运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    若最终报告新增导致 TECH_DEBT 数字变化，仅同步报告数字和轮次标题。输出
+    `docs/ui/pages-per-page/r230-final-audit-32.md`，最后一行必须严格是
+    `VERDICT: PASS - ...` 或 `VERDICT: FAIL - ...`，不要加 Markdown backticks；只有全部门禁
+    通过才写 PASS。
+  output: docs/ui/pages-per-page/r230-final-audit-32.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 docs/ui/pages-per-page/r230-final-audit-32.md | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

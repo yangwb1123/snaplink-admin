@@ -168,7 +168,8 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
           ),
           InfoRow(
             label: 'Type',
-            value: _conn?['type']?.toString() ??
+            value:
+                _conn?['type']?.toString() ??
                 _conn?['connection_type']?.toString() ??
                 '—',
             labelWidth: 100,
@@ -302,20 +303,31 @@ class _ConnectionDetailScreenState extends State<ConnectionDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: () => setState(() => _showConfig = !_showConfig),
-            child: Row(
-              children: [
-                Icon(Icons.tune_outlined, size: 20, color: _accent),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: LocalizedText(
-                    'Configuration',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
+          Semantics(
+            button: true,
+            toggled: _showConfig,
+            expanded: _showConfig,
+            child: ConstrainedBox(
+              // The compact title row is 24px tall; keep its visual styling
+              // while giving the whole disclosure a 44px touch/focus target.
+              constraints: const BoxConstraints(minHeight: 44),
+              child: InkWell(
+                key: const ValueKey('connection-configuration-toggle'),
+                onTap: () => setState(() => _showConfig = !_showConfig),
+                child: Row(
+                  children: [
+                    Icon(Icons.tune_outlined, size: 20, color: _accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: LocalizedText(
+                        'Configuration',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    Icon(_showConfig ? Icons.expand_less : Icons.expand_more),
+                  ],
                 ),
-                Icon(_showConfig ? Icons.expand_less : Icons.expand_more),
-              ],
+              ),
             ),
           ),
           if (_showConfig && _conn != null) ...[

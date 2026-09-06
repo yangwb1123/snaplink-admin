@@ -1,4 +1,4 @@
-# 技术债清单（R225 structure / i18n / docs fan-out ledger reconciliation）
+# 技术债清单（R230 structure / i18n / docs fan-out ledger reconciliation）
 
 > 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R173-R179 对账 R166-R178 的 census、i18n、docs fan-out 与最终门禁，只同步已验证的台账数字，不改变 Dart API、路由或架构阈值。
 
@@ -58,7 +58,7 @@
 - Admin API clients、navigation、operations、tenant/user detail、webhook、break-glass、credential、crypto、domain、permission、threat、branding 与 commerce plans consumer 仅替换既有 path 来源，最终 method/query/body/header/cache/error/认证语义保持不变。
 - `AdminOpsHelpers` 与 Operations selector 复用 R161 segment-aware matcher；合法 descendants/custom verbs 保留，`auditx`、`snapshots-evil` 等 sibling 不再误分类。
 - R166-R170 通过 path builder、wire-equivalence、selector、dedicated workflow、navigation/catalog、security、Portal ownership、Developer census、filesize/fan-out 与最终全量门禁；无新增 endpoint、route、依赖或业务能力。
-- R225 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation（R191 scoped 为 **214**）；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **300** 个报告文件、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
+- R230 对账：当前 `lib/api/admin_paths.dart` 为 **122** 行，`routes` catalog 为 **215** 个唯一 operation（R191 scoped 为 **214**）；`lib/screens` 为 **248** 个文件且 **0** 个超 400 行，Developer census 仍为 **13** 个文件。`docs/ui` 顶层为 **12** 个直接子目录（上限 12）；`docs/ui/pages-per-page` 当前为 **305** 个报告文件（计入 R226-R230）、**0** 个子目录，不构成 fan-out 违规；`checks/filesize.py` 与 `checks/directory_fanout.py` 均 PASS。
 
 ## R151-R152 已完成的非 UI 预算拆分
 
