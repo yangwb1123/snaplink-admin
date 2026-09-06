@@ -179,7 +179,9 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
               const EmptyHint('No security events have been recorded.')
             else
               TimelineList(
-                items: [for (final event in _events) _toTimelineItem(event)],
+                items: [
+                  for (final event in _events) _toTimelineItem(context, event),
+                ],
               ),
           ],
         ),
@@ -198,7 +200,10 @@ class _SecurityActivityTabState extends State<SecurityActivityTab> {
               const EmptyHint('No login history has been recorded.')
             else
               TimelineList(
-                items: [for (final record in _history) _toHistoryItem(record)],
+                items: [
+                  for (final record in _history)
+                    _toHistoryItem(context, record),
+                ],
               ),
           ],
         ),
@@ -254,13 +259,13 @@ class _ActivityStateHint extends StatelessWidget {
 }
 
 /// 事件 → 时间线条目（语义色编码：新设备/新位置 = 警告）。
-TimelineItem _toTimelineItem(Map<String, dynamic> event) {
+TimelineItem _toTimelineItem(BuildContext context, Map<String, dynamic> event) {
   final type = event['type']?.toString() ?? 'activity';
   final risky = type == 'new_device' || type == 'new_location';
   return TimelineItem(
     icon: risky ? Icons.shield_outlined : Icons.history,
     color: risky ? AppColors.warning : null,
-    title: _eventTitle(type),
+    title: _eventTitle(context, type),
     subtitle: _join([
       formatServerTime(event['time']),
       event['detail'],
@@ -272,16 +277,16 @@ TimelineItem _toTimelineItem(Map<String, dynamic> event) {
 }
 
 /// 登录记录 → 时间线条目（成功/失败色编码）。
-TimelineItem _toHistoryItem(Map<String, dynamic> record) {
+TimelineItem _toHistoryItem(BuildContext context, Map<String, dynamic> record) {
   final success = record['success'] != false;
   final flags = <String>[
-    if (record['device_is_new'] == true) 'new device',
-    if (record['location_is_new'] == true) 'new location',
+    if (record['device_is_new'] == true) context.tr('new device'),
+    if (record['location_is_new'] == true) context.tr('new location'),
   ];
   return TimelineItem(
     icon: success ? Icons.login_outlined : Icons.gpp_bad_outlined,
     color: success ? null : AppColors.danger,
-    title: success ? 'Successful login' : 'Failed login',
+    title: context.tr(success ? 'Successful login' : 'Failed login'),
     subtitle: _join([
       formatServerTime(record['time']),
       record['device'],
@@ -290,12 +295,12 @@ TimelineItem _toHistoryItem(Map<String, dynamic> record) {
   );
 }
 
-String _eventTitle(String type) => switch (type) {
-  'new_device' => 'New device detected',
-  'new_location' => 'New location detected',
-  'device_registered' => 'Device registered',
-  'login' => 'Login',
-  _ => type.replaceAll('_', ' '),
+String _eventTitle(BuildContext context, String type) => switch (type) {
+  'new_device' => context.tr('New device detected'),
+  'new_location' => context.tr('New location detected'),
+  'device_registered' => context.tr('Device registered'),
+  'login' => context.tr('Login'),
+  _ => type,
 };
 
 String _join(Iterable<Object?> values) => values
