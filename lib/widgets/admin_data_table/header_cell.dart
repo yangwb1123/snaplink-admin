@@ -62,30 +62,39 @@ class AdminDataTableHeaderCell extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: headerPadding),
         child: sortable
-            ? InkWell(
-                onTap: onTap,
-                borderRadius: BorderRadius.circular(8),
-                child: Semantics(
-                  header: true,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          column.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.6,
-                            color: theme.colorScheme.onSurfaceVariant,
+            ? ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: kMinInteractiveDimension,
+                ),
+                child: InkWell(
+                  onTap: onTap,
+                  borderRadius: BorderRadius.circular(8),
+                  // Compact density changes spacing, not the interactive
+                  // target. Center preserves the existing text/icon visuals.
+                  child: Center(
+                    child: Semantics(
+                      header: true,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              column.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.6,
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 4),
+                          sortIcon,
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      sortIcon,
-                    ],
+                    ),
                   ),
                 ),
               )

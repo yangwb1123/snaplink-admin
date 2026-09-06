@@ -108,28 +108,40 @@ class CopyableCell extends StatelessWidget {
       child: InkWell(
         onTap: () => copy(text, contextProvider: contextProvider),
         borderRadius: BorderRadius.circular(8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Flexible(
-              child: style == null
-                  ? TableCellText(text, bold: true, maxLines: 1)
-                  : Text(
-                      text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: style,
-                    ),
+        // Copy remains visually compact, but its interactive node meets the
+        // Material target even inside compact table rows.
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: kMinInteractiveDimension,
+            minHeight: kMinInteractiveDimension,
+          ),
+          child: Align(
+            alignment: Alignment.center,
+            widthFactor: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: style == null
+                      ? TableCellText(text, bold: true, maxLines: 1)
+                      : Text(
+                          text,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: style,
+                        ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.copy_outlined,
+                  size: 12,
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.copy_outlined,
-              size: 12,
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-            ),
-          ],
+          ),
         ),
       ),
     );

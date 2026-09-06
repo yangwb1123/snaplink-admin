@@ -1,0 +1,85 @@
+# R231-R235：共享自定义交互表面触控目标与语义回归
+# 目标：审计 BrandLogo、AdminDataTable sort header、CopyableCell 的实际交互 bounds。
+# 不改变 API wire、后端路由、能力门控、认证、Session、MFA、Consent、设备码、Checkout、
+# secret、导出或 SSE 语义；结构变更只允许现有测试/同目录 part，且不得复制状态/API。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r231-r235.yaml --mode serial --no-git-commit --kill-orphans --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r231-r235.yaml --mode serial --no-git-commit --kill-orphans --timeout 900 --agent-bin /usr/local/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+
+tasks:
+- prompt: |
+    R231：共享自定义 tap surface 的实测与最小修复。读取
+    `lib/widgets/brand_logo.dart`、`lib/widgets/admin_data_table/header_cell.dart`、
+    `lib/widgets/admin_data_table/table_cells.dart`、`lib/widgets/admin_data_table.dart`、
+    `lib/widgets/admin_data_table/card_mode.dart`、`test/admin_data_table_density_test.dart`、
+    `test/admin_data_table_cards_test.dart`、`test/shared_widgets_test.dart`、`test/admin_shell_test.dart`。
+
+    用 widget/semantics 探针测量：带 onTap 的 BrandLogo（当前视觉 logo 32px）、compact sortable
+    header、enabled CopyableCell 的真实 interactive bounds；区分视觉 child 与可操作节点，核对
+    Material/compact density 的至少 48px 目标、header semantics、copy tooltip/Clipboard/
+    SnackBar、sort callback、row/card nested action 与 keyboard focus。若证据显示任一目标
+    低于适用基线，只在交互节点增加最小 hit target（保留 logo/文字/icon 的视觉尺寸与既有布局，
+    不用缩小字体或改滚动宿主），并补最小回归测试；如果已满足则不修改生产代码。不得改
+    API/path/query/body/header/auth、路由、能力或安全状态机。输出
+    `docs/ui/pages-per-page/r231-shared-tap-targets.md`。
+  output: docs/ui/pages-per-page/r231-shared-tap-targets.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/widgets/brand_logo.dart lib/widgets/admin_data_table/header_cell.dart lib/widgets/admin_data_table/table_cells.dart lib/widgets/admin_data_table.dart lib/widgets/admin_data_table/card_mode.dart test/admin_data_table_density_test.dart test/admin_data_table_cards_test.dart test/shared_widgets_test.dart test/admin_shell_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_data_table_density_test.dart test/admin_data_table_cards_test.dart test/shared_widgets_test.dart test/admin_shell_test.dart && git diff --check"
+
+- prompt: |
+    R232：共享 tap surface 的响应式、焦点与语义回归。读取 R231 报告、当前 diff、相关
+    shared widget/test 文件以及 `test/responsive_navigation_scaffold_test.dart`、`test/widget_test.dart`。
+    覆盖 240/320/400/640/768/1200px 和 text scale/keyboard 场景：BrandLogo 在 AppBar
+    leading 中保持 visual 32px 但可操作节点不小于 48px；table header 在窄屏不会制造无界
+    横向宿主（关系表仍可水平回退）；CopyableCell 不造成表格/card 内容溢出或 nested action
+    丢失。确认 Tab/Enter/focus semantics 与既有 sort/copy/navigation callback 一致。
+    只修复本批直接引入的明确回归，不机械拆分、不增加依赖、不改 endpoint/query/route/auth/
+    security。输出 `docs/ui/pages-per-page/r232-shared-tap-responsive.md`。
+  output: docs/ui/pages-per-page/r232-shared-tap-responsive.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/admin_data_table_density_test.dart test/admin_data_table_cards_test.dart test/shared_widgets_test.dart test/responsive_navigation_scaffold_test.dart test/widget_test.dart && git diff --check"
+
+- prompt: |
+    R233：共享交互合同、i18n 与敏感数据边界复核。读取 R231-R232 报告、完整当前 diff、
+    `lib/i18n`、`test/i18n_coverage_test.dart`、`test/i18n_catalog_uniqueness_test.dart`、
+    `test/sensitive_data_test.dart`、`test/connection_details_redaction_test.dart`、
+    `test/app_router_client_id_wiring_test.dart`、`test/admin_paths_test.dart`、
+    `test/audit_read_client_test.dart`。
+
+    证明本批只改变交互 bounds/semantics/回归：BrandLogo tooltip 与导航 callback 不变；sort
+    column id、CopyableCell 的原始 API value、Clipboard payload、既有 localized tooltip/
+    SnackBar source keys 不变；不翻译用户/API 值，不新增 identity pattern；不在
+    portal/developer/oidc_login 新增英文 `audit`；Portal/Admin ownership、segment-aware
+    prefix matching、single encode、fixed audit browser paths/upstream、SSE、client_id 和
+    secret/redaction 边界均无变化。发现问题只作最小修复，否则只报告
+    `docs/ui/pages-per-page/r233-shared-tap-contract-review.md`。
+  output: docs/ui/pages-per-page/r233-shared-tap-contract-review.md
+  validate: "cd {cwd} && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/i18n_coverage_test.dart test/i18n_catalog_uniqueness_test.dart test/sensitive_data_test.dart test/connection_details_redaction_test.dart test/app_router_client_id_wiring_test.dart test/admin_paths_test.dart test/audit_read_client_test.dart && python3 -m unittest discover -s tests/unit -p 'test_*.py' && git diff --check"
+
+- prompt: |
+    R234：结构与台账中间复核。读取 R231-R233 报告、`docs/TECH_DEBT.md`、`engineering.yaml`、
+    `lib/screens`、shared widgets 和 `docs/ui` 清单。只同步已经实测的数字：lib/screens 仍
+    248 个且全部 <=400 行，Developer census 13，source/ZH 2313/2313，identity pattern 0，
+    appAdditionalStrings 105/105，`docs/ui` 顶层 <=12；pages-per-page 此时应为 309（包含
+    R231-R234 报告）。保持 routes 215/scoped 214、AdminPaths 122、/run non-root、显式
+    `AUDIT_GOVERNANCE_UPSTREAM` fail-closed、BFF `[PROPOSED]` 与 heuristic 非阻塞说明。
+    详情/共享 widget 不做为减少数字的机械拆分；若更新 TECH_DEBT，仅更新标题/当前轮次与
+    该中间报告数。输出 `docs/ui/pages-per-page/r234-shared-ledger-reconciliation.md`。
+  output: docs/ui/pages-per-page/r234-shared-ledger-reconciliation.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/oidc_login_handle_success_census_test.dart test/app_router_client_id_wiring_test.dart test/i18n_catalog_uniqueness_test.dart && git diff --check"
+
+- prompt: |
+    R235：最终门禁。读取 R231-R234 报告与完整当前 diff，确认只保留有证据的共享 tap target
+    最小实现/回归、campaign YAML 与台账；拒绝无证据 UI 重构和任何 API/route/security 变化。
+    更新 `docs/TECH_DEBT.md` 至 R235，并把 pages-per-page 当前报告数同步为 310（R231-R235）。
+    确认 `BrandLogo` 的 visual/target 区分、AdminDataTable table/card/list 规则、Dashboard
+    `leadingWidth: 80`、Developer 13-file census、固定 `client_id`、Portal/Admin owner、SSE、
+    audit browser paths/upstream、secret redaction/one-time acknowledge，以及预先存在的
+    `web/flutter_bootstrap.js` 未跟踪文件不变。
+
+    串行运行并记录：受影响 Dart format、`flutter analyze --no-fatal-infos --no-fatal-warnings`、
+    全量 `flutter test`、Chrome smoke `flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart`、
+    `make build-prod`、`make release-artifact-check`、Python unit、`python3 cli.py harness`、
+    `python3 checks/filesize.py`、`python3 checks/directory_fanout.py`、`git diff --check`。
+    只有全部门禁通过才在输出最后一行写严格的
+    `VERDICT: PASS - ...`；失败则写 `VERDICT: FAIL - ...`，不要加 Markdown backticks。
+    输出 `docs/ui/pages-per-page/r235-final-audit-33.md`。
+  output: docs/ui/pages-per-page/r235-final-audit-33.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 {output} | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

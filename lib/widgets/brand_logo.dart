@@ -55,10 +55,20 @@ class BrandLogo extends StatelessWidget {
     if (onTap == null) return logo;
     return Tooltip(
       message: 'Snaplink Admin',
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(radius),
-        child: logo,
+      child: UnconstrainedBox(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: kMinInteractiveDimension,
+            minHeight: kMinInteractiveDimension,
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(radius),
+            // Keep the 32px mark unchanged while the tappable node follows
+            // Material's minimum touch target.
+            child: Center(child: logo),
+          ),
+        ),
       ),
     );
   }
