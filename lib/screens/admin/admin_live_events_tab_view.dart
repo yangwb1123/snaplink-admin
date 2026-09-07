@@ -125,7 +125,7 @@ extension _AdminLiveEventsTabView on _AdminLiveEventsTabState {
     runSpacing: 8,
     children: [
       FilledButton.icon(
-        onPressed: _connecting || _connected ? null : _connect,
+        onPressed: !_advertised || _connecting || _connected ? null : _connect,
         icon: const Icon(Icons.play_arrow),
         label: LocalizedText(_connecting ? 'Connecting…' : 'Connect'),
       ),

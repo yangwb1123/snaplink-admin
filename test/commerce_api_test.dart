@@ -176,6 +176,28 @@ void main() {
     );
   });
 
+  test(
+    'checkout probe uses authenticated GET and does not cache 405',
+    () async {
+      final requests = <http.Request>[];
+      final api = _api((request) async {
+        requests.add(request);
+        return http.Response('', 405);
+      });
+
+      await expectLater(
+        CommerceAdminApi(api).probeCheckout(),
+        throwsA(isA<SnaplinkAdminApiError>()),
+      );
+
+      expect(requests, hasLength(1));
+      expect(requests.single.method, 'GET');
+      expect(requests.single.url.path, '/api/v1/checkout/sessions');
+      expect(requests.single.headers['authorization'], 'Bearer admin-token');
+      expect(api.cacheSize, 0, reason: '405 is a signal, not cached data');
+    },
+  );
+
   test('commerce probing hides only absent or forbidden modules', () {
     expect(
       commerceProbeState(const SnaplinkAdminApiError(403)),
@@ -219,6 +241,58 @@ void main() {
         'POST /api/v1/admin/commerce/tenants/{tenant_id}/payments/reconcile',
       ),
     );
+  });
+
+  testWidgets('checkout probe memoizes and never logs out on 401', (
+    tester,
+  ) async {
+    _largeView(tester);
+    var probeBuilds = 0;
+    var probeCalls = 0;
+    var loggedOut = false;
+    final api = SnaplinkAdminApi(
+      baseUrl: 'https://sso.example.test',
+      accessToken: 'admin-token',
+      onUnauthorized: () => loggedOut = true,
+      httpClient: MockClient((request) async {
+        if (request.url.path == '/api/v1/admin/commerce/plans') {
+          return http.Response('{"plans":[]}', 200);
+        }
+        return http.Response('{}', 200);
+      }),
+    );
+    final tab = CommerceTab(
+      api: api,
+      probeClientBuilder: () {
+        probeBuilds++;
+        return SnaplinkAdminApi(
+          baseUrl: api.baseUrl,
+          accessToken: api.accessToken,
+          requestTimeout: api.requestTimeout,
+          onUnauthorized: null,
+          httpClient: MockClient((request) async {
+            probeCalls++;
+            expect(request.method, 'GET');
+            expect(request.url.path, '/api/v1/checkout/sessions');
+            expect(request.headers['authorization'], 'Bearer admin-token');
+            return http.Response('', 401);
+          }),
+        );
+      },
+    );
+
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: tab)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.refresh));
+    await tester.pumpAndSettle();
+    // Rebuilding and refreshing the same CommerceTab do not create a second
+    // probe. The classified result is memoized for this State lifecycle.
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: tab)));
+    await tester.pumpAndSettle();
+
+    expect(probeBuilds, 1);
+    expect(probeCalls, 1);
+    expect(loggedOut, isFalse);
   });
 
   testWidgets('tenant commerce keeps independent 404 sections visible', (

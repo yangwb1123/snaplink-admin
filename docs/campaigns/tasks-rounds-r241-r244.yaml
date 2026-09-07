@@ -1,0 +1,105 @@
+# R241-R244：API gap route truth 与 Checkout capability wiring
+# 目标：把已确认的 page → client → endpoint → backend route 审计结论落到最小
+# 回归与文档；不改变 API wire、后端路由、认证、能力门控、Session、MFA、
+# Consent、设备码、Checkout/secret/导出/SSE 语义。后端仓库只保留已存在的
+# 预先修改，不覆盖 go.mod 或未跟踪 fixture。
+# 运行：python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r241-r244.yaml --mode serial --no-git-commit --kill-orphans --timeout 900 --dry-run
+#      python3 ~/ai-batch-runner/pi-batch.py docs/campaigns/tasks-rounds-r241-r244.yaml --mode serial --no-git-commit --kill-orphans --timeout 900 --agent-bin /usr/local/lib/node_modules/@earendil-works/pi-coding-agent/dist/bundle/cli.js
+
+tasks:
+- prompt: |
+    R241：核对并固定已合入的 admin gateway expiring route 与 Stripe adapter
+    probe contract。工作树是 console；backend 在 /home/u1/workspace/demo/snaplink，
+    不能覆盖 backend 预先存在的 M go.mod 或未跟踪
+    infrastructure/defaultimpl/memorystoreoauth/memory_refresh_token_copy_test.go。
+
+    读取 backend 当前 HEAD、commit 0aab82b5、
+    cmd/sso-server/build_http.go、cmd/sso-server/serverbuildadmin/admin_gateway.go、
+    gen/proto/admin/v1/clients.pb.gw.go、cmd/sso-server/admin_gateway_routing_e2e_test.go、
+    cmd/snaplink-stripe-adapter/http.go、model.go、http_test.go，以及 console 的
+    docs/auto/api-gap/*。确认当前 HEAD 是 0aab82b5 的后继，
+    GET /api/v1/admin/clients/expiring 同时存在于生成 gateway 与
+    adminGatewayExactPaths/GatewayPaths，并且是真实 full composition 可达；不要
+    把 Billing/Stripe/Audit Governance 独立服务路由算作 sso-server 路由。
+
+    若缺永久回归，最小地在已有 backend 测试中加入：
+    (a) full cmd/sso-server admin bearer 对 clients/expiring 的非 404/200 路由回归，
+    或等价已证明的 gateway-path pin；
+    (b) Stripe adapter 对真实 /api/v1/checkout/sessions 的有效 bearer GET 返回
+    405，且不触发 billing/store/Stripe 交互。只补测试，不改运行时路由、认证、
+    method probe 或 wire。运行相关 gofmt 与 go test；在
+    docs/ui/pages-per-page/r241-backend-route-regression.md 记录证据、服务边界、
+    status-code 语义和 backend 工作树保护情况。
+  output: docs/ui/pages-per-page/r241-backend-route-regression.md
+  validate: "cd {cwd} && git diff --check && cd /home/u1/workspace/demo/snaplink && gofmt -w cmd/sso-server/admin_gateway_routing_e2e_test.go cmd/snaplink-stripe-adapter/http_test.go && go test ./cmd/snaplink-stripe-adapter ./cmd/sso-server"
+
+- prompt: |
+    R242：完成 Checkout capability wiring 的最小合同修复。读取
+    lib/screens/admin/commerce/commerce_api.dart、commerce_tab.dart、
+    commerce_tab_view.dart、commerce_checkout_flow.dart、commerce_wallet_panel.dart、
+    lib/api/snaplink_admin_api.dart、session.dart、test/commerce_api_test.dart，及
+    docs/auto/api-gap/p0-1-probe-contract-validation.md。
+
+    保持真实 GET /api/v1/checkout/sessions probe：有效 bearer 下 405 才表示
+    adapter mounted/available，404 表示 unavailable，401/403/5xx/transport
+    degraded；POST wire 与 adapter 的 auth、tenant、idempotency、redirect、secret
+    语义不变。probe 必须使用独立 SnaplinkAdminApi 且 onUnauthorized: null，
+    其 bearer 必须与实际 checkout POST 使用的 bearer 一致；不要把 dashboard 的
+    GET /api/v1/admin/commerce/plans billing probe 当作 checkout probe。结果级
+    memoization 必须避免同一 CommerceTab 生命周期重复发 probe，不要把 405 错误
+    放进只缓存 2xx 的 DataCache。
+
+    先确认已有实现；若有缺口，只作最小修改（优先使用 widget.api 的
+    accessToken/requestTimeout 而非重新读取可能变化的 Session），并让订单在
+    adapter unavailable 时保留 pending、不给用户一个 guaranteed-404 button。
+    对 unavailable 与 _mutating/busy 的 UI presentation 保持可区分，未知 API
+    值与错误 secret 不泄露。补永久 Dart tests：probe path/method/bearer、405/404/
+    401/403/5xx/transport 分类、memoization/401 不 logout、404 隐藏或明确禁用
+    checkout affordance、405 可继续 checkout；不要添加 endpoint 或更改 wire。
+    输出 docs/ui/pages-per-page/r242-checkout-probe-wiring.md。
+  output: docs/ui/pages-per-page/r242-checkout-probe-wiring.md
+  validate: "cd {cwd} && dart format --output=none --set-exit-if-changed lib/screens/admin/commerce test/commerce_api_test.dart && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test test/commerce_api_test.dart test/admin_contract_consistency_test.dart test/admin_navigation_test.dart && git diff --check"
+
+- prompt: |
+    R243：API-gap contract/documentation reconciliation。读取 R241/R242 输出、
+    docs/auto/api-gap/report.md、fix-plan.md、gate.md、p0-1-probe-contract-validation.md、
+    p1-contract-plan-validation.md、reviews/*、lib/api/snaplink_admin_types.dart、
+    lib/api/admin_paths.dart、clients_tab.dart、dashboard_screen.dart、
+    dashboard_navigation_tail.dart，并对照 backend OpenAPI/真实 gin 与 grpc-gateway
+    route registration。
+
+    只更新证据-backed 文档与测试；修正 stale/contradictory statements：catalog
+    authoritative count 是 215 route lines（scoped 214），clients/expiring 已经在
+    current backend GatewayPaths 并由 permanent regression pin，Commerce 的 15
+    admin routes 在独立 Billing、checkout 在独立 Stripe adapter，独立 service
+    registration ≠ current Console-origin reachability，minimal profile 的显式
+    sso-server upstream 是 intentional。明确 dashboard plans probe 只证明 billing
+    surface，CommerceTab 的真实 checkout probe 才判定 checkout affordance；保留
+    405/404/401/403/5xx/transport 和 onUnauthorized:null 语义。不得新增 endpoint、
+    proxy fallback、credentials、feature flag 或修改既有 API/security wire。
+    若发现代码回归只做最小修复并写清测试；否则仅文档。输出
+    docs/ui/pages-per-page/r243-api-gap-reconciliation.md，并保持报告尾行严格
+    VERDICT: PASS - ... 或 VERDICT: FAIL - ...。
+  output: docs/ui/pages-per-page/r243-api-gap-reconciliation.md
+  validate: "cd {cwd} && python3 -m unittest discover -s tests/unit -p 'test_*.py' && flutter test test/admin_paths_test.dart test/commerce_api_test.dart test/admin_contract_consistency_test.dart test/audit_read_client_test.dart && git diff --check && tail -1 {output} | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"
+
+- prompt: |
+    R244：最终门禁与台账。读取 R241-R243 报告、完整 git diff、
+    docs/TECH_DEBT.md、engineering.yaml、docs/auto/api-gap/*。核对：
+    frontend lib/screens 仍全部 <=400 行，Developer 13-file census、catalog 215、
+    scoped 214、AdminPaths 122、source/ZH 与 appAdditionalStrings coverage、
+    Dashboard leadingWidth: 80、固定 client_id、Portal/Admin ownership、
+    segment-aware prefix matching、single encode、explicit AUDIT_GOVERNANCE_UPSTREAM
+    fail closed、SSE/secret/checkout wire 与预先存在的 web/flutter_bootstrap.js 不变。
+
+    运行串行最终相关 gates：backend go tests（在 backend cwd，保护预先工作树）、
+    Flutter analyze、commerce/admin/api contract tests、full Flutter test、Chrome
+    smoke、make build-prod、make release-artifact-check、Python unit、python3 cli.py
+    harness、filesize、directory_fanout、git diff --check。同步 docs/TECH_DEBT.md
+    至 R244 并把 pages-per-page 当前报告数准确更新为 319（R241-R244 四份新报告）。
+    只保留证据-backed 的 backend route regression、真实 checkout probe wiring、
+    tests、campaign 与 docs；不要把独立 Billing/Stripe/Audit 服务误报为 sso-server
+    endpoints。输出 docs/ui/pages-per-page/r244-final-audit-35.md，最后一行严格
+    写 VERDICT: PASS - ... 或 VERDICT: FAIL - ...，不要 Markdown backticks。
+  output: docs/ui/pages-per-page/r244-final-audit-35.md
+  validate: "cd {cwd} && python3 checks/filesize.py && python3 checks/directory_fanout.py && flutter analyze --no-fatal-infos --no-fatal-warnings && flutter test && flutter test --platform chrome test/widget_test.dart test/portal_security_web_test.dart test/federated_login_web_test.dart && make build-prod && make release-artifact-check && python3 -m unittest discover -s tests/unit -p 'test_*.py' && python3 cli.py harness && git diff --check && tail -1 {output} | grep -Eq '^VERDICT: (PASS|FAIL) - .+$'"

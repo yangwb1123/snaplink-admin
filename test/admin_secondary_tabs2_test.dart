@@ -318,6 +318,10 @@ void main() {
         AdminLiveEventsTab(api: _api({}), endpoints: const []),
       );
       expect(find.textContaining('not listed by this replica'), findsOneWidget);
+      final connect = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Connect'),
+      );
+      expect(connect.onPressed, isNull);
     });
   });
 }

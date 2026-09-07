@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
-import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/widgets/admin_breadcrumb.dart';
@@ -65,6 +64,7 @@ class _CommerceTabState extends State<CommerceTab> {
   String? _catalogError;
   String? _tenantError;
   CheckoutProbeState _checkoutProbe = CheckoutProbeState.degraded;
+  Future<CheckoutProbeState>? _checkoutProbeMemo;
   bool _catalogLoading = false;
   bool _tenantLoading = false;
   bool _mutating = false;
@@ -106,22 +106,30 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _probeCheckout() async {
-    // P0-1 (api-gap): probe once per tab lifecycle with an unauthenticated-
-    // outcome client (a 401 never triggers session-expiry logout); memoize.
-    final probeClient =
-        widget.probeClientBuilder?.call() ??
-        SnaplinkAdminApi(
-          baseUrl: widget.api.baseUrl,
-          accessToken: Session.read() ?? '',
-          onUnauthorized: null,
-        );
+    // P0-1 (api-gap): memoize the classified result, not the transport
+    // response. A probe 405 is an enabled signal and must not be put in the
+    // ordinary 2xx-only DataCache. The probe client is independent and its
+    // 401 must never expire the dashboard session.
+    final result = _checkoutProbeMemo ??= _runCheckoutProbe();
+    final state = await result;
+    if (!mounted || _checkoutProbe == state) return;
+    setState(() => _checkoutProbe = state);
+  }
+
+  Future<CheckoutProbeState> _runCheckoutProbe() async {
     try {
+      final probeClient =
+          widget.probeClientBuilder?.call() ??
+          SnaplinkAdminApi(
+            baseUrl: widget.api.baseUrl,
+            accessToken: widget.api.accessToken,
+            requestTimeout: widget.api.requestTimeout,
+            onUnauthorized: null,
+          );
       await CommerceAdminApi(probeClient).probeCheckout();
-      if (!mounted) return;
-      setState(() => _checkoutProbe = CheckoutProbeState.available);
+      return CheckoutProbeState.available;
     } catch (error) {
-      if (!mounted) return;
-      setState(() => _checkoutProbe = checkoutProbeState(error));
+      return checkoutProbeState(error);
     }
   }
 
@@ -341,6 +349,9 @@ class _CommerceTabState extends State<CommerceTab> {
 
   Future<void> _refresh() async {
     await _loadPlans();
+    // This is intentionally a memoized read: refreshing the page must not
+    // turn the connection-state probe into a per-refresh request.
+    await _probeCheckout();
     if (_tenantLoaded) await _loadTenant();
   }
 
