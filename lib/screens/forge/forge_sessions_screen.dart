@@ -9,6 +9,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/forge_change_cursor_store.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_credential_store.dart';
 import 'package:sso_admin/services/forge_oauth_token_refresh.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -23,6 +24,7 @@ class ForgeSessionsScreen extends StatefulWidget {
   final http.Client? httpClient;
   final http.Client? oauthHttpClient;
   final Duration oauthRevocationTimeout;
+  final ForgeCredentialStore? credentialStore;
 
   const ForgeSessionsScreen({
     super.key,
@@ -31,6 +33,7 @@ class ForgeSessionsScreen extends StatefulWidget {
     this.httpClient,
     this.oauthHttpClient,
     this.oauthRevocationTimeout = const Duration(seconds: 5),
+    this.credentialStore,
   });
 
   @override
@@ -41,6 +44,8 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     with WidgetsBindingObserver {
   late final ForgeConversationsApi _api;
   late final ForgeOAuthTokenRefresh _tokenRefresh;
+  late final ForgeCredentialStore _credentialStore =
+      widget.credentialStore ?? ForgeCredentialStore();
   late final ForgeChangeCursorStore _changeCursorStore;
   late final Future<void> _cursorReady;
   final _titleController = TextEditingController();
@@ -63,6 +68,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   String? _changeError;
   String? _runError;
   String? _runTimelineError;
+  String? _signOutError;
   _PendingCreate? _pendingCreate;
   _PendingPrompt? _pendingPrompt;
   bool _loadingConversations = false;
@@ -77,6 +83,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _hasMoreRunEvents = false;
   int _changeCursor = 0;
   bool _syncingChanges = false;
+  bool _signingOut = false;
   Timer? _changeSyncTimer;
   int _promptGeneration = 0;
   int _runGeneration = 0;
@@ -91,6 +98,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       baseUrl: ProductApiOrigin.baseUrl,
       httpClient: widget.oauthHttpClient,
       revocationTimeout: widget.oauthRevocationTimeout,
+      credentialStore: _credentialStore,
     );
     _api = ForgeConversationsApi(
       baseUrl: widget.apiOrigin,
@@ -199,7 +207,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return true;
     } catch (error) {
       if (!mounted) return false;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _conversationError = _friendlyError(
           error,
@@ -296,7 +304,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _changeCursor = nextCursor;
       await _changeCursorStore.save(nextCursor);
     } catch (error) {
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       if (mounted) {
         setState(() {
           _changeError = _friendlyError(
@@ -333,7 +341,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           _runTimelineGeneration != timelineGeneration) {
         return;
       }
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _runError = _friendlyError(error, 'Could not load runs.');
       });
@@ -382,7 +390,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       });
     } catch (error) {
       if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _runTimelineError = _friendlyError(
           error,
@@ -440,7 +448,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return true;
     } catch (error) {
       if (!mounted || generation != _promptGeneration) return false;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _promptError = _friendlyError(error, 'Could not load prompt history.');
         _loadingPrompts = false;
@@ -505,7 +513,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _loadRuns(created.id);
     } catch (error) {
       if (!mounted) return;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       final terminal = _isDefinitiveWriteFailure(error);
       setState(() {
         if (terminal) _pendingCreate = null;
@@ -620,7 +628,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return true;
     } catch (error) {
       if (!mounted || generation != _runGeneration) return false;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _runError = _friendlyError(error, 'Could not load runs.');
         _loadingRuns = false;
@@ -671,7 +679,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return true;
     } catch (error) {
       if (!mounted || generation != _runTimelineGeneration) return false;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       setState(() {
         _runTimelineError = _friendlyError(
           error,
@@ -741,7 +749,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       );
     } catch (error) {
       if (!mounted) return;
-      _clearSessionIfUnauthorized(error);
+      await _clearSessionIfUnauthorized(error);
       final status = error is ForgeConversationsApiException
           ? error.statusCode
           : 0;
@@ -784,13 +792,22 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     return error.statusCode >= 400 && error.statusCode < 500;
   }
 
-  void _clearSessionIfUnauthorized(Object error) {
+  Future<void> _clearSessionIfUnauthorized(Object error) async {
     if (error is ForgeConversationsApiException && error.isUnauthorized) {
-      Session.clearForClient(ForgeConversationsOAuth.clientId);
+      try {
+        await _credentialStore.clear();
+      } catch (_) {
+        // Keep the route usable so the user can retry sign-out and vault clear.
+      }
     }
   }
 
   void _signOutThisDevice() {
+    if (_signingOut) return;
+    setState(() {
+      _signingOut = true;
+      _signOutError = null;
+    });
     unawaited(_revokeAndReturnToForgeLogin());
   }
 
@@ -799,12 +816,20 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _tokenRefresh.revokeCurrentTokens();
     } catch (_) {
       // A failed revoke must not trap the user in the signed-in screen.
-    } finally {
-      Session.clearForClient(ForgeConversationsOAuth.clientId);
-      BrowserNavigation.replaceLocation(
-        ForgeConversationsOAuth.loginLocation(),
-      );
     }
+    try {
+      await _credentialStore.clear();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _signingOut = false;
+          _signOutError =
+              'Could not clear stored Forge credentials. Try signing out again.';
+        });
+      }
+      return;
+    }
+    BrowserNavigation.replaceLocation(ForgeConversationsOAuth.loginLocation());
   }
 
   String _friendlyError(Object error, String fallback) {

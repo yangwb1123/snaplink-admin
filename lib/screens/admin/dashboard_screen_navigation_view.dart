@@ -40,7 +40,7 @@ extension _DashboardScreenNavigationView on _DashboardScreenState {
 
   void _localLogoutNavigation() {
     widget.client.logout();
-    Session.clear();
+    clearAllSessionsBestEffort();
     BrowserNavigation.assignLocation('/login/');
   }
 

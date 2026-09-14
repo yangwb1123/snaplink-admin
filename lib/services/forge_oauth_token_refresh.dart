@@ -5,11 +5,11 @@ import 'package:http/http.dart' as http;
 
 import '../session.dart';
 import 'forge_conversations_oauth.dart';
+import 'forge_credential_store.dart';
 
 /// Performs one per-client Snaplink refresh-token rotation after Forge rejects
-/// an expired access token. Refresh tokens stay in the existing tab-scoped
-/// web storage or native in-process storage and are never shared across OAuth
-/// client slots.
+/// an expired access token. Web keeps refresh tokens in tab-scoped storage;
+/// Android and iOS persist the Forge client slot in platform secure storage.
 class ForgeOAuthTokenRefresh {
   static const _maxResponseBytes = 64 * 1024;
 
@@ -17,6 +17,7 @@ class ForgeOAuthTokenRefresh {
   final Uri _tokenEndpoint;
   final Uri _revocationEndpoint;
   final http.Client _http;
+  final ForgeCredentialStore _credentialStore;
   final Duration timeout;
   final Duration revocationTimeout;
   Future<String?>? _inFlight;
@@ -26,11 +27,14 @@ class ForgeOAuthTokenRefresh {
   ForgeOAuthTokenRefresh({
     required String baseUrl,
     this.clientId = ForgeConversationsOAuth.clientId,
+    ForgeCredentialStore? credentialStore,
     http.Client? httpClient,
     this.timeout = const Duration(seconds: 20),
     this.revocationTimeout = const Duration(seconds: 5),
   }) : _tokenEndpoint = _resolveEndpoint(baseUrl, '/token'),
        _revocationEndpoint = _resolveEndpoint(baseUrl, '/token/revoke'),
+       _credentialStore =
+           credentialStore ?? ForgeCredentialStore(clientId: clientId),
        _http = httpClient ?? http.Client();
 
   /// Reuses a newer access token if another request already completed the
@@ -159,12 +163,12 @@ class ForgeOAuthTokenRefresh {
       final streamed = await _http.send(request).timeout(timeout);
       final response = await _readBounded(streamed).timeout(timeout);
       if (response.statusCode != 200) {
-        Session.clearForClient(clientId);
+        await _credentialStore.clear();
         return null;
       }
       final decoded = jsonDecode(response.body);
       if (decoded is! Map) {
-        Session.clearForClient(clientId);
+        await _credentialStore.clear();
         return null;
       }
       final tokenReply = Map<String, dynamic>.from(decoded);
@@ -179,12 +183,11 @@ class ForgeOAuthTokenRefresh {
           rotatedRefreshToken.isEmpty ||
           tokenType is! String ||
           tokenType.toLowerCase() != 'bearer') {
-        Session.clearForClient(clientId);
+        await _credentialStore.clear();
         return null;
       }
-      final stored = Session.storeForClient(
-        clientId,
-        accessToken,
+      final stored = await _credentialStore.store(
+        accessToken: accessToken,
         sessionId: Session.readSessionIdForClient(clientId),
         refreshToken: rotatedRefreshToken,
       );
@@ -192,15 +195,15 @@ class ForgeOAuthTokenRefresh {
     } on TimeoutException {
       // The rotating refresh token may already have been consumed. Fail
       // closed instead of replaying it and triggering family-reuse handling.
-      Session.clearForClient(clientId);
+      await _credentialStore.clear();
       return null;
     } on FormatException {
-      Session.clearForClient(clientId);
+      await _credentialStore.clear();
       return null;
     } on Exception {
       // Delivery may have succeeded even when the response was lost; never
       // retry the same single-use refresh credential.
-      Session.clearForClient(clientId);
+      await _credentialStore.clear();
       return null;
     }
   }

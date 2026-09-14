@@ -4,6 +4,7 @@ import 'package:sso_admin/theme/app_colors.dart';
 import '../../i18n/app_strings.dart';
 import '../../services/browser_navigation.dart';
 import '../../services/product_api_origin.dart';
+import '../../services/session_cleanup.dart';
 import '../../session.dart';
 import '../../widgets/responsive_entry_card.dart';
 import 'device_verify_api.dart';
@@ -241,7 +242,7 @@ class _DeviceVerifyScreenState extends State<DeviceVerifyScreen> {
           _codeStatus = approve ? 'approved' : 'denied';
         });
       } else if (response.statusCode == 401) {
-        Session.clear();
+        clearAllSessionsBestEffort();
         _showMessage(strings.signInExpired, signIn: true);
       } else if (response.statusCode == 404 || response.statusCode == 501) {
         _showMessage(strings.deviceAuthorizationDisabled);

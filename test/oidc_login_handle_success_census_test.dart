@@ -8,10 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 /// REQ-1 + REQ-4 structural census guard (design §4.3, D12/D13).
 ///
 /// Pins the single `_handleSuccess` declaration, the six call sites, the
-/// syntactic adjacency rule (`if (outcome.ok) {` → `_handleSuccess(outcome);`
+/// syntactic adjacency rule (`if (outcome.ok) {` → `await _handleSuccess(outcome);`
 /// as the next non-empty line — no `&&` compounds, no allowlist), the
 /// account-flow isolation, and the zero-emission-string invariant. Written
-/// against the verified census and MUST pass at HEAD with zero `lib/` edits.
+/// against the verified async-success census and MUST pass at HEAD.
 void main() {
   const moduleDir = 'lib/screens/oidc_login';
   const authorizationFlow = '$moduleDir/oidc_authorization_flow.dart';
@@ -34,7 +34,7 @@ void main() {
       for (final file in [authorizationFlow, ...flowFiles, accountFlow]) {
         final lines = linesOf(file);
         for (var i = 0; i < lines.length; i++) {
-          if (lines[i].contains('void _handleSuccess(')) {
+          if (lines[i].contains('Future<void> _handleSuccess(')) {
             declarations.putIfAbsent(file, () => []).add(i + 1);
           }
         }
@@ -46,7 +46,7 @@ void main() {
 
     test('exactly six call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
-        authorizationSubmit: [21, 102, 168],
+        authorizationSubmit: [21, 100, 166],
         challengeFlow: [150, 244],
         providerFlow: [60],
       };
@@ -79,10 +79,10 @@ void main() {
           }
           expect(
             lines[next].trim(),
-            '_handleSuccess(outcome);',
+            'await _handleSuccess(outcome);',
             reason:
                 '$file:${i + 1} must be immediately followed by '
-                '_handleSuccess(outcome);',
+                'await _handleSuccess(outcome);',
           );
           pairs++;
         }
@@ -128,7 +128,7 @@ void main() {
       'test/oidc_login_screen_client_id_test.dart': [76, 136, 158],
     };
 
-    test('literal census derives from constant existence + standing 43-test '
+    test('literal census derives from constant existence + standing 44-test '
         'count gate (design §4.2/§4.4/§5/§6.4; REQ-2/REQ-4 item 6)', () {
       final constantExists = File(
         ssoClientPath,
@@ -253,9 +253,9 @@ void main() {
         }, reason: 'constant absent — lib/ literal census is pinned');
       }
 
-      // ---- 43-test self-count regression gate (design §4.4) ----
-      // The acceptance command's 43 tests are 10 (this file: 6 census +
-      // literal-census + 4 topology) + 3 (client_id) + 17 (sso) + 3
+      // ---- 44-test self-count regression gate (design §4.4) ----
+      // The acceptance command's 44 tests are 10 (this file: 6 census +
+      // literal-census + 4 topology) + 4 (client_id) + 17 (sso) + 3
       // (sso_client_login_exactly_once) + 10 (entry_ux). A guard test
       // deleted by a later refactor silently regresses the command (the
       // runner still exits 0); this pin makes it red inside
@@ -296,9 +296,9 @@ void main() {
       );
       expect(
         clientIdCount,
-        3,
+        4,
         reason:
-            'client_id widget file must hold 3 testWidgets — found '
+            'client_id widget file must hold 4 tests — found '
             '$clientIdCount',
       );
       expect(
@@ -325,8 +325,8 @@ void main() {
       );
       expect(
         censusCount + clientIdCount + ssoCount + ssoLoginCount + entryUxCount,
-        43,
-        reason: 'joint 43-test acceptance count (10+3+17+3+10)',
+        44,
+        reason: 'joint 44-test acceptance count (10+4+17+3+10)',
       );
 
       // ---- silencing ban (mutation-audit §2 A/B) ----
@@ -424,7 +424,7 @@ void main() {
               '${ids.length} found',
         );
         const pinned = <String, List<int>>{
-          authorizationSubmit: [21, 102, 168],
+          authorizationSubmit: [21, 100, 166],
           challengeFlow: [150, 244],
           providerFlow: [60],
         };
@@ -433,10 +433,10 @@ void main() {
           for (final ln in lineNumbers) {
             expect(
               lines[ln - 1].trim(),
-              '_handleSuccess(outcome);',
+              'await _handleSuccess(outcome);',
               reason:
                   'Gap A content pin: $file:$ln must carry the '
-                  '_handleSuccess(outcome); call-site form',
+                  'await _handleSuccess(outcome); call-site form',
             );
             final containing = [
               for (final m in ids)
@@ -602,7 +602,7 @@ void main() {
         reason: 'G1 presence anchor: _handleSuccess slice must exist',
       );
       expect(
-        hs.$5.any((l) => l.contains('void _handleSuccess(')),
+        hs.$5.any((l) => l.contains('Future<void> _handleSuccess(')),
         isTrue,
         reason: 'G1 presence anchor: slice must contain the declaration',
       );

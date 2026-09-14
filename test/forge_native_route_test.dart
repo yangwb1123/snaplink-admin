@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/app_router.dart';
+import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/screens/forge/forge_sessions_screen.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 import 'package:sso_admin/api/oidc_login_api.dart';
@@ -91,7 +92,7 @@ void main() {
   testWidgets('Forge sign-out clears only this client and returns to login', (
     tester,
   ) async {
-    Session.store('admin-token', clientId: 'sso-admin-console');
+    Session.store('admin-token', clientId: SSOAdminClient.firstPartyClientId);
     Session.storeForClient(
       ForgeConversationsOAuth.clientId,
       'forge-token',

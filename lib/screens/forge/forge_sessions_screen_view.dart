@@ -18,7 +18,7 @@ extension on _ForgeSessionsScreenState {
         actions: [
           IconButton(
             tooltip: context.tr('Sign out of Forge on this device'),
-            onPressed: _signOutThisDevice,
+            onPressed: _signingOut ? null : _signOutThisDevice,
             icon: const Icon(Icons.logout_outlined),
           ),
           IconButton(
@@ -34,6 +34,14 @@ extension on _ForgeSessionsScreenState {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (_signOutError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  context.tr(_signOutError!),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
             _createCard(context),
             if (_conversationError != null)
               _errorCard(context, _conversationError!, _signIn),

@@ -13,6 +13,8 @@ import '../../widgets/page_transition.dart';
 import '../../widgets/theme_selector.dart';
 import '../../services/browser_auth_response.dart';
 import '../../services/browser_navigation.dart';
+import '../../services/forge_conversations_oauth.dart';
+import '../../services/forge_credential_store.dart';
 import '../../services/product_api_origin.dart';
 import '../../session.dart';
 import '../../widgets/brand_logo.dart';
@@ -62,12 +64,14 @@ class OidcLoginScreen extends StatefulWidget {
   final String? defaultClientId;
   final OidcLoginApi? api;
   final Uri? routeUri;
+  final ForgeCredentialStore? forgeCredentialStore;
 
   const OidcLoginScreen({
     super.key,
     this.defaultClientId,
     this.api,
     this.routeUri,
+    this.forgeCredentialStore,
   });
 
   @override

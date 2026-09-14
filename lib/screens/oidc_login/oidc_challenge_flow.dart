@@ -147,7 +147,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       );
       if (!mounted) return;
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else if (outcome.isConsentRequired || outcome.isMfaRequired) {
         _handleLoginError(outcome);
       } else if (outcome.error == 'mfa_invalid') {
@@ -241,7 +241,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       });
       if (!mounted) return;
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else if (!allow && outcome.error == 'access_denied') {
         _clearConsentState();
         _redirectAuthorizationError(outcome);

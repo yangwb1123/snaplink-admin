@@ -8,7 +8,10 @@ import 'package:sso_admin/api/oidc_login_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_credential_store.dart';
 import 'package:sso_admin/session.dart';
+
+import 'support/memory_forge_credential_backend.dart';
 
 /// REQ-2 + REQ-3 widget-level MockClient harness (design §4.2, D9/D11).
 ///
@@ -27,7 +30,8 @@ import 'package:sso_admin/session.dart';
 /// AC-1 `test/` grep turns from pinned-allowlist to zero hits, and the census
 /// literal-census asserts the same automatically.
 class _LoginHarness {
-  _LoginHarness(List<String> script) : script = List.of(script) {
+  _LoginHarness(List<String> script, {this.forgeCredentialStore})
+    : script = List.of(script) {
     api = OidcLoginApi(
       baseUri: Uri.parse('https://sso.example/'),
       httpClient: MockClient((request) async {
@@ -63,6 +67,7 @@ class _LoginHarness {
 
   /// Per-test response script for credential-bearing login POSTs.
   final List<String> script;
+  final ForgeCredentialStore? forgeCredentialStore;
 
   late final OidcLoginApi api;
   int loginPosts = 0;
@@ -80,6 +85,7 @@ class _LoginHarness {
         home: OidcLoginScreen(
           api: api,
           defaultClientId: SSOAdminClient.firstPartyClientId,
+          forgeCredentialStore: forgeCredentialStore,
           // Constantized to SSOAdminClient.firstPartyClientId in the sibling
           // M2 commit (co-change list §3.4; design §4.2 constant rule).
           // D11: no prompt=none, no fragment, no magic-link token, no flow
@@ -152,7 +158,14 @@ void main() {
           ),
           isTrue,
         );
-        final harness = _LoginHarness(['ok']);
+        final backend = MemoryForgeCredentialBackend();
+        final credentialStore = ForgeCredentialStore(
+          backend: backend,
+          forcePersistentStorage: true,
+        );
+        final harness = _LoginHarness([
+          'ok',
+        ], forgeCredentialStore: credentialStore);
         final route = Uri.parse(
           'https://sso.example${ForgeConversationsOAuth.loginLocation()}',
         );
@@ -167,6 +180,10 @@ void main() {
           Session.readRefreshTokenForClient(ForgeConversationsOAuth.clientId),
           'r',
         );
+        final persisted = jsonDecode(backend.value!) as Map<String, dynamic>;
+        expect(persisted['client_id'], ForgeConversationsOAuth.clientId);
+        expect(persisted['access_token'], 't');
+        expect(persisted['refresh_token'], 'r');
       },
     );
 

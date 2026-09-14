@@ -5,8 +5,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
+import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_credential_store.dart';
 import 'package:sso_admin/services/forge_oauth_token_refresh.dart';
 import 'package:sso_admin/session.dart';
+
+import 'support/memory_forge_credential_backend.dart';
 
 http.Response _tokenReply({
   String accessToken = 'new-access',
@@ -44,7 +49,10 @@ void main() {
       );
       addTearDown(service.close);
       expect(
-        Session.store('admin-access', clientId: 'sso-admin-console'),
+        Session.store(
+          'admin-access',
+          clientId: SSOAdminClient.firstPartyClientId,
+        ),
         isTrue,
       );
       expect(
@@ -77,6 +85,68 @@ void main() {
       );
       expect(Session.readSessionIdForClient('forge-console'), 'forge-session');
       expect(Session.read(), 'admin-access');
+    },
+  );
+
+  test(
+    'persists rotated Forge credentials before completing the refresh',
+    () async {
+      final backend = MemoryForgeCredentialBackend();
+      final credentialStore = ForgeCredentialStore(
+        backend: backend,
+        forcePersistentStorage: true,
+      );
+      expect(
+        await credentialStore.store(
+          accessToken: 'old-access',
+          refreshToken: 'old-refresh',
+          sessionId: 'forge-session',
+        ),
+        isTrue,
+      );
+      final service = ForgeOAuthTokenRefresh(
+        baseUrl: 'https://sso.example',
+        credentialStore: credentialStore,
+        httpClient: MockClient((_) async => _tokenReply()),
+      );
+      addTearDown(service.close);
+
+      expect(
+        await service.refreshAfterUnauthorized('old-access'),
+        'new-access',
+      );
+
+      final stored = jsonDecode(backend.value!) as Map<String, dynamic>;
+      expect(stored['client_id'], ForgeConversationsOAuth.clientId);
+      expect(stored['access_token'], 'new-access');
+      expect(stored['refresh_token'], 'rotated-refresh');
+      expect(stored['session_id'], 'forge-session');
+    },
+  );
+
+  test(
+    'failed secure persistence after rotation clears the stale Forge record',
+    () async {
+      final backend = MemoryForgeCredentialBackend();
+      final credentialStore = ForgeCredentialStore(
+        backend: backend,
+        forcePersistentStorage: true,
+      );
+      await credentialStore.store(
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+      );
+      backend.failWrite = true;
+      final service = ForgeOAuthTokenRefresh(
+        baseUrl: 'https://sso.example',
+        credentialStore: credentialStore,
+        httpClient: MockClient((_) async => _tokenReply()),
+      );
+      addTearDown(service.close);
+
+      expect(await service.refreshAfterUnauthorized('old-access'), isNull);
+      expect(backend.value, isNull);
+      expect(Session.readForClient(ForgeConversationsOAuth.clientId), isNull);
     },
   );
 
@@ -125,7 +195,10 @@ void main() {
         }),
       );
       addTearDown(service.close);
-      Session.store('admin-access', clientId: 'sso-admin-console');
+      Session.store(
+        'admin-access',
+        clientId: SSOAdminClient.firstPartyClientId,
+      );
       Session.storeForClient(
         'forge-console',
         'old-access',
@@ -182,7 +255,10 @@ void main() {
         }),
       );
       addTearDown(service.close);
-      Session.store('admin-access', clientId: 'sso-admin-console');
+      Session.store(
+        'admin-access',
+        clientId: SSOAdminClient.firstPartyClientId,
+      );
       Session.storeForClient(
         'forge-console',
         'forge-access',
@@ -217,7 +293,7 @@ void main() {
       ),
     );
     addTearDown(service.close);
-    Session.store('admin-access', clientId: 'sso-admin-console');
+    Session.store('admin-access', clientId: SSOAdminClient.firstPartyClientId);
     Session.storeForClient(
       'forge-console',
       'old-access',
@@ -241,7 +317,10 @@ void main() {
         ),
       );
       addTearDown(refresh.close);
-      Session.store('admin-access', clientId: 'sso-admin-console');
+      Session.store(
+        'admin-access',
+        clientId: SSOAdminClient.firstPartyClientId,
+      );
       Session.storeForClient(
         'forge-console',
         'old-access',

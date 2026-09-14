@@ -96,8 +96,8 @@ const appOidcSourceZh = <String, String>{
   'Sign in with passkey': '使用通行密钥登录',
   'Sign in with {provider}': '使用 {provider} 登录',
   'Sign-in failed: {error}': '登录失败：{error}',
-  'Sign-in succeeded, but this browser cannot securely store the session. Enable site storage and try again.':
-      '登录成功，但此浏览器无法安全保存会话。请启用网站存储后重试。',
+  'Sign-in succeeded, but this device cannot securely store the session. Enable secure storage and try again.':
+      '登录成功，但此设备无法安全保存会话。请启用安全存储后重试。',
   'Skip future MFA when allowed.': '策略允许时跳过后续 MFA。',
   'Snaplink could not deliver the signed JARM response.':
       'Snaplink 无法传送已签名的 JARM 响应。',

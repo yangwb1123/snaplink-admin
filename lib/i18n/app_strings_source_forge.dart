@@ -2,6 +2,8 @@
 const appForgeSourceZh = <String, String>{
   'Forge Sessions': 'Forge 会话',
   'Sign out of Forge on this device': '在此设备退出 Forge',
+  'Could not clear stored Forge credentials. Try signing out again.':
+      '无法清除已保存的 Forge 凭据，请重试退出。',
   'No Forge conversations yet.': '暂无 Forge 会话。',
   'Load more conversations': '加载更多会话',
   'Create a conversation': '创建会话',

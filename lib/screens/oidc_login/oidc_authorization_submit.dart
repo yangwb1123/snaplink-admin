@@ -18,7 +18,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       final outcome = await _api.login(payload);
       if (!mounted) return;
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else {
         _redirectAuthorizationError(outcome);
       }
@@ -63,9 +63,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       _update(() => _error = 'Enter your username and verification code.');
       return;
     }
-    if (!_usesCodeProvider &&
-        !_usesTotpProvider &&
-        _passCtrl.text.isEmpty) {
+    if (!_usesCodeProvider && !_usesTotpProvider && _passCtrl.text.isEmpty) {
       // 浏览器密码管理器在 Flutter Web 上经常不会把自动填充的密码同步进
       // TextEditingController：这里在提交前拦截空密码并聚焦输入框，
       // 避免向服务器发送注定 401 的空凭据请求。
@@ -99,7 +97,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       final outcome = await _api.login(payload);
       if (!mounted) return;
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else {
         _handleLoginError(outcome);
       }
@@ -165,7 +163,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       final outcome = await _api.login(payload);
       if (!mounted) return;
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else {
         _handleLoginError(outcome);
       }

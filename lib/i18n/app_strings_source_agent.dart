@@ -16,7 +16,7 @@ const appAgentSourceZh = <String, String>{
   'No instances are registered with Agent Hub.': 'Agent Hub 尚未登记实例。',
   'No sessions found for this instance.': '此实例没有会话。',
   'Agent session': 'Agent 会话',
-  'Prompt': 'Prompt',
+  'Prompt': '提示词',
   'Send prompt': '发送 Prompt',
   'Sending...': '正在发送…',
   'Retry send': '重试发送',

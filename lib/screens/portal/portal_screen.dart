@@ -20,6 +20,7 @@ import 'notification_bell.dart';
 import 'portal_entry.dart';
 import '../../session.dart';
 import '../../services/browser_navigation.dart';
+import '../../services/session_cleanup.dart';
 import '../../widgets/error_boundary.dart';
 import '../../widgets/responsive_navigation_scaffold.dart';
 
@@ -140,7 +141,7 @@ class _PortalScreenState extends State<PortalScreen> {
         // Only an explicit authentication failure invalidates the browser
         // session. A valid bearer can still receive 403 for a portal feature
         // or tenant policy and must not be silently logged out.
-        Session.clear();
+        clearAllSessionsBestEffort();
         if (_usesHostedLogin) {
           _startHostedLogin();
         } else {
@@ -244,7 +245,7 @@ class _PortalScreenState extends State<PortalScreen> {
     _api.signOut();
     // A no-op off web / when the active token was never Session's (manual
     // paste with no prior /login) — only clears anything when it was.
-    Session.clear();
+    clearAllSessionsBestEffort();
     if (_usesHostedLogin) {
       _startHostedLogin();
       return;
@@ -261,7 +262,7 @@ class _PortalScreenState extends State<PortalScreen> {
     final strings = AppStrings.of(context);
     _api.onSessionExpired = null;
     _tokenCtrl.clear();
-    Session.clear();
+    clearAllSessionsBestEffort();
     unawaited(_stopNotifications());
     if (_usesHostedLogin) {
       _startHostedLogin();
@@ -279,7 +280,7 @@ class _PortalScreenState extends State<PortalScreen> {
     final strings = AppStrings.of(context);
     _api.onSessionExpired = null;
     _tokenCtrl.clear();
-    Session.clear();
+    clearAllSessionsBestEffort();
     unawaited(_stopNotifications());
     if (_usesHostedLogin) {
       _startHostedLogin();
@@ -300,7 +301,7 @@ class _PortalScreenState extends State<PortalScreen> {
     final strings = AppStrings.of(context);
     _api.onSessionExpired = null;
     _tokenCtrl.clear();
-    Session.clear();
+    clearAllSessionsBestEffort();
     unawaited(_stopNotifications());
     if (!mounted) return;
     if (_usesHostedLogin) {

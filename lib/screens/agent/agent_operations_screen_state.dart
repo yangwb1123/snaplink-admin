@@ -66,7 +66,7 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
   }
 
   void _onUnauthorized(AgentHubApiException _) {
-    Session.clear();
+    clearAllSessionsBestEffort();
     if (!mounted) return;
     setState(() => _unauthorized = true);
   }

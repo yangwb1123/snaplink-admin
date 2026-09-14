@@ -5,7 +5,7 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
     BrowserNavigation.replaceLocation(url);
   }
 
-  void _handleSuccess(LoginOutcome outcome) {
+  Future<void> _handleSuccess(LoginOutcome outcome) async {
     // 登录成功：通知浏览器保存凭据（用户下次访问时自动填充）。
     // Flutter Web 上 finishAutofillContext 是让浏览器记住密码的唯一路径。
     TextInput.finishAutofillContext(shouldSave: true);
@@ -121,7 +121,7 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       return;
     }
     if (accessToken.isNotEmpty) {
-      _completeFirstPartyLogin(
+      await _completeFirstPartyLogin(
         accessToken,
         sessionId: data['session_id']?.toString(),
         refreshToken: data['refresh_token']?.toString(),

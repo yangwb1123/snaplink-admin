@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/admin_paths.dart';
-import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/admin_oauth_resources.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
+import 'package:sso_admin/services/session_cleanup.dart';
 
 part 'sso_client_session.dart';
 part 'sso_client_resources.dart';

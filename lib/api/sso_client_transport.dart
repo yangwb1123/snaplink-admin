@@ -113,7 +113,7 @@ extension SSOAdminClientTransport on SSOAdminClient {
     // proves the session itself has expired or been revoked.
     if (authenticated && resp.statusCode == 401) {
       _token = null;
-      Session.clear();
+      clearAllSessionsBestEffort();
       onUnauthorized?.call();
     }
     throw SSOError(

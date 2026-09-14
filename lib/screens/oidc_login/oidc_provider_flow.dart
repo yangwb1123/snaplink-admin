@@ -12,7 +12,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       final result = await FederatedLogin.consumeReturnIfPresent();
       if (!mounted) return;
       if (result != null) {
-        _completeFirstPartyLogin(
+        await _completeFirstPartyLogin(
           result.accessToken,
           redirectTarget: result.redirectTarget,
         );
@@ -57,7 +57,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       if (!mounted) return;
       _update(() => _checkingFederatedReturn = false);
       if (outcome.ok) {
-        _handleSuccess(outcome);
+        await _handleSuccess(outcome);
       } else if (outcome.isMfaRequired ||
           outcome.isConsentRequired ||
           outcome.error == 'password_expired') {
@@ -76,16 +76,24 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     }
   }
 
-  void _completeFirstPartyLogin(
+  Future<void> _completeFirstPartyLogin(
     String token, {
     String? redirectTarget,
     String? sessionId,
     String? refreshToken,
-  }) {
+  }) async {
     final explicitlySelectedClient =
         _params.clientId.isNotEmpty &&
         _params.clientId != widget.defaultClientId;
-    final stored = explicitlySelectedClient
+    final stored =
+        explicitlySelectedClient &&
+            _effectiveClientId == ForgeConversationsOAuth.clientId
+        ? await (widget.forgeCredentialStore ?? ForgeCredentialStore()).store(
+            accessToken: token,
+            sessionId: sessionId,
+            refreshToken: refreshToken,
+          )
+        : explicitlySelectedClient
         ? Session.storeForClient(
             _effectiveClientId,
             token,
@@ -100,8 +108,8 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     if (!stored) {
       _update(
         () => _error =
-            'Sign-in succeeded, but this browser cannot securely store the '
-            'session. Enable site storage and try again.',
+            'Sign-in succeeded, but this device cannot securely store the '
+            'session. Enable secure storage and try again.',
       );
       return;
     }

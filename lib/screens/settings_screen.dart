@@ -5,6 +5,7 @@ import '../i18n/app_strings.dart';
 import '../services/browser_navigation.dart';
 import '../services/agent_hub_api_origin.dart';
 import '../services/product_api_origin.dart';
+import '../services/session_cleanup.dart';
 import '../session.dart';
 import '../widgets/app_snackbar.dart';
 import '../widgets/error_boundary.dart';
@@ -102,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       // configured identity or Agent Hub origin. The Agent Hub audience is
       // still a bearer credential, so changing its destination is a trust
       // boundary even though Snaplink remains the token issuer.
-      Session.clear();
+      clearAllSessionsBestEffort();
       BrowserNavigation.replaceLocation('/login/');
       return;
     }
