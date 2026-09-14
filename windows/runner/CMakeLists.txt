@@ -11,6 +11,10 @@ add_executable(${BINARY_NAME} WIN32
   "main.cpp"
   "utils.cpp"
   "win32_window.cpp"
+  "workspace_file_channel.cpp"
+  "workspace_file_contract.cpp"
+  "workspace_file_io.cpp"
+  "workspace_file_worker.cpp"
   "${FLUTTER_MANAGED_DIR}/generated_plugin_registrant.cc"
   "Runner.rc"
   "runner.exe.manifest"
@@ -34,7 +38,24 @@ target_compile_definitions(${BINARY_NAME} PRIVATE "NOMINMAX")
 # dependencies here.
 target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "ole32.lib" "shell32.lib" "uuid.lib")
 target_include_directories(${BINARY_NAME} PRIVATE "${CMAKE_SOURCE_DIR}")
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)
+
+if(BUILD_TESTING)
+  add_executable(workspace_file_native_test EXCLUDE_FROM_ALL
+    "workspace_file_channel.cpp"
+    "workspace_file_channel_test.cpp"
+    "workspace_file_contract.cpp"
+    "workspace_file_io.cpp"
+    "workspace_file_worker.cpp"
+    "workspace_file_native_test.cpp"
+  )
+  apply_standard_settings(workspace_file_native_test)
+  target_compile_definitions(workspace_file_native_test PRIVATE "NOMINMAX")
+  target_link_libraries(workspace_file_native_test PRIVATE flutter_wrapper_app
+    "ole32.lib" "shell32.lib" "uuid.lib")
+  add_test(NAME workspace_file_native_test COMMAND workspace_file_native_test)
+endif()

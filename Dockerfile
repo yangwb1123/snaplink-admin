@@ -6,6 +6,7 @@ FROM python:3.12-slim AS build
 ARG FLUTTER_VERSION=3.47.1
 ARG FLUTTER_SHA256=a1d8166c0309267cb7dc99f1424eecf08b86946ad3b50723c6f59945964aea45
 ARG SNAPLINK_ADMIN_OAUTH_RESOURCES=billing-api,stripe-adapter-api,audit-governance
+ARG SNAPLINK_AGENT_HUB_RESOURCE=agent-hub
 
 WORKDIR /app
 
@@ -33,10 +34,11 @@ ENV PATH="/opt/flutter/bin:/opt/flutter/bin/cache/dart-sdk/bin:${PATH}"
 COPY pubspec.yaml pubspec.lock ./
 RUN flutter pub get
 COPY . .
-# Code splitting: six product entries compile to separate deferred chunks;
+# Code splitting: seven product entries compile to separate deferred chunks;
 # dart2wasm does not emit deferred chunks yet, so the image builds dart2js.
 RUN flutter build web --release --base-href=/app/ \
-    --dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES="${SNAPLINK_ADMIN_OAUTH_RESOURCES}"
+    --dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES="${SNAPLINK_ADMIN_OAUTH_RESOURCES}" \
+    --dart-define=SNAPLINK_AGENT_HUB_RESOURCE="${SNAPLINK_AGENT_HUB_RESOURCE}"
 
 # ── Production stage ──
 FROM nginx:alpine
@@ -57,6 +59,9 @@ ENV SNAPLINK_STRIPE_ADAPTER_CA=/etc/ssl/certs/ca-certificates.crt
 ENV AUDIT_GOVERNANCE_UPSTREAM=
 ENV AUDIT_GOVERNANCE_SERVER_NAME=audit-governance
 ENV AUDIT_GOVERNANCE_CA=/etc/ssl/certs/ca-certificates.crt
+ENV AGENT_HUB_UPSTREAM=
+ENV AGENT_HUB_SERVER_NAME=agent-hub
+ENV AGENT_HUB_CA=/etc/ssl/certs/ca-certificates.crt
 
 # Copy Flutter build output
 COPY --from=build /app/build/web /usr/share/nginx/html

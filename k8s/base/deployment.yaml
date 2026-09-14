@@ -80,6 +80,15 @@ spec:
               value: audit-governance.sv-sso.svc.cluster.local
             - name: AUDIT_GOVERNANCE_CA
               value: /etc/ssl/certs/ca-certificates.crt
+            - name: AGENT_HUB_UPSTREAM
+              valueFrom:
+                configMapKeyRef:
+                  name: sso-console-upstreams
+                  key: agent-hub
+            - name: AGENT_HUB_SERVER_NAME
+              value: agent-hub
+            - name: AGENT_HUB_CA
+              value: /etc/ssl/certs/ca-certificates.crt
           ports:
             - { containerPort: 80, name: http }
           securityContext:

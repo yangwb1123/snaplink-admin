@@ -124,6 +124,7 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       _completeFirstPartyLogin(
         accessToken,
         sessionId: data['session_id']?.toString(),
+        refreshToken: data['refresh_token']?.toString(),
       );
       return;
     }

@@ -8,7 +8,7 @@ part 'app_strings_accessors.dart';
 /// Lightweight EN/ZH string lookup — deliberately NOT flutter's ARB/
 /// gen-l10n codegen pipeline (that toolchain needs a build step wired into
 /// every dev workflow and CI job). The compact typed catalog covers shared
-/// controls and the six product entry shells. Keyed
+/// controls and the product entry shells. Keyed
 /// by [BuildContext] so callers read the SAME [AppSettings.locale] the rest
 /// of the app already reacts to (see main.dart's ListenableBuilder) — this
 /// class has no state of its own, it's a pure lookup.

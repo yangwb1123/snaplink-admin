@@ -3,6 +3,7 @@
 SNAPLINK_API_URL ?= http://localhost:8080
 SNAPLINK_PROXY_PORT ?= 4444
 SNAPLINK_ADMIN_OAUTH_RESOURCES ?= billing-api,stripe-adapter-api,audit-governance
+SNAPLINK_AGENT_HUB_RESOURCE ?= agent-hub
 
 # ═══════════════════════════════════════════
 # sso-console 开发命令
@@ -10,7 +11,7 @@ SNAPLINK_ADMIN_OAUTH_RESOURCES ?= billing-api,stripe-adapter-api,audit-governanc
 
 # 构建 Flutter Web 应用
 build:
-	flutter build web --release --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
+	flutter build web --release --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # 构建与生产网关约定一致的 /app/ 静态资源
 #
@@ -19,12 +20,12 @@ build:
 # 合并进主 wasm，分割失效），因此默认构建是 dart2js。需要 skwasm 快速
 # 启动且接受无分割的部署可使用 build-wasm-prod。
 build-prod:
-	flutter build web --release --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
+	flutter build web --release --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # 可选：dart2wasm + skwasm 单一产物（无代码分割；浏览器无 WasmGC 时自动
 # 回退 dart2js）。
 build-wasm-prod:
-	flutter build web --release --wasm --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)'
+	flutter build web --release --wasm --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # B6-1b artifact gate: the old ring-scoped copy, the audit-ring storage
 # key, and its base64/base64Url masks must be absent from the release web
@@ -92,7 +93,7 @@ guard-count-pin:
 # 在真实浏览器运行全部 @TestOn('browser') 契约（适配层、联邦登录、
 # 账户 action、门户安全与 Admin → hosted-login resource 传递）
 test-browser:
-	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart
+	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart test/agent_workspace_file_web_test.dart test/agent_workspace_api_test.dart test/agent_workspace_models_test.dart
 
 # 静态分析
 analyze:

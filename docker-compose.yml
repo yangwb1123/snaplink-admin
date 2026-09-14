@@ -18,6 +18,7 @@ services:
       context: .
       args:
         SNAPLINK_ADMIN_OAUTH_RESOURCES: ${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api,audit-governance}
+        SNAPLINK_AGENT_HUB_RESOURCE: ${SNAPLINK_AGENT_HUB_RESOURCE:-agent-hub}
     ports:
       - "4444:80"
     depends_on:
@@ -36,3 +37,6 @@ services:
       AUDIT_GOVERNANCE_UPSTREAM: ${AUDIT_GOVERNANCE_UPSTREAM:?AUDIT_GOVERNANCE_UPSTREAM must be set — audit reads have no local fallback}
       AUDIT_GOVERNANCE_SERVER_NAME: ${AUDIT_GOVERNANCE_SERVER_NAME:-audit-governance}
       AUDIT_GOVERNANCE_CA: ${AUDIT_GOVERNANCE_CA:-/etc/ssl/certs/ca-certificates.crt}
+      AGENT_HUB_UPSTREAM: ${AGENT_HUB_UPSTREAM:?AGENT_HUB_UPSTREAM must be set — Agent Operations has no Snaplink fallback}
+      AGENT_HUB_SERVER_NAME: ${AGENT_HUB_SERVER_NAME:-agent-hub}
+      AGENT_HUB_CA: ${AGENT_HUB_CA:-/etc/ssl/certs/ca-certificates.crt}

@@ -80,12 +80,24 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     String token, {
     String? redirectTarget,
     String? sessionId,
+    String? refreshToken,
   }) {
-    if (!Session.store(
-      token,
-      sessionId: sessionId,
-      clientId: _effectiveClientId,
-    )) {
+    final explicitlySelectedClient =
+        _params.clientId.isNotEmpty &&
+        _params.clientId != widget.defaultClientId;
+    final stored = explicitlySelectedClient
+        ? Session.storeForClient(
+            _effectiveClientId,
+            token,
+            sessionId: sessionId,
+            refreshToken: refreshToken,
+          )
+        : Session.store(
+            token,
+            sessionId: sessionId,
+            clientId: _effectiveClientId,
+          );
+    if (!stored) {
       _update(
         () => _error =
             'Sign-in succeeded, but this browser cannot securely store the '

@@ -9,6 +9,9 @@ class MainFlutterWindow: NSWindow {
     self.setFrame(windowFrame, display: true)
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+    AgentWorkspaceFilesPlugin.register(
+      with: flutterViewController.registrar(forPlugin: "AgentWorkspaceFilesPlugin")
+    )
 
     super.awakeFromNib()
   }

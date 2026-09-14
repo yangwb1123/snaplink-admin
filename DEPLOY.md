@@ -1,21 +1,30 @@
 # Deploying sso-console
 
-This is a single static Flutter web bundle that serves six different areas
-of the SSO product (`/admin/`, `/login/`, `/setup/`, `/portal/`,
-`/developer/`, `/device/verify`) — `lib/app_router.dart`'s
+This is a single static Flutter web bundle that serves the SSO product plus
+Agent Operations (`/admin/`, `/login/`, `/setup/`, `/portal/`,
+`/developer/`, `/device/verify`, `/agent/`) — `lib/app_router.dart`'s
 `resolveInitialScreen()` picks which screen to show based on the URL path the
 browser actually loaded. The app itself doesn't care which prefix it was
 reached through; **an upstream gateway is expected to route** `/admin/`,
-`/login/`, `/portal/`, `/developer/`, `/setup/`, `/device/verify`, and
+`/login/`, `/portal/`, `/developer/`, `/setup/`, `/device/verify`, `/agent/`, and
 `/app/` (the static-asset prefix baked in via `--base-href=/app/`) to wherever
 this app's root (`/`) ends up listening. The supplied nginx template also
 accepts those paths directly and proxies the console's same-origin API paths
-to `SNAPLINK_UPSTREAM`. Commercial and metering paths are routed to
+to their owning services. `/api/v1/agent/` is routed to a separate Agent Hub;
+it has no fallback to Snaplink identity APIs. Commercial and metering paths are routed to
 `SNAPLINK_BILLING_UPSTREAM`; it may equal `SNAPLINK_UPSTREAM` for a minimal
 deployment, or identify the independent API-only Billing service in a full
 deployment. Audit reads are always rewritten onto the canonical Audit
 Governance API at `AUDIT_GOVERNANCE_UPSTREAM`; there is no local audit-store
 fallback in the Console proxy.
+
+Set `AGENT_HUB_UPSTREAM` to the Hub origin. The proxy forwards the Snaplink
+bearer for Hub validation but does not rewrite or mint credentials. A Hub
+without Agent service configuration should return HTTP 503 with
+`{ "error": { "code": "agent_hub_unconfigured", "message": "..." } }`;
+the Console displays this separately from an expired token, missing scope,
+grant denial, and network failure. The development proxy returns the same
+explicit response when `AGENT_HUB_UPSTREAM` is unset.
 
 Stripe top-up checkout uses the exact same-origin path
 `POST /api/v1/checkout/sessions`, routed only to
@@ -28,7 +37,7 @@ likewise require `SNAPLINK_BILLING_AUDIENCE`. Audit reads require the
 Snaplink token and maps its audience-bound `admin:read` permission to the
 tenant-scoped event read surface.
 
-The Admin Console requests all three audiences on direct and hosted login. Set the
+The Admin Console requests all configured audiences on direct and hosted login. Set the
 comma-separated build value `SNAPLINK_ADMIN_OAUTH_RESOURCES` to those exact
 resource identifiers. Its default is
 `billing-api,stripe-adapter-api,audit-governance`. The `sso-admin-console`
@@ -39,6 +48,32 @@ does not change this setting; rebuild the image or `build/web/` artifact.
 The adapter must independently bind the requested `tenant_id` and permit the
 console's exact HTTPS return origin.
 
+Agent Operations also requests the resource configured by the compile-time
+value `SNAPLINK_AGENT_HUB_RESOURCE` (default `agent-hub`) and the scopes
+`agent.instances:read`, `agent.sessions:read`, `agent.sessions:write`, and
+`agent.turns:cancel`. Snaplink's first-party `sso-admin-console` OAuth client
+must explicitly include that resource in RFC 8707 `allowed_resources` and
+allow all four scopes. If the deployment uses an HTTPS resource URI instead of
+the default identifier, set `SNAPLINK_AGENT_HUB_RESOURCE` to that same URI at
+build time and configure the Hub audience identically. This is a Flutter build
+define; changing a runtime environment variable alone does not change token
+requests. This repository does not automatically register OAuth resources,
+scopes, or Hub grants.
+
+If Snaplink's global scope registry is enabled, register the four Console scopes
+and the separate `agent.gateway:connect` scope before updating client
+`allowed_scopes`; the browser requests only the four Console scopes. The
+Console OAuth client must be tenant-bound. Its `sub` is a pairwise subject, so
+the Hub operator grant must use the actual `(tenant_id, sub, client_id)` from
+that Console token and enumerate the permitted Agent instance IDs.
+
+Agent Hub validates the Snaplink issuer, audience, expiry, subject, client ID,
+tenant ID, and requested scope, then intersects token scopes with its operator
+grant. Its grant must authorize the matching tenant, subject, client ID, and
+instance IDs. A Snaplink login by itself does not grant Agent access. The UI
+offers scope re-login for `403 insufficient_scope`; other grant denials retain
+the identity session and remain explicit.
+
 Each proxy target has an independent TLS trust tuple:
 
 - Snaplink: `SNAPLINK_UPSTREAM`, `SNAPLINK_SERVER_NAME`, `SNAPLINK_CA`
@@ -48,6 +83,7 @@ Each proxy target has an independent TLS trust tuple:
   `SNAPLINK_STRIPE_ADAPTER_SERVER_NAME`, `SNAPLINK_STRIPE_ADAPTER_CA`
 - Audit Governance: `AUDIT_GOVERNANCE_UPSTREAM`,
   `AUDIT_GOVERNANCE_SERVER_NAME`, `AUDIT_GOVERNANCE_CA`
+- Agent Hub: `AGENT_HUB_UPSTREAM`, `AGENT_HUB_SERVER_NAME`, `AGENT_HUB_CA`
 
 nginx enables SNI and certificate verification for every HTTPS target. The
 server name must match its certificate and the CA file must contain only the
@@ -59,6 +95,7 @@ For direct static hosting, build the production artifact with:
 
 ```bash
 SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
+SNAPLINK_AGENT_HUB_RESOURCE='agent-hub' \
   make build-prod
 ```
 
@@ -79,11 +116,17 @@ into every schedulable node's containerd.
 
 Choose the profile before building because OAuth resource indicators are part
 of the static Flutter bundle. A full deployment requests the Billing and
-Stripe Adapter audiences, always requests Audit Governance, and keeps their independent TLS trust roots:
+Stripe Adapter audiences, always requests Audit Governance, and also includes
+the Agent Hub resource. The base Kustomize package creates the
+`sso-console-upstreams` ConfigMap with the example in-cluster origin
+`http://agent-hub.sv-sso.svc.cluster.local:8089`. Edit
+`k8s/base/agent-hub-upstream.yaml` first if your Agent Hub Service uses a
+different name, namespace, or port:
 
 ```bash
 docker build \
   --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
+  --build-arg SNAPLINK_AGENT_HUB_RESOURCE='agent-hub' \
   -t snaplink/sso-console:v1 .
 kubectl apply -k k8s/full
 ```
@@ -96,6 +139,7 @@ minimal profile also removes both optional CA Secret volumes:
 ```bash
 docker build \
   --build-arg SNAPLINK_ADMIN_OAUTH_RESOURCES='audit-governance' \
+  --build-arg SNAPLINK_AGENT_HUB_RESOURCE='agent-hub' \
   -t snaplink/sso-console:v1 .
 kubectl apply -k k8s/minimal
 ```
@@ -139,12 +183,14 @@ docker run -d --name sso-console \
   -e SNAPLINK_BILLING_UPSTREAM=http://host.docker.internal:8090 \
   -e SNAPLINK_STRIPE_ADAPTER_UPSTREAM=http://host.docker.internal:8091 \
   -e AUDIT_GOVERNANCE_UPSTREAM=http://host.docker.internal:8089 \
+  -e AGENT_HUB_UPSTREAM=http://host.docker.internal:8092 \
   -p 8081:80 sso-console:latest
 ```
 
 This example assumes Snaplink listens on the Docker host at port 8080,
-Billing at port 8090, the Stripe adapter at port 8091, and Audit Governance at port 8089; the
-console is reachable on `http://localhost:8081/`. In a Docker network, set
+Billing at port 8090, the Stripe adapter at port 8091, Audit Governance at port 8089,
+and Agent Hub at port 8092; the console is reachable on
+`http://localhost:8081/`. In a Docker network, set
 `SNAPLINK_UPSTREAM` to the backend service origin instead. For HTTPS, also set
 that target's matching server-name and CA variables described above.
 `docker compose up` uses `http://snaplink:8080` automatically. The Billing and
@@ -153,7 +199,7 @@ fast when `SNAPLINK_BILLING_UPSTREAM`/`SNAPLINK_STRIPE_ADAPTER_UPSTREAM` are
 unset, so a deployment missing those services can never silently route
 Billing/checkout traffic to the sso-server and surface confusing 404s.
 Set the independent Billing/Stripe origins when those services are deployed.
-The image repeats this contract for all four origins in
+The image repeats this contract for all five origins in
 `docker-entrypoint.d/10-validate-upstreams.sh`: it rejects an empty value,
 credentials, paths, queries, fragments, or non-HTTP(S) values before nginx
 renders its configuration. Minimal Kubernetes may intentionally point both

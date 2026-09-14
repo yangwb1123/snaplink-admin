@@ -13,6 +13,11 @@ void main() {
       ProductEntry.deviceVerification,
     );
     expect(productEntryForPath('/admin/users/alice'), ProductEntry.admin);
+    expect(productEntryForPath('/agent/'), ProductEntry.agentOperations);
+    expect(
+      productEntryForPath('/agent/sessions/s-1'),
+      ProductEntry.agentOperations,
+    );
   });
 
   test('rejects lookalike product prefixes', () {
@@ -20,5 +25,6 @@ void main() {
     expect(productEntryForPath('/portal-evil'), ProductEntry.login);
     expect(productEntryForPath('/setup.example'), ProductEntry.login);
     expect(productEntryForPath('/device/verification'), ProductEntry.login);
+    expect(productEntryForPath('/agent-evil'), ProductEntry.login);
   });
 }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_settings.dart';
 import '../i18n/app_strings.dart';
 import '../services/browser_navigation.dart';
+import '../services/agent_hub_api_origin.dart';
 import '../services/product_api_origin.dart';
 import '../session.dart';
 import '../widgets/app_snackbar.dart';
@@ -13,14 +14,14 @@ import 'settings/settings_form_layout.dart';
 import 'settings/settings_theme_picker.dart';
 
 /// Post-login settings: language, theme, admin nav mode, SSO base URL
-/// (native-only), and a read-only timezone display. Reads/writes
+/// and Agent Hub origins (native-only), and a read-only timezone display. Reads/writes
 /// [AppSettings.instance] directly — there is no local draft state for
 /// language/theme, changes apply and propagate (via main.dart's
 /// ListenableBuilder) the instant they're made.
 ///
 /// Layout: antd/Stripe-style form rows inside two groups — a compact
-/// "preferences" card and a "service" card that highlights the SSO base URL
-/// (the one setting with side effects: changing it discards the session).
+/// "preferences" card and a "service" card for API origins and timezone.
+/// Changing an API origin discards the authenticated session.
 /// Every row is an icon + label + control line with a divider; no more
 /// full-width card per setting.
 class SettingsScreen extends StatefulWidget {
@@ -32,7 +33,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _baseUrlFormKey = GlobalKey<FormState>();
+  final _agentHubBaseUrlFormKey = GlobalKey<FormState>();
   late final TextEditingController _baseUrlController;
+  late final TextEditingController _agentHubBaseUrlController;
 
   @override
   void initState() {
@@ -40,11 +43,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _baseUrlController = TextEditingController(
       text: AppSettings.instance.ssoBaseUrlOverride,
     );
+    _agentHubBaseUrlController = TextEditingController(
+      text: AppSettings.instance.agentHubBaseUrlOverride,
+    );
   }
 
   @override
   void dispose() {
     _baseUrlController.dispose();
+    _agentHubBaseUrlController.dispose();
     super.dispose();
   }
 
@@ -62,16 +69,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  String? _validateAgentHubBaseUrl(String? value) {
+    if (kIsWeb) return null;
+    try {
+      AppSettings.normalizeAgentHubBaseUrl(value);
+      return null;
+    } on FormatException {
+      return AppStrings.of(context).translate(
+        'Enter an absolute HTTPS Agent Hub origin without credentials, '
+        'path, query, or fragment. HTTP is allowed only for localhost or '
+        'loopback addresses.',
+      );
+    }
+  }
+
   void _saveBaseUrl() {
     if (!(_baseUrlFormKey.currentState?.validate() ?? false)) return;
+    if (!(_agentHubBaseUrlFormKey.currentState?.validate() ?? false)) return;
     final previousOrigin = ProductApiOrigin.baseUri;
+    final previousHubOrigin = AgentHubApiOrigin.baseUrl;
     AppSettings.instance.ssoBaseUrlOverride = _baseUrlController.text;
+    AppSettings.instance.agentHubBaseUrlOverride =
+        _agentHubBaseUrlController.text;
     _baseUrlController.text = AppSettings.instance.ssoBaseUrlOverride ?? '';
-    final originChanged = previousOrigin != ProductApiOrigin.baseUri;
+    _agentHubBaseUrlController.text =
+        AppSettings.instance.agentHubBaseUrlOverride ?? '';
+    final originChanged =
+        previousOrigin != ProductApiOrigin.baseUri ||
+        previousHubOrigin != AgentHubApiOrigin.baseUrl;
     if (originChanged && Session.read() != null) {
       // A bearer minted by one deployment must never be carried into a newly
-      // configured deployment. Treat the origin change as an authentication
-      // boundary and discard the entire navigation stack as well.
+      // configured identity or Agent Hub origin. The Agent Hub audience is
+      // still a bearer credential, so changing its destination is a trust
+      // boundary even though Snaplink remains the token issuer.
       Session.clear();
       BrowserNavigation.replaceLocation('/login/');
       return;
@@ -137,10 +167,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                // ── 服务分组：SSO 地址是唯一有副作用的设置（换源会清会话），
-                // 用 amber 图标 + 行内表单突出。 ──
+                // 服务分组：切换 SSO 或 Agent Hub 地址会清除会话。
                 _buildServiceGroup(strings),
-                // 保存按钮跟随 SSO 行（web 禁用）。
+                // 保存两个 API 地址（web 禁用）。
                 const SizedBox(height: 12),
                 Align(
                   alignment: Alignment.centerRight,
@@ -157,7 +186,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 服务分组：SSO 基址（换源会丢弃会话）与只读时区展示。
+  /// 服务分组：两个 API 地址（换源会丢弃会话）与只读时区展示。
   /// 拆出后 build 只负责偏好分组与页面骨架。
   Widget _buildServiceGroup(AppStrings strings) {
     return SettingsGroup(
@@ -178,6 +207,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Semantics(
                 label: strings.ssoBaseUrl,
                 child: TextFormField(
+                  key: const ValueKey('sso-api-origin'),
                   controller: _baseUrlController,
                   enabled: !kIsWeb,
                   keyboardType: TextInputType.url,
@@ -203,6 +233,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
           control: Semantics(
             readOnly: true,
             child: Text(DateTime.now().timeZoneName),
+          ),
+        ),
+        SettingsFormItem(
+          icon: Icons.hub_outlined,
+          iconColor: AppColors.groupDevelopers,
+          label: strings.translate('Agent Hub API origin'),
+          description: strings.translate(
+            'Optional native API origin for Agent Operations. Snaplink remains '
+            'the token issuer; web always uses the page origin.',
+          ),
+          control: SizedBox(
+            width: 320,
+            child: Form(
+              key: _agentHubBaseUrlFormKey,
+              child: Semantics(
+                label: strings.translate('Agent Hub API origin'),
+                child: TextFormField(
+                  key: const ValueKey('agent-hub-api-origin'),
+                  controller: _agentHubBaseUrlController,
+                  enabled: !kIsWeb,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.done,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  onFieldSubmitted: (_) => _saveBaseUrl(),
+                  decoration: InputDecoration(
+                    helperText: strings.translate(
+                      'Leave blank to use the Snaplink origin.',
+                    ),
+                  ),
+                  validator: _validateAgentHubBaseUrl,
+                ),
+              ),
+            ),
           ),
         ),
       ],

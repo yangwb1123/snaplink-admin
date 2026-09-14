@@ -33,5 +33,6 @@ validate_origin SNAPLINK_UPSTREAM
 validate_origin SNAPLINK_BILLING_UPSTREAM
 validate_origin SNAPLINK_STRIPE_ADAPTER_UPSTREAM
 validate_origin AUDIT_GOVERNANCE_UPSTREAM
+validate_origin AGENT_HUB_UPSTREAM
 
 echo "[snaplink-console] optional upstream contract validated"

@@ -6,10 +6,12 @@
 #endif
 
 #include "flutter/generated_plugin_registrant.h"
+#include "workspace_file_channel_linux.h"
 
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
+  WorkspaceFileChannel* workspace_file_channel;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -17,6 +19,11 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+
+static void workspace_window_destroyed(GtkWidget*, MyApplication* self) {
+  WorkspaceFileChannelDestroy(self->workspace_file_channel);
+  self->workspace_file_channel = nullptr;
 }
 
 // Implements GApplication::activate.
@@ -74,6 +81,12 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  if (self->workspace_file_channel == nullptr) {
+    self->workspace_file_channel = WorkspaceFileChannelCreate(
+        fl_view_get_engine(view), window);
+    g_signal_connect(window, "destroy", G_CALLBACK(workspace_window_destroyed),
+                     self);
+  }
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
@@ -110,9 +123,10 @@ static void my_application_startup(GApplication* application) {
 
 // Implements GApplication::shutdown.
 static void my_application_shutdown(GApplication* application) {
-  // MyApplication* self = MY_APPLICATION(object);
+  MyApplication* self = MY_APPLICATION(application);
 
-  // Perform any actions required at application shutdown.
+  WorkspaceFileChannelDestroy(self->workspace_file_channel);
+  self->workspace_file_channel = nullptr;
 
   G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
 }
@@ -120,6 +134,8 @@ static void my_application_shutdown(GApplication* application) {
 // Implements GObject::dispose.
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
+  WorkspaceFileChannelDestroy(self->workspace_file_channel);
+  self->workspace_file_channel = nullptr;
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
@@ -133,7 +149,9 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
-static void my_application_init(MyApplication* self) {}
+static void my_application_init(MyApplication* self) {
+  self->workspace_file_channel = nullptr;
+}
 
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems

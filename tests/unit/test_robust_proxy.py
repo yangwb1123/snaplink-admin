@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,6 +34,33 @@ class RobustProxyRoutingTest(unittest.TestCase):
             robust_proxy.backend_for('/api/v1/admin/clients'),
             robust_proxy.BACKEND,
         )
+
+    def test_agent_hub_has_its_own_route_and_missing_config_returns_json_503(self):
+        hub = 'https://agent-hub.example.test'
+        with patch.object(robust_proxy, 'AGENT_HUB_BACKEND', hub):
+            self.assertEqual(
+                robust_proxy.backend_for('/api/v1/agent/instances'), hub
+            )
+            self.assertEqual(
+                robust_proxy._build_backend_url(
+                    '/api/v1/agent/sessions?after=session%2F1'
+                )[0],
+                f'{hub}/api/v1/agent/sessions?after=session%2F1',
+            )
+        with patch.object(robust_proxy, 'AGENT_HUB_BACKEND', ''):
+            self.assertEqual(
+                robust_proxy.backend_for('/api/v1/agent/instances'), ''
+            )
+            with patch.object(robust_proxy, '_forward_response') as forward:
+                robust_proxy.proxy_request(
+                    object(), 'GET', '/api/v1/agent/instances', {}, None
+                )
+            args = forward.call_args.args
+            self.assertEqual(args[1], 503)
+            self.assertEqual(
+                json.loads(args[3])['error']['code'],
+                'agent_hub_unconfigured',
+            )
 
     def test_audit_compatibility_paths_rewrite_request_targets(self):
         governance = 'http://audit-governance.example.test:8089'

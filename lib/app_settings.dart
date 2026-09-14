@@ -27,6 +27,7 @@ class AppSettings extends ChangeNotifier {
     _locale = _loadLocale();
     _themeMode = _loadThemeMode();
     _ssoBaseUrlOverride = _load(_baseUrlKey);
+    _agentHubBaseUrlOverride = _load(_agentHubBaseUrlKey);
     _adminNavMode = _loadAdminNavMode();
   }
 
@@ -36,6 +37,7 @@ class AppSettings extends ChangeNotifier {
   static const _localeKey = 'sso_settings_locale';
   static const _themeKey = 'sso_settings_theme';
   static const _baseUrlKey = 'sso_settings_base_url';
+  static const _agentHubBaseUrlKey = 'sso_settings_agent_hub_base_url';
   static const _adminNavModeKey = 'sso_settings_admin_nav_mode';
 
   static const supportedLocales = [Locale('en'), Locale('zh')];
@@ -79,6 +81,26 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Optional native override for the Agent Hub API. Web builds always use
+  /// the page origin and rely on the same-origin gateway route. The Snaplink
+  /// issuer remains [ssoBaseUrlOverride] (or its normal default); configuring
+  /// this API origin never changes which authority minted the bearer token.
+  String? _agentHubBaseUrlOverride;
+  String? get agentHubBaseUrlOverride =>
+      kIsWeb ? null : _agentHubBaseUrlOverride;
+  set agentHubBaseUrlOverride(String? value) {
+    if (kIsWeb) return;
+    final normalized = normalizeAgentHubBaseUrl(value);
+    if (_agentHubBaseUrlOverride == normalized) return;
+    _agentHubBaseUrlOverride = normalized;
+    if (normalized == null) {
+      _remove(_agentHubBaseUrlKey);
+    } else {
+      _save(_agentHubBaseUrlKey, normalized);
+    }
+    notifyListeners();
+  }
+
   late AdminNavMode _adminNavMode;
   AdminNavMode get adminNavMode => _adminNavMode;
   set adminNavMode(AdminNavMode value) {
@@ -113,6 +135,7 @@ class AppSettings extends ChangeNotifier {
     final savedLocale = await _nativeLoad(_localeKey);
     final savedTheme = await _nativeLoad(_themeKey);
     final savedBaseUrl = await _nativeLoad(_baseUrlKey);
+    final savedAgentHubBaseUrl = await _nativeLoad(_agentHubBaseUrlKey);
 
     _locale = _localeFromSaved(savedLocale);
     _themeMode = _themeModeFromSaved(savedTheme);
@@ -123,11 +146,27 @@ class AppSettings extends ChangeNotifier {
       _ssoBaseUrlOverride = null;
       unawaited(_nativeRemove(_baseUrlKey));
     }
+    try {
+      _agentHubBaseUrlOverride = normalizeAgentHubBaseUrl(savedAgentHubBaseUrl);
+    } on FormatException {
+      _agentHubBaseUrlOverride = null;
+      unawaited(_nativeRemove(_agentHubBaseUrlKey));
+    }
   }
 
   /// Accepts only an origin, never a credential-bearing or path-scoped URL.
   /// Plain HTTP is limited to loopback development servers.
   static String? normalizeSsoBaseUrl(String? value) {
+    return _normalizeServiceOrigin(value, 'invalid_sso_base_url');
+  }
+
+  /// Same host-only TLS boundary as the identity origin, with a separate
+  /// setting so native builds can reach an independently deployed Agent Hub.
+  static String? normalizeAgentHubBaseUrl(String? value) {
+    return _normalizeServiceOrigin(value, 'invalid_agent_hub_base_url');
+  }
+
+  static String? _normalizeServiceOrigin(String? value, String errorCode) {
     final input = value?.trim() ?? '';
     if (input.isEmpty) return null;
 
@@ -135,7 +174,7 @@ class AppSettings extends ChangeNotifier {
     try {
       uri = Uri.parse(input);
     } on FormatException {
-      throw const FormatException('invalid_sso_base_url');
+      throw FormatException(errorCode);
     }
     final scheme = uri.scheme.toLowerCase();
     final rootPathOnly = uri.path.isEmpty || uri.path == '/';
@@ -147,7 +186,7 @@ class AppSettings extends ChangeNotifier {
         uri.hasQuery ||
         uri.hasFragment ||
         (scheme == 'http' && !_isLoopbackHost(uri.host))) {
-      throw const FormatException('invalid_sso_base_url');
+      throw FormatException(errorCode);
     }
     return Uri(
       scheme: scheme,

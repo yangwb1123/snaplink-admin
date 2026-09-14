@@ -1,7 +1,7 @@
 # sso-console
 
 Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管理员控制台、
-托管登录、自助账户门户、开发者动态注册、首次安装和设备授权体验。
+托管登录、自助账户门户、开发者动态注册、首次安装、设备授权和 Agent Operations。
 
 ## 产品入口
 
@@ -13,6 +13,20 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 | `/developer/` | OAuth/OIDC 应用开发者 | RFC 7591 注册及 RFC 7592 管理 |
 | `/setup/` | 首次部署的所有者 | 单次初始化管理员与首个应用 |
 | `/device/verify` | 已登录用户 | RFC 8628 设备码确认或拒绝 |
+| `/agent/` | Agent 操作者 | 跨实例查看 Agent 会话、回放事件并发送或取消任务 |
+
+Agent Operations 使用独立的 Agent Hub 服务。它显示 Agent 实例/会话/轮次，
+与 `/portal/` 或 `/admin/` 中的身份登录会话、登录设备管理分属不同领域。
+Hub 通过 Snaplink 签发的 bearer 验证身份，但使用独立 audience `agent-hub`、
+`agent.instances:read`、`agent.sessions:read`、`agent.sessions:write` 和
+`agent.turns:cancel` scope；登录成功不会自动注册 OAuth resource、scope 或 Hub
+operator grants。必须先配置 Snaplink first-party Console OAuth client 的
+`allowed_resources`/allowed scopes，并在 Hub 配置 tenant、subject、client 与
+可操作 instance grants。缺少 Hub 配置时页面明确显示服务未配置或权限不足，
+不会将 Agent 请求转发给 Snaplink 身份 API。
+
+计算设备与任务支持 NVIDIA CUDA 物理整卡需求、每卡最低空闲显存和实际分配 UUID，
+使用方法与兼容性见 [Agent GPU 计算](docs/AGENT_GPU_COMPUTE.md)。
 
 详细的功能覆盖、产品边界和后端契约缺口见
 [docs/FEATURE_COVERAGE.md](docs/FEATURE_COVERAGE.md)；角色、领域边界、安全
@@ -45,11 +59,11 @@ Snaplink SSO 的统一 Web 控制面。一个 Flutter Web 产物同时承载管�
 - `lib/api/snaplink_admin_api.dart`：认证、缓存、重试和契约传输
 - `lib/api/snaplink_admin_types.dart`：已发布及补充路由清单
 - `lib/screens/admin/admin_capability_boundary.dart`：可选模块三态门禁
-- `lib/app_router.dart`：六个产品入口的顶层分发，含代码分割
-- `lib/entries/*.dart`：六个入口的 deferred chunk 边界工厂
+- `lib/app_router.dart`：七个产品入口的顶层分发，含代码分割
+- `lib/entries/*.dart`：七个入口的 deferred chunk 边界工厂
 - `lib/i18n/app_strings*.dart`：共享 EN/ZH 文案、领域目录和动态占位符翻译
 
-代码分割：六个产品入口各编译为独立 deferred chunk，首屏只下载主包 + 当前
+代码分割：七个产品入口各编译为独立 deferred chunk，首屏只下载主包 + 当前
 入口 chunk（`/login/` 首屏约 3.5MB raw / 1MB gzip，替代原来 4.7MB 单包；
 admin 的 33 个模块约 0.8MB 只在进入 `/admin/` 时下载）。`main()` 在
 `runApp` 前预加载当前路径对应入口，因此首屏同步渲染真实界面；跨入口导航
@@ -57,12 +71,17 @@ admin 的 33 个模块约 0.8MB 只在进入 `/admin/` 时下载）。`main()` �
 dart2wasm 当前不输出 deferred 分块，因此默认构建为 dart2js
 （`make build-prod`），需要 skwasm 的部署可用 `make build-wasm-prod`。
 
-所有六个入口与管理后台均支持英文和中文。页面文案使用 canonical English
+所有七个入口与管理后台均支持英文和中文。页面文案使用 canonical English
 源字符串查找，API 返回值和资源标识保持原样；`test/i18n_coverage_test.dart`
 会阻止新增未本地化的直接文案、表单标签和运行时提示。
 
+Agent 工作区支持在具备文件通道的原生宿主中选择输入 JSON、保存经过摘要校验的
+输出 JSON 包；具体平台实现、构建和验证范围见
+[原生工作区文件操作](docs/AGENT_NATIVE_WORKSPACE_FILES.md)。
+
 原生客户端可在登录页打开设置并指定 Snaplink 服务来源，设置会跨重启保存，
-且对登录、用户门户、设备授权、Setup、开发者注册和管理 API 统一生效。生产
+且对登录、用户门户、设备授权、Setup、开发者注册和管理 API 统一生效。Agent Hub
+可为原生端单独设置 API origin；Web 固定使用页面同源 `/api/v1/agent` 代理。生产
 来源必须是纯 HTTPS origin；仅 localhost、127/8 和 `::1` 环回地址允许 HTTP。
 Web 版本始终使用当前页面同源，不接受来源覆盖。
 
@@ -75,13 +94,14 @@ Web 版本始终使用当前页面同源，不接受来源覆盖。
 ## 本地开发
 
 ```bash
-# 需要 Flutter 3 / Dart 3
-flutter pub get
+# 需要 Flutter 3.47.4 stable / Dart 3.13.3（与 CI 一致）
+flutter pub get --enforce-lockfile
 
 # 工程结构检查读取 engineering.yaml
 python3 -m pip install -r requirements-dev.txt
 
-# 启动开发代理；地址可通过 SNAPLINK_API_URL/SNAPLINK_PROXY_PORT 覆盖
+# 启动开发代理；Agent Hub 未配置时 /api/v1/agent 明确返回 503，不回退到 Snaplink
+# 地址可通过 SNAPLINK_API_URL/SNAPLINK_PROXY_PORT 覆盖
 # 将占位符替换为已部署的 Audit Governance HTTP(S) origin；不要省略此设置
 AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>' make serve
 
@@ -92,7 +112,9 @@ make build
 `make serve` 和 `./dev.sh` 都会继承当前 shell 中显式设置的
 `AUDIT_GOVERNANCE_UPSTREAM`。Audit reads 必须显式指向 Audit Governance；未设置时
 本地代理 fail closed，不会回退到 core Snaplink。上面的占位符不能原样使用，需替换为
-实际部署的 origin。控制台默认通过 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
+实际部署的 origin。配置 `AGENT_HUB_UPSTREAM='<your-agent-hub-origin>'` 才能使用
+Agent Operations；开发代理未配置时返回 `agent_hub_unconfigured`。控制台默认通过
+`http://localhost:4444` 访问。认证账号、身份源和功能开关由
 所连接的 Snaplink 部署决定，不应在前端仓库中保存默认生产凭据。
 
 ## 质量门禁

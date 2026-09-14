@@ -34,9 +34,9 @@ void main() {
 
     // 两个分组卡片（偏好 / 服务），而不是每项一张卡。
     expect(find.byType(Card), findsNWidgets(2));
-    // 每组内行数：偏好 3（语言/主题/导航模式）+ 服务 2（服务器/时区）。
+    // 每组内行数：偏好 3（语言/主题/导航模式）+ 服务 3（SSO/时区/Hub）。
     final dividers = find.byType(Divider);
-    expect(dividers, findsNWidgets(3), reason: 'rows separated by dividers');
+    expect(dividers, findsNWidgets(4), reason: 'rows separated by dividers');
     // 行内彩色图标存在。
     for (final icon in [
       Icons.translate,
@@ -44,6 +44,7 @@ void main() {
       Icons.view_sidebar_outlined,
       Icons.dns_outlined,
       Icons.schedule_outlined,
+      Icons.hub_outlined,
     ]) {
       final icons = tester.widgetList<Icon>(find.byIcon(icon));
       expect(icons, isNotEmpty, reason: '$icon must render');

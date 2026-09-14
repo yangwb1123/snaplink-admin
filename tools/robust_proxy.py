@@ -24,6 +24,7 @@ STRIPE_ADAPTER_BACKEND = os.environ.get(
 AUDIT_GOVERNANCE_BACKEND = os.environ.get(
     'AUDIT_GOVERNANCE_UPSTREAM', ''
 ).rstrip('/')
+AGENT_HUB_BACKEND = os.environ.get('AGENT_HUB_UPSTREAM', '').rstrip('/')
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 STATIC = Path(
     os.environ.get('STATIC_DIR', PROJECT_ROOT / 'build' / 'web')
@@ -280,6 +281,24 @@ def _forward_response(conn, status: int, headers_items, body: bytes,
 def proxy_request(conn, method, path, headers, body):
     """Proxy request to backend server."""
     try:
+        clean_path = urllib.parse.urlsplit(path).path
+        is_agent_hub = clean_path == '/api/v1/agent' or clean_path.startswith(
+            '/api/v1/agent/'
+        )
+        if is_agent_hub and not AGENT_HUB_BACKEND:
+            error_body = json.dumps({
+                'error': {
+                    'code': 'agent_hub_unconfigured',
+                    'message': 'Agent Hub is not configured on this deployment.',
+                },
+            }).encode()
+            _forward_response(
+                conn,
+                503,
+                [('Content-Type', 'application/json; charset=utf-8')],
+                error_body,
+            )
+            return
         # Build backend URL
         url, _ = _build_backend_url(path)
         req_headers = _forward_headers(headers, backend_for(path))
@@ -298,6 +317,8 @@ def proxy_request(conn, method, path, headers, body):
 def backend_for(path):
     """Resolve the same-origin service upstream for a request path."""
     clean_path = urllib.parse.urlsplit(path).path
+    if clean_path == '/api/v1/agent' or clean_path.startswith('/api/v1/agent/'):
+        return AGENT_HUB_BACKEND
     if clean_path == '/api/v1/checkout/sessions':
         return STRIPE_ADAPTER_BACKEND
     audit_event_detail_prefix = '/api/v1/audit/events/'

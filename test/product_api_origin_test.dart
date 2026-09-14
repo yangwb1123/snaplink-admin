@@ -8,17 +8,21 @@ import 'package:sso_admin/api/setup_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/app_settings.dart';
 import 'package:sso_admin/screens/developer/developer_api.dart';
+import 'package:sso_admin/services/agent_hub_api_origin.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 
 void main() {
   late String? originalOverride;
+  late String? originalAgentHubOverride;
 
   setUp(() {
     originalOverride = AppSettings.instance.ssoBaseUrlOverride;
+    originalAgentHubOverride = AppSettings.instance.agentHubBaseUrlOverride;
   });
 
   tearDown(() {
     AppSettings.instance.ssoBaseUrlOverride = originalOverride;
+    AppSettings.instance.agentHubBaseUrlOverride = originalAgentHubOverride;
   });
 
   test('normalizes secure and loopback service origins', () {
@@ -58,6 +62,24 @@ void main() {
         reason: value,
       );
     }
+  });
+
+  test('validates and resolves the independent Agent Hub origin', () {
+    expect(
+      AppSettings.normalizeAgentHubBaseUrl(' HTTPS://HUB.Example.test:9443/ '),
+      'https://hub.example.test:9443',
+    );
+    expect(AppSettings.normalizeAgentHubBaseUrl('  '), isNull);
+    expect(
+      () =>
+          AppSettings.normalizeAgentHubBaseUrl('https://hub.example.test/api'),
+      throwsFormatException,
+    );
+    AppSettings.instance.ssoBaseUrlOverride = 'https://issuer.example.test';
+    AppSettings.instance.agentHubBaseUrlOverride = null;
+    expect(AgentHubApiOrigin.baseUrl, ProductApiOrigin.baseUrl);
+    AppSettings.instance.agentHubBaseUrlOverride = 'https://hub.example.test';
+    expect(AgentHubApiOrigin.baseUrl, 'https://hub.example.test');
   });
 
   test('native default and admin client follow the configured origin', () {

@@ -7,6 +7,8 @@ import 'package:http/testing.dart';
 import 'package:sso_admin/api/oidc_login_api.dart';
 import 'package:sso_admin/api/sso_client.dart';
 import 'package:sso_admin/screens/oidc_login/oidc_login_screen.dart';
+import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/session.dart';
 
 /// REQ-2 + REQ-3 widget-level MockClient harness (design §4.2, D9/D11).
 ///
@@ -43,7 +45,11 @@ class _LoginHarness {
               );
             }
             return http.Response(
-              jsonEncode({'access_token': 't', 'session_id': 's'}),
+              jsonEncode({
+                'access_token': 't',
+                'session_id': 's',
+                'refresh_token': 'r',
+              }),
               200,
             );
           }
@@ -64,7 +70,7 @@ class _LoginHarness {
   String? lastClientId;
   String? lastUsername;
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {Uri? routeUri}) async {
     tester.view.physicalSize = const Size(900, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -78,7 +84,7 @@ class _LoginHarness {
           // M2 commit (co-change list §3.4; design §4.2 constant rule).
           // D11: no prompt=none, no fragment, no magic-link token, no flow
           // param — avoids silent-renewal and federated-resume auto-fire.
-          routeUri: Uri.parse('https://sso.example/login/'),
+          routeUri: routeUri ?? Uri.parse('https://sso.example/login/'),
         ),
       ),
     );
@@ -131,6 +137,36 @@ void main() {
         expect(harness.loginPosts, 1);
         expect(harness.lastClientId, SSOAdminClient.firstPartyClientId);
         expect(harness.lastUsername, 'ada@example.com');
+      },
+    );
+
+    testWidgets(
+      'an explicitly selected Forge client keeps its own token slot',
+      (tester) async {
+        Session.clear();
+        addTearDown(Session.clear);
+        expect(
+          Session.store(
+            'admin-token',
+            clientId: SSOAdminClient.firstPartyClientId,
+          ),
+          isTrue,
+        );
+        final harness = _LoginHarness(['ok']);
+        final route = Uri.parse(
+          'https://sso.example${ForgeConversationsOAuth.loginLocation()}',
+        );
+        await harness.pump(tester, routeUri: route);
+
+        await harness.submit(tester);
+
+        expect(harness.lastClientId, ForgeConversationsOAuth.clientId);
+        expect(Session.read(), 'admin-token');
+        expect(Session.readForClient(ForgeConversationsOAuth.clientId), 't');
+        expect(
+          Session.readRefreshTokenForClient(ForgeConversationsOAuth.clientId),
+          'r',
+        );
       },
     );
 

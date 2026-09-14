@@ -1,0 +1,8 @@
+# Replace this origin when Agent Hub uses a different Service name or port.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sso-console-upstreams
+  namespace: sv-sso
+data:
+  agent-hub: http://agent-hub.sv-sso.svc.cluster.local:8089

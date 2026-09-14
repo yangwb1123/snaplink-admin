@@ -8,18 +8,24 @@ import 'package:sso_admin/session.dart';
 
 void main() {
   late String? originalOverride;
+  late String? originalHubOverride;
+  final ssoField = find.byKey(const ValueKey('sso-api-origin'));
+  final hubField = find.byKey(const ValueKey('agent-hub-api-origin'));
   late Locale originalLocale;
 
   setUp(() {
     originalOverride = AppSettings.instance.ssoBaseUrlOverride;
+    originalHubOverride = AppSettings.instance.agentHubBaseUrlOverride;
     originalLocale = AppSettings.instance.locale;
     AppSettings.instance.locale = const Locale('en');
     AppSettings.instance.ssoBaseUrlOverride = null;
+    AppSettings.instance.agentHubBaseUrlOverride = null;
     Session.clear();
   });
 
   tearDown(() {
     AppSettings.instance.ssoBaseUrlOverride = originalOverride;
+    AppSettings.instance.agentHubBaseUrlOverride = originalHubOverride;
     AppSettings.instance.locale = originalLocale;
     Session.clear();
   });
@@ -30,12 +36,12 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
     await tester.scrollUntilVisible(
-      find.byType(TextFormField),
+      ssoField,
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.enterText(
-      find.byType(TextFormField),
+      ssoField,
       'http://credentials.example.test/api?tenant=one',
     );
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
@@ -56,14 +62,11 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
     await tester.scrollUntilVisible(
-      find.byType(TextFormField),
+      ssoField,
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.enterText(
-      find.byType(TextFormField),
-      ' HTTPS://SSO.Example.test:8443/ ',
-    );
+    await tester.enterText(ssoField, ' HTTPS://SSO.Example.test:8443/ ');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
@@ -73,7 +76,7 @@ void main() {
       'https://sso.example.test:8443',
     );
     expect(
-      tester.widget<TextFormField>(find.byType(TextFormField)).controller?.text,
+      tester.widget<TextFormField>(ssoField).controller?.text,
       'https://sso.example.test:8443',
     );
     expect(find.text('Saved'), findsOneWidget);
@@ -95,14 +98,11 @@ void main() {
     );
 
     await tester.scrollUntilVisible(
-      find.byType(TextFormField),
+      ssoField,
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.enterText(
-      find.byType(TextFormField),
-      'https://new-sso.example.test',
-    );
+    await tester.enterText(ssoField, 'https://new-sso.example.test');
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pumpAndSettle();
@@ -120,14 +120,11 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
 
     await tester.scrollUntilVisible(
-      find.byType(TextFormField),
+      ssoField,
       200,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.enterText(
-      find.byType(TextFormField),
-      ProductApiOrigin.nativeDefaultBaseUrl,
-    );
+    await tester.enterText(ssoField, ProductApiOrigin.nativeDefaultBaseUrl);
     await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));
     await tester.pump();
@@ -135,5 +132,55 @@ void main() {
     expect(Session.read(), 'access-token');
     expect(find.byType(SettingsScreen), findsOneWidget);
     expect(find.text('Saved'), findsOneWidget);
+  });
+
+  testWidgets('invalid Hub origin prevents saving either origin', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: SettingsScreen()));
+    await tester.enterText(ssoField, 'https://new-sso.example.test');
+    await tester.ensureVisible(hubField);
+    await tester.enterText(hubField, 'http://hub.example.test');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pump();
+
+    expect(
+      find.textContaining('Enter an absolute HTTPS Agent Hub'),
+      findsOneWidget,
+    );
+    expect(AppSettings.instance.ssoBaseUrlOverride, isNull);
+    expect(AppSettings.instance.agentHubBaseUrlOverride, isNull);
+    expect(find.text('Saved'), findsNothing);
+  });
+
+  testWidgets('changing only the Hub origin discards the current session', (
+    tester,
+  ) async {
+    Session.store('access-token', sessionId: 'session-1');
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: AppNavigator.key,
+        onGenerateRoute: (settings) => MaterialPageRoute<void>(
+          settings: settings,
+          builder: (_) => Text('Destination: ${settings.name}'),
+        ),
+        home: const SettingsScreen(),
+      ),
+    );
+    await tester.ensureVisible(hubField);
+    await tester.enterText(hubField, ' HTTPS://HUB.Example.test:8443/ ');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(AppSettings.instance.ssoBaseUrlOverride, isNull);
+    expect(
+      AppSettings.instance.agentHubBaseUrlOverride,
+      'https://hub.example.test:8443',
+    );
+    expect(Session.read(), isNull);
+    expect(Session.readSessionId(), isNull);
+    expect(find.text('Destination: /login/'), findsOneWidget);
   });
 }

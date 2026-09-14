@@ -53,9 +53,26 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # System-level dependencies.
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GTK REQUIRED IMPORTED_TARGET gtk+-3.0)
+pkg_check_modules(GIO REQUIRED IMPORTED_TARGET gio-2.0)
 
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
+
+include(CTest)
+if(BUILD_TESTING)
+  add_executable(workspace_file_native_test EXCLUDE_FROM_ALL
+    "runner/workspace_file_channel_linux.cc"
+    "runner/workspace_file_contract_linux.cc"
+    "runner/workspace_file_io_linux.cc"
+    "runner/workspace_file_native_test.cc"
+  )
+  apply_standard_settings(workspace_file_native_test)
+  target_link_libraries(workspace_file_native_test PRIVATE flutter
+    PkgConfig::GTK PkgConfig::GIO)
+  target_include_directories(workspace_file_native_test PRIVATE
+    "${CMAKE_SOURCE_DIR}/runner")
+  add_test(NAME workspace_file_native_test COMMAND workspace_file_native_test)
+endif()
 
 # Run the Flutter tool portions of the build. This must not be removed.
 add_dependencies(${BINARY_NAME} flutter_assemble)

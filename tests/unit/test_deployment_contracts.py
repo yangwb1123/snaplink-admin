@@ -13,6 +13,14 @@ def section_between(document, start, end):
     return document.split(start, 1)[1].split(end, 1)[0]
 
 
+def env_values(container):
+    return {
+        item['name']: item['value']
+        for item in container['env']
+        if 'value' in item
+    }
+
+
 def render_kustomize(profile):
     result = subprocess.run(
         ['kubectl', 'kustomize', str(ROOT / 'k8s' / profile)],
@@ -48,6 +56,10 @@ class DeploymentContractsTest(unittest.TestCase):
             '${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api,audit-governance}',
         )
         self.assertEqual(
+            console['build']['args']['SNAPLINK_AGENT_HUB_RESOURCE'],
+            '${SNAPLINK_AGENT_HUB_RESOURCE:-agent-hub}',
+        )
+        self.assertEqual(
             console['environment']['SNAPLINK_BILLING_UPSTREAM'],
             '${SNAPLINK_BILLING_UPSTREAM:?SNAPLINK_BILLING_UPSTREAM must be set — no implicit sso-server fallback (P0-2)}',
         )
@@ -59,6 +71,7 @@ class DeploymentContractsTest(unittest.TestCase):
             console['environment']['AUDIT_GOVERNANCE_UPSTREAM'],
             '${AUDIT_GOVERNANCE_UPSTREAM:?AUDIT_GOVERNANCE_UPSTREAM must be set — audit reads have no local fallback}',
         )
+        self.assertIn('no Snaplink fallback', console['environment']['AGENT_HUB_UPSTREAM'])
         self.assertIn('4444:80', console['ports'])
 
     def test_kubernetes_workload_preserves_non_root_read_only_runtime(self):
@@ -69,7 +82,10 @@ class DeploymentContractsTest(unittest.TestCase):
         pdb = next(item for item in documents if item['kind'] == 'PodDisruptionBudget')
         hpa = next(item for item in documents if item['kind'] == 'HorizontalPodAutoscaler')
         container = deployment['spec']['template']['spec']['containers'][0]
-        environment = {item['name']: item['value'] for item in container['env']}
+        environment = env_values(container)
+        hub_environment = next(
+            item for item in container['env'] if item['name'] == 'AGENT_HUB_UPSTREAM'
+        )
         mounts = {item['mountPath'] for item in container['volumeMounts']}
 
         self.assertEqual(
@@ -104,6 +120,25 @@ class DeploymentContractsTest(unittest.TestCase):
             environment['AUDIT_GOVERNANCE_UPSTREAM'],
             'http://audit-governance.sv-sso.svc.cluster.local:8089',
         )
+        self.assertEqual(
+            hub_environment['valueFrom']['configMapKeyRef'],
+            {'name': 'sso-console-upstreams', 'key': 'agent-hub'},
+        )
+        hub_config = yaml.safe_load(
+            (ROOT / 'k8s/base/agent-hub-upstream.yaml').read_text()
+        )
+        self.assertEqual(hub_config['kind'], 'ConfigMap')
+        self.assertEqual(hub_config['metadata']['name'], 'sso-console-upstreams')
+        self.assertEqual(
+            hub_config['data']['agent-hub'],
+            'http://agent-hub.sv-sso.svc.cluster.local:8089',
+        )
+        self.assertIn(
+            'agent-hub-upstream.yaml',
+            yaml.safe_load((ROOT / 'k8s/base/kustomization.yaml').read_text())[
+                'resources'
+            ],
+        )
         self.assertTrue(container['securityContext']['readOnlyRootFilesystem'])
         self.assertFalse(container['securityContext']['allowPrivilegeEscalation'])
         self.assertIn('readinessProbe', container)
@@ -127,9 +162,7 @@ class DeploymentContractsTest(unittest.TestCase):
 
         minimal_pod = minimal_deployment['spec']['template']['spec']
         minimal_container = minimal_pod['containers'][0]
-        minimal_environment = {
-            item['name']: item['value'] for item in minimal_container['env']
-        }
+        minimal_environment = env_values(minimal_container)
         minimal_mounts = {
             item['name'] for item in minimal_container.get('volumeMounts', [])
         }
@@ -146,9 +179,7 @@ class DeploymentContractsTest(unittest.TestCase):
 
         full_pod = full_deployment['spec']['template']['spec']
         full_container = full_pod['containers'][0]
-        full_environment = {
-            item['name']: item['value'] for item in full_container['env']
-        }
+        full_environment = env_values(full_container)
         full_mounts = {item['name'] for item in full_container['volumeMounts']}
         self.assertNotEqual(
             full_environment['SNAPLINK_BILLING_UPSTREAM'],
@@ -181,6 +212,8 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('sha256sum -c -', dockerfile)
         self.assertIn('tar xJf /tmp/flutter.tar.xz -C /opt', dockerfile)
         self.assertIn('--dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES=', dockerfile)
+        self.assertIn('ARG SNAPLINK_AGENT_HUB_RESOURCE=agent-hub', dockerfile)
+        self.assertIn('--dart-define=SNAPLINK_AGENT_HUB_RESOURCE=', dockerfile)
         # The image must build the same code-split dart2js bundle as
         # `make build-prod` (deferred chunks; dart2wasm does not emit chunks).
         self.assertIn(
@@ -200,6 +233,7 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('validate_origin SNAPLINK_STRIPE_ADAPTER_UPSTREAM', preflight)
         self.assertIn('validate_origin SNAPLINK_UPSTREAM', preflight)
         self.assertIn('validate_origin AUDIT_GOVERNANCE_UPSTREAM', preflight)
+        self.assertIn('validate_origin AGENT_HUB_UPSTREAM', preflight)
         self.assertIn('must be an explicit http:// or https:// origin', preflight)
         self.assertIn('ENV SNAPLINK_UPSTREAM=http://snaplink:8080', dockerfile)
         self.assertIn('ENV SNAPLINK_SERVER_NAME=snaplink', dockerfile)
@@ -213,11 +247,16 @@ class DeploymentContractsTest(unittest.TestCase):
         )
         self.assertIn('ENV SNAPLINK_STRIPE_ADAPTER_UPSTREAM=', dockerfile)
         self.assertIn('ENV AUDIT_GOVERNANCE_UPSTREAM=', dockerfile)
+        self.assertIn('ENV AGENT_HUB_UPSTREAM=', dockerfile)
         self.assertIn('location ^~ /app/', nginx)
+        self.assertIn('location ^~ /api/v1/agent/', nginx)
+        self.assertIn('location = /api/v1/agent {', nginx)
+        self.assertIn('rewrite ^ /api/v1/agent/ last;', nginx)
+        self.assertIn('proxy_pass ${AGENT_HUB_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_BILLING_UPSTREAM};', nginx)
         self.assertIn('proxy_pass ${SNAPLINK_STRIPE_ADAPTER_UPSTREAM};', nginx)
-        self.assertEqual(nginx.count('proxy_ssl_verify on;'), 7)
+        self.assertEqual(nginx.count('proxy_ssl_verify on;'), 8)
         self.assertEqual(nginx.count('proxy_ssl_name ${SNAPLINK_SERVER_NAME};'), 2)
         self.assertEqual(
             nginx.count('proxy_ssl_trusted_certificate ${SNAPLINK_CA};'),
@@ -305,6 +344,7 @@ class DeploymentContractsTest(unittest.TestCase):
                 'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
                 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
                 'AUDIT_GOVERNANCE_UPSTREAM': 'http://audit-governance:8089',
+                'AGENT_HUB_UPSTREAM': 'http://agent-hub:8089',
             }
         )
         valid = subprocess.run(
@@ -316,8 +356,19 @@ class DeploymentContractsTest(unittest.TestCase):
         )
         self.assertEqual(valid.returncode, 0, valid.stderr)
 
-        for invalid in ('', 'http://billing/api', 'billing:8080'):
-            environment['SNAPLINK_BILLING_UPSTREAM'] = invalid
+        for variable, invalid in (
+            ('SNAPLINK_BILLING_UPSTREAM', ''),
+            ('SNAPLINK_BILLING_UPSTREAM', 'http://billing/api'),
+            ('SNAPLINK_BILLING_UPSTREAM', 'billing:8080'),
+            ('AGENT_HUB_UPSTREAM', ''),
+            ('AGENT_HUB_UPSTREAM', 'http://agent-hub/api'),
+            ('AGENT_HUB_UPSTREAM', 'agent-hub:8089'),
+        ):
+            # Keep unrelated required origins valid so each case exercises
+            # the variable under test instead of failing at an earlier check.
+            environment['SNAPLINK_BILLING_UPSTREAM'] = 'http://billing:8080'
+            environment['AGENT_HUB_UPSTREAM'] = 'http://agent-hub:8089'
+            environment[variable] = invalid
             result = subprocess.run(
                 ['sh', str(script)],
                 capture_output=True,
@@ -326,7 +377,7 @@ class DeploymentContractsTest(unittest.TestCase):
                 env=environment,
             )
             self.assertNotEqual(result.returncode, 0, invalid)
-            self.assertIn('SNAPLINK_BILLING_UPSTREAM', result.stderr)
+            self.assertIn(variable, result.stderr)
 
     def test_core_upstream_preflight_rejects_invalid_origin(self):
         script = ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'
@@ -337,6 +388,7 @@ class DeploymentContractsTest(unittest.TestCase):
                 'SNAPLINK_BILLING_UPSTREAM': 'http://billing:8080',
                 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM': 'https://stripe:443',
                 'AUDIT_GOVERNANCE_UPSTREAM': 'http://audit-governance:8089',
+                'AGENT_HUB_UPSTREAM': 'http://agent-hub:8089',
             }
         )
 

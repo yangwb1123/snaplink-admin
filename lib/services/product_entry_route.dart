@@ -1,4 +1,13 @@
-enum ProductEntry { login, setup, portal, developer, deviceVerification, admin }
+enum ProductEntry {
+  login,
+  setup,
+  portal,
+  developer,
+  deviceVerification,
+  admin,
+  agentOperations,
+  forgeSessions,
+}
 
 bool _matchesPath(String path, String entryPath) =>
     path == entryPath || path.startsWith('$entryPath/');
@@ -13,5 +22,7 @@ ProductEntry productEntryForPath(String path) {
     return ProductEntry.deviceVerification;
   }
   if (_matchesPath(path, '/admin')) return ProductEntry.admin;
+  if (_matchesPath(path, '/forge')) return ProductEntry.forgeSessions;
+  if (_matchesPath(path, '/agent')) return ProductEntry.agentOperations;
   return ProductEntry.login;
 }

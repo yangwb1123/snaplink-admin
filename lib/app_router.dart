@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'api/oidc_login_api.dart';
 import 'api/sso_client.dart';
 import 'entries/admin_entry.dart' deferred as admin_entry;
+import 'entries/agent_entry.dart' deferred as agent_entry;
 import 'entries/developer_entry.dart' deferred as developer_entry;
 import 'entries/device_entry.dart' deferred as device_entry;
+import 'entries/forge_sessions_entry.dart' deferred as forge_sessions_entry;
 import 'entries/login_entry.dart' deferred as login_entry;
 import 'entries/portal_entry.dart' deferred as portal_entry;
 import 'entries/setup_entry.dart' deferred as setup_entry;
 import 'services/product_entry_route.dart';
 import 'widgets/deferred_entry_screen.dart';
 
-/// 代码分割：六个产品入口各自编译为独立 deferred chunk，首屏只下载
+/// 代码分割：产品入口各自编译为独立 deferred chunk，首屏只下载
 /// 当前入口对应的 chunk，而不是一次拉取整个 4.7MB 单包。
 ///
 /// - `main()` 在 `runApp` 前通过 [preloadProductEntry] 预加载当前路径对应
@@ -36,17 +38,21 @@ Future<void> preloadProductEntry(ProductEntry entry) async {
       await device_entry.loadLibrary();
     case ProductEntry.admin:
       await admin_entry.loadLibrary();
+    case ProductEntry.agentOperations:
+      await agent_entry.loadLibrary();
+    case ProductEntry.forgeSessions:
+      await forge_sessions_entry.loadLibrary();
     case ProductEntry.login:
       await login_entry.loadLibrary();
   }
 }
 
-/// One Flutter web build serves all six areas of the SSO product (extracted
+/// One Flutter web build serves the Console product routes alongside the SSO surfaces (extracted
 /// from the sso-server Go binary, which is now a pure API backend) — a
 /// reverse proxy (OpenResty) routes /login/, /setup/, /portal/, /developer/,
-/// /device/verify, and /admin/ all to this SAME static bundle, and THIS
-/// function picks which screen to show based on the path the browser actually
-/// loaded, exactly like any client-routed SPA behind a proxy.
+/// /device/verify, /admin/, /agent/, and /forge/ to this SAME static bundle.
+/// This function picks the screen from the path the browser loaded, like any
+/// client-routed SPA behind a proxy.
 ///
 /// /admin/ is gated by AdminGateScreen — no session (or a session without
 /// admin API access) means a real redirect to /login/?redirect=/admin/,
@@ -89,6 +95,18 @@ Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
         entry,
         admin_entry.loadLibrary,
         admin_entry.buildAdminGateScreen,
+      );
+    case ProductEntry.agentOperations:
+      return _entryScreen(
+        entry,
+        agent_entry.loadLibrary,
+        agent_entry.buildAgentOperationsScreen,
+      );
+    case ProductEntry.forgeSessions:
+      return _entryScreen(
+        entry,
+        forge_sessions_entry.loadLibrary,
+        forge_sessions_entry.buildForgeSessionsScreen,
       );
     case ProductEntry.login:
       return _entryScreen(

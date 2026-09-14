@@ -228,12 +228,12 @@ void main() {
     await tester.tap(find.byTooltip('Settings'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.byType(TextFormField),
+      find.byKey(const ValueKey('sso-api-origin')),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     await tester.enterText(
-      find.byType(TextFormField),
+      find.byKey(const ValueKey('sso-api-origin')),
       'https://new-sso.example.test',
     );
     await tester.tap(find.widgetWithText(FilledButton, 'Save'));

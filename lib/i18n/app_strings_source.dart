@@ -6,6 +6,8 @@ import 'app_strings_source_admin_features.dart';
 import 'app_strings_source_admin_indirect.dart';
 import 'app_strings_source_admin_navigation.dart';
 import 'app_strings_source_admin_residency.dart';
+import 'app_strings_source_agent.dart';
+import 'app_strings_source_forge.dart';
 import 'app_strings_source_admin_ux.dart';
 import 'app_strings_source_commerce.dart';
 import 'app_strings_source_developer.dart';
@@ -20,6 +22,8 @@ import 'app_strings_source_portal.dart';
 const appSourceStrings = <String, Map<String, String>>{
   'zh': <String, String>{
     ...appCommonSourceZh,
+    ...appAgentSourceZh,
+    ...appForgeSourceZh,
     ...appPortalSourceZh,
     ...appDeveloperSourceZh,
     ...appOidcSourceZh,

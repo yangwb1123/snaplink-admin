@@ -16,7 +16,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: 3.x
+          flutter-version: '3.47.4'
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements-dev.txt
-          flutter pub get
+          flutter pub get --enforce-lockfile
 
       - name: Analyze
         run: make analyze
@@ -49,7 +49,7 @@ jobs:
       - name: Unit tests
         run: make test
 
-      - name: Guard count pin (G7 B6-1 — 4-file suite must report exactly +82)
+      - name: Guard count pin (G7 B6-1 — 4-file suite must report exactly +83)
         run: make guard-count-pin
 
       - name: Browser tests

@@ -9,8 +9,8 @@
 
 产品目标：
 
-1. 一个静态 Web 产物覆盖管理、登录、自助、开发者、初始化和设备授权六个
-   入口。
+1. 一个静态 Web 产物覆盖管理、登录、自助、开发者、初始化、设备授权和
+   Agent Operations 七个入口。
 2. 以后端发布契约和当前副本能力为依据，不依赖前端猜测的私有接口。
 3. 高频任务提供领域工作流，低频任务提供受契约约束的专家入口。
 4. 对秘密、PII、不可逆操作和部分成功采用 fail-closed 设计。
@@ -149,6 +149,21 @@ Source-only compatibility ──────┴─> Effective capabilities ─> 
 4. 管理更新前验证读取表示是否足以无损往返。
 5. RAT 轮换后阻止关闭，直至用户确认已保存新值。
 
+### Agent Operations
+
+`/agent/` 是 Agent Hub 客户端，列出跨机器的 Agent instances 与 Agent
+sessions，读取 session event cursor，并提交/取消 Agent turns。它不读取或改写
+Snaplink 身份 sessions，也不管理身份设备；身份 token 仍由 Snaplink 签发，Hub
+独立校验 issuer、`agent-hub` audience、tenant、client、scope 和 instance grant。
+Web 仅经同源 `/api/v1/agent` 代理访问 Hub；原生端可独立设置 Hub API origin，
+但仍使用 Snaplink issuer 的 bearer。页面对过期 token、scope 不足、Hub 权限拒绝、
+服务未配置和网络失败分别呈现状态。
+
+Prompt 请求携带 UUID `Idempotency-Key`；发送结果不确定时重试复用原 key 与
+原 prompt。事件轮询以 session cursor 续读并去重，`turn.queued` 显示为用户
+Prompt，`message.delta`/`message.completed` 显示 Agent 回复；取消只是请求，
+直到收到终态事件才显示完成。
+
 ## 7. 非功能要求
 
 | 维度 | 基线 |
@@ -157,8 +172,8 @@ Source-only compatibility ──────┴─> Effective capabilities ─> 
 | 可靠性 | 明确 loading/empty/error/retry；并发冲突和部分成功可见 |
 | 可维护性 | 领域文件不超过工程行数预算；浏览器 API 使用条件适配层 |
 | 可测试性 | API 契约、模型和关键风险控件可在 VM 测试；浏览器状态另跑 Chrome |
-| 国际化 | 六个入口统一支持 EN/ZH；静态、动态和表单文案受自动漏译门禁保护 |
-| 可部署性 | 单一静态产物；六个前缀由网关做 SPA fallback 和同源 API 路由 |
+| 国际化 | 七个入口统一支持 EN/ZH；静态、动态和表单文案受自动漏译门禁保护 |
+| 可部署性 | 单一静态产物；产品前缀由网关做 SPA fallback 和同源 API 路由 |
 | 可观测性 | 服务端审计/SSE 为权威，本地操作日志只辅助当前操作者 |
 
 完整能力矩阵、后端阻塞项和 SCIM 运行约束见
