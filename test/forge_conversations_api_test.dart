@@ -12,6 +12,12 @@ http.Response _json(Object value, {int status = 200}) => http.Response(
   headers: const {'content-type': 'application/json'},
 );
 
+http.Response _rawJson(String value, {int status = 200}) => http.Response(
+  value,
+  status,
+  headers: const {'content-type': 'application/json'},
+);
+
 Map<String, dynamic> _conversation({
   String id = 'conversation-1',
   String title = 'Build release',
@@ -35,6 +41,282 @@ Map<String, dynamic> _prompt({
 };
 
 void main() {
+  test(
+    'rejects duplicate raw JSON keys in list and append responses',
+    () async {
+      final listApi = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _rawJson(
+            '{"conversations":[],"conversations":[],"has_more":false}',
+          ),
+        ),
+      );
+      addTearDown(listApi.close);
+      await expectLater(
+        listApi.listConversations(),
+        throwsA(
+          isA<ForgeConversationsApiException>()
+              .having((error) => error.code, 'code', 'invalid_response')
+              .having((error) => error.statusCode, 'status', 200),
+        ),
+      );
+
+      final appendApi = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _rawJson(
+            '{"prompt":{"id":"prompt-1","conversation_id":"conversation-1",'
+            '"role":"user","content":"ship it","created_at_ms":30},'
+            '"aggregate_version":2,"replayed":false,"replayed":true}',
+            status: 201,
+          ),
+        ),
+      );
+      addTearDown(appendApi.close);
+      await expectLater(
+        appendApi.appendPrompt(
+          conversationID: 'conversation-1',
+          content: 'ship it',
+          expectedVersion: 1,
+          idempotencyKey: 'prompt-key',
+        ),
+        throwsA(
+          isA<ForgeConversationsApiException>()
+              .having((error) => error.code, 'code', 'invalid_response')
+              .having((error) => error.statusCode, 'status', 201),
+        ),
+      );
+    },
+  );
+
+  test(
+    'scans JSON structure without treating string braces as objects',
+    () async {
+      final validApi = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _rawJson(
+            '{"conversations":[{"conversation":{"id":"conversation-1",'
+            '"scope":{"kind":"global"},'
+            '"title":"literal { brace } : colon \\"quote\\"",'
+            '"created_at_ms":10,"updated_at_ms":20},'
+            '"aggregate_version":1}],"has_more":false}',
+          ),
+        ),
+      );
+      addTearDown(validApi.close);
+
+      final page = await validApi.listConversations();
+      expect(
+        page.conversations.single.conversation.title,
+        'literal { brace } : colon "quote"',
+      );
+
+      final duplicateApi = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _rawJson(
+            '{"conversations":[{"conversation":{"id":"conversation-1",'
+            '"scope":{"kind":"global","\\u006bind":"global"},'
+            '"title":"safe","created_at_ms":10,"updated_at_ms":20},'
+            '"aggregate_version":1}],"has_more":false}',
+          ),
+        ),
+      );
+      addTearDown(duplicateApi.close);
+
+      await expectLater(
+        duplicateApi.listConversations(),
+        throwsA(
+          isA<ForgeConversationsApiException>().having(
+            (error) => error.code,
+            'code',
+            'invalid_response',
+          ),
+        ),
+      );
+    },
+  );
+
+  test(
+    'rejects unsafe Prompt request values before any network request',
+    () async {
+      var requests = 0;
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient((_) async {
+          requests++;
+          return _json({});
+        }),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.listPrompts(conversationID: 'conversation/foreign'),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.listPrompts(
+          conversationID: 'conversation-1',
+          before: const ForgePromptCursor(
+            createdAtMS: 30,
+            promptID: 'prompt/foreign',
+          ),
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.appendPrompt(
+          conversationID: 'conversation/foreign',
+          content: 'ship it',
+          expectedVersion: 1,
+          idempotencyKey: 'prompt-key',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.appendPrompt(
+          conversationID: 'conversation-1',
+          content: '   ',
+          expectedVersion: 1,
+          idempotencyKey: 'prompt-key',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.appendPrompt(
+          conversationID: 'conversation-1',
+          content: 'ship it',
+          expectedVersion: 1,
+          idempotencyKey: ' bad-key',
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        api.appendPrompt(
+          conversationID: 'conversation-1',
+          content: 'x' * (256 * 1024 + 1),
+          expectedVersion: 1,
+          idempotencyKey: 'prompt-key',
+        ),
+        throwsArgumentError,
+      );
+
+      expect(requests, 0);
+    },
+  );
+
+  test('reads and binds one authenticated Run observation candidate', () async {
+    late http.Request request;
+    final api = ForgeConversationsApi(
+      baseUrl: 'https://forge.example',
+      accessToken: 'forge-bearer',
+      httpClient: MockClient((value) async {
+        request = value;
+        return _json({
+          'api_version': 'forge.run.observed.v1',
+          'owner_ref':
+              '21444e9222fa722f4b05e8a353e2e840594863c941bba4c2222b3c22bb198ba5',
+          'conversation_id': 'conversation-1',
+          'run_id': 'run-1',
+          'prompt_id': 'prompt-1',
+          'created_at_ms': 200,
+          'latest_sequence': 5,
+          'status': 'completed',
+          'metadata_observed': true,
+          'content_included': false,
+          'authority': {
+            'identity_verified': false,
+            'owner_authorized': false,
+            'run_authoritative': false,
+            'persistence_attested': false,
+            'content_provenance_verified': false,
+            'reservation_created': false,
+            'execution_authorized': false,
+            'dispatch_performed': false,
+          },
+        });
+      }),
+    );
+    addTearDown(api.close);
+
+    final observed = await api.readRunObservedCandidate(
+      conversationID: 'conversation-1',
+      runID: 'run-1',
+    );
+
+    expect(observed.runID, 'run-1');
+    expect(observed.status, 'completed');
+    expect(observed.isDisplayOnly, isTrue);
+    expect(request.method, 'GET');
+    expect(
+      request.url.path,
+      '/api/v1/conversations/conversation-1/runs/run-1/observation',
+    );
+    expect(request.url.hasQuery, isFalse);
+    expect(request.headers['authorization'], 'Bearer forge-bearer');
+  });
+
+  test(
+    'rejects Run observation binding drift and unsafe IDs before transport',
+    () async {
+      var requests = 0;
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient((_) async {
+          requests++;
+          return _json({
+            'api_version': 'forge.run.observed.v1',
+            'owner_ref':
+                '21444e9222fa722f4b05e8a353e2e840594863c941bba4c2222b3c22bb198ba5',
+            'conversation_id': 'conversation-other',
+            'run_id': 'run-1',
+            'prompt_id': 'prompt-1',
+            'created_at_ms': 200,
+            'latest_sequence': 5,
+            'status': 'completed',
+            'metadata_observed': true,
+            'content_included': false,
+            'authority': const {
+              'identity_verified': false,
+              'owner_authorized': false,
+              'run_authoritative': false,
+              'persistence_attested': false,
+              'content_provenance_verified': false,
+              'reservation_created': false,
+              'execution_authorized': false,
+              'dispatch_performed': false,
+            },
+          });
+        }),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.readRunObservedCandidate(
+          conversationID: 'conversation-1',
+          runID: 'run-1',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      await expectLater(
+        api.readRunObservedCandidate(
+          conversationID: 'conversation/foreign',
+          runID: 'run-1',
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, 1);
+    },
+  );
+
   test('reads dense owner-scoped conversation changes by cursor', () async {
     late http.Request request;
     final client = MockClient((value) async {
@@ -81,6 +363,52 @@ void main() {
     expect(request.url.path, '/api/v1/conversation-changes');
     expect(request.url.queryParameters, {'after_cursor': '4', 'limit': '2'});
     expect(request.headers['authorization'], 'Bearer forge-bearer');
+  });
+
+  test('retries transient GET reads but never replays POST writes', () async {
+    var readRequests = 0;
+    final readApi = ForgeConversationsApi(
+      baseUrl: 'https://forge.example',
+      accessToken: 'forge-bearer',
+      httpClient: MockClient((_) async {
+        readRequests++;
+        if (readRequests < 3) return _json({'code': 'busy'}, status: 429);
+        return _json({'conversations': <Object>[], 'has_more': false});
+      }),
+    );
+    addTearDown(readApi.close);
+
+    final page = await readApi.listConversations();
+
+    expect(page.conversations, isEmpty);
+    expect(readRequests, 3);
+
+    var writeRequests = 0;
+    final writeApi = ForgeConversationsApi(
+      baseUrl: 'https://forge.example',
+      accessToken: 'forge-bearer',
+      httpClient: MockClient((_) async {
+        writeRequests++;
+        return _json({'code': 'busy'}, status: 503);
+      }),
+    );
+    addTearDown(writeApi.close);
+
+    await expectLater(
+      writeApi.createConversation(
+        scope: const ForgeConversationScope(kind: 'global'),
+        title: 'new',
+        idempotencyKey: 'create-key',
+      ),
+      throwsA(
+        isA<ForgeConversationsApiException>().having(
+          (error) => error.statusCode,
+          'status',
+          503,
+        ),
+      ),
+    );
+    expect(writeRequests, 1);
   });
 
   test(
@@ -148,6 +476,13 @@ void main() {
             'has_more': true,
           });
         }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations/conversation-1') {
+          return _json({
+            'conversation': _conversation(),
+            'aggregate_version': 1,
+          });
+        }
         if (request.method == 'POST' &&
             request.url.path == '/api/v1/conversations') {
           return _json(_conversation(title: 'new'), status: 201);
@@ -186,6 +521,9 @@ void main() {
         afterID: 'conversation-0',
         limit: 999,
       );
+      final detail = await api.getConversation(
+        conversationID: 'conversation-1',
+      );
       final created = await api.createConversation(
         scope: const ForgeConversationScope(kind: 'global'),
         title: 'new',
@@ -205,10 +543,12 @@ void main() {
       expect(conversations.conversations, hasLength(128));
       expect(conversations.conversations.first.aggregateVersion, 1);
       expect(conversations.nextAfterID, 'conversation-128');
+      expect(detail.conversation.id, 'conversation-1');
+      expect(detail.aggregateVersion, 1);
       expect(created.title, 'new');
       expect(prompts.prompts.single.content, 'run tests');
       expect(appended.aggregateVersion, 2);
-      expect(requests, hasLength(4));
+      expect(requests, hasLength(5));
       for (final request in requests) {
         expect(request.headers['authorization'], 'Bearer forge-bearer');
         expect(request.headers['cache-control'], 'no-store');
@@ -220,21 +560,23 @@ void main() {
         'after_id': 'conversation-0',
         'limit': '128',
       });
-      expect(jsonDecode(requests[1].body), {
+      expect(requests[1].url.path, '/api/v1/conversations/conversation-1');
+      expect(requests[1].url.queryParameters, isEmpty);
+      expect(jsonDecode(requests[2].body), {
         'scope': {'kind': 'global'},
         'title': 'new',
       });
-      expect(requests[1].headers['idempotency-key'], 'create-key');
-      expect(requests[2].url.queryParameters, {
+      expect(requests[2].headers['idempotency-key'], 'create-key');
+      expect(requests[3].url.queryParameters, {
         'before_created_at_ms': '30',
         'before_prompt_id': 'prompt-1',
         'limit': '100',
       });
-      expect(jsonDecode(requests[3].body), {
+      expect(jsonDecode(requests[4].body), {
         'content': 'ship it',
         'expected_version': 1,
       });
-      expect(requests[3].headers['idempotency-key'], 'prompt-key');
+      expect(requests[4].headers['idempotency-key'], 'prompt-key');
     },
   );
 
@@ -286,6 +628,59 @@ void main() {
     },
   );
 
+  test('rejects an unsafe prompt aggregate version before sending', () async {
+    final requests = <http.Request>[];
+    final api = ForgeConversationsApi(
+      baseUrl: 'https://forge.example',
+      accessToken: 'forge-bearer',
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return _json({
+          'prompt': _prompt(id: 'prompt-1', content: 'ship it'),
+          'aggregate_version': 1,
+          'replayed': false,
+        }, status: 201);
+      }),
+    );
+    addTearDown(api.close);
+
+    await expectLater(
+      api.appendPrompt(
+        conversationID: 'conversation-1',
+        content: 'ship it',
+        expectedVersion: 9007199254740992,
+        idempotencyKey: 'prompt-key',
+      ),
+      throwsArgumentError,
+    );
+    expect(requests, isEmpty);
+  });
+
+  test('rejects a non-sequential prompt aggregate version', () async {
+    final api = ForgeConversationsApi(
+      baseUrl: 'https://forge.example',
+      accessToken: 'forge-bearer',
+      httpClient: MockClient((_) async {
+        return _json({
+          'prompt': _prompt(id: 'prompt-1', content: 'ship it'),
+          'aggregate_version': 3,
+          'replayed': false,
+        }, status: 201);
+      }),
+    );
+    addTearDown(api.close);
+
+    await expectLater(
+      api.appendPrompt(
+        conversationID: 'conversation-1',
+        content: 'ship it',
+        expectedVersion: 1,
+        idempotencyKey: 'prompt-key',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('does not loop when the refreshed token is also rejected', () async {
     var refreshCount = 0;
     var requestCount = 0;
@@ -317,6 +712,34 @@ void main() {
     );
     expect(requestCount, 2);
   });
+
+  test(
+    'rejects a Prompt cursor above the JSON safe integer boundary',
+    () async {
+      var requests = 0;
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'forge-bearer',
+        httpClient: MockClient((_) async {
+          requests++;
+          return _json({});
+        }),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.listPrompts(
+          conversationID: 'conversation-1',
+          before: const ForgePromptCursor(
+            createdAtMS: 9007199254740992,
+            promptID: 'prompt-1',
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(requests, 0);
+    },
+  );
 
   test('surfaces Forge conflicts and refuses redirects', () async {
     final conflictApi = ForgeConversationsApi(

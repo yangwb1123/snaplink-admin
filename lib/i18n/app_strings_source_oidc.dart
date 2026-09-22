@@ -36,8 +36,7 @@ const appOidcSourceZh = <String, String>{
   'Federated RP sign-in requires a Snaplink deployment that preserves the server-owned authorization request and securely resumes it after the identity-provider callback.':
       '联合 RP 登录要求 Snaplink 完整保留服务器拥有的授权请求，并在身份提供方回调后安全续接。',
   'Federated sign-in requires the web console.': '联合登录需要使用 Web 控制台。',
-  'Federated sign-in completed. Resuming your session…':
-      '联合登录已完成，正在恢复您的会话…',
+  'Federated sign-in completed. Resuming your session…': '联合登录已完成，正在恢复您的会话…',
   'Federated sign-in could not be completed. Start sign-in again; the one-time callback was not replayed.':
       '联合登录未能完成。请重新开始登录；一次性回调不会被重放。',
   'The federated sign-in code could not be exchanged. Start sign-in again; the one-time callback was not replayed.':
@@ -96,8 +95,8 @@ const appOidcSourceZh = <String, String>{
   'Sign in with passkey': '使用通行密钥登录',
   'Sign in with {provider}': '使用 {provider} 登录',
   'Sign-in failed: {error}': '登录失败：{error}',
-  'Sign-in succeeded, but this device cannot securely store the session. Enable secure storage and try again.':
-      '登录成功，但此设备无法安全保存会话。请启用安全存储后重试。',
+  'Sign-in succeeded, but this device\'s secure credential store is unavailable. Check the OS keychain or keyring and try again.':
+      '登录成功，但此设备的安全凭据存储不可用。请检查系统钥匙串或密钥环后重试。',
   'Skip future MFA when allowed.': '策略允许时跳过后续 MFA。',
   'Snaplink could not deliver the signed JARM response.':
       'Snaplink 无法传送已签名的 JARM 响应。',

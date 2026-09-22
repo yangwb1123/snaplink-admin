@@ -1,7 +1,100 @@
 /// Forge Sessions surface copy.
 const appForgeSourceZh = <String, String>{
+  'Forge device inventory': 'Forge 设备清单',
+  'Forge device inventory observation v2': 'Forge 设备清单观察 v2',
+  'Offline persisted observation; all values are unverified and read-only.':
+      '离线持久化观察；所有值均未经验证且仅供读取。',
+  'Evaluated at: {time} · devices: {count}': '评估时间：{time} · 设备：{count}',
+  'All values below are unverified caller declarations.': '以下所有值都是未经验证的调用方声明。',
+  'Owner declaration unverified: {value}': '所有者声明未经验证：{value}',
+  'Inventory declarations unverified: {value}': '库存声明未经验证：{value}',
+  'Execution authorized: {value}': '执行已授权：{value}',
+  'Reservation created: {value}': '已创建预留：{value}',
+  'Dispatch performed: {value}': '已执行派发：{value}',
+  'Status projection is display-only; it does not authorize execution.':
+      '状态投影仅用于展示，不授予执行权限。',
+  'Snapshot: {id} · rows: {count}': '快照：{id} · 行数：{count}',
+  'Instance: {id}': '实例：{id}',
+  'Resources: CPU {cpu} · memory {memory} B · storage {storage} B':
+      '资源：CPU {cpu} · 内存 {memory} B · 存储 {storage} B',
+  'GPU: {memory} B · runtime {runtime}': 'GPU：{memory} B · 运行环境 {runtime}',
+  'GPU: none': 'GPU：无',
+  'Status projection: unavailable': '状态投影：不可用',
+  'Status: {status} · fresh: {fresh}': '状态：{status} · 新鲜：{fresh}',
+  'Dry-run match: {match}': '试运行匹配：{match}',
+  'Exclusion reasons: {reasons}': '排除原因：{reasons}',
+  'Persisted counters: revision {revision} · generation {generation} · heartbeat {heartbeat}':
+      '持久化计数：修订 {revision} · 代际 {generation} · 心跳 {heartbeat}',
+  'State: approval {approval} · cordon {cordon} · reservation {reservation} · liveness {liveness}':
+      '状态：审批 {approval} · 隔离 {cordon} · 预留 {reservation} · 存活 {liveness}',
+  'Concurrency: {active} active / {limit} limit': '并发：活动 {active} / 上限 {limit}',
+  'GPUs: none': 'GPU：无',
+  'GPUs: {count}': 'GPU：{count}',
+  'GPU {id}: {vendor} · memory {memory} B · available {available} B':
+      'GPU {id}：{vendor} · 内存 {memory} B · 可用 {available} B',
+  'Forge device placement evaluation v2': 'Forge 设备 placement 评估 v2',
+  'Forge device placement batch evaluation': 'Forge 设备 placement 批量评估',
+  'Offline read-only batch comparison; all values are unverified and no target was selected.':
+      '离线只读批量比较；所有值均未经验证，且未选择目标。',
+  'Candidates': '候选项',
+  'Matching candidates': '符合条件的候选项',
+  'Case': '案例',
+  'Persisted revision': '持久化修订号',
+  'No device placement batch decisions.': '没有设备 placement 批量决策。',
+  'Offline read-only comparison; all values are unverified and no target was selected.':
+      '离线只读比较；所有值均未经验证，且未选择目标。',
+  'Evaluated at': '评估时间',
+  'Eligible candidates': '符合条件的候选项',
+  'Selected device': '已选设备',
+  'Selected instance': '已选实例',
+  'Authority': '权限状态',
+  'all false · display-only': '全部为 false · 仅供展示',
+  'Placement requirements': 'placement 要求',
+  'OS / architecture': '操作系统 / 架构',
+  'Minimum CPU': '最低 CPU',
+  'Minimum memory': '最低内存',
+  'Minimum storage': '最低存储',
+  'Runtime': '运行环境',
+  'GPU': 'GPU',
+  'not required': '不要求',
+  'Residency / trust / sandbox': '驻留区域 / 信任 / 沙箱',
+  'Concurrency slots': '并发槽位',
+  'Reservation': '预留',
+  'GPU resources': 'GPU 资源',
+  'Matches requirements': '满足要求',
+  'Exclusion reasons': '排除原因',
+  'Declaration status': '声明状态',
+  'owner and device values unverified': '所有者和设备值未经验证',
+  'No device placement decisions.': '没有设备 placement 决策。',
+  'Declared resource aggregate': '声明的资源汇总',
+  'Devices: {devices} · Runner instances: {instances}':
+      '设备：{devices} · Runner 实例：{instances}',
+  'Declared totals: CPU {cpu} · memory {memory} B · storage {storage} B':
+      '声明总量：CPU {cpu} · 内存 {memory} B · 存储 {storage} B',
+  'Declared GPUs: {count} · GPU memory {memory} B':
+      '声明 GPU：{count} · GPU 内存 {memory} B',
+  'Eligible declared devices: {devices} · instances: {instances}':
+      '声明中符合条件的设备：{devices} · 实例：{instances}',
+  'Totals include ineligible declarations; they are not schedulable capacity.':
+      '总量包含不符合条件的声明；它们不是可调度容量。',
+  'Offline device observation': '离线设备观察',
+  'Import offline device observation': '导入离线设备观察',
+  'Canonical observation JSON': 'Canonical observation JSON',
+  'Paste the canonical offline observation JSON for this selected Run. It is not saved or used for execution.':
+      '粘贴当前运行任务的 canonical 离线观察 JSON。内容不会保存，也不会用于执行。',
+  'Import': '导入',
+  'The observation must match the selected Run.': '观察必须匹配当前选中的运行任务。',
+  'Invalid offline device observation.': '离线设备观察无效。',
+  'Conversation: {id}': '会话：{id}',
+  'Run: {id}': '运行任务：{id}',
+  'This placement is a caller-supplied preview. It selects no target and grants no execution authority.':
+      '此 placement 是调用方提供的预览，不选择目标，也不授予执行权限。',
   'Forge Sessions': 'Forge 会话',
   'Sign out of Forge on this device': '在此设备退出 Forge',
+  'Signing out of Forge…': '正在退出 Forge…',
+  'Forge owner data is hidden until sign-out is retried.':
+      '在重试退出前，Forge 所有者数据已隐藏。',
+  'Retry sign out': '重试退出',
   'Could not clear stored Forge credentials. Try signing out again.':
       '无法清除已保存的 Forge 凭据，请重试退出。',
   'No Forge conversations yet.': '暂无 Forge 会话。',
@@ -22,10 +115,15 @@ const appForgeSourceZh = <String, String>{
   'Append prompt': '追加 Prompt',
   'Retry prompt': '重试 Prompt',
   'Prompt stored. It has not started a task.': 'Prompt 已保存，但尚未启动任务。',
+  'Prompt retry replayed the existing message. It has not started a task.':
+      'Prompt 重试复用了已有消息，但尚未启动任务。',
   'Forge access is missing. Sign in with Forge conversation permissions.':
       '当前令牌缺少 Forge 会话权限。请重新登录并申请相应权限。',
   'Forge did not confirm conversation creation.': 'Forge 未确认会话创建结果。',
   'Could not load Forge sessions.': '无法加载 Forge 会话。',
+  'Could not open the requested Forge session.': '无法打开请求的 Forge 会话。',
+  'Forge is offline or unavailable. Showing cached session metadata; it may be stale.':
+      'Forge 当前离线或不可用，正在显示缓存的会话元数据，内容可能已过期。',
   'Could not load prompt history.': '无法加载 Prompt 历史。',
   'Forge did not confirm the prompt write.': 'Forge 未确认 Prompt 写入结果。',
   'Forge returned an invalid response.': 'Forge 返回了无效响应。',

@@ -44,9 +44,13 @@ class AgentOperationsView extends StatelessWidget {
   final bool taskReadScopeMissing;
   final bool taskWriteScopeMissing;
   final bool taskCancelScopeMissing;
+  final bool taskRescheduleScopeMissing;
+  final bool taskRetryScopeMissing;
   final String targetDeviceId;
   final bool submittingTask;
   final Set<String> cancellingTaskIds;
+  final Set<String> reschedulingTaskIds;
+  final Set<String> retryingTaskIds;
   final Set<String> loadingTaskDetails;
   final Map<String, AgentComputeTask> taskDetails;
   final TextEditingController computeArgvController;
@@ -78,16 +82,24 @@ class AgentOperationsView extends StatelessWidget {
   final ValueChanged<String> onTargetDeviceChanged;
   final VoidCallback onSubmitTask;
   final ValueChanged<AgentComputeTask> onCancelTask;
+  final ValueChanged<AgentComputeTask> onRescheduleTask;
+  final ValueChanged<AgentComputeTask> onRetryTask;
   final ValueChanged<String> onLoadTaskDetails;
 
   final bool workspaceEnabled;
   final Widget? workspaceForm;
+  final Widget? sessionCreation;
+  final Widget? sessionClosure;
+  final bool sessionWorkBlocked;
   final Widget Function(AgentComputeTask)? workspaceDetailsBuilder;
 
   const AgentOperationsView({
     super.key,
     this.workspaceEnabled = false,
     this.workspaceForm,
+    this.sessionCreation,
+    this.sessionClosure,
+    this.sessionWorkBlocked = false,
     this.workspaceDetailsBuilder,
     required this.instances,
     required this.sessions,
@@ -124,9 +136,13 @@ class AgentOperationsView extends StatelessWidget {
     required this.taskReadScopeMissing,
     required this.taskWriteScopeMissing,
     required this.taskCancelScopeMissing,
+    required this.taskRescheduleScopeMissing,
+    required this.taskRetryScopeMissing,
     required this.targetDeviceId,
     required this.submittingTask,
     required this.cancellingTaskIds,
+    required this.reschedulingTaskIds,
+    required this.retryingTaskIds,
     required this.loadingTaskDetails,
     required this.taskDetails,
     required this.computeArgvController,
@@ -158,6 +174,8 @@ class AgentOperationsView extends StatelessWidget {
     required this.onTargetDeviceChanged,
     required this.onSubmitTask,
     required this.onCancelTask,
+    required this.onRescheduleTask,
+    required this.onRetryTask,
     required this.onLoadTaskDetails,
   });
 
@@ -213,6 +231,7 @@ class AgentOperationsView extends StatelessWidget {
   }
 
   Widget _sessionList() => AgentSessionList(
+    sessionCreation: sessionCreation,
     instances: instances,
     sessions: sessions,
     instanceFilter: instanceFilter,
@@ -268,6 +287,7 @@ class AgentOperationsView extends StatelessWidget {
       length: 2,
       child: Column(
         children: [
+          ?sessionClosure,
           TabBar(
             tabs: [
               Tab(text: context.tr('Activity')),
@@ -296,6 +316,7 @@ class AgentOperationsView extends StatelessWidget {
                   onRetry: onRetryActivity,
                 ),
                 AgentComputeTasksPanel(
+                  sessionReadOnly: sessionWorkBlocked,
                   key: ValueKey('compute-${session.sessionId}'),
                   workspaceEnabled: workspaceEnabled,
                   workspaceForm: workspaceForm,
@@ -309,9 +330,13 @@ class AgentOperationsView extends StatelessWidget {
                   readScopeMissing: taskReadScopeMissing,
                   writeScopeMissing: taskWriteScopeMissing,
                   cancelScopeMissing: taskCancelScopeMissing,
+                  rescheduleScopeMissing: taskRescheduleScopeMissing,
+                  retryScopeMissing: taskRetryScopeMissing,
                   error: computeTaskActionError ?? computeTaskError,
                   formError: computeFormError,
                   cancellingIds: cancellingTaskIds,
+                  reschedulingIds: reschedulingTaskIds,
+                  retryingIds: retryingTaskIds,
                   loadingDetailIds: loadingTaskDetails,
                   taskDetails: taskDetails,
                   argvController: computeArgvController,
@@ -329,6 +354,8 @@ class AgentOperationsView extends StatelessWidget {
                   onLoadMore: onLoadMoreTasks,
                   onSubmit: onSubmitTask,
                   onCancel: onCancelTask,
+                  onReschedule: onRescheduleTask,
+                  onRetry: onRetryTask,
                   onLoadDetails: onLoadTaskDetails,
                   onSignIn: onSignIn,
                 ),

@@ -14,6 +14,7 @@ class AgentSessionList extends StatelessWidget {
   final bool instancesHaveMore;
   final bool sessionsHaveMore;
   final String? error;
+  final Widget? sessionCreation;
   final void Function(String?) onInstanceChanged;
   final VoidCallback onRefresh;
   final ValueChanged<AgentSession> onSelectSession;
@@ -29,6 +30,7 @@ class AgentSessionList extends StatelessWidget {
     required this.instancesHaveMore,
     required this.sessionsHaveMore,
     required this.error,
+    this.sessionCreation,
     required this.onInstanceChanged,
     required this.onRefresh,
     required this.onSelectSession,
@@ -80,6 +82,7 @@ class AgentSessionList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: DropdownButtonFormField<String>(
             initialValue: instanceFilter,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: strings.translate('All instances'),
               isDense: true,
@@ -93,7 +96,7 @@ class AgentSessionList extends StatelessWidget {
                 DropdownMenuItem(
                   value: instance.instanceId,
                   child: Text(
-                    '${instance.name.isEmpty ? instance.instanceId : instance.name} · '
+                    '${instance.name.isEmpty ? instance.instanceId : '${instance.name} · ${instance.instanceId}'} · '
                     '${context.tr(instance.online ? 'Online' : 'Offline')}',
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -109,6 +112,7 @@ class AgentSessionList extends StatelessWidget {
             style: Theme.of(context).textTheme.titleMedium,
           ),
         ),
+        ?sessionCreation,
         Expanded(
           child: AsyncView<List<AgentSession>>(
             loading: loading,
@@ -121,6 +125,13 @@ class AgentSessionList extends StatelessWidget {
               itemBuilder: (context, index) {
                 final session = values[index];
                 final selected = session.sessionId == selectedSessionId;
+                final scope = [
+                  context.tr('Instance: {id}', {'id': session.instanceId}),
+                  if (session.projectId.isNotEmpty)
+                    context.tr('Project: {project}', {
+                      'project': session.projectId,
+                    }),
+                ].join(' · ');
                 return ListTile(
                   selected: selected,
                   selectedTileColor: AppColors.accentBlue.withValues(
@@ -139,8 +150,7 @@ class AgentSessionList extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   subtitle: Text(
-                    '${session.projectId.isEmpty ? session.instanceId : session.projectId} · '
-                    '${session.status}',
+                    '$scope · ${session.status}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

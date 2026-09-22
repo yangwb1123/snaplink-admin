@@ -109,6 +109,44 @@ extension _ForgeRunsPanel on _ForgeSessionsScreenState {
                 ),
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton.icon(
+                      key: const ValueKey('forge-import-device-observation'),
+                      onPressed: _importOfflineDeviceObservation,
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(
+                        context.tr('Import offline device observation'),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey(
+                        'forge-import-runner-execution-observation',
+                      ),
+                      onPressed: _importOfflineRunnerExecutionIntent,
+                      icon: const Icon(Icons.code),
+                      label: Text(
+                        context.tr('Import Runner execution observation'),
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey(
+                        'forge-import-session-runner-receipt-observation',
+                      ),
+                      onPressed: _importOfflineSessionRunnerReceiptObservation,
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      label: Text(
+                        context.tr('Import session Runner receipt observation'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (_runTimelineError != null)
                 _runErrorMessage(context, _runTimelineError!),
               if (_loadingRunTimeline && _runEvents.isEmpty)

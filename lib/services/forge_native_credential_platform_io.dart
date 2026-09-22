@@ -1,3 +1,6 @@
 import 'dart:io';
 
-bool get supportsSecureCredentials => Platform.isAndroid || Platform.isIOS;
+import 'forge_credential_platform_policy.dart';
+
+bool get supportsSecureCredentials =>
+    supportsSecureForgeCredentialsForPlatform(Platform.operatingSystem);

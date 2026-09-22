@@ -194,6 +194,15 @@ class AgentDeviceDirectory extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.bodySmall,
             ),
+            if (device.instanceId.isNotEmpty)
+              Text(
+                context.tr('Device instance: {instance}', {
+                  'instance': device.instanceId,
+                }),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             const SizedBox(height: 8),
             Text(
               context.tr('CPU: {free} of {total} cores free', {

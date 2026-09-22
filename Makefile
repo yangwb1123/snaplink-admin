@@ -93,7 +93,7 @@ guard-count-pin:
 # 在真实浏览器运行全部 @TestOn('browser') 契约（适配层、联邦登录、
 # 账户 action、门户安全与 Admin → hosted-login resource 传递）
 test-browser:
-	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart test/agent_workspace_file_web_test.dart test/agent_workspace_api_test.dart test/agent_workspace_models_test.dart
+	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart test/agent_workspace_file_web_test.dart test/agent_workspace_api_test.dart test/agent_workspace_models_test.dart test/forge_web_gate_test.dart
 
 # 静态分析
 analyze:

@@ -3,7 +3,195 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'forge_device_inventory_models.dart';
+import 'forge_device_credential_candidate.dart';
 import 'forge_conversations_models.dart';
+import 'forge_client_instance_resource_view.dart';
+import 'forge_client_instance_session_view.dart';
+import 'forge_pending_run_intent.dart';
+import 'forge_run_observed.dart';
+import 'forge_run_attempt_lease_dispatch_preflight.dart';
+import 'forge_preflight_fixture.dart';
+import 'forge_local_runner_preview.dart';
+import 'forge_runner_dispatch_plan_preview.dart';
+import 'forge_session_device_observation_wire.dart';
+import 'forge_session_placement.dart';
+import 'forge_session_runner_receipt_observation.dart';
+import 'forge_execution_reconciliation_observation.dart';
+import 'forge_device_enrollment_heartbeat_lifecycle_registry.dart';
+
+part 'forge_conversations_api_transport.dart';
+part 'forge_conversations_device_observation_api.dart';
+part 'forge_conversations_client_instance_resource_view_api.dart';
+part 'forge_conversations_client_instance_session_view_api.dart';
+part 'forge_conversations_pending_intent_api.dart';
+part 'forge_conversations_execution_consent_api.dart';
+part 'forge_conversations_session_runner_receipt_api.dart';
+part 'forge_conversations_local_runner_preview_api.dart';
+part 'forge_conversations_run_attempt_lease_dispatch_preflight_api.dart';
+part 'forge_conversations_runner_dispatch_plan_preview_api.dart';
+part 'forge_conversations_run_observed_api.dart';
+part 'forge_conversations_execution_reconciliation_api.dart';
+part 'forge_conversations_lifecycle_registry_api.dart';
+part 'forge_conversations_registry_placement_preview_api.dart';
+part 'forge_conversations_device_credential_candidate_api.dart';
+
+/// Reads the explicitly injected, owner-bound inventory candidate.
+///
+/// The callback is intentionally supplied by the caller so the Sessions
+/// screen cannot invent an owner from a bearer token or silently enable the
+/// production `/devices` route. A production caller must keep this unset
+/// until the ADR-0114/P3b decision is accepted.
+typedef ForgeDeviceInventoryCandidateReader =
+    Future<ForgeDeviceInventoryPage> Function(ForgeDeviceOwner owner);
+
+/// Reads the explicitly injected, owner-bound lossless v2 inventory
+/// candidate. The callback stays unset by default so the production
+/// `/devices/observations/v2` route remains disabled until ADR-0114/P3b is
+/// accepted.
+typedef ForgeDeviceInventoryV2Reader =
+    Future<ForgeDeviceInventoryPageV2> Function(ForgeDeviceOwner owner);
+
+/// Reads one explicit owner-bound registry placement preview. The callback is
+/// intentionally separate from the v2 inventory reader because the HTTP
+/// response is a compact evaluation projection without the caller fixture's
+/// observation and requirements fields.
+typedef ForgeDeviceRegistryPlacementPreviewReader =
+    Future<ForgeDeviceRegistryPlacementPreview> Function(
+      ForgeDeviceOwner owner,
+      ForgeDevicePlacementRequirements requirements,
+    );
+
+/// Reads the explicitly injected, owner-bound client-instance/resource-view
+/// candidate. The callback remains unset by default so the production
+/// `/client-instances/resource-view` route cannot be reached accidentally.
+typedef ForgeClientInstanceResourceViewReader =
+    Future<ForgeClientInstanceResourceView> Function(ForgeDeviceOwner owner);
+
+/// Reads the explicitly injected, owner-bound client-instance/session-view
+/// candidate. The callback remains unset by default so the production
+/// `/client-instances/session-view` route cannot be reached accidentally.
+typedef ForgeClientInstanceSessionViewReader =
+    Future<ForgeClientInstanceSessionView> Function(ForgeDeviceOwner owner);
+
+/// Reads one caller-supplied, content-free Run observation for the selected
+/// owner Conversation/Run pair.
+///
+/// This callback is deliberately injected rather than bound to a production
+/// observer route. The Sessions screen re-decodes the returned value and
+/// checks its selected Conversation/Run binding before displaying it. Keep it
+/// unset until a reviewed read-only adapter is available.
+typedef ForgeRunObservedReader =
+    Future<ForgeRunObserved> Function(String conversationID, String runID);
+
+/// Reads one caller-supplied, owner-bound execution reconciliation preview.
+///
+/// The callback remains an explicit injection so the Sessions screen cannot
+/// derive a restart image from a bearer token or silently open the candidate
+/// route. The input contains the Conversation/Run/Attempt/lease binding and
+/// is re-decoded before the response is displayed.
+typedef ForgeExecutionReconciliationReader =
+    Future<ForgeExecutionReconciliationObservation> Function(
+      ForgeExecutionReconciliationInput input,
+    );
+
+/// Reads one owner-bound execution-consent preview for the selected
+/// Conversation. The callback remains an explicit candidate seam so a shared
+/// Sessions surface cannot reach the preview route unless its caller opts in.
+typedef ForgeExecutionConsentPreviewReader =
+    Future<ForgeExecutionConsentPreview> Function({
+      required ForgeDeviceOwner owner,
+      required String conversationID,
+    });
+
+/// Reads one explicitly supplied, owner-bound Runner dispatch-plan preview.
+///
+/// The request carries the Conversation/Run/Attempt/lease declaration that
+/// the candidate transport must bind to. The callback remains an injected
+/// candidate seam so the shared Sessions surface cannot reach the preview
+/// route unless a caller opts in explicitly.
+typedef ForgeRunnerDispatchPlanPreviewReader =
+    Future<ForgeRunnerDispatchPlanPreview> Function(
+      ForgeRunAttemptLeaseDispatchPreflightRequest request,
+    );
+
+/// Reads one explicitly supplied, owner/path-bound local Runner execution
+/// readiness preview. The request is a caller-declared Prompt/Run/lease
+/// binding; the callback must not mint a lease, persist a receipt, dispatch a
+/// command, or grant execution authority.
+typedef ForgeLocalRunnerPreviewReader =
+    Future<ForgeLocalRunnerPreviewObservation> Function(
+      ForgeLocalRunnerPreviewRequest request,
+    );
+
+/// Reads the explicitly injected owner-bound lifecycle registry candidate.
+/// The default Gate leaves this callback unset, so the candidate route is
+/// unreachable from normal Web/App/Mobile construction.
+typedef ForgeLifecycleRegistryReader =
+    Future<ForgeDeviceEnrollmentHeartbeatLifecycleRegistry> Function(
+      ForgeDeviceOwner owner,
+    );
+
+/// Posts one explicitly reviewed owner-bound credential lifecycle candidate.
+/// The request is metadata-only; the callback must not mint or persist a
+/// credential. Keeping this seam separate from the ordinary conversation
+/// client prevents the production Gate from reaching the injected candidate
+/// route accidentally.
+typedef ForgeDeviceCredentialLifecycleCandidateReader =
+    Future<ForgeDeviceCredentialLifecycleCandidate> Function({
+      required ForgeDeviceOwner owner,
+      required ForgeDeviceCredentialLifecycleRequest request,
+    });
+
+/// Reads the explicitly injected, owner-scoped pending Run-intent candidate.
+///
+/// The callback is intentionally supplied by the caller so the Sessions
+/// screen cannot silently opt the production route into the inert execution
+/// surface. It returns metadata only; the screen never receives a Prompt
+/// body, creates a Run, selects a device, or dispatches work. Keep this unset
+/// until the caller has an accepted governance decision for the candidate.
+typedef ForgePendingRunIntentReader =
+    Future<ForgePendingRunIntentListPage> Function(String conversationID);
+
+/// Reads one bounded owner-scoped pending Run-intent page.
+///
+/// The nullable cursor is `null` for the first page and must be passed back
+/// from the prior response for older pages. The callback remains an explicit
+/// injection so adding read pagination cannot silently enable the production
+/// `/run-intents` route before its governance decision is accepted.
+typedef ForgePendingRunIntentPageReader =
+    Future<ForgePendingRunIntentListPage> Function(
+      String conversationID,
+      ForgePendingRunIntentCursor? before,
+    );
+
+/// Reads one owner-scoped, payload-free pending Run-intent timeline.
+///
+/// The callback is intentionally supplied by the caller and is invoked only
+/// after an owner expands one receipt in the Sessions surface. The screen
+/// never receives Prompt content, creates a Run, selects a device, or
+/// dispatches work. Keep this unset until the caller has an accepted
+/// governance decision for the candidate.
+typedef ForgePendingRunIntentTimelineReader =
+    Future<ForgePendingRunIntentTimelinePage> Function(
+      String conversationID,
+      String intentID,
+    );
+
+/// Submits one explicit, owner-bound pending Run-intent candidate.
+///
+/// The submitter is kept as a Gate seam so the shared Sessions surface cannot
+/// silently expose the write route in production. The server receipt remains
+/// inert: it creates no Run, selects no device, and grants no execution
+/// authority.
+typedef ForgePendingRunIntentSubmitter =
+    Future<ForgePendingRunIntentSubmission> Function({
+      required ForgeDeviceOwner owner,
+      required String conversationID,
+      required String content,
+      required int expectedVersion,
+      required String idempotencyKey,
+    });
 
 class ForgeConversationsApiException implements Exception {
   final int statusCode;
@@ -28,7 +216,6 @@ class ForgeConversationsApiException implements Exception {
 /// one request after a 401; write retries preserve the original idempotency
 /// key so the authorization retry cannot create a second operation.
 class ForgeConversationsApi {
-  static const int _maxResponseBytes = 1024 * 1024;
   static const int maxPageSize = 128;
   static const int maxRunPageSize = 25;
   static const int maxRunTimelinePageSize = 128;
@@ -75,6 +262,21 @@ class ForgeConversationsApi {
     );
   }
 
+  Future<ForgeOwnedConversation> getConversation({
+    required String conversationID,
+  }) async {
+    if (!_validConversationRequestID(conversationID)) {
+      throw ArgumentError.value(conversationID, 'conversationID');
+    }
+    final path = '/conversations/${Uri.encodeComponent(conversationID)}';
+    final root = await _requestJson('GET', path);
+    final entry = ForgeOwnedConversation.fromJson(root);
+    if (entry.conversation.id != conversationID) {
+      throw const FormatException('Forge returned another conversation.');
+    }
+    return entry;
+  }
+
   Future<ForgeConversationChangePage> conversationChanges({
     required int afterCursor,
     int limit = 100,
@@ -119,6 +321,15 @@ class ForgeConversationsApi {
     int limit = 100,
   }) async {
     final boundedLimit = _boundedLimit(limit);
+    if (!_validConversationRequestID(conversationID)) {
+      throw ArgumentError.value(conversationID, 'conversationID');
+    }
+    if (before != null &&
+        (before.createdAtMS < 0 ||
+            before.createdAtMS > 9007199254740991 ||
+            !_validConversationRequestID(before.promptID))) {
+      throw ArgumentError.value(before, 'before');
+    }
     final query = <String, String>{'limit': boundedLimit.toString()};
     if (before != null) {
       query['before_created_at_ms'] = before.createdAtMS.toString();
@@ -207,6 +418,18 @@ class ForgeConversationsApi {
     required int expectedVersion,
     required String idempotencyKey,
   }) async {
+    if (!_validConversationRequestID(conversationID)) {
+      throw ArgumentError.value(conversationID, 'conversationID');
+    }
+    if (content.trim().isEmpty || utf8.encode(content).length > 256 * 1024) {
+      throw ArgumentError.value(content, 'content');
+    }
+    if (!_validIdempotencyKey(idempotencyKey)) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey');
+    }
+    if (expectedVersion < 1 || expectedVersion > 9007199254740991) {
+      throw ArgumentError.value(expectedVersion, 'expectedVersion');
+    }
     final path =
         '/conversations/${Uri.encodeComponent(conversationID)}/prompts';
     final root = await _requestJson(
@@ -219,11 +442,58 @@ class ForgeConversationsApi {
     final result = ForgePromptAppendResult.fromJson(root);
     if (result.prompt.conversationID != conversationID ||
         result.prompt.content != content ||
-        result.prompt.role != 'user') {
+        result.prompt.role != 'user' ||
+        result.aggregateVersion != expectedVersion + 1) {
       throw const FormatException('Forge returned an invalid prompt result.');
     }
     return result;
   }
+
+  /// Submits one caller-supplied, offline placement declaration for an
+  /// authenticated comparison. The server must bind the declaration owner to
+  /// its verified Snaplink principal; this method never treats the result as
+  /// inventory, reservation, scheduling, or execution authority.
+  Future<ForgeDevicePlacementResult> previewDevicePlacement({
+    required ForgeDevicePlacementRequest request,
+  }) async {
+    // Keep the client-side contract fail-closed before sending malformed
+    // declarations, while still using the server as the authoritative owner
+    // boundary and evaluator.
+    final validatedRequest = ForgeDevicePlacementRequest.fromJson(
+      request.toJson(),
+    );
+    final expected = dryRunForgeDevicePlacement(validatedRequest);
+    final root = await _requestJson(
+      'POST',
+      '/device-placement/preview',
+      body: validatedRequest.toJson(),
+    );
+    final result = ForgeDevicePlacementResult.fromJson(root);
+    final expectedDeviceIDs = validatedRequest.devices
+        .map((device) => device.deviceID)
+        .toSet();
+    if (result.owner != validatedRequest.owner ||
+        result.evaluatedAtMS != validatedRequest.evaluatedAtMS ||
+        result.deviceResults.length != validatedRequest.devices.length ||
+        result.deviceResults.map((device) => device.deviceID).toSet().length !=
+            expectedDeviceIDs.length ||
+        result.deviceResults.any(
+          (device) => !expectedDeviceIDs.contains(device.deviceID),
+        ) ||
+        !_samePlacementPreview(result, expected)) {
+      throw const FormatException('Forge returned another placement preview.');
+    }
+    return result;
+  }
+
+  /// The preview route is a deterministic P3a comparison over the exact
+  /// caller declaration. Keep a server response from silently changing the
+  /// eligibility or exclusion projection before it reaches a shared client.
+  /// The route still has no inventory, reservation, or execution authority.
+  bool _samePlacementPreview(
+    ForgeDevicePlacementResult actual,
+    ForgeDevicePlacementResult expected,
+  ) => jsonEncode(actual.toJson()) == jsonEncode(expected.toJson());
 
   Future<ForgeJson> _requestJson(
     String method,
@@ -232,6 +502,7 @@ class ForgeConversationsApi {
     Map<String, dynamic>? body,
     String? idempotencyKey,
     Set<int> expectedStatuses = const {200},
+    bool retryUnauthorized = true,
   }) async {
     final uri = _origin.resolve('/api/v1$path').replace(queryParameters: query);
     final initialAccessToken = _currentAccessToken();
@@ -242,14 +513,16 @@ class ForgeConversationsApi {
         message: 'The Forge session has expired. Sign in again.',
       );
     }
-    var response = await _sendRequest(
+    var response = await _sendWithReadRetry(
       method,
       uri,
       body: body,
       idempotencyKey: idempotencyKey,
       bearerToken: initialAccessToken,
     );
-    if (response.statusCode == 401 && refreshAccessToken != null) {
+    if (response.statusCode == 401 &&
+        refreshAccessToken != null &&
+        retryUnauthorized) {
       String? rotatedAccessToken;
       try {
         rotatedAccessToken = await refreshAccessToken!(initialAccessToken);
@@ -264,7 +537,7 @@ class ForgeConversationsApi {
       if (rotatedAccessToken != null &&
           _isSafeBearerToken(rotatedAccessToken) &&
           rotatedAccessToken != initialAccessToken) {
-        response = await _sendRequest(
+        response = await _sendWithReadRetry(
           method,
           uri,
           body: body,
@@ -287,7 +560,7 @@ class ForgeConversationsApi {
         message: 'Forge redirected the request; the response was rejected.',
       );
     }
-    final root = _decodeRoot(response.body);
+    final root = _decodeRootResponse(response);
     if (response.statusCode >= 400) {
       throw _decodeError(response.statusCode, root);
     }
@@ -301,43 +574,6 @@ class ForgeConversationsApi {
     return root;
   }
 
-  Future<http.Response> _sendRequest(
-    String method,
-    Uri uri, {
-    required String bearerToken,
-    Map<String, dynamic>? body,
-    String? idempotencyKey,
-  }) async {
-    final request = http.Request(method, uri)
-      ..followRedirects = false
-      ..headers.addAll({
-        'Accept': 'application/json',
-        'Authorization': 'Bearer $bearerToken',
-        'Cache-Control': 'no-store',
-        if (body != null) 'Content-Type': 'application/json',
-        'Idempotency-Key': ?idempotencyKey,
-      });
-    if (body != null) request.body = jsonEncode(body);
-    try {
-      final streamed = await _http.send(request).timeout(timeout);
-      return await _readBounded(streamed).timeout(timeout);
-    } on TimeoutException {
-      throw const ForgeConversationsApiException(
-        statusCode: 0,
-        code: 'request_timeout',
-        message: 'Forge did not respond in time.',
-      );
-    } on ForgeConversationsApiException {
-      rethrow;
-    } on Exception {
-      throw const ForgeConversationsApiException(
-        statusCode: 0,
-        code: 'network_error',
-        message: 'Could not reach Forge.',
-      );
-    }
-  }
-
   String _currentAccessToken() {
     final current = accessTokenProvider?.call();
     final token = accessTokenProvider == null || current == null
@@ -346,42 +582,8 @@ class ForgeConversationsApi {
     return _rejectedAccessTokens.contains(token) ? '' : token;
   }
 
-  Future<http.Response> _readBounded(http.StreamedResponse streamed) async {
-    final reader = StreamIterator<List<int>>(streamed.stream);
-    if ((streamed.contentLength ?? 0) > _maxResponseBytes) {
-      await reader.cancel();
-      throw const ForgeConversationsApiException(
-        statusCode: 502,
-        code: 'response_too_large',
-        message: 'Forge response exceeded the size limit.',
-      );
-    }
-    final bytes = <int>[];
-    try {
-      while (await reader.moveNext()) {
-        final chunk = reader.current;
-        if (bytes.length + chunk.length > _maxResponseBytes) {
-          throw const ForgeConversationsApiException(
-            statusCode: 502,
-            code: 'response_too_large',
-            message: 'Forge response exceeded the size limit.',
-          );
-        }
-        bytes.addAll(chunk);
-      }
-    } finally {
-      await reader.cancel();
-    }
-    return http.Response(
-      utf8.decode(bytes, allowMalformed: false),
-      streamed.statusCode,
-      headers: streamed.headers,
-      request: streamed.request,
-      reasonPhrase: streamed.reasonPhrase,
-    );
-  }
-
   ForgeJson _decodeRoot(String body) {
+    _rejectDuplicateForgeJsonKeys(body);
     final decoded = jsonDecode(body);
     if (decoded is! Map) {
       throw const FormatException('Invalid Forge API response.');
@@ -402,7 +604,6 @@ class ForgeConversationsApi {
   }
 
   static int _boundedLimit(int value) => value.clamp(1, maxPageSize);
-
   static Uri _parseOrigin(String value) {
     final uri = Uri.tryParse(value.trim());
     final host = uri?.host.toLowerCase() ?? '';
@@ -448,7 +649,230 @@ bool _validRunRequestID(String value) =>
 bool _validConversationRequestID(String value) =>
     _validRunRequestID(value) && !value.contains('/');
 
+bool _validIdempotencyKey(String value) =>
+    value.isNotEmpty &&
+    value == value.trim() &&
+    utf8.encode(value).length <= 256 &&
+    !value.runes.any((rune) => rune < 0x20 || (rune >= 0x7f && rune <= 0x9f));
+
 bool _isSafeBearerToken(String value) =>
     value.isNotEmpty &&
     value == value.trim() &&
     !value.contains(RegExp(r'[\r\n]'));
+
+/// Dart's JSON decoder keeps the last value when an object repeats a key.
+/// Forge responses are owner-scoped contracts, so accepting that ambiguity
+/// could let a later field silently replace a validated earlier field. Scan
+/// the raw response first and reject duplicate keys at every object depth.
+void _rejectDuplicateForgeJsonKeys(String body) {
+  _ForgeJsonDuplicateKeyScanner(body).scan();
+}
+
+bool _isForgeJsonWhitespace(String value) =>
+    value == ' ' || value == '\t' || value == '\r' || value == '\n';
+
+/// A small JSON grammar scanner used only to detect repeated object keys.
+///
+/// A character search is insufficient here: braces and quoted colons are
+/// ordinary string data, and escaped key spellings such as `"a"` and
+/// `"\\u0061"` identify the same JSON member. The scanner follows the JSON
+/// structure and decodes only member names; the normal decoder still owns the
+/// final response shape/type validation.
+class _ForgeJsonDuplicateKeyScanner {
+  final String _body;
+  var _index = 0;
+
+  _ForgeJsonDuplicateKeyScanner(this._body);
+
+  void scan() {
+    _skipWhitespace();
+    _scanValue();
+    _skipWhitespace();
+    if (_index != _body.length) {
+      throw const FormatException('Forge returned invalid JSON.');
+    }
+  }
+
+  void _scanValue() {
+    if (_index >= _body.length) {
+      throw const FormatException('Forge returned invalid JSON.');
+    }
+    switch (_body[_index]) {
+      case '{':
+        _scanObject();
+      case '[':
+        _scanArray();
+      case '"':
+        _scanString();
+      case 't':
+        _scanLiteral('true');
+      case 'f':
+        _scanLiteral('false');
+      case 'n':
+        _scanLiteral('null');
+      default:
+        _scanNumber();
+    }
+  }
+
+  void _scanObject() {
+    _index++; // {
+    _skipWhitespace();
+    final keys = <String>{};
+    if (_consume('}')) return;
+    while (true) {
+      if (_index >= _body.length || _body[_index] != '"') {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+      final key = _scanString();
+      if (!keys.add(key)) {
+        throw const FormatException('Forge returned duplicate JSON fields.');
+      }
+      _skipWhitespace();
+      _expect(':');
+      _skipWhitespace();
+      _scanValue();
+      _skipWhitespace();
+      if (_consume('}')) return;
+      _expect(',');
+      _skipWhitespace();
+    }
+  }
+
+  void _scanArray() {
+    _index++; // [
+    _skipWhitespace();
+    if (_consume(']')) return;
+    while (true) {
+      _scanValue();
+      _skipWhitespace();
+      if (_consume(']')) return;
+      _expect(',');
+      _skipWhitespace();
+    }
+  }
+
+  String _scanString() {
+    final start = _index;
+    _expect('"');
+    while (_index < _body.length) {
+      final character = _body[_index++];
+      if (character == '"') {
+        final decoded = jsonDecode(_body.substring(start, _index));
+        if (decoded is! String) {
+          throw const FormatException('Forge returned invalid JSON.');
+        }
+        return decoded;
+      }
+      if (character == '\\') {
+        if (_index >= _body.length) {
+          throw const FormatException('Forge returned invalid JSON.');
+        }
+        final escaped = _body[_index++];
+        if (escaped == 'u') {
+          if (_index + 4 > _body.length) {
+            throw const FormatException('Forge returned invalid JSON.');
+          }
+          for (var digit = 0; digit < 4; digit++) {
+            if (!_isHexDigit(_body[_index++])) {
+              throw const FormatException('Forge returned invalid JSON.');
+            }
+          }
+        } else if (!'"\\/bfnrt'.contains(escaped)) {
+          throw const FormatException('Forge returned invalid JSON.');
+        }
+        continue;
+      }
+      if (character.codeUnitAt(0) < 0x20) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+    }
+    throw const FormatException('Forge returned invalid JSON.');
+  }
+
+  void _scanLiteral(String literal) {
+    if (!_body.startsWith(literal, _index)) {
+      throw const FormatException('Forge returned invalid JSON.');
+    }
+    _index += literal.length;
+  }
+
+  void _scanNumber() {
+    final start = _index;
+    if (_consume('-')) {
+      if (_index >= _body.length) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+    }
+    if (_consume('0')) {
+      if (_index < _body.length && _isDigit(_body[_index])) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+    } else {
+      if (_index >= _body.length || !_isNonZeroDigit(_body[_index])) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
+    }
+    if (_consume('.')) {
+      if (_index >= _body.length || !_isDigit(_body[_index])) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
+    }
+    if (_index < _body.length &&
+        (_body[_index] == 'e' || _body[_index] == 'E')) {
+      _index++;
+      if (_index < _body.length &&
+          (_body[_index] == '+' || _body[_index] == '-')) {
+        _index++;
+      }
+      if (_index >= _body.length || !_isDigit(_body[_index])) {
+        throw const FormatException('Forge returned invalid JSON.');
+      }
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
+    }
+    if (_index == start) {
+      throw const FormatException('Forge returned invalid JSON.');
+    }
+  }
+
+  void _skipWhitespace() {
+    while (_index < _body.length && _isForgeJsonWhitespace(_body[_index])) {
+      _index++;
+    }
+  }
+
+  void _expect(String character) {
+    if (!_consume(character)) {
+      throw const FormatException('Forge returned invalid JSON.');
+    }
+  }
+
+  bool _consume(String character) {
+    if (_index < _body.length && _body[_index] == character) {
+      _index++;
+      return true;
+    }
+    return false;
+  }
+
+  static bool _isDigit(String character) =>
+      character.codeUnitAt(0) >= 0x30 && character.codeUnitAt(0) <= 0x39;
+
+  static bool _isNonZeroDigit(String character) =>
+      character.codeUnitAt(0) >= 0x31 && character.codeUnitAt(0) <= 0x39;
+
+  static bool _isHexDigit(String character) {
+    final code = character.codeUnitAt(0);
+    return (code >= 0x30 && code <= 0x39) ||
+        (code >= 0x41 && code <= 0x46) ||
+        (code >= 0x61 && code <= 0x66);
+  }
+}

@@ -10,6 +10,7 @@ const _maxForgeConversationPageSize = 128;
 const _maxForgePromptPageSize = 128;
 const _maxForgeRunPageSize = 25;
 const _maxForgeRunTimelinePageSize = 128;
+const _maxForgeExecutionConsentTTLMS = 30 * 24 * 60 * 60 * 1000;
 
 const _forgeRunStatuses = {
   'nonterminal',
@@ -87,15 +88,20 @@ class ForgeConversation {
       'created_at_ms',
       'updated_at_ms',
     });
+    final createdAtMS = _requiredNonNegativeInt(json, 'created_at_ms');
+    final updatedAtMS = _requiredNonNegativeInt(json, 'updated_at_ms');
     final conversation = ForgeConversation(
       id: _requiredExactText(json, 'id'),
       scope: ForgeConversationScope.fromJson(_requiredObject(json, 'scope')),
       title: _requiredExactText(json, 'title'),
-      createdAtMS: _requiredNonNegativeInt(json, 'created_at_ms'),
-      updatedAtMS: _requiredNonNegativeInt(json, 'updated_at_ms'),
+      createdAtMS: createdAtMS,
+      updatedAtMS: updatedAtMS,
     );
     if (!_validConversationID(conversation.id) ||
-        conversation.title.trim().isEmpty) {
+        conversation.title.trim().isEmpty ||
+        updatedAtMS < createdAtMS ||
+        createdAtMS > _maxSafeForgeCursor ||
+        updatedAtMS > _maxSafeForgeCursor) {
       throw const FormatException('Invalid Forge conversation.');
     }
     return conversation;
@@ -120,6 +126,66 @@ class ForgeOwnedConversation {
       aggregateVersion: _requiredPositiveInt(json, 'aggregate_version'),
     );
   }
+}
+
+/// The read-only execution-consent preview returned for one owned
+/// Conversation. This candidate is metadata only: it does not grant consent,
+/// create a Run, select a device, or release execution authority.
+///
+/// Keep this DTO closed because the preview is also the exact input contract
+/// for the later explicit consent confirmation. Unknown fields must not be
+/// silently carried into a confirmation flow.
+class ForgeExecutionConsentPreview {
+  final String conversationID;
+  final String projectID;
+  final String profileID;
+  final String profileSHA256;
+  final int maximumTTLMS;
+
+  const ForgeExecutionConsentPreview({
+    required this.conversationID,
+    required this.projectID,
+    required this.profileID,
+    required this.profileSHA256,
+    required this.maximumTTLMS,
+  });
+
+  factory ForgeExecutionConsentPreview.fromJson(ForgeJson json) {
+    _requireExactKeys(json, const {
+      'conversation_id',
+      'project_id',
+      'profile_id',
+      'profile_sha256',
+      'maximum_ttl_ms',
+    });
+    final conversationID = _requiredExactText(json, 'conversation_id');
+    final projectID = _requiredExactText(json, 'project_id');
+    final profileID = _requiredExactText(json, 'profile_id');
+    final profileSHA256 = _requiredExactText(json, 'profile_sha256');
+    final maximumTTLMS = _requiredPositiveInt(json, 'maximum_ttl_ms');
+    if (!_validConversationID(conversationID) ||
+        !_validConversationID(projectID) ||
+        !_validConversationID(profileID) ||
+        !RegExp(r'^[0-9a-f]{64}$').hasMatch(profileSHA256) ||
+        maximumTTLMS > _maxForgeExecutionConsentTTLMS) {
+      throw const FormatException('Invalid Forge execution consent preview.');
+    }
+    return ForgeExecutionConsentPreview(
+      conversationID: conversationID,
+      projectID: projectID,
+      profileID: profileID,
+      profileSHA256: profileSHA256,
+      maximumTTLMS: maximumTTLMS,
+    );
+  }
+
+  ForgeJson toJson() => {
+    'conversation_id': conversationID,
+    'project_id': projectID,
+    'profile_id': profileID,
+    'profile_sha256': profileSHA256,
+    'maximum_ttl_ms': maximumTTLMS,
+  };
 }
 
 class ForgeConversationPage {
@@ -188,13 +254,11 @@ class ForgePromptCursor {
   factory ForgePromptCursor.fromJson(ForgeJson json) {
     _requireExactKeys(json, const {'created_at_ms', 'prompt_id'});
     final createdAtMS = _requiredNonNegativeInt(json, 'created_at_ms');
-    if (createdAtMS > _maxSafeForgeCursor) {
+    final promptID = _requiredExactText(json, 'prompt_id');
+    if (createdAtMS > _maxSafeForgeCursor || !_validFeedID(promptID)) {
       throw const FormatException('Invalid Forge prompt cursor.');
     }
-    return ForgePromptCursor(
-      createdAtMS: createdAtMS,
-      promptID: _requiredExactText(json, 'prompt_id'),
-    );
+    return ForgePromptCursor(createdAtMS: createdAtMS, promptID: promptID);
   }
 }
 
@@ -693,6 +757,7 @@ class ForgePromptAppendResult {
   });
 
   factory ForgePromptAppendResult.fromJson(ForgeJson json) {
+    _requireExactKeys(json, const {'prompt', 'aggregate_version', 'replayed'});
     final replayed = json['replayed'];
     if (replayed is! bool) {
       throw const FormatException('Invalid Forge prompt response.');
@@ -745,7 +810,13 @@ class ForgeConversationChange {
     }
     final conversationID = _requiredText(json, 'conversation_id');
     final entityID = _requiredText(json, 'entity_id');
-    if (!_validFeedID(conversationID) ||
+    final aggregateVersion = _requiredPositiveInt(json, 'aggregate_version');
+    final createdAtMS = _requiredNonNegativeInt(json, 'created_at_ms');
+    if (cursor > _maxSafeForgeCursor ||
+        schemaVersion > _maxSafeForgeCursor ||
+        aggregateVersion > _maxSafeForgeCursor ||
+        createdAtMS > _maxSafeForgeCursor ||
+        !_validFeedID(conversationID) ||
         !_validFeedID(entityID) ||
         (kind == 'conversation_created' && entityID != conversationID)) {
       throw const FormatException('Invalid Forge conversation change IDs.');
@@ -755,9 +826,9 @@ class ForgeConversationChange {
       schemaVersion: schemaVersion,
       conversationID: conversationID,
       entityID: entityID,
-      aggregateVersion: _requiredPositiveInt(json, 'aggregate_version'),
+      aggregateVersion: aggregateVersion,
       kind: kind,
-      createdAtMS: _requiredNonNegativeInt(json, 'created_at_ms'),
+      createdAtMS: createdAtMS,
     );
   }
 }
@@ -941,7 +1012,7 @@ int _requiredNonNegativeInt(ForgeJson json, String key) {
 
 int _requiredPositiveInt(ForgeJson json, String key) {
   final value = json[key];
-  if (value is! int || value < 1) {
+  if (value is! int || value < 1 || value > _maxSafeForgeCursor) {
     throw FormatException('Invalid Forge response field: $key.');
   }
   return value;

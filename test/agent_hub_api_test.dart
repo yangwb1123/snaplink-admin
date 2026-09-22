@@ -393,6 +393,60 @@ void main() {
       expect(error.code, 'response_too_large');
     },
   );
+  test('reschedules a queued task with the shared compute contract', () async {
+    late http.Request request;
+    final api = AgentHubApi(
+      baseUrl: 'https://hub.example',
+      accessToken: 'token',
+      httpClient: MockClient((value) async {
+        request = value;
+        return jsonResponse({
+          'data': {
+            'task_id': 'task-1',
+            'session_id': 'session-1',
+            'state': 'queued',
+            'target_device_id': 'device-2',
+          },
+        }, status: 202);
+      }),
+    );
+    addTearDown(api.close);
+    final task = await api.rescheduleTask('task-1', targetDeviceId: 'device-2');
+    expect(request.method, 'POST');
+    expect(request.url.path, '/api/v1/agent/tasks/task-1/reschedule');
+    expect(request.body, '{"target_device_id":"device-2"}');
+    expect(task.taskId, 'task-1');
+    expect(task.targetDeviceId, 'device-2');
+    expect(task.canReschedule, isTrue);
+  });
+  test('retries a lost task only with duplicate confirmation', () async {
+    late http.Request request;
+    final api = AgentHubApi(
+      baseUrl: 'https://hub.example',
+      accessToken: 'token',
+      httpClient: MockClient((value) async {
+        request = value;
+        return jsonResponse({
+          'data': {
+            'task_id': 'task-lost',
+            'session_id': 'session-1',
+            'state': 'queued',
+          },
+        }, status: 202);
+      }),
+    );
+    addTearDown(api.close);
+    expect(
+      () => api.retryLostTask('task-lost', confirmDuplicate: false),
+      throwsArgumentError,
+    );
+    final task = await api.retryLostTask('task-lost', confirmDuplicate: true);
+    expect(request.method, 'POST');
+    expect(request.url.path, '/api/v1/agent/tasks/task-lost/retry');
+    expect(request.body, '{"target_device_id":"","confirm_duplicate":true}');
+    expect(task.taskId, 'task-lost');
+    expect(task.canRetry, isFalse);
+  });
 }
 
 Future<AgentHubApiException> _captureApiError(Future<Object?> operation) async {

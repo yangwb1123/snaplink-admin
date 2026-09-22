@@ -108,8 +108,8 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     if (!stored) {
       _update(
         () => _error =
-            'Sign-in succeeded, but this device cannot securely store the '
-            'session. Enable secure storage and try again.',
+            'Sign-in succeeded, but this device\'s secure credential store is '
+            'unavailable. Check the OS keychain or keyring and try again.',
       );
       return;
     }

@@ -25,6 +25,12 @@ Map<String, Object> _ownedConversation() => {
   'aggregate_version': 1,
 };
 
+String _timelineToken(String subject) {
+  String encode(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
+  return '${encode({'alg': 'none'})}.${encode({'iss': 'https://issuer.example', 'tenant_id': 'tenant-timeline', 'sub': subject})}.signature';
+}
+
 Map<String, Object> _run(
   String id,
   int createdAtMS, {
@@ -313,4 +319,107 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+    'resumes a Run timeline from its owner checkpoint after recreation',
+    (tester) async {
+      final token = _timelineToken('timeline-reconnect-user');
+      final timelineCursors = <String>[];
+      final client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_ownedConversation()],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/prompts') {
+          return _json({
+            'conversation_id': 'conversation-1',
+            'prompts': <Object>[],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations/conversation-1/runs') {
+          return _json({
+            'conversation_id': 'conversation-1',
+            'runs': [_run('run-reconnect', 20, latestSequence: 3)],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/runs/run-reconnect/timeline') {
+          final after = request.url.queryParameters['after_sequence']!;
+          timelineCursors.add(after);
+          if (after == '0') {
+            return _json({
+              'conversation_id': 'conversation-1',
+              'run_id': 'run-reconnect',
+              'after_sequence': 0,
+              'scanned_through_sequence': 2,
+              'has_more': false,
+              'events': [_event(1, 'run_started'), _event(2, 'activity')],
+            });
+          }
+          if (after == '2') {
+            return _json({
+              'conversation_id': 'conversation-1',
+              'run_id': 'run-reconnect',
+              'after_sequence': 2,
+              'scanned_through_sequence': 3,
+              'has_more': false,
+              'events': [_event(3, 'run_finished')],
+            });
+          }
+        }
+        throw StateError(
+          'Unexpected Forge request: ${request.method} ${request.url}',
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: token,
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+          ),
+        ),
+      );
+      await _pumpRequests(tester);
+      expect(timelineCursors, ['0']);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('forge-run-run-reconnect')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('activity'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: token,
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+          ),
+        ),
+      );
+      await _pumpRequests(tester);
+      await tester.scrollUntilVisible(
+        find.text('run_finished'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('run_finished'), findsOneWidget);
+      expect(timelineCursors, ['0', '2']);
+    },
+  );
 }

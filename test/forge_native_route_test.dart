@@ -12,6 +12,7 @@ import 'package:sso_admin/api/oidc_login_api.dart';
 import 'package:sso_admin/services/app_navigator.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_credential_store.dart';
 import 'package:sso_admin/services/product_entry_route.dart';
 import 'package:sso_admin/session.dart';
 
@@ -111,8 +112,25 @@ void main() {
     addTearDown(loginApi.close);
     final forgeClient = MockClient((request) async {
       expect(request.method, 'GET');
-      expect(request.url.path, '/api/v1/conversations');
-      return http.Response('{"conversations":[],"has_more":false}', 200);
+      switch (request.url.path) {
+        case '/api/v1/conversations':
+          return http.Response(
+            '{"conversations":[{"conversation":{"id":"c1","scope":{"kind":"global"},"title":"Private work","created_at_ms":10,"updated_at_ms":20},"aggregate_version":1}],"has_more":false}',
+            200,
+          );
+        case '/api/v1/conversations/c1/prompts':
+          return http.Response(
+            '{"conversation_id":"c1","prompts":[{"id":"p1","conversation_id":"c1","role":"user","content":"secret","created_at_ms":30}],"has_more":false}',
+            200,
+          );
+        case '/api/v1/conversations/c1/runs':
+          return http.Response(
+            '{"conversation_id":"c1","runs":[],"has_more":false}',
+            200,
+          );
+        default:
+          throw StateError('Unexpected Forge request: ${request.url}');
+      }
     });
     addTearDown(forgeClient.close);
     final revokeRequests = <http.Request>[];
@@ -143,6 +161,11 @@ void main() {
                 httpClient: forgeClient,
                 oauthHttpClient: oauthClient,
                 oauthRevocationTimeout: const Duration(milliseconds: 25),
+                // This route test exercises navigation and revocation. Keep
+                // the host's real keyring out of the test process.
+                credentialStore: ForgeCredentialStore(
+                  forcePersistentStorage: false,
+                ),
               ),
             );
           }
@@ -169,7 +192,13 @@ void main() {
       await tester.pump();
     }
     await tester.pumpAndSettle();
+    expect(find.text('Private work'), findsWidgets);
+    expect(find.text('secret'), findsOneWidget);
     await tester.tap(find.byTooltip('Sign out of Forge on this device'));
+    await tester.pump();
+    expect(find.text('Private work'), findsNothing);
+    expect(find.text('secret'), findsNothing);
+    expect(find.text('Signing out of Forge…'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpAndSettle();
 

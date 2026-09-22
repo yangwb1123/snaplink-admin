@@ -5,12 +5,16 @@ class AgentInstance {
   final String name;
   final String projectId;
   final bool online;
+  final int sessionCapacity;
+  final bool sessionCloseSupported;
 
   const AgentInstance({
     required this.instanceId,
     required this.name,
     required this.projectId,
     required this.online,
+    this.sessionCapacity = 0,
+    this.sessionCloseSupported = false,
   });
 
   factory AgentInstance.fromJson(AgentJson json) => AgentInstance(
@@ -18,7 +22,25 @@ class AgentInstance {
     name: _optionalText(json, 'name'),
     projectId: _optionalText(json, 'project_id'),
     online: json['online'] == true,
+    sessionCapacity: _capacity(json['session_capacity']),
+    sessionCloseSupported: _closeSupported(json['session_close_supported']),
   );
+}
+
+bool _closeSupported(dynamic value) {
+  if (value == null) return false;
+  if (value is! bool) {
+    throw const FormatException('Invalid Agent session close capability.');
+  }
+  return value;
+}
+
+int _capacity(dynamic value) {
+  if (value == null) return 0;
+  if (value is! int || value < 0 || value > 8) {
+    throw const FormatException('Invalid Agent session capacity.');
+  }
+  return value;
 }
 
 class AgentSession {
@@ -30,6 +52,7 @@ class AgentSession {
   final String status;
   final bool controllable;
   final String activeTurnId;
+  final bool frozen;
 
   const AgentSession({
     required this.sessionId,
@@ -40,6 +63,7 @@ class AgentSession {
     required this.status,
     required this.controllable,
     this.activeTurnId = '',
+    this.frozen = false,
   });
 
   factory AgentSession.fromJson(AgentJson json) => AgentSession(
@@ -51,6 +75,7 @@ class AgentSession {
     status: _optionalText(json, 'status', fallback: 'unknown'),
     controllable: json['controllable'] == true,
     activeTurnId: _optionalText(json, 'active_turn_id'),
+    frozen: json['frozen'] == true,
   );
 }
 

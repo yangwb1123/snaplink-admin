@@ -12,6 +12,7 @@ import 'package:sso_admin/services/forge_oauth_token_refresh.dart';
 import 'package:sso_admin/session.dart';
 
 import 'support/memory_forge_credential_backend.dart';
+import 'support/memory_forge_refresh_lock.dart';
 
 http.Response _tokenReply({
   String accessToken = 'new-access',
@@ -26,6 +27,9 @@ http.Response _tokenReply({
   200,
   headers: const {'content-type': 'application/json'},
 );
+
+ForgeCredentialStore _memoryCredentialStore() =>
+    ForgeCredentialStore(forcePersistentStorage: false);
 
 void main() {
   setUp(() {
@@ -42,6 +46,7 @@ void main() {
       late http.Request sentRequest;
       final service = ForgeOAuthTokenRefresh(
         baseUrl: 'https://sso.example',
+        credentialStore: _memoryCredentialStore(),
         httpClient: MockClient((request) async {
           sentRequest = request;
           return _tokenReply();
@@ -125,6 +130,108 @@ void main() {
   );
 
   test(
+    'sign-out waits for an in-flight rotation before clearing storage',
+    () async {
+      final backend = MemoryForgeCredentialBackend();
+      final lock = MemoryForgeRefreshLock();
+      final credentialStore = ForgeCredentialStore(
+        backend: backend,
+        forcePersistentStorage: true,
+        refreshLock: lock,
+      );
+      await credentialStore.store(
+        accessToken: 'old-access',
+        refreshToken: 'old-refresh',
+        sessionId: 'forge-session',
+      );
+
+      final requestStarted = Completer<void>();
+      final tokenResponse = Completer<http.Response>();
+      final service = ForgeOAuthTokenRefresh(
+        baseUrl: 'https://sso.example',
+        credentialStore: credentialStore,
+        httpClient: MockClient((request) {
+          expect(request.url.path, '/token');
+          requestStarted.complete();
+          return tokenResponse.future;
+        }),
+      );
+      addTearDown(service.close);
+
+      final refresh = service.refreshAfterUnauthorized('old-access');
+      await requestStarted.future;
+
+      final clear = credentialStore.clear();
+      await Future<void>.delayed(Duration.zero);
+      expect(lock.active, 1);
+      expect(
+        (jsonDecode(backend.value!) as Map<String, dynamic>)['access_token'],
+        'old-access',
+      );
+
+      tokenResponse.complete(_tokenReply());
+      expect(await refresh, 'new-access');
+      expect(
+        (jsonDecode(backend.value!) as Map<String, dynamic>)['access_token'],
+        'new-access',
+      );
+      await clear;
+
+      expect(backend.value, isNull);
+      expect(Session.readForClient(ForgeConversationsOAuth.clientId), isNull);
+      expect(lock.maxActive, 1);
+    },
+  );
+
+  test(
+    'reloads the secure record before spending a stale refresh token',
+    () async {
+      final backend = MemoryForgeCredentialBackend();
+      final writer = ForgeCredentialStore(
+        backend: backend,
+        forcePersistentStorage: true,
+      );
+      await writer.store(
+        accessToken: 'new-access',
+        refreshToken: 'new-refresh',
+        sessionId: 'forge-session',
+      );
+
+      // Simulate this process holding an old in-memory snapshot while
+      // another desktop process has already committed the rotated record.
+      Session.storeForClient(
+        'forge-console',
+        'old-access',
+        refreshToken: 'old-refresh',
+        sessionId: 'forge-session',
+      );
+      var requestCount = 0;
+      final lock = MemoryForgeRefreshLock();
+      final service = ForgeOAuthTokenRefresh(
+        baseUrl: 'https://sso.example',
+        credentialStore: ForgeCredentialStore(
+          backend: backend,
+          forcePersistentStorage: true,
+          refreshLock: lock,
+        ),
+        httpClient: MockClient((_) async {
+          requestCount++;
+          return _tokenReply();
+        }),
+      );
+      addTearDown(service.close);
+
+      expect(
+        await service.refreshAfterUnauthorized('old-access'),
+        'new-access',
+      );
+      expect(requestCount, 0);
+      expect(lock.acquisitions, 1);
+      expect(Session.readRefreshTokenForClient('forge-console'), 'new-refresh');
+    },
+  );
+
+  test(
     'failed secure persistence after rotation clears the stale Forge record',
     () async {
       final backend = MemoryForgeCredentialBackend();
@@ -155,6 +262,7 @@ void main() {
     var requestCount = 0;
     final service = ForgeOAuthTokenRefresh(
       baseUrl: 'https://sso.example',
+      credentialStore: _memoryCredentialStore(),
       httpClient: MockClient((_) {
         requestCount++;
         return response.future;
@@ -185,6 +293,7 @@ void main() {
       var rotationCount = 0;
       final service = ForgeOAuthTokenRefresh(
         baseUrl: 'https://sso.example',
+        credentialStore: _memoryCredentialStore(),
         httpClient: MockClient((request) async {
           if (request.url.path == '/token') {
             rotationCount++;
@@ -246,6 +355,7 @@ void main() {
       final revocationRequests = <http.Request>[];
       final service = ForgeOAuthTokenRefresh(
         baseUrl: 'https://sso.example',
+        credentialStore: _memoryCredentialStore(),
         httpClient: MockClient((request) async {
           revocationRequests.add(request);
           if (request.bodyFields['token_type_hint'] == 'access_token') {
@@ -288,6 +398,7 @@ void main() {
   test('failed rotation clears only the Forge client slot', () async {
     final service = ForgeOAuthTokenRefresh(
       baseUrl: 'https://sso.example',
+      credentialStore: _memoryCredentialStore(),
       httpClient: MockClient(
         (_) async => http.Response('{"error":"invalid_grant"}', 400),
       ),
@@ -312,6 +423,7 @@ void main() {
       var forgeRequestCount = 0;
       final refresh = ForgeOAuthTokenRefresh(
         baseUrl: 'https://sso.example',
+        credentialStore: _memoryCredentialStore(),
         httpClient: MockClient(
           (_) async => http.Response('{"error":"invalid_grant"}', 400),
         ),

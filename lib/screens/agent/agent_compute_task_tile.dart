@@ -9,7 +9,13 @@ class AgentComputeTaskTile extends StatelessWidget {
   final bool loadingDetails;
   final bool cancelling;
   final bool cancelScopeMissing;
+  final bool rescheduling;
+  final bool rescheduleScopeMissing;
+  final bool retrying;
+  final bool retryScopeMissing;
   final VoidCallback onCancel;
+  final VoidCallback onReschedule;
+  final VoidCallback? onRetry;
   final ValueChanged<bool> onExpansionChanged;
   final VoidCallback onSignIn;
 
@@ -20,7 +26,13 @@ class AgentComputeTaskTile extends StatelessWidget {
     required this.loadingDetails,
     required this.cancelling,
     required this.cancelScopeMissing,
+    required this.rescheduling,
+    required this.rescheduleScopeMissing,
+    this.retrying = false,
+    this.retryScopeMissing = false,
     required this.onCancel,
+    required this.onReschedule,
+    this.onRetry,
     required this.onExpansionChanged,
     required this.onSignIn,
   });
@@ -42,7 +54,9 @@ class AgentComputeTaskTile extends StatelessWidget {
         subtitle: Text(
           context.tr('Device: {device} · {actor}', {
             'device': task.deviceId.isEmpty
-                ? strings.translate('Automatic')
+                ? (task.targetDeviceId.isEmpty
+                      ? strings.translate('Automatic')
+                      : task.targetDeviceId)
                 : task.deviceId,
             'actor': task.actor.isEmpty
                 ? strings.translate('unknown')
@@ -65,11 +79,36 @@ class AgentComputeTaskTile extends StatelessWidget {
                       )
                     : const Icon(Icons.stop_circle_outlined),
               ),
+            if (task.canReschedule)
+              IconButton(
+                tooltip: strings.translate('Reschedule task'),
+                onPressed: rescheduling || rescheduleScopeMissing
+                    ? null
+                    : onReschedule,
+                icon: rescheduling
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.alt_route),
+              ),
+            if (task.canRetry && onRetry != null)
+              IconButton(
+                tooltip: strings.translate('Retry lost task (duplicate risk)'),
+                onPressed: retrying || retryScopeMissing ? null : onRetry,
+                icon: retrying
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.replay_circle_filled_outlined),
+              ),
             const Icon(Icons.expand_more),
           ],
         ),
         children: [
           if (cancelScopeMissing) _scopeCard(context, onSignIn),
+          if (retryScopeMissing) _scopeCard(context, onSignIn),
           if (loadingDetails)
             const Padding(
               padding: EdgeInsets.all(16),
@@ -180,20 +219,19 @@ class AgentComputeTaskTile extends StatelessWidget {
     ),
   );
 
-  Widget _scopeCard(BuildContext context, VoidCallback onSignIn) => Card(
+  Widget _scopeCard(
+    BuildContext context,
+    VoidCallback onSignIn, {
+    String message =
+        'Task cancellation access requires additional Agent permissions.',
+  }) => Card(
     child: Padding(
       padding: const EdgeInsets.all(8),
       child: Row(
         children: [
           const Icon(Icons.lock_outline),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              context.tr(
-                'Task cancellation access requires additional Agent permissions.',
-              ),
-            ),
-          ),
+          Expanded(child: Text(context.tr(message))),
           TextButton(onPressed: onSignIn, child: Text(context.tr('Sign in'))),
         ],
       ),

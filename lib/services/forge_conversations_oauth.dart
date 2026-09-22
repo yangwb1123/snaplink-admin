@@ -1,20 +1,19 @@
+import 'forge_auth_profile.dart';
+
 /// Least-privilege OAuth request for the independent Forge Sessions surface.
 /// Provision this resource and both scopes on the Snaplink Console client.
 abstract final class ForgeConversationsOAuth {
   static const clientId = String.fromEnvironment(
     'SNAPLINK_FORGE_CLIENT_ID',
-    defaultValue: 'forge-console',
+    defaultValue: ForgeAuthProfile.consoleClientId,
   );
 
   static const resource = String.fromEnvironment(
     'SNAPLINK_FORGE_RESOURCE',
-    defaultValue: 'forge-api',
+    defaultValue: ForgeAuthProfile.resource,
   );
 
-  static const scopes = <String>[
-    'forge:conversations:read',
-    'forge:conversations:write',
-  ];
+  static const scopes = ForgeAuthProfile.conversationScopes;
 
   static Set<String> get resources => {resource};
 

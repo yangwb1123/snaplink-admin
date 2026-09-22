@@ -14,9 +14,13 @@ class AgentComputeTasksPanel extends StatelessWidget {
   final bool readScopeMissing;
   final bool writeScopeMissing;
   final bool cancelScopeMissing;
+  final bool rescheduleScopeMissing;
+  final bool retryScopeMissing;
   final String? error;
   final String? formError;
   final Set<String> cancellingIds;
+  final Set<String> reschedulingIds;
+  final Set<String> retryingIds;
   final Set<String> loadingDetailIds;
   final Map<String, AgentComputeTask> taskDetails;
   final TextEditingController argvController;
@@ -34,17 +38,21 @@ class AgentComputeTasksPanel extends StatelessWidget {
   final VoidCallback onLoadMore;
   final VoidCallback onSubmit;
   final ValueChanged<AgentComputeTask> onCancel;
+  final ValueChanged<AgentComputeTask> onReschedule;
+  final ValueChanged<AgentComputeTask> onRetry;
   final ValueChanged<String> onLoadDetails;
   final VoidCallback onSignIn;
 
   final bool workspaceEnabled;
   final Widget? workspaceForm;
+  final bool sessionReadOnly;
   final Widget Function(AgentComputeTask)? workspaceDetailsBuilder;
 
   const AgentComputeTasksPanel({
     super.key,
     this.workspaceEnabled = false,
     this.workspaceForm,
+    this.sessionReadOnly = false,
     this.workspaceDetailsBuilder,
     required this.devices,
     required this.tasks,
@@ -55,9 +63,13 @@ class AgentComputeTasksPanel extends StatelessWidget {
     required this.readScopeMissing,
     required this.writeScopeMissing,
     required this.cancelScopeMissing,
+    required this.rescheduleScopeMissing,
+    required this.retryScopeMissing,
     required this.error,
     required this.formError,
     required this.cancellingIds,
+    required this.reschedulingIds,
+    required this.retryingIds,
     required this.loadingDetailIds,
     required this.taskDetails,
     required this.argvController,
@@ -75,6 +87,8 @@ class AgentComputeTasksPanel extends StatelessWidget {
     required this.onLoadMore,
     required this.onSubmit,
     required this.onCancel,
+    required this.onReschedule,
+    required this.onRetry,
     required this.onLoadDetails,
     required this.onSignIn,
   });
@@ -103,7 +117,17 @@ class AgentComputeTasksPanel extends StatelessWidget {
         if (error != null) _messageCard(context, error!, onRetry: onRefresh),
         if (readScopeMissing) _scopeCard(context, 'Task read access'),
         if (cancelScopeMissing) _scopeCard(context, 'Task cancellation access'),
-        _taskForm(context),
+        if (rescheduleScopeMissing)
+          _scopeCard(context, 'Task rescheduling access'),
+        if (retryScopeMissing) _scopeCard(context, 'Task retry access'),
+        if (sessionReadOnly)
+          Text(
+            context.tr(
+              'This session is read-only. Its history is still available.',
+            ),
+          )
+        else
+          _taskForm(context),
         const SizedBox(height: 16),
         Text(
           context.tr('Submitted tasks'),
@@ -132,7 +156,14 @@ class AgentComputeTasksPanel extends StatelessWidget {
               loadingDetails: loadingDetailIds.contains(task.taskId),
               cancelling: cancellingIds.contains(task.taskId),
               cancelScopeMissing: cancelScopeMissing,
+              rescheduling: reschedulingIds.contains(task.taskId),
+              rescheduleScopeMissing:
+                  rescheduleScopeMissing || writeScopeMissing,
+              retrying: retryingIds.contains(task.taskId),
+              retryScopeMissing: retryScopeMissing || writeScopeMissing,
               onCancel: () => onCancel(task),
+              onReschedule: () => onReschedule(task),
+              onRetry: () => onRetry(task),
               onExpansionChanged: (expanded) {
                 if (expanded) onLoadDetails(task.taskId);
               },
@@ -244,6 +275,13 @@ class AgentComputeTasksPanel extends StatelessWidget {
               onChanged: writeScopeMissing || submitting
                   ? null
                   : (value) => onTargetChanged(value ?? ''),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              context.tr(
+                'The target device selector also applies when rescheduling a queued task.',
+              ),
+              style: Theme.of(context).textTheme.bodySmall,
             ),
             const SizedBox(height: 8),
             Row(

@@ -1,5 +1,126 @@
 /// Agent Operations and Agent Hub configuration copy.
 const appAgentSourceZh = <String, String>{
+  'Observation time is outside the displayable range.': '观察时间超出可显示范围。',
+  'Task placement': '任务调度诊断',
+  'Next devices': '下一页设备',
+  'Your sign-in or selected session changed. Reopen task placement.':
+      '登录身份或所选会话已变化，请重新打开任务调度诊断。',
+  'You do not have permission to inspect task placement.': '你没有查看任务调度诊断的权限。',
+  'This Agent Hub does not support task placement diagnostics yet.':
+      '此 Agent Hub 尚不支持任务调度诊断。',
+  'Could not inspect task placement. Refresh to try again.':
+      '无法查看任务调度诊断，请刷新重试。',
+  'Live observations only. Eligibility does not reserve capacity; the execution service still decides.':
+      '仅反映当前观察结果。符合条件不代表预留容量，最终由执行服务裁定。',
+  'Task state: {state}': '任务状态：{state}',
+  'Observed at: {time}': '观察时间：{time}',
+  'Placement diagnostics apply only while the task is queued.':
+      '仅排队中的任务适用调度诊断。',
+  'No visible original device bindings are available to inspect.':
+      '暂无可查看的原始设备绑定。',
+  'Device instance: {instance}': '设备实例：{instance}',
+  'Eligible in this observation': '当前观察结果符合条件',
+  'Device is offline': '设备已离线',
+  'Device lifecycle is not ready': '设备生命周期尚未就绪',
+  'Device is busy': '设备忙碌',
+  'Device is not schedulable': '设备当前不可调度',
+  'Project is unavailable on this device': '此设备上项目不可用',
+  'Task target is not authorized': '任务目标未获授权',
+  'Device does not match the requested target': '设备与请求的目标不匹配',
+  'Workspace snapshots are unsupported': '不支持工作区快照',
+  'Insufficient available CPU': '可用 CPU 不足',
+  'Insufficient available memory': '可用内存不足',
+  'Operating system does not match': '操作系统不匹配',
+  'Architecture does not match': '体系架构不匹配',
+  'Required runtime is unavailable': '所需运行时不可用',
+  'GPU inventory is unavailable': 'GPU 清单不可用',
+  'Insufficient eligible GPU capacity': '符合条件的 GPU 容量不足',
+  'Device inventory is missing': '缺少设备清单',
+  'Your sign-in changed. Close this dialog and reopen requests after signing in.':
+      '登录身份已变化。请关闭此对话框，登录后重新打开请求记录。',
+  'Session requests': '会话请求记录',
+  'Select an instance to view its requests.': '请选择实例以查看其请求记录。',
+  'Accepted requests only. Refresh to see changes. Local unconfirmed requests are tracked separately.':
+      '仅显示 Hub 已受理的请求，请刷新以查看变化。本地尚未确认的请求独立跟踪。',
+  'Refresh latest': '刷新最近记录',
+  'Older requests': '更早的请求',
+  'Refresh request': '刷新请求状态',
+  'Request details': '请求详情',
+  'Request ID': '请求 ID',
+  'Request queued': '请求排队中',
+  'The instance restarted before this request was confirmed.': '请求确认前实例已重启。',
+  'No accepted session requests for this instance.': '此实例暂无已受理的会话请求。',
+  'This Agent Hub does not support session request history yet.':
+      '此 Agent Hub 尚不支持会话请求记录。',
+  'You do not have permission to view these session requests.':
+      '你没有查看这些会话请求的权限。',
+  'Could not read the session request. Retry to refresh it.': '无法读取会话请求，请重试刷新。',
+  'Close session': '关闭会话',
+  'Close session?': '关闭此会话？',
+  'Confirm close': '确认关闭',
+  'Session close status': '会话关闭状态',
+  'Closing stops this idle session and releases its capacity after confirmation. Its history is preserved. It cannot be reopened.':
+      '关闭会停止此空闲会话，并在确认成功后释放容量。历史记录会保留，此会话不能重新打开。',
+  'Closing this dialog keeps tracking. Leaving Agent Operations, reloading, or signing in again discards this local recovery state.':
+      '关闭此对话框后仍会跟踪状态。离开 Agent 运维页、刷新页面或重新登录会丢失本地恢复状态。',
+  'You do not have permission to close or track this session.':
+      '你没有关闭此会话或跟踪其状态的权限。',
+  'This session has active work. Wait for it to finish before closing.':
+      '此会话仍有未完成的工作，请等待工作结束后再关闭。',
+  'This instance does not support remote session closing.': '此实例不支持远程关闭会话。',
+  'Closing failed. The session remains unavailable until the instance restarts.':
+      '关闭失败。此会话将保持不可用，需重启实例后恢复。',
+  'The close request was rejected. Refresh the session before trying again.':
+      '关闭请求被拒绝。请刷新会话后再试。',
+  'The close result is unknown. Retry the same request to recover it.':
+      '关闭结果未知。请重试同一请求以恢复结果。',
+  'Could not read close status. Retry to resume tracking.':
+      '无法读取关闭状态。请重试以继续跟踪。',
+  'Session closed. Its history is still available.': '会话已关闭，历史记录仍然可查看。',
+  'The instance restarted before closing was confirmed. The session history remains read-only.':
+      '关闭确认前实例已重启。此会话历史记录保持只读。',
+  'Waiting for the instance to close the session. Capacity is still reserved.':
+      '正在等待实例关闭会话，容量仍被占用。',
+  'This session is read-only. Its history is still available.':
+      '此会话为只读，历史记录仍然可查看。',
+  'Finish tracking the current close request first.': '请先完成当前关闭请求的状态跟踪。',
+  'Checking session activity...': '正在检查会话活动…',
+  'closing': '关闭中',
+  'closed': '已关闭',
+  'close_failed': '关闭失败',
+  'close_lost': '关闭结果丢失',
+  'New session': '新建会话',
+  'Open session': '打开会话',
+  'Session name': '会话名称',
+  'Target instance': '目标实例',
+  'Session creation status': '会话创建状态',
+  'Create session': '创建会话',
+  'Retry same request': '重试同一请求',
+  'Retry status': '重试查询状态',
+  'Start another session': '新建另一个会话',
+  'Enter a session name of at most 256 UTF-8 bytes without control characters.':
+      '请输入不含控制字符且不超过 256 UTF-8 字节的会话名称。',
+  'No online instance supports remote session creation.': '没有支持远端新建会话的在线实例。',
+  'The instance uses its configured project and model. Closing this dialog keeps tracking until you leave Agent Operations.':
+      '实例将使用已配置的项目和模型。关闭弹窗后仍会跟踪结果，直到离开 Agent 运维。',
+  'You do not have permission to create or track this session.':
+      '您没有创建或跟踪此会话的权限。',
+  'This instance has reached its session capacity.': '此实例的会话数量已达上限。',
+  'This instance does not support remote session creation.': '此实例不支持远端新建会话。',
+  'The session request was rejected. Check the target and name.':
+      '会话请求被拒绝，请检查目标实例和名称。',
+  'The creation result is unknown. Retry the same request to recover it.':
+      '创建结果未知，请重试同一请求以恢复结果。',
+  'Could not read creation status. Retry to resume tracking.':
+      '无法读取创建状态，请重试以继续跟踪。',
+  'Session created.': '会话已创建。',
+  'The instance could not create the session.': '实例未能创建会话。',
+  'The instance restarted before creation was confirmed. Check its sessions before starting again.':
+      '创建确认前实例已重启，请先检查其会话，再决定是否重新创建。',
+  'Waiting for the instance to create the session.': '正在等待实例创建会话。',
+  'Session created. Refresh the directory or open it again to view it.':
+      '会话已创建，请刷新目录或再次打开以查看。',
+
   'Compute request exceeds 64 KiB.': '计算任务请求超过 64 KiB。',
   'No online device supports workspace snapshots.': '没有支持工作区快照的在线设备。',
   'Workspace snapshots supported': '支持工作区快照',
@@ -83,6 +204,8 @@ const appAgentSourceZh = <String, String>{
   'Task read access': '读取任务权限',
   'Task submission access': '提交任务权限',
   'Task cancellation access': '取消任务权限',
+  'Task rescheduling access': '重新调度任务权限',
+  'Task retry access': '重试任务权限',
   '{access} requires additional Agent permissions.': '{access}需要额外的 Agent 权限。',
   'Sign in': '登录',
   'Could not load compute devices.': '无法加载计算设备。',
@@ -114,6 +237,13 @@ const appAgentSourceZh = <String, String>{
   'Device: {device} · {actor}': '设备：{device} · 提交者：{actor}',
   'Automatic': '自动调度',
   'Cancel task': '取消任务',
+  'Reschedule task': '重新调度任务',
+  'Retry lost task (duplicate risk)': '重试丢失任务（可能重复执行）',
+  'Retry lost task': '重试丢失任务',
+  'Task rescheduling access requires additional Agent permissions.':
+      '重新调度任务需要额外的 Agent 权限。',
+  'The target device selector also applies when rescheduling a queued task.':
+      '上方目标设备选择也用于重新调度排队中的任务。',
   'Project': '项目',
   'Device instance': '设备实例',
   'Workdir': '工作目录',

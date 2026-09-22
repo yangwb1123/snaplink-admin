@@ -24,26 +24,30 @@ void _phone(WidgetTester tester) {
   addTearDown(tester.view.resetDevicePixelRatio);
 }
 
-AgentDevice _device({String status = 'available', bool reserved = false}) =>
-    AgentDevice.fromJson({
-      'device_id': 'device-1',
-      'name': 'CUDA worker',
-      'online': true,
-      'schedulable': true,
-      'gpu_status': status,
-      'gpus': [
-        {
-          'uuid': _uuid,
-          'name': 'RTX 4090',
-          'vendor': 'nvidia',
-          'total_memory_bytes': 24 * _gib,
-          'available_memory_bytes': 20 * _gib,
-          'schedulable': !reserved,
-          'reserved': reserved,
-          'observed_at': 1789238400,
-        },
-      ],
-    });
+AgentDevice _device({
+  String status = 'available',
+  bool reserved = false,
+  String instanceId = '',
+}) => AgentDevice.fromJson({
+  'device_id': 'device-1',
+  if (instanceId.isNotEmpty) 'instance_id': instanceId,
+  'name': 'CUDA worker',
+  'online': true,
+  'schedulable': true,
+  'gpu_status': status,
+  'gpus': [
+    {
+      'uuid': _uuid,
+      'name': 'RTX 4090',
+      'vendor': 'nvidia',
+      'total_memory_bytes': 24 * _gib,
+      'available_memory_bytes': 20 * _gib,
+      'schedulable': !reserved,
+      'reserved': reserved,
+      'observed_at': 1789238400,
+    },
+  ],
+});
 
 AgentComputeTask _task({bool assigned = true, int count = 1}) =>
     AgentComputeTask.fromJson({
@@ -101,6 +105,36 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'device directory keeps the source instance visible in $language',
+      (tester) async {
+        _phone(tester);
+        await tester.pumpWidget(
+          _app(
+            AgentDeviceDirectory(
+              devices: [_device(instanceId: 'runner-a')],
+              projectId: 'project-1',
+              loading: false,
+              hasMore: false,
+              needsScope: false,
+              error: null,
+              onRefresh: () {},
+              onLoadMore: () {},
+              onSignIn: () {},
+            ),
+            language,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining(
+            language == 'en' ? 'Device instance: runner-a' : '设备实例：runner-a',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('GPU form labels fit 320px in $language', (tester) async {
       _phone(tester);
@@ -161,7 +195,10 @@ void main() {
                 loadingDetails: false,
                 cancelling: false,
                 cancelScopeMissing: false,
+                rescheduling: false,
+                rescheduleScopeMissing: false,
                 onCancel: () {},
+                onReschedule: () {},
                 onExpansionChanged: (_) {},
                 onSignIn: () {},
               ),

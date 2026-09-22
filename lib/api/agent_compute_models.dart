@@ -98,6 +98,7 @@ class AgentComputeTask {
   final String projectId;
   final String state;
   final String deviceId;
+  final String targetDeviceId;
   final String deviceInstanceId;
   final List<String> argv;
   final String workdir;
@@ -123,6 +124,7 @@ class AgentComputeTask {
     required this.projectId,
     required this.state,
     required this.deviceId,
+    required this.targetDeviceId,
     required this.deviceInstanceId,
     required this.argv,
     required this.workdir,
@@ -152,6 +154,7 @@ class AgentComputeTask {
       projectId: _optionalComputeText(json, 'project_id'),
       state: _optionalComputeText(json, 'state', fallback: 'unknown'),
       deviceId: _optionalComputeText(json, 'device_id'),
+      targetDeviceId: _optionalComputeText(json, 'target_device_id'),
       deviceInstanceId: _optionalComputeText(json, 'device_instance_id'),
       argv: _stringList(json, 'argv'),
       workdir: _optionalComputeText(json, 'workdir', fallback: '.'),
@@ -193,6 +196,11 @@ class AgentComputeTask {
 
   bool get canCancel =>
       const {'queued', 'dispatching', 'running'}.contains(state.toLowerCase());
+
+  bool get canReschedule => state.toLowerCase() == 'queued';
+
+  /// A lost task may have run remotely; retry is always an explicit action.
+  bool get canRetry => state.toLowerCase() == 'lost';
 }
 
 bool _hasFields(Object? value) => value is Map && value.isNotEmpty;

@@ -9,7 +9,8 @@ import 'forge_credential_store.dart';
 
 /// Performs one per-client Snaplink refresh-token rotation after Forge rejects
 /// an expired access token. Web keeps refresh tokens in tab-scoped storage;
-/// Android and iOS persist the Forge client slot in platform secure storage.
+/// Android, iOS, macOS, Linux, and Windows persist the Forge client slot in
+/// platform secure storage.
 class ForgeOAuthTokenRefresh {
   static const _maxResponseBytes = 64 * 1024;
 
@@ -53,16 +54,38 @@ class ForgeOAuthTokenRefresh {
       return Future<String?>.value(currentAccessToken);
     }
 
-    final refreshToken = Session.readRefreshTokenForClient(clientId);
-    if (refreshToken == null || refreshToken.isEmpty) {
-      return Future<String?>.value(null);
-    }
-
-    final pending = _exchangeAndStore(refreshToken);
+    final pending = _refreshWithProcessLock(failedAccessToken);
     _inFlight = pending;
     return pending.whenComplete(() {
       if (identical(_inFlight, pending)) _inFlight = null;
     });
+  }
+
+  Future<String?> _refreshWithProcessLock(String failedAccessToken) async {
+    try {
+      return await _credentialStore.withRefreshLock((lockedStore) async {
+        // A different desktop process may have completed a rotation after
+        // the pre-lock Session read above. Reload the secure record while the
+        // lock is held before deciding whether this process should spend a
+        // refresh token.
+        await lockedStore.reloadForRefresh();
+        final currentAccessToken = Session.readForClient(clientId);
+        if (currentAccessToken == null || currentAccessToken.isEmpty) {
+          return null;
+        }
+        if (currentAccessToken != failedAccessToken) {
+          return currentAccessToken;
+        }
+
+        final refreshToken = Session.readRefreshTokenForClient(clientId);
+        if (refreshToken == null || refreshToken.isEmpty) return null;
+        return _exchangeAndStore(refreshToken, lockedStore);
+      });
+    } on Exception {
+      // Secure-storage or lock failures must not replay a single-use refresh
+      // token. The caller will surface the original unauthorized response.
+      return null;
+    }
   }
 
   /// Revokes the current Forge access token and latest refresh token using
@@ -145,7 +168,10 @@ class ForgeOAuthTokenRefresh {
     }
   }
 
-  Future<String?> _exchangeAndStore(String refreshToken) async {
+  Future<String?> _exchangeAndStore(
+    String refreshToken,
+    ForgeCredentialStoreLockScope lockedStore,
+  ) async {
     final request = http.Request('POST', _tokenEndpoint)
       ..followRedirects = false
       ..headers.addAll(const {
@@ -163,12 +189,12 @@ class ForgeOAuthTokenRefresh {
       final streamed = await _http.send(request).timeout(timeout);
       final response = await _readBounded(streamed).timeout(timeout);
       if (response.statusCode != 200) {
-        await _credentialStore.clear();
+        await lockedStore.clear();
         return null;
       }
       final decoded = jsonDecode(response.body);
       if (decoded is! Map) {
-        await _credentialStore.clear();
+        await lockedStore.clear();
         return null;
       }
       final tokenReply = Map<String, dynamic>.from(decoded);
@@ -183,10 +209,10 @@ class ForgeOAuthTokenRefresh {
           rotatedRefreshToken.isEmpty ||
           tokenType is! String ||
           tokenType.toLowerCase() != 'bearer') {
-        await _credentialStore.clear();
+        await lockedStore.clear();
         return null;
       }
-      final stored = await _credentialStore.store(
+      final stored = await lockedStore.store(
         accessToken: accessToken,
         sessionId: Session.readSessionIdForClient(clientId),
         refreshToken: rotatedRefreshToken,
@@ -195,15 +221,15 @@ class ForgeOAuthTokenRefresh {
     } on TimeoutException {
       // The rotating refresh token may already have been consumed. Fail
       // closed instead of replaying it and triggering family-reuse handling.
-      await _credentialStore.clear();
+      await lockedStore.clear();
       return null;
     } on FormatException {
-      await _credentialStore.clear();
+      await lockedStore.clear();
       return null;
     } on Exception {
       // Delivery may have succeeded even when the response was lost; never
       // retry the same single-use refresh credential.
-      await _credentialStore.clear();
+      await lockedStore.clear();
       return null;
     }
   }

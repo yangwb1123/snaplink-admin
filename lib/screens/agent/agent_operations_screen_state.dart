@@ -3,6 +3,17 @@ part of 'agent_operations_screen.dart';
 class _AgentOperationsScreenState extends State<AgentOperationsScreen>
     with _AgentOperationsComputeState {
   late final AgentHubApi _api;
+  AgentComputePlacement? _placement;
+  final String? _placementStoredToken = Session.read();
+  late final AgentSessionCreation _creation;
+  late final AgentSessionClosure _closure;
+  final Set<String> _closedSessionIds = {};
+  int _closureSelectionGeneration = 0;
+  int _historyAuthGeneration = 0;
+  String? _handledClosure;
+  int _creationSelectionGeneration = 0;
+  String _creationInstanceFilter = '';
+  String? _handledCreation;
   final TextEditingController _promptController = TextEditingController();
   final Map<String, _PendingAgentPrompt> _pendingPrompts = {};
   final Map<String, String> _promptErrors = {};
@@ -43,6 +54,8 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
       httpClient: widget.httpClient,
       onUnauthorized: _onUnauthorized,
     );
+    _creation = AgentSessionCreation(_api)..addListener(_creationChanged);
+    _closure = AgentSessionClosure(_api)..addListener(_closureChanged);
     _refreshDirectory();
     _refreshComputeDevices();
     _directoryTimer = Timer.periodic(const Duration(seconds: 15), (_) {
@@ -56,9 +69,21 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
   }
 
   @override
+  void didUpdateWidget(AgentOperationsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.accessToken != widget.accessToken ||
+        oldWidget.apiOrigin != widget.apiOrigin) {
+      _historyAuthGeneration++;
+      scheduleMicrotask(() => _placement?.checkContext());
+    }
+  }
+
+  @override
   void dispose() {
     _directoryTimer?.cancel();
     _activityTimer?.cancel();
+    _creation.dispose();
+    _closure.dispose();
     _api.close();
     _promptController.dispose();
     _disposeComputeControllers();
@@ -66,9 +91,11 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
   }
 
   void _onUnauthorized(AgentHubApiException _) {
-    clearAllSessionsBestEffort();
     if (!mounted) return;
+    if (Session.read() == _api.accessToken) clearAllSessionsBestEffort();
+    _historyAuthGeneration++;
     setState(() => _unauthorized = true);
+    _placement?.checkContext();
   }
 
   Future<void> _refreshDirectory({
@@ -219,6 +246,7 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
 
   void _clearSelection() {
     _selectionGeneration++;
+    scheduleMicrotask(() => _placement?.checkContext());
     _taskGeneration++;
     _selectedSession = null;
     _workspaceSelection = const AgentWorkspaceSelection();
@@ -236,12 +264,15 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
     _taskReadScopeMissing = false;
     _taskWriteScopeMissing = false;
     _taskCancelScopeMissing = false;
+    _taskRescheduleScopeMissing = false;
+    _taskRetryScopeMissing = false;
     _showSessionOnNarrowScreen = false;
   }
 
   void _selectSession(AgentSession session) {
     setState(() {
       _selectionGeneration++;
+      scheduleMicrotask(() => _placement?.checkContext());
       _selectedSession = session;
       _workspaceSelection = const AgentWorkspaceSelection();
       _events = const [];
@@ -258,11 +289,13 @@ class _AgentOperationsScreenState extends State<AgentOperationsScreen>
       _taskReadScopeMissing = false;
       _taskWriteScopeMissing = false;
       _taskCancelScopeMissing = false;
+      _taskRescheduleScopeMissing = false;
+      _taskRetryScopeMissing = false;
       _showSessionOnNarrowScreen = true;
     });
     _refreshActivity();
     _refreshComputeDevices(reset: true);
-    _refreshComputeTasks();
+    _refreshComputeTasks(reset: true);
   }
 
   Future<void> _refreshActivity({bool silent = false}) async {

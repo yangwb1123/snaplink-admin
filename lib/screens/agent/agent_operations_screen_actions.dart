@@ -93,7 +93,9 @@ extension _AgentOperationsScreenActions on _AgentOperationsScreenState {
   }
 
   bool _canControl(AgentSession session) =>
-      session.controllable && _instanceFor(session.instanceId)?.online == true;
+      session.controllable &&
+      !_sessionCloseBlocked(session) &&
+      _instanceFor(session.instanceId)?.online == true;
 
   AgentInstance? _instanceFor(String id) {
     for (final instance in _instances) {

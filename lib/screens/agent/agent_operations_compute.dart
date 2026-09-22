@@ -7,11 +7,22 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
     bool reset = false,
   }) async {
     if (_unauthorized) return;
-    final generation = ++_deviceGeneration;
     if (_devicesBusy) {
       _devicesPending = true;
+      // A context reset (session/project change) invalidates the in-flight
+      // response. A load-more or periodic refresh can consume that response
+      // first, then continue with the latest cursor in the pending pass.
+      if (reset) {
+        _deviceGeneration++;
+        _devicesPendingReset = true;
+        _devicesPendingLoadMore = false;
+      } else if (loadMore && !_devicesPendingReset) {
+        _devicesPendingLoadMore = true;
+      }
+      _devicesPendingSilent = _devicesPendingSilent && silent;
       return;
     }
+    final generation = ++_deviceGeneration;
     _devicesBusy = true;
     final projectId = _selectedSession?.projectId;
     final after = loadMore ? _deviceCursor : null;
@@ -58,8 +69,25 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
     } finally {
       _devicesBusy = false;
       if (_devicesPending && !_unauthorized) {
+        final pendingLoadMore = _devicesPendingLoadMore;
+        final pendingReset = _devicesPendingReset;
+        final pendingSilent = _devicesPendingSilent;
         _devicesPending = false;
-        unawaited(_refreshComputeDevices(silent: true, reset: true));
+        _devicesPendingLoadMore = false;
+        _devicesPendingReset = false;
+        _devicesPendingSilent = true;
+        unawaited(
+          _refreshComputeDevices(
+            silent: pendingSilent,
+            loadMore: pendingLoadMore,
+            reset: pendingReset,
+          ),
+        );
+      } else if (_devicesPending) {
+        _devicesPending = false;
+        _devicesPendingLoadMore = false;
+        _devicesPendingReset = false;
+        _devicesPendingSilent = true;
       }
     }
   }
@@ -70,7 +98,22 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
     bool reset = false,
   }) async {
     final session = _selectedSession;
-    if (session == null || _unauthorized || _tasksBusy) return;
+    if (session == null || _unauthorized) return;
+    if (_tasksBusy) {
+      _tasksPending = true;
+      // A reset means the selected session or paging context changed. It
+      // invalidates the in-flight response; ordinary refresh and load-more
+      // can consume it first and then continue with its updated cursor.
+      if (reset) {
+        _taskGeneration++;
+        _tasksPendingReset = true;
+        _tasksPendingLoadMore = false;
+      } else if (loadMore && !_tasksPendingReset) {
+        _tasksPendingLoadMore = true;
+      }
+      _tasksPendingSilent = _tasksPendingSilent && silent;
+      return;
+    }
     if (reset) _taskGeneration++;
     _tasksBusy = true;
     final generation = _taskGeneration;
@@ -137,6 +180,27 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
       });
     } finally {
       _tasksBusy = false;
+      if (_tasksPending && !_unauthorized) {
+        final pendingLoadMore = _tasksPendingLoadMore;
+        final pendingReset = _tasksPendingReset;
+        final pendingSilent = _tasksPendingSilent;
+        _tasksPending = false;
+        _tasksPendingLoadMore = false;
+        _tasksPendingReset = false;
+        _tasksPendingSilent = true;
+        unawaited(
+          _refreshComputeTasks(
+            silent: pendingSilent,
+            loadMore: pendingLoadMore,
+            reset: pendingReset,
+          ),
+        );
+      } else if (_tasksPending) {
+        _tasksPending = false;
+        _tasksPendingLoadMore = false;
+        _tasksPendingReset = false;
+        _tasksPendingSilent = true;
+      }
     }
   }
 
@@ -152,7 +216,12 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
 
   Future<void> _submitComputeTask() async {
     final session = _selectedSession;
-    if (session == null || _submittingTask || _taskWriteScopeMissing) return;
+    if (session == null ||
+        _sessionCloseBlocked(session) ||
+        _submittingTask ||
+        _taskWriteScopeMissing) {
+      return;
+    }
     late final AgentComputeRequest request;
     try {
       request = _readComputeRequest();
@@ -306,6 +375,93 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
     }
   }
 
+  Future<void> _rescheduleComputeTask(AgentComputeTask task) async {
+    if (!task.canReschedule ||
+        _reschedulingTaskIds.contains(task.taskId) ||
+        _taskWriteScopeMissing) {
+      return;
+    }
+    final sessionId = task.sessionId;
+    final generation = _selectionGeneration;
+    _update(() {
+      _reschedulingTaskIds.add(task.taskId);
+      _taskActionFailure = null;
+      _taskRescheduleScopeMissing = false;
+    });
+    try {
+      final updated = await _api.rescheduleTask(
+        task.taskId,
+        targetDeviceId: _targetDeviceId,
+      );
+      if (!_isCurrent(generation, sessionId) ||
+          updated.sessionId != sessionId) {
+        return;
+      }
+      _update(() {
+        _taskDetails[task.taskId] = updated;
+        _computeTasks = _mergeById(
+          [updated],
+          _computeTasks,
+          (item) => item.taskId,
+          appendExisting: false,
+          preserveTail: true,
+        );
+      });
+    } catch (error) {
+      if (!_isCurrent(generation, sessionId)) return;
+      _update(() {
+        _taskRescheduleScopeMissing = _requiresAgentScope(error);
+        _taskActionFailure = _taskRescheduleScopeMissing ? null : error;
+      });
+    } finally {
+      if (mounted) _update(() => _reschedulingTaskIds.remove(task.taskId));
+    }
+  }
+
+  Future<void> _retryLostComputeTask(AgentComputeTask task) async {
+    if (!task.canRetry ||
+        _retryingTaskIds.contains(task.taskId) ||
+        _taskWriteScopeMissing) {
+      return;
+    }
+    final sessionId = task.sessionId;
+    final generation = _selectionGeneration;
+    _update(() {
+      _retryingTaskIds.add(task.taskId);
+      _taskActionFailure = null;
+      _taskRetryScopeMissing = false;
+    });
+    try {
+      final updated = await _api.retryLostTask(
+        task.taskId,
+        targetDeviceId: _targetDeviceId,
+        confirmDuplicate: true,
+      );
+      if (!_isCurrent(generation, sessionId) ||
+          updated.sessionId != sessionId) {
+        return;
+      }
+      _update(() {
+        _taskDetails[task.taskId] = updated;
+        _computeTasks = _mergeById(
+          [updated],
+          _computeTasks,
+          (item) => item.taskId,
+          appendExisting: false,
+          preserveTail: true,
+        );
+      });
+    } catch (error) {
+      if (!_isCurrent(generation, sessionId)) return;
+      _update(() {
+        _taskRetryScopeMissing = _requiresAgentScope(error);
+        _taskActionFailure = _taskRetryScopeMissing ? null : error;
+      });
+    } finally {
+      if (mounted) _update(() => _retryingTaskIds.remove(task.taskId));
+    }
+  }
+
   AgentComputeTask? _listedComputeTask(String taskId) {
     for (final task in _computeTasks) {
       if (task.taskId == taskId) return task;
@@ -316,6 +472,7 @@ extension _AgentOperationsCompute on _AgentOperationsScreenState {
   Object _computeTaskVersion(AgentComputeTask? task) => (
     task?.state,
     task?.updatedAt,
+    task?.targetDeviceId,
     task?.archiveState,
     task?.workspaceResult?.state,
     task?.workspaceResult?.inputSha256,

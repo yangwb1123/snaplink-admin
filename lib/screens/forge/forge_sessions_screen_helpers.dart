@@ -9,13 +9,25 @@ List<ForgeOwnedConversation> _mergeConversations({
   required bool append,
 }) {
   final values = <String, ForgeOwnedConversation>{};
+  final existingByID = <String, ForgeOwnedConversation>{
+    for (final item in existing) item.conversation.id: item,
+  };
   if (append) {
     for (final item in existing) {
       values[item.conversation.id] = item;
     }
   }
   for (final item in incoming) {
-    values[item.conversation.id] = item;
+    final prior =
+        values[item.conversation.id] ?? existingByID[item.conversation.id];
+    if (prior == null || item.aggregateVersion >= prior.aggregateVersion) {
+      values[item.conversation.id] = item;
+    } else if (!append) {
+      // A feed response may have applied a newer aggregate version while this
+      // snapshot was in flight. Keep that newer value without retaining other
+      // rows that the authoritative first page omitted.
+      values[item.conversation.id] = prior;
+    }
   }
   return List.unmodifiable(values.values);
 }

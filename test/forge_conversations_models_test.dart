@@ -47,6 +47,73 @@ void main() {
     expect(() => page.conversations.clear(), throwsUnsupportedError);
   });
 
+  test('conversation timestamps use the JSON safe integer boundary', () {
+    Map<String, Object> conversation(int createdAtMS, int updatedAtMS) => {
+      'id': 'conversation-1',
+      'scope': {'kind': 'global'},
+      'title': 'Shared',
+      'created_at_ms': createdAtMS,
+      'updated_at_ms': updatedAtMS,
+    };
+
+    final parsed = ForgeConversation.fromJson(
+      conversation(9007199254740991, 9007199254740991),
+    );
+    expect(parsed.updatedAtMS, 9007199254740991);
+
+    for (final unsafe in [
+      conversation(9007199254740992, 9007199254740992),
+      conversation(1, 9007199254740992),
+      conversation(200, 100),
+    ]) {
+      expect(() => ForgeConversation.fromJson(unsafe), throwsFormatException);
+    }
+  });
+
+  test(
+    'conversation aggregate versions use the JSON safe integer boundary',
+    () {
+      ForgeJson entry(int aggregateVersion) => {
+        'conversation': {
+          'id': 'conversation-1',
+          'scope': {'kind': 'global'},
+          'title': 'Shared',
+          'created_at_ms': 1,
+          'updated_at_ms': 1,
+        },
+        'aggregate_version': aggregateVersion,
+      };
+
+      expect(
+        ForgeOwnedConversation.fromJson(
+          entry(9007199254740991),
+        ).aggregateVersion,
+        9007199254740991,
+      );
+      expect(
+        () => ForgeOwnedConversation.fromJson(entry(9007199254740992)),
+        throwsFormatException,
+      );
+
+      final append = {
+        'prompt': _historyPrompt('prompt-1', 1),
+        'aggregate_version': 9007199254740991,
+        'replayed': false,
+      };
+      expect(
+        ForgePromptAppendResult.fromJson(append).aggregateVersion,
+        9007199254740991,
+      );
+      expect(
+        () => ForgePromptAppendResult.fromJson({
+          ...append,
+          'aggregate_version': 9007199254740992,
+        }),
+        throwsFormatException,
+      );
+    },
+  );
+
   test('parses prompt history cursors and append versions', () {
     final page = ForgeConversationPromptPage.fromJson({
       'conversation_id': 'conversation-1',
@@ -81,6 +148,55 @@ void main() {
     expect(appended.prompt.role, 'user');
     expect(appended.aggregateVersion, 4);
     expect(appended.replayed, isFalse);
+  });
+
+  test('requires the closed prompt append response envelope', () {
+    final valid = <String, dynamic>{
+      'prompt': _historyPrompt('prompt-2', 400, content: 'ship it'),
+      'aggregate_version': 4,
+      'replayed': false,
+    };
+    expect(
+      () => ForgePromptAppendResult.fromJson({...valid, 'extra': true}),
+      throwsFormatException,
+    );
+    final missing = Map<String, dynamic>.from(valid)..remove('replayed');
+    expect(
+      () => ForgePromptAppendResult.fromJson(missing),
+      throwsFormatException,
+    );
+  });
+
+  test('prompt timestamps use the JSON safe integer boundary', () {
+    final page = ForgeConversationPromptPage.fromJson({
+      'conversation_id': 'conversation-1',
+      'prompts': [_historyPrompt('prompt-1', 9007199254740991)],
+      'has_more': false,
+    });
+    expect(page.prompts.single.createdAtMS, 9007199254740991);
+
+    expect(
+      () => ForgeConversationPromptPage.fromJson({
+        'conversation_id': 'conversation-1',
+        'prompts': [_historyPrompt('prompt-1', 9007199254740992)],
+        'has_more': false,
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => ForgePromptCursor.fromJson({
+        'created_at_ms': 9007199254740992,
+        'prompt_id': 'prompt-1',
+      }),
+      throwsFormatException,
+    );
+    expect(
+      () => ForgePromptCursor.fromJson({
+        'created_at_ms': 30,
+        'prompt_id': 'prompt-${String.fromCharCode(0x00)}',
+      }),
+      throwsFormatException,
+    );
   });
 
   test('accepts a content-budget partial page and rejects bad cursors', () {
@@ -166,6 +282,53 @@ void main() {
           response,
           requestedAfterCursor: 4,
           limit: 2,
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('conversation changes use the JSON safe integer boundary', () {
+    Map<String, Object> change({
+      int cursor = 9007199254740991,
+      int aggregateVersion = 9007199254740991,
+      int createdAtMS = 9007199254740991,
+    }) => {
+      'cursor': cursor,
+      'schema_version': 1,
+      'conversation_id': 'conversation-1',
+      'entity_id': 'prompt-1',
+      'aggregate_version': aggregateVersion,
+      'kind': 'prompt_appended',
+      'created_at_ms': createdAtMS,
+    };
+
+    final page = ForgeConversationChangePage.fromJson(
+      {
+        'after_cursor': 9007199254740990,
+        'scanned_through_cursor': 9007199254740991,
+        'has_more': false,
+        'changes': [change()],
+      },
+      requestedAfterCursor: 9007199254740990,
+      limit: 1,
+    );
+    expect(page.changes.single.cursor, 9007199254740991);
+    for (final unsafe in [
+      change(cursor: 9007199254740992),
+      change(aggregateVersion: 9007199254740992),
+      change(createdAtMS: 9007199254740992),
+    ]) {
+      expect(
+        () => ForgeConversationChangePage.fromJson(
+          {
+            'after_cursor': 9007199254740990,
+            'scanned_through_cursor': 9007199254740991,
+            'has_more': false,
+            'changes': [unsafe],
+          },
+          requestedAfterCursor: 9007199254740990,
+          limit: 1,
         ),
         throwsFormatException,
       );

@@ -60,8 +60,8 @@ class AgentSessionDetail extends StatelessWidget {
                     Expanded(
                       child: Text(
                         context.tr(
-                          session.controllable
-                              ? 'The selected instance is offline.'
+                          session.frozen || session.controllable
+                              ? 'This session is read-only. Its history is still available.'
                               : 'This session cannot be controlled from this account or instance.',
                         ),
                       ),
@@ -110,7 +110,9 @@ class AgentSessionDetail extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${session.projectId.isEmpty ? session.instanceId : session.projectId} · ${session.status}',
+                  '${context.tr('Instance: {id}', {'id': session.instanceId})} · '
+                  '${session.projectId.isEmpty ? '' : '${context.tr('Project: {project}', {'project': session.projectId})} · '}'
+                  '${context.tr(session.status)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

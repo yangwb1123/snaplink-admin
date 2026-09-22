@@ -6,12 +6,14 @@ class MemoryForgeCredentialBackend implements ForgeCredentialBackend {
   String? value;
   Future<void>? readBarrier;
   Future<void>? writeBarrier;
+  bool failRead = false;
   bool failWrite = false;
   bool failDelete = false;
 
   @override
   Future<String?> read(String key) async {
     await readBarrier;
+    if (failRead) throw StateError('simulated secure-store failure');
     return value;
   }
 

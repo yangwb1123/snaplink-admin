@@ -170,6 +170,13 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        find.descendant(
+          of: find.byType(AgentSessionDetail),
+          matching: find.textContaining('Instance: i-1'),
+        ),
+        findsOneWidget,
+      );
 
       sessionOneDetail.complete(
         _json({

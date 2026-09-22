@@ -6,6 +6,25 @@ import 'app_router.dart';
 import 'app_settings.dart';
 import 'services/app_navigator.dart';
 import 'services/product_entry_route.dart';
+import 'forge_android_instrumentation_entrypoint.dart'
+    deferred as forge_instrumentation;
+
+/// Kept as a named VM entrypoint for the debug Android lifecycle harness.
+/// Product launches continue through [main]; the instrumentation runner opts
+/// into this entrypoint explicitly on a disposable emulator.
+@pragma('vm:entry-point')
+Future<void> forgeAndroidInstrumentationMain() async {
+  await forge_instrumentation.loadLibrary();
+  return forge_instrumentation.forgeAndroidInstrumentationMain();
+}
+
+/// Named VM entrypoint for the explicit Android emulator → Forge Coordinator
+/// lifecycle probe. Product launches continue through [main].
+@pragma('vm:entry-point')
+Future<void> forgeAndroidCoordinatorInstrumentationMain() async {
+  await forge_instrumentation.loadLibrary();
+  return forge_instrumentation.forgeAndroidCoordinatorInstrumentationMain();
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

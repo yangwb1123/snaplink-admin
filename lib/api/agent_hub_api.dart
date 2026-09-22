@@ -5,10 +5,18 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'agent_compute_models.dart';
+import 'agent_placement_models.dart';
 import 'agent_hub_models.dart';
+import 'agent_session_creation_models.dart';
+import 'agent_session_close_models.dart';
+import 'agent_session_operation_models.dart';
 
 part 'agent_hub_api_response.dart';
+part 'agent_placement_api.dart';
 part 'agent_hub_workspace_api.dart';
+part 'agent_session_creation_api.dart';
+part 'agent_session_close_api.dart';
+part 'agent_session_operations_api.dart';
 
 class AgentHubApiException implements Exception {
   final int statusCode;
@@ -142,6 +150,37 @@ class AgentHubApi {
     '',
   );
 
+  Future<AgentComputeTask> rescheduleTask(
+    String taskId, {
+    String targetDeviceId = '',
+  }) => _submitTaskRequest(
+    '/tasks/${Uri.encodeComponent(taskId)}/reschedule',
+    <String, dynamic>{'target_device_id': targetDeviceId},
+    '',
+  );
+
+  Future<AgentComputeTask> retryLostTask(
+    String taskId, {
+    String targetDeviceId = '',
+    required bool confirmDuplicate,
+  }) {
+    if (!confirmDuplicate) {
+      throw ArgumentError.value(
+        confirmDuplicate,
+        'confirmDuplicate',
+        'must acknowledge duplicate side effects',
+      );
+    }
+    return _submitTaskRequest(
+      '/tasks/${Uri.encodeComponent(taskId)}/retry',
+      <String, dynamic>{
+        'target_device_id': targetDeviceId,
+        'confirm_duplicate': true,
+      },
+      '',
+    );
+  }
+
   Future<AgentComputeTask> _submitTaskRequest(
     String path,
     Map<String, dynamic> body,
@@ -273,6 +312,7 @@ class AgentHubApi {
     Map<String, String> headers = const {},
     Map<String, dynamic>? body,
     int maxResponseBytes = _maxResponseBytes,
+    bool notifyUnauthorized = true,
   }) async {
     final uri = Uri.parse(
       '$baseUrl/api/v1/agent$path',
@@ -317,7 +357,9 @@ class AgentHubApi {
     }
     if (response.statusCode >= 400) {
       final error = _decodeError(response.statusCode, response.body);
-      if (error.isUnauthorized) onUnauthorized?.call(error);
+      if (error.isUnauthorized && notifyUnauthorized) {
+        onUnauthorized?.call(error);
+      }
       throw error;
     }
     return response;

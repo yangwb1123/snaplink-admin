@@ -1,18 +1,72 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/forge_conversations_api.dart';
 import 'package:sso_admin/api/forge_conversations_models.dart';
+import 'package:sso_admin/api/forge_device_inventory_models.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/forge_change_cursor_store.dart';
+import 'package:sso_admin/services/forge_run_timeline_cursor_store.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_conversation_metadata_cache.dart';
 import 'package:sso_admin/services/forge_credential_store.dart';
 import 'package:sso_admin/services/forge_oauth_token_refresh.dart';
 import 'package:sso_admin/services/product_api_origin.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
+import 'package:sso_admin/api/forge_session_placement.dart';
+import 'package:sso_admin/api/forge_run_intent_observation.dart';
+import 'package:sso_admin/api/forge_runner_execution_intent.dart';
+import 'package:sso_admin/api/forge_local_runner_preview.dart';
+import 'package:sso_admin/api/forge_run_observed.dart';
+import 'package:sso_admin/api/forge_run_execution_evidence.dart';
+import 'package:sso_admin/api/forge_session_runner_receipt_observation.dart';
+import 'package:sso_admin/api/forge_execution_reconciliation_observation.dart';
+import 'package:sso_admin/api/forge_device_enrollment_heartbeat_lifecycle_registry.dart';
+import 'package:sso_admin/api/forge_device_credential_candidate.dart';
+import 'package:sso_admin/api/forge_session_device_observation_wire.dart';
+import 'package:sso_admin/api/forge_attempt_request_preview.dart';
+import 'package:sso_admin/api/forge_pending_run_intent.dart';
+import 'package:sso_admin/api/forge_runner_lease_fencing.dart';
+import 'package:sso_admin/api/forge_execution_lease_checkpoint.dart';
+import 'package:sso_admin/api/forge_client_instance_session_view.dart';
+import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
+import 'package:sso_admin/api/forge_preflight_fixture.dart';
+import 'package:sso_admin/api/forge_run_attempt_lease_dispatch_preflight.dart';
+import 'package:sso_admin/api/forge_runner_dispatch_plan_preview.dart';
+
+import 'forge_sessions_device_observation.dart';
+import 'forge_device_inventory_panel.dart';
+import 'forge_device_resource_summary_panel.dart';
+import 'forge_device_inventory_v2_panel.dart';
+import 'forge_device_inventory_placement_evaluation_v2_panel.dart';
+import 'forge_device_inventory_placement_evaluation_panel.dart';
+import 'forge_device_inventory_placement_batch_evaluation_panel.dart';
+import 'forge_run_intent_observation_card.dart';
+import 'forge_runner_execution_intent_card.dart';
+import 'forge_run_observed_card.dart';
+import 'forge_run_execution_evidence_card.dart';
+import 'forge_session_runner_receipt_observation_card.dart';
+import 'forge_execution_reconciliation_observation_card.dart';
+import 'forge_execution_consent_preview_card.dart';
+import 'forge_attempt_request_preview_card.dart';
+import 'forge_pending_run_intent_card.dart';
+import 'forge_pending_run_intent_metadata_panel.dart';
+import 'forge_pending_run_intent_submission_card.dart';
+import 'forge_runner_lease_fencing_preview_card.dart';
+import 'forge_execution_lease_checkpoint_preview_card.dart';
+import 'forge_client_instance_session_view_panel.dart';
+import 'forge_client_instance_resource_view_panel.dart';
+import 'forge_lifecycle_registry_panel.dart';
+import 'forge_device_credential_candidate_panel.dart';
+import 'forge_device_registry_placement_preview_panel.dart';
+import 'forge_local_runner_preview_card.dart';
+import 'package:sso_admin/screens/agent/forge_runner_dispatch_plan_preview_card.dart';
+import 'package:sso_admin/screens/agent/forge_preflight_fixture_card.dart';
+import '../../services/agent_workspace_file.dart';
 
 part 'forge_sessions_screen_view.dart';
 part 'forge_sessions_screen_helpers.dart';
@@ -21,31 +75,389 @@ part 'forge_runs_panel.dart';
 class ForgeSessionsScreen extends StatefulWidget {
   final String accessToken;
   final String apiOrigin;
+
+  /// Optional owner-scoped deep-link selection. The route never grants
+  /// access; the authenticated detail read remains authoritative.
+  final String? initialConversationID;
   final http.Client? httpClient;
   final http.Client? oauthHttpClient;
   final Duration oauthRevocationTimeout;
   final ForgeCredentialStore? credentialStore;
 
+  /// Optional caller-supplied P3a observation. It is never fetched by this
+  /// screen; matching Conversation/Run IDs are required before display.
+  final ForgeSessionDeviceObservation? deviceObservation;
+
+  /// Optional caller-supplied declaration to preview once through the
+  /// authenticated P3a session route. No declaration is generated by the
+  /// screen; Conversation/Run IDs must match the selected Run.
+  final ForgeSessionPlacementRequest? deviceObservationRequest;
+
+  /// Optional caller-supplied, pure prompt-to-Run observation. The screen
+  /// renders it only for the selected Conversation/Run and only while all
+  /// preview and authority fields remain display-only.
+  final ForgeRunIntentObservation? runIntentObservation;
+
+  /// Optional caller-supplied pure Prompt/Run to Runner binding. It is
+  /// rendered only for the matching selected Run while every authority bit
+  /// remains false.
+  final ForgeRunnerExecutionIntentObservation? runnerExecutionIntentObservation;
+
+  /// Optional local Runner execution-readiness observation. It is rendered
+  /// through the existing metadata-only Runner intent card and never grants
+  /// execution authority.
+  final ForgeLocalRunnerPreviewObservation? localRunnerPreview;
+
+  /// Explicit request and reader for the private local Runner execution
+  /// readiness candidate. The default screen leaves both unset.
+  final ForgeLocalRunnerPreviewRequest? localRunnerPreviewRequest;
+  final ForgeLocalRunnerPreviewReader? localRunnerPreviewReader;
+
+  /// Optional caller-supplied, content-free Run metadata observation. It is
+  /// rendered only for the matching selected Conversation/Run after strict
+  /// re-decoding; the opaque owner reference is never treated as identity.
+  final ForgeRunObserved? runObserved;
+
+  /// Optional caller-supplied reader for one content-free Run metadata
+  /// observation. The screen invokes it only for the selected
+  /// Conversation/Run, strictly re-decodes the result, and never derives an
+  /// observer route or owner identity from the bearer token.
+  final ForgeRunObservedReader? runObservedReader;
+
+  /// Optional caller-supplied, content-free binding of one Run to one
+  /// observed Runner receipt. It is rendered only for the selected
+  /// Conversation/Run after strict parsing and while every authority bit
+  /// remains false. The owner reference is a digest and is never converted
+  /// into an owner identity by this screen.
+  final ForgeRunExecutionEvidence? runExecutionEvidence;
+
+  /// Optional caller-supplied session-bound terminal receipt observation. It
+  /// remains process-local and is rendered only for the selected Run while
+  /// every authority bit stays false.
+  final ForgeSessionRunnerReceiptObservation? sessionRunnerReceiptObservation;
+
+  /// Optional caller-supplied restart-boundary reconciliation observation. It
+  /// is rendered only for the selected Run after strict re-decoding; it never
+  /// retries work, renews a lease, selects a target, or grants authority.
+  final ForgeExecutionReconciliationObservation?
+  executionReconciliationObservation;
+
+  /// Optional caller-supplied restart image and reader for the authenticated
+  /// execution-reconciliation candidate. Both values are required before
+  /// this screen makes a request; the default screen remains request-free.
+  final ForgeExecutionReconciliationInput? executionReconciliationInput;
+  final ForgeExecutionReconciliationReader? executionReconciliationReader;
+
+  /// Explicit owner and reader for the private, read-only execution-consent
+  /// preview candidate. The selected Conversation ID is supplied by this
+  /// screen; the default route leaves both values unset and request-free.
+  final ForgeDeviceOwner? executionConsentPreviewOwner;
+  final ForgeExecutionConsentPreviewReader? executionConsentPreviewReader;
+
+  /// Optional caller-supplied offline Attempt request contract. It remains a
+  /// display-only value and never creates a Run or dispatches a task.
+  final ForgeAttemptRequestPreviewFixture? attemptRequestPreview;
+
+  /// Optional caller-supplied pending Run-intent receipt. It remains a
+  /// metadata-only display value and never creates or dispatches a Run.
+  final ForgePendingRunIntentFixture? pendingRunIntentPreview;
+
+  /// Explicit submitter for the private candidate scheduling-review action.
+  /// The default screen leaves it unset, so the action and POST route are
+  /// absent from normal Web/App/Mobile construction.
+  final ForgeDeviceOwner? pendingRunIntentOwner;
+  final ForgePendingRunIntentSubmitter? pendingRunIntentSubmitter;
+
+  /// Explicit owner and reader for the private, authenticated inventory
+  /// candidate. Both values are required before this screen makes a request;
+  /// the default route therefore remains free of `/devices` traffic.
+  ///
+  /// The owner must come from a verified caller-owned source. The screen never
+  /// derives it from the bearer token, and the reader must keep the candidate
+  /// disabled until ADR-0114/P3b is accepted.
+  final ForgeDeviceOwner? deviceInventoryOwner;
+  final ForgeDeviceInventoryCandidateReader? deviceInventoryReader;
+
+  /// Optional, explicitly injected owner-bound lossless v2 inventory reader.
+  /// The default screen leaves it unset, so no v2 device request is made.
+  final ForgeDeviceInventoryV2Reader? deviceInventoryV2Reader;
+
+  /// Optional explicit requirements and reader for the authenticated
+  /// registry-backed placement-preview candidate. The default screen leaves
+  /// both unset and therefore does not issue a POST.
+  final ForgeDevicePlacementRequirements?
+  deviceInventoryRegistryPlacementRequirements;
+  final ForgeDeviceRegistryPlacementPreviewReader?
+  deviceInventoryRegistryPlacementPreviewReader;
+
+  /// Optional, caller-supplied v2 persisted inventory observation. It is
+  /// rendered as a local read-only preview and never causes a device request.
+  final ForgeDeviceInventoryPageV2? deviceInventoryV2Preview;
+
+  /// Optional bounded JSON reader for the local v2 inventory preview. The
+  /// default screen uses the platform workspace picker; a supplied reader is
+  /// still process-local and never opens an inventory route.
+  final ForgeDeviceInventoryV2FileReader? deviceInventoryV2FileReader;
+
+  /// Optional, caller-supplied complete multi-instance resource summary. It
+  /// is rendered as a local read-only preview and never causes a device or
+  /// placement request.
+  final ForgeDeviceResourceSummaryFixture? deviceResourceSummaryPreview;
+
+  /// Optional bounded JSON reader for the local multi-instance resource
+  /// summary. The default screen uses the platform workspace picker; the
+  /// reader remains request-free and carries no target-selection authority.
+  final ForgeDeviceResourceSummaryFileReader? deviceResourceSummaryFileReader;
+
+  /// Optional, caller-supplied v2 placement comparison. It is rendered as a
+  /// local read-only preview and never causes a device request or selects a
+  /// target.
+  final ForgeDeviceInventoryPlacementEvaluationV2?
+  deviceInventoryPlacementEvaluationV2Preview;
+
+  /// Optional bounded JSON reader for the local v2 placement comparison. The
+  /// default screen uses the platform workspace picker; the value remains a
+  /// request-free, unverified comparison with no target-selection authority.
+  final ForgeDeviceInventoryPlacementEvaluationV2FileReader?
+  deviceInventoryPlacementEvaluationV2FileReader;
+
+  /// Optional, caller-supplied persisted-inventory placement evaluation. It
+  /// is rendered as a local read-only preview and never selects a target.
+  final ForgeDeviceInventoryPlacementEvaluationFixture?
+  deviceInventoryPlacementEvaluationPreview;
+
+  /// Optional bounded JSON reader for the local placement evaluation preview.
+  /// A supplied reader remains request-free and process-local.
+  final ForgeDeviceInventoryPlacementEvaluationFileReader?
+  deviceInventoryPlacementEvaluationFileReader;
+
+  /// Optional, caller-supplied persisted-inventory placement batch
+  /// comparison. It is rendered as a local read-only preview and never
+  /// selects a target or issues a device request.
+  final ForgeDeviceInventoryPlacementBatchEvaluationFixture?
+  deviceInventoryPlacementBatchEvaluationPreview;
+
+  /// Optional bounded JSON reader for the local persisted-inventory placement
+  /// batch preview. It remains request-free and never selects a target.
+  final ForgeDeviceInventoryPlacementBatchEvaluationFileReader?
+  deviceInventoryPlacementBatchEvaluationFileReader;
+
+  /// Explicit reader for the private, owner-scoped pending Run-intent
+  /// metadata candidate. The callback is optional and the default route never
+  /// requests `/run-intents`; it also never exposes Prompt content or any
+  /// execution action.
+  final ForgePendingRunIntentReader? pendingRunIntentReader;
+
+  /// Optional paged reader for the private pending Run-intent candidate. The
+  /// first call receives a null cursor and later calls receive the validated
+  /// cursor from the previous page. The default route remains request-free.
+  final ForgePendingRunIntentPageReader? pendingRunIntentPageReader;
+
+  /// Explicit reader for one payload-free pending Run-intent timeline. The
+  /// callback is invoked only after the owner expands a receipt; the default
+  /// route never requests the timeline endpoint or exposes execution action.
+  final ForgePendingRunIntentTimelineReader? pendingRunIntentTimelineReader;
+
+  /// Optional initial local Runner lease/fencing fixture. It is rendered only
+  /// as metadata and never creates a lease, selects a target, or dispatches a
+  /// command.
+  final ForgeRunnerLeaseFencingFixture? runnerLeaseFencingPreview;
+
+  /// Optional bounded JSON reader for the local Runner lease/fencing preview.
+  /// The default screen uses the platform workspace file picker; callers can
+  /// inject a reader for Web/App/Mobile tests without opening any API route.
+  final ForgeRunnerLeaseFencingFileReader? runnerLeaseFencingFileReader;
+
+  /// Optional local execution-lease restart image. It is strictly re-decoded
+  /// before display and never restores a lease or grants execution authority.
+  final ForgeExecutionLeaseCheckpointFixture? executionLeaseCheckpointPreview;
+
+  /// Optional bounded JSON reader for the local execution-lease checkpoint
+  /// preview. The default screen uses the platform workspace file picker.
+  final ForgeExecutionLeaseCheckpointFileReader?
+  executionLeaseCheckpointFileReader;
+
+  /// Optional local client-instance/session metadata. It is strictly
+  /// re-decoded before display and never creates a request or authority.
+  final ForgeClientInstanceSessionView? clientInstanceSessionViewPreview;
+
+  /// Optional bounded JSON reader for the local client-instance/session
+  /// observation. The default screen uses the platform workspace picker; the
+  /// reader remains process-local and cannot grant Prompt or execution
+  /// authority.
+  final ForgeClientInstanceSessionViewFileReader?
+  clientInstanceSessionViewFileReader;
+
+  /// Optional local client-instance/resource metadata. It is strictly
+  /// re-decoded before display and never creates a request or authority.
+  final ForgeClientInstanceResourceView? clientInstanceResourceViewPreview;
+
+  /// Optional bounded JSON reader for the local client-instance/resource
+  /// observation. The default screen uses the platform workspace picker; the
+  /// reader remains process-local and cannot grant scheduling authority.
+  final ForgeClientInstanceResourceViewFileReader?
+  clientInstanceResourceViewFileReader;
+
+  /// Explicit owner and reader for the private client-instance/resource-view
+  /// candidate. Both values are required before this screen makes a request;
+  /// the default screen leaves them unset.
+  final ForgeDeviceOwner? clientInstanceResourceViewOwner;
+  final ForgeClientInstanceResourceViewReader? clientInstanceResourceViewReader;
+
+  /// Optional local Run → Attempt → lease dispatch preflight. It is strictly
+  /// re-decoded before display and never creates a request or dispatches work.
+  final ForgePreflightFixture? runAttemptLeaseDispatchPreflightPreview;
+
+  /// Explicitly injected request and reader for the private, stateless
+  /// Run → Attempt → lease dispatch preflight candidate. Both values are
+  /// required before this screen makes a request; the default screen leaves
+  /// them unset, so no preflight route is contacted.
+  final ForgeRunAttemptLeaseDispatchPreflightRequest?
+  runAttemptLeaseDispatchPreflightRequest;
+  final ForgeRunAttemptLeaseDispatchPreflightReader?
+  runAttemptLeaseDispatchPreflightReader;
+
+  /// Optional local Runner dispatch-plan comparison. It is strictly
+  /// re-decoded before display and never selects, reserves, authorizes, or
+  /// dispatches a target.
+  final ForgeRunnerDispatchPlanPreview? runnerDispatchPlanPreview;
+
+  /// Explicitly injected request and reader for the private Runner
+  /// dispatch-plan comparison candidate. Both are required before this
+  /// screen makes a request; the default screen remains request-free.
+  final ForgeRunAttemptLeaseDispatchPreflightRequest?
+  runnerDispatchPlanPreviewRequest;
+  final ForgeRunnerDispatchPlanPreviewReader? runnerDispatchPlanPreviewReader;
+
+  /// Explicit owner and reader for the private client-instance/session-view
+  /// candidate. Both values are required before this screen makes a request;
+  /// the default screen leaves them unset.
+  final ForgeDeviceOwner? clientInstanceSessionViewOwner;
+  final ForgeClientInstanceSessionViewReader? clientInstanceSessionViewReader;
+
+  /// Explicit owner and reader for the private lifecycle-registry GET
+  /// candidate. Both values are required before this screen makes a request;
+  /// the default screen remains request-free.
+  final ForgeDeviceOwner? lifecycleRegistryOwner;
+  final ForgeLifecycleRegistryReader? lifecycleRegistryReader;
+
+  /// Explicit owner, metadata request, and reader for the private credential
+  /// lifecycle candidate. The default screen leaves these unset and therefore
+  /// never posts to the candidate route.
+  final ForgeDeviceOwner? deviceCredentialCandidateOwner;
+  final ForgeDeviceCredentialLifecycleRequest? deviceCredentialCandidateRequest;
+  final ForgeDeviceCredentialLifecycleCandidateReader?
+  deviceCredentialCandidateReader;
+
   const ForgeSessionsScreen({
     super.key,
     required this.accessToken,
     required this.apiOrigin,
+    this.initialConversationID,
     this.httpClient,
     this.oauthHttpClient,
     this.oauthRevocationTimeout = const Duration(seconds: 5),
     this.credentialStore,
+    this.deviceObservation,
+    this.deviceObservationRequest,
+    this.runIntentObservation,
+    this.runnerExecutionIntentObservation,
+    this.localRunnerPreview,
+    this.localRunnerPreviewRequest,
+    this.localRunnerPreviewReader,
+    this.runObserved,
+    this.runObservedReader,
+    this.runExecutionEvidence,
+    this.sessionRunnerReceiptObservation,
+    this.executionReconciliationObservation,
+    this.executionReconciliationInput,
+    this.executionReconciliationReader,
+    this.executionConsentPreviewOwner,
+    this.executionConsentPreviewReader,
+    this.attemptRequestPreview,
+    this.pendingRunIntentPreview,
+    this.pendingRunIntentOwner,
+    this.pendingRunIntentSubmitter,
+    this.deviceInventoryOwner,
+    this.deviceInventoryReader,
+    this.deviceInventoryV2Reader,
+    this.deviceInventoryRegistryPlacementRequirements,
+    this.deviceInventoryRegistryPlacementPreviewReader,
+    this.deviceInventoryV2Preview,
+    this.deviceInventoryV2FileReader,
+    this.deviceResourceSummaryPreview,
+    this.deviceResourceSummaryFileReader,
+    this.deviceInventoryPlacementEvaluationV2Preview,
+    this.deviceInventoryPlacementEvaluationV2FileReader,
+    this.deviceInventoryPlacementEvaluationPreview,
+    this.deviceInventoryPlacementEvaluationFileReader,
+    this.deviceInventoryPlacementBatchEvaluationPreview,
+    this.deviceInventoryPlacementBatchEvaluationFileReader,
+    this.pendingRunIntentReader,
+    this.pendingRunIntentPageReader,
+    this.pendingRunIntentTimelineReader,
+    this.runnerLeaseFencingPreview,
+    this.runnerLeaseFencingFileReader,
+    this.executionLeaseCheckpointPreview,
+    this.executionLeaseCheckpointFileReader,
+    this.clientInstanceSessionViewPreview,
+    this.clientInstanceSessionViewFileReader,
+    this.clientInstanceResourceViewPreview,
+    this.clientInstanceResourceViewFileReader,
+    this.clientInstanceResourceViewOwner,
+    this.clientInstanceResourceViewReader,
+    this.clientInstanceSessionViewOwner,
+    this.clientInstanceSessionViewReader,
+    this.lifecycleRegistryOwner,
+    this.lifecycleRegistryReader,
+    this.deviceCredentialCandidateOwner,
+    this.deviceCredentialCandidateRequest,
+    this.deviceCredentialCandidateReader,
+    this.runAttemptLeaseDispatchPreflightPreview,
+    this.runAttemptLeaseDispatchPreflightRequest,
+    this.runAttemptLeaseDispatchPreflightReader,
+    this.runnerDispatchPlanPreview,
+    this.runnerDispatchPlanPreviewRequest,
+    this.runnerDispatchPlanPreviewReader,
   });
 
   @override
   State<ForgeSessionsScreen> createState() => _ForgeSessionsScreenState();
 }
 
+class _PendingRunIntentRequest {
+  final String content;
+  final int expectedVersion;
+  final String idempotencyKey;
+
+  const _PendingRunIntentRequest({
+    required this.content,
+    required this.expectedVersion,
+    required this.idempotencyKey,
+  });
+}
+
+enum _ForgeChangeSyncOutcome { skipped, failed, unchanged, changed }
+
+enum _ForgeChangePollOutcome { skipped, failed, succeeded }
+
 class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     with WidgetsBindingObserver {
+  static const _changePollBaseDelay = Duration(seconds: 15);
+  static const _changePollMaxDelay = Duration(minutes: 2);
+  static const _changePollMaxFailureStreak = 3;
+
   late final ForgeConversationsApi _api;
   late final ForgeOAuthTokenRefresh _tokenRefresh;
   late final ForgeCredentialStore _credentialStore =
       widget.credentialStore ?? ForgeCredentialStore();
+  late final ForgeConversationMetadataCache _conversationMetadataCache =
+      ForgeConversationMetadataCache(
+        accessToken: widget.accessToken,
+        apiOrigin: widget.apiOrigin,
+        clientId: ForgeConversationsOAuth.clientId,
+        resource: ForgeConversationsOAuth.resource,
+      );
   late final ForgeChangeCursorStore _changeCursorStore;
   late final Future<void> _cursorReady;
   final _titleController = TextEditingController();
@@ -62,12 +474,141 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   String? _nextAfterID;
   String _scopeKind = 'global';
   String? _conversationError;
+  bool _conversationsStale = false;
   String? _promptError;
   String? _createError;
   String? _appendError;
   String? _changeError;
   String? _runError;
   String? _runTimelineError;
+  ForgeSessionDeviceObservation? _fetchedDeviceObservation;
+  ForgeSessionDeviceObservation? _importedDeviceObservation;
+  ForgeRunnerExecutionIntentObservation?
+  _importedRunnerExecutionIntentObservation;
+  ForgeLocalRunnerPreviewObservation? _fetchedLocalRunnerPreview;
+  String? _localRunnerPreviewError;
+  bool _localRunnerPreviewStale = false;
+  bool _loadingLocalRunnerPreview = false;
+  int _localRunnerPreviewGeneration = 0;
+  ForgeSessionRunnerReceiptObservation?
+  _importedSessionRunnerReceiptObservation;
+  String? _deviceObservationError;
+  String? _deviceObservationKey;
+  bool _loadingDeviceObservation = false;
+  int _deviceObservationGeneration = 0;
+  ForgeRunObserved? _fetchedRunObserved;
+  String? _runObservedError;
+  bool _runObservedStale = false;
+  bool _loadingRunObserved = false;
+  int _runObservedGeneration = 0;
+  ForgeDeviceInventoryPage? _fetchedDeviceInventory;
+  String? _deviceInventoryError;
+  bool _deviceInventoryStale = false;
+  bool _loadingDeviceInventory = false;
+  int _deviceInventoryGeneration = 0;
+  ForgeDeviceInventoryPageV2? _fetchedDeviceInventoryV2;
+  String? _deviceInventoryV2Error;
+  bool _deviceInventoryV2Stale = false;
+  bool _loadingDeviceInventoryV2 = false;
+  int _deviceInventoryV2Generation = 0;
+  ForgeDeviceInventoryPageV2? _deviceInventoryV2Preview;
+  String? _deviceInventoryV2PreviewError;
+  bool _loadingDeviceInventoryV2Preview = false;
+  ForgeDeviceResourceSummaryFixture? _deviceResourceSummaryPreview;
+  String? _deviceResourceSummaryPreviewError;
+  bool _loadingDeviceResourceSummaryPreview = false;
+  ForgeDeviceInventoryPlacementEvaluationV2?
+  _deviceInventoryPlacementEvaluationV2Preview;
+  String? _deviceInventoryPlacementEvaluationV2PreviewError;
+  bool _loadingDeviceInventoryPlacementEvaluationV2Preview = false;
+  ForgeDeviceInventoryPlacementEvaluationFixture?
+  _deviceInventoryPlacementEvaluationPreview;
+  String? _deviceInventoryPlacementEvaluationPreviewError;
+  bool _loadingDeviceInventoryPlacementEvaluationPreview = false;
+  ForgeDeviceInventoryPlacementBatchEvaluationFixture?
+  _deviceInventoryPlacementBatchEvaluationPreview;
+  String? _deviceInventoryPlacementBatchEvaluationPreviewError;
+  bool _loadingDeviceInventoryPlacementBatchEvaluationPreview = false;
+  ForgeDeviceRegistryPlacementPreview?
+  _fetchedDeviceInventoryRegistryPlacementPreview;
+  String? _deviceInventoryRegistryPlacementPreviewError;
+  bool _deviceInventoryRegistryPlacementPreviewStale = false;
+  bool _loadingDeviceInventoryRegistryPlacementPreview = false;
+  int _deviceInventoryRegistryPlacementPreviewGeneration = 0;
+  ForgeClientInstanceResourceView? _fetchedClientInstanceResourceView;
+  String? _clientInstanceResourceViewError;
+  bool _clientInstanceResourceViewStale = false;
+  bool _loadingClientInstanceResourceView = false;
+  int _clientInstanceResourceViewGeneration = 0;
+  ForgeClientInstanceResourceView? _clientInstanceResourceViewPreview;
+  String? _clientInstanceResourceViewPreviewError;
+  bool _loadingClientInstanceResourceViewPreview = false;
+  ForgeClientInstanceSessionView? _fetchedClientInstanceSessionView;
+  String? _clientInstanceSessionViewError;
+  bool _clientInstanceSessionViewStale = false;
+  bool _loadingClientInstanceSessionView = false;
+  int _clientInstanceSessionViewGeneration = 0;
+  ForgeClientInstanceSessionView? _clientInstanceSessionViewPreview;
+  String? _clientInstanceSessionViewPreviewError;
+  bool _loadingClientInstanceSessionViewPreview = false;
+  ForgeDeviceEnrollmentHeartbeatLifecycleRegistry? _fetchedLifecycleRegistry;
+  String? _lifecycleRegistryError;
+  bool _lifecycleRegistryStale = false;
+  bool _loadingLifecycleRegistry = false;
+  int _lifecycleRegistryGeneration = 0;
+  ForgeDeviceCredentialLifecycleCandidate? _fetchedDeviceCredentialCandidate;
+  String? _deviceCredentialCandidateError;
+  bool _deviceCredentialCandidateStale = false;
+  bool _loadingDeviceCredentialCandidate = false;
+  int _deviceCredentialCandidateGeneration = 0;
+  ForgeExecutionReconciliationObservation?
+  _fetchedExecutionReconciliationObservation;
+  String? _executionReconciliationError;
+  bool _executionReconciliationStale = false;
+  bool _loadingExecutionReconciliation = false;
+  int _executionReconciliationGeneration = 0;
+  ForgeExecutionConsentPreview? _fetchedExecutionConsentPreview;
+  String? _executionConsentPreviewError;
+  bool _executionConsentPreviewStale = false;
+  bool _loadingExecutionConsentPreview = false;
+  int _executionConsentPreviewGeneration = 0;
+  // This is a process-local display filter over the owner-scoped Conversation
+  // page.  The instance/session envelope is explicitly unverified, so the
+  // filter never changes the authenticated request, Prompt write, or session
+  // authority.  Keeping the selection here (rather than in the API client)
+  // also makes the default Gate/request-free path unchanged.
+  String? _selectedClientInstanceID;
+  // Guards an in-flight owner conversation refresh from restoring the
+  // selection that was active before a local client-instance filter changed.
+  // The filter is a local projection boundary, so a late page must not widen
+  // the visible list or reselect a conversation outside the chosen instance.
+  int _clientInstanceFilterGeneration = 0;
+  ForgePreflightFixture? _fetchedRunAttemptLeaseDispatchPreflight;
+  String? _runAttemptLeaseDispatchPreflightError;
+  bool _runAttemptLeaseDispatchPreflightStale = false;
+  bool _loadingRunAttemptLeaseDispatchPreflight = false;
+  int _runAttemptLeaseDispatchPreflightGeneration = 0;
+  ForgeRunnerDispatchPlanPreview? _fetchedRunnerDispatchPlanPreview;
+  String? _runnerDispatchPlanPreviewError;
+  bool _runnerDispatchPlanPreviewStale = false;
+  bool _loadingRunnerDispatchPlanPreview = false;
+  int _runnerDispatchPlanPreviewGeneration = 0;
+  ForgePendingRunIntentListPage? _fetchedPendingRunIntents;
+  String? _pendingRunIntentError;
+  bool _loadingPendingRunIntents = false;
+  bool _loadingMorePendingRunIntents = false;
+  int _pendingRunIntentGeneration = 0;
+  final Map<String, ForgePendingRunIntentTimelinePage>
+  _fetchedPendingRunIntentTimelines = {};
+  final Map<String, String> _pendingRunIntentTimelineErrors = {};
+  final Set<String> _loadingPendingRunIntentTimelines = {};
+  int _pendingRunIntentTimelineGeneration = 0;
+  ForgeRunnerLeaseFencingFixture? _runnerLeaseFencingPreview;
+  String? _runnerLeaseFencingError;
+  bool _loadingRunnerLeaseFencing = false;
+  ForgeExecutionLeaseCheckpointFixture? _executionLeaseCheckpointPreview;
+  String? _executionLeaseCheckpointError;
+  bool _loadingExecutionLeaseCheckpoint = false;
   String? _signOutError;
   _PendingCreate? _pendingCreate;
   _PendingPrompt? _pendingPrompt;
@@ -75,6 +616,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _loadingPrompts = false;
   bool _creating = false;
   bool _appending = false;
+  bool _submittingPendingRunIntent = false;
   bool _hasMoreConversations = false;
   bool _hasMorePrompts = false;
   bool _loadingRuns = false;
@@ -83,12 +625,36 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _hasMoreRunEvents = false;
   int _changeCursor = 0;
   bool _syncingChanges = false;
+  int _conversationGeneration = 0;
   bool _signingOut = false;
   Timer? _changeSyncTimer;
+  Duration _changePollDelay = _changePollBaseDelay;
+  int _changePollFailureStreak = 0;
+  bool _changeSyncEnabled = false;
+  bool _changePollInFlight = false;
+  bool _refreshingOnResume = false;
+  // Once sign-out starts, keep owner-scoped state out of the widget tree while
+  // revocation and secure-store cleanup finish.  The route may remain mounted
+  // for several seconds when a provider is slow or unavailable.
+  bool _sessionViewInvalidated = false;
+  // An authorization rejection invalidates the current credential slot. Keep
+  // lifecycle callbacks from restarting owner polling until the route is
+  // recreated through the Forge login flow.
+  bool _authorizationInvalidated = false;
+  late final void Function() _cancelLocationChange;
+  bool _hasObservedLocationSelection = false;
+  String? _observedLocationConversationID;
+  bool _hasPendingLocationSelection = false;
+  String? _pendingLocationConversationID;
+  int _locationSelectionGeneration = 0;
+  bool _restoringLocationSelection = false;
   int _promptGeneration = 0;
   int _runGeneration = 0;
   int _runTimelineGeneration = 0;
   int _runTimelineSequence = 0;
+  ForgePendingRunIntentSubmission? _pendingRunIntentSubmission;
+  _PendingRunIntentRequest? _pendingRunIntentRequest;
+  String? _pendingRunIntentSubmitError;
 
   @override
   void initState() {
@@ -115,13 +681,69 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       resource: ForgeConversationsOAuth.resource,
     );
     _cursorReady = _restoreChangeCursor();
-    _refreshConversations();
+    _runnerLeaseFencingPreview = _safeRunnerLeaseFencingPreview(
+      widget.runnerLeaseFencingPreview,
+    );
+    _executionLeaseCheckpointPreview = _safeExecutionLeaseCheckpointPreview(
+      widget.executionLeaseCheckpointPreview,
+    );
+    _deviceInventoryV2Preview = _safeDeviceInventoryV2Preview(
+      widget.deviceInventoryV2Preview,
+    );
+    _deviceResourceSummaryPreview = _safeDeviceResourceSummaryPreview(
+      widget.deviceResourceSummaryPreview,
+    );
+    _clientInstanceResourceViewPreview = _safeClientInstanceResourceViewPreview(
+      widget.clientInstanceResourceViewPreview,
+    );
+    _clientInstanceSessionViewPreview = _safeClientInstanceSessionViewPreview(
+      widget.clientInstanceSessionViewPreview,
+    );
+    _deviceInventoryPlacementEvaluationV2Preview =
+        _safeDeviceInventoryPlacementEvaluationV2Preview(
+          widget.deviceInventoryPlacementEvaluationV2Preview,
+        );
+    _deviceInventoryPlacementEvaluationPreview =
+        _safeDeviceInventoryPlacementEvaluationPreview(
+          widget.deviceInventoryPlacementEvaluationPreview,
+        );
+    _deviceInventoryPlacementBatchEvaluationPreview =
+        _safeDeviceInventoryPlacementBatchEvaluationPreview(
+          widget.deviceInventoryPlacementBatchEvaluationPreview,
+        );
+    _cancelLocationChange = BrowserNavigation.listenToLocationChange(
+      _onLocationChange,
+    );
+    // Keep the optional candidate read behind the initial owner session
+    // snapshot. The two authenticated reads otherwise race during cold start
+    // against a coordinator that is still warming its Runtime bridge.
+    unawaited(_initialLoad());
     _startChangeSyncTimer();
+  }
+
+  Future<void> _initialLoad() async {
+    await _refreshConversations(selectID: widget.initialConversationID);
+    if (mounted) {
+      await _loadPendingRunIntentsIfRequested();
+      await _loadDeviceInventoryIfRequested();
+      await _loadDeviceInventoryV2IfRequested();
+      await _loadDeviceInventoryRegistryPlacementPreviewIfRequested();
+      await _loadClientInstanceSessionViewIfRequested();
+      await _loadClientInstanceResourceViewIfRequested();
+      await _loadLifecycleRegistryIfRequested();
+      await _loadDeviceCredentialCandidateIfRequested();
+      await _loadRunAttemptLeaseDispatchPreflightIfRequested();
+      await _loadRunnerDispatchPlanPreviewIfRequested();
+      await _loadLocalRunnerPreviewIfRequested();
+      await _loadExecutionReconciliationIfRequested();
+      await _loadExecutionConsentPreviewIfRequested();
+    }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _cancelLocationChange();
     _stopChangeSyncTimer();
     _api.close();
     _tokenRefresh.close();
@@ -132,33 +754,507 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   }
 
   @override
+  void didUpdateWidget(covariant ForgeSessionsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final deviceObservationChanged = !_sameDeviceObservationRequest(
+      oldWidget.deviceObservationRequest,
+      widget.deviceObservationRequest,
+    );
+    final deviceInventoryChanged =
+        oldWidget.deviceInventoryOwner != widget.deviceInventoryOwner ||
+        oldWidget.deviceInventoryReader != widget.deviceInventoryReader;
+    final deviceInventoryV2Changed =
+        oldWidget.deviceInventoryOwner != widget.deviceInventoryOwner ||
+        oldWidget.deviceInventoryV2Reader != widget.deviceInventoryV2Reader;
+    final deviceInventoryRegistryPlacementPreviewChanged =
+        oldWidget.deviceInventoryOwner != widget.deviceInventoryOwner ||
+        oldWidget.deviceInventoryRegistryPlacementRequirements !=
+            widget.deviceInventoryRegistryPlacementRequirements ||
+        oldWidget.deviceInventoryRegistryPlacementPreviewReader !=
+            widget.deviceInventoryRegistryPlacementPreviewReader;
+    final clientInstanceResourceViewChanged =
+        oldWidget.clientInstanceResourceViewOwner !=
+            widget.clientInstanceResourceViewOwner ||
+        oldWidget.clientInstanceResourceViewReader !=
+            widget.clientInstanceResourceViewReader;
+    final clientInstanceResourceViewPreviewChanged =
+        oldWidget.clientInstanceResourceViewPreview !=
+        widget.clientInstanceResourceViewPreview;
+    final clientInstanceSessionViewChanged =
+        oldWidget.clientInstanceSessionViewOwner !=
+            widget.clientInstanceSessionViewOwner ||
+        oldWidget.clientInstanceSessionViewReader !=
+            widget.clientInstanceSessionViewReader;
+    final clientInstanceSessionViewPreviewChanged =
+        oldWidget.clientInstanceSessionViewPreview !=
+        widget.clientInstanceSessionViewPreview;
+    final lifecycleRegistryChanged =
+        oldWidget.lifecycleRegistryOwner != widget.lifecycleRegistryOwner ||
+        oldWidget.lifecycleRegistryReader != widget.lifecycleRegistryReader;
+    final deviceCredentialCandidateChanged =
+        oldWidget.deviceCredentialCandidateOwner !=
+            widget.deviceCredentialCandidateOwner ||
+        !_sameDeviceCredentialCandidateRequest(
+          oldWidget.deviceCredentialCandidateRequest,
+          widget.deviceCredentialCandidateRequest,
+        ) ||
+        oldWidget.deviceCredentialCandidateReader !=
+            widget.deviceCredentialCandidateReader;
+    final runAttemptLeaseDispatchPreflightChanged =
+        oldWidget.runAttemptLeaseDispatchPreflightRequest !=
+            widget.runAttemptLeaseDispatchPreflightRequest ||
+        oldWidget.runAttemptLeaseDispatchPreflightReader !=
+            widget.runAttemptLeaseDispatchPreflightReader;
+    final runnerDispatchPlanPreviewChanged =
+        oldWidget.runnerDispatchPlanPreviewRequest !=
+            widget.runnerDispatchPlanPreviewRequest ||
+        oldWidget.runnerDispatchPlanPreviewReader !=
+            widget.runnerDispatchPlanPreviewReader;
+    final localRunnerPreviewChanged =
+        oldWidget.localRunnerPreviewRequest !=
+            widget.localRunnerPreviewRequest ||
+        oldWidget.localRunnerPreviewReader != widget.localRunnerPreviewReader;
+    final executionReconciliationChanged =
+        oldWidget.executionReconciliationInput !=
+            widget.executionReconciliationInput ||
+        oldWidget.executionReconciliationReader !=
+            widget.executionReconciliationReader;
+    final executionConsentPreviewChanged =
+        oldWidget.executionConsentPreviewOwner !=
+            widget.executionConsentPreviewOwner ||
+        oldWidget.executionConsentPreviewReader !=
+            widget.executionConsentPreviewReader;
+    final runObservedReaderChanged =
+        oldWidget.runObservedReader != widget.runObservedReader;
+    final pendingRunIntentChanged =
+        oldWidget.pendingRunIntentReader != widget.pendingRunIntentReader ||
+        oldWidget.pendingRunIntentPageReader !=
+            widget.pendingRunIntentPageReader ||
+        oldWidget.pendingRunIntentTimelineReader !=
+            widget.pendingRunIntentTimelineReader;
+    if (deviceObservationChanged) {
+      // A parent can replace the caller-supplied declaration while keeping
+      // this screen mounted (for example, after a Web/App/Mobile preview
+      // completes). Drop the previous response before evaluating the new
+      // request so a changed declaration cannot be shown as if it were still
+      // current.
+      setState(_clearDeviceObservation);
+      final conversationID = _selected?.conversation.id;
+      final runID = _selectedRun?.runID;
+      if (conversationID != null && runID != null) {
+        unawaited(_loadDeviceObservationIfRequested(conversationID, runID));
+      }
+    }
+    if (deviceInventoryChanged) {
+      setState(_clearDeviceInventory);
+      unawaited(_loadDeviceInventoryIfRequested());
+    }
+    if (deviceInventoryV2Changed) {
+      setState(_clearDeviceInventoryV2);
+      unawaited(_loadDeviceInventoryV2IfRequested());
+    }
+    if (deviceInventoryRegistryPlacementPreviewChanged) {
+      setState(_clearDeviceInventoryRegistryPlacementPreview);
+      unawaited(_loadDeviceInventoryRegistryPlacementPreviewIfRequested());
+    }
+    if (clientInstanceResourceViewChanged) {
+      setState(_clearClientInstanceResourceView);
+      unawaited(_loadClientInstanceResourceViewIfRequested());
+    }
+    if (clientInstanceSessionViewChanged) {
+      setState(_clearClientInstanceSessionView);
+      unawaited(_loadClientInstanceSessionViewIfRequested());
+    }
+    if (lifecycleRegistryChanged) {
+      setState(_clearLifecycleRegistry);
+      unawaited(_loadLifecycleRegistryIfRequested());
+    }
+    if (deviceCredentialCandidateChanged) {
+      setState(_clearDeviceCredentialCandidate);
+      unawaited(_loadDeviceCredentialCandidateIfRequested());
+    }
+    if (runAttemptLeaseDispatchPreflightChanged) {
+      setState(_clearRunAttemptLeaseDispatchPreflight);
+      unawaited(_loadRunAttemptLeaseDispatchPreflightIfRequested());
+    }
+    if (runnerDispatchPlanPreviewChanged) {
+      setState(_clearRunnerDispatchPlanPreview);
+      unawaited(_loadRunnerDispatchPlanPreviewIfRequested());
+    }
+    if (localRunnerPreviewChanged) {
+      setState(_clearLocalRunnerPreview);
+      unawaited(_loadLocalRunnerPreviewIfRequested());
+    }
+    if (executionReconciliationChanged) {
+      setState(_clearExecutionReconciliation);
+      unawaited(_loadExecutionReconciliationIfRequested());
+    }
+    if (executionConsentPreviewChanged) {
+      setState(_clearExecutionConsentPreview);
+      unawaited(_loadExecutionConsentPreviewIfRequested());
+    }
+    if (runObservedReaderChanged) {
+      setState(_clearRunObserved);
+      final conversationID = _selected?.conversation.id;
+      final runID = _selectedRun?.runID;
+      if (conversationID != null && runID != null) {
+        unawaited(
+          _loadRunObservedIfRequested(
+            conversationID: conversationID,
+            runID: runID,
+          ),
+        );
+      }
+    }
+    if (pendingRunIntentChanged) {
+      setState(_clearPendingRunIntents);
+      unawaited(_loadPendingRunIntentsIfRequested());
+    }
+    if (clientInstanceResourceViewPreviewChanged ||
+        clientInstanceSessionViewPreviewChanged) {
+      _reconcileSelectedClientInstanceProjection();
+    }
+    if (oldWidget.runnerLeaseFencingPreview !=
+        widget.runnerLeaseFencingPreview) {
+      setState(() {
+        _runnerLeaseFencingPreview = _safeRunnerLeaseFencingPreview(
+          widget.runnerLeaseFencingPreview,
+        );
+        _runnerLeaseFencingError = null;
+      });
+    }
+    if (oldWidget.executionLeaseCheckpointPreview !=
+        widget.executionLeaseCheckpointPreview) {
+      setState(() {
+        _executionLeaseCheckpointPreview = _safeExecutionLeaseCheckpointPreview(
+          widget.executionLeaseCheckpointPreview,
+        );
+        _executionLeaseCheckpointError = null;
+      });
+    }
+    if (oldWidget.deviceInventoryV2Preview != widget.deviceInventoryV2Preview) {
+      setState(() {
+        _deviceInventoryV2Preview = _safeDeviceInventoryV2Preview(
+          widget.deviceInventoryV2Preview,
+        );
+        _deviceInventoryV2PreviewError = null;
+      });
+    }
+    if (oldWidget.deviceResourceSummaryPreview !=
+        widget.deviceResourceSummaryPreview) {
+      setState(() {
+        _deviceResourceSummaryPreview = _safeDeviceResourceSummaryPreview(
+          widget.deviceResourceSummaryPreview,
+        );
+        _deviceResourceSummaryPreviewError = null;
+      });
+    }
+    if (oldWidget.clientInstanceResourceViewPreview !=
+        widget.clientInstanceResourceViewPreview) {
+      setState(() {
+        _clientInstanceResourceViewPreview =
+            _safeClientInstanceResourceViewPreview(
+              widget.clientInstanceResourceViewPreview,
+            );
+        _clientInstanceResourceViewPreviewError = null;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    }
+    if (oldWidget.clientInstanceSessionViewPreview !=
+        widget.clientInstanceSessionViewPreview) {
+      setState(() {
+        _clientInstanceSessionViewPreview =
+            _safeClientInstanceSessionViewPreview(
+              widget.clientInstanceSessionViewPreview,
+            );
+        _clientInstanceSessionViewPreviewError = null;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    }
+    if (oldWidget.deviceInventoryPlacementEvaluationV2Preview !=
+        widget.deviceInventoryPlacementEvaluationV2Preview) {
+      setState(() {
+        _deviceInventoryPlacementEvaluationV2Preview =
+            _safeDeviceInventoryPlacementEvaluationV2Preview(
+              widget.deviceInventoryPlacementEvaluationV2Preview,
+            );
+        _deviceInventoryPlacementEvaluationV2PreviewError = null;
+      });
+    }
+    if (oldWidget.deviceInventoryPlacementEvaluationPreview !=
+        widget.deviceInventoryPlacementEvaluationPreview) {
+      setState(() {
+        _deviceInventoryPlacementEvaluationPreview =
+            _safeDeviceInventoryPlacementEvaluationPreview(
+              widget.deviceInventoryPlacementEvaluationPreview,
+            );
+        _deviceInventoryPlacementEvaluationPreviewError = null;
+      });
+    }
+    if (oldWidget.deviceInventoryPlacementBatchEvaluationPreview !=
+        widget.deviceInventoryPlacementBatchEvaluationPreview) {
+      setState(() {
+        _deviceInventoryPlacementBatchEvaluationPreview =
+            _safeDeviceInventoryPlacementBatchEvaluationPreview(
+              widget.deviceInventoryPlacementBatchEvaluationPreview,
+            );
+        _deviceInventoryPlacementBatchEvaluationPreviewError = null;
+      });
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _startChangeSyncTimer();
-      unawaited(_refreshAndSync());
+      _refreshOnResume();
       return;
     }
     _stopChangeSyncTimer();
   }
 
+  /// Mobile platforms and desktop window integrations can report more than
+  /// one `resumed` notification while a route is returning to the foreground.
+  /// Coalesce those notifications so a single resume cannot issue overlapping
+  /// feed, session, and Run reads.
+  void _refreshOnResume() {
+    if (_refreshingOnResume ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated) {
+      return;
+    }
+    _refreshingOnResume = true;
+    unawaited(_refreshAndSyncOnResume());
+  }
+
+  Future<void> _refreshAndSyncOnResume() async {
+    try {
+      await _refreshAndSync();
+    } finally {
+      _refreshingOnResume = false;
+    }
+  }
+
   void _startChangeSyncTimer() {
-    if (_changeSyncTimer != null) return;
-    _changeSyncTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => unawaited(_syncChanges()),
-    );
+    if (_sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    _changeSyncEnabled = true;
+    if (_changeSyncTimer != null || _changePollInFlight) return;
+    _changeSyncTimer = Timer(_changePollDelay, () {
+      _changeSyncTimer = null;
+      unawaited(_runScheduledChangePoll());
+    });
+  }
+
+  /// A successful feed read also proves that the transport recovered. Retry a
+  /// failed conversation snapshot so a transient outage does not leave the
+  /// screen empty until the user manually refreshes or backgrounds the app.
+  Future<_ForgeChangePollOutcome> _pollForChanges() async {
+    if (_sessionViewInvalidated || _authorizationInvalidated) {
+      return _ForgeChangePollOutcome.skipped;
+    }
+    final syncOutcome = await _syncChanges();
+    if (syncOutcome == _ForgeChangeSyncOutcome.skipped) {
+      return _ForgeChangePollOutcome.skipped;
+    }
+    // A change-bearing sync already refreshes pending Run-intent metadata as
+    // part of its selected-conversation update. The scheduled path must also
+    // refresh the explicit reader when the feed is unchanged (or recovered
+    // after a transient failure), otherwise an opted-in metadata panel can
+    // remain stale between foreground/manual refreshes. The default reader
+    // remains request-free.
+    if (syncOutcome != _ForgeChangeSyncOutcome.changed) {
+      await _loadPendingRunIntentsIfRequested(force: true);
+    }
+    // The scheduled path invokes _syncChanges directly rather than the
+    // manual/resume wrapper. Refresh explicitly injected v1 and v2 inventory
+    // readers here so either opted-in resource view cannot remain stale
+    // between foreground refreshes; the default readers remain request-free.
+    await _loadDeviceInventoryIfRequested(force: true);
+    await _loadDeviceInventoryV2IfRequested(force: true);
+    // Registry-backed placement is another explicit display-only reader. It
+    // follows the same owner-scoped cadence when enabled and remains a no-op
+    // for the default Gate.
+    await _loadDeviceInventoryRegistryPlacementPreviewIfRequested(force: true);
+    // Client-instance views are also explicit display-only readers. Refresh
+    // them on the same scheduled boundary so instance/session/resource
+    // metadata cannot lag behind the owner feed while remaining opt-in.
+    await _loadClientInstanceSessionViewIfRequested(force: true);
+    await _loadClientInstanceResourceViewIfRequested(force: true);
+    await _loadLifecycleRegistryIfRequested(force: true);
+    await _loadExecutionConsentPreviewIfRequested(force: true);
+    var succeeded = syncOutcome != _ForgeChangeSyncOutcome.failed;
+    if (!mounted ||
+        _changeError != null ||
+        (_conversationError == null && !_conversationsStale)) {
+      return succeeded
+          ? _ForgeChangePollOutcome.succeeded
+          : _ForgeChangePollOutcome.failed;
+    }
+    succeeded = await _refreshConversations() && succeeded;
+    return succeeded
+        ? _ForgeChangePollOutcome.succeeded
+        : _ForgeChangePollOutcome.failed;
+  }
+
+  Future<void> _runScheduledChangePoll() async {
+    if (!_changeSyncEnabled ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        _changePollInFlight) {
+      return;
+    }
+    _changePollInFlight = true;
+    final outcome = await _pollForChanges();
+    _changePollInFlight = false;
+    if (!_changeSyncEnabled ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        !mounted) {
+      return;
+    }
+    switch (outcome) {
+      case _ForgeChangePollOutcome.succeeded:
+        _changePollFailureStreak = 0;
+        _changePollDelay = _changePollBaseDelay;
+      case _ForgeChangePollOutcome.failed:
+        _changePollFailureStreak = min(
+          _changePollFailureStreak + 1,
+          _changePollMaxFailureStreak,
+        );
+        final multiplier = 1 << _changePollFailureStreak;
+        _changePollDelay = Duration(
+          milliseconds: min(
+            _changePollBaseDelay.inMilliseconds * multiplier,
+            _changePollMaxDelay.inMilliseconds,
+          ),
+        );
+      case _ForgeChangePollOutcome.skipped:
+        break;
+    }
+    _startChangeSyncTimer();
   }
 
   void _stopChangeSyncTimer() {
+    _changeSyncEnabled = false;
     _changeSyncTimer?.cancel();
     _changeSyncTimer = null;
+  }
+
+  void _onLocationChange() {
+    if (!mounted) return;
+    final location = BrowserNavigation.currentUri;
+    if (!_isForgeSessionsLocation(location)) return;
+    final conversationID = _conversationIDFromLocation(location);
+    if (_hasObservedLocationSelection &&
+        _observedLocationConversationID == conversationID) {
+      if (_selected?.conversation.id == conversationID) {
+        _takePendingLocationSelection();
+      }
+      return;
+    }
+    _hasObservedLocationSelection = true;
+    _observedLocationConversationID = conversationID;
+    if (_selected?.conversation.id == conversationID) {
+      _takePendingLocationSelection();
+      return;
+    }
+
+    _hasPendingLocationSelection = true;
+    _pendingLocationConversationID = conversationID;
+    final generation = ++_locationSelectionGeneration;
+    if (_loadingConversations || _restoringLocationSelection) return;
+    unawaited(_restoreLocationSelection(conversationID, generation));
+  }
+
+  Future<void> _restoreLocationSelection(
+    String? conversationID,
+    int generation,
+  ) async {
+    if (!mounted || generation != _locationSelectionGeneration) return;
+    _restoringLocationSelection = true;
+    try {
+      if (conversationID == null) {
+        if (!mounted || generation != _locationSelectionGeneration) return;
+        _takePendingLocationSelection();
+        if (_selected == null) return;
+        setState(() {
+          _selected = null;
+          _clearConversationDetails();
+        });
+        return;
+      }
+
+      final local = _findConversation(_conversations, conversationID);
+      if (local != null) {
+        _takePendingLocationSelection();
+        await _selectConversation(
+          local,
+          updateLocation: false,
+          locationGeneration: generation,
+        );
+        return;
+      }
+
+      // Keep the first list page intact while resolving a URL that points to
+      // an older owner-scoped session. _refreshConversations performs the
+      // authenticated detail fallback exactly once for that selection.
+      await _refreshConversations(selectID: conversationID);
+    } finally {
+      _restoringLocationSelection = false;
+      if (mounted && !_loadingConversations && _hasPendingLocationSelection) {
+        final nextGeneration = _locationSelectionGeneration;
+        if (nextGeneration != generation) {
+          final nextConversationID = _pendingLocationConversationID;
+          unawaited(
+            _restoreLocationSelection(nextConversationID, nextGeneration),
+          );
+        }
+      }
+    }
+  }
+
+  String? _takePendingLocationSelection() {
+    if (!_hasPendingLocationSelection) return null;
+    final conversationID = _pendingLocationConversationID;
+    _hasPendingLocationSelection = false;
+    _pendingLocationConversationID = null;
+    return conversationID;
+  }
+
+  bool _isForgeSessionsLocation(Uri location) {
+    final segments = location.pathSegments;
+    if (segments.length == 1 && segments[0] == 'forge') return true;
+    if (segments.length == 2 && segments[0] == 'forge' && segments[1].isEmpty) {
+      return true;
+    }
+    return segments.length == 3 &&
+        segments[0] == 'forge' &&
+        segments[1] == 'conversations' &&
+        segments[2].isNotEmpty;
+  }
+
+  String? _conversationIDFromLocation(Uri location) {
+    final segments = location.pathSegments;
+    if (segments.length != 3 ||
+        segments[0] != 'forge' ||
+        segments[1] != 'conversations' ||
+        segments[2].isEmpty) {
+      return null;
+    }
+    return segments[2];
   }
 
   Future<bool> _refreshConversations({
     bool loadMore = false,
     String? selectID,
+    bool loadPendingRunIntents = true,
   }) async {
     if (_loadingConversations && !loadMore) return false;
+    final generation = ++_conversationGeneration;
+    final clientInstanceFilterGeneration = _clientInstanceFilterGeneration;
+    var resolvingOwnerSelection = false;
     setState(() {
       _loadingConversations = true;
       _conversationError = null;
@@ -167,28 +1263,86 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       final page = await _api.listConversations(
         afterID: loadMore ? _nextAfterID : null,
       );
-      if (!mounted) return false;
-      final merged = _mergeConversations(
+      if (!mounted || generation != _conversationGeneration) return false;
+      var merged = _mergeConversations(
         incoming: page.conversations,
         existing: _conversations,
         append: loadMore,
       );
-      final wantedID = selectID ?? _selected?.conversation.id;
-      final selected =
-          _findConversation(merged, wantedID) ??
-          _selected ??
-          (merged.isEmpty ? null : merged.first);
+      final hasPendingSelection = _hasPendingLocationSelection;
+      final pendingSelectionID = _takePendingLocationSelection();
+      final wantedID = hasPendingSelection
+          ? pendingSelectionID
+          : selectID ?? _selected?.conversation.id;
+      var selected = _findConversation(merged, wantedID);
+      if (selected == null &&
+          wantedID != null &&
+          (selectID != null || hasPendingSelection) &&
+          !loadMore) {
+        // A deep link can point to an older session outside the first page.
+        // Fetch only its owner-filtered metadata; this remains a read-only
+        // selection and does not alter pagination or write authority.
+        resolvingOwnerSelection = true;
+        final linked = await _api.getConversation(conversationID: wantedID);
+        resolvingOwnerSelection = false;
+        if (!mounted || generation != _conversationGeneration) return false;
+        merged = _mergeConversations(
+          incoming: [linked, ...merged],
+          existing: const [],
+          append: false,
+        );
+        selected = linked;
+      }
+      if (selected == null &&
+          !loadMore &&
+          !hasPendingSelection &&
+          selectID == null &&
+          _selected != null) {
+        // Keep an explicitly selected owner session visible while the
+        // authoritative first page is refreshed. This also keeps a deep link
+        // stable when its session sorts before the current page boundary.
+        merged = _mergeConversations(
+          incoming: [_selected!, ...merged],
+          existing: const [],
+          append: false,
+        );
+        selected = _selected;
+      }
+      if (!hasPendingSelection && selectID == null) {
+        selected ??= _selected;
+        selected ??= merged.isEmpty ? null : merged.first;
+      }
+      final filterChanged =
+          clientInstanceFilterGeneration != _clientInstanceFilterGeneration;
+      if (filterChanged) {
+        // A local instance selection happened while the owner page was in
+        // flight. Preserve the selection chosen by that filter operation and
+        // let it own Prompt/Run hydration; do not restore the stale page
+        // selection from before the filter changed.
+        selected = _selected;
+      }
       setState(() {
         _conversations = merged;
         _nextAfterID = page.nextAfterID;
         _hasMoreConversations = page.hasMore && page.nextAfterID != null;
         _selected = selected;
+        _conversationsStale = false;
         _loadingConversations = false;
       });
-      if (!loadMore && selected != null) {
+      await _conversationMetadataCache.save(merged);
+      if (!mounted || generation != _conversationGeneration) return false;
+      if (!loadMore && selected != null && !filterChanged) {
         await _loadPrompts(selected.conversation.id);
-        return _loadRuns(selected.conversation.id);
-      } else if (selected == null) {
+        final runsLoaded = await _loadRuns(selected.conversation.id);
+        await _loadExecutionConsentPreviewIfRequested(
+          conversationID: selected.conversation.id,
+        );
+        if (loadPendingRunIntents) {
+          await _loadPendingRunIntentsIfRequested();
+        }
+        return runsLoaded;
+      } else if (selected == null || filterChanged) {
+        if (filterChanged) return true;
         setState(() {
           _prompts = const [];
           _promptCursor = null;
@@ -207,12 +1361,96 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return true;
     } catch (error) {
       if (!mounted) return false;
+      final authorizationFailure = _isAuthorizationFailure(error);
       await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          (!authorizationFailure && generation != _conversationGeneration)) {
+        return false;
+      }
+      if (authorizationFailure) {
+        setState(() {
+          _conversationError = _friendlyError(
+            error,
+            'Could not load Forge sessions.',
+          );
+          _loadingConversations = false;
+        });
+        return false;
+      }
+      // A same-document URL is only a selection hint. When its owner-scoped
+      // detail lookup fails, keep the last successfully rendered session
+      // snapshot and its Prompt/Run state instead of treating that failure as
+      // a failed list read. The user can still retry through the normal
+      // refresh path, while the inaccessible ID never becomes selected.
+      final current = _conversations;
+      if (resolvingOwnerSelection && current.isNotEmpty) {
+        setState(() {
+          _conversationError = _friendlyError(
+            error,
+            'Could not open the requested Forge session.',
+          );
+          _conversationsStale = false;
+          _loadingConversations = false;
+        });
+        return false;
+      }
+      final canFallback = _canUseConversationMetadataCache(error);
+      final cached = canFallback
+          ? await _conversationMetadataCache.load()
+          : null;
+      if (!mounted) return false;
+      // A failed older page must not discard the already rendered first page;
+      // it is still authoritative local state and can be retried with the
+      // same cursor. Deterministic failures on the initial snapshot clear
+      // the list below instead of presenting it as an offline fallback.
+      if (!canFallback && loadMore && current.isNotEmpty) {
+        setState(() {
+          _conversationError = _friendlyError(
+            error,
+            'Could not load Forge sessions.',
+          );
+          _conversationsStale = false;
+          _loadingConversations = false;
+        });
+        return false;
+      }
+      final fallback = canFallback && current.isNotEmpty
+          ? current
+          : canFallback
+          ? cached?.conversations
+          : null;
+      if (fallback != null) {
+        final selected =
+            _findConversation(fallback, _selected?.conversation.id) ??
+            (fallback.isEmpty ? null : fallback.first);
+        final restoringSnapshot = current.isEmpty;
+        setState(() {
+          _conversations = fallback;
+          if (restoringSnapshot) {
+            _nextAfterID = null;
+            _hasMoreConversations = false;
+          }
+          _selected = selected;
+          _conversationsStale = true;
+          _conversationError = null;
+          _loadingConversations = false;
+          if (restoringSnapshot) _clearConversationDetails();
+        });
+        return false;
+      }
       setState(() {
+        if (!canFallback) {
+          _conversations = const [];
+          _selected = null;
+          _nextAfterID = null;
+          _hasMoreConversations = false;
+          _clearConversationDetails();
+        }
         _conversationError = _friendlyError(
           error,
           'Could not load Forge sessions.',
         );
+        _conversationsStale = false;
         _loadingConversations = false;
       });
       return false;
@@ -220,16 +1458,921 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   }
 
   Future<void> _refreshAndSync() async {
-    await _syncChanges();
-    if (mounted) await _refreshConversations();
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    final syncOutcome = await _syncChanges();
+    final pendingReadDuringSync =
+        syncOutcome == _ForgeChangeSyncOutcome.changed;
+    if (syncOutcome == _ForgeChangeSyncOutcome.unchanged ||
+        syncOutcome == _ForgeChangeSyncOutcome.changed) {
+      _changePollFailureStreak = 0;
+      _changePollDelay = _changePollBaseDelay;
+    }
+    if (mounted) {
+      await _refreshConversations(loadPendingRunIntents: false);
+    }
+    if (mounted &&
+        (!pendingReadDuringSync || _fetchedPendingRunIntents == null)) {
+      await _loadPendingRunIntentsIfRequested(force: true);
+    }
+    await _loadDeviceInventoryIfRequested(force: true);
+    await _loadDeviceInventoryV2IfRequested(force: true);
+    await _loadDeviceInventoryRegistryPlacementPreviewIfRequested(force: true);
+    await _loadClientInstanceSessionViewIfRequested(force: true);
+    await _loadClientInstanceResourceViewIfRequested(force: true);
+    await _loadLifecycleRegistryIfRequested(force: true);
+    await _loadExecutionConsentPreviewIfRequested(force: true);
+    await _loadRunObservedIfRequested(force: true);
+    await _loadRunAttemptLeaseDispatchPreflightIfRequested(force: true);
+    await _loadRunnerDispatchPlanPreviewIfRequested(force: true);
+    await _loadLocalRunnerPreviewIfRequested(force: true);
+    await _loadExecutionReconciliationIfRequested(force: true);
   }
 
-  Future<void> _syncChanges() async {
-    if (_syncingChanges || !mounted) return;
+  ForgeRunnerLeaseFencingFixture? _safeRunnerLeaseFencingPreview(
+    ForgeRunnerLeaseFencingFixture? candidate,
+  ) {
+    if (candidate == null ||
+        candidate.schemaVersion != forgeRunnerLeaseFencingSchema ||
+        candidate.evaluationMode != forgeRunnerLeaseFencingEvaluationMode ||
+        !candidate.authority.isOffline ||
+        candidate.cases.length != 16) {
+      return null;
+    }
+    return candidate;
+  }
+
+  ForgeExecutionLeaseCheckpointFixture? _safeExecutionLeaseCheckpointPreview(
+    ForgeExecutionLeaseCheckpointFixture? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeExecutionLeaseCheckpointFixture.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeDeviceInventoryPageV2? _safeDeviceInventoryV2Preview(
+    ForgeDeviceInventoryPageV2? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeDeviceInventoryPageV2.fromJson(candidate.toJson());
+      return validated;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeDeviceResourceSummaryFixture? _safeDeviceResourceSummaryPreview(
+    ForgeDeviceResourceSummaryFixture? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeDeviceResourceSummaryFixture.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeClientInstanceResourceView? _safeClientInstanceResourceViewPreview(
+    ForgeClientInstanceResourceView? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeClientInstanceResourceView.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeClientInstanceSessionView? _safeClientInstanceSessionViewPreview(
+    ForgeClientInstanceSessionView? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeClientInstanceSessionView.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeDeviceInventoryPlacementEvaluationV2?
+  _safeDeviceInventoryPlacementEvaluationV2Preview(
+    ForgeDeviceInventoryPlacementEvaluationV2? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeDeviceInventoryPlacementEvaluationV2.fromJson(
+        candidate.toJson(),
+      );
+      return validated.authority.anyGranted ||
+              validated.selectedDeviceID != null ||
+              validated.selectedInstanceID != null
+          ? null
+          : validated;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeDeviceInventoryPlacementEvaluationFixture?
+  _safeDeviceInventoryPlacementEvaluationPreview(
+    ForgeDeviceInventoryPlacementEvaluationFixture? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeDeviceInventoryPlacementEvaluationFixture.fromJson(
+        _placementEvaluationJson(candidate),
+      );
+      return validated.authority.anyGranted ? null : validated;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeDeviceInventoryPlacementBatchEvaluationFixture?
+  _safeDeviceInventoryPlacementBatchEvaluationPreview(
+    ForgeDeviceInventoryPlacementBatchEvaluationFixture? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated =
+          ForgeDeviceInventoryPlacementBatchEvaluationFixture.fromJson(
+            _batchEvaluationJson(candidate),
+          );
+      return validated.authority.anyGranted ||
+              validated.selectedDeviceID != null ||
+              validated.selectedInstanceID != null
+          ? null
+          : validated;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  Map<String, dynamic> _batchEvaluationJson(
+    ForgeDeviceInventoryPlacementBatchEvaluationFixture value,
+  ) => {
+    'schema_version': value.schemaVersion,
+    'evaluation_mode': value.evaluationMode,
+    'source_fixture': value.sourceFixture,
+    'evaluation_owner': value.evaluationOwner.toJson(),
+    'evaluated_at_ms': value.evaluatedAtMS,
+    'requirements': value.requirements.toJson(),
+    'cases': value.cases
+        .map(
+          (item) => {
+            'name': item.name,
+            'source_case': item.sourceCase,
+            'device_id': item.deviceID,
+            'instance_id': item.instanceID,
+            if (item.snapshotObservedAtMS != null)
+              'snapshot_observed_at_ms': item.snapshotObservedAtMS,
+            if (item.capabilityLeaseExpiresAtMS != null)
+              'capability_lease_expires_at_ms': item.capabilityLeaseExpiresAtMS,
+            'expected': {
+              'revision': item.expected.revision,
+              'device_id': item.expected.deviceID,
+              'instance_id': item.expected.instanceID,
+              'matches_requirements': item.expected.matchesRequirements,
+              'exclusion_reasons': item.expected.exclusionReasons,
+            },
+          },
+        )
+        .toList(growable: false),
+    'empty_inputs_allowed': value.emptyInputsAllowed,
+    'selected_device_id': value.selectedDeviceID,
+    'selected_instance_id': value.selectedInstanceID,
+    'authority': {
+      'identity_verified': value.authority.identityVerified,
+      'heartbeat_persisted': value.authority.heartbeatPersisted,
+      'inventory_authoritative': value.authority.inventoryAuthoritative,
+      'placement_selected': value.authority.placementSelected,
+      'reservation_created': value.authority.reservationCreated,
+      'execution_authorized': value.authority.executionAuthorized,
+      'dispatch_performed': value.authority.dispatchPerformed,
+    },
+    'error_cases': value.errorCases
+        .map((item) => {'name': item.name, 'error': item.error})
+        .toList(growable: false),
+  };
+
+  Map<String, dynamic> _placementEvaluationJson(
+    ForgeDeviceInventoryPlacementEvaluationFixture value,
+  ) => {
+    'schema_version': value.schemaVersion,
+    'evaluation_mode': value.evaluationMode,
+    'source_fixture': value.sourceFixture,
+    'source_case': value.sourceCase,
+    'evaluated_at_ms': value.evaluatedAtMS,
+    'policy_requirements': value.policyRequirements.toJson(),
+    'authority': value.authority.toJson(),
+    'expected': value.expected.toJson(),
+  };
+
+  Future<void> _importRunnerLeaseFencingPreview() async {
+    if (_loadingRunnerLeaseFencing) return;
+    setState(() {
+      _loadingRunnerLeaseFencing = true;
+      _runnerLeaseFencingError = null;
+    });
+    try {
+      final reader = widget.runnerLeaseFencingFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final fixture = ForgeRunnerLeaseFencingFixture.fromJsonText(source);
+      if (_safeRunnerLeaseFencingPreview(fixture) == null) {
+        throw const FormatException(
+          'Runner lease fixture is not an offline 16-case contract.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _runnerLeaseFencingPreview = fixture);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _runnerLeaseFencingError =
+            'Invalid or unavailable Runner lease/fencing preview.';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingRunnerLeaseFencing = false);
+    }
+  }
+
+  Future<void> _importExecutionLeaseCheckpointPreview() async {
+    if (_loadingExecutionLeaseCheckpoint) return;
+    setState(() {
+      _loadingExecutionLeaseCheckpoint = true;
+      _executionLeaseCheckpointError = null;
+    });
+    try {
+      final reader = widget.executionLeaseCheckpointFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final fixture = ForgeExecutionLeaseCheckpointFixture.fromJsonText(source);
+      if (_safeExecutionLeaseCheckpointPreview(fixture) == null) {
+        throw const FormatException(
+          'Execution lease checkpoint is not an offline four-case contract.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _executionLeaseCheckpointPreview = fixture);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _executionLeaseCheckpointError =
+            'Invalid or unavailable execution-lease checkpoint preview.';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingExecutionLeaseCheckpoint = false);
+    }
+  }
+
+  Future<void> _importDeviceInventoryV2Preview() async {
+    if (_loadingDeviceInventoryV2Preview) return;
+    setState(() {
+      _loadingDeviceInventoryV2Preview = true;
+      _deviceInventoryV2PreviewError = null;
+    });
+    try {
+      final reader = widget.deviceInventoryV2FileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final page = ForgeDeviceInventoryPageV2.fromJsonText(source);
+      if (_safeDeviceInventoryV2Preview(page) == null) {
+        throw const FormatException(
+          'Device inventory v2 is not a display-only observation.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _deviceInventoryV2Preview = page);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deviceInventoryV2PreviewError =
+            'Invalid or unavailable v2 device inventory preview.';
+      });
+    } finally {
+      if (mounted) setState(() => _loadingDeviceInventoryV2Preview = false);
+    }
+  }
+
+  Future<void> _importDeviceResourceSummaryPreview() async {
+    if (_loadingDeviceResourceSummaryPreview) return;
+    setState(() {
+      _loadingDeviceResourceSummaryPreview = true;
+      _deviceResourceSummaryPreviewError = null;
+    });
+    try {
+      final reader = widget.deviceResourceSummaryFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final fixture = ForgeDeviceResourceSummaryFixture.fromJsonText(source);
+      if (_safeDeviceResourceSummaryPreview(fixture) == null) {
+        throw const FormatException(
+          'Device resource summary is not a display-only aggregate.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _deviceResourceSummaryPreview = fixture);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deviceResourceSummaryPreviewError =
+            'Invalid or unavailable device resource summary preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingDeviceResourceSummaryPreview = false);
+      }
+    }
+  }
+
+  Future<void> _importClientInstanceResourceViewPreview() async {
+    if (_loadingClientInstanceResourceViewPreview) return;
+    setState(() {
+      _loadingClientInstanceResourceViewPreview = true;
+      _clientInstanceResourceViewPreviewError = null;
+    });
+    try {
+      final reader = widget.clientInstanceResourceViewFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final view = ForgeClientInstanceResourceView.fromJsonText(source);
+      if (_safeClientInstanceResourceViewPreview(view) == null) {
+        throw const FormatException(
+          'Client-instance resource view is not display-only.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _clientInstanceResourceViewPreview = view);
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _clientInstanceResourceViewPreviewError =
+            'Invalid or unavailable client-instance resource view preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingClientInstanceResourceViewPreview = false);
+      }
+    }
+  }
+
+  Future<void> _importClientInstanceSessionViewPreview() async {
+    if (_loadingClientInstanceSessionViewPreview) return;
+    setState(() {
+      _loadingClientInstanceSessionViewPreview = true;
+      _clientInstanceSessionViewPreviewError = null;
+    });
+    try {
+      final reader = widget.clientInstanceSessionViewFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final view = ForgeClientInstanceSessionView.fromJsonText(source);
+      if (_safeClientInstanceSessionViewPreview(view) == null) {
+        throw const FormatException(
+          'Client-instance session view is not display-only.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _clientInstanceSessionViewPreview = view);
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _clientInstanceSessionViewPreviewError =
+            'Invalid or unavailable client-instance session view preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingClientInstanceSessionViewPreview = false);
+      }
+    }
+  }
+
+  Future<void> _importDeviceInventoryPlacementEvaluationV2Preview() async {
+    if (_loadingDeviceInventoryPlacementEvaluationV2Preview) return;
+    setState(() {
+      _loadingDeviceInventoryPlacementEvaluationV2Preview = true;
+      _deviceInventoryPlacementEvaluationV2PreviewError = null;
+    });
+    try {
+      final reader = widget.deviceInventoryPlacementEvaluationV2FileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final evaluation = ForgeDeviceInventoryPlacementEvaluationV2.fromJsonText(
+        source,
+      );
+      if (_safeDeviceInventoryPlacementEvaluationV2Preview(evaluation) ==
+          null) {
+        throw const FormatException(
+          'Device placement evaluation is not a display-only comparison.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _deviceInventoryPlacementEvaluationV2Preview = evaluation);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deviceInventoryPlacementEvaluationV2PreviewError =
+            'Invalid or unavailable v2 device placement preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(
+          () => _loadingDeviceInventoryPlacementEvaluationV2Preview = false,
+        );
+      }
+    }
+  }
+
+  Future<void> _importDeviceInventoryPlacementEvaluationPreview() async {
+    if (_loadingDeviceInventoryPlacementEvaluationPreview) return;
+    setState(() {
+      _loadingDeviceInventoryPlacementEvaluationPreview = true;
+      _deviceInventoryPlacementEvaluationPreviewError = null;
+    });
+    try {
+      final reader = widget.deviceInventoryPlacementEvaluationFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final evaluation =
+          ForgeDeviceInventoryPlacementEvaluationFixture.fromJsonText(source);
+      if (_safeDeviceInventoryPlacementEvaluationPreview(evaluation) == null) {
+        throw const FormatException(
+          'Device placement evaluation is not a display-only comparison.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _deviceInventoryPlacementEvaluationPreview = evaluation);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deviceInventoryPlacementEvaluationPreviewError =
+            'Invalid or unavailable device placement evaluation preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(
+          () => _loadingDeviceInventoryPlacementEvaluationPreview = false,
+        );
+      }
+    }
+  }
+
+  Future<void> _importDeviceInventoryPlacementBatchEvaluationPreview() async {
+    if (_loadingDeviceInventoryPlacementBatchEvaluationPreview) return;
+    setState(() {
+      _loadingDeviceInventoryPlacementBatchEvaluationPreview = true;
+      _deviceInventoryPlacementBatchEvaluationPreviewError = null;
+    });
+    try {
+      final reader = widget.deviceInventoryPlacementBatchEvaluationFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final evaluation =
+          ForgeDeviceInventoryPlacementBatchEvaluationFixture.fromJsonText(
+            source,
+          );
+      if (_safeDeviceInventoryPlacementBatchEvaluationPreview(evaluation) ==
+          null) {
+        throw const FormatException(
+          'Placement batch evaluation is not a display-only comparison.',
+        );
+      }
+      if (!mounted) return;
+      setState(
+        () => _deviceInventoryPlacementBatchEvaluationPreview = evaluation,
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _deviceInventoryPlacementBatchEvaluationPreviewError =
+            'Invalid or unavailable placement batch preview.';
+      });
+    } finally {
+      if (mounted) {
+        setState(
+          () => _loadingDeviceInventoryPlacementBatchEvaluationPreview = false,
+        );
+      }
+    }
+  }
+
+  bool _canUseConversationMetadataCache(Object error) =>
+      error is ForgeConversationsApiException &&
+      (error.statusCode == 0 || error.statusCode >= 500);
+
+  void _clearConversationDetails() {
+    _promptGeneration++;
+    _runGeneration++;
+    _runTimelineGeneration++;
+    _clearDeviceObservation();
+    _clearDeviceInventory();
+    _clearDeviceInventoryV2();
+    _clearDeviceInventoryRegistryPlacementPreview();
+    // Client-instance/resource and client-instance/session observations are
+    // owner-level projections for the whole screen, not Conversation detail.
+    // Keep them mounted while switching Conversations so an instance filter
+    // remains available when it selects a different visible session.
+    _clearDeviceCredentialCandidate();
+    _clearRunAttemptLeaseDispatchPreflight();
+    _clearRunnerDispatchPlanPreview();
+    _clearExecutionReconciliation();
+    _clearExecutionConsentPreview();
+    _clearRunObserved();
+    _clearPendingRunIntents();
+    _pendingRunIntentSubmission = null;
+    _pendingRunIntentRequest = null;
+    _pendingRunIntentSubmitError = null;
+    _submittingPendingRunIntent = false;
+    _pendingPrompt = null;
+    _appendError = null;
+    _appending = false;
+    _clearImportedRunObservations();
+    _prompts = const [];
+    _promptCursor = null;
+    _hasMorePrompts = false;
+    _promptError = null;
+    _loadingPrompts = false;
+    _runs = const [];
+    _runCursor = null;
+    _hasMoreRuns = false;
+    _selectedRun = null;
+    _runEvents = const [];
+    _runTimelineSequence = 0;
+    _hasMoreRunEvents = false;
+    _loadingRuns = false;
+    _loadingRunTimeline = false;
+  }
+
+  /// Clears Run and Run-adjacent metadata when the selected local
+  /// client-instance projection no longer declares the Conversation. The
+  /// owner session itself remains selected so the caller can reselect it when
+  /// the projection changes; no private Run request is allowed in the gap.
+  void _clearRunDetailsForHiddenClientInstance() {
+    _promptGeneration++;
+    _runGeneration++;
+    _runTimelineGeneration++;
+    _clearDeviceObservation();
+    _clearRunAttemptLeaseDispatchPreflight();
+    _clearRunnerDispatchPlanPreview();
+    _clearLocalRunnerPreview();
+    _clearExecutionReconciliation();
+    _clearRunObserved();
+    _clearExecutionConsentPreview();
+    _clearPendingRunIntents();
+    _pendingRunIntentSubmission = null;
+    _pendingRunIntentRequest = null;
+    _pendingRunIntentSubmitError = null;
+    _submittingPendingRunIntent = false;
+    _pendingPrompt = null;
+    _appendError = null;
+    _appending = false;
+    _clearImportedRunObservations();
+    _prompts = const [];
+    _promptCursor = null;
+    _hasMorePrompts = false;
+    _promptError = null;
+    _loadingPrompts = false;
+    _runs = const [];
+    _runCursor = null;
+    _hasMoreRuns = false;
+    _selectedRun = null;
+    _runEvents = const [];
+    _runTimelineSequence = 0;
+    _hasMoreRunEvents = false;
+    _runError = null;
+    _runTimelineError = null;
+    _loadingRuns = false;
+    _loadingRunTimeline = false;
+  }
+
+  /// Revokes owner Prompt/Run state as soon as a refreshed local
+  /// client-instance projection no longer declares the selected conversation.
+  /// The selection itself remains a bookmark, but a later projection refresh
+  /// must not resurrect the old private metadata without a new owner read.
+  void _reconcileSelectedClientInstanceProjection() {
+    final conversationID = _selected?.conversation.id;
+    if (_selectedClientInstanceID == null || conversationID == null) return;
+    if (_conversationVisibleFromSelectedClientInstance(conversationID)) return;
+    if (mounted) setState(_clearRunDetailsForHiddenClientInstance);
+  }
+
+  void _clearDeviceObservation() {
+    _deviceObservationGeneration++;
+    _fetchedDeviceObservation = null;
+    _importedDeviceObservation = null;
+    _deviceObservationError = null;
+    _deviceObservationKey = null;
+    _loadingDeviceObservation = false;
+  }
+
+  void _clearDeviceInventory() {
+    _deviceInventoryGeneration++;
+    _fetchedDeviceInventory = null;
+    _deviceInventoryError = null;
+    _deviceInventoryStale = false;
+    _loadingDeviceInventory = false;
+  }
+
+  void _clearDeviceInventoryV2() {
+    _deviceInventoryV2Generation++;
+    _fetchedDeviceInventoryV2 = null;
+    _deviceInventoryV2Error = null;
+    _deviceInventoryV2Stale = false;
+    _loadingDeviceInventoryV2 = false;
+  }
+
+  void _clearDeviceInventoryRegistryPlacementPreview() {
+    _deviceInventoryRegistryPlacementPreviewGeneration++;
+    _fetchedDeviceInventoryRegistryPlacementPreview = null;
+    _deviceInventoryRegistryPlacementPreviewError = null;
+    _deviceInventoryRegistryPlacementPreviewStale = false;
+    _loadingDeviceInventoryRegistryPlacementPreview = false;
+  }
+
+  void _clearClientInstanceResourceView() {
+    final hadActiveClientInstanceFilter = _selectedClientInstanceID != null;
+    _clientInstanceResourceViewGeneration++;
+    _fetchedClientInstanceResourceView = null;
+    _clientInstanceResourceViewError = null;
+    _clientInstanceResourceViewStale = false;
+    _loadingClientInstanceResourceView = false;
+    // Resource metadata drives the same local instance projection when no
+    // dedicated session view is supplied. Revoke private Prompt/Run details
+    // during a reader gap instead of allowing a restored resource declaration
+    // to resurrect state fetched under the old projection.
+    if (hadActiveClientInstanceFilter) {
+      _clearRunDetailsForHiddenClientInstance();
+    }
+  }
+
+  void _clearClientInstanceSessionView() {
+    final hadActiveClientInstanceFilter = _selectedClientInstanceID != null;
+    _clientInstanceSessionViewGeneration++;
+    _fetchedClientInstanceSessionView = null;
+    _clientInstanceSessionViewError = null;
+    _clientInstanceSessionViewStale = false;
+    _loadingClientInstanceSessionView = false;
+    // Keep an active local filter while its session projection is being
+    // revoked or replaced. Clearing it would broaden the list back to every
+    // owner conversation during the gap; revoke the private Prompt/Run
+    // details and let the renderer keep the projection empty until a new
+    // declaration is available.
+    if (hadActiveClientInstanceFilter) {
+      _clearRunDetailsForHiddenClientInstance();
+    }
+  }
+
+  void _clearLifecycleRegistry() {
+    _lifecycleRegistryGeneration++;
+    _fetchedLifecycleRegistry = null;
+    _lifecycleRegistryError = null;
+    _lifecycleRegistryStale = false;
+    _loadingLifecycleRegistry = false;
+  }
+
+  void _clearDeviceCredentialCandidate() {
+    _deviceCredentialCandidateGeneration++;
+    _fetchedDeviceCredentialCandidate = null;
+    _deviceCredentialCandidateError = null;
+    _deviceCredentialCandidateStale = false;
+    _loadingDeviceCredentialCandidate = false;
+  }
+
+  /// Returns the owner-scoped conversations visible from one caller-declared
+  /// client instance. The instance declaration is an observation only; an
+  /// unknown instance or session simply produces an empty local projection.
+  /// No server request or authority decision is made here.
+  List<ForgeOwnedConversation> conversationsForClientInstance(
+    Iterable<ForgeClientInstanceSessionViewInstance>? instances,
+    String? instanceID,
+  ) {
+    if (instanceID == null) return _conversations;
+    if (instances == null) return const [];
+    ForgeClientInstanceSessionViewInstance? instance;
+    for (final candidate in instances) {
+      if (candidate.instanceID == instanceID) {
+        instance = candidate;
+        break;
+      }
+    }
+    if (instance == null) return const [];
+    final sessionIDs = instance.sessionIDs.toSet();
+    return _conversations
+        .where((entry) => sessionIDs.contains(entry.conversation.id))
+        .toList(growable: false);
+  }
+
+  /// Selects a local client-instance session filter. If the current session
+  /// is outside the selected instance, select the first visible owner session
+  /// so the Prompt panel cannot continue showing a hidden row.
+  void selectClientInstanceFilter(
+    Iterable<ForgeClientInstanceSessionViewInstance>? instances,
+    String? instanceID,
+  ) {
+    final visible = conversationsForClientInstance(instances, instanceID);
+    final currentID = _selected?.conversation.id;
+    final currentVisible = visible.any(
+      (entry) => entry.conversation.id == currentID,
+    );
+    _clientInstanceFilterGeneration++;
+    setState(() {
+      _selectedClientInstanceID = instanceID;
+      if (!currentVisible) {
+        _selected = null;
+        _clearConversationDetails();
+      }
+    });
+    if (!currentVisible && visible.isNotEmpty) {
+      unawaited(_selectConversation(visible.first));
+    }
+  }
+
+  void _clearRunAttemptLeaseDispatchPreflight() {
+    _runAttemptLeaseDispatchPreflightGeneration++;
+    _fetchedRunAttemptLeaseDispatchPreflight = null;
+    _runAttemptLeaseDispatchPreflightError = null;
+    _runAttemptLeaseDispatchPreflightStale = false;
+    _loadingRunAttemptLeaseDispatchPreflight = false;
+  }
+
+  void _clearRunnerDispatchPlanPreview() {
+    _runnerDispatchPlanPreviewGeneration++;
+    _fetchedRunnerDispatchPlanPreview = null;
+    _runnerDispatchPlanPreviewError = null;
+    _runnerDispatchPlanPreviewStale = false;
+    _loadingRunnerDispatchPlanPreview = false;
+  }
+
+  void _clearLocalRunnerPreview() {
+    _localRunnerPreviewGeneration++;
+    _fetchedLocalRunnerPreview = null;
+    _localRunnerPreviewError = null;
+    _localRunnerPreviewStale = false;
+    _loadingLocalRunnerPreview = false;
+  }
+
+  ForgeLocalRunnerPreviewObservation? _strictLocalRunnerPreview(
+    ForgeLocalRunnerPreviewObservation? candidate,
+  ) {
+    final request = widget.localRunnerPreviewRequest;
+    final conversationID = _selected?.conversation.id;
+    final runID = _selectedRun?.runID;
+    if (candidate == null ||
+        request == null ||
+        conversationID == null ||
+        runID == null) {
+      return null;
+    }
+    if (request.intent.conversationID != conversationID ||
+        request.intent.run.runID != runID) {
+      return null;
+    }
+    try {
+      final validated = ForgeLocalRunnerPreviewObservation.fromJson(
+        candidate.toJson(),
+        request: request,
+        conversationID: conversationID,
+        intentID: request.intent.prompt.intentID,
+      );
+      return validated.runnerExecutionIntent.runID == runID ? validated : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _clearExecutionReconciliation() {
+    _executionReconciliationGeneration++;
+    _fetchedExecutionReconciliationObservation = null;
+    _executionReconciliationError = null;
+    _executionReconciliationStale = false;
+    _loadingExecutionReconciliation = false;
+  }
+
+  void _clearExecutionConsentPreview() {
+    _executionConsentPreviewGeneration++;
+    _fetchedExecutionConsentPreview = null;
+    _executionConsentPreviewError = null;
+    _executionConsentPreviewStale = false;
+    _loadingExecutionConsentPreview = false;
+  }
+
+  void _clearRunObserved() {
+    _runObservedGeneration++;
+    _fetchedRunObserved = null;
+    _runObservedError = null;
+    _runObservedStale = false;
+    _loadingRunObserved = false;
+  }
+
+  void _clearPendingRunIntents() {
+    _pendingRunIntentGeneration++;
+    _fetchedPendingRunIntents = null;
+    _pendingRunIntentError = null;
+    _loadingPendingRunIntents = false;
+    _loadingMorePendingRunIntents = false;
+    _clearPendingRunIntentTimelines();
+  }
+
+  void _clearPendingRunIntentTimelines() {
+    _pendingRunIntentTimelineGeneration++;
+    _fetchedPendingRunIntentTimelines.clear();
+    _pendingRunIntentTimelineErrors.clear();
+    _loadingPendingRunIntentTimelines.clear();
+  }
+
+  bool _sameDeviceObservationRequest(
+    ForgeSessionPlacementRequest? left,
+    ForgeSessionPlacementRequest? right,
+  ) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null) return false;
+    return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
+  }
+
+  bool _sameDeviceCredentialCandidateRequest(
+    ForgeDeviceCredentialLifecycleRequest? left,
+    ForgeDeviceCredentialLifecycleRequest? right,
+  ) {
+    if (identical(left, right)) return true;
+    if (left == null || right == null) return false;
+    return jsonEncode(left.toJson()) == jsonEncode(right.toJson());
+  }
+
+  /// Imported Runner observations are scoped to the currently selected Run.
+  /// They stay process-local and must not reappear when navigation changes
+  /// the Conversation or clears the selection.
+  void _clearImportedRunObservations() {
+    _importedRunnerExecutionIntentObservation = null;
+    _importedSessionRunnerReceiptObservation = null;
+  }
+
+  Future<_ForgeChangeSyncOutcome> _syncChanges() async {
+    if (_syncingChanges ||
+        !mounted ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated) {
+      return _ForgeChangeSyncOutcome.skipped;
+    }
     _syncingChanges = true;
     try {
       await _cursorReady;
-      if (!mounted) return;
+      if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       final changes = <ForgeConversationChange>[];
       var nextCursor = _changeCursor;
       for (var pageNumber = 0; pageNumber < 4; pageNumber++) {
@@ -237,7 +2380,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           afterCursor: nextCursor,
           limit: ForgeConversationsApi.maxPageSize,
         );
-        if (!mounted) return;
+        if (!mounted) return _ForgeChangeSyncOutcome.skipped;
         if (page.scannedThroughCursor < nextCursor) {
           throw const FormatException('Forge change cursor regressed.');
         }
@@ -249,10 +2392,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (changes.isEmpty) {
         final selectedID = _selected?.conversation.id;
         if (_promptError != null && selectedID != null) {
-          await _loadPrompts(selectedID);
+          if (!await _loadPrompts(selectedID)) {
+            return _ForgeChangeSyncOutcome.failed;
+          }
         }
         await _syncRunObservation();
-        return;
+        return _ForgeChangeSyncOutcome.unchanged;
       }
 
       final latestByConversation = <String, ForgeConversationChange>{};
@@ -274,6 +2419,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
             return _withConversationChange(entry, change);
           })
           .toList(growable: false);
+      final loadedConversationIDs = _conversations
+          .map((entry) => entry.conversation.id)
+          .toSet();
+      final hasUnloadedConversationChange = latestByConversation.keys.any(
+        (conversationID) => !loadedConversationIDs.contains(conversationID),
+      );
       final selectedID = _selected?.conversation.id;
       final selectedChange = selectedID == null
           ? null
@@ -287,22 +2438,29 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           _conversations = _replaceConversation(_conversations, _selected!);
         }
       });
-      if (createdConversation) {
-        if (!await _refreshConversations()) {
+      if (createdConversation || hasUnloadedConversationChange) {
+        // A dense feed can contain a prompt append for a conversation outside
+        // the currently loaded page. Advance the cursor only after a fresh
+        // owner snapshot succeeds, otherwise that change could be consumed
+        // without ever making the session metadata visible locally.
+        if (!await _refreshConversations(loadPendingRunIntents: false)) {
           await _syncRunObservation();
-          return;
+          return _ForgeChangeSyncOutcome.failed;
         }
       } else if (selectedChange?.kind == 'prompt_appended') {
         if (!await _loadPrompts(selectedID!)) {
           await _syncRunObservation();
-          return;
+          return _ForgeChangeSyncOutcome.failed;
         }
       }
-      if (!mounted) return;
+      if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       await _syncRunObservation();
-      if (!mounted) return;
+      if (!mounted) return _ForgeChangeSyncOutcome.skipped;
+      await _loadPendingRunIntentsIfRequested(force: true);
+      if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       _changeCursor = nextCursor;
       await _changeCursorStore.save(nextCursor);
+      return _ForgeChangeSyncOutcome.changed;
     } catch (error) {
       await _clearSessionIfUnauthorized(error);
       if (mounted) {
@@ -313,6 +2471,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           );
         });
       }
+      return _ForgeChangeSyncOutcome.failed;
     } finally {
       _syncingChanges = false;
     }
@@ -321,6 +2480,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   Future<void> _syncRunObservation() async {
     final conversationID = _selected?.conversation.id;
     if (conversationID == null || _loadingRuns || _loadingRunTimeline) return;
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      if (mounted) setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
 
     final runGeneration = _runGeneration;
     var timelineGeneration = _runTimelineGeneration;
@@ -366,6 +2529,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           : _hasMoreRuns || runPage.hasMore;
       _runError = null;
       if (selectionChanged) {
+        _clearDeviceObservation();
+        _clearRunObserved();
+        _clearImportedRunObservations();
+        _clearRunnerDispatchPlanPreview();
         _runEvents = const [];
         _runTimelineSequence = 0;
         _hasMoreRunEvents = false;
@@ -374,7 +2541,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     });
     if (selectedRun == null) return;
 
-    final afterSequence = _runTimelineSequence;
+    var afterSequence = _runTimelineSequence;
+    if (afterSequence == 0) {
+      afterSequence = await _runTimelineCursor(
+        conversationID,
+        selectedRun.runID,
+      ).load();
+      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
+    }
     try {
       final timelinePage = await _api.listRunTimeline(
         conversationID: conversationID,
@@ -388,6 +2562,32 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _hasMoreRunEvents = timelinePage.hasMore;
         _runTimelineError = null;
       });
+      await _runTimelineCursor(
+        conversationID,
+        selectedRun.runID,
+      ).save(timelinePage.scannedThroughSequence);
+      await _loadDeviceObservationIfRequested(
+        conversationID,
+        selectedRun.runID,
+      );
+      await _loadRunObservedIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        // A scheduled change-feed poll can call this path without the outer
+        // manual/resume refresh. Force the explicit reader so a selected Run
+        // observation cannot remain cached after its timeline advances.
+        force: true,
+      );
+      await _loadRunnerDispatchPlanPreviewIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
+      await _loadLocalRunnerPreviewIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
     } catch (error) {
       if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
       await _clearSessionIfUnauthorized(error);
@@ -420,6 +2620,23 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     String conversationID, {
     bool loadOlder = false,
   }) async {
+    // The client-instance envelope is a local display projection. Once a
+    // caller has selected an instance, every Prompt/history read must pass
+    // through the same projection before reaching the owner API. This also
+    // covers refresh/feed updates and the "load older" cursor path, which can
+    // otherwise outlive the conversation tile that originally triggered it.
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      if (mounted) {
+        setState(() {
+          _prompts = const [];
+          _promptCursor = null;
+          _hasMorePrompts = false;
+          _promptError = null;
+          _loadingPrompts = false;
+        });
+      }
+      return false;
+    }
     final generation = ++_promptGeneration;
     setState(() {
       _loadingPrompts = true;
@@ -435,20 +2652,32 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           _selected?.conversation.id != conversationID) {
         return false;
       }
+      // A refresh caused by the owner change feed must not discard older
+      // Prompt history that the user already loaded. Keep the deepest cursor
+      // we have seen while merging the newest page by Prompt ID; the initial
+      // load still takes its cursor directly from the service.
+      final hadOlderHistory = !loadOlder && _promptCursor != null;
       final prompts = loadOlder
           ? [...page.prompts, ..._prompts]
-          : [...page.prompts];
+          : [..._prompts, ...page.prompts];
       prompts.sort(_comparePrompts);
+      final nextCursor = hadOlderHistory ? _promptCursor : page.nextCursor;
+      final hasMore = hadOlderHistory ? _hasMorePrompts : page.hasMore;
       setState(() {
         _prompts = _uniquePrompts(prompts);
-        _promptCursor = page.nextCursor;
-        _hasMorePrompts = page.hasMore && page.nextCursor != null;
+        _promptCursor = nextCursor;
+        _hasMorePrompts = hasMore && nextCursor != null;
         _loadingPrompts = false;
       });
       return true;
     } catch (error) {
-      if (!mounted || generation != _promptGeneration) return false;
+      if (!mounted) return false;
+      final authorizationFailure = _isAuthorizationFailure(error);
       await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          (!authorizationFailure && generation != _promptGeneration)) {
+        return false;
+      }
       setState(() {
         _promptError = _friendlyError(error, 'Could not load prompt history.');
         _loadingPrompts = false;
@@ -460,6 +2689,18 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   Future<void> _restoreChangeCursor() async {
     _changeCursor = await _changeCursorStore.load();
   }
+
+  ForgeRunTimelineCursorStore _runTimelineCursor(
+    String conversationID,
+    String runID,
+  ) => ForgeRunTimelineCursorStore(
+    accessToken: widget.accessToken,
+    apiOrigin: widget.apiOrigin,
+    clientId: ForgeConversationsOAuth.clientId,
+    resource: ForgeConversationsOAuth.resource,
+    conversationID: conversationID,
+    runID: runID,
+  );
 
   Future<void> _createConversation() async {
     if (_creating || _appending || _pendingPrompt != null) return;
@@ -485,6 +2726,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       setState(() {
         _runGeneration++;
         _runTimelineGeneration++;
+        _clearDeviceObservation();
+        _clearPendingRunIntents();
+        _clearImportedRunObservations();
         _loadingRuns = false;
         _loadingRunTimeline = false;
         _pendingCreate = null;
@@ -509,8 +2753,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _runTimelineSequence = 0;
         _hasMoreRunEvents = false;
       });
+      _updateConversationLocation(created.id);
       await _loadPrompts(created.id);
       await _loadRuns(created.id);
+      await _loadPendingRunIntentsIfRequested();
     } catch (error) {
       if (!mounted) return;
       await _clearSessionIfUnauthorized(error);
@@ -547,7 +2793,16 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     );
   }
 
-  Future<void> _selectConversation(ForgeOwnedConversation value) async {
+  Future<void> _selectConversation(
+    ForgeOwnedConversation value, {
+    bool updateLocation = true,
+    int? locationGeneration,
+  }) async {
+    if (!_conversationVisibleFromSelectedClientInstance(
+      value.conversation.id,
+    )) {
+      return;
+    }
     if (_appending ||
         _pendingPrompt != null ||
         _selected?.conversation.id == value.conversation.id) {
@@ -556,6 +2811,13 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     setState(() {
       _runGeneration++;
       _runTimelineGeneration++;
+      _clearDeviceObservation();
+      _clearRunAttemptLeaseDispatchPreflight();
+      _clearRunnerDispatchPlanPreview();
+      _clearExecutionReconciliation();
+      _clearExecutionConsentPreview();
+      _clearPendingRunIntents();
+      _clearImportedRunObservations();
       _loadingRuns = false;
       _loadingRunTimeline = false;
       _selected = value;
@@ -565,6 +2827,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _promptError = null;
       _appendError = null;
       _pendingPrompt = null;
+      _pendingRunIntentSubmission = null;
+      _pendingRunIntentRequest = null;
+      _pendingRunIntentSubmitError = null;
+      _submittingPendingRunIntent = false;
       _runs = const [];
       _runCursor = null;
       _hasMoreRuns = false;
@@ -575,14 +2841,65 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _runError = null;
       _runTimelineError = null;
     });
-    await _loadPrompts(value.conversation.id);
+    if (updateLocation) {
+      _updateConversationLocation(value.conversation.id);
+    }
+    final promptsLoaded = await _loadPrompts(value.conversation.id);
+    if (!mounted ||
+        (locationGeneration != null &&
+            locationGeneration != _locationSelectionGeneration) ||
+        _selected?.conversation.id != value.conversation.id ||
+        !promptsLoaded) {
+      return;
+    }
     await _loadRuns(value.conversation.id);
+    await _loadExecutionConsentPreviewIfRequested(
+      conversationID: value.conversation.id,
+    );
+    await _loadPendingRunIntentsIfRequested();
+  }
+
+  bool _conversationVisibleFromSelectedClientInstance(String conversationID) {
+    final instanceID = _selectedClientInstanceID;
+    if (instanceID == null) return true;
+    final sessionView =
+        _strictClientInstanceSessionView(
+          widget.clientInstanceSessionViewPreview,
+        ) ??
+        _strictClientInstanceSessionView(_fetchedClientInstanceSessionView) ??
+        _strictClientInstanceSessionView(_clientInstanceSessionViewPreview);
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview);
+    final instances = sessionView?.instances ?? resourceView?.instances;
+    return instances != null &&
+        conversationsForClientInstance(
+          instances,
+          instanceID,
+        ).any((entry) => entry.conversation.id == conversationID);
+  }
+
+  void _updateConversationLocation(String conversationID) {
+    final routePath =
+        '/${Uri(pathSegments: <String>['forge', 'conversations', conversationID]).path}';
+    if (BrowserNavigation.currentUri.path == routePath) return;
+    // Keep a same-document selection bookmarkable without rebuilding the
+    // authenticated gate or issuing another navigation request. The URL is
+    // only a selection hint; owner-scoped reads remain authoritative.
+    BrowserNavigation.replaceState(routePath);
   }
 
   Future<bool> _loadRuns(
     String conversationID, {
     bool loadOlder = false,
   }) async {
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      if (mounted) setState(_clearRunDetailsForHiddenClientInstance);
+      return false;
+    }
     if (_loadingRuns && loadOlder) return false;
     final generation = loadOlder ? _runGeneration : ++_runGeneration;
     setState(() {
@@ -605,17 +2922,54 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       final selectedRun =
           _findRun(merged, wantedRunID) ??
           (merged.isEmpty ? null : merged.first);
+      final previousRunID = _selectedRun?.runID;
       setState(() {
         _runs = merged;
         _runCursor = page.nextCursor;
         _hasMoreRuns = page.hasMore && page.nextCursor != null;
         _selectedRun = selectedRun;
+        if (selectedRun?.runID != previousRunID) {
+          _clearDeviceObservation();
+          _clearRunAttemptLeaseDispatchPreflight();
+          _clearRunnerDispatchPlanPreview();
+          _clearExecutionReconciliation();
+          _clearRunObserved();
+          _clearImportedRunObservations();
+        }
         _loadingRuns = false;
       });
       if (!loadOlder && selectedRun != null) {
-        return _loadRunTimeline(conversationID, selectedRun.runID);
+        final timelineLoaded = await _loadRunTimeline(
+          conversationID,
+          selectedRun.runID,
+        );
+        if (!mounted) return false;
+        await _loadDeviceObservationIfRequested(
+          conversationID,
+          selectedRun.runID,
+        );
+        await _loadRunObservedIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        await _loadRunAttemptLeaseDispatchPreflightIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        await _loadRunnerDispatchPlanPreviewIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        await _loadExecutionReconciliationIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        return timelineLoaded;
       }
       if (selectedRun == null) {
+        setState(_clearDeviceObservation);
+        setState(_clearRunObserved);
+        setState(_clearExecutionReconciliation);
         setState(() {
           _runTimelineGeneration++;
           _loadingRunTimeline = false;
@@ -627,8 +2981,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       }
       return true;
     } catch (error) {
-      if (!mounted || generation != _runGeneration) return false;
+      if (!mounted) return false;
+      final authorizationFailure = _isAuthorizationFailure(error);
       await _clearSessionIfUnauthorized(error);
+      if (!mounted || (!authorizationFailure && generation != _runGeneration)) {
+        return false;
+      }
       setState(() {
         _runError = _friendlyError(error, 'Could not load runs.');
         _loadingRuns = false;
@@ -642,11 +3000,27 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     String runID, {
     bool loadMore = false,
   }) async {
+    // A local client-instance projection is a read boundary for the complete
+    // Run surface. Check it again here because a timeline load can outlive the
+    // conversation tile that started it while the instance filter changes.
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      if (mounted) setState(_clearRunDetailsForHiddenClientInstance);
+      return false;
+    }
     if (_loadingRunTimeline && loadMore) return false;
     final generation = loadMore
         ? _runTimelineGeneration
         : ++_runTimelineGeneration;
-    final afterSequence = loadMore ? _runTimelineSequence : 0;
+    // A manual reload with rendered events must still request from sequence 0
+    // so the panel can rebuild its complete visible timeline. Checkpoints are
+    // used when entering a Run after cold start or selection recovery, while
+    // the periodic sync path already has the in-memory sequence.
+    final resumeFromCheckpoint = !loadMore && _runEvents.isEmpty;
+    var afterSequence = loadMore ? _runTimelineSequence : 0;
+    if (resumeFromCheckpoint) {
+      afterSequence = await _runTimelineCursor(conversationID, runID).load();
+      if (!mounted || generation != _runTimelineGeneration) return false;
+    }
     setState(() {
       _loadingRunTimeline = true;
       _runTimelineError = null;
@@ -665,7 +3039,8 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted ||
           generation != _runTimelineGeneration ||
           _selected?.conversation.id != conversationID ||
-          _selectedRun?.runID != runID) {
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
         return false;
       }
       setState(() {
@@ -676,10 +3051,23 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _hasMoreRunEvents = page.hasMore;
         _loadingRunTimeline = false;
       });
+      await _runTimelineCursor(
+        conversationID,
+        runID,
+      ).save(page.scannedThroughSequence);
       return true;
     } catch (error) {
-      if (!mounted || generation != _runTimelineGeneration) return false;
+      if (!mounted) return false;
+      final authorizationFailure = _isAuthorizationFailure(error);
       await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          (!authorizationFailure && generation != _runTimelineGeneration)) {
+        return false;
+      }
+      if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        if (mounted) setState(_clearRunDetailsForHiddenClientInstance);
+        return false;
+      }
       setState(() {
         _runTimelineError = _friendlyError(
           error,
@@ -691,12 +3079,1521 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  Future<void> _loadDeviceObservationIfRequested(
+    String conversationID,
+    String runID,
+  ) async {
+    if (!mounted) return;
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final request = widget.deviceObservationRequest;
+    final key = '$conversationID/$runID';
+    if (request == null ||
+        request.conversationID != conversationID ||
+        request.runID != runID) {
+      if (_fetchedDeviceObservation != null ||
+          _deviceObservationError != null ||
+          _deviceObservationKey != null ||
+          _loadingDeviceObservation) {
+        setState(_clearDeviceObservation);
+      }
+      return;
+    }
+    if (_deviceObservationKey == key &&
+        (_fetchedDeviceObservation != null ||
+            _deviceObservationError != null ||
+            _loadingDeviceObservation)) {
+      return;
+    }
+    final generation = ++_deviceObservationGeneration;
+    setState(() {
+      _deviceObservationKey = key;
+      _loadingDeviceObservation = true;
+      _deviceObservationError = null;
+      _fetchedDeviceObservation = null;
+    });
+    try {
+      final wire = await _api.previewSessionDeviceObservation(request: request);
+      final observation = ForgeSessionDeviceObservation.fromWire(wire);
+      if (!mounted ||
+          generation != _deviceObservationGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceObservation = observation;
+        _deviceObservationError = null;
+        _loadingDeviceObservation = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _deviceObservationGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceObservation = null;
+        _deviceObservationError = _friendlyError(
+          error,
+          'Could not load device observation.',
+        );
+        _loadingDeviceObservation = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunObservedIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final reader = widget.runObservedReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (reader == null || conversationID == null || runID == null) {
+      if (mounted &&
+          (_fetchedRunObserved != null ||
+              _runObservedError != null ||
+              _loadingRunObserved ||
+              _runObservedStale)) {
+        setState(_clearRunObserved);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunObserved) return;
+    if (!force && (_fetchedRunObserved != null || _runObservedError != null)) {
+      return;
+    }
+    final previous = _fetchedRunObserved;
+    final generation = ++_runObservedGeneration;
+    setState(() {
+      _loadingRunObserved = true;
+      _runObservedError = null;
+      _runObservedStale = previous != null;
+    });
+    try {
+      // Re-decode the callback result through the strict wire boundary. This
+      // prevents a caller-created model from bypassing the display-only
+      // authority and content checks.
+      final observation = ForgeRunObserved.fromJson(
+        (await reader(conversationID, runID)).toJson(),
+      );
+      if (!observation.isFor(conversationID, runID) ||
+          !observation.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Run observation.',
+        );
+      }
+      if (!mounted ||
+          generation != _runObservedGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunObserved = observation;
+        _runObservedError = null;
+        _runObservedStale = false;
+        _loadingRunObserved = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runObservedGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runObservedGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunObserved = previous;
+        _runObservedError = _friendlyError(
+          error,
+          'Could not load Run metadata observation.',
+        );
+        _runObservedStale = previous != null;
+        _loadingRunObserved = false;
+      });
+    }
+  }
+
+  Future<void> _loadDeviceInventoryIfRequested({bool force = false}) async {
+    final owner = widget.deviceInventoryOwner;
+    final reader = widget.deviceInventoryReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedDeviceInventory != null ||
+              _deviceInventoryError != null ||
+              _loadingDeviceInventory)) {
+        setState(_clearDeviceInventory);
+      }
+      return;
+    }
+    if (_loadingDeviceInventory) return;
+    if (!force &&
+        (_fetchedDeviceInventory != null || _deviceInventoryError != null)) {
+      return;
+    }
+    final previousPage = _fetchedDeviceInventory;
+    final generation = ++_deviceInventoryGeneration;
+    setState(() {
+      _loadingDeviceInventory = true;
+      _deviceInventoryError = null;
+      // Keep the last owner-validated snapshot visible while a foreground
+      // refresh is in flight. A temporary network failure must not look like
+      // an empty resource pool.
+      _deviceInventoryStale = previousPage != null;
+    });
+    try {
+      // Re-decode the callback result through the strict wire boundary. This
+      // keeps a test or future adapter from constructing an authority-bearing
+      // value through the public const model constructor.
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final page = ForgeDeviceInventoryPage.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (page.owner != expectedOwner) {
+        throw const FormatException(
+          'Forge returned device inventory for another owner.',
+        );
+      }
+      if (!mounted ||
+          generation != _deviceInventoryGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventory = page;
+        _deviceInventoryError = null;
+        _deviceInventoryStale = false;
+        _loadingDeviceInventory = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _deviceInventoryGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _deviceInventoryGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventory = previousPage;
+        _deviceInventoryError = _friendlyError(
+          error,
+          'Could not load device inventory observation.',
+        );
+        _deviceInventoryStale = previousPage != null;
+        _loadingDeviceInventory = false;
+      });
+    }
+  }
+
+  Future<void> _loadDeviceInventoryV2IfRequested({bool force = false}) async {
+    final owner = widget.deviceInventoryOwner;
+    final reader = widget.deviceInventoryV2Reader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedDeviceInventoryV2 != null ||
+              _deviceInventoryV2Error != null ||
+              _loadingDeviceInventoryV2)) {
+        setState(_clearDeviceInventoryV2);
+      }
+      return;
+    }
+    if (_loadingDeviceInventoryV2) return;
+    if (!force &&
+        (_fetchedDeviceInventoryV2 != null ||
+            _deviceInventoryV2Error != null)) {
+      return;
+    }
+    final previousPage = _fetchedDeviceInventoryV2;
+    final generation = ++_deviceInventoryV2Generation;
+    setState(() {
+      _loadingDeviceInventoryV2 = true;
+      _deviceInventoryV2Error = null;
+      // Preserve the last owner-validated v2 snapshot while a refresh is in
+      // flight, matching the existing v1 inventory reader behavior.
+      _deviceInventoryV2Stale = previousPage != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final page = ForgeDeviceInventoryPageV2.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (page.owner != expectedOwner) {
+        throw const FormatException(
+          'Forge returned v2 device inventory for another owner.',
+        );
+      }
+      if (!mounted ||
+          generation != _deviceInventoryV2Generation ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryV2 = page;
+        _deviceInventoryV2Error = null;
+        _deviceInventoryV2Stale = false;
+        _loadingDeviceInventoryV2 = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _deviceInventoryV2Generation) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _deviceInventoryV2Generation ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryV2 = previousPage;
+        _deviceInventoryV2Error = _friendlyError(
+          error,
+          'Could not load v2 device inventory observation.',
+        );
+        _deviceInventoryV2Stale = previousPage != null;
+        _loadingDeviceInventoryV2 = false;
+      });
+    }
+  }
+
+  Future<void> _loadDeviceInventoryRegistryPlacementPreviewIfRequested({
+    bool force = false,
+  }) async {
+    final owner = widget.deviceInventoryOwner;
+    final requirements = widget.deviceInventoryRegistryPlacementRequirements;
+    final reader = widget.deviceInventoryRegistryPlacementPreviewReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || requirements == null || reader == null) {
+      if (mounted &&
+          (_fetchedDeviceInventoryRegistryPlacementPreview != null ||
+              _deviceInventoryRegistryPlacementPreviewError != null ||
+              _loadingDeviceInventoryRegistryPlacementPreview)) {
+        setState(_clearDeviceInventoryRegistryPlacementPreview);
+      }
+      return;
+    }
+    if (_loadingDeviceInventoryRegistryPlacementPreview) return;
+    if (!force &&
+        (_fetchedDeviceInventoryRegistryPlacementPreview != null ||
+            _deviceInventoryRegistryPlacementPreviewError != null)) {
+      return;
+    }
+    final previousPreview = _fetchedDeviceInventoryRegistryPlacementPreview;
+    final generation = ++_deviceInventoryRegistryPlacementPreviewGeneration;
+    setState(() {
+      _loadingDeviceInventoryRegistryPlacementPreview = true;
+      _deviceInventoryRegistryPlacementPreviewError = null;
+      _deviceInventoryRegistryPlacementPreviewStale = previousPreview != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final expectedRequirements = ForgeDevicePlacementRequirements.fromJson(
+        requirements.toJson(),
+      );
+      final preview = ForgeDeviceRegistryPlacementPreview.fromJson(
+        (await reader(owner, expectedRequirements)).toJson(),
+      );
+      if (preview.evaluationOwner != expectedOwner ||
+          preview.authority.anyGranted ||
+          preview.selectedDeviceID != null ||
+          preview.selectedInstanceID != null) {
+        throw const FormatException(
+          'Forge returned an invalid registry placement preview.',
+        );
+      }
+      if (!mounted ||
+          generation != _deviceInventoryRegistryPlacementPreviewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryRegistryPlacementPreview = preview;
+        _deviceInventoryRegistryPlacementPreviewError = null;
+        _deviceInventoryRegistryPlacementPreviewStale = false;
+        _loadingDeviceInventoryRegistryPlacementPreview = false;
+      });
+    } catch (error) {
+      if (!mounted ||
+          generation != _deviceInventoryRegistryPlacementPreviewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _deviceInventoryRegistryPlacementPreviewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryRegistryPlacementPreview = previousPreview;
+        _deviceInventoryRegistryPlacementPreviewError = _friendlyError(
+          error,
+          'Could not load registry placement preview.',
+        );
+        _deviceInventoryRegistryPlacementPreviewStale = previousPreview != null;
+        _loadingDeviceInventoryRegistryPlacementPreview = false;
+      });
+    }
+  }
+
+  Future<void> _loadClientInstanceSessionViewIfRequested({
+    bool force = false,
+  }) async {
+    final owner = widget.clientInstanceSessionViewOwner;
+    final reader = widget.clientInstanceSessionViewReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedClientInstanceSessionView != null ||
+              _clientInstanceSessionViewError != null ||
+              _loadingClientInstanceSessionView)) {
+        setState(_clearClientInstanceSessionView);
+      }
+      return;
+    }
+    if (_loadingClientInstanceSessionView) return;
+    if (!force &&
+        (_fetchedClientInstanceSessionView != null ||
+            _clientInstanceSessionViewError != null)) {
+      return;
+    }
+    final previousView = _fetchedClientInstanceSessionView;
+    final generation = ++_clientInstanceSessionViewGeneration;
+    setState(() {
+      _loadingClientInstanceSessionView = true;
+      _clientInstanceSessionViewError = null;
+      _clientInstanceSessionViewStale = previousView != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final view = ForgeClientInstanceSessionView.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (view.owner != expectedOwner || !view.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid client-instance session view.',
+        );
+      }
+      if (!mounted ||
+          generation != _clientInstanceSessionViewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceSessionView = view;
+        _clientInstanceSessionViewError = null;
+        _clientInstanceSessionViewStale = false;
+        _loadingClientInstanceSessionView = false;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted || generation != _clientInstanceSessionViewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _clientInstanceSessionViewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceSessionView = previousView;
+        _clientInstanceSessionViewError = _friendlyError(
+          error,
+          'Could not load client-instance session view.',
+        );
+        _clientInstanceSessionViewStale = previousView != null;
+        _loadingClientInstanceSessionView = false;
+      });
+    }
+  }
+
+  Future<void> _loadClientInstanceResourceViewIfRequested({
+    bool force = false,
+  }) async {
+    final owner = widget.clientInstanceResourceViewOwner;
+    final reader = widget.clientInstanceResourceViewReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedClientInstanceResourceView != null ||
+              _clientInstanceResourceViewError != null ||
+              _loadingClientInstanceResourceView)) {
+        setState(_clearClientInstanceResourceView);
+      }
+      return;
+    }
+    if (_loadingClientInstanceResourceView) return;
+    if (!force &&
+        (_fetchedClientInstanceResourceView != null ||
+            _clientInstanceResourceViewError != null)) {
+      return;
+    }
+    final previousView = _fetchedClientInstanceResourceView;
+    final generation = ++_clientInstanceResourceViewGeneration;
+    setState(() {
+      _loadingClientInstanceResourceView = true;
+      _clientInstanceResourceViewError = null;
+      _clientInstanceResourceViewStale = previousView != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final view = ForgeClientInstanceResourceView.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (view.owner != expectedOwner || !view.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid client-instance resource view.',
+        );
+      }
+      if (!mounted ||
+          generation != _clientInstanceResourceViewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceResourceView = view;
+        _clientInstanceResourceViewError = null;
+        _clientInstanceResourceViewStale = false;
+        _loadingClientInstanceResourceView = false;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted || generation != _clientInstanceResourceViewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _clientInstanceResourceViewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceResourceView = previousView;
+        _clientInstanceResourceViewError = _friendlyError(
+          error,
+          'Could not load client-instance resource view.',
+        );
+        _clientInstanceResourceViewStale = previousView != null;
+        _loadingClientInstanceResourceView = false;
+      });
+    }
+  }
+
+  Future<void> _loadLifecycleRegistryIfRequested({bool force = false}) async {
+    final owner = widget.lifecycleRegistryOwner;
+    final reader = widget.lifecycleRegistryReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedLifecycleRegistry != null ||
+              _lifecycleRegistryError != null ||
+              _loadingLifecycleRegistry)) {
+        setState(_clearLifecycleRegistry);
+      }
+      return;
+    }
+    if (_loadingLifecycleRegistry) return;
+    if (!force &&
+        (_fetchedLifecycleRegistry != null ||
+            _lifecycleRegistryError != null)) {
+      return;
+    }
+    final previousRegistry = _fetchedLifecycleRegistry;
+    final generation = ++_lifecycleRegistryGeneration;
+    setState(() {
+      _loadingLifecycleRegistry = true;
+      _lifecycleRegistryError = null;
+      _lifecycleRegistryStale = previousRegistry != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      // Re-decode the callback result through the strict wire boundary. This
+      // keeps a candidate adapter from bypassing state joins, canonical
+      // ordering, numeric bounds, or duplicate/unknown-key checks.
+      final registry = ForgeDeviceEnrollmentHeartbeatLifecycleRegistry.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (registry.owner != expectedOwner || !registry.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound lifecycle registry.',
+        );
+      }
+      if (!mounted ||
+          generation != _lifecycleRegistryGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedLifecycleRegistry = registry;
+        _lifecycleRegistryError = null;
+        _lifecycleRegistryStale = false;
+        _loadingLifecycleRegistry = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _lifecycleRegistryGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _lifecycleRegistryGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedLifecycleRegistry = previousRegistry;
+        _lifecycleRegistryError = _friendlyError(
+          error,
+          'Could not load lifecycle registry observation.',
+        );
+        _lifecycleRegistryStale = previousRegistry != null;
+        _loadingLifecycleRegistry = false;
+      });
+    }
+  }
+
+  /// Loads one explicitly configured credential lifecycle candidate. This is
+  /// deliberately not part of change-feed, resume, or manual refresh polling:
+  /// the route is a one-shot metadata POST and callers must deliberately
+  /// rebuild the candidate request before asking for another preview.
+  Future<void> _loadDeviceCredentialCandidateIfRequested() async {
+    final owner = widget.deviceCredentialCandidateOwner;
+    final request = widget.deviceCredentialCandidateRequest;
+    final reader = widget.deviceCredentialCandidateReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || request == null || reader == null) {
+      if (mounted &&
+          (_fetchedDeviceCredentialCandidate != null ||
+              _deviceCredentialCandidateError != null ||
+              _loadingDeviceCredentialCandidate)) {
+        setState(_clearDeviceCredentialCandidate);
+      }
+      return;
+    }
+    if (_loadingDeviceCredentialCandidate ||
+        _fetchedDeviceCredentialCandidate != null ||
+        _deviceCredentialCandidateError != null) {
+      return;
+    }
+    final generation = ++_deviceCredentialCandidateGeneration;
+    setState(() {
+      _loadingDeviceCredentialCandidate = true;
+      _deviceCredentialCandidateError = null;
+      _deviceCredentialCandidateStale = false;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final expectedRequest = ForgeDeviceCredentialLifecycleRequest.fromJson(
+        request.toJson(),
+      );
+      final candidate = ForgeDeviceCredentialLifecycleCandidate.fromJson(
+        (await reader(owner: owner, request: expectedRequest)).toJson(),
+      );
+      if (candidate.owner != expectedOwner ||
+          candidate.deviceID != expectedRequest.deviceID ||
+          candidate.action != expectedRequest.action ||
+          candidate.revision != expectedRequest.expectedDeviceRevision ||
+          !candidate.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid credential lifecycle candidate.',
+        );
+      }
+      if (!mounted ||
+          generation != _deviceCredentialCandidateGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceCredentialCandidate = candidate;
+        _deviceCredentialCandidateError = null;
+        _deviceCredentialCandidateStale = false;
+        _loadingDeviceCredentialCandidate = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _deviceCredentialCandidateGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _deviceCredentialCandidateGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceCredentialCandidate = null;
+        _deviceCredentialCandidateError = _friendlyError(
+          error,
+          'Could not load credential lifecycle candidate.',
+        );
+        _deviceCredentialCandidateStale = false;
+        _loadingDeviceCredentialCandidate = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunAttemptLeaseDispatchPreflightIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runAttemptLeaseDispatchPreflightRequest;
+    final reader = widget.runAttemptLeaseDispatchPreflightReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        !request.isFor(conversationID, runID)) {
+      if (mounted &&
+          (_fetchedRunAttemptLeaseDispatchPreflight != null ||
+              _runAttemptLeaseDispatchPreflightError != null ||
+              _loadingRunAttemptLeaseDispatchPreflight ||
+              _runAttemptLeaseDispatchPreflightStale)) {
+        setState(_clearRunAttemptLeaseDispatchPreflight);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunAttemptLeaseDispatchPreflight) return;
+    if (!force &&
+        (_fetchedRunAttemptLeaseDispatchPreflight != null ||
+            _runAttemptLeaseDispatchPreflightError != null)) {
+      return;
+    }
+    final previous = _fetchedRunAttemptLeaseDispatchPreflight;
+    final generation = ++_runAttemptLeaseDispatchPreflightGeneration;
+    setState(() {
+      _loadingRunAttemptLeaseDispatchPreflight = true;
+      _runAttemptLeaseDispatchPreflightError = null;
+      _runAttemptLeaseDispatchPreflightStale = previous != null;
+    });
+    try {
+      final validatedRequest =
+          ForgeRunAttemptLeaseDispatchPreflightRequest.fromJson(
+            request.toJson(),
+          );
+      if (!validatedRequest.isFor(conversationID, runID)) {
+        throw const FormatException(
+          'Forge preflight request is bound to another selected Run.',
+        );
+      }
+      final fixture = ForgePreflightFixture.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      if (!fixture.isFor(conversationID, runID) ||
+          fixture.issuer != validatedRequest.owner.issuer ||
+          fixture.subject != validatedRequest.owner.subject ||
+          fixture.tenantId != validatedRequest.owner.tenantID ||
+          !fixture.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound preflight.',
+        );
+      }
+      if (!mounted ||
+          generation != _runAttemptLeaseDispatchPreflightGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunAttemptLeaseDispatchPreflight = fixture;
+        _runAttemptLeaseDispatchPreflightError = null;
+        _runAttemptLeaseDispatchPreflightStale = false;
+        _loadingRunAttemptLeaseDispatchPreflight = false;
+      });
+    } catch (error) {
+      if (!mounted ||
+          generation != _runAttemptLeaseDispatchPreflightGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runAttemptLeaseDispatchPreflightGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunAttemptLeaseDispatchPreflight = previous;
+        _runAttemptLeaseDispatchPreflightError = _friendlyError(
+          error,
+          'Could not load Run-Attempt lease preflight.',
+        );
+        _runAttemptLeaseDispatchPreflightStale = previous != null;
+        _loadingRunAttemptLeaseDispatchPreflight = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunnerDispatchPlanPreviewIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerDispatchPlanPreviewRequest;
+    final reader = widget.runnerDispatchPlanPreviewReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        !request.isFor(conversationID, runID)) {
+      if (mounted &&
+          (_fetchedRunnerDispatchPlanPreview != null ||
+              _runnerDispatchPlanPreviewError != null ||
+              _loadingRunnerDispatchPlanPreview ||
+              _runnerDispatchPlanPreviewStale)) {
+        setState(_clearRunnerDispatchPlanPreview);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerDispatchPlanPreview) return;
+    if (!force &&
+        (_fetchedRunnerDispatchPlanPreview != null ||
+            _runnerDispatchPlanPreviewError != null)) {
+      return;
+    }
+    final previous = _fetchedRunnerDispatchPlanPreview;
+    final generation = ++_runnerDispatchPlanPreviewGeneration;
+    setState(() {
+      _loadingRunnerDispatchPlanPreview = true;
+      _runnerDispatchPlanPreviewError = null;
+      _runnerDispatchPlanPreviewStale = previous != null;
+    });
+    try {
+      final validatedRequest =
+          ForgeRunAttemptLeaseDispatchPreflightRequest.fromJson(
+            request.toJson(),
+          );
+      if (!validatedRequest.isFor(conversationID, runID)) {
+        throw const FormatException(
+          'Forge Runner dispatch-plan request is bound to another selected Run.',
+        );
+      }
+      final preview = ForgeRunnerDispatchPlanPreview.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      final plan = validatedRequest.dispatchPlan;
+      final intent = plan.runnerExecutionIntent;
+      if (!preview.isFor(conversationID, runID) ||
+          !preview.isDisplayOnly ||
+          preview.owner != validatedRequest.owner ||
+          preview.attemptID != intent.attemptID ||
+          preview.attemptState != plan.attemptState ||
+          preview.commandID != intent.commandID ||
+          preview.commandSHA256 != intent.commandSHA256 ||
+          preview.intentTargetID != intent.targetID ||
+          preview.leaseEpoch != plan.lease.epoch.toInt() ||
+          preview.evaluatedAtMS != plan.placement.evaluatedAtMS ||
+          preview.candidateCount != plan.placement.devices.length) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner dispatch-plan preview.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerDispatchPlanPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerDispatchPlanPreview = preview;
+        _runnerDispatchPlanPreviewError = null;
+        _runnerDispatchPlanPreviewStale = false;
+        _loadingRunnerDispatchPlanPreview = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerDispatchPlanPreviewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerDispatchPlanPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerDispatchPlanPreview = previous;
+        _runnerDispatchPlanPreviewError = _friendlyError(
+          error,
+          'Could not load Runner dispatch-plan preview.',
+        );
+        _runnerDispatchPlanPreviewStale = previous != null;
+        _loadingRunnerDispatchPlanPreview = false;
+      });
+    }
+  }
+
+  Future<void> _loadLocalRunnerPreviewIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.localRunnerPreviewRequest;
+    final reader = widget.localRunnerPreviewReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.intent.conversationID != conversationID ||
+        request.intent.run.runID != runID) {
+      if (mounted &&
+          (_fetchedLocalRunnerPreview != null ||
+              _localRunnerPreviewError != null ||
+              _loadingLocalRunnerPreview ||
+              _localRunnerPreviewStale)) {
+        setState(_clearLocalRunnerPreview);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingLocalRunnerPreview) return;
+    if (!force &&
+        (_fetchedLocalRunnerPreview != null ||
+            _localRunnerPreviewError != null)) {
+      return;
+    }
+    final previous = _fetchedLocalRunnerPreview;
+    final generation = ++_localRunnerPreviewGeneration;
+    setState(() {
+      _loadingLocalRunnerPreview = true;
+      _localRunnerPreviewError = null;
+      _localRunnerPreviewStale = previous != null;
+    });
+    try {
+      request.validateForPath(conversationID, request.intent.prompt.intentID);
+      final preview = ForgeLocalRunnerPreviewObservation.fromJson(
+        (await reader(request)).toJson(),
+        request: request,
+        conversationID: conversationID,
+        intentID: request.intent.prompt.intentID,
+      );
+      if (preview.runnerExecutionIntent.runID != runID) {
+        throw const FormatException(
+          'Forge returned a local Runner preview for another Run.',
+        );
+      }
+      if (!mounted ||
+          generation != _localRunnerPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedLocalRunnerPreview = preview;
+        _localRunnerPreviewError = null;
+        _localRunnerPreviewStale = false;
+        _loadingLocalRunnerPreview = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _localRunnerPreviewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _localRunnerPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedLocalRunnerPreview = previous;
+        _localRunnerPreviewError = _friendlyError(
+          error,
+          'Could not load local Runner execution-readiness preview.',
+        );
+        _localRunnerPreviewStale = previous != null;
+        _loadingLocalRunnerPreview = false;
+      });
+    }
+  }
+
+  Future<void> _loadExecutionReconciliationIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final input = widget.executionReconciliationInput;
+    final reader = widget.executionReconciliationReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (input == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        !input.isFor(conversationID, runID)) {
+      if (mounted &&
+          (_fetchedExecutionReconciliationObservation != null ||
+              _executionReconciliationError != null ||
+              _loadingExecutionReconciliation ||
+              _executionReconciliationStale)) {
+        setState(_clearExecutionReconciliation);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingExecutionReconciliation) return;
+    if (!force &&
+        (_fetchedExecutionReconciliationObservation != null ||
+            _executionReconciliationError != null)) {
+      return;
+    }
+    final previous = _fetchedExecutionReconciliationObservation;
+    final generation = ++_executionReconciliationGeneration;
+    setState(() {
+      _loadingExecutionReconciliation = true;
+      _executionReconciliationError = null;
+      _executionReconciliationStale = previous != null;
+    });
+    try {
+      final validatedInput = ForgeExecutionReconciliationInput.fromJson(
+        input.toJson(),
+      );
+      if (!validatedInput.isFor(conversationID, runID)) {
+        throw const FormatException(
+          'Forge execution reconciliation input is bound to another Run.',
+        );
+      }
+      final observation = ForgeExecutionReconciliationObservation.fromJson(
+        (await reader(validatedInput)).toJson(),
+      );
+      final expected = observeForgeExecutionReconciliation(validatedInput);
+      if (!observation.isFor(conversationID, runID) ||
+          observation.owner != validatedInput.owner ||
+          jsonEncode(observation.toJson()) != jsonEncode(expected.toJson())) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound execution reconciliation observation.',
+        );
+      }
+      if (!mounted ||
+          generation != _executionReconciliationGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedExecutionReconciliationObservation = observation;
+        _executionReconciliationError = null;
+        _executionReconciliationStale = false;
+        _loadingExecutionReconciliation = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _executionReconciliationGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _executionReconciliationGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedExecutionReconciliationObservation = previous;
+        _executionReconciliationError = _friendlyError(
+          error,
+          'Could not load execution reconciliation observation.',
+        );
+        _executionReconciliationStale = previous != null;
+        _loadingExecutionReconciliation = false;
+      });
+    }
+  }
+
+  Future<void> _loadExecutionConsentPreviewIfRequested({
+    String? conversationID,
+    bool force = false,
+  }) async {
+    final owner = widget.executionConsentPreviewOwner;
+    final reader = widget.executionConsentPreviewReader;
+    conversationID ??= _selected?.conversation.id;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null || conversationID == null) {
+      if (mounted &&
+          (_fetchedExecutionConsentPreview != null ||
+              _executionConsentPreviewError != null ||
+              _loadingExecutionConsentPreview ||
+              _executionConsentPreviewStale)) {
+        setState(_clearExecutionConsentPreview);
+      }
+      return;
+    }
+    // Execution-consent preview is bound to the selected Conversation. Once
+    // a caller selects a client instance, keep the candidate read behind the
+    // same local projection used by Prompt, Run, and pending Run-intent
+    // reads. The projection is display-only and never grants consent.
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      if (mounted) setState(_clearExecutionConsentPreview);
+      return;
+    }
+    if (_loadingExecutionConsentPreview) return;
+    if (!force &&
+        (_fetchedExecutionConsentPreview != null ||
+            _executionConsentPreviewError != null)) {
+      return;
+    }
+    final previous = _fetchedExecutionConsentPreview;
+    final generation = ++_executionConsentPreviewGeneration;
+    setState(() {
+      _loadingExecutionConsentPreview = true;
+      _executionConsentPreviewError = null;
+      _executionConsentPreviewStale = previous != null;
+    });
+    try {
+      final validatedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final preview = ForgeExecutionConsentPreview.fromJson(
+        (await reader(
+          owner: validatedOwner,
+          conversationID: conversationID,
+        )).toJson(),
+      );
+      if (preview.conversationID != conversationID) {
+        throw const FormatException(
+          'Forge returned an execution consent preview for another conversation.',
+        );
+      }
+      if (!mounted ||
+          generation != _executionConsentPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedExecutionConsentPreview = preview;
+        _executionConsentPreviewError = null;
+        _executionConsentPreviewStale = false;
+        _loadingExecutionConsentPreview = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _executionConsentPreviewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _executionConsentPreviewGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedExecutionConsentPreview = previous;
+        _executionConsentPreviewError = _friendlyError(
+          error,
+          'Could not load execution consent preview.',
+        );
+        _executionConsentPreviewStale = previous != null;
+        _loadingExecutionConsentPreview = false;
+      });
+    }
+  }
+
+  Future<void> _loadPendingRunIntentsIfRequested({bool force = false}) async {
+    final reader = widget.pendingRunIntentReader;
+    final pageReader = widget.pendingRunIntentPageReader;
+    final conversationID = _selected?.conversation.id;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (conversationID != null &&
+        !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if ((reader == null && pageReader == null) || conversationID == null) {
+      if (mounted &&
+          (_fetchedPendingRunIntents != null ||
+              _pendingRunIntentError != null ||
+              _loadingPendingRunIntents)) {
+        setState(_clearPendingRunIntents);
+      }
+      return;
+    }
+    if (_loadingPendingRunIntents || _loadingMorePendingRunIntents) return;
+    if (!force &&
+        (_fetchedPendingRunIntents != null || _pendingRunIntentError != null)) {
+      return;
+    }
+    final previousPage = _fetchedPendingRunIntents;
+    final preserveTimelines = previousPage != null;
+    final generation = ++_pendingRunIntentGeneration;
+    setState(() {
+      _loadingPendingRunIntents = true;
+      _pendingRunIntentError = null;
+      _fetchedPendingRunIntents = null;
+    });
+    try {
+      // Re-decode the callback result through the strict list boundary. This
+      // preserves conversation binding, cursor ordering, pending status, and
+      // the bounded initial sequence even when a test adapter constructs the
+      // public value directly.
+      final response = pageReader != null
+          ? await pageReader(conversationID, null)
+          : await reader!(conversationID);
+      final page = ForgePendingRunIntentListPage.fromJson(
+        _pendingRunIntentPageWire(response),
+        requestedConversationID: conversationID,
+      );
+      if (!mounted ||
+          generation != _pendingRunIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _authorizationInvalidated) {
+        return;
+      }
+      final samePage =
+          preserveTimelines && _samePendingRunIntentPage(previousPage, page);
+      setState(() {
+        if (!samePage) _clearPendingRunIntentTimelines();
+        _fetchedPendingRunIntents = page;
+        _pendingRunIntentError = null;
+        _loadingPendingRunIntents = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _pendingRunIntentGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _pendingRunIntentGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _clearPendingRunIntentTimelines();
+        _fetchedPendingRunIntents = null;
+        _pendingRunIntentError = _friendlyError(
+          error,
+          'Could not load pending Run-intent metadata.',
+        );
+        _loadingPendingRunIntents = false;
+      });
+    }
+  }
+
+  Future<void> _loadMorePendingRunIntents() async {
+    final reader = widget.pendingRunIntentPageReader;
+    final conversationID = _selected?.conversation.id;
+    final current = _fetchedPendingRunIntents;
+    final cursor = current?.nextCursor;
+    if (!mounted ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        reader == null ||
+        conversationID == null ||
+        current == null ||
+        !current.hasMore ||
+        cursor == null ||
+        _loadingPendingRunIntents ||
+        _loadingMorePendingRunIntents) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final generation = _pendingRunIntentGeneration;
+    setState(() {
+      _loadingMorePendingRunIntents = true;
+      _pendingRunIntentError = null;
+    });
+    try {
+      final response = await reader(conversationID, cursor);
+      final page = ForgePendingRunIntentListPage.fromJson(
+        _pendingRunIntentPageWire(response),
+        requestedConversationID: conversationID,
+        before: cursor,
+      );
+      if (!mounted ||
+          generation != _pendingRunIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !identical(current, _fetchedPendingRunIntents) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      final seen = current.intents.map((intent) => intent.intentID).toSet();
+      if (page.intents.any((intent) => !seen.add(intent.intentID))) {
+        throw const FormatException(
+          'Forge returned a duplicate pending Run-intent page.',
+        );
+      }
+      if (page.intents.isNotEmpty) {
+        final previous = current.intents.last;
+        final first = page.intents.first;
+        final firstID = utf8.encode(first.intentID);
+        final previousID = utf8.encode(previous.intentID);
+        var idComparison = 0;
+        final sharedLength = firstID.length < previousID.length
+            ? firstID.length
+            : previousID.length;
+        for (var index = 0; index < sharedLength; index++) {
+          idComparison = firstID[index].compareTo(previousID[index]);
+          if (idComparison != 0) break;
+        }
+        if (idComparison == 0) {
+          idComparison = firstID.length.compareTo(previousID.length);
+        }
+        final older =
+            first.submittedAtMS < previous.submittedAtMS ||
+            (first.submittedAtMS == previous.submittedAtMS && idComparison < 0);
+        if (!older) {
+          throw const FormatException(
+            'Forge returned an out-of-order pending Run-intent page.',
+          );
+        }
+      }
+      final merged = <ForgePendingRunIntentRecord>[
+        ...current.intents,
+        ...page.intents,
+      ];
+      setState(() {
+        _fetchedPendingRunIntents = ForgePendingRunIntentListPage(
+          conversationID: conversationID,
+          intents: List.unmodifiable(merged),
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        );
+        _pendingRunIntentError = null;
+        _loadingMorePendingRunIntents = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _pendingRunIntentGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _pendingRunIntentGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _pendingRunIntentError = _friendlyError(
+          error,
+          'Could not load more pending Run-intent metadata.',
+        );
+        _loadingMorePendingRunIntents = false;
+      });
+    }
+  }
+
+  Map<String, dynamic> _pendingRunIntentPageWire(
+    ForgePendingRunIntentListPage page,
+  ) => {
+    'conversation_id': page.conversationID,
+    'intents': page.intents
+        .map(
+          (intent) => {
+            'intent_id': intent.intentID,
+            'conversation_id': intent.conversationID,
+            'prompt_id': intent.promptID,
+            'project_id': intent.projectID,
+            'profile_id': intent.profileID,
+            'submitted_at_ms': intent.submittedAtMS,
+            'aggregate_version': intent.aggregateVersion,
+            'latest_sequence': intent.latestSequence,
+            'status': intent.status,
+          },
+        )
+        .toList(growable: false),
+    'has_more': page.hasMore,
+    if (page.nextCursor != null) 'next_cursor': page.nextCursor!.toJson(),
+  };
+
+  bool _samePendingRunIntentPage(
+    ForgePendingRunIntentListPage? left,
+    ForgePendingRunIntentListPage right,
+  ) {
+    if (left == null ||
+        left.conversationID != right.conversationID ||
+        left.hasMore != right.hasMore ||
+        left.nextCursor?.submittedAtMS != right.nextCursor?.submittedAtMS ||
+        left.nextCursor?.intentID != right.nextCursor?.intentID ||
+        left.intents.length != right.intents.length) {
+      return false;
+    }
+    for (var index = 0; index < left.intents.length; index++) {
+      if (!left.intents[index].sameValue(right.intents[index])) return false;
+    }
+    return true;
+  }
+
+  Future<void> _loadPendingRunIntentTimeline(String intentID) async {
+    final reader = widget.pendingRunIntentTimelineReader;
+    final conversationID = _selected?.conversation.id;
+    final page = _fetchedPendingRunIntents;
+    if (!mounted ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        reader == null ||
+        conversationID == null ||
+        page == null) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final intent = page.intents.where((entry) => entry.intentID == intentID);
+    if (intent.length != 1 ||
+        _fetchedPendingRunIntentTimelines.containsKey(intentID) ||
+        _loadingPendingRunIntentTimelines.contains(intentID)) {
+      return;
+    }
+    final generation = _pendingRunIntentTimelineGeneration;
+    setState(() {
+      _loadingPendingRunIntentTimelines.add(intentID);
+      _pendingRunIntentTimelineErrors.remove(intentID);
+    });
+    try {
+      // Re-decode through the strict timeline boundary. This preserves the
+      // Conversation/intent binding, initial sequence, event type, and
+      // payload-free closed shape even when a test adapter constructs the
+      // public value directly.
+      final timeline = ForgePendingRunIntentTimelinePage.fromJson(
+        _pendingRunIntentTimelineWire(await reader(conversationID, intentID)),
+        requestedConversationID: conversationID,
+        requestedIntentID: intentID,
+        requestedAfterSequence: 0,
+      );
+      if (timeline.events.single.emittedAtMS != intent.single.submittedAtMS) {
+        throw const FormatException(
+          'Forge returned an unbound pending Run-intent timeline.',
+        );
+      }
+      if (!mounted ||
+          generation != _pendingRunIntentTimelineGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedPendingRunIntentTimelines[intentID] = timeline;
+        _pendingRunIntentTimelineErrors.remove(intentID);
+        _loadingPendingRunIntentTimelines.remove(intentID);
+      });
+    } catch (error) {
+      if (!mounted || generation != _pendingRunIntentTimelineGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _pendingRunIntentTimelineGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedPendingRunIntentTimelines.remove(intentID);
+        _pendingRunIntentTimelineErrors[intentID] = _friendlyError(
+          error,
+          'Could not load pending Run-intent timeline.',
+        );
+        _loadingPendingRunIntentTimelines.remove(intentID);
+      });
+    }
+  }
+
+  Map<String, dynamic> _pendingRunIntentTimelineWire(
+    ForgePendingRunIntentTimelinePage page,
+  ) => {
+    'conversation_id': page.conversationID,
+    'intent_id': page.intentID,
+    'after_sequence': page.afterSequence,
+    'scanned_through_sequence': page.scannedThroughSequence,
+    'has_more': page.hasMore,
+    'events': page.events
+        .map(
+          (event) => {
+            'event_id': event.eventID,
+            'seq': event.sequence,
+            'emitted_at_ms': event.emittedAtMS,
+            'type': event.type,
+          },
+        )
+        .toList(growable: false),
+  };
+
   Future<void> _selectRun(ForgeConversationRun run) async {
     final conversationID = _selected?.conversation.id;
     if (conversationID == null || _selectedRun?.runID == run.runID) return;
     setState(() {
       _runTimelineGeneration++;
       _loadingRunTimeline = false;
+      _clearDeviceObservation();
+      _importedRunnerExecutionIntentObservation = null;
+      _importedSessionRunnerReceiptObservation = null;
       _selectedRun = run;
       _runEvents = const [];
       _runTimelineSequence = 0;
@@ -704,11 +4601,394 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _runTimelineError = null;
     });
     await _loadRunTimeline(conversationID, run.runID);
+    if (!mounted) return;
+    await _loadDeviceObservationIfRequested(conversationID, run.runID);
+    await _loadRunObservedIfRequested(
+      conversationID: conversationID,
+      runID: run.runID,
+    );
+  }
+
+  Future<void> _importOfflineDeviceObservation() async {
+    final conversationID = _selected?.conversation.id;
+    final runID = _selectedRun?.runID;
+    if (conversationID == null || runID == null) return;
+
+    final controller = TextEditingController();
+    try {
+      final observation = await showDialog<ForgeSessionDeviceObservation>(
+        context: context,
+        builder: (dialogContext) {
+          String? errorMessage;
+          var importing = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> submit() async {
+                if (importing) return;
+                setDialogState(() {
+                  importing = true;
+                  errorMessage = null;
+                });
+                try {
+                  final raw = controller.text.trim();
+                  if (raw.isEmpty || raw.length > 2 * 1024 * 1024) {
+                    throw const FormatException('size');
+                  }
+                  final wire = ForgeSessionDeviceObservationWire.fromJson(
+                    jsonDecode(raw),
+                  );
+                  final parsed = ForgeSessionDeviceObservation.fromWire(wire);
+                  if (!parsed.isFor(conversationID, runID)) {
+                    throw const ForgeSessionDeviceObservationError(
+                      'run_binding',
+                    );
+                  }
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop(parsed);
+                  }
+                } catch (error) {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    importing = false;
+                    errorMessage =
+                        error is ForgeSessionDeviceObservationError &&
+                            error.code == 'run_binding'
+                        ? 'The observation must match the selected Run.'
+                        : 'Invalid offline device observation.';
+                  });
+                }
+              }
+
+              return AlertDialog(
+                title: Text(context.tr('Import offline device observation')),
+                content: SizedBox(
+                  width: min(MediaQuery.sizeOf(context).width - 48, 720),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.tr(
+                            'Paste the canonical offline observation JSON for this selected Run. It is not saved or used for execution.',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const ValueKey(
+                            'forge-offline-device-observation-json',
+                          ),
+                          controller: controller,
+                          autofocus: true,
+                          minLines: 8,
+                          maxLines: 16,
+                          enabled: !importing,
+                          decoration: InputDecoration(
+                            labelText: context.tr('Canonical observation JSON'),
+                            border: const OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        if (errorMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr(errorMessage!),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: importing
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
+                    child: Text(context.tr('Cancel')),
+                  ),
+                  FilledButton(
+                    key: const ValueKey('forge-import-offline-observation'),
+                    onPressed: importing ? null : submit,
+                    child: Text(context.tr('Import')),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (!mounted || observation == null) return;
+      if (_selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID) {
+        return;
+      }
+      setState(() {
+        _importedDeviceObservation = observation;
+        _deviceObservationError = null;
+      });
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _importOfflineRunnerExecutionIntent() async {
+    final conversationID = _selected?.conversation.id;
+    final runID = _selectedRun?.runID;
+    if (conversationID == null || runID == null) return;
+
+    final controller = TextEditingController();
+    try {
+      final observation = await showDialog<ForgeRunnerExecutionIntentObservation>(
+        context: context,
+        builder: (dialogContext) {
+          String? errorMessage;
+          var importing = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> submit() async {
+                if (importing) return;
+                setDialogState(() {
+                  importing = true;
+                  errorMessage = null;
+                });
+                try {
+                  final raw = controller.text.trim();
+                  if (raw.isEmpty || raw.length > 256 * 1024) {
+                    throw const FormatException('size');
+                  }
+                  final parsed = ForgeRunnerExecutionIntentObservation.fromJson(
+                    jsonDecode(raw),
+                  );
+                  if (!parsed.isFor(conversationID, runID)) {
+                    throw const FormatException('run_binding');
+                  }
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop(parsed);
+                  }
+                } catch (_) {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    importing = false;
+                    errorMessage =
+                        'Invalid or foreign Runner execution observation.';
+                  });
+                }
+              }
+
+              return AlertDialog(
+                title: Text(context.tr('Import Runner execution observation')),
+                content: SizedBox(
+                  width: min(MediaQuery.sizeOf(context).width - 48, 720),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.tr(
+                            'Paste the canonical Runner execution observation JSON for this selected Run. It is not saved or used for execution.',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const ValueKey(
+                            'forge-runner-execution-observation-json',
+                          ),
+                          controller: controller,
+                          autofocus: true,
+                          minLines: 8,
+                          maxLines: 16,
+                          enabled: !importing,
+                          decoration: InputDecoration(
+                            labelText: context.tr(
+                              'Canonical Runner execution observation JSON',
+                            ),
+                            border: const OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        if (errorMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr(errorMessage!),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: importing
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
+                    child: Text(context.tr('Cancel')),
+                  ),
+                  FilledButton(
+                    key: const ValueKey(
+                      'forge-import-runner-execution-observation-submit',
+                    ),
+                    onPressed: importing ? null : submit,
+                    child: Text(context.tr('Import')),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (!mounted || observation == null) return;
+      if (_selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID) {
+        return;
+      }
+      setState(() {
+        _importedRunnerExecutionIntentObservation = observation;
+      });
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _importOfflineSessionRunnerReceiptObservation() async {
+    final conversationID = _selected?.conversation.id;
+    final runID = _selectedRun?.runID;
+    if (conversationID == null || runID == null) return;
+
+    final controller = TextEditingController();
+    try {
+      final observation = await showDialog<ForgeSessionRunnerReceiptObservation>(
+        context: context,
+        builder: (dialogContext) {
+          String? errorMessage;
+          var importing = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              Future<void> submit() async {
+                if (importing) return;
+                setDialogState(() {
+                  importing = true;
+                  errorMessage = null;
+                });
+                try {
+                  final raw = controller.text.trim();
+                  if (raw.isEmpty || raw.length > 256 * 1024) {
+                    throw const FormatException('size');
+                  }
+                  final parsed = ForgeSessionRunnerReceiptObservation.fromJson(
+                    jsonDecode(raw),
+                  );
+                  if (!parsed.isFor(conversationID, runID)) {
+                    throw const FormatException('run_binding');
+                  }
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop(parsed);
+                  }
+                } catch (_) {
+                  if (!dialogContext.mounted) return;
+                  setDialogState(() {
+                    importing = false;
+                    errorMessage =
+                        'Invalid or foreign session Runner receipt observation.';
+                  });
+                }
+              }
+
+              return AlertDialog(
+                title: Text(
+                  context.tr('Import session Runner receipt observation'),
+                ),
+                content: SizedBox(
+                  width: min(MediaQuery.sizeOf(context).width - 48, 720),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          context.tr(
+                            'Paste the canonical session Runner receipt observation JSON for this selected Run. It is not saved or used for execution.',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          key: const ValueKey(
+                            'forge-session-runner-receipt-observation-json',
+                          ),
+                          controller: controller,
+                          autofocus: true,
+                          minLines: 8,
+                          maxLines: 16,
+                          enabled: !importing,
+                          decoration: InputDecoration(
+                            labelText: context.tr(
+                              'Canonical session Runner receipt observation JSON',
+                            ),
+                            border: const OutlineInputBorder(),
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        if (errorMessage != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            context.tr(errorMessage!),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: importing
+                        ? null
+                        : () => Navigator.of(dialogContext).pop(),
+                    child: Text(context.tr('Cancel')),
+                  ),
+                  FilledButton(
+                    key: const ValueKey(
+                      'forge-import-session-runner-receipt-observation-submit',
+                    ),
+                    onPressed: importing ? null : submit,
+                    child: Text(context.tr('Import')),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (!mounted || observation == null) return;
+      if (_selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID) {
+        return;
+      }
+      setState(() {
+        _importedSessionRunnerReceiptObservation = observation;
+      });
+    } finally {
+      controller.dispose();
+    }
   }
 
   Future<void> _appendPrompt() async {
     final selected = _selected;
     if (selected == null || _appending) return;
+    if (!_conversationVisibleFromSelectedClientInstance(
+      selected.conversation.id,
+    )) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
     final pending = _pendingPrompt ?? _readPromptRequest(selected);
     if (pending == null) return;
     setState(() {
@@ -723,7 +5003,11 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         expectedVersion: pending.expectedVersion,
         idempotencyKey: pending.idempotencyKey,
       );
-      if (!mounted || _selected?.conversation.id != selected.conversation.id) {
+      if (!mounted ||
+          _selected?.conversation.id != selected.conversation.id ||
+          !_conversationVisibleFromSelectedClientInstance(
+            selected.conversation.id,
+          )) {
         return;
       }
       final updated = ForgeOwnedConversation(
@@ -743,13 +5027,23 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.tr('Prompt stored. It has not started a task.'),
+            result.replayed
+                ? context.tr(
+                    'Prompt retry replayed the existing message. It has not started a task.',
+                  )
+                : context.tr('Prompt stored. It has not started a task.'),
           ),
         ),
       );
     } catch (error) {
       if (!mounted) return;
       await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          !_conversationVisibleFromSelectedClientInstance(
+            selected.conversation.id,
+          )) {
+        return;
+      }
       final status = error is ForgeConversationsApiException
           ? error.statusCode
           : 0;
@@ -768,9 +5062,131 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  Future<void> _submitPendingRunIntent() async {
+    final selected = _selected;
+    final owner = widget.pendingRunIntentOwner;
+    final submitter = widget.pendingRunIntentSubmitter;
+    if (selected == null || owner == null || submitter == null) return;
+    if (!_conversationVisibleFromSelectedClientInstance(
+      selected.conversation.id,
+    )) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final pending =
+        _pendingRunIntentRequest ?? _readPendingRunIntentRequest(selected);
+    if (pending == null) return;
+    setState(() {
+      _pendingRunIntentRequest = pending;
+      _submittingPendingRunIntent = true;
+      _pendingRunIntentSubmitError = null;
+    });
+    try {
+      final result = await submitter(
+        owner: owner,
+        conversationID: selected.conversation.id,
+        content: pending.content,
+        expectedVersion: pending.expectedVersion,
+        idempotencyKey: pending.idempotencyKey,
+      );
+      if (result.prompt.conversationID != selected.conversation.id ||
+          result.prompt.role != 'user' ||
+          result.prompt.content != pending.content ||
+          result.intent.conversationID != selected.conversation.id ||
+          result.intent.promptID != result.prompt.id ||
+          result.initialEvent.sequence != 1 ||
+          result.initialEvent.type != 'submitted' ||
+          result.intent.status != 'pending') {
+        throw const FormatException(
+          'Forge returned an invalid scheduling-review receipt.',
+        );
+      }
+      if (!mounted ||
+          _selected?.conversation.id != selected.conversation.id ||
+          !_conversationVisibleFromSelectedClientInstance(
+            selected.conversation.id,
+          )) {
+        return;
+      }
+      final updated = ForgeOwnedConversation(
+        conversation: selected.conversation,
+        aggregateVersion: result.intent.aggregateVersion,
+      );
+      setState(() {
+        _selected = updated;
+        _conversations = _replaceConversation(_conversations, updated);
+        _prompts = _uniquePrompts(
+          [
+            ..._prompts,
+            ForgeConversationPrompt(
+              id: result.prompt.id,
+              conversationID: result.prompt.conversationID,
+              role: result.prompt.role,
+              content: result.prompt.content,
+              createdAtMS: result.prompt.createdAtMS,
+            ),
+          ].toList()..sort(_comparePrompts),
+        );
+        _pendingRunIntentSubmission = result;
+        _pendingRunIntentRequest = null;
+        _promptController.clear();
+        _submittingPendingRunIntent = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Scheduling review requested. No task has started.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          !_conversationVisibleFromSelectedClientInstance(
+            selected.conversation.id,
+          )) {
+        return;
+      }
+      final status = error is ForgeConversationsApiException
+          ? error.statusCode
+          : 0;
+      final terminal = _isDefinitiveWriteFailure(error);
+      setState(() {
+        if (terminal) _pendingRunIntentRequest = null;
+        _pendingRunIntentSubmitError = _friendlyError(
+          error,
+          'Forge did not confirm the scheduling-review request.',
+        );
+        _submittingPendingRunIntent = false;
+      });
+      if (status == 409) {
+        await _refreshConversations(selectID: selected.conversation.id);
+      }
+    }
+  }
+
+  _PendingRunIntentRequest? _readPendingRunIntentRequest(
+    ForgeOwnedConversation selected,
+  ) {
+    final content = _promptController.text;
+    if (content.trim().isEmpty) {
+      setState(
+        () => _pendingRunIntentSubmitError = 'Enter a prompt to review.',
+      );
+      return null;
+    }
+    return _PendingRunIntentRequest(
+      content: content,
+      expectedVersion: selected.aggregateVersion,
+      idempotencyKey: newForgeIdempotencyKey(),
+    );
+  }
+
   _PendingPrompt? _readPromptRequest(ForgeOwnedConversation selected) {
-    final content = _promptController.text.trim();
-    if (content.isEmpty) {
+    // Preserve the exact bytes entered by the user so Flutter has the same
+    // Prompt semantics as the CLI, TUI, and API clients. Trimming is only a
+    // validation check for an all-whitespace value.
+    final content = _promptController.text;
+    if (content.trim().isEmpty) {
       setState(() => _appendError = 'Enter a prompt to send.');
       return null;
     }
@@ -793,21 +5209,53 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   }
 
   Future<void> _clearSessionIfUnauthorized(Object error) async {
-    if (error is ForgeConversationsApiException && error.isUnauthorized) {
-      try {
-        await _credentialStore.clear();
-      } catch (_) {
-        // Keep the route usable so the user can retry sign-out and vault clear.
-      }
+    if (!_isAuthorizationFailure(error)) return;
+    _authorizationInvalidated = true;
+    // Once the owner credential has been rejected, stop the foreground change
+    // feed before clearing the view.  A timer tick that survives credential
+    // cleanup would immediately issue another request with the same rejected
+    // owner and could race an explicit reauthentication/navigation flow.
+    _stopChangeSyncTimer();
+    if (mounted) {
+      setState(() {
+        _conversationGeneration++;
+        _loadingConversations = false;
+        _conversations = const [];
+        _selected = null;
+        _nextAfterID = null;
+        _hasMoreConversations = false;
+        _conversationsStale = false;
+        _clearConversationDetails();
+      });
+    }
+    try {
+      await _credentialStore.clear();
+    } catch (_) {
+      // Keep the route usable so the user can retry sign-out and vault clear.
     }
   }
+
+  bool _isAuthorizationFailure(Object error) =>
+      error is ForgeConversationsApiException &&
+      (error.isUnauthorized || error.isForbidden);
 
   void _signOutThisDevice() {
     if (_signingOut) return;
     setState(() {
       _signingOut = true;
       _signOutError = null;
+      _sessionViewInvalidated = true;
+      _conversationGeneration++;
+      _locationSelectionGeneration++;
+      _loadingConversations = false;
+      _conversations = const [];
+      _selected = null;
+      _nextAfterID = null;
+      _hasMoreConversations = false;
+      _conversationsStale = false;
+      _clearConversationDetails();
     });
+    _stopChangeSyncTimer();
     unawaited(_revokeAndReturnToForgeLogin());
   }
 
@@ -825,10 +5273,21 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           _signingOut = false;
           _signOutError =
               'Could not clear stored Forge credentials. Try signing out again.';
+          // A failed secure-store delete leaves the route available for an
+          // explicit retry, but never restores the owner-scoped view.
+          _conversationGeneration++;
+          _loadingConversations = false;
+          _conversations = const [];
+          _selected = null;
+          _nextAfterID = null;
+          _hasMoreConversations = false;
+          _conversationsStale = false;
+          _clearConversationDetails();
         });
       }
       return;
     }
+    await _conversationMetadataCache.clear();
     BrowserNavigation.replaceLocation(ForgeConversationsOAuth.loginLocation());
   }
 

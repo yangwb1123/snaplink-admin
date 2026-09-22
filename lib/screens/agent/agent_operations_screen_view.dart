@@ -2,6 +2,16 @@ part of 'agent_operations_screen.dart';
 
 extension _AgentOperationsScreenView on _AgentOperationsScreenState {
   Widget _buildOperationsView() => AgentOperationsView(
+    sessionCreation: Column(
+      children: [
+        _creationEntry(),
+        _historyEntry(),
+        if (_closure.hasInput) _closureStatusEntry(),
+      ],
+    ),
+    sessionClosure: _closureEntry(),
+    sessionWorkBlocked:
+        _selectedSession != null && _sessionCloseBlocked(_selectedSession!),
     instances: _instances,
     sessions: _sessions,
     events: _events,
@@ -62,7 +72,10 @@ extension _AgentOperationsScreenView on _AgentOperationsScreenState {
             instanceId: _selectedSession!.instanceId,
             projectId: _selectedSession!.projectId,
             value: _workspaceSelection,
-            disabled: _submittingTask || _taskWriteScopeMissing,
+            disabled:
+                _submittingTask ||
+                _taskWriteScopeMissing ||
+                _sessionCloseBlocked(_selectedSession!),
             onChanged: (value) => _update(() {
               _workspaceSelection = value;
               if (value.enabled &&
@@ -76,12 +89,7 @@ extension _AgentOperationsScreenView on _AgentOperationsScreenState {
             }),
             onSignIn: _signInForAgentAccess,
           ),
-    workspaceDetailsBuilder: (task) => AgentWorkspaceTaskDetails(
-      key: ValueKey('workspace-result-${task.taskId}'),
-      api: _api,
-      task: task,
-      onSignIn: _signInForAgentAccess,
-    ),
+    workspaceDetailsBuilder: _computeDetails,
     devices: _devices,
     deviceLoading: _devicesLoading,
     devicesHaveMore: _devicesHaveMore,
@@ -105,9 +113,13 @@ extension _AgentOperationsScreenView on _AgentOperationsScreenState {
     taskReadScopeMissing: _taskReadScopeMissing,
     taskWriteScopeMissing: _taskWriteScopeMissing,
     taskCancelScopeMissing: _taskCancelScopeMissing,
+    taskRescheduleScopeMissing: _taskRescheduleScopeMissing,
+    taskRetryScopeMissing: _taskRetryScopeMissing,
     targetDeviceId: _targetDeviceId,
     submittingTask: _submittingTask,
     cancellingTaskIds: _cancellingTaskIds,
+    reschedulingTaskIds: _reschedulingTaskIds,
+    retryingTaskIds: _retryingTaskIds,
     loadingTaskDetails: _loadingTaskDetails,
     taskDetails: _taskDetails,
     computeArgvController: _computeArgvController,
@@ -127,6 +139,8 @@ extension _AgentOperationsScreenView on _AgentOperationsScreenState {
     onTargetDeviceChanged: (value) => _update(() => _targetDeviceId = value),
     onSubmitTask: _submitComputeTask,
     onCancelTask: _cancelComputeTask,
+    onRescheduleTask: _rescheduleComputeTask,
+    onRetryTask: _retryLostComputeTask,
     onLoadTaskDetails: _loadComputeTaskDetails,
   );
 }

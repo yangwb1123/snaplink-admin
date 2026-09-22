@@ -7,7 +7,8 @@ import 'agent_workspace_file_stub.dart'
     if (dart.library.js_interop) 'agent_workspace_file_web.dart'
     as platform;
 
-export 'agent_workspace_file_contract.dart' show AgentWorkspaceFileSupport;
+export 'agent_workspace_file_contract.dart'
+    show AgentWorkspaceFileSupport, agentWorkspaceFileMaxBytes;
 
 Future<AgentWorkspaceFileSupport> agentWorkspaceFileSupport() =>
     platform.support();

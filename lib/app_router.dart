@@ -106,7 +106,7 @@ Widget resolveProductScreen(Uri location, {OidcLoginApi? oidcLoginApi}) {
       return _entryScreen(
         entry,
         forge_sessions_entry.loadLibrary,
-        forge_sessions_entry.buildForgeSessionsScreen,
+        () => forge_sessions_entry.buildForgeSessionsScreen(location),
       );
     case ProductEntry.login:
       return _entryScreen(
