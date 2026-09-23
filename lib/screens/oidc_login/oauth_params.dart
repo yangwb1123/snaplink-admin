@@ -26,6 +26,8 @@ class OAuthParams {
   final String authorizationDetails;
   final String claims;
   final String consentChallengeId;
+  final String presentationLocale;
+  final String presentationThemeMode;
 
   OAuthParams({
     required this.clientId,
@@ -50,6 +52,8 @@ class OAuthParams {
     required this.authorizationDetails,
     required this.claims,
     required this.consentChallengeId,
+    required this.presentationLocale,
+    required this.presentationThemeMode,
   });
 
   factory OAuthParams.fromUri(Uri uri) {
@@ -78,6 +82,8 @@ class OAuthParams {
       authorizationDetails: q['authorization_details'] ?? '',
       claims: q['claims'] ?? '',
       consentChallengeId: q['consent_challenge_id'] ?? '',
+      presentationLocale: q['presentation_locale'] ?? '',
+      presentationThemeMode: q['presentation_theme_mode'] ?? '',
     );
   }
 
@@ -118,6 +124,12 @@ class OAuthParams {
     if (consentChallengeId.isNotEmpty) {
       payload['consent_challenge_id'] = consentChallengeId;
     }
+    if (presentationLocale.isNotEmpty) {
+      payload['presentation_locale'] = presentationLocale;
+    }
+    if (presentationThemeMode.isNotEmpty) {
+      payload['presentation_theme_mode'] = presentationThemeMode;
+    }
     return payload;
   }
 
@@ -150,6 +162,10 @@ class OAuthParams {
     if (authorizationDetails.isNotEmpty)
       'authorization_details': authorizationDetails,
     if (claims.isNotEmpty) 'claims': claims,
+    if (presentationLocale.isNotEmpty)
+      'presentation_locale': presentationLocale,
+    if (presentationThemeMode.isNotEmpty)
+      'presentation_theme_mode': presentationThemeMode,
   };
 
   Object _jsonOrRaw(String value) {

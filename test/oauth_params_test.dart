@@ -13,6 +13,7 @@ void main() {
         '&ui_locales=en-US%20zh-CN'
         '&authorization_details=%5B%7B%22type%22%3A%22payment%22%7D%5D'
         '&claims=%7B%22id_token%22%3A%7B%22acr%22%3A%7B%22essential%22%3Atrue%7D%7D%7D'
+        '&presentation_locale=zh-CN&presentation_theme_mode=dark'
         '&device_token=trusted-device',
       ),
     );
@@ -31,6 +32,8 @@ void main() {
         'acr': {'essential': true},
       },
     });
+    expect(payload['presentation_locale'], 'zh-CN');
+    expect(payload['presentation_theme_mode'], 'dark');
     expect(payload, isNot(contains('device_token')));
   });
 

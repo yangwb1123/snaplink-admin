@@ -21,6 +21,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       // server-declared factor; otherwise a malformed response would make the
       // page issue a guaranteed-invalid /auth/mfa request.
       if (challengeId.isEmpty || methods.isEmpty) {
+        _clearAutofillCandidate();
         _update(() {
           _mfaChallengeId = '';
           _mfaMethods = const [];
@@ -76,6 +77,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       return;
     }
     if (outcome.error == 'password_expired') {
+      _clearAutofillCandidate();
       _update(() {
         _view = _View.forgotPassword;
         _forgotIdCtrl.text = _userCtrl.text.trim();
@@ -182,6 +184,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
   }
 
   void _discardMfaChallenge(String? message) {
+    _clearAutofillCandidate();
     _update(() {
       _mfaChallengeId = '';
       _mfaMethods = const [];
@@ -267,5 +270,6 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
     _consentClientName = '';
     _consentSummary = const ConsentRequestSummary.invalid();
     _passCtrl.clear();
+    _clearAutofillCandidate();
   }
 }

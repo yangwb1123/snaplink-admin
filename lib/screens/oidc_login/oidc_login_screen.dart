@@ -13,6 +13,7 @@ import '../../widgets/page_transition.dart';
 import '../../widgets/theme_selector.dart';
 import '../../services/browser_auth_response.dart';
 import '../../services/browser_navigation.dart';
+import '../../services/browser_password_manager.dart';
 import '../../services/forge_conversations_oauth.dart';
 import '../../services/forge_credential_store.dart';
 import '../../services/product_api_origin.dart';
@@ -133,6 +134,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   String? _codeMessage;
   bool _loading = false;
   bool _rememberPassword = false;
+  bool _commitAutofillContext = false;
+  String? _autofillUsernameCandidate;
+  String? _autofillPasswordCandidate;
   String? _error;
 
   String? _brandName;
@@ -231,12 +235,16 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       );
     }
     _applyInitialFlow();
+    _applyIncomingPresentationHints();
 
     if (_routeUri.queryParameters['verified'] == 'email') {
       _signupConfirmed = 'Email verified.';
     }
 
     _loadBranding();
+    if (_provider == 'password' && _route.flow == HostedLoginFlow.login) {
+      unawaited(_loadBrowserPasswordCredential());
+    }
     if (_route.requiresAuthentication) {
       _checkFederatedReturn();
     } else {
@@ -290,6 +298,49 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   }
 
   void _update(VoidCallback change) => setState(change);
+
+  /// A relying party may carry the user's already-authenticated SVERP
+  /// presentation choice into this hosted login navigation. Apply only the
+  /// allowlisted, non-authoritative UI hints locally; the same values are
+  /// forwarded in [OAuthParams.toLoginPayload] and Snaplink persists them only
+  /// after successful authentication.
+  void _applyIncomingPresentationHints() {
+    final rawLocale = _params.presentationLocale.trim();
+    if (rawLocale.isNotEmpty && isValidLanguageTag(rawLocale)) {
+      final parsedOptions = parseLanguageOptions(rawLocale);
+      final parsed = parsedOptions.isEmpty ? null : parsedOptions.first;
+      if (parsed != null &&
+          AppSettings.supportedLocales.any(
+            (supported) => supported.languageCode == parsed.languageCode,
+          )) {
+        AppSettings.instance.locale = Locale(parsed.languageCode);
+      }
+    }
+
+    final themeMode = switch (_params.presentationThemeMode.trim()) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      'auto' => ThemeMode.system,
+      _ => null,
+    };
+    if (themeMode != null) AppSettings.instance.themeMode = themeMode;
+  }
+
+  Future<void> _loadBrowserPasswordCredential() async {
+    if (!kIsWeb || !mounted || _provider != 'password') return;
+    final credential = await BrowserPasswordManager.read();
+    if (!mounted || _provider != 'password' || credential == null) return;
+    _update(() {
+      if (_userCtrl.text.trim().isEmpty) _userCtrl.text = credential.username;
+      if (_passCtrl.text.isEmpty) _passCtrl.text = credential.password;
+      _rememberPassword = true;
+    });
+  }
+
+  void _clearAutofillCandidate() {
+    _autofillUsernameCandidate = null;
+    _autofillPasswordCandidate = null;
+  }
 
   Future<void> _openNativeSettings() async {
     final previousOrigin = ProductApiOrigin.baseUri;

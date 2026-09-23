@@ -246,8 +246,11 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       usesTotpProvider: _usesTotpProvider,
       magicLinkToken: _magicLinkToken,
       rememberPassword: _rememberPassword,
-      onRememberPasswordChanged: (value) =>
-          _update(() => _rememberPassword = value),
+      commitAutofillContext: _commitAutofillContext,
+      onRememberPasswordChanged: (value) => _update(() {
+        _rememberPassword = value;
+        if (!value) _clearAutofillCandidate();
+      }),
       onSubmit: _submitLogin,
       onSendCode: _sendProviderCode,
       onHomeRealm: _discoverHomeRealm,
@@ -263,6 +266,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       }),
       onProviderChanged: (provider) => _update(() {
         _provider = provider;
+        _clearAutofillCandidate();
         _codeSent = false;
         _codeMessage = null;
         _error = null;

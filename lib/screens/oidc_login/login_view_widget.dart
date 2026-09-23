@@ -31,6 +31,7 @@ class LoginViewWidget extends StatefulWidget {
   final String? magicLinkToken;
   final bool rememberPassword;
   final ValueChanged<bool>? onRememberPasswordChanged;
+  final bool commitAutofillContext;
   final VoidCallback onSubmit;
   final VoidCallback onSendCode;
   final VoidCallback onHomeRealm;
@@ -59,6 +60,7 @@ class LoginViewWidget extends StatefulWidget {
     this.magicLinkToken,
     this.rememberPassword = false,
     this.onRememberPasswordChanged,
+    this.commitAutofillContext = false,
     required this.onSubmit,
     required this.onSendCode,
     required this.onHomeRealm,
@@ -78,6 +80,11 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
 
   @override
   Widget build(BuildContext context) => _buildLoginView(context);
+
+  AutofillContextAction get _autofillContextAction =>
+      widget.commitAutofillContext
+      ? AutofillContextAction.commit
+      : AutofillContextAction.cancel;
 
   LoginProviderDescriptor _descriptorFor(String id) {
     for (final item in widget.providers) {

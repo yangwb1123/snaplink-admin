@@ -72,6 +72,12 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       return;
     }
     if (magicLinkToken != null) _scrubOneTimeLoginData();
+    if (_rememberPassword && _provider == 'password') {
+      _autofillUsernameCandidate = _userCtrl.text.trim();
+      _autofillPasswordCandidate = _passCtrl.text;
+    } else {
+      _clearAutofillCandidate();
+    }
     _update(() {
       if (magicLinkToken != null) _magicLinkToken = null;
       _loading = true;
@@ -101,8 +107,12 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
         await _handleSuccess(outcome);
       } else {
         _handleLoginError(outcome);
+        if (!outcome.isMfaRequired && !outcome.isConsentRequired) {
+          _clearAutofillCandidate();
+        }
       }
     } catch (_) {
+      _clearAutofillCandidate();
       if (mounted) {
         _update(() => _error = AppStrings.of(context).networkError);
       }

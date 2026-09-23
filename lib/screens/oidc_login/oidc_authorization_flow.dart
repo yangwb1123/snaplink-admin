@@ -6,12 +6,38 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   }
 
   Future<void> _handleSuccess(LoginOutcome outcome) async {
-    // 只在用户明确勾选“记住密码”时请求浏览器/系统凭据管理器保存。
-    // 密码不落入 localStorage、sessionStorage 或应用自身数据库；由平台的
-    // 密码管理器负责加密存储与后续自动填充。
-    TextInput.finishAutofillContext(
-      shouldSave: _rememberPassword && _provider == 'password',
-    );
+    // 只在用户明确勾选“记住密码”且密码认证最终成功时请求浏览器/系统
+    // 凭据管理器保存。密码不落入 localStorage、sessionStorage 或应用自身
+    // 数据库；由平台密码管理器负责加密存储与后续自动填充。
+    final username = _userCtrl.text.trim().isNotEmpty
+        ? _userCtrl.text.trim()
+        : (_autofillUsernameCandidate ?? '').trim();
+    final password = _passCtrl.text.isNotEmpty
+        ? _passCtrl.text
+        : (_autofillPasswordCandidate ?? '');
+    final shouldSavePassword =
+        _rememberPassword &&
+        _provider == 'password' &&
+        username.isNotEmpty &&
+        password.isNotEmpty;
+    if (shouldSavePassword) {
+      // The AutofillGroup must commit on the route disposal. Its default
+      // action was previously overridden with cancel, which immediately
+      // discarded the browser's pending save when the redirect disposed the
+      // login page.
+      _update(() => _commitAutofillContext = true);
+    }
+    TextInput.finishAutofillContext(shouldSave: shouldSavePassword);
+    if (shouldSavePassword) {
+      await BrowserPasswordManager.save(
+        username: username,
+        password: password,
+      ).timeout(const Duration(milliseconds: 500), onTimeout: () {});
+      // Let Flutter's web text-editing bridge deliver the commit before the
+      // top-level OAuth redirect tears down the document.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+    }
+    _clearAutofillCandidate();
     // Authentication credentials are no longer needed once the server has
     // reached a terminal success. Clear them even when redirect/JARM delivery
     // is later blocked and this widget remains mounted.
