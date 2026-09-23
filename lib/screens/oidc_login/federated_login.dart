@@ -169,6 +169,7 @@ class FederatedLogin {
     required String clientId,
     required String redirectTarget,
     List<String> scope = const ['openid', 'profile', 'email'],
+    Map<String, String> presentationPreferences = const {},
   }) {
     if (!kIsWeb) {
       throw StateError('Federated sign-in requires the web console.');
@@ -206,6 +207,7 @@ class FederatedLogin {
             _queryScope: scope.join(' '),
             _queryCodeChallenge: challenge,
             _queryCodeChallengeMethod: 'S256',
+            ...presentationPreferences,
           },
         )
         .toString();

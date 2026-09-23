@@ -29,6 +29,8 @@ class LoginViewWidget extends StatefulWidget {
   final bool usesCodeProvider;
   final bool usesTotpProvider;
   final String? magicLinkToken;
+  final bool rememberPassword;
+  final ValueChanged<bool>? onRememberPasswordChanged;
   final VoidCallback onSubmit;
   final VoidCallback onSendCode;
   final VoidCallback onHomeRealm;
@@ -55,6 +57,8 @@ class LoginViewWidget extends StatefulWidget {
     required this.usesCodeProvider,
     required this.usesTotpProvider,
     this.magicLinkToken,
+    this.rememberPassword = false,
+    this.onRememberPasswordChanged,
     required this.onSubmit,
     required this.onSendCode,
     required this.onHomeRealm,
@@ -111,6 +115,20 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         ),
         onSubmit: () => widget.onSubmit(),
       ),
+      if (widget.onRememberPasswordChanged != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            value: widget.rememberPassword,
+            onChanged: widget.loading
+                ? null
+                : (value) => widget.onRememberPasswordChanged!(value ?? false),
+            title: Text(strings.rememberPassword),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+        ),
     ],
   );
 

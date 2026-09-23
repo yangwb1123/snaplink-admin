@@ -80,6 +80,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
 
     final payload = _params.toLoginPayload(_provider);
     payload['client_id'] = _effectiveClientId;
+    payload.addAll(_loginPresentationPreferences);
     final trustedDeviceToken = TrustedDeviceToken.read(_effectiveClientId);
     if (trustedDeviceToken != null && trustedDeviceToken.isNotEmpty) {
       payload['device_token'] = trustedDeviceToken;
@@ -155,6 +156,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       final assertion = await WebAuthnAssertion.request(options);
       final payload = _params.toLoginPayload('webauthn');
       payload['client_id'] = _effectiveClientId;
+      payload.addAll(_loginPresentationPreferences);
       final trustedDeviceToken = TrustedDeviceToken.read(_effectiveClientId);
       if (trustedDeviceToken != null && trustedDeviceToken.isNotEmpty) {
         payload['device_token'] = trustedDeviceToken;

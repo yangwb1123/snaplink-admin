@@ -5,6 +5,7 @@ extension AppStringsAccessors on AppStrings {
   String get signIn => _t('sign_in');
   String get username => _t('username');
   String get password => _t('password');
+  String get rememberPassword => _t('remember_password');
   String get forgotPassword => _t('forgot_password');
   String get signUp => _t('sign_up');
   String get orDivider => _t('or_divider');

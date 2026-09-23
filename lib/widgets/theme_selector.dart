@@ -53,7 +53,12 @@ class ThemeDropdown extends StatelessWidget {
         ? theme.textTheme.bodySmall
         : theme.textTheme.bodyMedium;
     return DropdownMenu<ThemeMode>(
-      key: ValueKey('theme-${current.name}'),
+      // DropdownMenu keeps its internal text controller when the widget is
+      // updated. Include the active locale in the identity so a language
+      // change replaces the controller as well as the localized entries;
+      // otherwise the open menu is translated but the selected field remains
+      // in the previous language.
+      key: ValueKey('theme-${current.name}-${strings.locale.toLanguageTag()}'),
       controller: null,
       initialSelection: current,
       enabled: enabled,

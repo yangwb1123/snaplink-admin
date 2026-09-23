@@ -132,6 +132,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   bool _codeSent = false;
   String? _codeMessage;
   bool _loading = false;
+  bool _rememberPassword = false;
   String? _error;
 
   String? _brandName;
@@ -150,6 +151,13 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   String _consentChallengeId = '';
   String _consentClientName = '';
   ConsentRequestSummary _consentSummary = const ConsentRequestSummary.invalid();
+
+  // A login-page selection is a one-time hint for the authenticated login
+  // request. Compare against the values visible when this page opened so an
+  // old anonymous Console preference cannot silently overwrite another app's
+  // server-side preference.
+  late final Locale _loginInitialLocale;
+  late final ThemeMode _loginInitialThemeMode;
 
   final _forgotIdCtrl = TextEditingController();
   final _resetPassCtrl = TextEditingController();
@@ -196,12 +204,20 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
       .split(RegExp(r'\s+'))
       .any((value) => value == 'token' || value == 'id_token');
 
+  Map<String, String> get _loginPresentationPreferences =>
+      AppSettings.instance.loginPresentationPreferences(
+        initialLocale: _loginInitialLocale,
+        initialThemeMode: _loginInitialThemeMode,
+      );
+
   bool get _usesJarm =>
       _params.responseMode == 'jwt' || _params.responseMode.endsWith('.jwt');
 
   @override
   void initState() {
     super.initState();
+    _loginInitialLocale = AppSettings.instance.locale;
+    _loginInitialThemeMode = AppSettings.instance.themeMode;
     _ownsApi = widget.api == null;
     _api = widget.api ?? OidcLoginApi();
     _provider = _params.provider.isNotEmpty ? _params.provider : 'password';

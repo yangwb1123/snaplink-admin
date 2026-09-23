@@ -17,6 +17,7 @@ void main() {
     addTearDown(codeController.dispose);
 
     String? selectedConnection;
+    bool? rememberPassword;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -42,6 +43,7 @@ void main() {
               usesFederatedProvider: false,
               usesCodeProvider: false,
               usesTotpProvider: false,
+              onRememberPasswordChanged: (value) => rememberPassword = value,
               onSubmit: () {},
               onSendCode: () {},
               onHomeRealm: () {},
@@ -58,6 +60,10 @@ void main() {
     expect(find.text('Continue with Acme'), findsOneWidget);
     expect(find.textContaining('Google'), findsNothing);
     expect(find.textContaining('GitHub'), findsNothing);
+    expect(find.text('Remember password'), findsOneWidget);
+
+    await tester.tap(find.text('Remember password'));
+    expect(rememberPassword, isTrue);
 
     await tester.tap(find.text('Continue with Acme'));
     expect(selectedConnection, 'acme-workforce');

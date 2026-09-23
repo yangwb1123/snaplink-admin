@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:sso_admin/services/language_catalog.dart';
 import 'package:sso_admin/services/local_storage.dart';
+import 'package:sso_admin/services/user_preferences.dart';
+import 'package:sso_admin/session.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Admin navigation surface density.
@@ -33,6 +35,7 @@ class AppSettings extends ChangeNotifier {
 
   static final AppSettings instance = AppSettings._();
   static SharedPreferencesAsync? _nativePreferences;
+  static SnaplinkUserPreferencesClient? _remotePreferencesClient;
 
   static const _localeKey = 'sso_settings_locale';
   static const _themeKey = 'sso_settings_theme';
@@ -42,13 +45,21 @@ class AppSettings extends ChangeNotifier {
 
   static const supportedLocales = [Locale('en'), Locale('zh')];
 
+  bool _remotePreferencesEnabled = false;
+  String? _remoteLocaleTagOverride;
+  int _preferenceRevision = 0;
+  Future<void> _remoteWriteTail = Future<void>.value();
+
   late Locale _locale;
   Locale get locale => _locale;
   set locale(Locale value) {
     if (_locale == value) return;
     _locale = value;
-    _save(_localeKey, value.languageCode);
+    _remoteLocaleTagOverride = null;
+    _preferenceRevision++;
+    _save(_localeKey, _localeTag(value));
     notifyListeners();
+    _scheduleRemotePreferencesWrite();
   }
 
   late ThemeMode _themeMode;
@@ -56,8 +67,10 @@ class AppSettings extends ChangeNotifier {
   set themeMode(ThemeMode value) {
     if (_themeMode == value) return;
     _themeMode = value;
+    _preferenceRevision++;
     _save(_themeKey, value.name);
     notifyListeners();
+    _scheduleRemotePreferencesWrite();
   }
 
   /// Overrides SSOAdminClient.sameOrigin's same-origin default — only
@@ -211,10 +224,8 @@ class AppSettings extends ChangeNotifier {
   }
 
   Locale _localeFromSaved(String? saved) {
-    if (saved != null) {
-      final match = supportedLocales.where((l) => l.languageCode == saved);
-      if (match.isNotEmpty) return match.first;
-    }
+    final parsed = saved == null ? null : _parseLocaleTag(saved);
+    if (parsed != null) return parsed;
     // Device/browser locale as the default — no third-party IP lookup: it's
     // free, has no privacy cost, and gets the right answer for the
     // overwhelming majority of users (their device locale already reflects
@@ -254,6 +265,162 @@ class AppSettings extends ChangeNotifier {
         // from the OS/browser's prefers-color-scheme.
         return ThemeMode.system;
     }
+  }
+
+  /// Loads the authenticated user's shared presentation preferences from
+  /// Snaplink. A remote value is authoritative only if no local preference
+  /// changed while the request was in flight; otherwise the local change is
+  /// kept and queued for upload. Network/auth failures never clear local
+  /// settings or the session.
+  Future<void> loadRemotePreferences() async {
+    // Do not carry a regional tag from a previous account while the new
+    // account's request is pending.
+    _remoteLocaleTagOverride = null;
+    final token = _currentAccessToken();
+    if (token == null) {
+      _remotePreferencesEnabled = false;
+      _remoteLocaleTagOverride = null;
+      return;
+    }
+    _remotePreferencesEnabled = true;
+    final revision = _preferenceRevision;
+    try {
+      final preferences = await _preferencesClient().getMyPreferences();
+      if (preferences == null ||
+          revision != _preferenceRevision ||
+          _currentAccessToken() != token) {
+        return;
+      }
+      var changed = false;
+      final remoteLocaleTag = _validatedLocaleTag(preferences.locale);
+      _remoteLocaleTagOverride = remoteLocaleTag;
+      final remoteLocale = _localeFromRemote(remoteLocaleTag);
+      if (remoteLocale != null && remoteLocale != _locale) {
+        _locale = remoteLocale;
+        _save(_localeKey, _localeTag(remoteLocale));
+        changed = true;
+      }
+      final remoteTheme = _themeModeFromRemote(preferences.themeMode);
+      if (remoteTheme != null && remoteTheme != _themeMode) {
+        _themeMode = remoteTheme;
+        _save(_themeKey, remoteTheme.name);
+        changed = true;
+      }
+      if (changed) notifyListeners();
+    } catch (_) {
+      // Shared preferences are best-effort. The local setting remains usable
+      // when an older Snaplink deployment has no endpoint or is unavailable.
+    }
+  }
+
+  String? _currentAccessToken() {
+    final token = Session.read()?.trim();
+    return token == null || token.isEmpty ? null : token;
+  }
+
+  SnaplinkUserPreferencesClient _preferencesClient() {
+    final debugClient = debugRemotePreferencesClient;
+    if (debugClient != null) return debugClient;
+    return _remotePreferencesClient ??= SnaplinkUserPreferencesClient();
+  }
+
+  void _scheduleRemotePreferencesWrite() {
+    if (!_remotePreferencesEnabled) return;
+    final token = _currentAccessToken();
+    if (token == null) return;
+    final snapshot = PresentationPreferencesPatch(
+      locale: _remoteLocaleTagOverride ?? _remoteLocaleTag(_locale),
+      themeMode: _remoteThemeMode(_themeMode),
+    );
+    _remoteWriteTail = _remoteWriteTail.then((_) async {
+      if (_currentAccessToken() != token) return;
+      try {
+        await _preferencesClient().updateMyPreferences(snapshot);
+      } catch (_) {
+        // A transient outage must not make a local preference change fail.
+      }
+    });
+  }
+
+  String _localeTag(Locale value) {
+    final parts = <String>[value.languageCode.toLowerCase()];
+    if (value.scriptCode case final script?) parts.add(script);
+    if (value.countryCode case final country?) parts.add(country);
+    return parts.join('-');
+  }
+
+  String _remoteLocaleTag(Locale value) {
+    final language = value.languageCode.toLowerCase();
+    // SVERP uses regional tags for its supported locales. Keep an explicitly
+    // selected region/script intact, but make the Console's generic options
+    // interoperable with SVERP's exact en-US/zh-CN values.
+    if (value.scriptCode == null && value.countryCode == null) {
+      if (language == 'en') return 'en-US';
+      if (language == 'zh') return 'zh-CN';
+    }
+    return _localeTag(value);
+  }
+
+  /// Returns only the values explicitly changed on the hosted login page.
+  ///
+  /// The browser cannot share localStorage with the relying party, but the
+  /// login page can carry this small, allowlisted hint in the authenticated
+  /// login request. Omitting unchanged values is important: a stale anonymous
+  /// Console preference must not overwrite the user's existing server value
+  /// for the other application.
+  Map<String, String> loginPresentationPreferences({
+    required Locale initialLocale,
+    required ThemeMode initialThemeMode,
+  }) {
+    return buildLoginPreferenceHandoff(
+      PresentationPreferencesPatch(
+        locale: _locale != initialLocale ? _remoteLocaleTag(_locale) : null,
+        themeMode: _themeMode != initialThemeMode
+            ? _remoteThemeMode(_themeMode)
+            : null,
+      ),
+    );
+  }
+
+  Locale? _parseLocaleTag(String value) {
+    final tag = value.trim();
+    if (!isValidLanguageTag(tag)) return null;
+    final parsed = parseLanguageOptions(tag);
+    return parsed.length == 1 ? parsed.single : null;
+  }
+
+  String? _validatedLocaleTag(String? value) {
+    final tag = value?.trim();
+    final parsed = tag == null ? null : _parseLocaleTag(tag);
+    return parsed == null ? null : _localeTag(parsed);
+  }
+
+  Locale? _localeFromRemote(String? value) {
+    final locale = value == null ? null : _parseLocaleTag(value);
+    if (locale == null) return null;
+    // The Console's translations are language-based. Keep the precise server
+    // tag separately so a theme-only change does not rewrite zh-TW/en-GB,
+    // while the Flutter locale remains one of the selector's language values.
+    if (locale.languageCode == 'en') return const Locale('en');
+    if (locale.languageCode == 'zh') return const Locale('zh');
+    return locale;
+  }
+
+  ThemeMode? _themeModeFromRemote(String? value) {
+    return switch (value) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      'auto' => ThemeMode.system,
+      _ => null,
+    };
+  }
+
+  String _remoteThemeMode(ThemeMode value) {
+    return switch (value) {
+      ThemeMode.light => 'light',
+      ThemeMode.dark => 'dark',
+      ThemeMode.system => 'auto',
+    };
   }
 
   static String? _load(String key) {
@@ -306,6 +473,10 @@ class AppSettings extends ChangeNotifier {
   /// at first use, so a throwing subclass must be injected here.
   @visibleForTesting
   static SharedPreferencesAsync? debugPreferencesOverride;
+
+  /// Test-only HTTP seam for the cross-application preference contract.
+  @visibleForTesting
+  static SnaplinkUserPreferencesClient? debugRemotePreferencesClient;
 
   static SharedPreferencesAsync _preferences() {
     final override = debugPreferencesOverride;

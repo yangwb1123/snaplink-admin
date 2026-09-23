@@ -113,6 +113,11 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       );
       return;
     }
+    // Native navigation does not recreate main.dart after login. Start the
+    // same server-preference hydration that a browser reload performs so the
+    // next screen immediately shares language/theme with SVERP and other
+    // Snaplink applications.
+    unawaited(AppSettings.instance.loadRemotePreferences());
     _redirect(
       redirectTarget ??
           _route.portalActionTarget ??
@@ -140,6 +145,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     }
     if (_isRpFlow) {
       final query = _params.toFederatedLoginQuery(connectionId);
+      query.addAll(_loginPresentationPreferences);
       query['response_type'] = _params.responseType.isNotEmpty
           ? _params.responseType
           : 'code';
@@ -158,6 +164,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
           clientId: _effectiveClientId,
           redirectTarget:
               _route.portalActionTarget ?? _safeRedirectTarget(_routeUri),
+          presentationPreferences: _loginPresentationPreferences,
         ),
       );
     } catch (_) {

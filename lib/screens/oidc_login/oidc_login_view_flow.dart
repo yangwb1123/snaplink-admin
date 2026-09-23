@@ -245,6 +245,9 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       usesCodeProvider: _usesCodeProvider,
       usesTotpProvider: _usesTotpProvider,
       magicLinkToken: _magicLinkToken,
+      rememberPassword: _rememberPassword,
+      onRememberPasswordChanged: (value) =>
+          _update(() => _rememberPassword = value),
       onSubmit: _submitLogin,
       onSendCode: _sendProviderCode,
       onHomeRealm: _discoverHomeRealm,

@@ -6,9 +6,12 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   }
 
   Future<void> _handleSuccess(LoginOutcome outcome) async {
-    // 登录成功：通知浏览器保存凭据（用户下次访问时自动填充）。
-    // Flutter Web 上 finishAutofillContext 是让浏览器记住密码的唯一路径。
-    TextInput.finishAutofillContext(shouldSave: true);
+    // 只在用户明确勾选“记住密码”时请求浏览器/系统凭据管理器保存。
+    // 密码不落入 localStorage、sessionStorage 或应用自身数据库；由平台的
+    // 密码管理器负责加密存储与后续自动填充。
+    TextInput.finishAutofillContext(
+      shouldSave: _rememberPassword && _provider == 'password',
+    );
     // Authentication credentials are no longer needed once the server has
     // reached a terminal success. Clear them even when redirect/JARM delivery
     // is later blocked and this widget remains mounted.
