@@ -5,6 +5,7 @@ import 'package:sso_admin/widgets/pressable_scale.dart';
 import 'package:sso_admin/widgets/status_chip.dart';
 
 import '../../i18n/app_strings.dart';
+import '../../services/browser_password_manager.dart';
 import '../../services/product_api_origin.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_theme.dart';
@@ -77,6 +78,25 @@ class LoginViewWidget extends StatefulWidget {
 
 class _LoginViewWidgetState extends State<LoginViewWidget> {
   var _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _prepareBrowserPasswordForm();
+  }
+
+  @override
+  void didUpdateWidget(covariant LoginViewWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _prepareBrowserPasswordForm();
+  }
+
+  void _prepareBrowserPasswordForm() {
+    if (widget.provider != 'password') return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) BrowserPasswordManager.prepareLoginForm();
+    });
+  }
 
   @override
   Widget build(BuildContext context) => _buildLoginView(context);

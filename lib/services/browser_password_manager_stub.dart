@@ -11,6 +11,8 @@ class BrowserPasswordCredential {
 
 /// Non-web builds rely on the native text-input autofill implementation.
 abstract final class BrowserPasswordManager {
+  static void prepareLoginForm() {}
+
   static Future<BrowserPasswordCredential?> read() async => null;
 
   static Future<void> save({

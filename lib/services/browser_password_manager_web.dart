@@ -14,6 +14,37 @@ extension type _PasswordCredential(web.Credential _) implements web.Credential {
 /// The application never persists the password. Unsupported browsers and
 /// insecure origins simply fall back to Flutter's platform autofill context.
 abstract final class BrowserPasswordManager {
+  /// Flutter's web text-editing bridge currently emits `autocomplete=off`
+  /// even when [AutofillHints] are present. Restore the standard username /
+  /// current-password tokens on the live inputs so ordinary browser password
+  /// managers can offer form autofill/save. This is DOM metadata only; no
+  /// credential value is read or stored by the application.
+  static void prepareLoginForm() {
+    try {
+      final inputs = web.document.querySelectorAll('input');
+      var usernamePrepared = false;
+      for (var index = 0; index < inputs.length; index += 1) {
+        final node = inputs.item(index);
+        if (node == null) continue;
+        final input = node as web.HTMLInputElement;
+        final type = input.type.toLowerCase();
+        if (type == 'password') {
+          input.name = 'password';
+          input.autocomplete = 'current-password';
+          input.form?.autocomplete = 'on';
+        } else if (!usernamePrepared && (type == 'text' || type == 'email')) {
+          input.name = 'username';
+          input.autocomplete = 'username';
+          input.form?.autocomplete = 'on';
+          usernamePrepared = true;
+        }
+      }
+    } catch (_) {
+      // Unsupported/partially initialized Flutter DOM: native autofill and
+      // the Credential Management API remain best-effort fallbacks.
+    }
+  }
+
   static Future<BrowserPasswordCredential?> read() async {
     try {
       final credential = await web.window.navigator.credentials
