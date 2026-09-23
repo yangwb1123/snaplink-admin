@@ -96,7 +96,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         focusNode: widget.passwordFocusNode,
         label: strings.password,
         hints: const [AutofillHints.password],
-        obscure: true,
+        obscure: _obscurePassword,
         suffix: IconButton(
           tooltip: context.tr(
             _obscurePassword ? 'Show password' : 'Hide password',

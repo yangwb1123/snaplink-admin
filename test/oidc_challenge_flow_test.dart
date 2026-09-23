@@ -406,6 +406,40 @@ void main() {
     },
   );
 
+  testWidgets('password visibility control toggles the input mode', (
+    tester,
+  ) async {
+    final api = OidcLoginApi(
+      baseUri: Uri.parse('https://console.example/login/'),
+      httpClient: MockClient((request) async => http.Response('{}', 404)),
+    );
+    addTearDown(api.close);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OidcLoginScreen(
+          api: api,
+          routeUri: Uri.parse('https://console.example/login/'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(passwordField()).obscureText, isTrue);
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField()).obscureText, isFalse);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.pump();
+
+    expect(tester.widget<TextField>(passwordField()).obscureText, isTrue);
+  });
+
   testWidgets('malformed MFA methods fail closed without a type error', (
     tester,
   ) async {
