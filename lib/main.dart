@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:sso_admin/theme/app_theme.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -31,10 +29,10 @@ Future<void> forgeAndroidCoordinatorInstrumentationMain() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await AppSettings.instance.initialize();
-  // A browser reload keeps the tab-scoped bearer. Hydrate shared language and
-  // theme preferences without delaying the first frame; local changes made
-  // while this request is in flight win and are uploaded by AppSettings.
-  unawaited(AppSettings.instance.loadRemotePreferences());
+  // A browser reload keeps the tab-scoped bearer. Complete the bounded
+  // preference hydration before building the authenticated shell: otherwise
+  // opening SVERP immediately after Console can observe stale local settings.
+  await AppSettings.instance.hydrateRemotePreferencesBeforeHandoff();
   // 预加载当前产品入口的 deferred chunk：首屏同步渲染真实界面，其余 5 个
   // 入口保持按需加载（代码分割收益：首屏 bundle 从 4.7MB 降到主包 + 当前
   // 入口 chunk）。

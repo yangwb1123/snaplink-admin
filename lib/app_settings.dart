@@ -468,6 +468,19 @@ class AppSettings extends ChangeNotifier {
     }
   }
 
+  /// Completes the first authenticated preference read before an application
+  /// handoff. The remote store is the cross-application source of truth, so a
+  /// fire-and-forget read can leave a newly opened SVERP tab with stale local
+  /// settings. Keep the wait bounded: local settings remain a safe fallback
+  /// when the identity service is unavailable.
+  Future<void> hydrateRemotePreferencesBeforeHandoff() async {
+    try {
+      await loadRemotePreferences().timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      // The local setting is still valid; do not block navigation forever.
+    }
+  }
+
   /// Test-only injection point for native preference failures (T13/T14):
   /// InMemorySharedPreferencesAsync never throws and the platform is cached
   /// at first use, so a throwing subclass must be injected here.

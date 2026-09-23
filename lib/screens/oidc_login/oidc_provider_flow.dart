@@ -113,11 +113,11 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       );
       return;
     }
-    // Native navigation does not recreate main.dart after login. Start the
-    // same server-preference hydration that a browser reload performs so the
-    // next screen immediately shares language/theme with SVERP and other
-    // Snaplink applications.
-    unawaited(AppSettings.instance.loadRemotePreferences());
+    // Native navigation does not recreate main.dart after login. Complete the
+    // same bounded server-preference hydration that a browser reload performs
+    // before handing off, so the next screen immediately shares
+    // language/theme with SVERP and other Snaplink applications.
+    await AppSettings.instance.hydrateRemotePreferencesBeforeHandoff();
     _redirect(
       redirectTarget ??
           _route.portalActionTarget ??
