@@ -13,6 +13,8 @@ class BrowserPasswordCredential {
 abstract final class BrowserPasswordManager {
   static void prepareLoginForm() {}
 
+  static void clearLoginFormObserver() {}
+
   static Future<BrowserPasswordCredential?> read() async => null;
 
   static Future<void> save({

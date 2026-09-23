@@ -92,10 +92,19 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
   }
 
   void _prepareBrowserPasswordForm() {
-    if (widget.provider != 'password') return;
+    if (widget.provider != 'password') {
+      BrowserPasswordManager.clearLoginFormObserver();
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) BrowserPasswordManager.prepareLoginForm();
     });
+  }
+
+  @override
+  void dispose() {
+    BrowserPasswordManager.clearLoginFormObserver();
+    super.dispose();
   }
 
   @override
