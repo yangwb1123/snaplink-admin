@@ -120,6 +120,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         label: strings.username,
         hints: const [AutofillHints.username],
         next: true,
+        onTap: BrowserPasswordManager.prepareLoginForm,
       ),
       const SizedBox(height: 16),
       _field(
@@ -128,6 +129,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
         label: strings.password,
         hints: const [AutofillHints.password],
         obscure: _obscurePassword,
+        onTap: BrowserPasswordManager.prepareLoginForm,
         suffix: IconButton(
           tooltip: context.tr(
             _obscurePassword ? 'Show password' : 'Hide password',
@@ -257,6 +259,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
     bool next = false,
     bool obscure = false,
     Widget? suffix,
+    VoidCallback? onTap,
     VoidCallback? onSubmit,
   }) => _FocusGlow(
     child: TextField(
@@ -270,6 +273,7 @@ class _LoginViewWidgetState extends State<LoginViewWidget> {
       autofillHints: hints,
       textInputAction: next ? TextInputAction.next : TextInputAction.done,
       obscureText: obscure,
+      onTap: onTap,
       decoration: InputDecoration(labelText: label, suffixIcon: suffix)
           .applyDefaults(
             AppTheme.loginInputDecoration(Theme.of(context).brightness),
