@@ -113,7 +113,7 @@ class SnaplinkUserPreferencesClient {
     final themeMode = preferences.themeMode;
     if (themeMode != null) {
       _validateThemeMode(themeMode, allowEmpty: true);
-      body['sverp:theme_mode'] = themeMode;
+      body['theme_mode'] = themeMode;
     }
     if (body.isEmpty) return false;
 
@@ -140,7 +140,7 @@ class SnaplinkUserPreferencesClient {
   Future<bool> put(Map<String, String> preferences) => updateMyPreferences(
     PresentationPreferencesPatch(
       locale: preferences['locale'],
-      themeMode: preferences['sverp:theme_mode'],
+      themeMode: preferences['theme_mode'] ?? preferences['sverp:theme_mode'],
     ),
   );
 
@@ -150,13 +150,24 @@ class SnaplinkUserPreferencesClient {
       final decoded = jsonDecode(body);
       if (decoded is! Map) return null;
       final locale = decoded['locale'];
-      final themeMode = decoded['sverp:theme_mode'];
+      final genericThemeMode = decoded['theme_mode'];
+      final legacyThemeMode = decoded['sverp:theme_mode'];
       if (locale != null && locale is! String) return null;
-      if (themeMode != null && themeMode is! String) return null;
-      if (locale is String) _validateLocale(locale, allowEmpty: false);
-      if (themeMode is String) {
-        _validateThemeMode(themeMode, allowEmpty: false);
+      if (genericThemeMode != null && genericThemeMode is! String) return null;
+      if (legacyThemeMode != null && legacyThemeMode is! String) return null;
+      if (genericThemeMode is String) {
+        _validateThemeMode(genericThemeMode, allowEmpty: false);
       }
+      if (legacyThemeMode is String) {
+        _validateThemeMode(legacyThemeMode, allowEmpty: false);
+      }
+      if (genericThemeMode is String &&
+          legacyThemeMode is String &&
+          genericThemeMode != legacyThemeMode) {
+        return null;
+      }
+      final themeMode = genericThemeMode ?? legacyThemeMode;
+      if (locale is String) _validateLocale(locale, allowEmpty: false);
       return PresentationPreferences(
         locale: locale as String?,
         themeMode: themeMode as String?,

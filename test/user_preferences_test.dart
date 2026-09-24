@@ -17,7 +17,7 @@ void main() {
       httpClient: MockClient((incoming) async {
         request = incoming;
         return http.Response(
-          '{"locale":"zh-CN","sverp:theme_mode":"dark",'
+          '{"locale":"zh-CN","theme_mode":"dark",'
           '"password_hash":"must-not-be-consumed"}',
           200,
         );
@@ -30,6 +30,33 @@ void main() {
     expect(request.method, 'GET');
     expect(request.url.path, '/me/preferences');
     expect(request.headers['authorization'], 'Bearer access-token');
+  });
+
+  test('reads the legacy theme wire alias during migration', () async {
+    final client = SnaplinkUserPreferencesClient(
+      baseUri: Uri.parse('https://sso.example.test/'),
+      accessTokenProvider: () => 'access-token',
+      httpClient: MockClient((_) async {
+        return http.Response('{"sverp:theme_mode":"auto"}', 200);
+      }),
+    );
+
+    expect((await client.getMyPreferences())?.themeMode, 'auto');
+  });
+
+  test('rejects conflicting theme wire aliases', () async {
+    final client = SnaplinkUserPreferencesClient(
+      baseUri: Uri.parse('https://sso.example.test/'),
+      accessTokenProvider: () => 'access-token',
+      httpClient: MockClient((_) async {
+        return http.Response(
+          '{"theme_mode":"dark","sverp:theme_mode":"light"}',
+          200,
+        );
+      }),
+    );
+
+    expect(await client.getMyPreferences(), isNull);
   });
 
   test('writes only the shared allowlisted values', () async {
@@ -54,7 +81,7 @@ void main() {
     expect(request.headers['authorization'], 'Bearer access-token');
     expect(jsonDecode(request.body), {
       'locale': 'en-US',
-      'sverp:theme_mode': 'light',
+      'theme_mode': 'light',
     });
   });
 
@@ -124,10 +151,7 @@ void main() {
         accessTokenProvider: Session.read,
         httpClient: MockClient((request) async {
           if (request.method == 'GET') {
-            return http.Response(
-              '{"locale":"zh-CN","sverp:theme_mode":"auto"}',
-              200,
-            );
+            return http.Response('{"locale":"zh-CN","theme_mode":"auto"}', 200);
           }
           saved = jsonDecode(request.body) as Map<String, dynamic>;
           return http.Response('{}', 200);
@@ -141,7 +165,7 @@ void main() {
 
       settings.locale = const Locale('en');
       await Future<void>.delayed(Duration.zero);
-      expect(saved, {'locale': 'en-US', 'sverp:theme_mode': 'auto'});
+      expect(saved, {'locale': 'en-US', 'theme_mode': 'auto'});
     },
   );
 }
