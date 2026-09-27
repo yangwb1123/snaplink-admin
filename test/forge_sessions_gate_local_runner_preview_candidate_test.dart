@@ -5,6 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
+import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
+import 'package:sso_admin/api/forge_client_instance_session_resource_convergence.dart';
+import 'package:sso_admin/api/forge_client_instance_session_view.dart';
 import 'package:sso_admin/api/forge_local_runner_preview.dart';
 import 'package:sso_admin/api/forge_runner_execution_intent.dart';
 import 'package:sso_admin/api/forge_runner_terminal_receipt.dart';
@@ -81,7 +84,7 @@ void main() {
           'conversation_id': 'conversation-001',
           'run_id': 'run-001',
           'after_sequence': 0,
-          'scanned_through_sequence': 1,
+          'scanned_through_sequence': 0,
           'has_more': false,
           'events': <Object>[],
         });
@@ -160,6 +163,97 @@ void main() {
       isEmpty,
     );
   });
+
+  testWidgets(
+    'execution-readiness refreshes the selected pair before the candidate POST',
+    (tester) async {
+      final request = _request();
+      final credentialStore = await _credentialStore('candidate-token');
+      final requests = <http.Request>[];
+      var pairCalls = 0;
+      final client = MockClient((httpRequest) async {
+        requests.add(httpRequest);
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_conversation()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/prompts') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'prompts': <Object>[],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/runs') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'runs': [_run()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/runs/run-001/timeline') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'run_id': 'run-001',
+            'after_sequence': 0,
+            'scanned_through_sequence': 0,
+            'has_more': false,
+            'events': <Object>[],
+          });
+        }
+        if (httpRequest.method == 'POST' &&
+            httpRequest.url.path.endsWith('execution-readiness-preview')) {
+          throw StateError(
+            'Execution-readiness candidate must be blocked after pair drift.',
+          );
+        }
+        throw StateError(
+          'Unexpected Forge request: ${httpRequest.method} ${httpRequest.url}',
+        );
+      });
+      addTearDown(client.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsGate(
+            credentialStore: credentialStore,
+            httpClient: client,
+            initialClientInstanceID: 'client-web-001',
+            clientInstanceSessionResourceConvergenceOwner: _owner,
+            clientInstanceSessionResourceConvergenceReader: (owner) async {
+              expect(owner, _owner);
+              pairCalls++;
+              // The first owner projection permits the session to load. The
+              // next boundary removes its membership, simulating a resource
+              // observation revocation immediately before readiness preview.
+              return _pair(visible: pairCalls == 1);
+            },
+            localRunnerPreviewRequest: request,
+            enableLocalRunnerPreviewCandidate: true,
+            localRunnerPreviewCandidateApiOrigin: 'https://candidate.example',
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(pairCalls, greaterThanOrEqualTo(2));
+      expect(
+        requests.where(
+          (value) => value.url.path.endsWith('execution-readiness-preview'),
+        ),
+        isEmpty,
+      );
+    },
+  );
 }
 
 ForgeLocalRunnerPreviewRequest _request() {
@@ -316,4 +410,48 @@ Future<void> _settle(WidgetTester tester) async {
     await tester.pump();
   }
   await tester.pumpAndSettle();
+}
+
+ForgeClientInstanceSessionResourceConvergence _pair({required bool visible}) {
+  final instances = [
+    {
+      'instance_id': 'client-web-001',
+      'client_kind': 'web',
+      'session_ids': visible ? ['conversation-001'] : <String>[],
+      'observed_at_ms': 200500,
+      'status': 'active',
+    },
+  ];
+  return ForgeClientInstanceSessionResourceConvergence.fromJson({
+    'schema_version': forgeClientInstanceSessionResourceConvergenceSchema,
+    'evaluation_mode':
+        forgeClientInstanceSessionResourceConvergenceEvaluationMode,
+    'session_view': {
+      'schema_version': forgeClientInstanceSessionViewSchema,
+      'evaluation_mode': forgeClientInstanceSessionViewEvaluationMode,
+      'owner_declaration': _owner.toJson(),
+      'owner_declaration_unverified': true,
+      'instances': instances,
+      'read_only': true,
+      'authority': const ForgeClientInstanceSessionViewAuthority.offline()
+          .toJson(),
+    },
+    'resource_view': {
+      'schema_version': forgeClientInstanceResourceViewSchema,
+      'evaluation_mode': forgeClientInstanceResourceViewEvaluationMode,
+      'owner_declaration': _owner.toJson(),
+      'owner_declaration_unverified': true,
+      'instances': instances,
+      'devices': <Object>[],
+      'device_attributes_unverified': true,
+      'read_only': true,
+      'authority': const ForgeClientInstanceSessionViewAuthority.offline()
+          .toJson(),
+    },
+    'converged': true,
+    'read_only': true,
+    'authority':
+        const ForgeClientInstanceSessionResourceConvergenceAuthority.offline()
+            .toJson(),
+  });
 }

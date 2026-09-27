@@ -9,6 +9,7 @@ import 'package:sso_admin/widgets/error_boundary.dart';
 Widget buildForgeSessionsScreen(Uri routeUri) => ErrorBoundary(
   child: ForgeSessionsGate(
     initialConversationID: _conversationIDFromRoute(routeUri),
+    initialClientInstanceID: _clientInstanceIDFromRoute(routeUri),
   ),
 );
 
@@ -21,4 +22,10 @@ String? _conversationIDFromRoute(Uri routeUri) {
     return null;
   }
   return segments[2];
+}
+
+String? _clientInstanceIDFromRoute(Uri routeUri) {
+  final value = routeUri.queryParameters['instance_id'];
+  if (value == null || value.trim().isEmpty) return null;
+  return value.trim();
 }

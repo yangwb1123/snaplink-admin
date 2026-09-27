@@ -65,6 +65,9 @@ class ForgeCoordinatorInstrumentationTest {
             .clear()
             .putString(MainActivity.FORGE_COORDINATOR_API_URL, input.getString("api_url"))
             .putString(MainActivity.FORGE_COORDINATOR_CONVERSATION_ID, input.getString("conversation_id"))
+            .putString(MainActivity.FORGE_COORDINATOR_CLIENT_INSTANCE_ID, input.getString("client_instance_id"))
+            .putString(MainActivity.FORGE_COORDINATOR_SESSION_VIEW, input.getJSONObject("session_view").toString())
+            .putString(MainActivity.FORGE_COORDINATOR_RESOURCE_VIEW, input.getJSONObject("resource_view").toString())
             .putLong(MainActivity.FORGE_COORDINATOR_EXPECTED_VERSION, input.getLong("expected_version"))
             .putLong(MainActivity.FORGE_COORDINATOR_AFTER_CURSOR, input.getLong("after_cursor"))
             .putString(MainActivity.FORGE_COORDINATOR_PROMPT, input.getString("prompt"))
@@ -101,7 +104,10 @@ class ForgeCoordinatorInstrumentationTest {
         awaitCompletion(2)
         assertCompletion(expectedAggregateVersion, 2)
         val allPaths = requestPaths()
-        assertPromptOnly(allPaths, input.getString("conversation_id"))
+        assertPromptOnly(
+            allPaths.drop(firstPaths.size),
+            input.getString("conversation_id"),
+        )
         assertTrue("The recreated Activity did not issue new API calls", allPaths.size > firstPaths.size)
     }
 
@@ -140,11 +146,17 @@ class ForgeCoordinatorInstrumentationTest {
 
     private fun assertPromptOnly(paths: List<String>, conversationID: String) {
         assertTrue("No authenticated API requests were recorded", paths.isNotEmpty())
+        assertTrue("The mobile instance projection was not read before Conversations", paths.size >= 3)
+        assertEquals("/api/v1/client-instances/session-view", paths.first())
+        assertEquals("/api/v1/client-instances/resource-view", paths[1])
+        assertEquals("/api/v1/conversations", paths[2])
         val promptPath = "/api/v1/conversations/$conversationID/prompts"
         for (path in paths) {
             assertTrue(
                 "Unexpected mobile Coordinator path: $path",
-                path == "/api/v1/conversations" ||
+                path == "/api/v1/client-instances/session-view" ||
+                    path == "/api/v1/client-instances/resource-view" ||
+                    path == "/api/v1/conversations" ||
                     path == "/api/v1/conversation-changes" ||
                     path == promptPath,
             )
@@ -161,6 +173,9 @@ class ForgeCoordinatorInstrumentationTest {
             "api_url",
             "access_token",
             "conversation_id",
+            "client_instance_id",
+            "session_view",
+            "resource_view",
             "expected_version",
             "after_cursor",
             "prompt",
@@ -179,8 +194,199 @@ class ForgeCoordinatorInstrumentationTest {
         }
         require(value.getLong("expected_version") in 1..9007199254740991)
         require(value.getLong("after_cursor") in 0..9007199254740991)
+        validateSessionResourcePair(
+            value.getJSONObject("session_view"),
+            value.getJSONObject("resource_view"),
+            value.getString("conversation_id"),
+            value.getString("client_instance_id"),
+        )
         return value
     }
+
+    private fun validateSessionResourcePair(
+        sessionView: JSONObject,
+        resourceView: JSONObject,
+        conversationID: String,
+        clientInstanceID: String,
+    ) {
+        val session = validateView(sessionView, resource = false)
+        val resource = validateView(resourceView, resource = true)
+        require(session.owner == resource.owner) { "Session/resource owner drift" }
+        require(session.instances == resource.instances) { "Session/resource instance drift" }
+        val selected = session.instances.firstOrNull { it.id == clientInstanceID }
+            ?: error("Selected client instance is missing")
+        require(selected.kind == "mobile") { "Selected client instance is not mobile" }
+        require(conversationID in selected.sessions) {
+            "Conversation is hidden from selected client instance"
+        }
+    }
+
+    private fun validateView(value: JSONObject, resource: Boolean): Observation {
+        val sessionKeys = setOf(
+            "schema_version",
+            "evaluation_mode",
+            "owner_declaration",
+            "owner_declaration_unverified",
+            "instances",
+            "read_only",
+            "authority",
+        )
+        val expected = if (resource) sessionKeys + setOf(
+            "devices",
+            "device_attributes_unverified",
+        ) else sessionKeys
+        require(jsonKeys(value) == expected) { "Unexpected client-instance view fields" }
+        require(
+            value.getString("schema_version") ==
+                if (resource) "forge.client-instance-resource-view/v1"
+                else "forge.client-instance-session-view/v1",
+        )
+        require(
+            value.getString("evaluation_mode") ==
+                if (resource) "owner_bound_instance_resource_view_only"
+                else "owner_bound_session_view_only",
+        )
+        require(value.get("owner_declaration_unverified") == true)
+        require(value.get("read_only") == true)
+        validateAuthority(value.getJSONObject("authority"))
+        val owner = validateOwner(value.getJSONObject("owner_declaration"))
+        val rawInstances = value.getJSONArray("instances")
+        require(rawInstances.length() <= 128)
+        val instances = buildList {
+            for (index in 0 until rawInstances.length()) {
+                add(validateInstance(rawInstances.getJSONObject(index)))
+            }
+        }
+        require(instances.map { it.id } == instances.map { it.id }.distinct().sorted())
+        if (resource) {
+            require(value.get("device_attributes_unverified") == true)
+            validateDevices(value.getJSONArray("devices"), owner)
+        }
+        return Observation(owner, instances)
+    }
+
+    private fun validateInstance(value: JSONObject): InstanceObservation {
+        require(
+            jsonKeys(value) == setOf(
+                "instance_id",
+                "client_kind",
+                "session_ids",
+                "observed_at_ms",
+                "status",
+            ),
+        )
+        val id = identifier(value.getString("instance_id"))
+        require(value.getString("client_kind") in setOf("cli", "tui", "web", "app", "mobile"))
+        val sessionsJSON = value.getJSONArray("session_ids")
+        require(sessionsJSON.length() <= 128)
+        val sessions = buildList {
+            for (index in 0 until sessionsJSON.length()) add(identifier(sessionsJSON.getString(index)))
+        }
+        require(sessions == sessions.distinct().sorted())
+        val observed = safeLong(value.get("observed_at_ms"), positive = true)
+        require(value.getString("status") in setOf("active", "idle", "offline", "unknown"))
+        return InstanceObservation(id, value.getString("client_kind"), sessions, observed, value.getString("status"))
+    }
+
+    private fun validateDevices(value: org.json.JSONArray, owner: Owner) {
+        require(value.length() <= 128)
+        val order = buildList {
+            for (index in 0 until value.length()) {
+                val device = value.getJSONObject(index)
+                require(
+                    jsonKeys(device) == setOf(
+                        "device_id", "runner_instance_id", "owner", "revision", "generation",
+                        "heartbeat_sequence", "observed_at_ms", "approval_state", "cordon_state",
+                        "reservation_state", "liveness", "os", "architecture", "cpu_cores",
+                        "available_cpu_cores", "memory_bytes", "available_memory_bytes",
+                        "storage_bytes", "available_storage_bytes", "gpu_count",
+                        "available_gpu_memory_bytes",
+                    ),
+                )
+                require(validateOwner(device.getJSONObject("owner")) == owner)
+                val deviceID = identifier(device.getString("device_id"))
+                val runnerID = identifier(device.getString("runner_instance_id"))
+                for (key in listOf("revision", "generation", "heartbeat_sequence", "observed_at_ms")) {
+                    safeLong(device.get(key), positive = true)
+                }
+                for (key in listOf(
+                    "cpu_cores", "available_cpu_cores", "memory_bytes", "available_memory_bytes",
+                    "storage_bytes", "available_storage_bytes", "gpu_count", "available_gpu_memory_bytes",
+                )) {
+                    safeLong(device.get(key), positive = false)
+                }
+                require(
+                    device.getLong("available_cpu_cores") <= device.getLong("cpu_cores") &&
+                        device.getLong("available_memory_bytes") <= device.getLong("memory_bytes") &&
+                        device.getLong("available_storage_bytes") <= device.getLong("storage_bytes"),
+                )
+                require(device.getString("approval_state") in setOf("approved", "pending", "revoked", "unknown"))
+                require(device.getString("cordon_state") in setOf("clear", "cordoned", "unknown"))
+                require(device.getString("reservation_state") in setOf("none", "reserved", "unknown"))
+                require(device.getString("liveness") in setOf("online", "offline", "unknown"))
+                text(device.getString("os"))
+                text(device.getString("architecture"))
+                add(deviceID to runnerID)
+            }
+        }
+        require(order == order.distinct().sortedWith(compareBy({ it.first }, { it.second })))
+    }
+
+    private fun validateOwner(value: JSONObject): Owner {
+        require(jsonKeys(value) == setOf("issuer", "subject", "tenant_id"))
+        return Owner(
+            text(value.getString("issuer")),
+            text(value.getString("subject")),
+            text(value.getString("tenant_id")),
+        )
+    }
+
+    private fun validateAuthority(value: JSONObject) {
+        val keys = setOf(
+            "owner_authenticated", "session_read_authorized", "prompt_write_authorized",
+            "device_identity_verified", "reservation_created", "execution_authorized",
+            "dispatch_performed", "audit_published",
+        )
+        require(jsonKeys(value) == keys)
+        for (key in keys) require(value.get(key) == false)
+    }
+
+    private fun jsonKeys(value: JSONObject): Set<String> = buildSet {
+        val keys = value.keys()
+        while (keys.hasNext()) add(keys.next())
+    }
+
+    private fun identifier(value: String): String {
+        require(value.matches(Regex("[A-Za-z0-9][A-Za-z0-9._:+/-]{0,127}")))
+        return value
+    }
+
+    private fun text(value: String): String {
+        require(value.isNotEmpty() && value.length <= 512 && value.none { it < ' ' || it == '\u007f' })
+        return value
+    }
+
+    private fun safeLong(value: Any, positive: Boolean): Long {
+        require(value is Int || value is Long)
+        val number = (value as Number).toLong()
+        require((number >= if (positive) 1L else 0L) && number <= 9007199254740991L)
+        return number
+    }
+
+    private data class Owner(val issuer: String, val subject: String, val tenant: String)
+
+    private data class InstanceObservation(
+        val id: String,
+        val kind: String,
+        val sessions: List<String>,
+        val observedAt: Long,
+        val status: String,
+    )
+
+    private data class Observation(
+        val owner: Owner,
+        val instances: List<InstanceObservation>,
+    )
 
     private fun credentialRecord(accessToken: String): String = JSONObject()
         .put("version", 1)

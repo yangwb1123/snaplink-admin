@@ -15,6 +15,14 @@ import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import urlparse
+
+
+CONSOLE_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(CONSOLE_ROOT / "ios" / "tests"))
+from forge_native_shared_session_contract import (  # noqa: E402
+    validate_session_resource_pair,
+)
 
 
 FIXTURE_TEST_CLASS = ",".join(
@@ -29,7 +37,7 @@ APP_PACKAGE = "site.ywbsd.sso.sso_admin"
 
 
 def main() -> int:
-    root = Path(__file__).resolve().parents[2]
+    root = CONSOLE_ROOT
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--adb", default="adb")
     parser.add_argument(
@@ -192,6 +200,9 @@ def validate_coordinator_input(path: Path, parser: argparse.ArgumentParser) -> N
         "api_url",
         "access_token",
         "conversation_id",
+        "client_instance_id",
+        "session_view",
+        "resource_view",
         "expected_version",
         "after_cursor",
         "prompt",
@@ -202,9 +213,37 @@ def validate_coordinator_input(path: Path, parser: argparse.ArgumentParser) -> N
     for key in ("api_url", "access_token", "conversation_id", "prompt", "idempotency_key"):
         if not isinstance(value[key], str) or not value[key] or any(char in value[key] for char in "\r\n\x00"):
             parser.error(f"Coordinator input field {key!r} is invalid")
+    try:
+        _validate_api_origin(value["api_url"])
+    except ValueError as error:
+        parser.error(f"Coordinator input api_url is invalid: {error}")
+    try:
+        validate_session_resource_pair(
+            value["session_view"],
+            value["resource_view"],
+            conversation_id=value["conversation_id"],
+            client_instance_id=value["client_instance_id"],
+        )
+    except ValueError as error:
+        parser.error(f"Coordinator input client-instance observations are invalid: {error}")
     for key, minimum in (("expected_version", 1), ("after_cursor", 0)):
         if not isinstance(value[key], int) or isinstance(value[key], bool) or value[key] < minimum or value[key] > 9007199254740991:
             parser.error(f"Coordinator input field {key!r} is invalid")
+
+
+def _validate_api_origin(value: str) -> None:
+    parsed = urlparse(value)
+    loopback = {"localhost", "127.0.0.1", "::1"}
+    if parsed.scheme != "https" and not (parsed.scheme == "http" and parsed.hostname in loopback):
+        raise ValueError("must use HTTPS or loopback HTTP")
+    if not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise ValueError("must be an origin without credentials, query, or fragment")
+    if parsed.path not in ("", "/"):
+        raise ValueError("must not include a path")
+    try:
+        parsed.port
+    except ValueError as error:
+        raise ValueError("contains an invalid port") from error
 
 
 def _reject_duplicate_keys(pairs: list[tuple[object, object]]) -> dict[object, object]:

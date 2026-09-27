@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
 import 'package:sso_admin/api/forge_device_placement.dart';
-import 'package:sso_admin/api/forge_device_registry_placement_preview.dart';
 
 class _LiveHttpTestWidgetsBinding extends AutomatedTestWidgetsFlutterBinding {
   @override

@@ -86,6 +86,13 @@ void main() {
             clientInstanceSessionViewOwner: owner,
             clientInstanceSessionViewCandidateApiOrigin: apiURL,
             enableClientInstanceSessionViewCandidate: true,
+            clientInstanceResourceViewOwner: owner,
+            clientInstanceResourceViewCandidateApiOrigin: apiURL,
+            enableClientInstanceResourceViewCandidate: true,
+            deviceInventoryResourceConvergenceOwner: owner,
+            deviceInventoryResourceConvergenceCandidateApiOrigin: apiURL,
+            enableDeviceInventoryResourceConvergenceCandidate: true,
+            requireDeviceInventoryResourceConvergenceForPromptAppend: true,
           ),
         ),
       );
@@ -100,6 +107,27 @@ void main() {
                 .evaluate()
                 .isNotEmpty &&
             find
+                .byKey(
+                  const ValueKey('forge-client-instance-resource-view-panel'),
+                )
+                .evaluate()
+                .isNotEmpty,
+        waitFor: 'authenticated client-instance session/resource views',
+      );
+
+      expect(
+        find.byKey(const ValueKey('forge-client-instance-session-view-panel')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('forge-client-instance-resource-view-panel')),
+        findsOneWidget,
+      );
+      await _scrollUntilConversationVisible(tester, visibleConversationID);
+      await _pumpUntil(
+        tester,
+        () =>
+            find
                 .byKey(ValueKey('forge-conversation-$visibleConversationID'))
                 .evaluate()
                 .isNotEmpty &&
@@ -107,12 +135,7 @@ void main() {
                 .byKey(ValueKey('forge-conversation-$hiddenConversationID'))
                 .evaluate()
                 .isNotEmpty,
-        waitFor: 'authenticated owner conversations and client-instance view',
-      );
-
-      expect(
-        find.byKey(const ValueKey('forge-client-instance-session-view-panel')),
-        findsOneWidget,
+        waitFor: 'authenticated owner conversations',
       );
       for (final declaredInstanceID in const [
         'client-cli-001',
@@ -141,8 +164,12 @@ void main() {
       final instanceItem = find.text(instanceID);
       expect(instanceItem, findsWidgets);
       await tester.tap(instanceItem.last);
-      await tester.pumpAndSettle();
+      // The screen owns a long-lived change-feed poll. Let the local filter
+      // callback render once, then use the bounded authenticated wait below;
+      // pumpAndSettle would advance the fake clock into the next live poll.
+      await tester.pump();
 
+      await _scrollUntilConversationVisible(tester, visibleConversationID);
       await _pumpUntil(
         tester,
         () =>
@@ -186,6 +213,30 @@ void main() {
       await tester.pump(const Duration(seconds: 21));
     },
     skip: inputPath == null,
+  );
+}
+
+Future<void> _scrollUntilConversationVisible(
+  WidgetTester tester,
+  String conversationID,
+) async {
+  final conversation = find.byKey(
+    ValueKey('forge-conversation-$conversationID'),
+  );
+  for (var count = 0; count < 24; count++) {
+    if (conversation.evaluate().isNotEmpty) return;
+    final lists = find.byType(ListView);
+    if (lists.evaluate().isEmpty) {
+      await tester.pump();
+      continue;
+    }
+    await tester.drag(lists.first, const Offset(0, -500));
+    await tester.pump();
+  }
+  expect(
+    conversation,
+    findsOneWidget,
+    reason: 'Timed out scrolling to conversation $conversationID.',
   );
 }
 

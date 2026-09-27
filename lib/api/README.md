@@ -7,6 +7,7 @@
 | `portal_api.dart` | 用户门户 API（/me 系列） |
 | `audit_read_client.dart` | 审计读客户端（trio 表面，AuditQuery-only） |
 | `audit_event_row.dart` | 只读审计行模型 + 纯映射器 |
+| `forge_conversations_change_stream_api.dart` | Forge Conversation 变更 SSE/long-poll 只读适配（显式 opt-in） |
 
 设计：所有请求走 `sso_client`（统一 base URL/认证头/超时策略）；
 页面不直接使用 http。

@@ -92,6 +92,73 @@ void main() {
     },
   );
 
+  test('rejects ordinary append identity and receipt drift', () async {
+    final responses = <Map<String, dynamic>>[
+      {'prompt': _prompt(id: ''), 'aggregate_version': 2, 'replayed': false},
+      {
+        'prompt': _prompt(id: 'p' * 129),
+        'aggregate_version': 2,
+        'replayed': false,
+      },
+      {
+        'prompt': _prompt(id: '\u0001'),
+        'aggregate_version': 2,
+        'replayed': false,
+      },
+      {
+        'prompt': {..._prompt(), 'created_at_ms': 9007199254740992},
+        'aggregate_version': 2,
+        'replayed': false,
+      },
+      {'prompt': _prompt(), 'aggregate_version': 2, 'replayed': 'false'},
+      {'prompt': _prompt(), 'aggregate_version': 3, 'replayed': false},
+    ];
+
+    for (final response in responses) {
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient((_) async => _json(response, status: 201)),
+      );
+      addTearDown(api.close);
+      await expectLater(
+        api.appendPrompt(
+          conversationID: 'conversation-1',
+          content: 'run tests',
+          expectedVersion: 1,
+          idempotencyKey: 'prompt-key',
+        ),
+        throwsFormatException,
+      );
+    }
+  });
+
+  test('rejects a create response that does not match the request', () async {
+    final responses = <Map<String, dynamic>>[
+      {..._conversation(title: 'other title')},
+      {
+        ..._conversation(),
+        'scope': {'kind': 'project', 'id': 'project-1'},
+      },
+    ];
+    for (final response in responses) {
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient((_) async => _json(response, status: 201)),
+      );
+      addTearDown(api.close);
+      await expectLater(
+        api.createConversation(
+          scope: const ForgeConversationScope(kind: 'global'),
+          title: 'Build release',
+          idempotencyKey: 'create-key',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    }
+  });
+
   test(
     'scans JSON structure without treating string braces as objects',
     () async {

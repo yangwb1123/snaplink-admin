@@ -107,10 +107,36 @@ local storage is unavailable, the current screen continues in memory and a
 later restart may replay changes. Writes serialize within the app's Dart
 isolate, and Web Locks serialize updates across browser tabs where supported.
 Older embedded browsers without Web Locks may replay a stale suffix, which
-does not skip feed events. Delivery remains polling rather than a push stream.
-After a successful periodic feed read, a previously failed conversation
-snapshot is retried automatically so a transient network outage can recover
-without a manual refresh.
+does not skip feed events. After a successful periodic feed read, a previously
+failed conversation snapshot is retried automatically so a transient network
+outage can recover without a manual refresh. The default Sessions construction
+continues to use this bounded polling path.
+
+An explicit caller may use `ForgeConversationsApi.conversationChangesStream`
+for the same owner-scoped feed over `/api/v1/conversation-changes/stream`.
+The method sends `after_cursor`, a bounded `limit`, and a bounded `wait_ms`,
+requests `text/event-stream`, and returns one validated
+`ForgeConversationChangePage` for a `200` response. A `204` response means the
+bounded wait ended without a new owner change and returns `null`. The parser
+requires exactly one `conversation_changes` event, rejects unknown or
+duplicate SSE fields, rejects duplicate JSON members and unsafe numeric
+values, and requires the SSE `id` to equal `scanned_through_cursor` in the
+decoded page. A caller may opt the Sessions widget into this transport with
+`enableConversationChangesStream: true` and an optional bounded
+`conversationChangesStreamWaitMS`. The widget starts the stream after its
+initial owner snapshot, allows only one foreground stream request at a time,
+reconnects after a successful `204`, and falls back to the existing polling
+path after a transport, authorization-refresh, or framing failure. A replay
+cursor advances only after the same conversation/history merge used by the
+polling path succeeds. The stream is read-only and opens no execution or
+device authority. The shared `ForgeSessionsGate` forwards this option only
+when a caller explicitly sets `enableConversationChangesStream`; its default
+is `false` with a 15-second bounded wait. Before either stream or polling feed
+is consumed under an instance filter, the latest owner-bound observation must
+still contain the selected instance. A removed instance fails closed before
+transport, clears private state through the existing visibility guard, and
+leaves the owner-local cursor unchanged. The in-memory cursor is published
+only after its persistent checkpoint accepts the new value.
 
 The Console also keeps a bounded last-successful conversation metadata
 snapshot so the first page can remain useful during a network outage. The
@@ -138,3 +164,72 @@ The shared client-instance fixtures include sorted CLI, TUI, Web, desktop App,
 and Mobile declarations. The matrix is a local observation of the five client
 kinds; it does not authenticate an installation or grant Prompt, device, or
 execution authority.
+
+Callers that already hold an authenticated owner declaration can opt in to a
+paired session/resource read through `ForgeSessionsGate`. Console performs one
+owner-bound GET for each existing view, validates the owner and complete
+instance rows as a single display envelope, and feeds both existing panels
+only after the pair converges. The default Gate leaves the owner and reader
+unset, keeps all authority flags false, and makes no candidate request. A
+failed refresh retains the last validated pair and marks it stale. A write
+boundary reuses a current validated pair instead of starting a duplicate GET;
+missing, loading, stale, failed, or drifted observations still block the
+operation. The built-in inventory and resource candidate readers use
+wall-clock request deadlines so real HTTP IO is not expired by a caller's
+virtual frame clock.
+
+The pair guard also re-decodes injected session/resource values before using
+them as a local filter. A manually assembled outer convergence envelope cannot
+hide a malformed nested schema, owner, row, ordering, or authority field.
+
+The inventory/resource convergence reader also requires each v2 inventory
+device's `snapshot_observed_at_ms` to equal the paired resource device's
+`observed_at_ms`. A counter or resource match from a different persisted
+Runner observation is rejected as stale, while client-instance row timestamps
+remain independent display metadata.
+
+Before a locally constructed pair is accepted as a convergence boundary,
+Console round-trips both observations through their strict wire decoders. A
+tampered envelope, owner, capacity, lifecycle, GPU, revision/generation/
+heartbeat, or authority field therefore fails closed even when the caller
+constructed the typed value in memory.
+
+Callers may also provide an `initialClientInstanceID` selection hint to the
+shared Gate. When an owner-bound session/resource observation declares that
+instance, the Gate loads that observation before the first Conversation page,
+filters the local list, and hydrates Prompt/Run detail only for a declared
+session. An unknown or unavailable instance produces an empty local
+projection and performs no private history read. The hint is a display
+selection only; it is not client authentication, Prompt authorization,
+inventory authority, target selection, reservation, scheduling, or Runner
+execution.
+
+Pending Run-intent submission keeps the same CAS binding as Core: a fresh
+(`replayed=false`) receipt must report `aggregate_version ==
+expected_version + 1` within the JSON-safe integer ceiling. A replay is the
+original idempotent receipt and may retain its historical aggregate version;
+the Console accepts that version only when `replayed=true`. Any binding-valid
+but version-drifted fresh response is rejected before it reaches Sessions
+state.
+
+During an owner-scoped refresh, a selected Conversation that is absent from
+the newly returned first page is revalidated with its detail read before the
+selection is retained. A deleted, revoked, foreign, or unavailable detail
+response clears the selected Conversation and its private Prompt/Run panels
+while keeping the fresh owner page. This prevents the screen from continuing
+to display or read a stale session after deletion or revocation.
+
+Private Prompt, Run, and Run timeline reads also fail closed on a deterministic
+owner rejection or a foreign/malformed response. The selected Conversation and
+its private projections are removed before the error is shown, while transient
+timeouts, rate limits, and server failures retain the existing stale/error
+behavior for retry. This is a read boundary only; it does not add session,
+device, scheduling, or Runner authority.
+
+The selected-instance create boundary follows the same rule. Before an
+owner-wide Conversation create, Sessions refreshes the selected owner-bound
+session/resource declaration. If the returned Conversation is not listed by
+that declaration, the owner storage result is retained without selecting it,
+changing the URL, or reading its Prompt/Run details. A focused widget test
+proves one create request and zero private Prompt/Run reads; instance
+membership and execution authority remain outside this display projection.

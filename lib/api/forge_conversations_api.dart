@@ -4,37 +4,63 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import 'forge_device_inventory_models.dart';
+import 'forge_scheduler_selection_preview.dart';
+import 'forge_scheduler_selection_lease.dart';
 import 'forge_device_credential_candidate.dart';
 import 'forge_conversations_models.dart';
 import 'forge_client_instance_resource_view.dart';
 import 'forge_client_instance_session_view.dart';
+import 'forge_client_instance_session_resource_convergence.dart';
 import 'forge_pending_run_intent.dart';
 import 'forge_run_observed.dart';
 import 'forge_run_attempt_lease_dispatch_preflight.dart';
 import 'forge_preflight_fixture.dart';
 import 'forge_local_runner_preview.dart';
 import 'forge_runner_dispatch_plan_preview.dart';
+import 'forge_runner_dispatch_admission.dart';
+import 'forge_runner_transport_admission.dart';
+import 'forge_runner_execution_boundary.dart';
+import 'forge_runner_attempt_boundary.dart';
+import 'forge_runner_execution_intent.dart';
+import 'forge_prompt_append_receipt.dart';
 import 'forge_session_device_observation_wire.dart';
 import 'forge_session_placement.dart';
 import 'forge_session_runner_receipt_observation.dart';
+import 'forge_session_runner_receipt_history.dart';
+import 'forge_session_runner_reconciliation_projection.dart';
+import 'forge_run_execution_evidence.dart';
 import 'forge_execution_reconciliation_observation.dart';
 import 'forge_device_enrollment_heartbeat_lifecycle_registry.dart';
 
 part 'forge_conversations_api_transport.dart';
 part 'forge_conversations_device_observation_api.dart';
+part 'forge_conversations_inventory_resource_convergence_api.dart';
 part 'forge_conversations_client_instance_resource_view_api.dart';
 part 'forge_conversations_client_instance_session_view_api.dart';
+part 'forge_conversations_client_instance_session_resource_convergence_api.dart';
 part 'forge_conversations_pending_intent_api.dart';
 part 'forge_conversations_execution_consent_api.dart';
 part 'forge_conversations_session_runner_receipt_api.dart';
+part 'forge_conversations_session_runner_receipt_history_api.dart';
+part 'forge_conversations_session_runner_reconciliation_projection_api.dart';
+part 'forge_conversations_run_execution_evidence_api.dart';
 part 'forge_conversations_local_runner_preview_api.dart';
 part 'forge_conversations_run_attempt_lease_dispatch_preflight_api.dart';
 part 'forge_conversations_runner_dispatch_plan_preview_api.dart';
+part 'forge_conversations_runner_dispatch_admission_api.dart';
+part 'forge_conversations_runner_transport_admission_api.dart';
+part 'forge_conversations_runner_execution_boundary_api.dart';
+part 'forge_conversations_runner_attempt_boundary_api.dart';
+part 'forge_conversations_runner_execution_intent_api.dart';
 part 'forge_conversations_run_observed_api.dart';
 part 'forge_conversations_execution_reconciliation_api.dart';
 part 'forge_conversations_lifecycle_registry_api.dart';
 part 'forge_conversations_registry_placement_preview_api.dart';
+part 'forge_conversations_scheduler_selection_preview_api.dart';
+part 'forge_conversations_scheduler_selection_lease_api.dart';
 part 'forge_conversations_device_credential_candidate_api.dart';
+part 'forge_conversations_prompt_append_receipt_api.dart';
+part 'forge_conversations_change_stream_api.dart';
 
 /// Reads the explicitly injected, owner-bound inventory candidate.
 ///
@@ -45,12 +71,28 @@ part 'forge_conversations_device_credential_candidate_api.dart';
 typedef ForgeDeviceInventoryCandidateReader =
     Future<ForgeDeviceInventoryPage> Function(ForgeDeviceOwner owner);
 
+/// Reads the explicit owner-bound Runner execution-intent preview candidate.
+/// The callback remains opt-in so normal Web/App/Mobile construction never
+/// opens the preview route implicitly.
+typedef ForgeRunnerExecutionIntentReader =
+    Future<ForgeRunnerExecutionIntentObservation> Function(
+      ForgeRunnerExecutionIntentRequest request,
+    );
+
 /// Reads the explicitly injected, owner-bound lossless v2 inventory
 /// candidate. The callback stays unset by default so the production
 /// `/devices/observations/v2` route remains disabled until ADR-0114/P3b is
 /// accepted.
 typedef ForgeDeviceInventoryV2Reader =
     Future<ForgeDeviceInventoryPageV2> Function(ForgeDeviceOwner owner);
+
+/// Reads the v2 inventory and composed resource view as one explicit pair.
+/// The callback stays opt-in so a shared Sessions surface cannot present two
+/// different resource images as one observation by default.
+typedef ForgeDeviceInventoryResourceConvergenceReader =
+    Future<ForgeDeviceInventoryResourceConvergence> Function(
+      ForgeDeviceOwner owner,
+    );
 
 /// Reads one explicit owner-bound registry placement preview. The callback is
 /// intentionally separate from the v2 inventory reader because the HTTP
@@ -60,6 +102,66 @@ typedef ForgeDeviceRegistryPlacementPreviewReader =
     Future<ForgeDeviceRegistryPlacementPreview> Function(
       ForgeDeviceOwner owner,
       ForgeDevicePlacementRequirements requirements,
+    );
+
+/// Reads one explicit authenticated EXECUTE scheduler-selection preview. The
+/// request is bound to a Conversation/Run/Attempt and remains display-only;
+/// the callback must not issue a lease, reserve capacity, or dispatch work.
+typedef ForgeSchedulerSelectionPreviewReader =
+    Future<ForgeSchedulerSelectionPreview> Function(
+      ForgeSchedulerSelectionPreviewRequest request,
+    );
+
+/// Claims one explicitly supplied owner-bound scheduler lease. The callback
+/// is kept separate from the read-only scheduler preview so a shared
+/// Sessions surface cannot create a reservation unless its caller opts in
+/// with a fixed request and idempotency key.
+typedef ForgeSchedulerSelectionLeaseReader =
+    Future<ForgeSchedulerSelectionLease> Function(
+      ForgeSchedulerSelectionLeaseRequest request,
+      String idempotencyKey,
+    );
+
+/// Renews one explicitly supplied owner-bound scheduler lease proof. The
+/// callback is separate from the claim reader so a shared Sessions surface
+/// cannot renew a lease unless its caller opts in with the exact proof and a
+/// fresh idempotency key.
+typedef ForgeSchedulerSelectionLeaseRenewalReader =
+    Future<ForgeSchedulerSelectionLease> Function(
+      ForgeSchedulerSelectionLeaseRenewalRequest request,
+      String idempotencyKey,
+    );
+
+/// Releases one explicitly supplied owner-bound scheduler lease proof. The
+/// callback stays separate from claim and renewal so a Sessions surface can
+/// mark a reservation inactive only when its caller opts in with the exact
+/// proof and an explicit idempotency key.
+typedef ForgeSchedulerSelectionLeaseReleaseReader =
+    Future<ForgeSchedulerSelectionLeaseRelease> Function(
+      ForgeSchedulerSelectionLeaseReleaseRequest request,
+      String idempotencyKey,
+    );
+
+/// Reads one explicit owner/Run-bound durable lease-to-Runner admission
+/// preview. The result is metadata only; it never authorizes or dispatches.
+typedef ForgeRunnerDispatchAdmissionReader =
+    Future<ForgeRunnerDispatchAdmission> Function(
+      ForgeRunnerDispatchAdmissionRequest request,
+    );
+
+/// Reads one explicit owner/Run-bound Runner transport admission preview. The
+/// result is metadata only; it never sends a transport payload or authorizes
+/// execution.
+typedef ForgeRunnerTransportAdmissionReader =
+    Future<ForgeRunnerTransportAdmission> Function(
+      ForgeRunnerTransportAdmissionRequest request,
+    );
+
+/// Reads one explicit owner/Run-bound Runner execution-boundary preview. The
+/// result is metadata only; it never opens a Runner connection or dispatches.
+typedef ForgeRunnerExecutionBoundaryReader =
+    Future<ForgeRunnerExecutionBoundaryObservation> Function(
+      ForgeRunnerExecutionBoundaryPreviewRequest request,
     );
 
 /// Reads the explicitly injected, owner-bound client-instance/resource-view
@@ -74,6 +176,14 @@ typedef ForgeClientInstanceResourceViewReader =
 typedef ForgeClientInstanceSessionViewReader =
     Future<ForgeClientInstanceSessionView> Function(ForgeDeviceOwner owner);
 
+/// Reads the explicit owner-bound client-instance session/resource pair. The
+/// callback remains unset by default so the shared Sessions surface cannot
+/// issue either candidate GET until a caller opts in with a declared owner.
+typedef ForgeClientInstanceSessionResourceConvergenceReader =
+    Future<ForgeClientInstanceSessionResourceConvergence> Function(
+      ForgeDeviceOwner owner,
+    );
+
 /// Reads one caller-supplied, content-free Run observation for the selected
 /// owner Conversation/Run pair.
 ///
@@ -83,6 +193,49 @@ typedef ForgeClientInstanceSessionViewReader =
 /// unset until a reviewed read-only adapter is available.
 typedef ForgeRunObservedReader =
     Future<ForgeRunObserved> Function(String conversationID, String runID);
+
+/// Independently reads one content-free session Runner receipt for the
+/// selected Conversation/Run. It remains unset by default. The Sessions
+/// surface accepts its result only as one atomically converged pair with an
+/// explicitly read [ForgeRunObserved].
+typedef ForgeSessionRunnerReceiptObservationReader =
+    Future<ForgeSessionRunnerReceiptObservation> Function(
+      String conversationID,
+      String runID,
+    );
+
+/// Reads one explicit binding of a content-free Run observation to its
+/// matching session Runner receipt. The callback remains an injected
+/// candidate seam so the shared Sessions surface cannot reach the route
+/// unless its caller opts in with both source observations.
+typedef ForgeRunExecutionEvidenceReader =
+    Future<ForgeRunExecutionEvidence> Function(
+      String conversationID,
+      String runID,
+      ForgeRunObserved runObserved,
+      ForgeSessionRunnerReceiptObservation sessionReceiptObserved,
+    );
+
+/// Reads one explicit owner/Conversation/Run-bound Runner receipt history
+/// reduction. The callback remains opt-in so the shared Sessions surface does
+/// not contact the accepted EXECUTE candidate route by default.
+typedef ForgeSessionRunnerReceiptHistoryReader =
+    Future<ForgeSessionRunnerReceiptHistory> Function(
+      String conversationID,
+      String runID,
+      ForgeSessionRunnerReceiptHistory history,
+    );
+
+/// Reads one explicit owner/Conversation/Run-bound manual reconciliation
+/// projection derived from a complete receipt history. The callback remains
+/// opt-in so the shared Sessions surface does not contact the preview route
+/// by default.
+typedef ForgeSessionRunnerReconciliationProjectionReader =
+    Future<ForgeSessionRunnerReconciliationProjection> Function(
+      String conversationID,
+      String runID,
+      ForgeSessionRunnerReceiptHistory history,
+    );
 
 /// Reads one caller-supplied, owner-bound execution reconciliation preview.
 ///
@@ -193,6 +346,19 @@ typedef ForgePendingRunIntentSubmitter =
       required String idempotencyKey,
     });
 
+/// Submits one explicit owner-bound Prompt append and returns only its
+/// content-free receipt. The callback stays separate from the ordinary
+/// append result so a Sessions surface cannot consume a receipt projection
+/// without an explicit owner declaration and opt-in wiring.
+typedef ForgePromptAppendReceiptSubmitter =
+    Future<ForgePromptAppendReceiptObservation> Function({
+      required ForgeDeviceOwner owner,
+      required String conversationID,
+      required String content,
+      required int expectedVersion,
+      required String idempotencyKey,
+    });
+
 class ForgeConversationsApiException implements Exception {
   final int statusCode;
   final String code;
@@ -226,6 +392,10 @@ class ForgeConversationsApi {
   final Future<String?> Function(String failedAccessToken)? refreshAccessToken;
   final http.Client _http;
   final Duration timeout;
+
+  /// Uses a wall-clock deadline for explicitly opted-in candidate readers.
+  /// Ordinary callers retain zone-local timeout behavior.
+  final bool useWallClockTimeout;
   final Set<String> _rejectedAccessTokens = <String>{};
 
   ForgeConversationsApi({
@@ -235,6 +405,7 @@ class ForgeConversationsApi {
     this.refreshAccessToken,
     http.Client? httpClient,
     this.timeout = const Duration(seconds: 20),
+    this.useWallClockTimeout = false,
   }) : _origin = _parseOrigin(baseUrl),
        _http = httpClient ?? http.Client() {
     if (accessToken.trim().isEmpty || accessToken.contains(RegExp(r'[\r\n]'))) {
@@ -312,7 +483,15 @@ class ForgeConversationsApi {
       idempotencyKey: idempotencyKey,
       expectedStatuses: const {201},
     );
-    return ForgeConversation.fromJson(root);
+    final created = ForgeConversation.fromJson(root);
+    if (created.scope.kind != scope.kind ||
+        created.scope.id != scope.id ||
+        created.title != title) {
+      throw const FormatException(
+        'Forge returned a conversation that does not match the create request.',
+      );
+    }
+    return created;
   }
 
   Future<ForgeConversationPromptPage> listPrompts({
@@ -443,6 +622,7 @@ class ForgeConversationsApi {
     if (result.prompt.conversationID != conversationID ||
         result.prompt.content != content ||
         result.prompt.role != 'user' ||
+        !_validPromptResponseID(result.prompt.id) ||
         result.aggregateVersion != expectedVersion + 1) {
       throw const FormatException('Forge returned an invalid prompt result.');
     }
@@ -648,6 +828,14 @@ bool _validRunRequestID(String value) =>
 
 bool _validConversationRequestID(String value) =>
     _validRunRequestID(value) && !value.contains('/');
+
+/// Prompt IDs are response metadata, but they become the cursor and entity
+/// identity used by every client after an append. Keep the ordinary write
+/// response aligned with Core/Runtime before exposing it to a session UI.
+bool _validPromptResponseID(String value) =>
+    value.trim().isNotEmpty &&
+    utf8.encode(value).length <= 128 &&
+    !value.runes.any((rune) => rune < 0x20 || (rune >= 0x7f && rune <= 0x9f));
 
 bool _validIdempotencyKey(String value) =>
     value.isNotEmpty &&

@@ -8,7 +8,6 @@ the same file is only available on macOS.
 
 from __future__ import annotations
 
-import json
 import os
 import re
 import stat
@@ -17,6 +16,11 @@ from pathlib import Path
 from typing import NoReturn
 from urllib.parse import urlparse
 
+from forge_native_shared_session_contract import (
+    parse_json,
+    validate_session_resource_pair,
+)
+
 
 EXPECTED_KEYS = {
     "platform",
@@ -24,6 +28,9 @@ EXPECTED_KEYS = {
     "access_token",
     "rotated_access_token",
     "conversation_id",
+    "client_instance_id",
+    "session_view",
+    "resource_view",
     "expected_version",
     "after_cursor",
     "prompt",
@@ -113,12 +120,10 @@ def validate(path: Path) -> dict[str, object]:
     if len(raw) > MAX_INPUT_BYTES:
         fail("input exceeds the 64 KiB bound")
     try:
-        value = json.loads(raw, object_pairs_hook=_reject_duplicate_keys)
-    except json.JSONDecodeError as error:
-        fail(f"input is not valid JSON: {error.msg}")
+        value = parse_json(raw, max_bytes=MAX_INPUT_BYTES)
     except ValueError as error:
-        fail(f"input is not valid JSON: {error}")
-    if not isinstance(value, dict) or set(value) != EXPECTED_KEYS:
+        fail(str(error))
+    if set(value) != EXPECTED_KEYS:
         fail("input must contain exactly the shared-session fields")
     if value["platform"] not in PLATFORMS:
         fail("platform must be ios-device or ios-simulator")
@@ -128,6 +133,13 @@ def validate(path: Path) -> dict[str, object]:
     if value["access_token"] == value["rotated_access_token"]:
         fail("rotated_access_token must differ from access_token")
     identifier(value["conversation_id"], "conversation_id")
+    identifier(value["client_instance_id"], "client_instance_id")
+    validate_session_resource_pair(
+        value["session_view"],
+        value["resource_view"],
+        conversation_id=value["conversation_id"],
+        client_instance_id=value["client_instance_id"],
+    )
     non_empty_string(value["prompt"], "prompt", MAX_PROMPT_BYTES)
     identifier(value["idempotency_key"], "idempotency_key")
     expected_version = integer(value["expected_version"], "expected_version")
@@ -136,15 +148,6 @@ def validate(path: Path) -> dict[str, object]:
         fail("expected_version is outside the safe Forge range")
     if after_cursor > MAX_SAFE_INTEGER:
         fail("after_cursor is outside the safe Forge range")
-    return value
-
-
-def _reject_duplicate_keys(pairs: list[tuple[object, object]]) -> dict[object, object]:
-    value: dict[object, object] = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError(f"duplicate JSON field: {key!r}")
-        value[key] = item
     return value
 
 

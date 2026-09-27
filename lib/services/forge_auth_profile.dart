@@ -12,8 +12,16 @@ abstract final class ForgeAuthProfile {
       'urn:ietf:params:oauth:grant-type:device_code';
   static const authorizationCodeGrantType = 'authorization_code';
   static const refreshTokenGrantType = 'refresh_token';
+  static const deviceObservationClientId = 'forge-device-observer';
+  static const conversationReadScope = 'forge:conversations:read';
+  static const conversationWriteScope = 'forge:conversations:write';
   static const conversationScopes = <String>[
-    'forge:conversations:read',
-    'forge:conversations:write',
+    conversationReadScope,
+    conversationWriteScope,
+  ];
+  static const deviceObservationScopes = <String>['forge:devices:read'];
+  static const deviceObservationClientScopes = <String>[
+    conversationReadScope,
+    ...deviceObservationScopes,
   ];
 }

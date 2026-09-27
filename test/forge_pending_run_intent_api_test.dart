@@ -33,7 +33,11 @@ Map<String, dynamic> _event() => {
   'type': 'submitted',
 };
 
-Map<String, dynamic> _submission({String content = 'run this'}) => {
+Map<String, dynamic> _submission({
+  String content = 'run this',
+  int aggregateVersion = 8,
+  bool replayed = false,
+}) => {
   'prompt': {
     'id': 'prompt-1',
     'conversation_id': 'conversation-1',
@@ -41,9 +45,13 @@ Map<String, dynamic> _submission({String content = 'run this'}) => {
     'content': content,
     'created_at_ms': 200,
   },
-  'intent': {..._intent(), 'submitted_at_ms': 200, 'aggregate_version': 3},
+  'intent': {
+    ..._intent(),
+    'submitted_at_ms': 200,
+    'aggregate_version': aggregateVersion,
+  },
   'initial_event': _event(),
-  'replayed': false,
+  'replayed': replayed,
 };
 
 void main() {
@@ -175,6 +183,83 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test(
+    'requires a fresh pending Run-intent receipt to advance the expected version',
+    () async {
+      for (final aggregateVersion in <int>[7, 9]) {
+        final api = ForgeConversationsApi(
+          baseUrl: 'https://forge.example',
+          accessToken: 'token',
+          httpClient: MockClient(
+            (_) async => _json(
+              _submission(aggregateVersion: aggregateVersion),
+              status: 201,
+            ),
+          ),
+        );
+        addTearDown(api.close);
+
+        await expectLater(
+          api.submitPendingRunIntent(
+            conversationID: 'conversation-1',
+            content: 'run this',
+            expectedVersion: 7,
+            idempotencyKey: 'intent-key-$aggregateVersion',
+          ),
+          throwsFormatException,
+        );
+      }
+    },
+  );
+
+  test(
+    'allows a replayed pending Run-intent to retain its historical version',
+    () async {
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _json(_submission(aggregateVersion: 3, replayed: true)),
+        ),
+      );
+      addTearDown(api.close);
+
+      final result = await api.submitPendingRunIntent(
+        conversationID: 'conversation-1',
+        content: 'run this',
+        expectedVersion: 99,
+        idempotencyKey: 'intent-replay-key',
+      );
+
+      expect(result.replayed, isTrue);
+      expect(result.intent.aggregateVersion, 3);
+    },
+  );
+
+  test(
+    'rejects a zero aggregate version in a pending Run-intent receipt',
+    () async {
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient(
+          (_) async => _json(_submission(aggregateVersion: 0, replayed: true)),
+        ),
+      );
+      addTearDown(api.close);
+
+      await expectLater(
+        api.submitPendingRunIntent(
+          conversationID: 'conversation-1',
+          content: 'run this',
+          expectedVersion: 99,
+          idempotencyKey: 'intent-zero-version-key',
+        ),
+        throwsFormatException,
+      );
+    },
+  );
 
   test('uses authenticated pending-intent list and timeline endpoints', () async {
     final requests = <http.Request>[];

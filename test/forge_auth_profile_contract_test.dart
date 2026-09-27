@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/services/forge_auth_profile.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
+import 'package:sso_admin/services/forge_device_observation_oauth.dart';
 
 void main() {
   final fixturePath = Platform.environment['FORGE_SNAPLINK_PROFILE_FIXTURE'];
@@ -21,7 +22,9 @@ void main() {
         'audience',
         'resource',
         'conversation_scopes',
+        'device_observation_scopes',
         'clients',
+        'optional_clients',
         'authority',
       });
       expect(root['schema_version'], 'forge.snaplink-profile/v1');
@@ -30,6 +33,7 @@ void main() {
       expect(root['audience'], ForgeAuthProfile.audience);
       expect(root['resource'], ForgeAuthProfile.resource);
       expect(root['conversation_scopes'], ForgeAuthProfile.conversationScopes);
+      expect(root['device_observation_scopes'], ['forge:devices:read']);
 
       final clients = Map<String, dynamic>.from(root['clients'] as Map);
       final cli = Map<String, dynamic>.from(clients['cli'] as Map);
@@ -57,6 +61,25 @@ void main() {
       expect(
         ForgeConversationsOAuth.scopes,
         ForgeAuthProfile.conversationScopes,
+      );
+
+      final optionalClients = Map<String, dynamic>.from(
+        root['optional_clients'] as Map,
+      );
+      final observer = Map<String, dynamic>.from(
+        optionalClients['device_observer'] as Map,
+      );
+      expect(observer['client_id'], ForgeDeviceObservationOAuth.clientId);
+      expect(observer['enabled'], isFalse);
+      expect(observer['public'], isTrue);
+      expect(observer['grant_types'], [
+        ForgeAuthProfile.authorizationCodeGrantType,
+        ForgeAuthProfile.refreshTokenGrantType,
+      ]);
+      expect(observer['scopes'], ForgeDeviceObservationOAuth.scopes);
+      expect(
+        ForgeConversationsOAuth.loginLocation(),
+        isNot(contains('forge:devices:read')),
       );
 
       final authority = Map<String, dynamic>.from(root['authority'] as Map);

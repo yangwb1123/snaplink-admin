@@ -85,9 +85,14 @@ void main() {
         MaterialApp(
           home: ForgeSessionsGate(
             credentialStore: credentialStore,
+            initialClientInstanceID: instanceID,
             clientInstanceResourceViewOwner: owner,
             clientInstanceResourceViewCandidateApiOrigin: apiURL,
             enableClientInstanceResourceViewCandidate: true,
+            deviceInventoryResourceConvergenceOwner: owner,
+            deviceInventoryResourceConvergenceCandidateApiOrigin: apiURL,
+            enableDeviceInventoryResourceConvergenceCandidate: true,
+            requireDeviceInventoryResourceConvergenceForPromptAppend: true,
           ),
         ),
       );
@@ -104,12 +109,8 @@ void main() {
             find
                 .byKey(ValueKey('forge-conversation-$visibleConversationID'))
                 .evaluate()
-                .isNotEmpty &&
-            find
-                .byKey(ValueKey('forge-conversation-$hiddenConversationID'))
-                .evaluate()
                 .isNotEmpty,
-        waitFor: 'authenticated owner conversations and resource view',
+        waitFor: 'authenticated owner resource view and selected conversation',
       );
 
       expect(
@@ -136,20 +137,6 @@ void main() {
       }
       expect(find.text('device-a'), findsWidgets);
       expect(find.text(visibleTitle), findsWidgets);
-      expect(find.text(hiddenTitle), findsWidgets);
-
-      final filterMenu = find.byKey(
-        const ValueKey('forge-client-instance-session-filter-menu'),
-      );
-      expect(filterMenu, findsOneWidget);
-      await tester.ensureVisible(filterMenu);
-      await tester.tap(filterMenu);
-      await tester.pumpAndSettle();
-      final instanceItem = find.text(instanceID);
-      expect(instanceItem, findsWidgets);
-      await tester.tap(instanceItem.last);
-      await tester.pumpAndSettle();
-
       await _pumpUntil(
         tester,
         () =>
@@ -161,7 +148,7 @@ void main() {
                 .byKey(ValueKey('forge-conversation-$hiddenConversationID'))
                 .evaluate()
                 .isEmpty,
-        waitFor: 'resource-view client-instance session filter',
+        waitFor: 'initial resource-view client-instance session filter',
       );
       expect(find.text(visibleTitle), findsWidgets);
       expect(find.text(hiddenTitle), findsNothing);

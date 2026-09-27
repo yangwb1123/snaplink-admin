@@ -6,6 +6,13 @@ const _forgeReadRetryBackoff = [50, 100];
 const _forgeResponseBodyErrorHeader = 'x-forge-response-body-error';
 
 extension ForgeConversationsApiTransport on ForgeConversationsApi {
+  Future<T> _withRequestTimeout<T>(Future<T> Function() operation) {
+    if (useWallClockTimeout) {
+      return Zone.root.run(() => operation().timeout(timeout));
+    }
+    return operation().timeout(timeout);
+  }
+
   /// Replays only idempotent GET reads after a transient response or
   /// transport failure. POST writes deliberately take the single request
   /// path so an uncertain result cannot create a second operation.
@@ -15,6 +22,7 @@ extension ForgeConversationsApiTransport on ForgeConversationsApi {
     required String bearerToken,
     Map<String, dynamic>? body,
     String? idempotencyKey,
+    String accept = 'application/json',
   }) async {
     final retryableRead = method == 'GET';
     for (var attempt = 0; ; attempt++) {
@@ -25,6 +33,7 @@ extension ForgeConversationsApiTransport on ForgeConversationsApi {
           body: body,
           idempotencyKey: idempotencyKey,
           bearerToken: bearerToken,
+          accept: accept,
         );
         if (!retryableRead ||
             attempt + 1 >= _forgeMaxReadAttempts ||
@@ -56,11 +65,12 @@ extension ForgeConversationsApiTransport on ForgeConversationsApi {
     required String bearerToken,
     Map<String, dynamic>? body,
     String? idempotencyKey,
+    String accept = 'application/json',
   }) async {
     final request = http.Request(method, uri)
       ..followRedirects = false
       ..headers.addAll({
-        'Accept': 'application/json',
+        'Accept': accept,
         'Authorization': 'Bearer $bearerToken',
         'Cache-Control': 'no-store',
         if (body != null) 'Content-Type': 'application/json',
@@ -68,8 +78,8 @@ extension ForgeConversationsApiTransport on ForgeConversationsApi {
       });
     if (body != null) request.body = jsonEncode(body);
     try {
-      final streamed = await _http.send(request).timeout(timeout);
-      return await _readBounded(streamed).timeout(timeout);
+      final streamed = await _withRequestTimeout(() => _http.send(request));
+      return await _withRequestTimeout(() => _readBounded(streamed));
     } on TimeoutException {
       throw const ForgeConversationsApiException(
         statusCode: 0,

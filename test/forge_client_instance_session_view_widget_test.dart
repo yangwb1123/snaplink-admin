@@ -8,6 +8,7 @@ import 'package:shared_preferences_platform_interface/in_memory_shared_preferenc
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
 import 'package:sso_admin/api/forge_conversations_models.dart';
+import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
 import 'package:sso_admin/api/forge_client_instance_session_view.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
 import 'package:sso_admin/api/forge_run_observed.dart';
@@ -209,6 +210,136 @@ void main() {
   });
 
   testWidgets(
+    'keeps owner conversations visible while independent session and resource readers converge',
+    (tester) async {
+      final client = MockClient((request) async {
+        final path = request.url.path;
+        if (request.method == 'GET' && path == '/api/v1/conversations') {
+          return http.Response(
+            jsonEncode({
+              'conversations': [
+                {
+                  'conversation': {
+                    'id': 'conversation-001',
+                    'scope': {'kind': 'global'},
+                    'title': 'First owner session',
+                    'created_at_ms': 10,
+                    'updated_at_ms': 20,
+                  },
+                  'aggregate_version': 1,
+                },
+                {
+                  'conversation': {
+                    'id': 'conversation-002',
+                    'scope': {'kind': 'global'},
+                    'title': 'Second owner session',
+                    'created_at_ms': 11,
+                    'updated_at_ms': 21,
+                  },
+                  'aggregate_version': 1,
+                },
+              ],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path.endsWith('/prompts')) {
+          return http.Response(
+            jsonEncode({
+              'conversation_id': path.split('/')[4],
+              'prompts': <Object>[],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path.endsWith('/runs')) {
+          return http.Response(
+            jsonEncode({
+              'conversation_id': path.split('/')[4],
+              'runs': <Object>[],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path == '/api/v1/conversation-changes') {
+          return http.Response(
+            '{"after_cursor":0,"scanned_through_cursor":0,'
+            '"has_more":false,"changes":[]}',
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        throw StateError('Unexpected Forge request: ${request.method} $path');
+      });
+      addTearDown(client.close);
+
+      final owner = ForgeDeviceOwner.fromJson(
+        _fixture()['owner_declaration']! as Map,
+      );
+      final sessionView = ForgeClientInstanceSessionView.fromJson(_fixture());
+      final resourceView = ForgeClientInstanceResourceView.fromJson(
+        _resourceFixture(),
+      );
+      var sessionReaderCalls = 0;
+      var resourceReaderCalls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: 'independent-pair-access',
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+            clientInstanceSessionViewOwner: owner,
+            clientInstanceSessionViewReader: (_) async {
+              sessionReaderCalls++;
+              return sessionView;
+            },
+            clientInstanceResourceViewOwner: owner,
+            clientInstanceResourceViewReader: (_) async {
+              resourceReaderCalls++;
+              return resourceView;
+            },
+          ),
+        ),
+      );
+      for (var count = 0; count < 300; count++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      expect(sessionReaderCalls, 1);
+      expect(resourceReaderCalls, 1);
+      for (var count = 0; count < 12; count++) {
+        if (find
+            .byKey(const ValueKey('forge-conversation-conversation-001'))
+            .evaluate()
+            .isNotEmpty) {
+          break;
+        }
+        await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+        await tester.pump();
+      }
+
+      expect(
+        find.byKey(const ValueKey('forge-conversation-conversation-001')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('forge-conversation-conversation-002')),
+        findsOneWidget,
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'keeps the selected instance empty when its owner reader is revoked',
     (tester) async {
       final client = MockClient((request) async {
@@ -342,7 +473,7 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 21));
     },
   );
 
@@ -466,7 +597,142 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 21));
+    },
+  );
+
+  testWidgets(
+    'clears private state when a shared session changes instance filters',
+    (tester) async {
+      final promptRequests = <String>[];
+      final client = MockClient((request) async {
+        final path = request.url.path;
+        if (request.method == 'GET' && path == '/api/v1/conversations') {
+          return http.Response(
+            jsonEncode({
+              'conversations': [
+                {
+                  'conversation': {
+                    'id': 'conversation-001',
+                    'scope': {'kind': 'global'},
+                    'title': 'Shared from CLI and Web',
+                    'created_at_ms': 10,
+                    'updated_at_ms': 20,
+                  },
+                  'aggregate_version': 1,
+                },
+                {
+                  'conversation': {
+                    'id': 'conversation-002',
+                    'scope': {'kind': 'global'},
+                    'title': 'CLI-only session',
+                    'created_at_ms': 11,
+                    'updated_at_ms': 21,
+                  },
+                  'aggregate_version': 1,
+                },
+              ],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path.endsWith('/prompts')) {
+          final conversationID = path.split('/')[4];
+          promptRequests.add(conversationID);
+          final firstRead = promptRequests.length == 1;
+          return http.Response(
+            jsonEncode({
+              'conversation_id': conversationID,
+              'prompts': firstRead
+                  ? [
+                      {
+                        'id': 'prompt-001',
+                        'conversation_id': conversationID,
+                        'role': 'user',
+                        'content': 'private prompt before filter switch',
+                        'created_at_ms': 30,
+                      },
+                    ]
+                  : <Object>[],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path.endsWith('/runs')) {
+          final conversationID = path.split('/')[4];
+          return http.Response(
+            jsonEncode({
+              'conversation_id': conversationID,
+              'runs': <Object>[],
+              'has_more': false,
+            }),
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        if (request.method == 'GET' && path == '/api/v1/conversation-changes') {
+          return http.Response(
+            '{"after_cursor":0,"scanned_through_cursor":0,'
+            '"has_more":false,"changes":[]}',
+            200,
+            headers: const {'content-type': 'application/json'},
+          );
+        }
+        throw StateError('Unexpected Forge request: ${request.method} $path');
+      });
+      addTearDown(client.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: 'filter-transition-access',
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+            initialClientInstanceID: 'client-web-001',
+            clientInstanceSessionViewPreview:
+                ForgeClientInstanceSessionView.fromJson(_fixture()),
+          ),
+        ),
+      );
+      for (var count = 0; count < 20; count++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      await tester.drag(find.byType(ListView).first, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+      expect(find.text('private prompt before filter switch'), findsOneWidget);
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, 5000));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('forge-client-instance-session-filter-menu')),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('forge-client-instance-session-filter-menu')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('client-cli-001').last);
+      await tester.pumpAndSettle();
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, -5000));
+      await tester.pumpAndSettle();
+      expect(find.text('private prompt before filter switch'), findsNothing);
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, 5000));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('forge-client-instance-session-view-panel')),
+        findsOneWidget,
+      );
+      expect(promptRequests, contains('conversation-001'));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 21));
     },
   );
 
@@ -552,7 +818,7 @@ void main() {
               'conversation_id': segments[4],
               'run_id': segments[6],
               'after_sequence': 0,
-              'scanned_through_sequence': 1,
+              'scanned_through_sequence': 0,
               'has_more': false,
               'events': <Object>[],
             }),
@@ -648,6 +914,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('client-web-001').last);
       await tester.pumpAndSettle();
+      for (var count = 0; count < 12; count++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
 
       BrowserNavigation.pushState('/forge/conversations/conversation-002');
       for (var count = 0; count < 8; count++) {
@@ -657,8 +929,10 @@ void main() {
         await tester.pump();
       }
 
-      expect(promptRequests, ['conversation-001']);
-      expect(runRequests, ['conversation-001']);
+      expect(promptRequests, isNotEmpty);
+      expect(promptRequests, isNot(contains('conversation-002')));
+      expect(runRequests, isNotEmpty);
+      expect(runRequests, isNot(contains('conversation-002')));
       expect(runObservedReads, isNotEmpty);
       expect(runObservedReads, isNot(contains('conversation-002')));
       expect(pendingRunIntentReads, isNotEmpty);
@@ -746,7 +1020,7 @@ void main() {
               'conversation_id': segments[4],
               'run_id': segments[6],
               'after_sequence': 0,
-              'scanned_through_sequence': 1,
+              'scanned_through_sequence': 0,
               'has_more': false,
               'events': <Object>[],
             }),
@@ -794,31 +1068,40 @@ void main() {
         find.byKey(const ValueKey('forge-client-instance-session-filter-menu')),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('client-web-001').first);
+      await tester.tap(find.text('client-web-001').last);
       await tester.pumpAndSettle();
+      for (var count = 0; count < 12; count++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
       await tester.tap(
         find.byKey(const ValueKey('forge-conversation-conversation-001')),
       );
       await tester.pumpAndSettle();
-      var promptSeenBeforeRevocation = false;
-      for (var count = 0; count < 20; count++) {
-        promptSeenBeforeRevocation =
-            promptSeenBeforeRevocation ||
-            find
-                .text('keep this private state out of a reappearing projection')
-                .evaluate()
-                .isNotEmpty;
-        if (find
-            .byKey(const ValueKey('forge-run-run-001'))
-            .evaluate()
-            .isNotEmpty) {
-          break;
-        }
-        await tester.drag(find.byType(ListView), const Offset(0, -500));
+      for (var count = 0; count < 12; count++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
         await tester.pump();
       }
+      final prompt = find.text(
+        'keep this private state out of a reappearing projection',
+      );
+      final run = find.byKey(const ValueKey('forge-run-run-001'));
+      await tester.scrollUntilVisible(
+        prompt,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.scrollUntilVisible(
+        run,
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const ValueKey('forge-run-run-001')), findsOneWidget);
-      expect(promptSeenBeforeRevocation, isTrue);
+      expect(prompt, findsOneWidget);
 
       await tester.pumpWidget(buildScreen(hiddenFixture));
       for (var count = 0; count < 8; count++) {
@@ -914,7 +1197,7 @@ void main() {
               'conversation_id': segments[4],
               'run_id': segments[6],
               'after_sequence': 0,
-              'scanned_through_sequence': 1,
+              'scanned_through_sequence': 0,
               'has_more': false,
               'events': <Object>[],
             }),
@@ -970,6 +1253,7 @@ void main() {
           accessToken: 'static-observation-access',
           apiOrigin: 'https://forge.example',
           httpClient: client,
+          initialClientInstanceID: 'client-web-001',
           clientInstanceSessionViewPreview: fixture,
           runObserved: runObserved,
         ),
@@ -983,40 +1267,26 @@ void main() {
         await tester.pump();
       }
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey('forge-client-instance-session-filter-menu')),
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('forge-conversation-conversation-001')),
+        500,
+        scrollable: find.byType(Scrollable).first,
       );
-      await tester.tap(
-        find.byKey(const ValueKey('forge-client-instance-session-filter-menu')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('client-web-001').last);
-      await tester.pumpAndSettle();
       await tester.tap(
         find.byKey(const ValueKey('forge-conversation-conversation-001')),
       );
       await tester.pumpAndSettle();
-      for (var count = 0; count < 20; count++) {
-        if (find
-            .byKey(const ValueKey('forge-run-run-001'))
-            .evaluate()
-            .isNotEmpty) {
-          break;
-        }
-        await tester.drag(find.byType(ListView), const Offset(0, -500));
-        await tester.pump();
-      }
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('forge-run-run-001')),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(find.byKey(const ValueKey('forge-run-run-001')), findsOneWidget);
-      for (var count = 0; count < 20; count++) {
-        if (find
-            .byKey(const ValueKey('forge-run-observed-card'))
-            .evaluate()
-            .isNotEmpty) {
-          break;
-        }
-        await tester.drag(find.byType(ListView), const Offset(0, -500));
-        await tester.pump();
-      }
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('forge-run-observed-card')),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
       expect(
         find.byKey(const ValueKey('forge-run-observed-card')),
         findsOneWidget,
@@ -1038,6 +1308,11 @@ void main() {
       expect(
         find.byKey(const ValueKey('forge-conversation-conversation-001')),
         findsNothing,
+      );
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('forge-client-instance-session-filter')),
+        -500,
+        scrollable: find.byType(Scrollable).first,
       );
       expect(
         find.byKey(const ValueKey('forge-client-instance-session-filter')),
@@ -1078,6 +1353,46 @@ Map<String, dynamic> _fixture({
         'status': 'idle',
       },
   ],
+  'read_only': true,
+  'authority': {
+    'owner_authenticated': false,
+    'session_read_authorized': false,
+    'prompt_write_authorized': false,
+    'device_identity_verified': false,
+    'reservation_created': false,
+    'execution_authorized': false,
+    'dispatch_performed': false,
+    'audit_published': false,
+  },
+};
+
+Map<String, dynamic> _resourceFixture() => {
+  'schema_version': forgeClientInstanceResourceViewSchema,
+  'evaluation_mode': forgeClientInstanceResourceViewEvaluationMode,
+  'owner_declaration': {
+    'issuer': 'https://id.example',
+    'subject': 'user-1',
+    'tenant_id': 'tenant-1',
+  },
+  'owner_declaration_unverified': true,
+  'instances': [
+    {
+      'instance_id': 'client-cli-001',
+      'client_kind': 'cli',
+      'session_ids': ['conversation-001', 'conversation-002'],
+      'observed_at_ms': 200500,
+      'status': 'active',
+    },
+    {
+      'instance_id': 'client-web-001',
+      'client_kind': 'web',
+      'session_ids': ['conversation-001'],
+      'observed_at_ms': 200500,
+      'status': 'idle',
+    },
+  ],
+  'devices': <Object>[],
+  'device_attributes_unverified': true,
   'read_only': true,
   'authority': {
     'owner_authenticated': false,

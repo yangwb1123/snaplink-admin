@@ -6,6 +6,13 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
+import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
+import 'package:sso_admin/api/forge_client_instance_session_resource_convergence.dart';
+import 'package:sso_admin/api/forge_client_instance_session_view.dart';
+import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
+import 'package:sso_admin/api/forge_device_inventory_v2_models.dart';
+import 'package:sso_admin/api/forge_device_placement.dart';
+import 'package:sso_admin/api/forge_scheduler_selection_preview.dart';
 import 'package:sso_admin/services/forge_conversations_oauth.dart';
 import 'package:sso_admin/services/forge_change_cursor_store.dart';
 import 'package:sso_admin/services/forge_credential_store.dart';
@@ -41,6 +48,10 @@ void main() {
       final accessToken = input['access_token'];
       final rotatedAccessToken = input['rotated_access_token'];
       final conversationID = input['conversation_id'];
+      final clientInstanceID = input['client_instance_id'];
+      final sessionViewJSON = input['session_view'];
+      final resourceViewJSON = input['resource_view'];
+      final inventoryV2JSON = input['inventory_v2'];
       final expectedVersion = input['expected_version'];
       final afterCursor = input['after_cursor'];
       final prompt = input['prompt'];
@@ -50,6 +61,10 @@ void main() {
           accessToken is! String ||
           rotatedAccessToken is! String ||
           conversationID is! String ||
+          clientInstanceID is! String ||
+          sessionViewJSON is! Map ||
+          resourceViewJSON is! Map ||
+          inventoryV2JSON is! Map ||
           expectedVersion is! int ||
           afterCursor is! int ||
           prompt is! String ||
@@ -61,6 +76,39 @@ void main() {
           idempotencyKey.isEmpty) {
         throw const FormatException('Invalid host-side native E2E input.');
       }
+      final expectedSessionView = ForgeClientInstanceSessionView.fromJson(
+        sessionViewJSON,
+      );
+      final expectedResourceView = ForgeClientInstanceResourceView.fromJson(
+        resourceViewJSON,
+      );
+      final expectedInventoryV2 = ForgeDeviceInventoryPageV2.fromJson(
+        inventoryV2JSON,
+      );
+      final expectedPair = ForgeClientInstanceSessionResourceConvergence.fromJson({
+        'schema_version': forgeClientInstanceSessionResourceConvergenceSchema,
+        'evaluation_mode':
+            forgeClientInstanceSessionResourceConvergenceEvaluationMode,
+        'session_view': expectedSessionView.toJson(),
+        'resource_view': expectedResourceView.toJson(),
+        'converged': true,
+        'read_only': true,
+        'authority':
+            const ForgeClientInstanceSessionResourceConvergenceAuthority.offline()
+                .toJson(),
+      });
+      final owner = expectedPair.owner;
+      expect(expectedPair.isDisplayOnly, isTrue);
+      _expectSelectedMobileInstance(
+        expectedPair,
+        clientInstanceID,
+        conversationID,
+      );
+      _expectInventoryV2Observation(
+        expectedInventoryV2,
+        expectedResourceView,
+        owner,
+      );
 
       // The memory backend is the test double for the native secure store.
       // Keeping it alive across store instances models two independently
@@ -106,6 +154,39 @@ void main() {
       );
 
       try {
+        final firstPair = await firstAPI.readConvergedClientInstanceViews(
+          owner: owner,
+        );
+        expect(firstPair.isDisplayOnly, isTrue);
+        expect(firstPair.sessionView.toJson(), expectedSessionView.toJson());
+        expect(firstPair.resourceView.toJson(), expectedResourceView.toJson());
+        _expectSelectedMobileInstance(
+          firstPair,
+          clientInstanceID,
+          conversationID,
+        );
+        final firstInventoryV2 = await firstAPI.readDeviceInventoryCandidateV2(
+          owner: owner,
+        );
+        _expectInventoryV2Observation(
+          firstInventoryV2,
+          firstPair.resourceView,
+          owner,
+        );
+        expect(
+          jsonEncode(firstInventoryV2.toJson()),
+          jsonEncode(expectedInventoryV2.toJson()),
+        );
+        final firstSchedulerPreview = await firstAPI.previewSchedulerSelection(
+          request: _schedulerPreviewRequest(conversationID),
+          candidateOrigin: apiURL,
+        );
+        _expectSchedulerPreview(
+          firstSchedulerPreview,
+          owner: owner,
+          conversationID: conversationID,
+        );
+
         final firstPage = await firstAPI.listConversations(limit: 50);
         final firstConversation = firstPage.conversations.singleWhere(
           (entry) => entry.conversation.id == conversationID,
@@ -180,6 +261,39 @@ void main() {
         httpClient: http.Client(),
       );
       try {
+        final secondPair = await secondAPI.readConvergedClientInstanceViews(
+          owner: owner,
+        );
+        expect(secondPair.isDisplayOnly, isTrue);
+        expect(secondPair.sessionView.toJson(), expectedSessionView.toJson());
+        expect(secondPair.resourceView.toJson(), expectedResourceView.toJson());
+        _expectSelectedMobileInstance(
+          secondPair,
+          clientInstanceID,
+          conversationID,
+        );
+        final secondInventoryV2 = await secondAPI
+            .readDeviceInventoryCandidateV2(owner: owner);
+        _expectInventoryV2Observation(
+          secondInventoryV2,
+          secondPair.resourceView,
+          owner,
+        );
+        expect(
+          jsonEncode(secondInventoryV2.toJson()),
+          jsonEncode(expectedInventoryV2.toJson()),
+        );
+        final secondSchedulerPreview = await secondAPI
+            .previewSchedulerSelection(
+              request: _schedulerPreviewRequest(conversationID),
+              candidateOrigin: apiURL,
+            );
+        _expectSchedulerPreview(
+          secondSchedulerPreview,
+          owner: owner,
+          conversationID: conversationID,
+        );
+
         final secondPage = await secondAPI.listConversations(limit: 50);
         final secondConversation = secondPage.conversations.singleWhere(
           (entry) => entry.conversation.id == conversationID,
@@ -216,11 +330,17 @@ void main() {
         expect(matching, hasLength(1));
         expect(matching.single.id, replayed.prompt.id);
 
-        final changes = await secondAPI.conversationChanges(
+        // Native cold start #2 uses the explicit authenticated SSE transport
+        // once the owner cursor has been restored. The normal Sessions Gate
+        // remains polling/default-off; this is evidence for the shared mobile
+        // API path only.
+        final changes = await secondAPI.conversationChangesStream(
           afterCursor: restoredSecondCursor,
           limit: 128,
+          waitMS: 0,
         );
-        expect(changes.afterCursor, restoredSecondCursor);
+        expect(changes, isNotNull);
+        expect(changes!.afterCursor, restoredSecondCursor);
         expect(changes.scannedThroughCursor, greaterThan(restoredSecondCursor));
         final promptChanges = changes.changes
             .where(
@@ -247,4 +367,100 @@ void main() {
         ? 'Run through scripts/test-forge-shared-session-e2e.sh.'
         : false,
   );
+}
+
+ForgeSchedulerSelectionPreviewRequest _schedulerPreviewRequest(
+  String conversationID,
+) => ForgeSchedulerSelectionPreviewRequest(
+  conversationID: conversationID,
+  runID: 'native-scheduler-run',
+  attemptID: 'native-scheduler-attempt',
+  requirements: const ForgeDevicePlacementRequirements(
+    os: 'linux',
+    architecture: 'amd64',
+    minCPUCores: 1,
+    minMemoryBytes: 1,
+    minStorageBytes: 1,
+    runtime: 'go',
+    gpu: ForgeDevicePlacementGpuRequirement(
+      required: false,
+      minMemoryBytes: 0,
+      runtime: '',
+    ),
+    dataResidencyZones: ['us-west'],
+    minimumTrustZone: 'untrusted',
+    sandboxFloor: 'process',
+    concurrencySlots: 1,
+  ),
+);
+
+void _expectSchedulerPreview(
+  ForgeSchedulerSelectionPreview preview, {
+  required ForgeDeviceOwner owner,
+  required String conversationID,
+}) {
+  expect(preview.owner.toJson(), owner.toJson());
+  expect(preview.conversationID, conversationID);
+  expect(preview.runID, 'native-scheduler-run');
+  expect(preview.attemptID, 'native-scheduler-attempt');
+  expect(preview.evaluatedAtMS, 300000);
+  expect(preview.candidateCount, 1);
+  expect(preview.eligibleCandidateCount, 1);
+  expect(preview.selectionAvailable, isTrue);
+  expect(preview.selectionReason, 'first_sorted_eligible_candidate');
+  expect(preview.selectedDeviceID, 'device-a');
+  expect(preview.selectedInstanceID, 'runner-a');
+  expect(preview.previewOnly, isTrue);
+  expect(preview.authority.anyGranted, isFalse);
+}
+
+void _expectSelectedMobileInstance(
+  ForgeClientInstanceSessionResourceConvergence pair,
+  String clientInstanceID,
+  String conversationID,
+) {
+  final sessionMatches = pair.sessionView.instances
+      .where((value) => value.instanceID == clientInstanceID)
+      .toList(growable: false);
+  final resourceMatches = pair.resourceView.instances
+      .where((value) => value.instanceID == clientInstanceID)
+      .toList(growable: false);
+  expect(sessionMatches, hasLength(1));
+  expect(resourceMatches, hasLength(1));
+  expect(sessionMatches.single.clientKind, 'mobile');
+  expect(sessionMatches.single.sessionIDs, contains(conversationID));
+  expect(resourceMatches.single.toJson(), sessionMatches.single.toJson());
+}
+
+void _expectInventoryV2Observation(
+  ForgeDeviceInventoryPageV2 inventory,
+  ForgeClientInstanceResourceView resourceView,
+  ForgeDeviceOwner owner,
+) {
+  expect(resourceView.isDisplayOnly, isTrue);
+  expect(resourceView.owner.toJson(), owner.toJson());
+  expect(inventory.owner.toJson(), owner.toJson());
+  expect(inventory.ownerDeclarationUnverified, isTrue);
+  expect(inventory.inventoryDeclarationsUnverified, isTrue);
+  expect(inventory.executionAuthorized, isFalse);
+  expect(inventory.reservationCreated, isFalse);
+  expect(inventory.dispatchPerformed, isFalse);
+  expect(inventory.devices, hasLength(1));
+  final candidate = inventory.devices.single;
+  expect(candidate.instanceID, 'runner-a');
+  expect(candidate.revision, 1);
+  expect(candidate.generation, 1);
+  expect(candidate.heartbeatSequence, 1);
+  expect(candidate.device.owner.toJson(), owner.toJson());
+  expect(candidate.device.deviceID, 'device-a');
+  expect(candidate.device.reservationState, 'reserved');
+  expect(candidate.device.gpus, hasLength(2));
+  final resourceDevice = resourceView.devices.singleWhere(
+    (device) => device.runnerInstanceID == candidate.instanceID,
+  );
+  expect(resourceDevice.deviceID, candidate.device.deviceID);
+  expect(resourceDevice.owner.toJson(), owner.toJson());
+  expect(resourceDevice.revision, candidate.revision);
+  expect(resourceDevice.generation, candidate.generation);
+  expect(resourceDevice.heartbeatSequence, candidate.heartbeatSequence);
 }

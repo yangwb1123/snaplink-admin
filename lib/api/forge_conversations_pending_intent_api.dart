@@ -269,7 +269,10 @@ extension ForgeConversationsApiPendingRunIntent on ForgeConversationsApi {
         submission.initialEvent.sequence != 1 ||
         submission.initialEvent.type != 'submitted' ||
         submission.initialEvent.emittedAtMS !=
-            submission.intent.submittedAtMS) {
+            submission.intent.submittedAtMS ||
+        (!submission.replayed &&
+            (expectedVersion >= forgePendingRunIntentMaxSafeInteger ||
+                submission.intent.aggregateVersion != expectedVersion + 1))) {
       throw const FormatException(
         'Forge returned an invalid pending Run-intent submission.',
       );

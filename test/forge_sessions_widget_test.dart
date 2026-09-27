@@ -386,6 +386,261 @@ void main() {
     expect(find.text('Updated from CLI'), findsWidgets);
   });
 
+  testWidgets(
+    'does not keep a deleted selected session after an owner refresh',
+    (tester) async {
+      var conversationReads = 0;
+      final client = MockClient((request) async {
+        final emptyRuns = _emptyRunPageWhenRequested(request);
+        if (emptyRuns != null) return emptyRuns;
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations') {
+          conversationReads++;
+          return _json({
+            'conversations': conversationReads == 1
+                ? [_owned('conversation-1', 'Deleted work', 1)]
+                : [_owned('conversation-2', 'Remaining work', 1)],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations/conversation-1') {
+          return _json({'code': 'not_found', 'message': 'gone'}, status: 404);
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/prompts') {
+          return _json({
+            'conversation_id': 'conversation-1',
+            'prompts': [
+              _prompt('old-prompt', 'conversation-1', 'stale private text', 30),
+            ],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversation-changes') {
+          final cursor = int.parse(
+            request.url.queryParameters['after_cursor']!,
+          );
+          return _json({
+            'after_cursor': cursor,
+            'scanned_through_cursor': cursor,
+            'has_more': false,
+            'changes': <Object>[],
+          });
+        }
+        throw StateError(
+          'Unexpected Forge request: ${request.method} ${request.url}',
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: _forgeToken('deleted-session-user'),
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+          ),
+        ),
+      );
+      await _pumpRequests(tester);
+      expect(find.text('Deleted work'), findsWidgets);
+      expect(find.text('stale private text'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.refresh),
+        ),
+      );
+      await _pumpRequests(tester);
+
+      expect(conversationReads, 2);
+      expect(find.text('Remaining work'), findsOneWidget);
+      expect(find.text('Deleted work'), findsNothing);
+      expect(find.text('stale private text'), findsNothing);
+      expect(find.text('gone'), findsWidgets);
+    },
+  );
+
+  testWidgets(
+    'drops a selected session when its private Prompt read is rejected',
+    (tester) async {
+      var promptReads = 0;
+      final client = MockClient((request) async {
+        final emptyRuns = _emptyRunPageWhenRequested(request);
+        if (emptyRuns != null) return emptyRuns;
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_owned('conversation-1', 'Private work', 1)],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/prompts') {
+          promptReads++;
+          if (promptReads == 1) {
+            return _json({
+              'conversation_id': 'conversation-1',
+              'prompts': [
+                _prompt(
+                  'private-prompt',
+                  'conversation-1',
+                  'stale private text',
+                  30,
+                ),
+              ],
+              'has_more': false,
+            });
+          }
+          return _json({'code': 'not_found', 'message': 'gone'}, status: 404);
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversation-changes') {
+          final cursor = int.parse(
+            request.url.queryParameters['after_cursor']!,
+          );
+          return _json({
+            'after_cursor': cursor,
+            'scanned_through_cursor': cursor,
+            'has_more': false,
+            'changes': <Object>[],
+          });
+        }
+        throw StateError(
+          'Unexpected Forge request: ${request.method} ${request.url}',
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: _forgeToken('prompt-rejected-user'),
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+          ),
+        ),
+      );
+      await _pumpRequests(tester);
+      expect(find.text('Private work'), findsWidgets);
+      expect(find.text('stale private text'), findsOneWidget);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.refresh),
+        ),
+      );
+      await _pumpRequests(tester);
+
+      expect(promptReads, 2);
+      expect(find.text('Private work'), findsNothing);
+      expect(find.text('stale private text'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'drops a selected session when its private Run read is rejected',
+    (tester) async {
+      var runReads = 0;
+      final client = MockClient((request) async {
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_owned('conversation-1', 'Private run', 1)],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/prompts') {
+          return _json({
+            'conversation_id': 'conversation-1',
+            'prompts': [
+              _prompt('prompt-1', 'conversation-1', 'run prompt', 30),
+            ],
+            'has_more': false,
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations/conversation-1/runs') {
+          runReads++;
+          if (runReads == 1) {
+            return _json({
+              'conversation_id': 'conversation-1',
+              'runs': [
+                {
+                  'run_id': 'run-1',
+                  'prompt_id': 'prompt-1',
+                  'created_at_ms': 30,
+                  'latest_sequence': 1,
+                  'status': 'completed',
+                },
+              ],
+              'has_more': false,
+            });
+          }
+          return _json({'code': 'not_found', 'message': 'gone'}, status: 404);
+        }
+        if (request.method == 'GET' &&
+            request.url.path ==
+                '/api/v1/conversations/conversation-1/runs/run-1/timeline') {
+          return _json({
+            'conversation_id': 'conversation-1',
+            'run_id': 'run-1',
+            'after_sequence': 0,
+            'scanned_through_sequence': 1,
+            'has_more': false,
+            'events': [
+              {'seq': 1, 'emitted_at_ms': 30, 'type': 'run_started'},
+            ],
+          });
+        }
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversation-changes') {
+          final cursor = int.parse(
+            request.url.queryParameters['after_cursor']!,
+          );
+          return _json({
+            'after_cursor': cursor,
+            'scanned_through_cursor': cursor,
+            'has_more': false,
+            'changes': <Object>[],
+          });
+        }
+        throw StateError(
+          'Unexpected Forge request: ${request.method} ${request.url}',
+        );
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsScreen(
+            accessToken: _forgeToken('run-rejected-user'),
+            apiOrigin: 'https://forge.example',
+            httpClient: client,
+          ),
+        ),
+      );
+      await _pumpRequests(tester);
+      expect(find.text('Private run'), findsWidgets);
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AppBar),
+          matching: find.byIcon(Icons.refresh),
+        ),
+      );
+      await _pumpRequests(tester);
+
+      expect(runReads, greaterThanOrEqualTo(2));
+      expect(find.text('Private run'), findsNothing);
+    },
+  );
+
   testWidgets('coalesces duplicate foreground lifecycle refreshes', (
     tester,
   ) async {
@@ -1584,4 +1839,5 @@ void main() {
       );
     },
   );
+
 }

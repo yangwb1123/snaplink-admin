@@ -51,11 +51,17 @@ FORGE_IOS_SHARED_SESSION_INPUT=/private/path/forge-ios-shared-session.json \
 
 The JSON has exactly the following fields: `platform` (`ios-simulator` or
 `ios-device`), `api_url`, the original and rotated access tokens,
-`conversation_id`, `expected_version`, `after_cursor`, `prompt`, and
-`idempotency_key`. `https` origins are accepted; `http` is accepted only for
-loopback. The XCTest asserts the explicit opt-in marker, credential rotation
-shape, and the request allowlist: Conversation listing, change-feed reads,
-and the owner Conversation's Prompt GET/POST. Device, inventory, placement,
+`conversation_id`, `client_instance_id`, strict display-only `session_view`
+and `resource_view` observations, `expected_version`, `after_cursor`,
+`prompt`, and `idempotency_key`. The selected instance must be a `mobile`
+row, contain the Conversation in both observations, and have identical
+owner-bound instance rows and an offline authority declaration. A missing or
+hidden row, owner drift, or instance drift rejects the input before a Prompt
+request can be considered. `https` origins are accepted; `http` is accepted
+only for loopback. The XCTest asserts the explicit opt-in marker, credential
+rotation shape, and the request allowlist: Conversation listing, change-feed
+reads, owner client-instance/session-view and resource-view GETs, and the
+owner Conversation's Prompt GET/POST. Device, inventory mutation, placement,
 reservation, dispatch, run-intent, execution, receipt, and heartbeat paths are
 rejected. On Linux the script reports a skip after validating the input,
 because physical iOS XCTest requires macOS and `xcodebuild`.
@@ -73,3 +79,17 @@ ceiling. The authenticated Go → Rust → Flutter `ios-host`
 journey above remains the evidence path for the real Coordinator contract;
 the XCTest keeps the future native runner's input and route boundary explicit
 until an Apple runner is available.
+
+## Metadata-only Runner admission contract
+
+`ios/tests/run_forge_admission_contract.sh` runs the Linux-safe native
+contract subset for both iOS and Android evidence. It validates the strict
+dispatch and transport admission response shapes, binds their owner and
+target to the read-only resource image, and rejects foreign targets or any
+authority flag. The local trace permits only session/resource reads and the
+two admission preview endpoints; direct Runner dispatch is rejected.
+
+This contract harness does not invoke `xcodebuild`, a simulator, HTTP, a
+transport payload, reservation, or execution. The opt-in XCTest and the
+authenticated `ios-host` journey remain separate platform evidence and retain
+their existing default-off boundaries.

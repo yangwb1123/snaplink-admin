@@ -354,7 +354,7 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
-      await tester.pump();
+      await tester.pump(const Duration(seconds: 21));
     },
   );
 

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
 import 'package:sso_admin/api/forge_device_inventory_v2_models.dart';
+import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
 import 'package:sso_admin/screens/forge/forge_sessions_gate.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/services/forge_credential_store.dart';
@@ -43,6 +44,8 @@ Map<String, dynamic> _inventory() => {
 http.Client _client({
   List<Uri>? inventoryURLs,
   List<String?>? inventoryAuthorization,
+  List<Uri>? resourceURLs,
+  List<String?>? resourceAuthorization,
 }) => MockClient((request) async {
   final path = request.url.path;
   if (request.method == 'GET' && path == '/api/v1/conversations') {
@@ -83,8 +86,35 @@ http.Client _client({
     inventoryAuthorization?.add(request.headers['authorization']);
     return _json(_inventory());
   }
+  if (request.method == 'GET' &&
+      path == '/api/v1/client-instances/resource-view') {
+    resourceURLs?.add(request.url);
+    resourceAuthorization?.add(request.headers['authorization']);
+    return _json(_resourceView());
+  }
   throw StateError('Unexpected Forge request: ${request.method} $path');
 });
+
+Map<String, dynamic> _resourceView() => {
+  'schema_version': forgeClientInstanceResourceViewSchema,
+  'evaluation_mode': forgeClientInstanceResourceViewEvaluationMode,
+  'owner_declaration': _owner.toJson(),
+  'owner_declaration_unverified': true,
+  'instances': <Object>[],
+  'devices': <Object>[],
+  'device_attributes_unverified': true,
+  'read_only': true,
+  'authority': {
+    'owner_authenticated': false,
+    'session_read_authorized': false,
+    'prompt_write_authorized': false,
+    'device_identity_verified': false,
+    'reservation_created': false,
+    'execution_authorized': false,
+    'dispatch_performed': false,
+    'audit_published': false,
+  },
+};
 
 Future<void> _settle(WidgetTester tester) async {
   for (var index = 0; index < 8; index++) {
@@ -159,22 +189,73 @@ void main() {
       isTrue,
     );
     final inventoryURLs = <Uri>[];
+    final resourceURLs = <Uri>[];
 
     await tester.pumpWidget(
       MaterialApp(
         home: ForgeSessionsGate(
           credentialStore: credentialStore,
-          httpClient: _client(inventoryURLs: inventoryURLs),
+          httpClient: _client(
+            inventoryURLs: inventoryURLs,
+            resourceURLs: resourceURLs,
+          ),
           deviceInventoryOwner: _owner,
+          deviceInventoryResourceConvergenceOwner: _owner,
         ),
       ),
     );
     await _settle(tester);
 
     expect(inventoryURLs, isEmpty);
+    expect(resourceURLs, isEmpty);
     expect(
       find.byKey(const ValueKey('forge-authenticated-device-inventory-v2')),
       findsNothing,
     );
+  });
+
+  testWidgets('Gate paired candidate performs two owner-bound GETs', (
+    tester,
+  ) async {
+    final credentialStore = ForgeCredentialStore(
+      backend: MemoryForgeCredentialBackend(),
+      forcePersistentStorage: true,
+    );
+    expect(
+      await credentialStore.store(accessToken: 'convergence-gate-token'),
+      isTrue,
+    );
+    final inventoryURLs = <Uri>[];
+    final resourceURLs = <Uri>[];
+    final inventoryAuthorization = <String?>[];
+    final resourceAuthorization = <String?>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForgeSessionsGate(
+          credentialStore: credentialStore,
+          httpClient: _client(
+            inventoryURLs: inventoryURLs,
+            inventoryAuthorization: inventoryAuthorization,
+            resourceURLs: resourceURLs,
+            resourceAuthorization: resourceAuthorization,
+          ),
+          deviceInventoryResourceConvergenceOwner: _owner,
+          enableDeviceInventoryResourceConvergenceCandidate: true,
+          deviceInventoryResourceConvergenceCandidateApiOrigin:
+              'https://forge.example',
+        ),
+      ),
+    );
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(inventoryURLs, [
+      Uri.parse('https://forge.example/api/v1/devices/observations/v2'),
+    ]);
+    expect(resourceURLs, [
+      Uri.parse('https://forge.example/api/v1/client-instances/resource-view'),
+    ]);
+    expect(inventoryAuthorization, ['Bearer convergence-gate-token']);
+    expect(resourceAuthorization, ['Bearer convergence-gate-token']);
   });
 }

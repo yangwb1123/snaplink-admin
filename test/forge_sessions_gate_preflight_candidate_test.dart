@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:shared_preferences_platform_interface/in_memory_shared_preferences_async.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_async_platform_interface.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
+import 'package:sso_admin/api/forge_client_instance_session_resource_convergence.dart';
 import 'package:sso_admin/api/forge_run_attempt_lease_dispatch_preflight.dart';
 import 'package:sso_admin/screens/forge/forge_sessions_gate.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
@@ -80,7 +82,7 @@ void main() {
             'conversation_id': 'conversation-001',
             'run_id': 'run-001',
             'after_sequence': 0,
-            'scanned_through_sequence': 1,
+            'scanned_through_sequence': 0,
             'has_more': false,
             'events': <Object>[],
           });
@@ -173,6 +175,207 @@ void main() {
       expect(requests, hasLength(1));
     },
   );
+
+  testWidgets(
+    'preflight reads the selected client-instance pair before one candidate POST',
+    (tester) async {
+      final credentialStore = await _credentialStore(
+        'instance-preflight-token',
+      );
+      final request = _request();
+      final pair = _clientInstancePair();
+      final events = <String>[];
+      final candidateRequests = <http.Request>[];
+      final client = MockClient((httpRequest) async {
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_conversation()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/prompts') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'prompts': <Object>[],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/runs') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'runs': [_run()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/runs/run-001/timeline') {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'run_id': 'run-001',
+            'after_sequence': 0,
+            'scanned_through_sequence': 0,
+            'has_more': false,
+            'events': <Object>[],
+          });
+        }
+        if (httpRequest.method == 'POST' &&
+            httpRequest.url.path ==
+                '/api/v1/conversations/conversation-001/runs/run-001/attempt-lease-dispatch-preflight/preview') {
+          events.add('candidate');
+          candidateRequests.add(httpRequest);
+          expect(jsonDecode(httpRequest.body), request.toJson());
+          return _json(_response());
+        }
+        throw StateError(
+          'Unexpected Forge request: ${httpRequest.method} ${httpRequest.url}',
+        );
+      });
+      addTearDown(client.close);
+      addTearDown(credentialStore.clear);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsGate(
+            credentialStore: credentialStore,
+            httpClient: client,
+            initialConversationID: 'conversation-001',
+            initialClientInstanceID: 'client-cli-001',
+            clientInstanceSessionResourceConvergenceOwner: _owner,
+            clientInstanceSessionResourceConvergenceReader: (_) async {
+              events.add('client-instance-pair');
+              return pair;
+            },
+            runAttemptLeaseDispatchPreflightRequest: request,
+            enableRunAttemptLeaseDispatchPreflightCandidate: true,
+            runAttemptLeaseDispatchPreflightCandidateApiOrigin:
+                'https://candidate.example',
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(candidateRequests, hasLength(1));
+      final candidateIndex = events.indexOf('candidate');
+      expect(candidateIndex, greaterThan(0));
+      expect(
+        events.sublist(0, candidateIndex),
+        everyElement('client-instance-pair'),
+      );
+    },
+  );
+
+  testWidgets(
+    'preflight stays request-free when the selected instance hides the Run',
+    (tester) async {
+      final credentialStore = await _credentialStore(
+        'hidden-instance-preflight-token',
+      );
+      final request = _request();
+      var pairReads = 0;
+      final candidateRequests = <http.Request>[];
+      final client = MockClient((httpRequest) async {
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path == '/api/v1/conversations') {
+          return _json({
+            'conversations': [_conversation()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path.contains('/prompts')) {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'prompts': <Object>[],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path.endsWith('/runs')) {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'runs': [_run()],
+            'has_more': false,
+          });
+        }
+        if (httpRequest.method == 'GET' &&
+            httpRequest.url.path.endsWith('/timeline')) {
+          return _json({
+            'conversation_id': 'conversation-001',
+            'run_id': 'run-001',
+            'after_sequence': 0,
+            'scanned_through_sequence': 0,
+            'has_more': false,
+            'events': <Object>[],
+          });
+        }
+        if (httpRequest.method == 'POST' &&
+            httpRequest.url.path.contains('attempt-lease-dispatch-preflight')) {
+          candidateRequests.add(httpRequest);
+          throw StateError('Hidden client instance must block preflight POST.');
+        }
+        throw StateError(
+          'Unexpected Forge request: ${httpRequest.method} ${httpRequest.url}',
+        );
+      });
+      addTearDown(client.close);
+      addTearDown(credentialStore.clear);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsGate(
+            credentialStore: credentialStore,
+            httpClient: client,
+            initialConversationID: 'conversation-001',
+            initialClientInstanceID: 'client-cli-001',
+            clientInstanceSessionResourceConvergenceOwner: _owner,
+            clientInstanceSessionResourceConvergenceReader: (_) async {
+              pairReads++;
+              return _clientInstancePair(hidden: pairReads > 1);
+            },
+            runAttemptLeaseDispatchPreflightRequest: request,
+            enableRunAttemptLeaseDispatchPreflightCandidate: true,
+            runAttemptLeaseDispatchPreflightCandidateApiOrigin:
+                'https://candidate.example',
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(pairReads, greaterThan(1));
+      expect(candidateRequests, isEmpty);
+    },
+  );
+}
+
+ForgeClientInstanceSessionResourceConvergence _clientInstancePair({
+  bool hidden = false,
+}) {
+  final source = File(
+    'docs/contracts/fixtures/forge-client-instance-session-resource-convergence-v1.json',
+  ).readAsStringSync();
+  final decoded = jsonDecode(source);
+  if (!hidden) {
+    return ForgeClientInstanceSessionResourceConvergence.fromJson(decoded);
+  }
+  final mutable = jsonDecode(jsonEncode(decoded)) as Map<String, dynamic>;
+  for (final viewKey in const ['session_view', 'resource_view']) {
+    final view = mutable[viewKey] as Map<String, dynamic>;
+    final instances = (view['instances'] as List)
+        .map((value) => Map<String, dynamic>.from(value as Map))
+        .toList(growable: false);
+    final selected = instances.singleWhere(
+      (value) => value['instance_id'] == 'client-cli-001',
+    );
+    selected['session_ids'] = ['conversation-002'];
+    view['instances'] = instances;
+  }
+  return ForgeClientInstanceSessionResourceConvergence.fromJson(mutable);
 }
 
 Future<ForgeCredentialStore> _credentialStore(String token) async {

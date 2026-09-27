@@ -10,8 +10,11 @@ import '../../services/forge_credential_store.dart';
 import '../../services/browser_navigation.dart';
 import '../../api/forge_conversations_api.dart';
 import '../../api/forge_conversations_models.dart';
+import '../../api/forge_prompt_append_receipt.dart';
 import '../../api/forge_attempt_request_preview.dart';
 import '../../api/forge_device_inventory_models.dart';
+import '../../api/forge_scheduler_selection_preview.dart';
+import '../../api/forge_scheduler_selection_lease.dart';
 import '../../api/forge_pending_run_intent.dart';
 import '../../api/forge_runner_lease_fencing.dart';
 import '../../api/forge_execution_lease_checkpoint.dart';
@@ -22,26 +25,65 @@ import '../../api/forge_local_runner_preview.dart';
 import '../../api/forge_run_execution_evidence.dart';
 import '../../api/forge_run_observed.dart';
 import '../../api/forge_session_runner_receipt_observation.dart';
+import '../../api/forge_session_runner_receipt_vectors.dart';
+import '../../api/forge_session_runner_receipt_history.dart';
+import '../../api/forge_session_runner_reconciliation_projection.dart';
 import '../../api/forge_execution_reconciliation_observation.dart';
 import '../../api/forge_device_enrollment_heartbeat_lifecycle_registry.dart';
 import '../../api/forge_device_credential_candidate.dart';
 import '../../api/forge_client_instance_session_view.dart';
 import '../../api/forge_client_instance_resource_view.dart';
+import '../../api/forge_client_instance_session_resource_convergence.dart';
 import '../../api/forge_preflight_fixture.dart';
 import '../../api/forge_run_attempt_lease_dispatch_preflight.dart';
 import '../../api/forge_runner_dispatch_plan_preview.dart';
+import '../../api/forge_runner_dispatch_admission.dart';
+import '../../api/forge_runner_transport_admission.dart';
+import '../../api/forge_runner_execution_boundary.dart';
+import '../../api/forge_runner_attempt_boundary.dart';
 import 'forge_sessions_screen.dart';
 import 'forge_sessions_device_observation.dart';
 
 class ForgeSessionsGate extends StatefulWidget {
   final ForgeCredentialStore? credentialStore;
   final String? initialConversationID;
+
+  /// Optional local client-instance selection hint. The value only narrows
+  /// the owner-scoped list after a caller-supplied instance observation has
+  /// converged; it never authenticates an instance or changes API requests.
+  final String? initialClientInstanceID;
+
+  /// Enables the explicitly reviewed, owner-scoped Conversation SSE read for
+  /// a candidate or integration harness. The default Gate keeps polling.
+  @visibleForTesting
+  final bool enableConversationChangesStream;
+
+  /// Bounded wait for the optional Conversation SSE read. The screen keeps
+  /// its own upper-bound validation; the Gate default remains 15 seconds.
+  @visibleForTesting
+  final int conversationChangesStreamWaitMS;
+
   @visibleForTesting
   final http.Client? httpClient;
   final ForgeSessionDeviceObservation? deviceObservation;
   final ForgeSessionPlacementRequest? deviceObservationRequest;
   final ForgeRunIntentObservation? runIntentObservation;
   final ForgeRunnerExecutionIntentObservation? runnerExecutionIntentObservation;
+
+  /// Explicit request and reader for the authenticated Runner
+  /// execution-intent preview candidate. The default Gate leaves these unset
+  /// and therefore makes no candidate request.
+  final ForgeRunnerExecutionIntentRequest? runnerExecutionIntentRequest;
+  final ForgeRunnerExecutionIntentReader? runnerExecutionIntentReader;
+
+  /// Enables the reviewed, read-only Runner execution-intent candidate for a
+  /// test or candidate harness. Production construction keeps this disabled.
+  @visibleForTesting
+  final bool enableRunnerExecutionIntentCandidate;
+
+  /// Candidate-only origin for the Runner execution-intent POST.
+  @visibleForTesting
+  final String? runnerExecutionIntentCandidateApiOrigin;
 
   /// Optional local Runner execution-readiness observation. It remains
   /// display-only and process-local; supplying it never executes a command.
@@ -65,6 +107,12 @@ class ForgeSessionsGate extends StatefulWidget {
   final String? localRunnerPreviewCandidateApiOrigin;
   final ForgeRunObserved? runObserved;
   final ForgeRunObservedReader? runObservedReader;
+
+  /// Explicit independent reader for the selected Run's content-free Runner
+  /// receipt. It is forwarded only as an injected callback; the default Gate
+  /// leaves it unset and does not derive or mount a receipt API route.
+  final ForgeSessionRunnerReceiptObservationReader?
+  sessionRunnerReceiptObservationReader;
 
   /// Enables the explicitly reviewed, read-only Run observation candidate
   /// adapter for a test or candidate harness. The default Gate keeps this
@@ -92,6 +140,74 @@ class ForgeSessionsGate extends StatefulWidget {
   final String? deviceInventoryV2CandidateApiOrigin;
   final ForgeRunExecutionEvidence? runExecutionEvidence;
   final ForgeSessionRunnerReceiptObservation? sessionRunnerReceiptObservation;
+  final ForgeSessionRunnerReceiptVectors? sessionRunnerReceiptVectorsPreview;
+  final ForgeSessionRunnerReceiptVectorsFileReader?
+  sessionRunnerReceiptVectorsFileReader;
+  final ForgeSessionRunnerReceiptHistory? sessionRunnerReceiptHistoryPreview;
+  final ForgeSessionRunnerReceiptHistoryFileReader?
+  sessionRunnerReceiptHistoryFileReader;
+  final ForgeSessionRunnerReconciliationProjection?
+  sessionRunnerReconciliationProjectionPreview;
+  final ForgeSessionRunnerReconciliationProjectionFileReader?
+  sessionRunnerReconciliationProjectionFileReader;
+
+  /// Explicit request and reader for the authenticated, read-only EXECUTE
+  /// receipt-history reduction candidate. The default Gate leaves both unset
+  /// so the shared Web/App/Mobile surface never requests history remotely.
+  final ForgeSessionRunnerReceiptHistory? sessionRunnerReceiptHistoryRequest;
+  final ForgeSessionRunnerReceiptHistoryReader?
+  sessionRunnerReceiptHistoryReader;
+
+  /// Explicit request and reader for the authenticated, read-only manual
+  /// reconciliation projection candidate. The default Gate leaves both
+  /// unset so the shared Web/App/Mobile surface never requests it remotely.
+  final ForgeSessionRunnerReceiptHistory?
+  sessionRunnerReconciliationProjectionRequest;
+  final ForgeSessionRunnerReconciliationProjectionReader?
+  sessionRunnerReconciliationProjectionReader;
+
+  /// Enables the reviewed reconciliation projection reader for a test or
+  /// candidate harness. Production construction keeps this false.
+  @visibleForTesting
+  final bool enableSessionRunnerReconciliationProjectionCandidate;
+
+  /// Candidate-only origin for the reconciliation projection POST. It is
+  /// required when the candidate is enabled.
+  @visibleForTesting
+  final String? sessionRunnerReconciliationProjectionCandidateApiOrigin;
+
+  /// Enables the explicit two-step reconciliation candidate for a test or
+  /// candidate harness. When enabled, the Gate first canonicalizes the
+  /// supplied history through the history preview and then derives the
+  /// projection from that returned value. Production construction keeps this
+  /// false, so the default Gate remains request-free.
+  @visibleForTesting
+  final bool enableSessionRunnerReconciliationProjectionHistoryChainCandidate;
+
+  /// Enables the reviewed remote history reader for a test or candidate
+  /// harness. Production construction keeps this false.
+  @visibleForTesting
+  final bool enableSessionRunnerReceiptHistoryCandidate;
+
+  /// Candidate-only origin for the history reduction POST. It is required
+  /// when [enableSessionRunnerReceiptHistoryCandidate] is true.
+  @visibleForTesting
+  final String? sessionRunnerReceiptHistoryCandidateApiOrigin;
+
+  /// Explicit reader for the authenticated Run/receipt evidence join. The
+  /// default Gate leaves it unset, so the shared Web/App/Mobile surface makes
+  /// no evidence request during startup or refresh.
+  final ForgeRunExecutionEvidenceReader? runExecutionEvidenceReader;
+
+  /// Enables the reviewed, read-only Run execution-evidence candidate for a
+  /// test or candidate harness. Production construction keeps this false.
+  @visibleForTesting
+  final bool enableRunExecutionEvidenceCandidate;
+
+  /// Candidate-only origin for the Run execution-evidence POST. It must be
+  /// explicit when [enableRunExecutionEvidenceCandidate] is true.
+  @visibleForTesting
+  final String? runExecutionEvidenceCandidateApiOrigin;
 
   /// Optional caller-supplied restart-boundary reconciliation observation.
   /// The Gate never fetches it by default; when supplied it remains strictly
@@ -134,6 +250,32 @@ class ForgeSessionsGate extends StatefulWidget {
   /// display-only value and never creates a Run or dispatches a task.
   final ForgeAttemptRequestPreviewFixture? attemptRequestPreview;
 
+  /// Optional local Runner Attempt lifecycle boundary observation. It is
+  /// accepted only through the explicit scope below and never opens a route.
+  final ForgeRunnerAttemptBoundaryObservation? runnerAttemptBoundaryPreview;
+  final ForgeRunnerAttemptBoundaryScope? runnerAttemptBoundaryScope;
+  final ForgeRunnerAttemptBoundaryFileReader? runnerAttemptBoundaryFileReader;
+
+  /// Explicit request and reader for the authenticated Attempt boundary
+  /// preview candidate. The default Gate leaves both unset and request-free.
+  final ForgeRunnerAttemptBoundaryPreviewRequest? runnerAttemptBoundaryRequest;
+  final ForgeRunnerAttemptBoundaryReader? runnerAttemptBoundaryReader;
+
+  /// Enables the reviewed, read-only Attempt boundary candidate for a test or
+  /// candidate harness. Production construction keeps this disabled.
+  @visibleForTesting
+  final bool enableRunnerAttemptBoundaryCandidate;
+
+  /// Candidate-only origin for the Attempt boundary POST. It must match the
+  /// API origin exactly when the candidate is enabled.
+  @visibleForTesting
+  final String? runnerAttemptBoundaryCandidateApiOrigin;
+
+  /// Enables the explicit local Attempt boundary projection/import seam. The
+  /// default Gate keeps this disabled and request-free.
+  @visibleForTesting
+  final bool enableRunnerAttemptBoundaryProjection;
+
   /// Optional caller-supplied pending Run-intent receipt. It remains a
   /// metadata-only display value and never creates or dispatches a Run.
   final ForgePendingRunIntentFixture? pendingRunIntentPreview;
@@ -149,6 +291,31 @@ class ForgeSessionsGate extends StatefulWidget {
   final ForgeDeviceOwner? pendingRunIntentOwner;
   @visibleForTesting
   final String? pendingRunIntentCandidateApiOrigin;
+
+  /// Explicit owner and submitter for the authenticated, content-free Prompt
+  /// append receipt path. Supplying these values is the only way for the
+  /// Sessions Screen to consume the receipt projection; the default Gate
+  /// leaves both unset and request-free.
+  final ForgeDeviceOwner? promptAppendReceiptOwner;
+  final ForgePromptAppendReceiptSubmitter? promptAppendReceiptSubmitter;
+
+  /// Enables the reviewed Prompt append receipt adapter for a test or
+  /// candidate harness. Production construction keeps this false.
+  @visibleForTesting
+  final bool enablePromptAppendReceiptCandidate;
+
+  /// Candidate-only origin for the authenticated Prompt append receipt POST.
+  /// It must be explicit when the candidate is enabled.
+  @visibleForTesting
+  final String? promptAppendReceiptCandidateApiOrigin;
+
+  /// Requires an owner-bound inventory/resource convergence before an
+  /// explicit Prompt append can be submitted. The default remains false so
+  /// the ordinary storage-only Prompt journey is unchanged; candidate
+  /// harnesses can enable this to keep the selected shared-session journey
+  /// aligned with its resource observation.
+  @visibleForTesting
+  final bool requireDeviceInventoryResourceConvergenceForPromptAppend;
 
   /// Optional, explicitly injected owner-bound inventory candidate seam. The
   /// default Gate does not provide it, so production `/devices` remains
@@ -172,6 +339,23 @@ class ForgeSessionsGate extends StatefulWidget {
   /// The default Gate leaves it unset, so no v2 device request is made.
   final ForgeDeviceInventoryV2Reader? deviceInventoryV2Reader;
 
+  /// Optional, explicitly injected owner-bound paired inventory/resource
+  /// reader. The default Gate leaves it unset, so the two candidate GETs are
+  /// never issued as a pair.
+  final ForgeDeviceOwner? deviceInventoryResourceConvergenceOwner;
+  final ForgeDeviceInventoryResourceConvergenceReader?
+  deviceInventoryResourceConvergenceReader;
+
+  /// Enables the reviewed, read-only paired inventory/resource candidate for
+  /// a test or candidate harness. Normal Web/App/Mobile construction keeps it
+  /// disabled and request-free.
+  @visibleForTesting
+  final bool enableDeviceInventoryResourceConvergenceCandidate;
+
+  /// Candidate-only origin for the paired inventory/resource GETs.
+  @visibleForTesting
+  final String? deviceInventoryResourceConvergenceCandidateApiOrigin;
+
   /// Optional requirements for the explicit registry-backed placement
   /// preview candidate. The default Gate leaves this unset, so no POST is
   /// issued and production scheduling remains unreachable.
@@ -189,6 +373,80 @@ class ForgeSessionsGate extends StatefulWidget {
   /// Candidate-only origin for the registry placement preview adapter.
   @visibleForTesting
   final String? deviceInventoryRegistryPlacementPreviewCandidateApiOrigin;
+
+  /// Explicit request and reader for the planning-only scheduler-selection
+  /// preview. The default Gate leaves it disabled and request-free.
+  final ForgeSchedulerSelectionPreviewRequest? schedulerSelectionPreviewRequest;
+  final ForgeSchedulerSelectionPreviewReader? schedulerSelectionPreviewReader;
+
+  /// Enables the reviewed, read-only scheduler-selection adapter for a test
+  /// or candidate harness. Normal Web/App/Mobile construction keeps it off.
+  @visibleForTesting
+  final bool enableSchedulerSelectionPreviewCandidate;
+
+  /// Candidate-only origin for the scheduler-selection adapter.
+  @visibleForTesting
+  final String? schedulerSelectionPreviewCandidateApiOrigin;
+
+  /// Explicit request and reader for the accepted EXECUTE scheduler lease
+  /// claim. The default Gate leaves this unset and request-free.
+  final ForgeSchedulerSelectionLeaseRequest? schedulerSelectionLeaseRequest;
+  final ForgeSchedulerSelectionLeaseReader? schedulerSelectionLeaseReader;
+
+  /// Enables the reviewed scheduler-lease candidate for a test or candidate
+  /// harness. Claiming is single-shot and bound to the supplied key.
+  @visibleForTesting
+  final bool enableSchedulerSelectionLeaseCandidate;
+
+  /// Candidate-only origin for the scheduler-lease POST.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseCandidateApiOrigin;
+
+  /// Stable idempotency key retained across an explicit caller retry.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseIdempotencyKey;
+
+  /// Explicit request and reader for the accepted EXECUTE scheduler-lease
+  /// renewal. The default Gate leaves this unset and request-free.
+  final ForgeSchedulerSelectionLeaseRenewalRequest?
+  schedulerSelectionLeaseRenewalRequest;
+  final ForgeSchedulerSelectionLeaseRenewalReader?
+  schedulerSelectionLeaseRenewalReader;
+
+  /// Enables the reviewed scheduler-lease renewal candidate for a test or
+  /// candidate harness. Renewal is one-shot and bound to the supplied proof
+  /// and idempotency key.
+  @visibleForTesting
+  final bool enableSchedulerSelectionLeaseRenewalCandidate;
+
+  /// Candidate-only origin for the scheduler-lease renewal POST.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseRenewalCandidateApiOrigin;
+
+  /// Stable idempotency key retained across an explicit renewal retry.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseRenewalIdempotencyKey;
+
+  /// Explicit request and reader for the accepted EXECUTE scheduler-lease
+  /// release. The default Gate leaves this unset and request-free.
+  final ForgeSchedulerSelectionLeaseReleaseRequest?
+  schedulerSelectionLeaseReleaseRequest;
+  final ForgeSchedulerSelectionLeaseReleaseReader?
+  schedulerSelectionLeaseReleaseReader;
+
+  /// Enables the reviewed scheduler-lease release candidate for a test or
+  /// candidate harness. Release is one-shot and bound to the supplied proof
+  /// and idempotency key.
+  @visibleForTesting
+  final bool enableSchedulerSelectionLeaseReleaseCandidate;
+
+  /// Candidate-only origin for the scheduler-lease release POST.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseReleaseCandidateApiOrigin;
+
+  /// Stable idempotency key retained across an explicit release retry.
+  @visibleForTesting
+  final String? schedulerSelectionLeaseReleaseIdempotencyKey;
 
   /// Optional, explicitly injected v2 persisted inventory observation. The
   /// default Gate leaves it unset; when present it is display-only and local.
@@ -234,8 +492,8 @@ class ForgeSessionsGate extends StatefulWidget {
   deviceInventoryPlacementBatchEvaluationFileReader;
 
   /// Optional, explicitly injected owner-scoped pending Run-intent metadata
-  /// seam. The default Gate leaves it unset, so production `/run-intents`
-  /// remains unreachable until its separate governance decision is accepted.
+  /// seam. The default Gate leaves it unset; the opt-in pending Run-intent
+  /// candidate supplies the same reader from its authenticated API adapter.
   final ForgePendingRunIntentReader? pendingRunIntentReader;
 
   /// Optional paged variant of [pendingRunIntentReader]. The first call uses
@@ -244,8 +502,8 @@ class ForgeSessionsGate extends StatefulWidget {
   final ForgePendingRunIntentPageReader? pendingRunIntentPageReader;
 
   /// Optional, explicitly injected owner-scoped pending Run-intent timeline
-  /// seam. The default Gate leaves it unset, so the timeline endpoint remains
-  /// unreachable until its separate governance decision is accepted.
+  /// seam. The default Gate leaves it unset; the opt-in pending Run-intent
+  /// candidate supplies the same reader from its authenticated API adapter.
   final ForgePendingRunIntentTimelineReader? pendingRunIntentTimelineReader;
 
   /// Optional local Runner lease/fencing fixture and bounded file reader.
@@ -338,6 +596,52 @@ class ForgeSessionsGate extends StatefulWidget {
   @visibleForTesting
   final String? runnerDispatchPlanPreviewCandidateApiOrigin;
 
+  /// Explicit request and reader for the accepted EXECUTE lease-to-Runner
+  /// admission recheck. The default Gate leaves this unset and request-free.
+  final ForgeRunnerDispatchAdmission? runnerDispatchAdmission;
+  final ForgeRunnerDispatchAdmissionRequest? runnerDispatchAdmissionRequest;
+  final ForgeRunnerDispatchAdmissionReader? runnerDispatchAdmissionReader;
+
+  /// Enables the reviewed, read-only Runner dispatch admission candidate for a
+  /// test or candidate harness. Production construction keeps it disabled.
+  @visibleForTesting
+  final bool enableRunnerDispatchAdmissionCandidate;
+
+  /// Candidate-only origin for the Runner dispatch admission POST.
+  @visibleForTesting
+  final String? runnerDispatchAdmissionCandidateApiOrigin;
+
+  /// Explicit request and reader for the accepted EXECUTE transport
+  /// admission preview. The default Gate leaves this unset and request-free.
+  final ForgeRunnerTransportAdmission? runnerTransportAdmission;
+  final ForgeRunnerTransportAdmissionRequest? runnerTransportAdmissionRequest;
+  final ForgeRunnerTransportAdmissionReader? runnerTransportAdmissionReader;
+
+  /// Enables the reviewed, read-only Runner transport admission candidate for
+  /// a test or candidate harness. Production construction keeps it disabled.
+  @visibleForTesting
+  final bool enableRunnerTransportAdmissionCandidate;
+
+  /// Candidate-only origin for the Runner transport admission POST.
+  @visibleForTesting
+  final String? runnerTransportAdmissionCandidateApiOrigin;
+
+  /// Explicit request and reader for the final server-owned Runner
+  /// execution-boundary preview. The default Gate leaves this unset.
+  final ForgeRunnerExecutionBoundaryObservation? runnerExecutionBoundary;
+  final ForgeRunnerExecutionBoundaryPreviewRequest?
+  runnerExecutionBoundaryRequest;
+  final ForgeRunnerExecutionBoundaryReader? runnerExecutionBoundaryReader;
+
+  /// Enables the reviewed, read-only execution-boundary candidate for a test
+  /// or candidate harness. Production construction keeps it disabled.
+  @visibleForTesting
+  final bool enableRunnerExecutionBoundaryCandidate;
+
+  /// Candidate-only origin for the execution-boundary POST.
+  @visibleForTesting
+  final String? runnerExecutionBoundaryCandidateApiOrigin;
+
   /// Explicit owner and reader for the private client-instance/session-view
   /// candidate. Both values are required before the Gate permits a request;
   /// the default Gate leaves them unset.
@@ -356,6 +660,24 @@ class ForgeSessionsGate extends StatefulWidget {
   /// [clientInstanceSessionViewOwner].
   @visibleForTesting
   final String? clientInstanceSessionViewCandidateApiOrigin;
+
+  /// Explicit owner and reader for the private paired client-instance
+  /// session/resource candidate. The default Gate leaves this unset, so the
+  /// shared Sessions surface performs no candidate GETs unless a caller opts
+  /// in with an owner and the reviewed flag.
+  final ForgeDeviceOwner? clientInstanceSessionResourceConvergenceOwner;
+  final ForgeClientInstanceSessionResourceConvergenceReader?
+  clientInstanceSessionResourceConvergenceReader;
+
+  /// Enables the reviewed, read-only client-instance session/resource pair
+  /// adapter for a test or candidate harness. Production construction keeps
+  /// this disabled.
+  @visibleForTesting
+  final bool enableClientInstanceSessionResourceConvergenceCandidate;
+
+  /// Candidate-only origin used by the paired client-instance reader.
+  @visibleForTesting
+  final String? clientInstanceSessionResourceConvergenceCandidateApiOrigin;
 
   /// Explicit owner and origin for the private lifecycle-registry GET
   /// candidate. Both values stay unset in normal Web/App/Mobile construction;
@@ -403,19 +725,46 @@ class ForgeSessionsGate extends StatefulWidget {
     super.key,
     this.credentialStore,
     this.initialConversationID,
+    this.initialClientInstanceID,
+    this.enableConversationChangesStream = false,
+    this.conversationChangesStreamWaitMS = 15000,
     this.httpClient,
     this.deviceObservation,
     this.deviceObservationRequest,
     this.runIntentObservation,
     this.runnerExecutionIntentObservation,
+    this.runnerExecutionIntentRequest,
+    this.runnerExecutionIntentReader,
+    this.enableRunnerExecutionIntentCandidate = false,
+    this.runnerExecutionIntentCandidateApiOrigin,
     this.runObserved,
     this.runObservedReader,
+    this.sessionRunnerReceiptObservationReader,
     this.enableRunObservedCandidate = false,
     this.runObservedCandidateApiOrigin,
     this.enableDeviceInventoryV2Candidate = false,
     this.deviceInventoryV2CandidateApiOrigin,
     this.runExecutionEvidence,
     this.sessionRunnerReceiptObservation,
+    this.sessionRunnerReceiptVectorsPreview,
+    this.sessionRunnerReceiptVectorsFileReader,
+    this.sessionRunnerReceiptHistoryPreview,
+    this.sessionRunnerReceiptHistoryFileReader,
+    this.sessionRunnerReconciliationProjectionPreview,
+    this.sessionRunnerReconciliationProjectionFileReader,
+    this.sessionRunnerReceiptHistoryRequest,
+    this.sessionRunnerReceiptHistoryReader,
+    this.sessionRunnerReconciliationProjectionRequest,
+    this.sessionRunnerReconciliationProjectionReader,
+    this.enableSessionRunnerReconciliationProjectionCandidate = false,
+    this.sessionRunnerReconciliationProjectionCandidateApiOrigin,
+    this.enableSessionRunnerReconciliationProjectionHistoryChainCandidate =
+        false,
+    this.enableSessionRunnerReceiptHistoryCandidate = false,
+    this.sessionRunnerReceiptHistoryCandidateApiOrigin,
+    this.runExecutionEvidenceReader,
+    this.enableRunExecutionEvidenceCandidate = false,
+    this.runExecutionEvidenceCandidateApiOrigin,
     this.executionReconciliationObservation,
     this.executionReconciliationInput,
     this.executionReconciliationReader,
@@ -426,19 +775,55 @@ class ForgeSessionsGate extends StatefulWidget {
     this.enableExecutionConsentPreviewCandidate = false,
     this.executionConsentPreviewCandidateApiOrigin,
     this.attemptRequestPreview,
+    this.runnerAttemptBoundaryPreview,
+    this.runnerAttemptBoundaryScope,
+    this.runnerAttemptBoundaryFileReader,
+    this.runnerAttemptBoundaryRequest,
+    this.runnerAttemptBoundaryReader,
+    this.enableRunnerAttemptBoundaryCandidate = false,
+    this.runnerAttemptBoundaryCandidateApiOrigin,
+    this.enableRunnerAttemptBoundaryProjection = false,
     this.pendingRunIntentPreview,
     this.enablePendingRunIntentCandidate = false,
     this.pendingRunIntentOwner,
     this.pendingRunIntentCandidateApiOrigin,
+    this.promptAppendReceiptOwner,
+    this.promptAppendReceiptSubmitter,
+    this.enablePromptAppendReceiptCandidate = false,
+    this.promptAppendReceiptCandidateApiOrigin,
+    this.requireDeviceInventoryResourceConvergenceForPromptAppend = false,
     this.deviceInventoryOwner,
     this.deviceInventoryReader,
     this.enableDeviceInventoryCandidate = false,
     this.deviceInventoryCandidateApiOrigin,
     this.deviceInventoryV2Reader,
+    this.deviceInventoryResourceConvergenceOwner,
+    this.deviceInventoryResourceConvergenceReader,
+    this.enableDeviceInventoryResourceConvergenceCandidate = false,
+    this.deviceInventoryResourceConvergenceCandidateApiOrigin,
     this.deviceInventoryRegistryPlacementRequirements,
     this.deviceInventoryRegistryPlacementPreviewReader,
     this.enableDeviceInventoryRegistryPlacementPreviewCandidate = false,
     this.deviceInventoryRegistryPlacementPreviewCandidateApiOrigin,
+    this.schedulerSelectionPreviewRequest,
+    this.schedulerSelectionPreviewReader,
+    this.enableSchedulerSelectionPreviewCandidate = false,
+    this.schedulerSelectionPreviewCandidateApiOrigin,
+    this.schedulerSelectionLeaseRequest,
+    this.schedulerSelectionLeaseReader,
+    this.enableSchedulerSelectionLeaseCandidate = false,
+    this.schedulerSelectionLeaseCandidateApiOrigin,
+    this.schedulerSelectionLeaseIdempotencyKey,
+    this.schedulerSelectionLeaseRenewalRequest,
+    this.schedulerSelectionLeaseRenewalReader,
+    this.enableSchedulerSelectionLeaseRenewalCandidate = false,
+    this.schedulerSelectionLeaseRenewalCandidateApiOrigin,
+    this.schedulerSelectionLeaseRenewalIdempotencyKey,
+    this.schedulerSelectionLeaseReleaseRequest,
+    this.schedulerSelectionLeaseReleaseReader,
+    this.enableSchedulerSelectionLeaseReleaseCandidate = false,
+    this.schedulerSelectionLeaseReleaseCandidateApiOrigin,
+    this.schedulerSelectionLeaseReleaseIdempotencyKey,
     this.deviceInventoryV2Preview,
     this.deviceInventoryV2FileReader,
     this.deviceInventoryPlacementEvaluationV2Preview,
@@ -464,6 +849,10 @@ class ForgeSessionsGate extends StatefulWidget {
     this.clientInstanceSessionViewReader,
     this.enableClientInstanceSessionViewCandidate = false,
     this.clientInstanceSessionViewCandidateApiOrigin,
+    this.clientInstanceSessionResourceConvergenceOwner,
+    this.clientInstanceSessionResourceConvergenceReader,
+    this.enableClientInstanceSessionResourceConvergenceCandidate = false,
+    this.clientInstanceSessionResourceConvergenceCandidateApiOrigin,
     this.lifecycleRegistryOwner,
     this.lifecycleRegistryReader,
     this.enableLifecycleRegistryCandidate = false,
@@ -483,6 +872,21 @@ class ForgeSessionsGate extends StatefulWidget {
     this.runnerDispatchPlanPreviewReader,
     this.enableRunnerDispatchPlanPreviewCandidate = false,
     this.runnerDispatchPlanPreviewCandidateApiOrigin,
+    this.runnerDispatchAdmissionRequest,
+    this.runnerDispatchAdmissionReader,
+    this.runnerDispatchAdmission,
+    this.enableRunnerDispatchAdmissionCandidate = false,
+    this.runnerDispatchAdmissionCandidateApiOrigin,
+    this.runnerTransportAdmissionRequest,
+    this.runnerTransportAdmissionReader,
+    this.runnerTransportAdmission,
+    this.runnerExecutionBoundaryRequest,
+    this.runnerExecutionBoundaryReader,
+    this.runnerExecutionBoundary,
+    this.enableRunnerExecutionBoundaryCandidate = false,
+    this.runnerExecutionBoundaryCandidateApiOrigin,
+    this.enableRunnerTransportAdmissionCandidate = false,
+    this.runnerTransportAdmissionCandidateApiOrigin,
     this.localRunnerPreview,
     this.localRunnerPreviewRequest,
     this.localRunnerPreviewReader,
@@ -503,27 +907,62 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
   String? _resolvedInitialConversationID;
   ForgeConversationsApi? _runObservedCandidateApi;
   ForgeRunObservedReader? _runObservedCandidateReader;
+  ForgeConversationsApi? _runExecutionEvidenceCandidateApi;
+  ForgeRunExecutionEvidenceReader? _runExecutionEvidenceCandidateReader;
+  ForgeConversationsApi? _sessionRunnerReceiptHistoryCandidateApi;
+  ForgeSessionRunnerReceiptHistoryReader?
+  _sessionRunnerReceiptHistoryCandidateReader;
+  ForgeConversationsApi? _sessionRunnerReconciliationProjectionCandidateApi;
+  ForgeSessionRunnerReconciliationProjectionReader?
+  _sessionRunnerReconciliationProjectionCandidateReader;
   ForgeConversationsApi? _deviceInventoryCandidateApi;
   ForgeDeviceInventoryCandidateReader? _deviceInventoryCandidateReader;
   ForgeConversationsApi? _localRunnerPreviewCandidateApi;
   ForgeLocalRunnerPreviewReader? _localRunnerPreviewCandidateReader;
   ForgeConversationsApi? _deviceInventoryV2CandidateApi;
   ForgeDeviceInventoryV2Reader? _deviceInventoryV2CandidateReader;
+  ForgeConversationsApi? _deviceInventoryResourceConvergenceCandidateApi;
+  ForgeDeviceInventoryResourceConvergenceReader?
+  _deviceInventoryResourceConvergenceCandidateReader;
   ForgeConversationsApi? _deviceInventoryRegistryPlacementPreviewCandidateApi;
   ForgeDeviceRegistryPlacementPreviewReader?
   _deviceInventoryRegistryPlacementPreviewCandidateReader;
+  ForgeConversationsApi? _schedulerSelectionPreviewCandidateApi;
+  ForgeSchedulerSelectionPreviewReader?
+  _schedulerSelectionPreviewCandidateReader;
+  ForgeConversationsApi? _schedulerSelectionLeaseCandidateApi;
+  ForgeSchedulerSelectionLeaseReader? _schedulerSelectionLeaseCandidateReader;
+  ForgeConversationsApi? _schedulerSelectionLeaseRenewalCandidateApi;
+  ForgeSchedulerSelectionLeaseRenewalReader?
+  _schedulerSelectionLeaseRenewalCandidateReader;
+  ForgeConversationsApi? _schedulerSelectionLeaseReleaseCandidateApi;
+  ForgeSchedulerSelectionLeaseReleaseReader?
+  _schedulerSelectionLeaseReleaseCandidateReader;
   ForgeConversationsApi? _clientInstanceResourceViewCandidateApi;
   ForgeClientInstanceResourceViewReader?
   _clientInstanceResourceViewCandidateReader;
   ForgeConversationsApi? _clientInstanceSessionViewCandidateApi;
   ForgeClientInstanceSessionViewReader?
   _clientInstanceSessionViewCandidateReader;
+  ForgeConversationsApi? _clientInstanceSessionResourceConvergenceCandidateApi;
+  ForgeClientInstanceSessionResourceConvergenceReader?
+  _clientInstanceSessionResourceConvergenceCandidateReader;
   ForgeConversationsApi? _runAttemptLeaseDispatchPreflightCandidateApi;
   ForgeRunAttemptLeaseDispatchPreflightReader?
   _runAttemptLeaseDispatchPreflightCandidateReader;
   ForgeConversationsApi? _runnerDispatchPlanPreviewCandidateApi;
   ForgeRunnerDispatchPlanPreviewReader?
   _runnerDispatchPlanPreviewCandidateReader;
+  ForgeConversationsApi? _runnerExecutionIntentCandidateApi;
+  ForgeRunnerExecutionIntentReader? _runnerExecutionIntentCandidateReader;
+  ForgeConversationsApi? _runnerDispatchAdmissionCandidateApi;
+  ForgeRunnerDispatchAdmissionReader? _runnerDispatchAdmissionCandidateReader;
+  ForgeConversationsApi? _runnerTransportAdmissionCandidateApi;
+  ForgeRunnerTransportAdmissionReader? _runnerTransportAdmissionCandidateReader;
+  ForgeConversationsApi? _runnerExecutionBoundaryCandidateApi;
+  ForgeRunnerExecutionBoundaryReader? _runnerExecutionBoundaryCandidateReader;
+  ForgeConversationsApi? _runnerAttemptBoundaryCandidateApi;
+  ForgeRunnerAttemptBoundaryReader? _runnerAttemptBoundaryCandidateReader;
   ForgeConversationsApi? _executionReconciliationCandidateApi;
   ForgeExecutionReconciliationReader? _executionReconciliationCandidateReader;
   ForgeConversationsApi? _executionConsentPreviewCandidateApi;
@@ -535,6 +974,11 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
   _deviceCredentialCandidateReader;
   ForgeConversationsApi? _pendingRunIntentCandidateApi;
   ForgePendingRunIntentSubmitter? _pendingRunIntentCandidateSubmitter;
+  ForgePendingRunIntentReader? _pendingRunIntentCandidateReader;
+  ForgePendingRunIntentPageReader? _pendingRunIntentCandidatePageReader;
+  ForgePendingRunIntentTimelineReader? _pendingRunIntentCandidateTimelineReader;
+  ForgeConversationsApi? _promptAppendReceiptCandidateApi;
+  ForgePromptAppendReceiptSubmitter? _promptAppendReceiptCandidateSubmitter;
   bool _loading = true;
   bool _redirected = false;
 
@@ -554,19 +998,34 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
     if (!mounted) return;
     final initialConversationID = _conversationSelectionAfterRestore();
     _configureRunObservedCandidate(token);
+    _configureRunExecutionEvidenceCandidate(token);
+    _configureSessionRunnerReceiptHistoryCandidate(token);
+    _configureSessionRunnerReconciliationProjectionCandidate(token);
     _configureDeviceInventoryCandidate(token);
     _configureLocalRunnerPreviewCandidate(token);
     _configureDeviceInventoryV2Candidate(token);
+    _configureDeviceInventoryResourceConvergenceCandidate(token);
     _configureDeviceInventoryRegistryPlacementPreviewCandidate(token);
+    _configureSchedulerSelectionPreviewCandidate(token);
+    _configureSchedulerSelectionLeaseCandidate(token);
+    _configureSchedulerSelectionLeaseRenewalCandidate(token);
+    _configureSchedulerSelectionLeaseReleaseCandidate(token);
     _configureClientInstanceResourceViewCandidate(token);
     _configureClientInstanceSessionViewCandidate(token);
+    _configureClientInstanceSessionResourceConvergenceCandidate(token);
     _configureRunAttemptLeaseDispatchPreflightCandidate(token);
     _configureRunnerDispatchPlanPreviewCandidate(token);
+    _configureRunnerExecutionIntentCandidate(token);
+    _configureRunnerDispatchAdmissionCandidate(token);
+    _configureRunnerTransportAdmissionCandidate(token);
+    _configureRunnerExecutionBoundaryCandidate(token);
+    _configureRunnerAttemptBoundaryCandidate(token);
     _configureExecutionReconciliationCandidate(token);
     _configureExecutionConsentPreviewCandidate(token);
     _configureLifecycleRegistryCandidate(token);
     _configureDeviceCredentialCandidate(token);
     _configurePendingRunIntentCandidate(token);
+    _configurePromptAppendReceiptCandidate(token);
     setState(() {
       _token = token;
       _resolvedInitialConversationID = initialConversationID;
@@ -604,25 +1063,67 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
     if (testScreenBuilder != null) return testScreenBuilder(token);
     final runObservedReader =
         widget.runObservedReader ?? _runObservedCandidateReader;
+    final runExecutionEvidenceReader =
+        widget.runExecutionEvidenceReader ??
+        _runExecutionEvidenceCandidateReader;
+    final sessionRunnerReceiptHistoryReader =
+        widget.sessionRunnerReceiptHistoryReader ??
+        _sessionRunnerReceiptHistoryCandidateReader;
+    final sessionRunnerReconciliationProjectionReader =
+        widget.sessionRunnerReconciliationProjectionReader ??
+        _sessionRunnerReconciliationProjectionCandidateReader;
     final deviceInventoryReader =
         widget.deviceInventoryReader ?? _deviceInventoryCandidateReader;
     final deviceInventoryV2Reader =
         widget.deviceInventoryV2Reader ?? _deviceInventoryV2CandidateReader;
+    final deviceInventoryResourceConvergenceReader =
+        widget.deviceInventoryResourceConvergenceReader ??
+        _deviceInventoryResourceConvergenceCandidateReader;
     final deviceInventoryRegistryPlacementPreviewReader =
         widget.deviceInventoryRegistryPlacementPreviewReader ??
         _deviceInventoryRegistryPlacementPreviewCandidateReader;
+    final schedulerSelectionPreviewReader =
+        widget.schedulerSelectionPreviewReader ??
+        _schedulerSelectionPreviewCandidateReader;
+    final schedulerSelectionLeaseReader =
+        widget.schedulerSelectionLeaseReader ??
+        _schedulerSelectionLeaseCandidateReader;
+    final schedulerSelectionLeaseRenewalReader =
+        widget.schedulerSelectionLeaseRenewalReader ??
+        _schedulerSelectionLeaseRenewalCandidateReader;
+    final schedulerSelectionLeaseReleaseReader =
+        widget.schedulerSelectionLeaseReleaseReader ??
+        _schedulerSelectionLeaseReleaseCandidateReader;
     final clientInstanceResourceViewReader =
         widget.clientInstanceResourceViewReader ??
         _clientInstanceResourceViewCandidateReader;
     final clientInstanceSessionViewReader =
         widget.clientInstanceSessionViewReader ??
         _clientInstanceSessionViewCandidateReader;
+    final clientInstanceSessionResourceConvergenceReader =
+        widget.clientInstanceSessionResourceConvergenceReader ??
+        _clientInstanceSessionResourceConvergenceCandidateReader;
     final runAttemptLeaseDispatchPreflightReader =
         widget.runAttemptLeaseDispatchPreflightReader ??
         _runAttemptLeaseDispatchPreflightCandidateReader;
     final runnerDispatchPlanPreviewReader =
         widget.runnerDispatchPlanPreviewReader ??
         _runnerDispatchPlanPreviewCandidateReader;
+    final runnerExecutionIntentReader =
+        widget.runnerExecutionIntentReader ??
+        _runnerExecutionIntentCandidateReader;
+    final runnerDispatchAdmissionReader =
+        widget.runnerDispatchAdmissionReader ??
+        _runnerDispatchAdmissionCandidateReader;
+    final runnerTransportAdmissionReader =
+        widget.runnerTransportAdmissionReader ??
+        _runnerTransportAdmissionCandidateReader;
+    final runnerExecutionBoundaryReader =
+        widget.runnerExecutionBoundaryReader ??
+        _runnerExecutionBoundaryCandidateReader;
+    final runnerAttemptBoundaryReader =
+        widget.runnerAttemptBoundaryReader ??
+        _runnerAttemptBoundaryCandidateReader;
     final localRunnerPreviewReader =
         widget.localRunnerPreviewReader ?? _localRunnerPreviewCandidateReader;
     final executionReconciliationReader =
@@ -636,23 +1137,61 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
     final deviceCredentialCandidateReader =
         widget.deviceCredentialCandidateReader ??
         _deviceCredentialCandidateReader;
+    final pendingRunIntentReader =
+        widget.pendingRunIntentReader ?? _pendingRunIntentCandidateReader;
+    final pendingRunIntentPageReader =
+        widget.pendingRunIntentPageReader ??
+        _pendingRunIntentCandidatePageReader;
+    final pendingRunIntentTimelineReader =
+        widget.pendingRunIntentTimelineReader ??
+        _pendingRunIntentCandidateTimelineReader;
     final pendingRunIntentSubmitter = _pendingRunIntentCandidateSubmitter;
+    final promptAppendReceiptSubmitter =
+        widget.promptAppendReceiptSubmitter ??
+        _promptAppendReceiptCandidateSubmitter;
     return ForgeSessionsScreen(
       accessToken: token,
       apiOrigin: ForgeConversationsApiOrigin.baseUrl,
+      enableConversationChangesStream: widget.enableConversationChangesStream,
+      conversationChangesStreamWaitMS: widget.conversationChangesStreamWaitMS,
       initialConversationID: _resolvedInitialConversationID,
+      initialClientInstanceID: widget.initialClientInstanceID,
       httpClient: widget.httpClient,
       deviceObservation: widget.deviceObservation,
       deviceObservationRequest: widget.deviceObservationRequest,
       runIntentObservation: widget.runIntentObservation,
       runnerExecutionIntentObservation: widget.runnerExecutionIntentObservation,
+      runnerExecutionIntentRequest: widget.runnerExecutionIntentRequest,
+      runnerExecutionIntentReader: runnerExecutionIntentReader,
       localRunnerPreview: widget.localRunnerPreview,
       localRunnerPreviewRequest: widget.localRunnerPreviewRequest,
       localRunnerPreviewReader: localRunnerPreviewReader,
       runObserved: widget.runObserved,
       runObservedReader: runObservedReader,
+      sessionRunnerReceiptObservationReader:
+          widget.sessionRunnerReceiptObservationReader,
       runExecutionEvidence: widget.runExecutionEvidence,
       sessionRunnerReceiptObservation: widget.sessionRunnerReceiptObservation,
+      sessionRunnerReceiptVectorsPreview:
+          widget.sessionRunnerReceiptVectorsPreview,
+      sessionRunnerReceiptVectorsFileReader:
+          widget.sessionRunnerReceiptVectorsFileReader,
+      sessionRunnerReceiptHistoryPreview:
+          widget.sessionRunnerReceiptHistoryPreview,
+      sessionRunnerReceiptHistoryFileReader:
+          widget.sessionRunnerReceiptHistoryFileReader,
+      sessionRunnerReconciliationProjectionPreview:
+          widget.sessionRunnerReconciliationProjectionPreview,
+      sessionRunnerReconciliationProjectionFileReader:
+          widget.sessionRunnerReconciliationProjectionFileReader,
+      sessionRunnerReceiptHistoryRequest:
+          widget.sessionRunnerReceiptHistoryRequest,
+      sessionRunnerReceiptHistoryReader: sessionRunnerReceiptHistoryReader,
+      sessionRunnerReconciliationProjectionRequest:
+          widget.sessionRunnerReconciliationProjectionRequest,
+      sessionRunnerReconciliationProjectionReader:
+          sessionRunnerReconciliationProjectionReader,
+      runExecutionEvidenceReader: runExecutionEvidenceReader,
       executionReconciliationObservation:
           widget.executionReconciliationObservation,
       executionReconciliationInput: widget.executionReconciliationInput,
@@ -665,16 +1204,49 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
       deviceCredentialCandidateRequest: widget.deviceCredentialCandidateRequest,
       deviceCredentialCandidateReader: deviceCredentialCandidateReader,
       attemptRequestPreview: widget.attemptRequestPreview,
+      runnerAttemptBoundaryPreview: widget.runnerAttemptBoundaryPreview,
+      runnerAttemptBoundaryScope: widget.runnerAttemptBoundaryScope,
+      runnerAttemptBoundaryFileReader: widget.runnerAttemptBoundaryFileReader,
+      runnerAttemptBoundaryRequest: widget.runnerAttemptBoundaryRequest,
+      runnerAttemptBoundaryReader: runnerAttemptBoundaryReader,
+      enableRunnerAttemptBoundaryProjection:
+          widget.enableRunnerAttemptBoundaryProjection,
       pendingRunIntentPreview: widget.pendingRunIntentPreview,
       pendingRunIntentOwner: widget.pendingRunIntentOwner,
       pendingRunIntentSubmitter: pendingRunIntentSubmitter,
+      promptAppendReceiptOwner: widget.promptAppendReceiptOwner,
+      promptAppendReceiptSubmitter: promptAppendReceiptSubmitter,
+      requireDeviceInventoryResourceConvergenceForPromptAppend:
+          widget.requireDeviceInventoryResourceConvergenceForPromptAppend,
       deviceInventoryOwner: widget.deviceInventoryOwner,
       deviceInventoryReader: deviceInventoryReader,
       deviceInventoryV2Reader: deviceInventoryV2Reader,
+      deviceInventoryResourceConvergenceOwner:
+          widget.deviceInventoryResourceConvergenceOwner,
+      deviceInventoryResourceConvergenceReader:
+          deviceInventoryResourceConvergenceReader,
       deviceInventoryRegistryPlacementRequirements:
           widget.deviceInventoryRegistryPlacementRequirements,
       deviceInventoryRegistryPlacementPreviewReader:
           deviceInventoryRegistryPlacementPreviewReader,
+      schedulerSelectionPreviewRequest: widget.schedulerSelectionPreviewRequest,
+      schedulerSelectionPreviewReader: schedulerSelectionPreviewReader,
+      schedulerSelectionLeaseRequest: widget.schedulerSelectionLeaseRequest,
+      schedulerSelectionLeaseReader: schedulerSelectionLeaseReader,
+      schedulerSelectionLeaseIdempotencyKey:
+          widget.schedulerSelectionLeaseIdempotencyKey,
+      schedulerSelectionLeaseRenewalRequest:
+          widget.schedulerSelectionLeaseRenewalRequest,
+      schedulerSelectionLeaseRenewalReader:
+          schedulerSelectionLeaseRenewalReader,
+      schedulerSelectionLeaseRenewalIdempotencyKey:
+          widget.schedulerSelectionLeaseRenewalIdempotencyKey,
+      schedulerSelectionLeaseReleaseRequest:
+          widget.schedulerSelectionLeaseReleaseRequest,
+      schedulerSelectionLeaseReleaseReader:
+          schedulerSelectionLeaseReleaseReader,
+      schedulerSelectionLeaseReleaseIdempotencyKey:
+          widget.schedulerSelectionLeaseReleaseIdempotencyKey,
       deviceInventoryV2Preview: widget.deviceInventoryV2Preview,
       deviceInventoryV2FileReader: widget.deviceInventoryV2FileReader,
       deviceInventoryPlacementEvaluationV2Preview:
@@ -689,9 +1261,9 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
           widget.deviceInventoryPlacementBatchEvaluationPreview,
       deviceInventoryPlacementBatchEvaluationFileReader:
           widget.deviceInventoryPlacementBatchEvaluationFileReader,
-      pendingRunIntentReader: widget.pendingRunIntentReader,
-      pendingRunIntentPageReader: widget.pendingRunIntentPageReader,
-      pendingRunIntentTimelineReader: widget.pendingRunIntentTimelineReader,
+      pendingRunIntentReader: pendingRunIntentReader,
+      pendingRunIntentPageReader: pendingRunIntentPageReader,
+      pendingRunIntentTimelineReader: pendingRunIntentTimelineReader,
       runnerLeaseFencingPreview: widget.runnerLeaseFencingPreview,
       runnerLeaseFencingFileReader: widget.runnerLeaseFencingFileReader,
       executionLeaseCheckpointPreview: widget.executionLeaseCheckpointPreview,
@@ -704,6 +1276,10 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
       clientInstanceResourceViewReader: clientInstanceResourceViewReader,
       clientInstanceSessionViewOwner: widget.clientInstanceSessionViewOwner,
       clientInstanceSessionViewReader: clientInstanceSessionViewReader,
+      clientInstanceSessionResourceConvergenceOwner:
+          widget.clientInstanceSessionResourceConvergenceOwner,
+      clientInstanceSessionResourceConvergenceReader:
+          clientInstanceSessionResourceConvergenceReader,
       runAttemptLeaseDispatchPreflightPreview:
           widget.runAttemptLeaseDispatchPreflightPreview,
       runAttemptLeaseDispatchPreflightRequest:
@@ -713,6 +1289,15 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
       runnerDispatchPlanPreview: widget.runnerDispatchPlanPreview,
       runnerDispatchPlanPreviewRequest: widget.runnerDispatchPlanPreviewRequest,
       runnerDispatchPlanPreviewReader: runnerDispatchPlanPreviewReader,
+      runnerDispatchAdmissionRequest: widget.runnerDispatchAdmissionRequest,
+      runnerDispatchAdmissionReader: runnerDispatchAdmissionReader,
+      runnerDispatchAdmission: widget.runnerDispatchAdmission,
+      runnerTransportAdmissionRequest: widget.runnerTransportAdmissionRequest,
+      runnerTransportAdmissionReader: runnerTransportAdmissionReader,
+      runnerTransportAdmission: widget.runnerTransportAdmission,
+      runnerExecutionBoundaryRequest: widget.runnerExecutionBoundaryRequest,
+      runnerExecutionBoundaryReader: runnerExecutionBoundaryReader,
+      runnerExecutionBoundary: widget.runnerExecutionBoundary,
     );
   }
 
@@ -734,6 +1319,153 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
         .readRunObservedCandidate(conversationID: conversationID, runID: runID);
   }
 
+  void _configureRunExecutionEvidenceCandidate(String? token) {
+    final expectedRun = widget.runObserved;
+    final expectedReceipt = widget.sessionRunnerReceiptObservation;
+    final origin = widget.runExecutionEvidenceCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunExecutionEvidenceCandidate ||
+        widget.runExecutionEvidenceReader != null ||
+        expectedRun == null ||
+        expectedReceipt == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runExecutionEvidenceCandidateApi = api;
+    final validatedRun = ForgeRunObserved.fromJson(expectedRun.toJson());
+    final validatedReceipt = ForgeSessionRunnerReceiptObservation.fromJson(
+      expectedReceipt.toJson(),
+    );
+    final expectedRunJSON = jsonEncode(validatedRun.toJson());
+    final expectedReceiptJSON = jsonEncode(validatedReceipt.toJson());
+    _runExecutionEvidenceCandidateReader =
+        (conversationID, runID, runObserved, sessionReceiptObserved) {
+          final requestedRun = ForgeRunObserved.fromJson(runObserved.toJson());
+          final requestedReceipt =
+              ForgeSessionRunnerReceiptObservation.fromJson(
+                sessionReceiptObserved.toJson(),
+              );
+          if (conversationID != validatedRun.conversationID ||
+              runID != validatedRun.runID ||
+              jsonEncode(requestedRun.toJson()) != expectedRunJSON ||
+              jsonEncode(requestedReceipt.toJson()) != expectedReceiptJSON) {
+            return Future<ForgeRunExecutionEvidence>.error(
+              const FormatException(
+                'Forge Run execution-evidence source binding changed.',
+              ),
+            );
+          }
+          return api.previewRunExecutionEvidence(
+            conversationID: conversationID,
+            runID: runID,
+            runObserved: validatedRun,
+            sessionReceiptObserved: validatedReceipt,
+          );
+        };
+  }
+
+  void _configureSessionRunnerReceiptHistoryCandidate(String? token) {
+    final expectedHistory = widget.sessionRunnerReceiptHistoryRequest;
+    final origin = widget.sessionRunnerReceiptHistoryCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableSessionRunnerReceiptHistoryCandidate ||
+        widget.sessionRunnerReceiptHistoryReader != null ||
+        expectedHistory == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _sessionRunnerReceiptHistoryCandidateApi = api;
+    final pinned = ForgeSessionRunnerReceiptHistory.fromJson(
+      expectedHistory.toJson(),
+    );
+    final expectedJSON = jsonEncode(pinned.toJson());
+    _sessionRunnerReceiptHistoryCandidateReader =
+        (conversationID, runID, requested) {
+          final validated = ForgeSessionRunnerReceiptHistory.fromJson(
+            requested.toJson(),
+          );
+          if (jsonEncode(validated.toJson()) != expectedJSON ||
+              !validated.isFor(conversationID, runID)) {
+            return Future<ForgeSessionRunnerReceiptHistory>.error(
+              const FormatException(
+                'Forge session Runner receipt-history request binding changed.',
+              ),
+            );
+          }
+          return api.previewSessionRunnerReceiptHistory(
+            conversationID: conversationID,
+            runID: runID,
+            history: pinned,
+          );
+        };
+  }
+
+  void _configureSessionRunnerReconciliationProjectionCandidate(String? token) {
+    final expectedHistory = widget.sessionRunnerReconciliationProjectionRequest;
+    final origin =
+        widget.sessionRunnerReconciliationProjectionCandidateApiOrigin;
+    if (token == null ||
+        (!widget.enableSessionRunnerReconciliationProjectionCandidate &&
+            !widget
+                .enableSessionRunnerReconciliationProjectionHistoryChainCandidate) ||
+        widget.sessionRunnerReconciliationProjectionReader != null ||
+        expectedHistory == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _sessionRunnerReconciliationProjectionCandidateApi = api;
+    final pinned = ForgeSessionRunnerReceiptHistory.fromJson(
+      expectedHistory.toJson(),
+    );
+    final expectedJSON = jsonEncode(pinned.toJson());
+    _sessionRunnerReconciliationProjectionCandidateReader =
+        (conversationID, runID, requested) {
+          final validated = ForgeSessionRunnerReceiptHistory.fromJson(
+            requested.toJson(),
+          );
+          if (jsonEncode(validated.toJson()) != expectedJSON ||
+              !validated.isFor(conversationID, runID) ||
+              !validated.hasUncertainTerminal) {
+            return Future<ForgeSessionRunnerReconciliationProjection>.error(
+              const FormatException(
+                'Forge reconciliation projection request binding changed.',
+              ),
+            );
+          }
+          if (widget
+              .enableSessionRunnerReconciliationProjectionHistoryChainCandidate) {
+            return api.previewSessionRunnerReconciliationFromHistory(
+              conversationID: conversationID,
+              runID: runID,
+              history: pinned,
+            );
+          }
+          return api.previewSessionRunnerReconciliationProjection(
+            conversationID: conversationID,
+            runID: runID,
+            history: pinned,
+          );
+        };
+  }
+
   void _configureDeviceInventoryCandidate(String? token) {
     final owner = widget.deviceInventoryOwner;
     final origin = widget.deviceInventoryCandidateApiOrigin;
@@ -749,6 +1481,7 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
       baseUrl: origin,
       accessToken: token,
       httpClient: widget.httpClient,
+      useWallClockTimeout: true,
     );
     _deviceInventoryCandidateApi = api;
     _deviceInventoryCandidateReader = (requestedOwner) {
@@ -776,10 +1509,39 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
           ForgeConversationsApiOrigin.baseUrl,
       accessToken: token,
       httpClient: widget.httpClient,
+      useWallClockTimeout: true,
     );
     _deviceInventoryV2CandidateApi = api;
     _deviceInventoryV2CandidateReader = (owner) =>
         api.readDeviceInventoryCandidateV2(owner: owner);
+  }
+
+  void _configureDeviceInventoryResourceConvergenceCandidate(String? token) {
+    final owner = widget.deviceInventoryResourceConvergenceOwner;
+    if (token == null ||
+        !widget.enableDeviceInventoryResourceConvergenceCandidate ||
+        widget.deviceInventoryResourceConvergenceReader != null ||
+        owner == null) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl:
+          widget.deviceInventoryResourceConvergenceCandidateApiOrigin ??
+          ForgeConversationsApiOrigin.baseUrl,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _deviceInventoryResourceConvergenceCandidateApi = api;
+    _deviceInventoryResourceConvergenceCandidateReader = (requestedOwner) {
+      if (requestedOwner != owner) {
+        return Future<ForgeDeviceInventoryResourceConvergence>.error(
+          const FormatException(
+            'Forge inventory/resource convergence owner binding changed.',
+          ),
+        );
+      }
+      return api.readConvergedInventoryResourceView(owner: owner);
+    };
   }
 
   void _configureDeviceInventoryRegistryPlacementPreviewCandidate(
@@ -835,6 +1597,177 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
         };
   }
 
+  void _configureSchedulerSelectionPreviewCandidate(String? token) {
+    final request = widget.schedulerSelectionPreviewRequest;
+    final origin = widget.schedulerSelectionPreviewCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableSchedulerSelectionPreviewCandidate ||
+        widget.schedulerSelectionPreviewReader != null ||
+        request == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _schedulerSelectionPreviewCandidateApi = api;
+    _schedulerSelectionPreviewCandidateReader = (requested) {
+      final expectedRequest = ForgeSchedulerSelectionPreviewRequest.fromJson(
+        request.toJson(),
+      );
+      final validatedRequest = ForgeSchedulerSelectionPreviewRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validatedRequest.toJson()) !=
+          jsonEncode(expectedRequest.toJson())) {
+        return Future<ForgeSchedulerSelectionPreview>.error(
+          const FormatException(
+            'Forge scheduler selection request binding changed.',
+          ),
+        );
+      }
+      return api.previewSchedulerSelection(
+        request: expectedRequest,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureSchedulerSelectionLeaseCandidate(String? token) {
+    final request = widget.schedulerSelectionLeaseRequest;
+    final origin = widget.schedulerSelectionLeaseCandidateApiOrigin;
+    final idempotencyKey = widget.schedulerSelectionLeaseIdempotencyKey;
+    if (token == null ||
+        !widget.enableSchedulerSelectionLeaseCandidate ||
+        widget.schedulerSelectionLeaseReader != null ||
+        request == null ||
+        origin == null ||
+        origin.trim().isEmpty ||
+        idempotencyKey == null ||
+        idempotencyKey.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _schedulerSelectionLeaseCandidateApi = api;
+    _schedulerSelectionLeaseCandidateReader = (requested, requestedKey) {
+      final expectedRequest = ForgeSchedulerSelectionLeaseRequest.fromJson(
+        request.toJson(),
+      );
+      final validatedRequest = ForgeSchedulerSelectionLeaseRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validatedRequest.toJson()) !=
+              jsonEncode(expectedRequest.toJson()) ||
+          requestedKey != idempotencyKey) {
+        return Future<ForgeSchedulerSelectionLease>.error(
+          const FormatException(
+            'Forge scheduler lease request or idempotency binding changed.',
+          ),
+        );
+      }
+      return api.claimSchedulerSelectionLease(
+        request: expectedRequest,
+        idempotencyKey: idempotencyKey,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureSchedulerSelectionLeaseRenewalCandidate(String? token) {
+    final request = widget.schedulerSelectionLeaseRenewalRequest;
+    final origin = widget.schedulerSelectionLeaseRenewalCandidateApiOrigin;
+    final idempotencyKey = widget.schedulerSelectionLeaseRenewalIdempotencyKey;
+    if (token == null ||
+        !widget.enableSchedulerSelectionLeaseRenewalCandidate ||
+        widget.schedulerSelectionLeaseRenewalReader != null ||
+        request == null ||
+        origin == null ||
+        origin.trim().isEmpty ||
+        idempotencyKey == null ||
+        idempotencyKey.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _schedulerSelectionLeaseRenewalCandidateApi = api;
+    _schedulerSelectionLeaseRenewalCandidateReader = (requested, requestedKey) {
+      final expectedRequest =
+          ForgeSchedulerSelectionLeaseRenewalRequest.fromJson(request.toJson());
+      final validatedRequest =
+          ForgeSchedulerSelectionLeaseRenewalRequest.fromJson(
+            requested.toJson(),
+          );
+      if (jsonEncode(validatedRequest.toJson()) !=
+              jsonEncode(expectedRequest.toJson()) ||
+          requestedKey != idempotencyKey) {
+        return Future<ForgeSchedulerSelectionLease>.error(
+          const FormatException(
+            'Forge scheduler lease renewal request or idempotency binding changed.',
+          ),
+        );
+      }
+      return api.renewSchedulerSelectionLease(
+        request: expectedRequest,
+        idempotencyKey: idempotencyKey,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureSchedulerSelectionLeaseReleaseCandidate(String? token) {
+    final request = widget.schedulerSelectionLeaseReleaseRequest;
+    final origin = widget.schedulerSelectionLeaseReleaseCandidateApiOrigin;
+    final idempotencyKey = widget.schedulerSelectionLeaseReleaseIdempotencyKey;
+    if (token == null ||
+        !widget.enableSchedulerSelectionLeaseReleaseCandidate ||
+        widget.schedulerSelectionLeaseReleaseReader != null ||
+        request == null ||
+        origin == null ||
+        origin.trim().isEmpty ||
+        idempotencyKey == null ||
+        idempotencyKey.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _schedulerSelectionLeaseReleaseCandidateApi = api;
+    _schedulerSelectionLeaseReleaseCandidateReader = (requested, requestedKey) {
+      final expectedRequest =
+          ForgeSchedulerSelectionLeaseReleaseRequest.fromJson(request.toJson());
+      final validatedRequest =
+          ForgeSchedulerSelectionLeaseReleaseRequest.fromJson(
+            requested.toJson(),
+          );
+      if (jsonEncode(validatedRequest.toJson()) !=
+              jsonEncode(expectedRequest.toJson()) ||
+          requestedKey != idempotencyKey) {
+        return Future<ForgeSchedulerSelectionLeaseRelease>.error(
+          const FormatException(
+            'Forge scheduler lease release request or idempotency binding changed.',
+          ),
+        );
+      }
+      return api.releaseSchedulerSelectionLease(
+        request: expectedRequest,
+        idempotencyKey: idempotencyKey,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
   void _configureClientInstanceResourceViewCandidate(String? token) {
     final owner = widget.clientInstanceResourceViewOwner;
     if (token == null ||
@@ -849,6 +1782,7 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
           ForgeConversationsApiOrigin.baseUrl,
       accessToken: token,
       httpClient: widget.httpClient,
+      useWallClockTimeout: true,
     );
     _clientInstanceResourceViewCandidateApi = api;
     _clientInstanceResourceViewCandidateReader = (requestedOwner) {
@@ -877,6 +1811,7 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
           ForgeConversationsApiOrigin.baseUrl,
       accessToken: token,
       httpClient: widget.httpClient,
+      useWallClockTimeout: true,
     );
     _clientInstanceSessionViewCandidateApi = api;
     _clientInstanceSessionViewCandidateReader = (requestedOwner) {
@@ -889,6 +1824,37 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
       }
       return api.readClientInstanceSessionViewCandidate(owner: owner);
     };
+  }
+
+  void _configureClientInstanceSessionResourceConvergenceCandidate(
+    String? token,
+  ) {
+    final owner = widget.clientInstanceSessionResourceConvergenceOwner;
+    if (token == null ||
+        !widget.enableClientInstanceSessionResourceConvergenceCandidate ||
+        widget.clientInstanceSessionResourceConvergenceReader != null ||
+        owner == null) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl:
+          widget.clientInstanceSessionResourceConvergenceCandidateApiOrigin ??
+          ForgeConversationsApiOrigin.baseUrl,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _clientInstanceSessionResourceConvergenceCandidateApi = api;
+    _clientInstanceSessionResourceConvergenceCandidateReader =
+        (requestedOwner) {
+          if (requestedOwner != owner) {
+            return Future<ForgeClientInstanceSessionResourceConvergence>.error(
+              const FormatException(
+                'Forge client-instance session/resource owner binding changed.',
+              ),
+            );
+          }
+          return api.readConvergedClientInstanceViews(owner: owner);
+        };
   }
 
   void _configureRunAttemptLeaseDispatchPreflightCandidate(String? token) {
@@ -968,6 +1934,195 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
         conversationID: pinned.conversationID,
         runID: pinned.runID,
         dispatchPlan: pinned.dispatchPlan,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureRunnerExecutionIntentCandidate(String? token) {
+    final expectedRequest = widget.runnerExecutionIntentRequest;
+    final origin = widget.runnerExecutionIntentCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunnerExecutionIntentCandidate ||
+        widget.runnerExecutionIntentReader != null ||
+        expectedRequest == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runnerExecutionIntentCandidateApi = api;
+    _runnerExecutionIntentCandidateReader = (requested) {
+      final validated = ForgeRunnerExecutionIntentRequest(
+        owner: ForgeDeviceOwner.fromJson(requested.owner.toJson()),
+        conversationID: requested.conversationID,
+        prompt: requested.prompt,
+        run: requested.run,
+        binding: requested.binding,
+        command: requested.command,
+      );
+      final pinned = expectedRequest;
+      if (validated.owner != pinned.owner ||
+          validated.conversationID != pinned.conversationID ||
+          validated.run.runID != pinned.run.runID ||
+          jsonEncode(observeForgeRunnerExecutionIntent(validated).toJson()) !=
+              jsonEncode(observeForgeRunnerExecutionIntent(pinned).toJson())) {
+        return Future<ForgeRunnerExecutionIntentObservation>.error(
+          const FormatException(
+            'Forge Runner execution-intent request binding changed.',
+          ),
+        );
+      }
+      return api.previewRunnerExecutionIntent(
+        request: pinned,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureRunnerDispatchAdmissionCandidate(String? token) {
+    final expectedRequest = widget.runnerDispatchAdmissionRequest;
+    final origin = widget.runnerDispatchAdmissionCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunnerDispatchAdmissionCandidate ||
+        widget.runnerDispatchAdmissionReader != null ||
+        expectedRequest == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runnerDispatchAdmissionCandidateApi = api;
+    final expectedJSON = jsonEncode(expectedRequest.toJson());
+    _runnerDispatchAdmissionCandidateReader = (requested) {
+      final validated = ForgeRunnerDispatchAdmissionRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validated.toJson()) != expectedJSON) {
+        return Future<ForgeRunnerDispatchAdmission>.error(
+          const FormatException(
+            'Forge Runner dispatch admission request binding changed.',
+          ),
+        );
+      }
+      return api.previewRunnerDispatchAdmission(
+        request: validated,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureRunnerTransportAdmissionCandidate(String? token) {
+    final expectedRequest = widget.runnerTransportAdmissionRequest;
+    final origin = widget.runnerTransportAdmissionCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunnerTransportAdmissionCandidate ||
+        widget.runnerTransportAdmissionReader != null ||
+        expectedRequest == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runnerTransportAdmissionCandidateApi = api;
+    final expectedJSON = jsonEncode(expectedRequest.toJson());
+    _runnerTransportAdmissionCandidateReader = (requested) {
+      final validated = ForgeRunnerTransportAdmissionRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validated.toJson()) != expectedJSON) {
+        return Future<ForgeRunnerTransportAdmission>.error(
+          const FormatException(
+            'Forge Runner transport admission request binding changed.',
+          ),
+        );
+      }
+      return api.previewRunnerTransportAdmission(
+        request: validated,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureRunnerExecutionBoundaryCandidate(String? token) {
+    final expectedRequest = widget.runnerExecutionBoundaryRequest;
+    final origin = widget.runnerExecutionBoundaryCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunnerExecutionBoundaryCandidate ||
+        widget.runnerExecutionBoundaryReader != null ||
+        expectedRequest == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runnerExecutionBoundaryCandidateApi = api;
+    final expectedJSON = jsonEncode(expectedRequest.toJson());
+    _runnerExecutionBoundaryCandidateReader = (requested) {
+      final validated = ForgeRunnerExecutionBoundaryPreviewRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validated.toJson()) != expectedJSON) {
+        return Future<ForgeRunnerExecutionBoundaryObservation>.error(
+          const FormatException(
+            'Forge Runner execution boundary request binding changed.',
+          ),
+        );
+      }
+      return api.previewRunnerExecutionBoundary(
+        request: validated,
+        candidateOrigin: origin,
+      );
+    };
+  }
+
+  void _configureRunnerAttemptBoundaryCandidate(String? token) {
+    final expectedRequest = widget.runnerAttemptBoundaryRequest;
+    final origin = widget.runnerAttemptBoundaryCandidateApiOrigin;
+    if (token == null ||
+        !widget.enableRunnerAttemptBoundaryCandidate ||
+        widget.runnerAttemptBoundaryReader != null ||
+        expectedRequest == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _runnerAttemptBoundaryCandidateApi = api;
+    final expectedJSON = jsonEncode(expectedRequest.toJson());
+    _runnerAttemptBoundaryCandidateReader = (requested) {
+      final validated = ForgeRunnerAttemptBoundaryPreviewRequest.fromJson(
+        requested.toJson(),
+      );
+      if (jsonEncode(validated.toJson()) != expectedJSON) {
+        return Future<ForgeRunnerAttemptBoundaryObservation>.error(
+          const FormatException(
+            'Forge Runner Attempt boundary request binding changed.',
+          ),
+        );
+      }
+      return api.previewRunnerAttemptBoundary(
+        request: validated,
         candidateOrigin: origin,
       );
     };
@@ -1203,6 +2358,57 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
             idempotencyKey: idempotencyKey,
           );
         };
+    _pendingRunIntentCandidateReader = (conversationID) =>
+        api.listPendingRunIntents(conversationID: conversationID);
+    _pendingRunIntentCandidatePageReader = (conversationID, before) => api
+        .listPendingRunIntents(conversationID: conversationID, before: before);
+    _pendingRunIntentCandidateTimelineReader = (conversationID, intentID) =>
+        api.listPendingRunIntentTimeline(
+          conversationID: conversationID,
+          intentID: intentID,
+        );
+  }
+
+  void _configurePromptAppendReceiptCandidate(String? token) {
+    final expectedOwner = widget.promptAppendReceiptOwner;
+    final origin = widget.promptAppendReceiptCandidateApiOrigin;
+    if (token == null ||
+        !widget.enablePromptAppendReceiptCandidate ||
+        widget.promptAppendReceiptSubmitter != null ||
+        expectedOwner == null ||
+        origin == null ||
+        origin.trim().isEmpty) {
+      return;
+    }
+    final api = ForgeConversationsApi(
+      baseUrl: origin,
+      accessToken: token,
+      httpClient: widget.httpClient,
+    );
+    _promptAppendReceiptCandidateApi = api;
+    _promptAppendReceiptCandidateSubmitter =
+        ({
+          required ForgeDeviceOwner owner,
+          required conversationID,
+          required content,
+          required expectedVersion,
+          required idempotencyKey,
+        }) {
+          if (owner != expectedOwner) {
+            return Future<ForgePromptAppendReceiptObservation>.error(
+              const FormatException(
+                'Forge Prompt append receipt owner binding changed.',
+              ),
+            );
+          }
+          return api.appendPromptReceipt(
+            owner: expectedOwner,
+            conversationID: conversationID,
+            content: content,
+            expectedVersion: expectedVersion,
+            idempotencyKey: idempotencyKey,
+          );
+        };
   }
 
   @override
@@ -1212,19 +2418,34 @@ class _ForgeSessionsGateState extends State<ForgeSessionsGate> {
     // before the child screen finishes disposing.
     if (widget.httpClient == null) {
       _runObservedCandidateApi?.close();
+      _runExecutionEvidenceCandidateApi?.close();
+      _sessionRunnerReceiptHistoryCandidateApi?.close();
+      _sessionRunnerReconciliationProjectionCandidateApi?.close();
       _deviceInventoryCandidateApi?.close();
       _localRunnerPreviewCandidateApi?.close();
       _deviceInventoryV2CandidateApi?.close();
+      _deviceInventoryResourceConvergenceCandidateApi?.close();
       _deviceInventoryRegistryPlacementPreviewCandidateApi?.close();
+      _schedulerSelectionPreviewCandidateApi?.close();
+      _schedulerSelectionLeaseCandidateApi?.close();
+      _schedulerSelectionLeaseRenewalCandidateApi?.close();
+      _schedulerSelectionLeaseReleaseCandidateApi?.close();
       _clientInstanceResourceViewCandidateApi?.close();
       _clientInstanceSessionViewCandidateApi?.close();
+      _clientInstanceSessionResourceConvergenceCandidateApi?.close();
       _runAttemptLeaseDispatchPreflightCandidateApi?.close();
       _runnerDispatchPlanPreviewCandidateApi?.close();
+      _runnerExecutionIntentCandidateApi?.close();
+      _runnerDispatchAdmissionCandidateApi?.close();
+      _runnerTransportAdmissionCandidateApi?.close();
+      _runnerExecutionBoundaryCandidateApi?.close();
+      _runnerAttemptBoundaryCandidateApi?.close();
       _executionReconciliationCandidateApi?.close();
       _executionConsentPreviewCandidateApi?.close();
       _lifecycleRegistryCandidateApi?.close();
       _deviceCredentialCandidateApi?.close();
       _pendingRunIntentCandidateApi?.close();
+      _promptAppendReceiptCandidateApi?.close();
     }
     super.dispose();
   }

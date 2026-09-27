@@ -62,7 +62,11 @@ the host-side or build-only checks.
 The same runner has a separate real-network mode for a disposable emulator.
 It requires a private JSON input file containing the Coordinator origin, one
 owner Conversation, the current aggregate version and change cursor, a Prompt,
-an idempotency key, and the access token. The runner pushes that file into the
+an idempotency key, the access token, a `client_instance_id`, and strict
+display-only `session_view`/`resource_view` observations. The selected instance
+must be a mobile row containing that Conversation in both views; missing,
+hidden, owner-drifted, or instance-drifted observations fail before the
+activity can issue a Prompt request. The runner pushes that file into the
 debug app sandbox and passes only its filename to instrumentation; the token
 is never an `am instrument` argument:
 
@@ -73,6 +77,9 @@ cat > /tmp/forge-android-coordinator.json <<'JSON'
   "api_url": "http://10.0.2.2:8080",
   "access_token": "<short-lived Snaplink JWT>",
   "conversation_id": "conversation-001",
+  "client_instance_id": "client-mobile-001",
+  "session_view": { "...": "strict forge.client-instance-session-view/v1 observation" },
+  "resource_view": { "...": "strict forge.client-instance-resource-view/v1 observation" },
   "expected_version": 4,
   "after_cursor": 19,
   "prompt": "Prompt from Android Coordinator journey",
@@ -88,12 +95,14 @@ rm -f /tmp/forge-android-coordinator.json
 
 The Coordinator must already be reachable from the emulator (the Android
 emulator commonly reaches the host through `10.0.2.2`). The journey restores
-the credential through Android secure storage, performs the authenticated
-Conversation/change-feed/Prompt reads and idempotent Prompt replay, persists the
-owner-local cursor, then recreates `MainActivity` and repeats the probe with the
-same key. It asserts that every recorded request stays on the Conversation,
-Prompt, or change-feed paths. It does not register a client, read inventory,
-select or reserve a device, schedule, dispatch, execute, or publish a receipt.
+the credential through Android secure storage, validates the converged
+client-instance observations before the authenticated Conversation/change-
+feed/Prompt reads, performs idempotent Prompt replay, persists the owner-local
+cursor, then recreates `MainActivity` and repeats the probe with the same key.
+It asserts that every recorded request stays on the Conversation, Prompt,
+change-feed, or read-only client-instance view paths. It does not register a
+client, mutate inventory, select or reserve a device, schedule, dispatch,
+execute, or publish a receipt.
 
 The runner also rejects duplicate JSON keys and keeps the expected aggregate
 version and owner cursor within the Forge JSON-safe integer ceiling. An
@@ -102,3 +111,18 @@ explicitly requested emulator or Coordinator failure is an error. Omitting
 `--coordinator-input` without a serial is rejected. This is real Android
 emulator evidence only when the opt-in command completes; it does not claim an
 iOS run or physical-device behavior.
+
+## Metadata-only Runner admission contract
+
+`android/tests/run_forge_admission_contract.py` is the native admission
+evidence that can run on Linux without ADB. It consumes the strict shared
+session/resource and dispatch/transport admission fixtures, accepts a target
+only when it matches an owner-bound `device_id` or `runner_instance_id`, and
+rejects owner drift, foreign targets, and any non-false authority flag. Its
+trace allowlist contains only the two resource observations and the two
+metadata preview endpoints. A direct Runner dispatch path is rejected.
+
+The harness never starts an emulator, opens HTTP, sends a payload, reserves a
+device, or connects to a Runner. It is safe as the default native contract
+check; the existing explicit emulator Coordinator journey remains the only
+Android network/instrumentation path.

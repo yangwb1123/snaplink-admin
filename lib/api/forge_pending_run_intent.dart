@@ -172,7 +172,9 @@ class ForgePendingRunIntentRecord {
       ),
       status: _pendingIntentText(json['status'], 'intent.status'),
     );
-    if (record.status != 'pending' || record.latestSequence != 1) {
+    if (record.aggregateVersion == 0 ||
+        record.status != 'pending' ||
+        record.latestSequence != 1) {
       throw const FormatException(
         'Forge pending Run-intent record is not the initial pending value.',
       );

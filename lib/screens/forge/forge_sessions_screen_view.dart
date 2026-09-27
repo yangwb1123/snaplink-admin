@@ -16,30 +16,58 @@ extension on _ForgeSessionsScreenState {
     final strings = AppStrings.of(context);
     final selectedConversationID = _selected?.conversation.id;
     final selectedRunID = _selectedRun?.runID;
+    final schedulerSelectionLeaseCandidateEnabled =
+        (widget.schedulerSelectionLeaseRequest != null &&
+            widget.schedulerSelectionLeaseReader != null) ||
+        (widget.schedulerSelectionLeaseRenewalRequest != null &&
+            widget.schedulerSelectionLeaseRenewalReader != null);
+    final schedulerSelectionLeaseReleaseCandidateEnabled =
+        widget.schedulerSelectionLeaseReleaseRequest != null &&
+        widget.schedulerSelectionLeaseReleaseReader != null;
     final staticObservation = widget.deviceObservation;
     final runIntentObservation = widget.runIntentObservation;
     final runnerExecutionIntentObservation =
-        widget.runnerExecutionIntentObservation;
+        widget.runnerExecutionIntentObservation ??
+        _fetchedRunnerExecutionIntent;
     final runObserved = _strictRunObserved(widget.runObserved);
     final fetchedRunObserved = _strictRunObserved(_fetchedRunObserved);
-    final runExecutionEvidence = _strictRunExecutionEvidence(
-      widget.runExecutionEvidence,
-    );
+    final runExecutionEvidence =
+        _strictRunExecutionEvidence(widget.runExecutionEvidence) ??
+        _strictRunExecutionEvidence(_fetchedRunExecutionEvidence);
     final clientInstanceSessionView =
         _strictClientInstanceSessionView(
           widget.clientInstanceSessionViewPreview,
         ) ??
         _strictClientInstanceSessionView(_fetchedClientInstanceSessionView) ??
         _strictClientInstanceSessionView(_clientInstanceSessionViewPreview);
+    final inventoryResourceConvergence =
+        _strictDeviceInventoryResourceConvergence(
+          _fetchedDeviceInventoryResourceConvergence,
+        );
     final clientInstanceResourceView =
         _strictClientInstanceResourceView(
           widget.clientInstanceResourceViewPreview,
         ) ??
         _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
-        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview);
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        inventoryResourceConvergence?.resourceView;
     final executionLeaseCheckpoint = _strictExecutionLeaseCheckpoint(
       _executionLeaseCheckpointPreview,
     );
+    final sessionRunnerReceiptVectors = _safeSessionRunnerReceiptVectorsPreview(
+      _sessionRunnerReceiptVectorsPreview,
+    );
+    final sessionRunnerReceiptHistory = _safeSessionRunnerReceiptHistoryPreview(
+      _sessionRunnerReceiptHistoryPreview,
+    );
+    final sessionRunnerReconciliationProjection =
+        _safeSessionRunnerReconciliationProjectionPreview(
+          _sessionRunnerReconciliationProjectionPreview,
+        );
+    final fetchedSessionRunnerReconciliationProjection =
+        _safeSessionRunnerReconciliationProjectionPreview(
+          _fetchedSessionRunnerReconciliationProjection,
+        );
     final deviceInventoryV2Preview = _safeDeviceInventoryV2Preview(
       _deviceInventoryV2Preview,
     );
@@ -67,11 +95,38 @@ extension on _ForgeSessionsScreenState {
     final registryPlacementPreview = _strictRegistryPlacementPreview(
       _fetchedDeviceInventoryRegistryPlacementPreview,
     );
+    final schedulerSelectionPreview = _schedulerSelectionPreviewFor(
+      _strictSchedulerSelectionPreview(widget.schedulerSelectionPreview),
+      _strictSchedulerSelectionPreview(_fetchedSchedulerSelectionPreview),
+      selectedConversationID,
+      selectedRunID,
+    );
+    final schedulerSelectionLease = _schedulerSelectionLeaseFor(
+      _strictSchedulerSelectionLease(widget.schedulerSelectionLease),
+      _strictSchedulerSelectionLease(_fetchedSchedulerSelectionLease),
+      selectedConversationID,
+      selectedRunID,
+      widget.schedulerSelectionLeaseRequest?.attemptID ??
+          widget.schedulerSelectionLeaseRenewalRequest?.attemptID,
+    );
+    final schedulerSelectionLeaseRelease = _schedulerSelectionLeaseReleaseFor(
+      _strictSchedulerSelectionLeaseRelease(
+        widget.schedulerSelectionLeaseRelease,
+      ),
+      _strictSchedulerSelectionLeaseRelease(
+        _fetchedSchedulerSelectionLeaseRelease,
+      ),
+      selectedConversationID,
+      selectedRunID,
+      widget.schedulerSelectionLeaseReleaseRequest?.attemptID,
+    );
     // Prefer the dedicated session view, but allow the composed resource view
     // to drive the same local filter when only that observation was supplied.
-    final clientInstanceFilterInstances =
-        clientInstanceSessionView?.instances ??
-        clientInstanceResourceView?.instances;
+    // Use the same projection gate as owner reads. When independent
+    // session/resource readers are loading, stale, or divergent, the local
+    // instance filter must not fall back to one side and show a mixed session
+    // image.
+    final clientInstanceFilterInstances = _declaredClientInstanceRows();
     final clientInstanceFilterActive = _selectedClientInstanceID != null;
     final selectedClientInstanceDeclared =
         clientInstanceFilterInstances?.any(
@@ -106,6 +161,11 @@ extension on _ForgeSessionsScreenState {
     // every Run-bound value must belong to the selected Conversation and Run.
     final runResourceVisible =
         !clientInstanceFilterActive || selectedRunVisible;
+    final fetchedSessionRunnerReceiptHistory = runResourceVisible
+        ? _safeSessionRunnerReceiptHistoryPreview(
+            _fetchedSessionRunnerReceiptHistory,
+          )
+        : null;
     final staticRunAttemptLeaseDispatchPreflight = runResourceVisible
         ? _strictRunAttemptLeaseDispatchPreflight(
             widget.runAttemptLeaseDispatchPreflightPreview,
@@ -125,12 +185,26 @@ extension on _ForgeSessionsScreenState {
                       true
                   ? fetchedRunAttemptLeaseDispatchPreflight
                   : null);
-    final staticRunnerDispatchPlanPreview = _strictRunnerDispatchPlanPreview(
-      runResourceVisible ? widget.runnerDispatchPlanPreview : null,
-    );
-    final fetchedRunnerDispatchPlanPreview = _strictRunnerDispatchPlanPreview(
-      _fetchedRunnerDispatchPlanPreview,
-    );
+    final staticRunnerDispatchPlanPreviewCandidate =
+        _strictRunnerDispatchPlanPreview(
+          runResourceVisible ? widget.runnerDispatchPlanPreview : null,
+        );
+    final staticRunnerDispatchPlanPreview =
+        staticRunnerDispatchPlanPreviewCandidate != null &&
+            _runnerDispatchPlanTargetsMatchResources(
+              staticRunnerDispatchPlanPreviewCandidate,
+            )
+        ? staticRunnerDispatchPlanPreviewCandidate
+        : null;
+    final fetchedRunnerDispatchPlanPreviewCandidate =
+        _strictRunnerDispatchPlanPreview(_fetchedRunnerDispatchPlanPreview);
+    final fetchedRunnerDispatchPlanPreview =
+        fetchedRunnerDispatchPlanPreviewCandidate != null &&
+            _runnerDispatchPlanTargetsMatchResources(
+              fetchedRunnerDispatchPlanPreviewCandidate,
+            )
+        ? fetchedRunnerDispatchPlanPreviewCandidate
+        : null;
     final runnerDispatchPlanPreview = !runResourceVisible
         ? null
         : staticRunnerDispatchPlanPreview ??
@@ -141,6 +215,132 @@ extension on _ForgeSessionsScreenState {
                       true
                   ? fetchedRunnerDispatchPlanPreview
                   : null);
+    final staticRunnerDispatchAdmissionCandidate = runResourceVisible
+        ? _strictRunnerDispatchAdmission(widget.runnerDispatchAdmission)
+        : null;
+    final staticRunnerDispatchAdmission =
+        staticRunnerDispatchAdmissionCandidate != null &&
+            selectedConversationID != null &&
+            selectedRunID != null &&
+            staticRunnerDispatchAdmissionCandidate.conversationID ==
+                selectedConversationID &&
+            staticRunnerDispatchAdmissionCandidate.runID == selectedRunID &&
+            (widget.runnerDispatchAdmissionRequest == null ||
+                staticRunnerDispatchAdmissionCandidate.attemptID ==
+                    widget.runnerDispatchAdmissionRequest!.attemptID) &&
+            _runnerAdmissionTargetMatchesResources(
+              staticRunnerDispatchAdmissionCandidate.owner,
+              staticRunnerDispatchAdmissionCandidate.targetID,
+            )
+        ? staticRunnerDispatchAdmissionCandidate
+        : null;
+    final fetchedRunnerDispatchAdmission = _strictRunnerDispatchAdmission(
+      _fetchedRunnerDispatchAdmission,
+    );
+    final runnerDispatchAdmission = !runResourceVisible
+        ? null
+        : staticRunnerDispatchAdmission ??
+              (fetchedRunnerDispatchAdmission != null &&
+                      fetchedRunnerDispatchAdmission.isFor(
+                        selectedConversationID ?? '',
+                        selectedRunID ?? '',
+                        widget.runnerDispatchAdmissionRequest?.attemptID ?? '',
+                      ) &&
+                      _runnerAdmissionTargetMatchesResources(
+                        fetchedRunnerDispatchAdmission.owner,
+                        fetchedRunnerDispatchAdmission.targetID,
+                      )
+                  ? fetchedRunnerDispatchAdmission
+                  : null);
+    final staticRunnerTransportAdmissionCandidate = runResourceVisible
+        ? _strictRunnerTransportAdmission(widget.runnerTransportAdmission)
+        : null;
+    final staticRunnerTransportAdmission =
+        staticRunnerTransportAdmissionCandidate != null &&
+            selectedConversationID != null &&
+            selectedRunID != null &&
+            staticRunnerTransportAdmissionCandidate.conversationID ==
+                selectedConversationID &&
+            staticRunnerTransportAdmissionCandidate.runID == selectedRunID &&
+            (widget.runnerTransportAdmissionRequest == null ||
+                staticRunnerTransportAdmissionCandidate.attemptID ==
+                    widget.runnerTransportAdmissionRequest!.attemptID) &&
+            _runnerAdmissionTargetMatchesResources(
+              staticRunnerTransportAdmissionCandidate.owner,
+              staticRunnerTransportAdmissionCandidate.targetID,
+            )
+        ? staticRunnerTransportAdmissionCandidate
+        : null;
+    final fetchedRunnerTransportAdmission = _strictRunnerTransportAdmission(
+      _fetchedRunnerTransportAdmission,
+    );
+    final runnerTransportAdmission = !runResourceVisible
+        ? null
+        : staticRunnerTransportAdmission ??
+              (fetchedRunnerTransportAdmission != null &&
+                      fetchedRunnerTransportAdmission.isFor(
+                        selectedConversationID ?? '',
+                        selectedRunID ?? '',
+                        widget.runnerTransportAdmissionRequest?.attemptID ?? '',
+                      ) &&
+                      _runnerAdmissionTargetMatchesResources(
+                        fetchedRunnerTransportAdmission.owner,
+                        fetchedRunnerTransportAdmission.targetID,
+                      )
+                  ? fetchedRunnerTransportAdmission
+                  : null);
+    final staticRunnerExecutionBoundaryCandidate = runResourceVisible
+        ? _strictRunnerExecutionBoundary(widget.runnerExecutionBoundary)
+        : null;
+    final staticRunnerExecutionBoundary =
+        staticRunnerExecutionBoundaryCandidate != null &&
+            _runnerAdmissionTargetMatchesResources(
+              staticRunnerExecutionBoundaryCandidate.owner,
+              staticRunnerExecutionBoundaryCandidate.targetID,
+            )
+        ? staticRunnerExecutionBoundaryCandidate
+        : null;
+    final fetchedRunnerExecutionBoundaryCandidate =
+        _strictRunnerExecutionBoundary(_fetchedRunnerExecutionBoundary);
+    final fetchedRunnerExecutionBoundary =
+        fetchedRunnerExecutionBoundaryCandidate != null &&
+            _runnerAdmissionTargetMatchesResources(
+              fetchedRunnerExecutionBoundaryCandidate.owner,
+              fetchedRunnerExecutionBoundaryCandidate.targetID,
+            )
+        ? fetchedRunnerExecutionBoundaryCandidate
+        : null;
+    final runnerExecutionBoundary = !runResourceVisible
+        ? null
+        : staticRunnerExecutionBoundary ??
+              (fetchedRunnerExecutionBoundary?.isFor(
+                        selectedConversationID ?? '',
+                        selectedRunID ?? '',
+                        widget.runnerExecutionBoundaryRequest?.attemptID ?? '',
+                      ) ==
+                      true
+                  ? fetchedRunnerExecutionBoundary
+                  : null);
+    final staticRunnerAttemptBoundary = _strictRunnerAttemptBoundary(
+      widget.runnerAttemptBoundaryPreview,
+      selectedConversationID,
+      selectedRunID,
+    );
+    final importedRunnerAttemptBoundary = _strictRunnerAttemptBoundary(
+      _runnerAttemptBoundaryPreview,
+      selectedConversationID,
+      selectedRunID,
+    );
+    final fetchedRunnerAttemptBoundary = _strictFetchedRunnerAttemptBoundary(
+      _fetchedRunnerAttemptBoundary,
+      selectedConversationID,
+      selectedRunID,
+    );
+    final runnerAttemptBoundary = !runResourceVisible
+        ? null
+        : staticRunnerAttemptBoundary ??
+              importedRunnerAttemptBoundary ??
+              fetchedRunnerAttemptBoundary;
     final staticLocalRunnerPreview = _strictLocalRunnerPreview(
       runResourceVisible ? widget.localRunnerPreview : null,
     );
@@ -198,7 +398,10 @@ extension on _ForgeSessionsScreenState {
         ? _importedRunnerExecutionIntentObservation
         : null;
     final sessionRunnerReceiptObservation = runResourceVisible
-        ? widget.sessionRunnerReceiptObservation
+        ? widget.sessionRunnerReceiptObservationReader != null
+              ? _fetchedSessionRunnerReceiptObservation
+              : _fetchedSessionRunnerReceiptObservation ??
+                    widget.sessionRunnerReceiptObservation
         : null;
     final executionReconciliationObservation = !runResourceVisible
         ? null
@@ -239,6 +442,26 @@ extension on _ForgeSessionsScreenState {
               _importedSessionRunnerReceiptObservation!.isDisplayOnly
         ? _importedSessionRunnerReceiptObservation
         : null;
+    final displaySessionRunnerReceiptHistory = !runResourceVisible
+        ? null
+        : fetchedSessionRunnerReceiptHistory?.isFor(
+                    selectedConversationID ?? '',
+                    selectedRunID ?? '',
+                  ) ==
+                  true &&
+              fetchedSessionRunnerReceiptHistory!.isDisplayOnly
+        ? fetchedSessionRunnerReceiptHistory
+        : null;
+    final displaySessionRunnerReconciliationProjection = !runResourceVisible
+        ? null
+        : fetchedSessionRunnerReconciliationProjection?.isFor(
+                    selectedConversationID ?? '',
+                    selectedRunID ?? '',
+                  ) ==
+                  true &&
+              fetchedSessionRunnerReconciliationProjection!.isDisplayOnly
+        ? fetchedSessionRunnerReconciliationProjection
+        : null;
     final displayExecutionReconciliationObservation = !runResourceVisible
         ? null
         : executionReconciliationObservation?.isFor(
@@ -262,7 +485,9 @@ extension on _ForgeSessionsScreenState {
     ForgeRunObserved? displayRunObserved;
     for (final candidate
         in runResourceVisible
-            ? <ForgeRunObserved?>[fetchedRunObserved, runObserved]
+            ? widget.sessionRunnerReceiptObservationReader != null
+                  ? <ForgeRunObserved?>[fetchedRunObserved]
+                  : <ForgeRunObserved?>[fetchedRunObserved, runObserved]
             : const <ForgeRunObserved?>[]) {
       if (candidate?.isFor(selectedConversationID ?? '', selectedRunID ?? '') ==
               true &&
@@ -276,6 +501,11 @@ extension on _ForgeSessionsScreenState {
         widget.deviceObservationRequest!.conversationID ==
             selectedConversationID &&
         widget.deviceObservationRequest!.runID == selectedRunID;
+    // The import cards are intentionally discoverable on desktop, but a
+    // narrow AppBar must keep its title, sign-out, refresh, and import entry
+    // point usable on phone-sized surfaces. The compact menu retains every
+    // local import without making the AppBar horizontally overflow.
+    final compactAppBar = MediaQuery.sizeOf(context).width < 720;
     return Scaffold(
       appBar: AppBar(
         title: Text(context.tr('Forge Sessions')),
@@ -285,15 +515,21 @@ extension on _ForgeSessionsScreenState {
             onPressed: _signingOut ? null : _signOutThisDevice,
             icon: const Icon(Icons.logout_outlined),
           ),
-          if (!_sessionViewInvalidated)
+          if (!_sessionViewInvalidated && !compactAppBar) ...[
             _runnerLeaseFencingImportAction(context),
-          if (!_sessionViewInvalidated)
             _executionLeaseCheckpointImportAction(context),
-          if (!_sessionViewInvalidated) _deviceInventoryV2ImportAction(context),
-          if (!_sessionViewInvalidated)
+            _sessionRunnerReceiptVectorsImportAction(context),
+            _sessionRunnerReceiptHistoryImportAction(context),
+            _sessionRunnerReconciliationProjectionImportAction(context),
+            _deviceInventoryV2ImportAction(context),
             _deviceInventoryPlacementEvaluationV2ImportAction(context),
-          if (!_sessionViewInvalidated)
             _deviceInventoryPlacementBatchEvaluationImportAction(context),
+            if (widget.enableRunnerAttemptBoundaryProjection &&
+                widget.runnerAttemptBoundaryScope != null)
+              _runnerAttemptBoundaryImportAction(context),
+          ],
+          if (!_sessionViewInvalidated && compactAppBar)
+            _compactImportMenu(context),
           IconButton(
             tooltip: strings.refresh,
             onPressed: _sessionViewInvalidated ? null : _refreshAndSync,
@@ -324,8 +560,40 @@ extension on _ForgeSessionsScreenState {
                 _errorCard(context, _runnerLeaseFencingError!, _signIn),
               if (_executionLeaseCheckpointError != null)
                 _errorCard(context, _executionLeaseCheckpointError!, _signIn),
+              if (_sessionRunnerReceiptVectorsPreviewError != null)
+                _errorCard(
+                  context,
+                  _sessionRunnerReceiptVectorsPreviewError!,
+                  _signIn,
+                ),
+              if (_sessionRunnerReceiptHistoryPreviewError != null)
+                _errorCard(
+                  context,
+                  _sessionRunnerReceiptHistoryPreviewError!,
+                  _signIn,
+                ),
+              if (_sessionRunnerReconciliationProjectionPreviewError != null)
+                _errorCard(
+                  context,
+                  _sessionRunnerReconciliationProjectionPreviewError!,
+                  _signIn,
+                ),
+              if (_runnerAttemptBoundaryPreviewError != null)
+                _errorCard(
+                  context,
+                  _runnerAttemptBoundaryPreviewError!,
+                  _signIn,
+                ),
+              if (runResourceVisible && _runnerAttemptBoundaryError != null)
+                _errorCard(context, _runnerAttemptBoundaryError!, _signIn),
               if (_deviceInventoryV2PreviewError != null)
                 _errorCard(context, _deviceInventoryV2PreviewError!, _signIn),
+              if (_deviceInventoryResourceConvergenceError != null)
+                _errorCard(
+                  context,
+                  _deviceInventoryResourceConvergenceError!,
+                  _signIn,
+                ),
               if (_deviceResourceSummaryPreviewError != null)
                 _errorCard(
                   context,
@@ -373,6 +641,27 @@ extension on _ForgeSessionsScreenState {
                     fixture: executionLeaseCheckpoint,
                   ),
                 ),
+              if (sessionRunnerReceiptVectors != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSessionRunnerReceiptVectorsPanel(
+                    fixture: sessionRunnerReceiptVectors,
+                  ),
+                ),
+              if (sessionRunnerReceiptHistory != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSessionRunnerReceiptHistoryPanel(
+                    history: sessionRunnerReceiptHistory,
+                  ),
+                ),
+              if (sessionRunnerReconciliationProjection != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSessionRunnerReconciliationProjectionPanel(
+                    projection: sessionRunnerReconciliationProjection,
+                  ),
+                ),
               if (clientInstanceSessionView != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
@@ -408,6 +697,27 @@ extension on _ForgeSessionsScreenState {
                     preview: registryPlacementPreview,
                   ),
                 ),
+              if (schedulerSelectionPreview != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSchedulerSelectionPreviewPanel(
+                    preview: schedulerSelectionPreview,
+                  ),
+                ),
+              if (schedulerSelectionLease != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSchedulerSelectionLeasePanel(
+                    lease: schedulerSelectionLease,
+                  ),
+                ),
+              if (schedulerSelectionLeaseRelease != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSchedulerSelectionLeaseReleasePanel(
+                    release: schedulerSelectionLeaseRelease,
+                  ),
+                ),
               if (clientInstanceProjectionInvalid ||
                   (clientInstanceFilterInstances != null &&
                       clientInstanceFilterInstances.isNotEmpty))
@@ -432,6 +742,34 @@ extension on _ForgeSessionsScreenState {
                       'forge-runner-dispatch-plan-preview-card',
                     ),
                     preview: runnerDispatchPlanPreview,
+                  ),
+                ),
+              if (runnerDispatchAdmission != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeRunnerDispatchAdmissionCard(
+                    admission: runnerDispatchAdmission,
+                  ),
+                ),
+              if (runnerTransportAdmission != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeRunnerTransportAdmissionCard(
+                    admission: runnerTransportAdmission,
+                  ),
+                ),
+              if (runnerExecutionBoundary != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeRunnerExecutionBoundaryCard(
+                    observation: runnerExecutionBoundary,
+                  ),
+                ),
+              if (runnerAttemptBoundary != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeRunnerAttemptBoundaryCard(
+                    observation: runnerAttemptBoundary,
                   ),
                 ),
               if (localRunnerPreview != null)
@@ -461,6 +799,14 @@ extension on _ForgeSessionsScreenState {
                   widget.deviceInventoryV2Reader != null &&
                   _deviceInventoryV2Error != null)
                 _errorCard(context, _deviceInventoryV2Error!, _signIn),
+              if (widget.deviceInventoryResourceConvergenceOwner != null &&
+                  widget.deviceInventoryResourceConvergenceReader != null &&
+                  _deviceInventoryResourceConvergenceError != null)
+                _errorCard(
+                  context,
+                  _deviceInventoryResourceConvergenceError!,
+                  _signIn,
+                ),
               if (widget.deviceInventoryOwner != null &&
                   widget.deviceInventoryRegistryPlacementRequirements != null &&
                   widget.deviceInventoryRegistryPlacementPreviewReader !=
@@ -471,6 +817,20 @@ extension on _ForgeSessionsScreenState {
                   _deviceInventoryRegistryPlacementPreviewError!,
                   _signIn,
                 ),
+              if (widget.schedulerSelectionPreviewRequest != null &&
+                  widget.schedulerSelectionPreviewReader != null &&
+                  _schedulerSelectionPreviewError != null)
+                _errorCard(context, _schedulerSelectionPreviewError!, _signIn),
+              if (schedulerSelectionLeaseCandidateEnabled &&
+                  _schedulerSelectionLeaseError != null)
+                _errorCard(context, _schedulerSelectionLeaseError!, _signIn),
+              if (schedulerSelectionLeaseReleaseCandidateEnabled &&
+                  _schedulerSelectionLeaseReleaseError != null)
+                _errorCard(
+                  context,
+                  _schedulerSelectionLeaseReleaseError!,
+                  _signIn,
+                ),
               if (widget.clientInstanceResourceViewOwner != null &&
                   widget.clientInstanceResourceViewReader != null &&
                   _clientInstanceResourceViewError != null)
@@ -479,6 +839,16 @@ extension on _ForgeSessionsScreenState {
                   widget.clientInstanceSessionViewReader != null &&
                   _clientInstanceSessionViewError != null)
                 _errorCard(context, _clientInstanceSessionViewError!, _signIn),
+              if (widget.clientInstanceSessionResourceConvergenceOwner !=
+                      null &&
+                  widget.clientInstanceSessionResourceConvergenceReader !=
+                      null &&
+                  _clientInstanceSessionResourceConvergenceError != null)
+                _errorCard(
+                  context,
+                  _clientInstanceSessionResourceConvergenceError!,
+                  _signIn,
+                ),
               if (widget.lifecycleRegistryOwner != null &&
                   widget.lifecycleRegistryReader != null &&
                   _lifecycleRegistryError != null)
@@ -503,6 +873,21 @@ extension on _ForgeSessionsScreenState {
                   _runnerDispatchPlanPreviewError != null)
                 _errorCard(context, _runnerDispatchPlanPreviewError!, _signIn),
               if (runResourceVisible &&
+                  widget.runnerDispatchAdmissionRequest != null &&
+                  widget.runnerDispatchAdmissionReader != null &&
+                  _runnerDispatchAdmissionError != null)
+                _errorCard(context, _runnerDispatchAdmissionError!, _signIn),
+              if (runResourceVisible &&
+                  widget.runnerTransportAdmissionRequest != null &&
+                  widget.runnerTransportAdmissionReader != null &&
+                  _runnerTransportAdmissionError != null)
+                _errorCard(context, _runnerTransportAdmissionError!, _signIn),
+              if (runResourceVisible &&
+                  widget.runnerExecutionBoundaryRequest != null &&
+                  widget.runnerExecutionBoundaryReader != null &&
+                  _runnerExecutionBoundaryError != null)
+                _errorCard(context, _runnerExecutionBoundaryError!, _signIn),
+              if (runResourceVisible &&
                   widget.localRunnerPreviewRequest != null &&
                   widget.localRunnerPreviewReader != null &&
                   _localRunnerPreviewError != null)
@@ -524,12 +909,26 @@ extension on _ForgeSessionsScreenState {
                   widget.deviceInventoryV2Reader != null &&
                   _deviceInventoryV2Stale)
                 _staleDeviceInventoryV2Card(context),
+              if (widget.deviceInventoryResourceConvergenceOwner != null &&
+                  widget.deviceInventoryResourceConvergenceReader != null &&
+                  _deviceInventoryResourceConvergenceStale)
+                _staleDeviceInventoryResourceConvergenceCard(context),
               if (widget.deviceInventoryOwner != null &&
                   widget.deviceInventoryRegistryPlacementRequirements != null &&
                   widget.deviceInventoryRegistryPlacementPreviewReader !=
                       null &&
                   _deviceInventoryRegistryPlacementPreviewStale)
                 _staleRegistryPlacementPreviewCard(context),
+              if (widget.schedulerSelectionPreviewRequest != null &&
+                  widget.schedulerSelectionPreviewReader != null &&
+                  _schedulerSelectionPreviewStale)
+                _staleSchedulerSelectionPreviewCard(context),
+              if (schedulerSelectionLeaseCandidateEnabled &&
+                  _schedulerSelectionLeaseStale)
+                _staleSchedulerSelectionLeaseCard(context),
+              if (schedulerSelectionLeaseReleaseCandidateEnabled &&
+                  _schedulerSelectionLeaseReleaseStale)
+                _staleSchedulerSelectionLeaseReleaseCard(context),
               if (widget.clientInstanceResourceViewOwner != null &&
                   widget.clientInstanceResourceViewReader != null &&
                   _clientInstanceResourceViewStale)
@@ -538,6 +937,12 @@ extension on _ForgeSessionsScreenState {
                   widget.clientInstanceSessionViewReader != null &&
                   _clientInstanceSessionViewStale)
                 _staleClientInstanceSessionViewCard(context),
+              if (widget.clientInstanceSessionResourceConvergenceOwner !=
+                      null &&
+                  widget.clientInstanceSessionResourceConvergenceReader !=
+                      null &&
+                  _clientInstanceSessionResourceConvergenceStale)
+                _staleClientInstanceSessionResourceConvergenceCard(context),
               if (widget.lifecycleRegistryOwner != null &&
                   widget.lifecycleRegistryReader != null &&
                   _lifecycleRegistryStale)
@@ -557,6 +962,26 @@ extension on _ForgeSessionsScreenState {
                   widget.runnerDispatchPlanPreviewReader != null &&
                   _runnerDispatchPlanPreviewStale)
                 _staleRunnerDispatchPlanPreviewCard(context),
+              if (runResourceVisible &&
+                  widget.runnerDispatchAdmissionRequest != null &&
+                  widget.runnerDispatchAdmissionReader != null &&
+                  _runnerDispatchAdmissionStale)
+                _staleRunnerDispatchAdmissionCard(context),
+              if (runResourceVisible &&
+                  widget.runnerTransportAdmissionRequest != null &&
+                  widget.runnerTransportAdmissionReader != null &&
+                  _runnerTransportAdmissionStale)
+                _staleRunnerTransportAdmissionCard(context),
+              if (runResourceVisible &&
+                  widget.runnerExecutionBoundaryRequest != null &&
+                  widget.runnerExecutionBoundaryReader != null &&
+                  _runnerExecutionBoundaryStale)
+                _staleRunnerExecutionBoundaryCard(context),
+              if (runResourceVisible &&
+                  widget.runnerAttemptBoundaryRequest != null &&
+                  widget.runnerAttemptBoundaryReader != null &&
+                  _runnerAttemptBoundaryStale)
+                _staleRunnerAttemptBoundaryCard(context),
               if (runResourceVisible &&
                   widget.localRunnerPreviewRequest != null &&
                   widget.localRunnerPreviewReader != null &&
@@ -636,6 +1061,25 @@ extension on _ForgeSessionsScreenState {
                   padding: EdgeInsets.only(top: 12),
                   child: LinearProgressIndicator(),
                 ),
+              if (widget.schedulerSelectionPreviewRequest != null &&
+                  widget.schedulerSelectionPreviewReader != null &&
+                  _loadingSchedulerSelectionPreview)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (schedulerSelectionLeaseCandidateEnabled &&
+                  _loadingSchedulerSelectionLease)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (schedulerSelectionLeaseReleaseCandidateEnabled &&
+                  _loadingSchedulerSelectionLeaseRelease)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
               if (widget.clientInstanceResourceViewOwner != null &&
                   widget.clientInstanceResourceViewReader != null &&
                   _loadingClientInstanceResourceView)
@@ -646,6 +1090,15 @@ extension on _ForgeSessionsScreenState {
               if (widget.clientInstanceSessionViewOwner != null &&
                   widget.clientInstanceSessionViewReader != null &&
                   _loadingClientInstanceSessionView)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (widget.clientInstanceSessionResourceConvergenceOwner !=
+                      null &&
+                  widget.clientInstanceSessionResourceConvergenceReader !=
+                      null &&
+                  _loadingClientInstanceSessionResourceConvergence)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: LinearProgressIndicator(),
@@ -669,6 +1122,22 @@ extension on _ForgeSessionsScreenState {
                   widget.runnerDispatchPlanPreviewRequest != null &&
                   widget.runnerDispatchPlanPreviewReader != null &&
                   _loadingRunnerDispatchPlanPreview)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (runResourceVisible &&
+                  widget.runnerDispatchAdmissionRequest != null &&
+                  widget.runnerDispatchAdmissionReader != null &&
+                  _loadingRunnerDispatchAdmission)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (runResourceVisible &&
+                  widget.runnerTransportAdmissionRequest != null &&
+                  widget.runnerTransportAdmissionReader != null &&
+                  _loadingRunnerTransportAdmission)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: LinearProgressIndicator(),
@@ -702,6 +1171,11 @@ extension on _ForgeSessionsScreenState {
                 _authenticatedDeviceInventoryV2Panel(
                   context,
                   _fetchedDeviceInventoryV2!,
+                ),
+              if (inventoryResourceConvergence != null)
+                _authenticatedDeviceInventoryResourceConvergencePanel(
+                  context,
+                  inventoryResourceConvergence,
                 ),
               if (deviceInventoryV2Preview != null)
                 Padding(
@@ -797,6 +1271,47 @@ extension on _ForgeSessionsScreenState {
                   child: LinearProgressIndicator(),
                 ),
               if (runResourceVisible &&
+                  widget.runExecutionEvidenceReader != null &&
+                  _runExecutionEvidenceError != null)
+                _errorCard(context, _runExecutionEvidenceError!, _signIn),
+              if (runResourceVisible &&
+                  widget.runExecutionEvidenceReader != null &&
+                  _loadingRunExecutionEvidence)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (runResourceVisible &&
+                  widget.sessionRunnerReceiptHistoryReader != null &&
+                  _sessionRunnerReceiptHistoryError != null)
+                _errorCard(
+                  context,
+                  _sessionRunnerReceiptHistoryError!,
+                  _signIn,
+                ),
+              if (runResourceVisible &&
+                  widget.sessionRunnerReceiptHistoryReader != null &&
+                  _loadingSessionRunnerReceiptHistory)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (runResourceVisible &&
+                  widget.sessionRunnerReconciliationProjectionReader != null &&
+                  _sessionRunnerReconciliationProjectionError != null)
+                _errorCard(
+                  context,
+                  _sessionRunnerReconciliationProjectionError!,
+                  _signIn,
+                ),
+              if (runResourceVisible &&
+                  widget.sessionRunnerReconciliationProjectionReader != null &&
+                  _loadingSessionRunnerReconciliationProjection)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
+              if (runResourceVisible &&
                   widget.executionReconciliationReader != null &&
                   _executionReconciliationError != null)
                 _errorCard(context, _executionReconciliationError!, _signIn),
@@ -817,9 +1332,40 @@ extension on _ForgeSessionsScreenState {
                 ForgeRunnerExecutionIntentCard(
                   observation: displayRunnerExecutionIntentObservation,
                 ),
+              if (runResourceVisible &&
+                  widget.runnerExecutionIntentReader != null &&
+                  _runnerExecutionIntentError != null)
+                _errorCard(context, _runnerExecutionIntentError!, _signIn),
+              if (runResourceVisible &&
+                  widget.runnerExecutionIntentReader != null &&
+                  _loadingRunnerExecutionIntent)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: LinearProgressIndicator(),
+                ),
               if (displaySessionRunnerReceiptObservation != null)
                 ForgeSessionRunnerReceiptObservationCard(
                   observation: displaySessionRunnerReceiptObservation,
+                ),
+              if (displaySessionRunnerReceiptHistory != null)
+                Padding(
+                  key: const ValueKey(
+                    'forge-session-runner-receipt-history-remote-panel',
+                  ),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSessionRunnerReceiptHistoryPanel(
+                    history: displaySessionRunnerReceiptHistory,
+                  ),
+                ),
+              if (displaySessionRunnerReconciliationProjection != null)
+                Padding(
+                  key: const ValueKey(
+                    'forge-session-runner-reconciliation-projection-remote-panel',
+                  ),
+                  padding: const EdgeInsets.only(top: 12),
+                  child: ForgeSessionRunnerReconciliationProjectionPanel(
+                    projection: displaySessionRunnerReconciliationProjection,
+                  ),
                 ),
               if (displayExecutionReconciliationObservation != null)
                 ForgeExecutionReconciliationObservationCard(
@@ -932,6 +1478,21 @@ extension on _ForgeSessionsScreenState {
     }
   }
 
+  ForgeDeviceInventoryResourceConvergence?
+  _strictDeviceInventoryResourceConvergence(
+    ForgeDeviceInventoryResourceConvergence? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeDeviceInventoryResourceConvergence.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   ForgeExecutionLeaseCheckpointFixture? _strictExecutionLeaseCheckpoint(
     ForgeExecutionLeaseCheckpointFixture? candidate,
   ) {
@@ -983,6 +1544,108 @@ extension on _ForgeSessionsScreenState {
     }
   }
 
+  ForgeSchedulerSelectionPreview? _strictSchedulerSelectionPreview(
+    ForgeSchedulerSelectionPreview? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeSchedulerSelectionPreview.fromJson(
+        candidate.toJson(),
+      );
+      return validated.authority.anyGranted || !validated.previewOnly
+          ? null
+          : validated;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSchedulerSelectionPreview? _schedulerSelectionPreviewFor(
+    ForgeSchedulerSelectionPreview? staticPreview,
+    ForgeSchedulerSelectionPreview? fetchedPreview,
+    String? conversationID,
+    String? runID,
+  ) {
+    for (final candidate in [staticPreview, fetchedPreview]) {
+      if (candidate != null &&
+          conversationID != null &&
+          runID != null &&
+          candidate.isFor(conversationID, runID) &&
+          _schedulerSelectionTargetMatchesResources(candidate)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  ForgeSchedulerSelectionLease? _strictSchedulerSelectionLease(
+    ForgeSchedulerSelectionLease? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      return ForgeSchedulerSelectionLease.fromJson(candidate.toJson());
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSchedulerSelectionLeaseRelease? _strictSchedulerSelectionLeaseRelease(
+    ForgeSchedulerSelectionLeaseRelease? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      return ForgeSchedulerSelectionLeaseRelease.fromJson(candidate.toJson());
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSchedulerSelectionLeaseRelease? _schedulerSelectionLeaseReleaseFor(
+    ForgeSchedulerSelectionLeaseRelease? staticRelease,
+    ForgeSchedulerSelectionLeaseRelease? fetchedRelease,
+    String? conversationID,
+    String? runID,
+    String? attemptID,
+  ) {
+    for (final candidate in [staticRelease, fetchedRelease]) {
+      if (candidate != null &&
+          conversationID != null &&
+          runID != null &&
+          candidate.isFor(
+            conversationID,
+            runID,
+            attemptID ?? candidate.attemptID,
+          ) &&
+          (attemptID == null || candidate.attemptID == attemptID)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  ForgeSchedulerSelectionLease? _schedulerSelectionLeaseFor(
+    ForgeSchedulerSelectionLease? staticLease,
+    ForgeSchedulerSelectionLease? fetchedLease,
+    String? conversationID,
+    String? runID,
+    String? attemptID,
+  ) {
+    for (final candidate in [staticLease, fetchedLease]) {
+      if (candidate != null &&
+          conversationID != null &&
+          runID != null &&
+          candidate.isFor(
+            conversationID,
+            runID,
+            attemptID ?? candidate.attemptID,
+          ) &&
+          (attemptID == null || candidate.attemptID == attemptID)) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
   ForgePreflightFixture? _strictRunAttemptLeaseDispatchPreflight(
     ForgePreflightFixture? candidate,
   ) {
@@ -1003,6 +1666,106 @@ extension on _ForgeSessionsScreenState {
         candidate.toJson(),
       );
       return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeRunnerDispatchAdmission? _strictRunnerDispatchAdmission(
+    ForgeRunnerDispatchAdmission? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeRunnerDispatchAdmission.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeRunnerTransportAdmission? _strictRunnerTransportAdmission(
+    ForgeRunnerTransportAdmission? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeRunnerTransportAdmission.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeRunnerExecutionBoundaryObservation? _strictRunnerExecutionBoundary(
+    ForgeRunnerExecutionBoundaryObservation? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeRunnerExecutionBoundaryObservation.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeRunnerAttemptBoundaryObservation? _strictRunnerAttemptBoundary(
+    ForgeRunnerAttemptBoundaryObservation? candidate,
+    String? selectedConversationID,
+    String? selectedRunID,
+  ) {
+    final scope = widget.runnerAttemptBoundaryScope;
+    if (!widget.enableRunnerAttemptBoundaryProjection ||
+        candidate == null ||
+        scope == null ||
+        !scope.matchesSelected(selectedConversationID, selectedRunID)) {
+      return null;
+    }
+    try {
+      final validated = ForgeRunnerAttemptBoundaryObservation.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly && scope.matches(validated)
+          ? validated
+          : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeRunnerAttemptBoundaryObservation? _strictFetchedRunnerAttemptBoundary(
+    ForgeRunnerAttemptBoundaryObservation? candidate,
+    String? selectedConversationID,
+    String? selectedRunID,
+  ) {
+    final request = widget.runnerAttemptBoundaryRequest;
+    if (candidate == null ||
+        request == null ||
+        selectedConversationID == null ||
+        selectedRunID == null ||
+        request.conversationID != selectedConversationID ||
+        request.runID != selectedRunID) {
+      return null;
+    }
+    try {
+      final validated = ForgeRunnerAttemptBoundaryObservation.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly &&
+              validated.owner == request.owner &&
+              validated.isFor(
+                selectedConversationID,
+                selectedRunID,
+                request.attemptID,
+              ) &&
+              validated.currentAttemptState == request.attemptState &&
+              validated.transition == request.transition
+          ? validated
+          : null;
     } on FormatException {
       return null;
     }
@@ -1088,6 +1851,26 @@ extension on _ForgeSessionsScreenState {
     ),
   );
 
+  Widget _authenticatedDeviceInventoryResourceConvergencePanel(
+    BuildContext context,
+    ForgeDeviceInventoryResourceConvergence convergence,
+  ) => Card(
+    key: const ValueKey(
+      'forge-authenticated-device-inventory-resource-convergence',
+    ),
+    margin: const EdgeInsets.only(top: 12),
+    child: ListTile(
+      leading: const Icon(Icons.compare_arrows_outlined),
+      title: Text(context.tr('Converged device resources')),
+      subtitle: Text(
+        context.tr(
+          '${convergence.inventory.devices.length} device resources share the same Runner identity and lifecycle counters. This is an unverified display-only observation.',
+        ),
+      ),
+      trailing: const Icon(Icons.visibility_outlined),
+    ),
+  );
+
   Widget _signOutStateCard(BuildContext context) => Card(
     child: ListTile(
       leading: _signingOut
@@ -1110,6 +1893,31 @@ extension on _ForgeSessionsScreenState {
               onPressed: _signOutThisDevice,
               child: Text(context.tr('Retry sign out')),
             ),
+    ),
+  );
+
+  Widget _runnerAttemptBoundaryImportAction(BuildContext context) => Card(
+    key: const ValueKey('forge-runner-attempt-boundary-import-card'),
+    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+    child: Tooltip(
+      message: context.tr('Import Runner Attempt boundary JSON'),
+      child: Semantics(
+        button: true,
+        label: context.tr('Local Runner Attempt boundary projection'),
+        child: IconButton(
+          key: const ValueKey('forge-import-runner-attempt-boundary'),
+          tooltip: context.tr('Import Runner Attempt boundary JSON'),
+          onPressed: _loadingRunnerAttemptBoundaryPreview
+              ? null
+              : _importRunnerAttemptBoundaryPreview,
+          icon: _loadingRunnerAttemptBoundaryPreview
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.account_tree_outlined),
+        ),
+      ),
     ),
   );
 
@@ -1138,6 +1946,85 @@ extension on _ForgeSessionsScreenState {
     ),
   );
 
+  Widget _compactImportMenu(BuildContext context) => PopupMenuButton<String>(
+    key: const ValueKey('forge-compact-import-menu'),
+    tooltip: context.tr('Import Forge preview JSON'),
+    icon: const Icon(Icons.file_open_outlined),
+    onSelected: (value) {
+      switch (value) {
+        case 'runner-lease-fencing':
+          _importRunnerLeaseFencingPreview();
+        case 'execution-lease-checkpoint':
+          _importExecutionLeaseCheckpointPreview();
+        case 'session-runner-receipt-vectors':
+          _importSessionRunnerReceiptVectorsPreview();
+        case 'session-runner-receipt-history':
+          _importSessionRunnerReceiptHistoryPreview();
+        case 'session-runner-reconciliation-projection':
+          _importSessionRunnerReconciliationProjectionPreview();
+        case 'runner-attempt-boundary':
+          _importRunnerAttemptBoundaryPreview();
+        case 'device-inventory-v2':
+          _importDeviceInventoryV2Preview();
+        case 'device-placement-evaluation-v2':
+          _importDeviceInventoryPlacementEvaluationV2Preview();
+        case 'device-placement-batch':
+          _importDeviceInventoryPlacementBatchEvaluationPreview();
+      }
+    },
+    itemBuilder: (context) => [
+      PopupMenuItem<String>(
+        value: 'runner-lease-fencing',
+        enabled: !_loadingRunnerLeaseFencing,
+        child: Text(context.tr('Import Runner lease/fencing JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'execution-lease-checkpoint',
+        enabled: !_loadingExecutionLeaseCheckpoint,
+        child: Text(context.tr('Import execution-lease checkpoint JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'session-runner-receipt-vectors',
+        enabled: !_loadingSessionRunnerReceiptVectorsPreview,
+        child: Text(context.tr('Import session Runner receipt vectors JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'session-runner-receipt-history',
+        enabled: !_loadingSessionRunnerReceiptHistoryPreview,
+        child: Text(context.tr('Import session Runner receipt history JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'session-runner-reconciliation-projection',
+        enabled: !_loadingSessionRunnerReconciliationProjectionPreview,
+        child: Text(
+          context.tr('Import session Runner reconciliation projection JSON'),
+        ),
+      ),
+      if (widget.enableRunnerAttemptBoundaryProjection &&
+          widget.runnerAttemptBoundaryScope != null)
+        PopupMenuItem<String>(
+          value: 'runner-attempt-boundary',
+          enabled: !_loadingRunnerAttemptBoundaryPreview,
+          child: Text(context.tr('Import Runner Attempt boundary JSON')),
+        ),
+      PopupMenuItem<String>(
+        value: 'device-inventory-v2',
+        enabled: !_loadingDeviceInventoryV2Preview,
+        child: Text(context.tr('Import Forge v2 device inventory JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'device-placement-evaluation-v2',
+        enabled: !_loadingDeviceInventoryPlacementEvaluationV2Preview,
+        child: Text(context.tr('Import Forge v2 placement evaluation JSON')),
+      ),
+      PopupMenuItem<String>(
+        value: 'device-placement-batch',
+        enabled: !_loadingDeviceInventoryPlacementBatchEvaluationPreview,
+        child: Text(context.tr('Import Forge placement batch JSON')),
+      ),
+    ],
+  );
+
   Widget _executionLeaseCheckpointImportAction(BuildContext context) => Card(
     key: const ValueKey('forge-execution-lease-checkpoint-import-card'),
     margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -1158,6 +2045,93 @@ extension on _ForgeSessionsScreenState {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.file_open_outlined),
+        ),
+      ),
+    ),
+  );
+
+  Widget _sessionRunnerReceiptVectorsImportAction(BuildContext context) => Card(
+    key: const ValueKey('forge-session-runner-receipt-vectors-import-card'),
+    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+    child: Tooltip(
+      message: context.tr('Import session Runner receipt vectors JSON'),
+      child: Semantics(
+        button: true,
+        label: context.tr('Local session Runner receipt vectors preview'),
+        child: IconButton(
+          key: const ValueKey('forge-import-session-runner-receipt-vectors'),
+          tooltip: context.tr('Import session Runner receipt vectors JSON'),
+          onPressed: _loadingSessionRunnerReceiptVectorsPreview
+              ? null
+              : _importSessionRunnerReceiptVectorsPreview,
+          icon: _loadingSessionRunnerReceiptVectorsPreview
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.fact_check_outlined),
+        ),
+      ),
+    ),
+  );
+
+  Widget _sessionRunnerReceiptHistoryImportAction(BuildContext context) => Card(
+    key: const ValueKey('forge-session-runner-receipt-history-import-card'),
+    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+    child: Tooltip(
+      message: context.tr('Import session Runner receipt history JSON'),
+      child: Semantics(
+        button: true,
+        label: context.tr('Local session Runner receipt history preview'),
+        child: IconButton(
+          key: const ValueKey('forge-import-session-runner-receipt-history'),
+          tooltip: context.tr('Import session Runner receipt history JSON'),
+          onPressed: _loadingSessionRunnerReceiptHistoryPreview
+              ? null
+              : _importSessionRunnerReceiptHistoryPreview,
+          icon: _loadingSessionRunnerReceiptHistoryPreview
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.history_outlined),
+        ),
+      ),
+    ),
+  );
+
+  Widget _sessionRunnerReconciliationProjectionImportAction(
+    BuildContext context,
+  ) => Card(
+    key: const ValueKey(
+      'forge-session-runner-reconciliation-projection-import-card',
+    ),
+    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+    child: Tooltip(
+      message: context.tr(
+        'Import session Runner reconciliation projection JSON',
+      ),
+      child: Semantics(
+        button: true,
+        label: context.tr(
+          'Local session Runner reconciliation projection preview',
+        ),
+        child: IconButton(
+          key: const ValueKey(
+            'forge-import-session-runner-reconciliation-projection',
+          ),
+          tooltip: context.tr(
+            'Import session Runner reconciliation projection JSON',
+          ),
+          onPressed: _loadingSessionRunnerReconciliationProjectionPreview
+              ? null
+              : _importSessionRunnerReconciliationProjectionPreview,
+          icon: _loadingSessionRunnerReconciliationProjectionPreview
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.rule_folder_outlined),
         ),
       ),
     ),
@@ -1442,6 +2416,8 @@ extension on _ForgeSessionsScreenState {
 
   Widget _promptPanel(BuildContext context) {
     final selected = _selected!;
+    final schedulingReviewInventoryResourceError =
+        _inventoryResourceObservationErrorFor('Scheduling review');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1489,8 +2465,20 @@ extension on _ForgeSessionsScreenState {
             ),
             if (_appendError != null)
               _inlineError(context, _appendError!, _signIn),
+            if (_promptAppendInventoryResourceConvergenceError != null)
+              _inlineError(
+                context,
+                _promptAppendInventoryResourceConvergenceError!,
+                _signIn,
+              ),
             if (_pendingRunIntentSubmitError != null)
               _inlineError(context, _pendingRunIntentSubmitError!, _signIn),
+            if (schedulingReviewInventoryResourceError != null)
+              _inlineError(
+                context,
+                schedulingReviewInventoryResourceError,
+                _signIn,
+              ),
             const SizedBox(height: 12),
             Wrap(
               alignment: WrapAlignment.end,
@@ -1498,7 +2486,10 @@ extension on _ForgeSessionsScreenState {
               runSpacing: 8,
               children: [
                 FilledButton.icon(
-                  onPressed: _appending || _submittingPendingRunIntent
+                  onPressed:
+                      _appending ||
+                          _submittingPendingRunIntent ||
+                          _promptAppendInventoryResourceConvergenceError != null
                       ? null
                       : _appendPrompt,
                   icon: _appending
@@ -1517,7 +2508,10 @@ extension on _ForgeSessionsScreenState {
                     widget.pendingRunIntentOwner != null)
                   OutlinedButton.icon(
                     key: const ValueKey('forge-request-scheduling-review'),
-                    onPressed: _appending || _submittingPendingRunIntent
+                    onPressed:
+                        _appending ||
+                            _submittingPendingRunIntent ||
+                            schedulingReviewInventoryResourceError != null
                         ? null
                         : _submitPendingRunIntent,
                     icon: _submittingPendingRunIntent
@@ -1596,6 +2590,21 @@ extension on _ForgeSessionsScreenState {
     ),
   );
 
+  Widget _staleDeviceInventoryResourceConvergenceCard(
+    BuildContext context,
+  ) => Card(
+    key: const ValueKey('forge-device-inventory-resource-convergence-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge converged device resources are refreshing or unavailable. Showing the last validated pair; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
   Widget _staleRegistryPlacementPreviewCard(BuildContext context) => Card(
     key: const ValueKey('forge-device-registry-placement-preview-stale'),
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -1603,6 +2612,39 @@ extension on _ForgeSessionsScreenState {
       leading: Icon(Icons.cloud_off_outlined),
       title: Text(
         'Forge registry placement preview is refreshing or unavailable. Showing the last validated comparison; it may be stale.',
+      ),
+    ),
+  );
+
+  Widget _staleSchedulerSelectionPreviewCard(BuildContext context) => Card(
+    key: const ValueKey('forge-scheduler-selection-preview-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: const ListTile(
+      leading: Icon(Icons.cloud_off_outlined),
+      title: Text(
+        'Forge scheduler selection is refreshing or unavailable. Showing the last validated preview; it may be stale.',
+      ),
+    ),
+  );
+
+  Widget _staleSchedulerSelectionLeaseCard(BuildContext context) => Card(
+    key: const ValueKey('forge-scheduler-selection-lease-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: const ListTile(
+      leading: Icon(Icons.cloud_off_outlined),
+      title: Text(
+        'Forge scheduler lease is unavailable. The displayed lease was not renewed.',
+      ),
+    ),
+  );
+
+  Widget _staleSchedulerSelectionLeaseReleaseCard(BuildContext context) => Card(
+    key: const ValueKey('forge-scheduler-selection-lease-release-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: const ListTile(
+      leading: Icon(Icons.cloud_off_outlined),
+      title: Text(
+        'Forge scheduler lease release is unavailable. The displayed release receipt may be stale.',
       ),
     ),
   );
@@ -1628,6 +2670,23 @@ extension on _ForgeSessionsScreenState {
       title: Text(
         context.tr(
           'Forge client-instance sessions are refreshing or unavailable. Showing the last validated view; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _staleClientInstanceSessionResourceConvergenceCard(
+    BuildContext context,
+  ) => Card(
+    key: const ValueKey(
+      'forge-client-instance-session-resource-convergence-stale',
+    ),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge client-instance session and resource observations are refreshing or unavailable. Showing the last validated pair; it may be stale.',
         ),
       ),
     ),
@@ -1695,6 +2754,58 @@ extension on _ForgeSessionsScreenState {
       title: Text(
         context.tr(
           'Forge Runner dispatch-plan preview is refreshing or unavailable. Showing the last validated comparison; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _staleRunnerDispatchAdmissionCard(BuildContext context) => Card(
+    key: const ValueKey('forge-runner-dispatch-admission-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge Runner dispatch admission is refreshing or unavailable. Showing the last validated recheck; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _staleRunnerTransportAdmissionCard(BuildContext context) => Card(
+    key: const ValueKey('forge-runner-transport-admission-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge Runner transport admission is refreshing or unavailable. Showing the last validated preview; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _staleRunnerExecutionBoundaryCard(BuildContext context) => Card(
+    key: const ValueKey('forge-runner-execution-boundary-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge Runner execution boundary is refreshing or unavailable. Showing the last validated preview; it may be stale.',
+        ),
+      ),
+    ),
+  );
+
+  Widget _staleRunnerAttemptBoundaryCard(BuildContext context) => Card(
+    key: const ValueKey('forge-runner-attempt-boundary-stale'),
+    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+    child: ListTile(
+      leading: const Icon(Icons.cloud_off_outlined),
+      title: Text(
+        context.tr(
+          'Forge Runner Attempt boundary is refreshing or unavailable. Showing the last validated preview; it may be stale.',
         ),
       ),
     ),

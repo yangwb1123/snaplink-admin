@@ -30,9 +30,13 @@ class MainActivity : FlutterActivity() {
                     if (call.method == "configuration") {
                         val apiURL = preferences.getString(FORGE_COORDINATOR_API_URL, null)
                         val conversationID = preferences.getString(FORGE_COORDINATOR_CONVERSATION_ID, null)
+                        val clientInstanceID = preferences.getString(FORGE_COORDINATOR_CLIENT_INSTANCE_ID, null)
+                        val sessionView = preferences.getString(FORGE_COORDINATOR_SESSION_VIEW, null)
+                        val resourceView = preferences.getString(FORGE_COORDINATOR_RESOURCE_VIEW, null)
                         val prompt = preferences.getString(FORGE_COORDINATOR_PROMPT, null)
                         val idempotencyKey = preferences.getString(FORGE_COORDINATOR_IDEMPOTENCY_KEY, null)
-                        if (apiURL == null || conversationID == null || prompt == null || idempotencyKey == null) {
+                        if (apiURL == null || conversationID == null || clientInstanceID == null ||
+                            sessionView == null || resourceView == null || prompt == null || idempotencyKey == null) {
                             result.error("missing_configuration", "Coordinator probe configuration is missing.", null)
                             return@setMethodCallHandler
                         }
@@ -40,6 +44,9 @@ class MainActivity : FlutterActivity() {
                             mapOf(
                                 "api_url" to apiURL,
                                 "conversation_id" to conversationID,
+                                "client_instance_id" to clientInstanceID,
+                                "session_view" to sessionView,
+                                "resource_view" to resourceView,
                                 "expected_version" to preferences.getLong(FORGE_COORDINATOR_EXPECTED_VERSION, 0L),
                                 "after_cursor" to preferences.getLong(FORGE_COORDINATOR_AFTER_CURSOR, 0L),
                                 "prompt" to prompt,
@@ -122,6 +129,9 @@ class MainActivity : FlutterActivity() {
         const val FORGE_INSTRUMENTATION_LAST_AUTHORIZED = "last_authorized"
         const val FORGE_COORDINATOR_API_URL = "coordinator_api_url"
         const val FORGE_COORDINATOR_CONVERSATION_ID = "coordinator_conversation_id"
+        const val FORGE_COORDINATOR_CLIENT_INSTANCE_ID = "coordinator_client_instance_id"
+        const val FORGE_COORDINATOR_SESSION_VIEW = "coordinator_session_view"
+        const val FORGE_COORDINATOR_RESOURCE_VIEW = "coordinator_resource_view"
         const val FORGE_COORDINATOR_EXPECTED_VERSION = "coordinator_expected_version"
         const val FORGE_COORDINATOR_AFTER_CURSOR = "coordinator_after_cursor"
         const val FORGE_COORDINATOR_PROMPT = "coordinator_prompt"

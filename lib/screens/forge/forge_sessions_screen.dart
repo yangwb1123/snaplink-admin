@@ -6,7 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/forge_conversations_api.dart';
 import 'package:sso_admin/api/forge_conversations_models.dart';
+import 'package:sso_admin/api/forge_prompt_append_receipt.dart';
 import 'package:sso_admin/api/forge_device_inventory_models.dart';
+import 'package:sso_admin/api/forge_scheduler_selection_preview.dart';
+import 'package:sso_admin/api/forge_scheduler_selection_lease.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/forge_change_cursor_store.dart';
@@ -22,8 +25,12 @@ import 'package:sso_admin/api/forge_run_intent_observation.dart';
 import 'package:sso_admin/api/forge_runner_execution_intent.dart';
 import 'package:sso_admin/api/forge_local_runner_preview.dart';
 import 'package:sso_admin/api/forge_run_observed.dart';
+import 'package:sso_admin/api/forge_run_receipt_observation_convergence.dart';
 import 'package:sso_admin/api/forge_run_execution_evidence.dart';
 import 'package:sso_admin/api/forge_session_runner_receipt_observation.dart';
+import 'package:sso_admin/api/forge_session_runner_receipt_vectors.dart';
+import 'package:sso_admin/api/forge_session_runner_receipt_history.dart';
+import 'package:sso_admin/api/forge_session_runner_reconciliation_projection.dart';
 import 'package:sso_admin/api/forge_execution_reconciliation_observation.dart';
 import 'package:sso_admin/api/forge_device_enrollment_heartbeat_lifecycle_registry.dart';
 import 'package:sso_admin/api/forge_device_credential_candidate.dart';
@@ -34,9 +41,14 @@ import 'package:sso_admin/api/forge_runner_lease_fencing.dart';
 import 'package:sso_admin/api/forge_execution_lease_checkpoint.dart';
 import 'package:sso_admin/api/forge_client_instance_session_view.dart';
 import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
+import 'package:sso_admin/api/forge_client_instance_session_resource_convergence.dart';
 import 'package:sso_admin/api/forge_preflight_fixture.dart';
 import 'package:sso_admin/api/forge_run_attempt_lease_dispatch_preflight.dart';
 import 'package:sso_admin/api/forge_runner_dispatch_plan_preview.dart';
+import 'package:sso_admin/api/forge_runner_dispatch_admission.dart';
+import 'package:sso_admin/api/forge_runner_transport_admission.dart';
+import 'package:sso_admin/api/forge_runner_execution_boundary.dart';
+import 'package:sso_admin/api/forge_runner_attempt_boundary.dart';
 
 import 'forge_sessions_device_observation.dart';
 import 'forge_device_inventory_panel.dart';
@@ -50,6 +62,9 @@ import 'forge_runner_execution_intent_card.dart';
 import 'forge_run_observed_card.dart';
 import 'forge_run_execution_evidence_card.dart';
 import 'forge_session_runner_receipt_observation_card.dart';
+import 'forge_session_runner_receipt_vectors_panel.dart';
+import 'forge_session_runner_receipt_history_panel.dart';
+import 'forge_session_runner_reconciliation_projection_panel.dart';
 import 'forge_execution_reconciliation_observation_card.dart';
 import 'forge_execution_consent_preview_card.dart';
 import 'forge_attempt_request_preview_card.dart';
@@ -63,8 +78,15 @@ import 'forge_client_instance_resource_view_panel.dart';
 import 'forge_lifecycle_registry_panel.dart';
 import 'forge_device_credential_candidate_panel.dart';
 import 'forge_device_registry_placement_preview_panel.dart';
+import 'forge_scheduler_selection_preview_panel.dart';
+import 'forge_scheduler_selection_lease_panel.dart';
+import 'forge_scheduler_selection_lease_release_panel.dart';
 import 'forge_local_runner_preview_card.dart';
 import 'package:sso_admin/screens/agent/forge_runner_dispatch_plan_preview_card.dart';
+import 'forge_runner_dispatch_admission_card.dart';
+import 'forge_runner_transport_admission_card.dart';
+import 'forge_runner_execution_boundary_card.dart';
+import 'forge_runner_attempt_boundary_card.dart';
 import 'package:sso_admin/screens/agent/forge_preflight_fixture_card.dart';
 import '../../services/agent_workspace_file.dart';
 
@@ -76,9 +98,22 @@ class ForgeSessionsScreen extends StatefulWidget {
   final String accessToken;
   final String apiOrigin;
 
+  /// Enables the explicitly opt-in owner-scoped SSE/long-poll change feed.
+  /// The default Sessions construction stays on bounded polling.
+  final bool enableConversationChangesStream;
+
+  /// Maximum server wait for one opt-in change-stream request. The API
+  /// transport remains bounded and validates the value before sending it.
+  final int conversationChangesStreamWaitMS;
+
   /// Optional owner-scoped deep-link selection. The route never grants
   /// access; the authenticated detail read remains authoritative.
   final String? initialConversationID;
+
+  /// Optional local client-instance selection hint. It is accepted only when
+  /// an owner-bound display observation declares the instance; it never
+  /// changes the authenticated Conversation request or grants authority.
+  final String? initialClientInstanceID;
   final http.Client? httpClient;
   final http.Client? oauthHttpClient;
   final Duration oauthRevocationTimeout;
@@ -102,6 +137,8 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// rendered only for the matching selected Run while every authority bit
   /// remains false.
   final ForgeRunnerExecutionIntentObservation? runnerExecutionIntentObservation;
+  final ForgeRunnerExecutionIntentRequest? runnerExecutionIntentRequest;
+  final ForgeRunnerExecutionIntentReader? runnerExecutionIntentReader;
 
   /// Optional local Runner execution-readiness observation. It is rendered
   /// through the existing metadata-only Runner intent card and never grants
@@ -124,6 +161,12 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// observer route or owner identity from the bearer token.
   final ForgeRunObservedReader? runObservedReader;
 
+  /// Optional independent reader for the selected Run's content-free terminal
+  /// receipt. It is consumed only together with [runObservedReader]; the two
+  /// results must converge before either fetched projection is displayed.
+  final ForgeSessionRunnerReceiptObservationReader?
+  sessionRunnerReceiptObservationReader;
+
   /// Optional caller-supplied, content-free binding of one Run to one
   /// observed Runner receipt. It is rendered only for the selected
   /// Conversation/Run after strict parsing and while every authority bit
@@ -131,10 +174,51 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// into an owner identity by this screen.
   final ForgeRunExecutionEvidence? runExecutionEvidence;
 
+  /// Optional reader for one authenticated Run/receipt evidence binding. The
+  /// screen invokes it only for the selected Conversation/Run and re-decodes
+  /// the result before display; leaving it unset keeps the default surface
+  /// request-free.
+  final ForgeRunExecutionEvidenceReader? runExecutionEvidenceReader;
+
   /// Optional caller-supplied session-bound terminal receipt observation. It
   /// remains process-local and is rendered only for the selected Run while
   /// every authority bit stays false.
   final ForgeSessionRunnerReceiptObservation? sessionRunnerReceiptObservation;
+
+  /// Optional canonical completed/failed/uncertain receipt vectors. The
+  /// vectors remain local display-only values and never create a request,
+  /// persist a receipt, or grant execution authority.
+  final ForgeSessionRunnerReceiptVectors? sessionRunnerReceiptVectorsPreview;
+  final ForgeSessionRunnerReceiptVectorsFileReader?
+  sessionRunnerReceiptVectorsFileReader;
+
+  /// Optional bounded ordered receipt history. The history remains a local
+  /// display-only value and is imported only through the explicit reader
+  /// action; leaving both values unset keeps the default screen request-free.
+  final ForgeSessionRunnerReceiptHistory? sessionRunnerReceiptHistoryPreview;
+  final ForgeSessionRunnerReceiptHistoryFileReader?
+  sessionRunnerReceiptHistoryFileReader;
+
+  /// Optional caller-supplied manual reconciliation projection. It remains
+  /// a local, display-only value and never retries or mutates a receipt.
+  final ForgeSessionRunnerReconciliationProjection?
+  sessionRunnerReconciliationProjectionPreview;
+  final ForgeSessionRunnerReconciliationProjectionFileReader?
+  sessionRunnerReconciliationProjectionFileReader;
+
+  /// Explicit request and reader for the authenticated manual reconciliation
+  /// projection candidate. Both values are required before this screen makes
+  /// a POST; the default Web/App/Mobile surface remains request-free.
+  final ForgeSessionRunnerReceiptHistory?
+  sessionRunnerReconciliationProjectionRequest;
+  final ForgeSessionRunnerReconciliationProjectionReader?
+  sessionRunnerReconciliationProjectionReader;
+
+  /// Explicit request and reader for the accepted EXECUTE history-reduction
+  /// preview. The default screen leaves both unset and request-free.
+  final ForgeSessionRunnerReceiptHistory? sessionRunnerReceiptHistoryRequest;
+  final ForgeSessionRunnerReceiptHistoryReader?
+  sessionRunnerReceiptHistoryReader;
 
   /// Optional caller-supplied restart-boundary reconciliation observation. It
   /// is rendered only for the selected Run after strict re-decoding; it never
@@ -158,6 +242,21 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// display-only value and never creates a Run or dispatches a task.
   final ForgeAttemptRequestPreviewFixture? attemptRequestPreview;
 
+  /// Optional local Runner Attempt lifecycle boundary observation. It is
+  /// rendered only for the explicit owner and selected session scope below.
+  final ForgeRunnerAttemptBoundaryObservation? runnerAttemptBoundaryPreview;
+  final ForgeRunnerAttemptBoundaryScope? runnerAttemptBoundaryScope;
+  final ForgeRunnerAttemptBoundaryFileReader? runnerAttemptBoundaryFileReader;
+
+  /// Explicit request and reader for the authenticated, metadata-only Attempt
+  /// boundary candidate. The default screen leaves both unset and request-free.
+  final ForgeRunnerAttemptBoundaryPreviewRequest? runnerAttemptBoundaryRequest;
+  final ForgeRunnerAttemptBoundaryReader? runnerAttemptBoundaryReader;
+
+  /// Enables the explicit local Attempt boundary projection/import seam. The
+  /// default screen keeps it disabled and request-free.
+  final bool enableRunnerAttemptBoundaryProjection;
+
   /// Optional caller-supplied pending Run-intent receipt. It remains a
   /// metadata-only display value and never creates or dispatches a Run.
   final ForgePendingRunIntentFixture? pendingRunIntentPreview;
@@ -167,6 +266,20 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// absent from normal Web/App/Mobile construction.
   final ForgeDeviceOwner? pendingRunIntentOwner;
   final ForgePendingRunIntentSubmitter? pendingRunIntentSubmitter;
+
+  /// Explicit owner and submitter for the content-free Prompt append receipt
+  /// consumer. Supplying either value opts the screen into the receipt path;
+  /// both are required before a Prompt can be sent through that path. The
+  /// default Web/App/Mobile surface leaves both unset and keeps its ordinary
+  /// append behavior unchanged.
+  final ForgeDeviceOwner? promptAppendReceiptOwner;
+  final ForgePromptAppendReceiptSubmitter? promptAppendReceiptSubmitter;
+
+  /// When enabled, an explicit Prompt append waits for a fresh, converged
+  /// owner-bound inventory/resource observation. If a client-instance
+  /// session/resource pair is also configured, its resource image must match
+  /// the inventory/resource pair before the append is enabled.
+  final bool requireDeviceInventoryResourceConvergenceForPromptAppend;
 
   /// Explicit owner and reader for the private, authenticated inventory
   /// candidate. Both values are required before this screen makes a request;
@@ -182,6 +295,13 @@ class ForgeSessionsScreen extends StatefulWidget {
   /// The default screen leaves it unset, so no v2 device request is made.
   final ForgeDeviceInventoryV2Reader? deviceInventoryV2Reader;
 
+  /// Optional explicit paired v2 inventory/resource reader. The default
+  /// screen leaves it unset and therefore does not issue either candidate
+  /// GET as a convergence pair.
+  final ForgeDeviceOwner? deviceInventoryResourceConvergenceOwner;
+  final ForgeDeviceInventoryResourceConvergenceReader?
+  deviceInventoryResourceConvergenceReader;
+
   /// Optional explicit requirements and reader for the authenticated
   /// registry-backed placement-preview candidate. The default screen leaves
   /// both unset and therefore does not issue a POST.
@@ -189,6 +309,41 @@ class ForgeSessionsScreen extends StatefulWidget {
   deviceInventoryRegistryPlacementRequirements;
   final ForgeDeviceRegistryPlacementPreviewReader?
   deviceInventoryRegistryPlacementPreviewReader;
+
+  /// Optional caller-supplied scheduler-selection preview. It is displayed
+  /// only for its bound Conversation/Run/Attempt and never creates a lease.
+  final ForgeSchedulerSelectionPreview? schedulerSelectionPreview;
+
+  /// Explicit request and reader for the planning-only scheduler-preview
+  /// candidate. Both values are required before this screen makes a POST;
+  /// the default Web/App/Mobile route remains request-free.
+  final ForgeSchedulerSelectionPreviewRequest? schedulerSelectionPreviewRequest;
+  final ForgeSchedulerSelectionPreviewReader? schedulerSelectionPreviewReader;
+
+  /// Optional explicit scheduler-lease request and reader. The reader is
+  /// reached only when the caller opts into the effectful candidate.
+  final ForgeSchedulerSelectionLease? schedulerSelectionLease;
+  final ForgeSchedulerSelectionLeaseRequest? schedulerSelectionLeaseRequest;
+  final ForgeSchedulerSelectionLeaseReader? schedulerSelectionLeaseReader;
+  final String? schedulerSelectionLeaseIdempotencyKey;
+
+  /// Optional explicit scheduler-lease renewal request and reader. The
+  /// renewal candidate stays request-free until the caller supplies all four
+  /// values, including a fresh idempotency key.
+  final ForgeSchedulerSelectionLeaseRenewalRequest?
+  schedulerSelectionLeaseRenewalRequest;
+  final ForgeSchedulerSelectionLeaseRenewalReader?
+  schedulerSelectionLeaseRenewalReader;
+  final String? schedulerSelectionLeaseRenewalIdempotencyKey;
+
+  /// Optional explicit scheduler-lease release request and reader. Release
+  /// marks the durable reservation inactive while preserving its epoch.
+  final ForgeSchedulerSelectionLeaseRelease? schedulerSelectionLeaseRelease;
+  final ForgeSchedulerSelectionLeaseReleaseRequest?
+  schedulerSelectionLeaseReleaseRequest;
+  final ForgeSchedulerSelectionLeaseReleaseReader?
+  schedulerSelectionLeaseReleaseReader;
+  final String? schedulerSelectionLeaseReleaseIdempotencyKey;
 
   /// Optional, caller-supplied v2 persisted inventory observation. It is
   /// rendered as a local read-only preview and never causes a device request.
@@ -329,11 +484,44 @@ class ForgeSessionsScreen extends StatefulWidget {
   runnerDispatchPlanPreviewRequest;
   final ForgeRunnerDispatchPlanPreviewReader? runnerDispatchPlanPreviewReader;
 
+  /// Optional lease-to-Runner admission recheck. It is metadata-only and
+  /// never authorizes or dispatches a command.
+  final ForgeRunnerDispatchAdmission? runnerDispatchAdmission;
+
+  /// Explicit request and reader for the owner-authenticated admission
+  /// candidate. The default screen leaves both unset and request-free.
+  final ForgeRunnerDispatchAdmissionRequest? runnerDispatchAdmissionRequest;
+  final ForgeRunnerDispatchAdmissionReader? runnerDispatchAdmissionReader;
+
+  /// Optional lease-bound Runner transport admission preview. It is strictly
+  /// metadata-only and never opens a Runner connection or sends a payload.
+  final ForgeRunnerTransportAdmission? runnerTransportAdmission;
+
+  /// Explicit request and reader for the owner-authenticated transport
+  /// admission candidate. The default screen leaves both unset and
+  /// request-free.
+  final ForgeRunnerTransportAdmissionRequest? runnerTransportAdmissionRequest;
+  final ForgeRunnerTransportAdmissionReader? runnerTransportAdmissionReader;
+
+  /// Optional server-owned Runner execution-boundary preview. It is strictly
+  /// display-only and never opens a Runner connection.
+  final ForgeRunnerExecutionBoundaryObservation? runnerExecutionBoundary;
+  final ForgeRunnerExecutionBoundaryPreviewRequest?
+  runnerExecutionBoundaryRequest;
+  final ForgeRunnerExecutionBoundaryReader? runnerExecutionBoundaryReader;
+
   /// Explicit owner and reader for the private client-instance/session-view
   /// candidate. Both values are required before this screen makes a request;
   /// the default screen leaves them unset.
   final ForgeDeviceOwner? clientInstanceSessionViewOwner;
   final ForgeClientInstanceSessionViewReader? clientInstanceSessionViewReader;
+
+  /// Explicit owner and reader for the paired client-instance session and
+  /// resource observations. When supplied, the screen consumes both views
+  /// from one validated read pair before rendering the existing cards.
+  final ForgeDeviceOwner? clientInstanceSessionResourceConvergenceOwner;
+  final ForgeClientInstanceSessionResourceConvergenceReader?
+  clientInstanceSessionResourceConvergenceReader;
 
   /// Explicit owner and reader for the private lifecycle-registry GET
   /// candidate. Both values are required before this screen makes a request;
@@ -353,7 +541,10 @@ class ForgeSessionsScreen extends StatefulWidget {
     super.key,
     required this.accessToken,
     required this.apiOrigin,
+    this.enableConversationChangesStream = false,
+    this.conversationChangesStreamWaitMS = 15000,
     this.initialConversationID,
+    this.initialClientInstanceID,
     this.httpClient,
     this.oauthHttpClient,
     this.oauthRevocationTimeout = const Duration(seconds: 5),
@@ -362,27 +553,66 @@ class ForgeSessionsScreen extends StatefulWidget {
     this.deviceObservationRequest,
     this.runIntentObservation,
     this.runnerExecutionIntentObservation,
+    this.runnerExecutionIntentRequest,
+    this.runnerExecutionIntentReader,
     this.localRunnerPreview,
     this.localRunnerPreviewRequest,
     this.localRunnerPreviewReader,
     this.runObserved,
     this.runObservedReader,
+    this.sessionRunnerReceiptObservationReader,
     this.runExecutionEvidence,
+    this.runExecutionEvidenceReader,
     this.sessionRunnerReceiptObservation,
+    this.sessionRunnerReceiptVectorsPreview,
+    this.sessionRunnerReceiptVectorsFileReader,
+    this.sessionRunnerReceiptHistoryPreview,
+    this.sessionRunnerReceiptHistoryFileReader,
+    this.sessionRunnerReconciliationProjectionPreview,
+    this.sessionRunnerReconciliationProjectionFileReader,
+    this.sessionRunnerReconciliationProjectionRequest,
+    this.sessionRunnerReconciliationProjectionReader,
+    this.sessionRunnerReceiptHistoryRequest,
+    this.sessionRunnerReceiptHistoryReader,
     this.executionReconciliationObservation,
     this.executionReconciliationInput,
     this.executionReconciliationReader,
     this.executionConsentPreviewOwner,
     this.executionConsentPreviewReader,
     this.attemptRequestPreview,
+    this.runnerAttemptBoundaryPreview,
+    this.runnerAttemptBoundaryScope,
+    this.runnerAttemptBoundaryFileReader,
+    this.runnerAttemptBoundaryRequest,
+    this.runnerAttemptBoundaryReader,
+    this.enableRunnerAttemptBoundaryProjection = false,
     this.pendingRunIntentPreview,
     this.pendingRunIntentOwner,
     this.pendingRunIntentSubmitter,
+    this.promptAppendReceiptOwner,
+    this.promptAppendReceiptSubmitter,
+    this.requireDeviceInventoryResourceConvergenceForPromptAppend = false,
     this.deviceInventoryOwner,
     this.deviceInventoryReader,
     this.deviceInventoryV2Reader,
+    this.deviceInventoryResourceConvergenceOwner,
+    this.deviceInventoryResourceConvergenceReader,
     this.deviceInventoryRegistryPlacementRequirements,
     this.deviceInventoryRegistryPlacementPreviewReader,
+    this.schedulerSelectionPreview,
+    this.schedulerSelectionPreviewRequest,
+    this.schedulerSelectionPreviewReader,
+    this.schedulerSelectionLease,
+    this.schedulerSelectionLeaseRequest,
+    this.schedulerSelectionLeaseReader,
+    this.schedulerSelectionLeaseIdempotencyKey,
+    this.schedulerSelectionLeaseRenewalRequest,
+    this.schedulerSelectionLeaseRenewalReader,
+    this.schedulerSelectionLeaseRenewalIdempotencyKey,
+    this.schedulerSelectionLeaseRelease,
+    this.schedulerSelectionLeaseReleaseRequest,
+    this.schedulerSelectionLeaseReleaseReader,
+    this.schedulerSelectionLeaseReleaseIdempotencyKey,
     this.deviceInventoryV2Preview,
     this.deviceInventoryV2FileReader,
     this.deviceResourceSummaryPreview,
@@ -408,6 +638,8 @@ class ForgeSessionsScreen extends StatefulWidget {
     this.clientInstanceResourceViewReader,
     this.clientInstanceSessionViewOwner,
     this.clientInstanceSessionViewReader,
+    this.clientInstanceSessionResourceConvergenceOwner,
+    this.clientInstanceSessionResourceConvergenceReader,
     this.lifecycleRegistryOwner,
     this.lifecycleRegistryReader,
     this.deviceCredentialCandidateOwner,
@@ -419,6 +651,15 @@ class ForgeSessionsScreen extends StatefulWidget {
     this.runnerDispatchPlanPreview,
     this.runnerDispatchPlanPreviewRequest,
     this.runnerDispatchPlanPreviewReader,
+    this.runnerDispatchAdmission,
+    this.runnerDispatchAdmissionRequest,
+    this.runnerDispatchAdmissionReader,
+    this.runnerTransportAdmission,
+    this.runnerTransportAdmissionRequest,
+    this.runnerTransportAdmissionReader,
+    this.runnerExecutionBoundary,
+    this.runnerExecutionBoundaryRequest,
+    this.runnerExecutionBoundaryReader,
   });
 
   @override
@@ -437,7 +678,13 @@ class _PendingRunIntentRequest {
   });
 }
 
-enum _ForgeChangeSyncOutcome { skipped, failed, unchanged, changed }
+enum _ForgeChangeSyncOutcome {
+  skipped,
+  failed,
+  unchanged,
+  changed,
+  advancedHidden,
+}
 
 enum _ForgeChangePollOutcome { skipped, failed, succeeded }
 
@@ -446,6 +693,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   static const _changePollBaseDelay = Duration(seconds: 15);
   static const _changePollMaxDelay = Duration(minutes: 2);
   static const _changePollMaxFailureStreak = 3;
+  static const _changeStreamReconnectDelay = Duration(milliseconds: 50);
 
   late final ForgeConversationsApi _api;
   late final ForgeOAuthTokenRefresh _tokenRefresh;
@@ -492,15 +740,42 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   int _localRunnerPreviewGeneration = 0;
   ForgeSessionRunnerReceiptObservation?
   _importedSessionRunnerReceiptObservation;
+  ForgeSessionRunnerReceiptVectors? _sessionRunnerReceiptVectorsPreview;
+  String? _sessionRunnerReceiptVectorsPreviewError;
+  bool _loadingSessionRunnerReceiptVectorsPreview = false;
+  ForgeSessionRunnerReceiptHistory? _sessionRunnerReceiptHistoryPreview;
+  String? _sessionRunnerReceiptHistoryPreviewError;
+  bool _loadingSessionRunnerReceiptHistoryPreview = false;
+  ForgeSessionRunnerReconciliationProjection?
+  _sessionRunnerReconciliationProjectionPreview;
+  String? _sessionRunnerReconciliationProjectionPreviewError;
+  bool _loadingSessionRunnerReconciliationProjectionPreview = false;
+  ForgeSessionRunnerReconciliationProjection?
+  _fetchedSessionRunnerReconciliationProjection;
+  String? _sessionRunnerReconciliationProjectionError;
+  bool _sessionRunnerReconciliationProjectionStale = false;
+  bool _loadingSessionRunnerReconciliationProjection = false;
+  int _sessionRunnerReconciliationProjectionGeneration = 0;
+  ForgeSessionRunnerReceiptHistory? _fetchedSessionRunnerReceiptHistory;
+  String? _sessionRunnerReceiptHistoryError;
+  bool _sessionRunnerReceiptHistoryStale = false;
+  bool _loadingSessionRunnerReceiptHistory = false;
+  int _sessionRunnerReceiptHistoryGeneration = 0;
   String? _deviceObservationError;
   String? _deviceObservationKey;
   bool _loadingDeviceObservation = false;
   int _deviceObservationGeneration = 0;
   ForgeRunObserved? _fetchedRunObserved;
+  ForgeSessionRunnerReceiptObservation? _fetchedSessionRunnerReceiptObservation;
   String? _runObservedError;
   bool _runObservedStale = false;
   bool _loadingRunObserved = false;
   int _runObservedGeneration = 0;
+  ForgeRunExecutionEvidence? _fetchedRunExecutionEvidence;
+  String? _runExecutionEvidenceError;
+  bool _runExecutionEvidenceStale = false;
+  bool _loadingRunExecutionEvidence = false;
+  int _runExecutionEvidenceGeneration = 0;
   ForgeDeviceInventoryPage? _fetchedDeviceInventory;
   String? _deviceInventoryError;
   bool _deviceInventoryStale = false;
@@ -511,6 +786,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _deviceInventoryV2Stale = false;
   bool _loadingDeviceInventoryV2 = false;
   int _deviceInventoryV2Generation = 0;
+  Future<void>? _deviceInventoryV2Refresh;
+  bool _deviceInventoryV2RefreshWasForced = false;
+  ForgeDeviceInventoryResourceConvergence?
+  _fetchedDeviceInventoryResourceConvergence;
+  String? _deviceInventoryResourceConvergenceError;
+  bool _deviceInventoryResourceConvergenceStale = false;
+  bool _loadingDeviceInventoryResourceConvergence = false;
+  int _deviceInventoryResourceConvergenceGeneration = 0;
   ForgeDeviceInventoryPageV2? _deviceInventoryV2Preview;
   String? _deviceInventoryV2PreviewError;
   bool _loadingDeviceInventoryV2Preview = false;
@@ -535,11 +818,28 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _deviceInventoryRegistryPlacementPreviewStale = false;
   bool _loadingDeviceInventoryRegistryPlacementPreview = false;
   int _deviceInventoryRegistryPlacementPreviewGeneration = 0;
+  ForgeSchedulerSelectionPreview? _fetchedSchedulerSelectionPreview;
+  String? _schedulerSelectionPreviewError;
+  bool _schedulerSelectionPreviewStale = false;
+  bool _loadingSchedulerSelectionPreview = false;
+  int _schedulerSelectionPreviewGeneration = 0;
+  ForgeSchedulerSelectionLease? _fetchedSchedulerSelectionLease;
+  String? _schedulerSelectionLeaseError;
+  bool _schedulerSelectionLeaseStale = false;
+  bool _loadingSchedulerSelectionLease = false;
+  int _schedulerSelectionLeaseGeneration = 0;
+  ForgeSchedulerSelectionLeaseRelease? _fetchedSchedulerSelectionLeaseRelease;
+  String? _schedulerSelectionLeaseReleaseError;
+  bool _schedulerSelectionLeaseReleaseStale = false;
+  bool _loadingSchedulerSelectionLeaseRelease = false;
+  int _schedulerSelectionLeaseReleaseGeneration = 0;
   ForgeClientInstanceResourceView? _fetchedClientInstanceResourceView;
   String? _clientInstanceResourceViewError;
   bool _clientInstanceResourceViewStale = false;
   bool _loadingClientInstanceResourceView = false;
   int _clientInstanceResourceViewGeneration = 0;
+  Future<void>? _clientInstanceResourceViewRefresh;
+  bool _clientInstanceResourceViewRefreshWasForced = false;
   ForgeClientInstanceResourceView? _clientInstanceResourceViewPreview;
   String? _clientInstanceResourceViewPreviewError;
   bool _loadingClientInstanceResourceViewPreview = false;
@@ -551,6 +851,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   ForgeClientInstanceSessionView? _clientInstanceSessionViewPreview;
   String? _clientInstanceSessionViewPreviewError;
   bool _loadingClientInstanceSessionViewPreview = false;
+  ForgeClientInstanceSessionResourceConvergence?
+  _fetchedClientInstanceSessionResourceConvergence;
+  String? _clientInstanceSessionResourceConvergenceError;
+  bool _clientInstanceSessionResourceConvergenceStale = false;
+  bool _loadingClientInstanceSessionResourceConvergence = false;
+  int _clientInstanceSessionResourceConvergenceGeneration = 0;
   ForgeDeviceEnrollmentHeartbeatLifecycleRegistry? _fetchedLifecycleRegistry;
   String? _lifecycleRegistryError;
   bool _lifecycleRegistryStale = false;
@@ -578,6 +884,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   // authority.  Keeping the selection here (rather than in the API client)
   // also makes the default Gate/request-free path unchanged.
   String? _selectedClientInstanceID;
+  bool _clientInstanceFilterNeedsPrivateReload = false;
   // Guards an in-flight owner conversation refresh from restoring the
   // selection that was active before a local client-instance filter changed.
   // The filter is a local projection boundary, so a late page must not widen
@@ -593,6 +900,26 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _runnerDispatchPlanPreviewStale = false;
   bool _loadingRunnerDispatchPlanPreview = false;
   int _runnerDispatchPlanPreviewGeneration = 0;
+  ForgeRunnerExecutionIntentObservation? _fetchedRunnerExecutionIntent;
+  String? _runnerExecutionIntentError;
+  bool _runnerExecutionIntentStale = false;
+  bool _loadingRunnerExecutionIntent = false;
+  int _runnerExecutionIntentGeneration = 0;
+  ForgeRunnerDispatchAdmission? _fetchedRunnerDispatchAdmission;
+  String? _runnerDispatchAdmissionError;
+  bool _runnerDispatchAdmissionStale = false;
+  bool _loadingRunnerDispatchAdmission = false;
+  int _runnerDispatchAdmissionGeneration = 0;
+  ForgeRunnerTransportAdmission? _fetchedRunnerTransportAdmission;
+  String? _runnerTransportAdmissionError;
+  bool _runnerTransportAdmissionStale = false;
+  bool _loadingRunnerTransportAdmission = false;
+  int _runnerTransportAdmissionGeneration = 0;
+  ForgeRunnerExecutionBoundaryObservation? _fetchedRunnerExecutionBoundary;
+  String? _runnerExecutionBoundaryError;
+  bool _runnerExecutionBoundaryStale = false;
+  bool _loadingRunnerExecutionBoundary = false;
+  int _runnerExecutionBoundaryGeneration = 0;
   ForgePendingRunIntentListPage? _fetchedPendingRunIntents;
   String? _pendingRunIntentError;
   bool _loadingPendingRunIntents = false;
@@ -609,6 +936,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   ForgeExecutionLeaseCheckpointFixture? _executionLeaseCheckpointPreview;
   String? _executionLeaseCheckpointError;
   bool _loadingExecutionLeaseCheckpoint = false;
+  ForgeRunnerAttemptBoundaryObservation? _runnerAttemptBoundaryPreview;
+  String? _runnerAttemptBoundaryPreviewError;
+  bool _loadingRunnerAttemptBoundaryPreview = false;
+  ForgeRunnerAttemptBoundaryObservation? _fetchedRunnerAttemptBoundary;
+  String? _runnerAttemptBoundaryError;
+  bool _runnerAttemptBoundaryStale = false;
+  bool _loadingRunnerAttemptBoundary = false;
+  int _runnerAttemptBoundaryGeneration = 0;
   String? _signOutError;
   _PendingCreate? _pendingCreate;
   _PendingPrompt? _pendingPrompt;
@@ -628,10 +963,15 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   int _conversationGeneration = 0;
   bool _signingOut = false;
   Timer? _changeSyncTimer;
+  Timer? _changeStreamReconnectTimer;
   Duration _changePollDelay = _changePollBaseDelay;
   int _changePollFailureStreak = 0;
   bool _changeSyncEnabled = false;
   bool _changePollInFlight = false;
+  bool _changeStreamInFlight = false;
+  bool _changeStreamFallbackToPolling = false;
+  bool _initialLoadComplete = false;
+  int _changeStreamGeneration = 0;
   bool _refreshingOnResume = false;
   // Once sign-out starts, keep owner-scoped state out of the widget tree while
   // revocation and secure-store cleanup finish.  The route may remain mounted
@@ -659,6 +999,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   @override
   void initState() {
     super.initState();
+    _selectedClientInstanceID = _initialClientInstanceID();
     WidgetsBinding.instance.addObserver(this);
     _tokenRefresh = ForgeOAuthTokenRefresh(
       baseUrl: ProductApiOrigin.baseUrl,
@@ -687,6 +1028,21 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _executionLeaseCheckpointPreview = _safeExecutionLeaseCheckpointPreview(
       widget.executionLeaseCheckpointPreview,
     );
+    _runnerAttemptBoundaryPreview = _safeRunnerAttemptBoundaryPreview(
+      widget.runnerAttemptBoundaryPreview,
+    );
+    _sessionRunnerReceiptVectorsPreview =
+        _safeSessionRunnerReceiptVectorsPreview(
+          widget.sessionRunnerReceiptVectorsPreview,
+        );
+    _sessionRunnerReceiptHistoryPreview =
+        _safeSessionRunnerReceiptHistoryPreview(
+          widget.sessionRunnerReceiptHistoryPreview,
+        );
+    _sessionRunnerReconciliationProjectionPreview =
+        _safeSessionRunnerReconciliationProjectionPreview(
+          widget.sessionRunnerReconciliationProjectionPreview,
+        );
     _deviceInventoryV2Preview = _safeDeviceInventoryV2Preview(
       widget.deviceInventoryV2Preview,
     );
@@ -722,22 +1078,54 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   }
 
   Future<void> _initialLoad() async {
+    // Prime an explicitly requested local instance projection before the
+    // owner Conversation list. This prevents the first list item from being
+    // hydrated as a private Prompt/Run selection before the display filter
+    // has established which sessions belong to the requested instance.
+    if (_selectedClientInstanceID != null) {
+      await _loadDeviceInventoryResourceConvergenceIfRequested();
+      await _loadClientInstanceSessionResourceConvergenceIfRequested();
+      await _loadClientInstanceSessionViewIfRequested();
+      await _loadClientInstanceResourceViewIfRequested();
+    }
     await _refreshConversations(selectID: widget.initialConversationID);
     if (mounted) {
       await _loadPendingRunIntentsIfRequested();
       await _loadDeviceInventoryIfRequested();
       await _loadDeviceInventoryV2IfRequested();
+      await _loadDeviceInventoryResourceConvergenceIfRequested();
       await _loadDeviceInventoryRegistryPlacementPreviewIfRequested();
+      await _loadSchedulerSelectionPreviewIfRequested();
+      await _loadSchedulerSelectionLeaseIfRequested();
+      await _loadSchedulerSelectionLeaseReleaseIfRequested();
+      await _loadClientInstanceSessionResourceConvergenceIfRequested();
       await _loadClientInstanceSessionViewIfRequested();
       await _loadClientInstanceResourceViewIfRequested();
       await _loadLifecycleRegistryIfRequested();
       await _loadDeviceCredentialCandidateIfRequested();
       await _loadRunAttemptLeaseDispatchPreflightIfRequested();
       await _loadRunnerDispatchPlanPreviewIfRequested();
+      await _loadRunnerExecutionIntentIfRequested();
+      await _loadRunnerDispatchAdmissionIfRequested();
+      await _loadRunnerTransportAdmissionIfRequested();
+      await _loadRunnerExecutionBoundaryIfRequested();
+      await _loadRunnerAttemptBoundaryIfRequested();
       await _loadLocalRunnerPreviewIfRequested();
       await _loadExecutionReconciliationIfRequested();
       await _loadExecutionConsentPreviewIfRequested();
+      await _loadRunExecutionEvidenceIfRequested();
+      await _loadSessionRunnerReceiptHistoryIfRequested();
+      await _loadSessionRunnerReconciliationProjectionIfRequested();
     }
+    if (mounted) {
+      _initialLoadComplete = true;
+      _startChangeSyncTimer();
+    }
+  }
+
+  String? _initialClientInstanceID() {
+    final value = widget.initialClientInstanceID?.trim();
+    return value == null || value.isEmpty ? null : value;
   }
 
   @override
@@ -756,6 +1144,20 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   @override
   void didUpdateWidget(covariant ForgeSessionsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.enableConversationChangesStream !=
+            widget.enableConversationChangesStream ||
+        oldWidget.conversationChangesStreamWaitMS !=
+            widget.conversationChangesStreamWaitMS) {
+      _changeStreamFallbackToPolling = false;
+      _changeStreamGeneration++;
+      _changeStreamReconnectTimer?.cancel();
+      _changeStreamReconnectTimer = null;
+      if (widget.enableConversationChangesStream) {
+        _startChangeSyncTimer();
+      } else {
+        _startChangeSyncTimer();
+      }
+    }
     final deviceObservationChanged = !_sameDeviceObservationRequest(
       oldWidget.deviceObservationRequest,
       widget.deviceObservationRequest,
@@ -766,12 +1168,42 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     final deviceInventoryV2Changed =
         oldWidget.deviceInventoryOwner != widget.deviceInventoryOwner ||
         oldWidget.deviceInventoryV2Reader != widget.deviceInventoryV2Reader;
+    final deviceInventoryResourceConvergenceChanged =
+        oldWidget.deviceInventoryResourceConvergenceOwner !=
+            widget.deviceInventoryResourceConvergenceOwner ||
+        oldWidget.deviceInventoryResourceConvergenceReader !=
+            widget.deviceInventoryResourceConvergenceReader;
     final deviceInventoryRegistryPlacementPreviewChanged =
         oldWidget.deviceInventoryOwner != widget.deviceInventoryOwner ||
         oldWidget.deviceInventoryRegistryPlacementRequirements !=
             widget.deviceInventoryRegistryPlacementRequirements ||
         oldWidget.deviceInventoryRegistryPlacementPreviewReader !=
             widget.deviceInventoryRegistryPlacementPreviewReader;
+    final schedulerSelectionPreviewChanged =
+        oldWidget.schedulerSelectionPreviewRequest !=
+            widget.schedulerSelectionPreviewRequest ||
+        oldWidget.schedulerSelectionPreviewReader !=
+            widget.schedulerSelectionPreviewReader;
+    final schedulerSelectionLeaseChanged =
+        oldWidget.schedulerSelectionLeaseRequest !=
+            widget.schedulerSelectionLeaseRequest ||
+        oldWidget.schedulerSelectionLeaseReader !=
+            widget.schedulerSelectionLeaseReader ||
+        oldWidget.schedulerSelectionLeaseIdempotencyKey !=
+            widget.schedulerSelectionLeaseIdempotencyKey ||
+        oldWidget.schedulerSelectionLeaseRenewalRequest !=
+            widget.schedulerSelectionLeaseRenewalRequest ||
+        oldWidget.schedulerSelectionLeaseRenewalReader !=
+            widget.schedulerSelectionLeaseRenewalReader ||
+        oldWidget.schedulerSelectionLeaseRenewalIdempotencyKey !=
+            widget.schedulerSelectionLeaseRenewalIdempotencyKey;
+    final schedulerSelectionLeaseReleaseChanged =
+        oldWidget.schedulerSelectionLeaseReleaseRequest !=
+            widget.schedulerSelectionLeaseReleaseRequest ||
+        oldWidget.schedulerSelectionLeaseReleaseReader !=
+            widget.schedulerSelectionLeaseReleaseReader ||
+        oldWidget.schedulerSelectionLeaseReleaseIdempotencyKey !=
+            widget.schedulerSelectionLeaseReleaseIdempotencyKey;
     final clientInstanceResourceViewChanged =
         oldWidget.clientInstanceResourceViewOwner !=
             widget.clientInstanceResourceViewOwner ||
@@ -788,6 +1220,11 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     final clientInstanceSessionViewPreviewChanged =
         oldWidget.clientInstanceSessionViewPreview !=
         widget.clientInstanceSessionViewPreview;
+    final clientInstanceSessionResourceConvergenceChanged =
+        oldWidget.clientInstanceSessionResourceConvergenceOwner !=
+            widget.clientInstanceSessionResourceConvergenceOwner ||
+        oldWidget.clientInstanceSessionResourceConvergenceReader !=
+            widget.clientInstanceSessionResourceConvergenceReader;
     final lifecycleRegistryChanged =
         oldWidget.lifecycleRegistryOwner != widget.lifecycleRegistryOwner ||
         oldWidget.lifecycleRegistryReader != widget.lifecycleRegistryReader;
@@ -810,6 +1247,40 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
             widget.runnerDispatchPlanPreviewRequest ||
         oldWidget.runnerDispatchPlanPreviewReader !=
             widget.runnerDispatchPlanPreviewReader;
+    final runnerExecutionIntentChanged =
+        oldWidget.runnerExecutionIntentRequest !=
+            widget.runnerExecutionIntentRequest ||
+        oldWidget.runnerExecutionIntentReader !=
+            widget.runnerExecutionIntentReader;
+    final runnerDispatchAdmissionChanged =
+        oldWidget.runnerDispatchAdmissionRequest !=
+            widget.runnerDispatchAdmissionRequest ||
+        oldWidget.runnerDispatchAdmissionReader !=
+            widget.runnerDispatchAdmissionReader;
+    final runnerTransportAdmissionChanged =
+        oldWidget.runnerTransportAdmissionRequest !=
+            widget.runnerTransportAdmissionRequest ||
+        oldWidget.runnerTransportAdmissionReader !=
+            widget.runnerTransportAdmissionReader;
+    final runnerExecutionBoundaryChanged =
+        oldWidget.runnerExecutionBoundaryRequest !=
+            widget.runnerExecutionBoundaryRequest ||
+        oldWidget.runnerExecutionBoundaryReader !=
+            widget.runnerExecutionBoundaryReader;
+    final runnerAttemptBoundaryCandidateChanged =
+        oldWidget.runnerAttemptBoundaryRequest !=
+            widget.runnerAttemptBoundaryRequest ||
+        oldWidget.runnerAttemptBoundaryReader !=
+            widget.runnerAttemptBoundaryReader;
+    final runnerAttemptBoundaryProjectionChanged =
+        oldWidget.runnerAttemptBoundaryPreview !=
+            widget.runnerAttemptBoundaryPreview ||
+        oldWidget.runnerAttemptBoundaryScope !=
+            widget.runnerAttemptBoundaryScope ||
+        oldWidget.runnerAttemptBoundaryFileReader !=
+            widget.runnerAttemptBoundaryFileReader ||
+        oldWidget.enableRunnerAttemptBoundaryProjection !=
+            widget.enableRunnerAttemptBoundaryProjection;
     final localRunnerPreviewChanged =
         oldWidget.localRunnerPreviewRequest !=
             widget.localRunnerPreviewRequest ||
@@ -825,7 +1296,25 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         oldWidget.executionConsentPreviewReader !=
             widget.executionConsentPreviewReader;
     final runObservedReaderChanged =
-        oldWidget.runObservedReader != widget.runObservedReader;
+        oldWidget.runObservedReader != widget.runObservedReader ||
+        oldWidget.sessionRunnerReceiptObservationReader !=
+            widget.sessionRunnerReceiptObservationReader;
+    final runExecutionEvidenceChanged =
+        oldWidget.runExecutionEvidenceReader !=
+            widget.runExecutionEvidenceReader ||
+        oldWidget.runObserved != widget.runObserved ||
+        oldWidget.sessionRunnerReceiptObservation !=
+            widget.sessionRunnerReceiptObservation;
+    final sessionRunnerReceiptHistoryCandidateChanged =
+        oldWidget.sessionRunnerReceiptHistoryRequest !=
+            widget.sessionRunnerReceiptHistoryRequest ||
+        oldWidget.sessionRunnerReceiptHistoryReader !=
+            widget.sessionRunnerReceiptHistoryReader;
+    final sessionRunnerReconciliationProjectionCandidateChanged =
+        oldWidget.sessionRunnerReconciliationProjectionRequest !=
+            widget.sessionRunnerReconciliationProjectionRequest ||
+        oldWidget.sessionRunnerReconciliationProjectionReader !=
+            widget.sessionRunnerReconciliationProjectionReader;
     final pendingRunIntentChanged =
         oldWidget.pendingRunIntentReader != widget.pendingRunIntentReader ||
         oldWidget.pendingRunIntentPageReader !=
@@ -853,9 +1342,25 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       setState(_clearDeviceInventoryV2);
       unawaited(_loadDeviceInventoryV2IfRequested());
     }
+    if (deviceInventoryResourceConvergenceChanged) {
+      setState(_clearDeviceInventoryResourceConvergence);
+      unawaited(_loadDeviceInventoryResourceConvergenceIfRequested());
+    }
     if (deviceInventoryRegistryPlacementPreviewChanged) {
       setState(_clearDeviceInventoryRegistryPlacementPreview);
       unawaited(_loadDeviceInventoryRegistryPlacementPreviewIfRequested());
+    }
+    if (schedulerSelectionPreviewChanged) {
+      setState(_clearSchedulerSelectionPreview);
+      unawaited(_loadSchedulerSelectionPreviewIfRequested());
+    }
+    if (schedulerSelectionLeaseChanged) {
+      setState(_clearSchedulerSelectionLease);
+      unawaited(_loadSchedulerSelectionLeaseIfRequested());
+    }
+    if (schedulerSelectionLeaseReleaseChanged) {
+      setState(_clearSchedulerSelectionLeaseRelease);
+      unawaited(_loadSchedulerSelectionLeaseReleaseIfRequested());
     }
     if (clientInstanceResourceViewChanged) {
       setState(_clearClientInstanceResourceView);
@@ -864,6 +1369,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     if (clientInstanceSessionViewChanged) {
       setState(_clearClientInstanceSessionView);
       unawaited(_loadClientInstanceSessionViewIfRequested());
+    }
+    if (clientInstanceSessionResourceConvergenceChanged) {
+      setState(_clearClientInstanceSessionResourceConvergence);
+      unawaited(_loadClientInstanceSessionResourceConvergenceIfRequested());
     }
     if (lifecycleRegistryChanged) {
       setState(_clearLifecycleRegistry);
@@ -880,6 +1389,34 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     if (runnerDispatchPlanPreviewChanged) {
       setState(_clearRunnerDispatchPlanPreview);
       unawaited(_loadRunnerDispatchPlanPreviewIfRequested());
+    }
+    if (runnerExecutionIntentChanged) {
+      setState(_clearRunnerExecutionIntent);
+      unawaited(_loadRunnerExecutionIntentIfRequested());
+    }
+    if (runnerDispatchAdmissionChanged) {
+      setState(_clearRunnerDispatchAdmission);
+      unawaited(_loadRunnerDispatchAdmissionIfRequested());
+    }
+    if (runnerTransportAdmissionChanged) {
+      setState(_clearRunnerTransportAdmission);
+      unawaited(_loadRunnerTransportAdmissionIfRequested());
+    }
+    if (runnerExecutionBoundaryChanged) {
+      setState(_clearRunnerExecutionBoundary);
+      unawaited(_loadRunnerExecutionBoundaryIfRequested());
+    }
+    if (runnerAttemptBoundaryCandidateChanged) {
+      setState(_clearRunnerAttemptBoundary);
+      unawaited(_loadRunnerAttemptBoundaryIfRequested());
+    }
+    if (runnerAttemptBoundaryProjectionChanged) {
+      setState(() {
+        _clearRunnerAttemptBoundaryPreview();
+        _runnerAttemptBoundaryPreview = _safeRunnerAttemptBoundaryPreview(
+          widget.runnerAttemptBoundaryPreview,
+        );
+      });
     }
     if (localRunnerPreviewChanged) {
       setState(_clearLocalRunnerPreview);
@@ -900,6 +1437,45 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (conversationID != null && runID != null) {
         unawaited(
           _loadRunObservedIfRequested(
+            conversationID: conversationID,
+            runID: runID,
+          ),
+        );
+      }
+    }
+    if (runExecutionEvidenceChanged) {
+      setState(_clearRunExecutionEvidence);
+      final conversationID = _selected?.conversation.id;
+      final runID = _selectedRun?.runID;
+      if (conversationID != null && runID != null) {
+        unawaited(
+          _loadRunExecutionEvidenceIfRequested(
+            conversationID: conversationID,
+            runID: runID,
+          ),
+        );
+      }
+    }
+    if (sessionRunnerReceiptHistoryCandidateChanged) {
+      setState(_clearSessionRunnerReceiptHistory);
+      final conversationID = _selected?.conversation.id;
+      final runID = _selectedRun?.runID;
+      if (conversationID != null && runID != null) {
+        unawaited(
+          _loadSessionRunnerReceiptHistoryIfRequested(
+            conversationID: conversationID,
+            runID: runID,
+          ),
+        );
+      }
+    }
+    if (sessionRunnerReconciliationProjectionCandidateChanged) {
+      setState(_clearSessionRunnerReconciliationProjection);
+      final conversationID = _selected?.conversation.id;
+      final runID = _selectedRun?.runID;
+      if (conversationID != null && runID != null) {
+        unawaited(
+          _loadSessionRunnerReconciliationProjectionIfRequested(
             conversationID: conversationID,
             runID: runID,
           ),
@@ -930,6 +1506,36 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           widget.executionLeaseCheckpointPreview,
         );
         _executionLeaseCheckpointError = null;
+      });
+    }
+    if (oldWidget.sessionRunnerReceiptVectorsPreview !=
+        widget.sessionRunnerReceiptVectorsPreview) {
+      setState(() {
+        _sessionRunnerReceiptVectorsPreview =
+            _safeSessionRunnerReceiptVectorsPreview(
+              widget.sessionRunnerReceiptVectorsPreview,
+            );
+        _sessionRunnerReceiptVectorsPreviewError = null;
+      });
+    }
+    if (oldWidget.sessionRunnerReceiptHistoryPreview !=
+        widget.sessionRunnerReceiptHistoryPreview) {
+      setState(() {
+        _sessionRunnerReceiptHistoryPreview =
+            _safeSessionRunnerReceiptHistoryPreview(
+              widget.sessionRunnerReceiptHistoryPreview,
+            );
+        _sessionRunnerReceiptHistoryPreviewError = null;
+      });
+    }
+    if (oldWidget.sessionRunnerReconciliationProjectionPreview !=
+        widget.sessionRunnerReconciliationProjectionPreview) {
+      setState(() {
+        _sessionRunnerReconciliationProjectionPreview =
+            _safeSessionRunnerReconciliationProjectionPreview(
+              widget.sessionRunnerReconciliationProjectionPreview,
+            );
+        _sessionRunnerReconciliationProjectionPreviewError = null;
       });
     }
     if (oldWidget.deviceInventoryV2Preview != widget.deviceInventoryV2Preview) {
@@ -1035,13 +1641,19 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
-  void _startChangeSyncTimer() {
+  void _startChangeSyncTimer({bool immediate = false}) {
     if (_sessionViewInvalidated || _authorizationInvalidated) {
       return;
     }
     _changeSyncEnabled = true;
+    if (widget.enableConversationChangesStream &&
+        !_changeStreamFallbackToPolling) {
+      if (!_initialLoadComplete) return;
+      _scheduleChangeStreamReconnect();
+      return;
+    }
     if (_changeSyncTimer != null || _changePollInFlight) return;
-    _changeSyncTimer = Timer(_changePollDelay, () {
+    _changeSyncTimer = Timer(immediate ? Duration.zero : _changePollDelay, () {
       _changeSyncTimer = null;
       unawaited(_runScheduledChangePoll());
     });
@@ -1064,33 +1676,55 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     // after a transient failure), otherwise an opted-in metadata panel can
     // remain stale between foreground/manual refreshes. The default reader
     // remains request-free.
-    if (syncOutcome != _ForgeChangeSyncOutcome.changed) {
+    if (syncOutcome != _ForgeChangeSyncOutcome.changed &&
+        syncOutcome != _ForgeChangeSyncOutcome.advancedHidden) {
       await _loadPendingRunIntentsIfRequested(force: true);
     }
     // The scheduled path invokes _syncChanges directly rather than the
     // manual/resume wrapper. Refresh explicitly injected v1 and v2 inventory
     // readers here so either opted-in resource view cannot remain stale
     // between foreground refreshes; the default readers remain request-free.
-    await _loadDeviceInventoryIfRequested(force: true);
-    await _loadDeviceInventoryV2IfRequested(force: true);
+    // These owner-scoped observations are independent GETs. Start them from
+    // the same poll frame so one slow candidate cannot consume the entire
+    // transport window before the other proof image is refreshed.
+    await Future.wait([
+      _loadDeviceInventoryIfRequested(force: true),
+      _loadDeviceInventoryV2IfRequested(force: true),
+      _loadDeviceInventoryResourceConvergenceIfRequested(force: true),
+    ]);
     // Registry-backed placement is another explicit display-only reader. It
     // follows the same owner-scoped cadence when enabled and remains a no-op
     // for the default Gate.
     await _loadDeviceInventoryRegistryPlacementPreviewIfRequested(force: true);
-    // Client-instance views are also explicit display-only readers. Refresh
-    // them on the same scheduled boundary so instance/session/resource
-    // metadata cannot lag behind the owner feed while remaining opt-in.
-    await _loadClientInstanceSessionViewIfRequested(force: true);
-    await _loadClientInstanceResourceViewIfRequested(force: true);
+    await _loadSchedulerSelectionPreviewIfRequested(force: true);
+    // Client-instance views are also explicit display-only readers. When an
+    // instance is selected, _syncChanges has already refreshed them before
+    // touching owner-scoped state; repeating the reads here could produce a
+    // newer projection than the Conversation page was filtered against.
+    if (_selectedClientInstanceID == null) {
+      await _loadClientInstanceSessionResourceConvergenceIfRequested(
+        force: true,
+      );
+      await _loadClientInstanceSessionViewIfRequested(force: true);
+      await _loadClientInstanceResourceViewIfRequested(force: true);
+    }
     await _loadLifecycleRegistryIfRequested(force: true);
     await _loadExecutionConsentPreviewIfRequested(force: true);
     var succeeded = syncOutcome != _ForgeChangeSyncOutcome.failed;
+    if (syncOutcome == _ForgeChangeSyncOutcome.advancedHidden) {
+      return succeeded
+          ? _ForgeChangePollOutcome.succeeded
+          : _ForgeChangePollOutcome.failed;
+    }
     if (!mounted ||
         _changeError != null ||
         (_conversationError == null && !_conversationsStale)) {
       return succeeded
           ? _ForgeChangePollOutcome.succeeded
           : _ForgeChangePollOutcome.failed;
+    }
+    if (!_selectedClientInstanceProjectionReadyForOwnerReads()) {
+      return _ForgeChangePollOutcome.failed;
     }
     succeeded = await _refreshConversations() && succeeded;
     return succeeded
@@ -1136,10 +1770,76 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _startChangeSyncTimer();
   }
 
+  void _scheduleChangeStreamReconnect({bool immediate = false}) {
+    if (!_changeSyncEnabled ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        !widget.enableConversationChangesStream ||
+        _changeStreamFallbackToPolling ||
+        !_initialLoadComplete ||
+        _changeStreamReconnectTimer != null ||
+        _changeStreamInFlight) {
+      return;
+    }
+    final generation = _changeStreamGeneration;
+    _changeStreamReconnectTimer = Timer(
+      immediate ? Duration.zero : _changeStreamReconnectDelay,
+      () {
+        _changeStreamReconnectTimer = null;
+        if (generation != _changeStreamGeneration) return;
+        unawaited(_runScheduledChangeStream(generation));
+      },
+    );
+  }
+
+  Future<void> _runScheduledChangeStream(int generation) async {
+    if (generation != _changeStreamGeneration ||
+        !_changeSyncEnabled ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        !mounted ||
+        _changeStreamInFlight ||
+        _changeStreamFallbackToPolling) {
+      return;
+    }
+    _changeStreamInFlight = true;
+    final outcome = await _syncChanges(stream: true);
+    _changeStreamInFlight = false;
+    if (generation != _changeStreamGeneration ||
+        !_changeSyncEnabled ||
+        _sessionViewInvalidated ||
+        _authorizationInvalidated ||
+        !mounted) {
+      return;
+    }
+    if (outcome == _ForgeChangeSyncOutcome.failed) {
+      // A stream transport, authorization, or framing failure must not leave
+      // the shared Sessions surface stale. Degrade this screen instance to
+      // the already-tested bounded polling path.
+      _changeStreamFallbackToPolling = true;
+      _startChangeSyncTimer(immediate: true);
+      return;
+    }
+    if (outcome == _ForgeChangeSyncOutcome.skipped) {
+      // A manual refresh may own the shared merge gate briefly. Leave a
+      // bounded gap before retrying instead of spinning microtasks while it
+      // completes.
+      _scheduleChangeStreamReconnect();
+      return;
+    }
+    // A 204 timeout and an unchanged page both reconnect through one bounded
+    // single-flight stream. Cursor persistence still belongs to _syncChanges
+    // and occurs only after the page has been merged successfully.
+    _scheduleChangeStreamReconnect(immediate: true);
+  }
+
   void _stopChangeSyncTimer() {
     _changeSyncEnabled = false;
     _changeSyncTimer?.cancel();
     _changeSyncTimer = null;
+    _changeStreamReconnectTimer?.cancel();
+    _changeStreamReconnectTimer = null;
+    _changeStreamGeneration++;
   }
 
   void _onLocationChange() {
@@ -1255,6 +1955,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     final generation = ++_conversationGeneration;
     final clientInstanceFilterGeneration = _clientInstanceFilterGeneration;
     var resolvingOwnerSelection = false;
+    var revalidatingCurrentSelection = false;
+    ForgeConversationPage? loadedPage;
+    var loadedConversations = const <ForgeOwnedConversation>[];
     setState(() {
       _loadingConversations = true;
       _conversationError = null;
@@ -1263,22 +1966,28 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       final page = await _api.listConversations(
         afterID: loadMore ? _nextAfterID : null,
       );
+      loadedPage = page;
       if (!mounted || generation != _conversationGeneration) return false;
       var merged = _mergeConversations(
         incoming: page.conversations,
         existing: _conversations,
         append: loadMore,
       );
+      loadedConversations = merged;
       final hasPendingSelection = _hasPendingLocationSelection;
       final pendingSelectionID = _takePendingLocationSelection();
       final wantedID = hasPendingSelection
           ? pendingSelectionID
           : selectID ?? _selected?.conversation.id;
       var selected = _findConversation(merged, wantedID);
+      final canResolveOwnerSelection =
+          _selectedClientInstanceID == null ||
+          _conversationIDDeclaredBySelectedClientInstance(wantedID);
       if (selected == null &&
           wantedID != null &&
           (selectID != null || hasPendingSelection) &&
-          !loadMore) {
+          !loadMore &&
+          canResolveOwnerSelection) {
         // A deep link can point to an older session outside the first page.
         // Fetch only its owner-filtered metadata; this remains a read-only
         // selection and does not alter pagination or write authority.
@@ -1291,6 +2000,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           existing: const [],
           append: false,
         );
+        loadedConversations = merged;
         selected = linked;
       }
       if (selected == null &&
@@ -1298,15 +2008,25 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           !hasPendingSelection &&
           selectID == null &&
           _selected != null) {
-        // Keep an explicitly selected owner session visible while the
-        // authoritative first page is refreshed. This also keeps a deep link
-        // stable when its session sorts before the current page boundary.
-        merged = _mergeConversations(
-          incoming: [_selected!, ...merged],
-          existing: const [],
-          append: false,
-        );
-        selected = _selected;
+        // The first page can legitimately omit an older selected session, but
+        // it can also omit one that was deleted or revoked. Re-read the
+        // missing row through the authenticated owner detail path before
+        // retaining it; blindly merging the previous selection would keep a
+        // deleted session visible and permit stale Prompt/Run reads.
+        final currentID = _selected!.conversation.id;
+        if (_conversationIDDeclaredBySelectedClientInstance(currentID)) {
+          revalidatingCurrentSelection = true;
+          final linked = await _api.getConversation(conversationID: currentID);
+          revalidatingCurrentSelection = false;
+          if (!mounted || generation != _conversationGeneration) return false;
+          merged = _mergeConversations(
+            incoming: [linked, ...merged],
+            existing: const [],
+            append: false,
+          );
+          loadedConversations = merged;
+          selected = _findConversation(merged, currentID);
+        }
       }
       if (!hasPendingSelection && selectID == null) {
         selected ??= _selected;
@@ -1320,6 +2040,20 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         // let it own Prompt/Run hydration; do not restore the stale page
         // selection from before the filter changed.
         selected = _selected;
+      }
+      if (!filterChanged && _selectedClientInstanceID != null) {
+        // An instance deep link is a local projection boundary. Select only
+        // a session declared by that observation, and keep private
+        // Prompt/Run readers idle when the declaration is unavailable or
+        // does not contain the requested session.
+        final visible = _conversationsForClientInstance(
+          merged,
+          _declaredClientInstanceRows(),
+          _selectedClientInstanceID,
+        );
+        selected =
+            _findConversation(visible, selected?.conversation.id) ??
+            (visible.isEmpty ? null : visible.first);
       }
       setState(() {
         _conversations = merged;
@@ -1394,6 +2128,31 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         });
         return false;
       }
+      if (revalidatingCurrentSelection) {
+        // The owner list was read successfully, but the missing selected row
+        // could not be revalidated. Keep only the fresh list and clear all
+        // private details, so a 404/foreign response or a transient detail
+        // failure cannot leave the old session selected.
+        final selectedID = _selected?.conversation.id;
+        final fresh = loadedConversations
+            .where((entry) => entry.conversation.id != selectedID)
+            .toList(growable: false);
+        setState(() {
+          _conversations = List.unmodifiable(fresh);
+          _nextAfterID = loadedPage?.nextAfterID;
+          _hasMoreConversations =
+              loadedPage?.hasMore == true && loadedPage?.nextAfterID != null;
+          _selected = null;
+          _conversationsStale = false;
+          _conversationError = _friendlyError(
+            error,
+            'Could not verify the selected Forge session.',
+          );
+          _loadingConversations = false;
+          _clearConversationDetails();
+        });
+        return false;
+      }
       final canFallback = _canUseConversationMetadataCache(error);
       final cached = canFallback
           ? await _conversationMetadataCache.load()
@@ -1420,9 +2179,23 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           ? cached?.conversations
           : null;
       if (fallback != null) {
+        final visibleFallback = _selectedClientInstanceID == null
+            ? fallback
+            : _conversationsForClientInstance(
+                    fallback,
+                    _declaredClientInstanceRows(),
+                    _selectedClientInstanceID,
+                  )
+                  .where(
+                    (entry) => fallback.any(
+                      (candidate) =>
+                          candidate.conversation.id == entry.conversation.id,
+                    ),
+                  )
+                  .toList(growable: false);
         final selected =
-            _findConversation(fallback, _selected?.conversation.id) ??
-            (fallback.isEmpty ? null : fallback.first);
+            _findConversation(visibleFallback, _selected?.conversation.id) ??
+            (visibleFallback.isEmpty ? null : visibleFallback.first);
         final restoringSnapshot = current.isEmpty;
         setState(() {
           _conversations = fallback;
@@ -1469,23 +2242,37 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _changePollFailureStreak = 0;
       _changePollDelay = _changePollBaseDelay;
     }
-    if (mounted) {
+    if (mounted &&
+        syncOutcome != _ForgeChangeSyncOutcome.advancedHidden &&
+        _selectedClientInstanceProjectionReadyForOwnerReads()) {
       await _refreshConversations(loadPendingRunIntents: false);
     }
     if (mounted &&
+        syncOutcome != _ForgeChangeSyncOutcome.advancedHidden &&
         (!pendingReadDuringSync || _fetchedPendingRunIntents == null)) {
       await _loadPendingRunIntentsIfRequested(force: true);
     }
-    await _loadDeviceInventoryIfRequested(force: true);
-    await _loadDeviceInventoryV2IfRequested(force: true);
-    await _loadDeviceInventoryRegistryPlacementPreviewIfRequested(force: true);
-    await _loadClientInstanceSessionViewIfRequested(force: true);
-    await _loadClientInstanceResourceViewIfRequested(force: true);
+    await Future.wait([
+      _loadDeviceInventoryIfRequested(force: true),
+      _loadDeviceInventoryV2IfRequested(force: true),
+      _loadDeviceInventoryRegistryPlacementPreviewIfRequested(force: true),
+    ]);
+    await _loadSchedulerSelectionPreviewIfRequested(force: true);
+    if (_selectedClientInstanceID == null) {
+      await _loadClientInstanceSessionResourceConvergenceIfRequested(
+        force: true,
+      );
+      await _loadClientInstanceSessionViewIfRequested(force: true);
+      await _loadClientInstanceResourceViewIfRequested(force: true);
+    }
     await _loadLifecycleRegistryIfRequested(force: true);
     await _loadExecutionConsentPreviewIfRequested(force: true);
     await _loadRunObservedIfRequested(force: true);
     await _loadRunAttemptLeaseDispatchPreflightIfRequested(force: true);
     await _loadRunnerDispatchPlanPreviewIfRequested(force: true);
+    await _loadRunnerExecutionIntentIfRequested(force: true);
+    await _loadRunnerDispatchAdmissionIfRequested(force: true);
+    await _loadRunnerAttemptBoundaryIfRequested(force: true);
     await _loadLocalRunnerPreviewIfRequested(force: true);
     await _loadExecutionReconciliationIfRequested(force: true);
   }
@@ -1503,12 +2290,69 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     return candidate;
   }
 
+  ForgeRunnerAttemptBoundaryObservation? _safeRunnerAttemptBoundaryPreview(
+    ForgeRunnerAttemptBoundaryObservation? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeRunnerAttemptBoundaryObservation.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
   ForgeExecutionLeaseCheckpointFixture? _safeExecutionLeaseCheckpointPreview(
     ForgeExecutionLeaseCheckpointFixture? candidate,
   ) {
     if (candidate == null) return null;
     try {
       final validated = ForgeExecutionLeaseCheckpointFixture.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSessionRunnerReceiptVectors? _safeSessionRunnerReceiptVectorsPreview(
+    ForgeSessionRunnerReceiptVectors? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeSessionRunnerReceiptVectors.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSessionRunnerReceiptHistory? _safeSessionRunnerReceiptHistoryPreview(
+    ForgeSessionRunnerReceiptHistory? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeSessionRunnerReceiptHistory.fromJson(
+        candidate.toJson(),
+      );
+      return validated.isDisplayOnly ? validated : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  ForgeSessionRunnerReconciliationProjection?
+  _safeSessionRunnerReconciliationProjectionPreview(
+    ForgeSessionRunnerReconciliationProjection? candidate,
+  ) {
+    if (candidate == null) return null;
+    try {
+      final validated = ForgeSessionRunnerReconciliationProjection.fromJson(
         candidate.toJson(),
       );
       return validated.isDisplayOnly ? validated : null;
@@ -1685,6 +2529,54 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     'expected': value.expected.toJson(),
   };
 
+  Future<void> _importRunnerAttemptBoundaryPreview() async {
+    if (_loadingRunnerAttemptBoundaryPreview ||
+        !widget.enableRunnerAttemptBoundaryProjection ||
+        widget.runnerAttemptBoundaryScope == null) {
+      return;
+    }
+    setState(() {
+      _loadingRunnerAttemptBoundaryPreview = true;
+      _runnerAttemptBoundaryPreviewError = null;
+      _runnerAttemptBoundaryPreview = null;
+    });
+    try {
+      final reader = widget.runnerAttemptBoundaryFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: forgeRunnerAttemptBoundaryMaxInputBytes,
+              ))();
+      if (source == null) return;
+      final observation = ForgeRunnerAttemptBoundaryObservation.fromJsonText(
+        source,
+      );
+      final selectedConversationID = _selected?.conversation.id;
+      final selectedRunID = _selectedRun?.runID;
+      final scope = widget.runnerAttemptBoundaryScope!;
+      if (!observation.isDisplayOnly ||
+          !scope.matches(observation) ||
+          !scope.matchesSelected(selectedConversationID, selectedRunID)) {
+        throw const FormatException(
+          'Runner Attempt boundary projection is outside the selected scope.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _runnerAttemptBoundaryPreview = observation);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _runnerAttemptBoundaryPreview = null;
+        _runnerAttemptBoundaryPreviewError =
+            'Invalid or stale Runner Attempt boundary projection.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingRunnerAttemptBoundaryPreview = false);
+      }
+    }
+  }
+
   Future<void> _importRunnerLeaseFencingPreview() async {
     if (_loadingRunnerLeaseFencing) return;
     setState(() {
@@ -1748,6 +2640,117 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       });
     } finally {
       if (mounted) setState(() => _loadingExecutionLeaseCheckpoint = false);
+    }
+  }
+
+  Future<void> _importSessionRunnerReceiptVectorsPreview() async {
+    if (_loadingSessionRunnerReceiptVectorsPreview) return;
+    setState(() {
+      _loadingSessionRunnerReceiptVectorsPreview = true;
+      _sessionRunnerReceiptVectorsPreviewError = null;
+    });
+    try {
+      final reader = widget.sessionRunnerReceiptVectorsFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final fixture = ForgeSessionRunnerReceiptVectors.fromJsonText(source);
+      if (_safeSessionRunnerReceiptVectorsPreview(fixture) == null) {
+        throw const FormatException(
+          'Session Runner receipt vectors are not display-only.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _sessionRunnerReceiptVectorsPreview = fixture);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sessionRunnerReceiptVectorsPreviewError =
+            'Invalid or unavailable session Runner receipt vectors.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingSessionRunnerReceiptVectorsPreview = false);
+      }
+    }
+  }
+
+  Future<void> _importSessionRunnerReceiptHistoryPreview() async {
+    if (_loadingSessionRunnerReceiptHistoryPreview) return;
+    setState(() {
+      _loadingSessionRunnerReceiptHistoryPreview = true;
+      _sessionRunnerReceiptHistoryPreviewError = null;
+    });
+    try {
+      final reader = widget.sessionRunnerReceiptHistoryFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final history = ForgeSessionRunnerReceiptHistory.fromJsonText(source);
+      if (_safeSessionRunnerReceiptHistoryPreview(history) == null) {
+        throw const FormatException(
+          'Session Runner receipt history is not display-only.',
+        );
+      }
+      if (!mounted) return;
+      setState(() => _sessionRunnerReceiptHistoryPreview = history);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sessionRunnerReceiptHistoryPreviewError =
+            'Invalid or unavailable session Runner receipt history.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _loadingSessionRunnerReceiptHistoryPreview = false);
+      }
+    }
+  }
+
+  Future<void> _importSessionRunnerReconciliationProjectionPreview() async {
+    if (_loadingSessionRunnerReconciliationProjectionPreview) return;
+    setState(() {
+      _loadingSessionRunnerReconciliationProjectionPreview = true;
+      _sessionRunnerReconciliationProjectionPreviewError = null;
+    });
+    try {
+      final reader = widget.sessionRunnerReconciliationProjectionFileReader;
+      final source =
+          await (reader ??
+              () => pickAgentWorkspaceJson(
+                maxBytes: agentWorkspaceFileMaxBytes,
+              ))();
+      if (source == null) return;
+      final projection =
+          ForgeSessionRunnerReconciliationProjection.fromJsonText(source);
+      if (_safeSessionRunnerReconciliationProjectionPreview(projection) ==
+          null) {
+        throw const FormatException(
+          'Session Runner reconciliation projection is not display-only.',
+        );
+      }
+      if (!mounted) return;
+      setState(
+        () => _sessionRunnerReconciliationProjectionPreview = projection,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _sessionRunnerReconciliationProjectionPreviewError =
+            'Invalid or unavailable session Runner reconciliation projection.';
+      });
+    } finally {
+      if (mounted) {
+        setState(
+          () => _loadingSessionRunnerReconciliationProjectionPreview = false,
+        );
+      }
     }
   }
 
@@ -2016,14 +3019,22 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       error is ForgeConversationsApiException &&
       (error.statusCode == 0 || error.statusCode >= 500);
 
-  void _clearConversationDetails() {
+  void _clearConversationDetails({bool clearOwnerObservations = true}) {
     _promptGeneration++;
     _runGeneration++;
     _runTimelineGeneration++;
     _clearDeviceObservation();
-    _clearDeviceInventory();
-    _clearDeviceInventoryV2();
-    _clearDeviceInventoryRegistryPlacementPreview();
+    if (clearOwnerObservations) {
+      // Inventory and registry placement are owner-scoped screen resources,
+      // rather than Conversation details. A local client-instance filter can
+      // change the selected Conversation without invalidating these images;
+      // sign-out, authorization failure, and route reset keep the default
+      // clearing behavior.
+      _clearDeviceInventory();
+      _clearDeviceInventoryV2();
+      _clearDeviceInventoryRegistryPlacementPreview();
+    }
+    _clearSchedulerSelectionPreview();
     // Client-instance/resource and client-instance/session observations are
     // owner-level projections for the whole screen, not Conversation detail.
     // Keep them mounted while switching Conversations so an instance filter
@@ -2031,9 +3042,16 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _clearDeviceCredentialCandidate();
     _clearRunAttemptLeaseDispatchPreflight();
     _clearRunnerDispatchPlanPreview();
+    _clearRunnerAttemptBoundaryPreview();
+    _clearRunnerAttemptBoundary();
+    _clearRunnerExecutionIntent();
+    _clearRunnerDispatchAdmission();
     _clearExecutionReconciliation();
     _clearExecutionConsentPreview();
     _clearRunObserved();
+    _clearRunExecutionEvidence();
+    _clearSessionRunnerReceiptHistory();
+    _clearSessionRunnerReconciliationProjection();
     _clearPendingRunIntents();
     _pendingRunIntentSubmission = null;
     _pendingRunIntentRequest = null;
@@ -2064,15 +3082,24 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   /// owner session itself remains selected so the caller can reselect it when
   /// the projection changes; no private Run request is allowed in the gap.
   void _clearRunDetailsForHiddenClientInstance() {
+    _clientInstanceFilterNeedsPrivateReload = true;
     _promptGeneration++;
     _runGeneration++;
     _runTimelineGeneration++;
     _clearDeviceObservation();
     _clearRunAttemptLeaseDispatchPreflight();
+    _clearSchedulerSelectionPreview();
     _clearRunnerDispatchPlanPreview();
+    _clearRunnerAttemptBoundaryPreview();
+    _clearRunnerAttemptBoundary();
+    _clearRunnerExecutionIntent();
+    _clearRunnerDispatchAdmission();
     _clearLocalRunnerPreview();
     _clearExecutionReconciliation();
     _clearRunObserved();
+    _clearRunExecutionEvidence();
+    _clearSessionRunnerReceiptHistory();
+    _clearSessionRunnerReconciliationProjection();
     _clearExecutionConsentPreview();
     _clearPendingRunIntents();
     _pendingRunIntentSubmission = null;
@@ -2137,12 +3164,47 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _loadingDeviceInventoryV2 = false;
   }
 
+  void _clearDeviceInventoryResourceConvergence() {
+    _deviceInventoryResourceConvergenceGeneration++;
+    _fetchedDeviceInventoryResourceConvergence = null;
+    _deviceInventoryResourceConvergenceError = null;
+    _deviceInventoryResourceConvergenceStale = false;
+    _loadingDeviceInventoryResourceConvergence = false;
+    if (_selectedClientInstanceID != null) {
+      _clearRunDetailsForHiddenClientInstance();
+    }
+  }
+
   void _clearDeviceInventoryRegistryPlacementPreview() {
     _deviceInventoryRegistryPlacementPreviewGeneration++;
     _fetchedDeviceInventoryRegistryPlacementPreview = null;
     _deviceInventoryRegistryPlacementPreviewError = null;
     _deviceInventoryRegistryPlacementPreviewStale = false;
     _loadingDeviceInventoryRegistryPlacementPreview = false;
+  }
+
+  void _clearSchedulerSelectionPreview() {
+    _schedulerSelectionPreviewGeneration++;
+    _fetchedSchedulerSelectionPreview = null;
+    _schedulerSelectionPreviewError = null;
+    _schedulerSelectionPreviewStale = false;
+    _loadingSchedulerSelectionPreview = false;
+  }
+
+  void _clearSchedulerSelectionLease() {
+    _schedulerSelectionLeaseGeneration++;
+    _fetchedSchedulerSelectionLease = null;
+    _schedulerSelectionLeaseError = null;
+    _schedulerSelectionLeaseStale = false;
+    _loadingSchedulerSelectionLease = false;
+  }
+
+  void _clearSchedulerSelectionLeaseRelease() {
+    _schedulerSelectionLeaseReleaseGeneration++;
+    _fetchedSchedulerSelectionLeaseRelease = null;
+    _schedulerSelectionLeaseReleaseError = null;
+    _schedulerSelectionLeaseReleaseStale = false;
+    _loadingSchedulerSelectionLeaseRelease = false;
   }
 
   void _clearClientInstanceResourceView() {
@@ -2178,6 +3240,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  void _clearClientInstanceSessionResourceConvergence() {
+    _clientInstanceSessionResourceConvergenceGeneration++;
+    _fetchedClientInstanceSessionResourceConvergence = null;
+    _clientInstanceSessionResourceConvergenceError = null;
+    _clientInstanceSessionResourceConvergenceStale = false;
+    _loadingClientInstanceSessionResourceConvergence = false;
+  }
+
   void _clearLifecycleRegistry() {
     _lifecycleRegistryGeneration++;
     _fetchedLifecycleRegistry = null;
@@ -2201,8 +3271,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   List<ForgeOwnedConversation> conversationsForClientInstance(
     Iterable<ForgeClientInstanceSessionViewInstance>? instances,
     String? instanceID,
+  ) => _conversationsForClientInstance(_conversations, instances, instanceID);
+
+  List<ForgeOwnedConversation> _conversationsForClientInstance(
+    Iterable<ForgeOwnedConversation> source,
+    Iterable<ForgeClientInstanceSessionViewInstance>? instances,
+    String? instanceID,
   ) {
-    if (instanceID == null) return _conversations;
+    if (instanceID == null) return source.toList(growable: false);
     if (instances == null) return const [];
     ForgeClientInstanceSessionViewInstance? instance;
     for (final candidate in instances) {
@@ -2213,14 +3289,79 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
     if (instance == null) return const [];
     final sessionIDs = instance.sessionIDs.toSet();
-    return _conversations
+    return source
         .where((entry) => sessionIDs.contains(entry.conversation.id))
         .toList(growable: false);
   }
 
-  /// Selects a local client-instance session filter. If the current session
-  /// is outside the selected instance, select the first visible owner session
-  /// so the Prompt panel cannot continue showing a hidden row.
+  Iterable<ForgeClientInstanceSessionViewInstance>?
+  _declaredClientInstanceRows() {
+    final sessionView =
+        _strictClientInstanceSessionView(
+          widget.clientInstanceSessionViewPreview,
+        ) ??
+        _strictClientInstanceSessionView(_fetchedClientInstanceSessionView) ??
+        _strictClientInstanceSessionView(_clientInstanceSessionViewPreview);
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        _fetchedClientInstanceSessionResourceConvergence?.resourceView ??
+        _fetchedDeviceInventoryResourceConvergence?.resourceView;
+
+    // When the caller opted into two independent readers, neither response
+    // can define the local filter by itself. During a reader gap or a
+    // mismatched refresh, return no declaration so a selected instance cannot
+    // broaden back to the owner-wide session list or hydrate private state
+    // from a mixed snapshot. The combined reader already performs this join
+    // before populating both fetched views.
+    if (_independentClientInstanceReadersConfigured) {
+      if (sessionView == null ||
+          resourceView == null ||
+          _loadingClientInstanceSessionView ||
+          _loadingClientInstanceResourceView ||
+          _clientInstanceSessionViewError != null ||
+          _clientInstanceResourceViewError != null ||
+          _clientInstanceSessionViewStale ||
+          _clientInstanceResourceViewStale ||
+          !forgeClientInstanceSessionResourceObservationsConverged(
+            sessionView,
+            resourceView,
+          )) {
+        return null;
+      }
+    }
+    return sessionView?.instances ?? resourceView?.instances;
+  }
+
+  bool get _independentClientInstanceReadersConfigured =>
+      widget.clientInstanceSessionViewOwner != null &&
+      widget.clientInstanceSessionViewReader != null &&
+      widget.clientInstanceResourceViewOwner != null &&
+      widget.clientInstanceResourceViewReader != null;
+
+  bool _conversationIDDeclaredBySelectedClientInstance(String? conversationID) {
+    if (conversationID == null || _selectedClientInstanceID == null) {
+      return true;
+    }
+    final rows = _declaredClientInstanceRows();
+    if (rows == null) return false;
+    for (final row in rows) {
+      if (row.instanceID == _selectedClientInstanceID &&
+          row.sessionIDs.contains(conversationID)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Selects a local client-instance session filter. Any change invalidates
+  /// the private Prompt/Run projection, including when a shared Conversation
+  /// remains visible from both instances; if the current session is outside
+  /// the selected instance, select the first visible owner session so the
+  /// Prompt panel cannot continue showing a hidden row.
   void selectClientInstanceFilter(
     Iterable<ForgeClientInstanceSessionViewInstance>? instances,
     String? instanceID,
@@ -2230,17 +3371,270 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     final currentVisible = visible.any(
       (entry) => entry.conversation.id == currentID,
     );
+    final filterChanged = _selectedClientInstanceID != instanceID;
     _clientInstanceFilterGeneration++;
     setState(() {
       _selectedClientInstanceID = instanceID;
       if (!currentVisible) {
         _selected = null;
-        _clearConversationDetails();
+        _clearConversationDetails(clearOwnerObservations: false);
+      } else if (filterChanged) {
+        // A shared Conversation can be declared by more than one client
+        // instance. Changing the local projection still requires a fresh
+        // private read, even when the selected row remains visible. Keep the
+        // owner-scoped observation panels mounted; only Prompt/Run state is
+        // invalidated at this display boundary.
+        _clearRunDetailsForHiddenClientInstance();
       }
     });
-    if (!currentVisible && visible.isNotEmpty) {
+    if (visible.isNotEmpty && !currentVisible) {
       unawaited(_selectConversation(visible.first));
     }
+  }
+
+  /// Returns an explanatory error when the explicit Prompt journey is not
+  /// backed by a fresh, owner-bound inventory/resource observation. This
+  /// guard is disabled by default and only composes the already opt-in
+  /// display readers; it never grants or infers Prompt authority.
+  String? get _promptAppendInventoryResourceConvergenceError {
+    final separateObservationError = _inventoryResourceObservationErrorFor(
+      'Prompt append',
+    );
+    if (separateObservationError != null) return separateObservationError;
+    if (!widget.requireDeviceInventoryResourceConvergenceForPromptAppend) {
+      return null;
+    }
+    final inventoryOwner = widget.deviceInventoryResourceConvergenceOwner;
+    final inventoryReader = widget.deviceInventoryResourceConvergenceReader;
+    if (inventoryOwner == null || inventoryReader == null) {
+      return 'Prompt append is waiting for an explicit inventory/resource convergence reader.';
+    }
+    final inventoryConvergence = _fetchedDeviceInventoryResourceConvergence;
+    if (inventoryConvergence == null ||
+        _loadingDeviceInventoryResourceConvergence ||
+        _deviceInventoryResourceConvergenceError != null ||
+        _deviceInventoryResourceConvergenceStale) {
+      return 'Prompt append is waiting for a fresh validated inventory/resource observation.';
+    }
+
+    final sessionPairOwner =
+        widget.clientInstanceSessionResourceConvergenceOwner;
+    final sessionPairReader =
+        widget.clientInstanceSessionResourceConvergenceReader;
+    if (sessionPairOwner != null && sessionPairReader != null) {
+      final sessionPair = _fetchedClientInstanceSessionResourceConvergence;
+      if (sessionPair == null ||
+          _loadingClientInstanceSessionResourceConvergence ||
+          _clientInstanceSessionResourceConvergenceError != null ||
+          _clientInstanceSessionResourceConvergenceStale) {
+        return 'Prompt append is waiting for a fresh validated session/resource observation.';
+      }
+      if (sessionPair.owner != inventoryConvergence.owner ||
+          jsonEncode(sessionPair.resourceView.toJson()) !=
+              jsonEncode(inventoryConvergence.resourceView.toJson())) {
+        return 'Prompt append is disabled because session/resource and inventory/resource observations do not converge.';
+      }
+    } else {
+      final resourceOwner = widget.clientInstanceResourceViewOwner;
+      final resourceReader = widget.clientInstanceResourceViewReader;
+      if (resourceOwner != null && resourceReader != null) {
+        if (_fetchedClientInstanceResourceView == null ||
+            _loadingClientInstanceResourceView ||
+            _clientInstanceResourceViewError != null ||
+            _clientInstanceResourceViewStale) {
+          return 'Prompt append is waiting for a fresh validated resource observation.';
+        }
+        if (jsonEncode(_fetchedClientInstanceResourceView!.toJson()) !=
+            jsonEncode(inventoryConvergence.resourceView.toJson())) {
+          return 'Prompt append is disabled because the client resource observation does not converge with inventory.';
+        }
+      }
+      final sessionOwner = widget.clientInstanceSessionViewOwner;
+      final sessionReader = widget.clientInstanceSessionViewReader;
+      if (sessionOwner != null && sessionReader != null) {
+        if (_fetchedClientInstanceSessionView == null ||
+            _loadingClientInstanceSessionView ||
+            _clientInstanceSessionViewError != null ||
+            _clientInstanceSessionViewStale) {
+          return 'Prompt append is waiting for a fresh validated session observation.';
+        }
+        final sessionView = _fetchedClientInstanceSessionView!;
+        final sessionInstances = sessionView.instances
+            .map((instance) => instance.toJson())
+            .toList(growable: false);
+        final resourceInstances = inventoryConvergence.resourceView.instances
+            .map((instance) => instance.toJson())
+            .toList(growable: false);
+        if (sessionView.owner != inventoryConvergence.owner ||
+            jsonEncode(sessionInstances) != jsonEncode(resourceInstances)) {
+          return 'Prompt append is disabled because session and inventory observations do not converge.';
+        }
+      }
+    }
+    final selectedInstanceID = _selectedClientInstanceID;
+    if (selectedInstanceID != null &&
+        !inventoryConvergence.resourceView.instances.any(
+          (instance) => instance.instanceID == selectedInstanceID,
+        )) {
+      return 'Prompt append is disabled because the selected client instance is absent from the validated resource observation.';
+    }
+    return null;
+  }
+
+  bool get _separateInventoryResourceObservationsConfigured {
+    final inventoryConfigured =
+        widget.deviceInventoryOwner != null &&
+        widget.deviceInventoryV2Reader != null;
+    final resourceConfigured =
+        (widget.clientInstanceSessionResourceConvergenceOwner != null &&
+            widget.clientInstanceSessionResourceConvergenceReader != null) ||
+        (widget.clientInstanceResourceViewOwner != null &&
+            widget.clientInstanceResourceViewReader != null);
+    return inventoryConfigured && resourceConfigured;
+  }
+
+  String? _inventoryResourceObservationErrorFor(String operation) {
+    if (!_separateInventoryResourceObservationsConfigured) return null;
+    final inventory = _fetchedDeviceInventoryV2;
+    final resource = _fetchedClientInstanceResourceView;
+    if (inventory == null ||
+        resource == null ||
+        _loadingDeviceInventoryV2 ||
+        _loadingClientInstanceResourceView ||
+        _loadingClientInstanceSessionResourceConvergence ||
+        _deviceInventoryV2Error != null ||
+        _clientInstanceResourceViewError != null ||
+        _clientInstanceSessionResourceConvergenceError != null ||
+        _deviceInventoryV2Stale ||
+        _clientInstanceResourceViewStale ||
+        _clientInstanceSessionResourceConvergenceStale) {
+      return '$operation is waiting for a fresh validated inventory/resource observation.';
+    }
+    if (!forgeDeviceInventoryAndResourceObservationsConverged(
+      inventory,
+      resource,
+    )) {
+      return '$operation blocked by inventory/resource observation drift. No request was sent.';
+    }
+    return null;
+  }
+
+  Future<String?> _refreshInventoryResourceObservationsBeforeOperation(
+    String operation, {
+    bool force = false,
+  }) async {
+    final combinedConfigured =
+        widget.deviceInventoryResourceConvergenceOwner != null &&
+        widget.deviceInventoryResourceConvergenceReader != null;
+    if (!_separateInventoryResourceObservationsConfigured &&
+        !combinedConfigured) {
+      return null;
+    }
+    if (combinedConfigured) {
+      final current = _fetchedDeviceInventoryResourceConvergence;
+      if (force ||
+          current == null ||
+          _loadingDeviceInventoryResourceConvergence ||
+          _deviceInventoryResourceConvergenceError != null ||
+          _deviceInventoryResourceConvergenceStale) {
+        await _loadDeviceInventoryResourceConvergenceIfRequested(force: true);
+      }
+      if (!mounted || _authorizationInvalidated) {
+        return '$operation was cancelled.';
+      }
+      final refreshed = _fetchedDeviceInventoryResourceConvergence;
+      if (refreshed == null ||
+          _loadingDeviceInventoryResourceConvergence ||
+          _deviceInventoryResourceConvergenceError != null ||
+          _deviceInventoryResourceConvergenceStale) {
+        return '$operation is waiting for a fresh validated inventory/resource observation.';
+      }
+
+      // A composed inventory/resource response proves that its own device
+      // rows converge, but it does not prove that a separately read
+      // client-instance pair still describes the same resource image. Keep
+      // the selected Sessions surface and the scheduling boundary on one
+      // owner-bound snapshot before any candidate POST is allowed.
+      final sessionPairConfigured =
+          widget.clientInstanceSessionResourceConvergenceOwner != null &&
+          widget.clientInstanceSessionResourceConvergenceReader != null;
+      if (sessionPairConfigured) {
+        final sessionPair = _fetchedClientInstanceSessionResourceConvergence;
+        if (sessionPair == null ||
+            _loadingClientInstanceSessionResourceConvergence ||
+            _clientInstanceSessionResourceConvergenceError != null ||
+            _clientInstanceSessionResourceConvergenceStale) {
+          return '$operation is waiting for a fresh validated session/resource observation.';
+        }
+        if (sessionPair.owner != refreshed.owner ||
+            jsonEncode(sessionPair.resourceView.toJson()) !=
+                jsonEncode(refreshed.resourceView.toJson())) {
+          return '$operation blocked by inventory/resource observation drift. No request was sent.';
+        }
+      } else {
+        final resourceConfigured =
+            widget.clientInstanceResourceViewOwner != null &&
+            widget.clientInstanceResourceViewReader != null;
+        if (resourceConfigured) {
+          final resource = _fetchedClientInstanceResourceView;
+          if (resource == null ||
+              _loadingClientInstanceResourceView ||
+              _clientInstanceResourceViewError != null ||
+              _clientInstanceResourceViewStale) {
+            return '$operation is waiting for a fresh validated session/resource observation.';
+          }
+          if (resource.owner != refreshed.owner ||
+              jsonEncode(resource.toJson()) !=
+                  jsonEncode(refreshed.resourceView.toJson())) {
+            return '$operation blocked by inventory/resource observation drift. No request was sent.';
+          }
+        }
+        final sessionConfigured =
+            widget.clientInstanceSessionViewOwner != null &&
+            widget.clientInstanceSessionViewReader != null;
+        if (sessionConfigured) {
+          final session = _fetchedClientInstanceSessionView;
+          if (session == null ||
+              _loadingClientInstanceSessionView ||
+              _clientInstanceSessionViewError != null ||
+              _clientInstanceSessionViewStale) {
+            return '$operation is waiting for a fresh validated session/resource observation.';
+          }
+          final sessionInstances = session.instances
+              .map((instance) => instance.toJson())
+              .toList(growable: false);
+          final resourceInstances = refreshed.resourceView.instances
+              .map((instance) => instance.toJson())
+              .toList(growable: false);
+          if (session.owner != refreshed.owner ||
+              jsonEncode(sessionInstances) != jsonEncode(resourceInstances)) {
+            return '$operation blocked by inventory/resource observation drift. No request was sent.';
+          }
+        }
+      }
+      return null;
+    }
+    // A successful owner-scoped refresh already establishes the proof used by
+    // this write boundary. Reusing that current, converged image avoids
+    // starting a second pair of real HTTP reads in the same frame (which can
+    // race the scheduled poll on Web/App/Mobile), while any missing, stale,
+    // failed, or drifted image still takes the forced refresh path below.
+    final currentError = _inventoryResourceObservationErrorFor(operation);
+    if (!force && currentError == null) return null;
+    await _loadDeviceInventoryV2IfRequested(force: true);
+    if (widget.clientInstanceSessionResourceConvergenceOwner != null &&
+        widget.clientInstanceSessionResourceConvergenceReader != null) {
+      await _loadClientInstanceSessionResourceConvergenceIfRequested(
+        force: true,
+      );
+    } else {
+      await _loadClientInstanceResourceViewIfRequested(force: true);
+    }
+    if (!mounted || _authorizationInvalidated) {
+      return '$operation was cancelled.';
+    }
+    final refreshedError = _inventoryResourceObservationErrorFor(operation);
+    return refreshedError;
   }
 
   void _clearRunAttemptLeaseDispatchPreflight() {
@@ -2257,6 +3651,52 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _runnerDispatchPlanPreviewError = null;
     _runnerDispatchPlanPreviewStale = false;
     _loadingRunnerDispatchPlanPreview = false;
+  }
+
+  void _clearRunnerExecutionIntent() {
+    _runnerExecutionIntentGeneration++;
+    _fetchedRunnerExecutionIntent = null;
+    _runnerExecutionIntentError = null;
+    _runnerExecutionIntentStale = false;
+    _loadingRunnerExecutionIntent = false;
+  }
+
+  void _clearRunnerDispatchAdmission() {
+    _runnerDispatchAdmissionGeneration++;
+    _fetchedRunnerDispatchAdmission = null;
+    _runnerDispatchAdmissionError = null;
+    _runnerDispatchAdmissionStale = false;
+    _loadingRunnerDispatchAdmission = false;
+  }
+
+  void _clearRunnerTransportAdmission() {
+    _runnerTransportAdmissionGeneration++;
+    _fetchedRunnerTransportAdmission = null;
+    _runnerTransportAdmissionError = null;
+    _runnerTransportAdmissionStale = false;
+    _loadingRunnerTransportAdmission = false;
+  }
+
+  void _clearRunnerExecutionBoundary() {
+    _runnerExecutionBoundaryGeneration++;
+    _fetchedRunnerExecutionBoundary = null;
+    _runnerExecutionBoundaryError = null;
+    _runnerExecutionBoundaryStale = false;
+    _loadingRunnerExecutionBoundary = false;
+  }
+
+  void _clearRunnerAttemptBoundary() {
+    _runnerAttemptBoundaryGeneration++;
+    _fetchedRunnerAttemptBoundary = null;
+    _runnerAttemptBoundaryError = null;
+    _runnerAttemptBoundaryStale = false;
+    _loadingRunnerAttemptBoundary = false;
+  }
+
+  void _clearRunnerAttemptBoundaryPreview() {
+    _runnerAttemptBoundaryPreview = null;
+    _runnerAttemptBoundaryPreviewError = null;
+    _loadingRunnerAttemptBoundaryPreview = false;
   }
 
   void _clearLocalRunnerPreview() {
@@ -2315,9 +3755,34 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   void _clearRunObserved() {
     _runObservedGeneration++;
     _fetchedRunObserved = null;
+    _fetchedSessionRunnerReceiptObservation = null;
     _runObservedError = null;
     _runObservedStale = false;
     _loadingRunObserved = false;
+  }
+
+  void _clearRunExecutionEvidence() {
+    _runExecutionEvidenceGeneration++;
+    _fetchedRunExecutionEvidence = null;
+    _runExecutionEvidenceError = null;
+    _runExecutionEvidenceStale = false;
+    _loadingRunExecutionEvidence = false;
+  }
+
+  void _clearSessionRunnerReceiptHistory() {
+    _sessionRunnerReceiptHistoryGeneration++;
+    _fetchedSessionRunnerReceiptHistory = null;
+    _sessionRunnerReceiptHistoryError = null;
+    _sessionRunnerReceiptHistoryStale = false;
+    _loadingSessionRunnerReceiptHistory = false;
+  }
+
+  void _clearSessionRunnerReconciliationProjection() {
+    _sessionRunnerReconciliationProjectionGeneration++;
+    _fetchedSessionRunnerReconciliationProjection = null;
+    _sessionRunnerReconciliationProjectionError = null;
+    _sessionRunnerReconciliationProjectionStale = false;
+    _loadingSessionRunnerReconciliationProjection = false;
   }
 
   void _clearPendingRunIntents() {
@@ -2362,7 +3827,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     _importedSessionRunnerReceiptObservation = null;
   }
 
-  Future<_ForgeChangeSyncOutcome> _syncChanges() async {
+  Future<_ForgeChangeSyncOutcome> _syncChanges({bool stream = false}) async {
     if (_syncingChanges ||
         !mounted ||
         _sessionViewInvalidated ||
@@ -2371,25 +3836,76 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
     _syncingChanges = true;
     try {
+      // Refresh the selected client-instance projection before the owner
+      // change feed can trigger Conversation, Prompt, or Run reads. A
+      // changed session/resource declaration must revoke the old projection
+      // before any private metadata is hydrated under it.
+      if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+        return _ForgeChangeSyncOutcome.failed;
+      }
       await _cursorReady;
       if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       final changes = <ForgeConversationChange>[];
       var nextCursor = _changeCursor;
-      for (var pageNumber = 0; pageNumber < 4; pageNumber++) {
-        final page = await _api.conversationChanges(
+      if (stream) {
+        final page = await _api.conversationChangesStream(
           afterCursor: nextCursor,
           limit: ForgeConversationsApi.maxPageSize,
+          waitMS: widget.conversationChangesStreamWaitMS,
         );
         if (!mounted) return _ForgeChangeSyncOutcome.skipped;
+        if (page == null) {
+          // A bounded 204 timeout is a successful read with no cursor
+          // progress. The caller reconnects the stream without touching the
+          // persisted cursor.
+          if (_changeError != null) setState(() => _changeError = null);
+          await _syncRunObservation();
+          return _ForgeChangeSyncOutcome.unchanged;
+        }
         if (page.scannedThroughCursor < nextCursor) {
           throw const FormatException('Forge change cursor regressed.');
         }
         nextCursor = page.scannedThroughCursor;
         changes.addAll(page.changes);
-        if (!page.hasMore) break;
+      } else {
+        for (var pageNumber = 0; pageNumber < 4; pageNumber++) {
+          final page = await _api.conversationChanges(
+            afterCursor: nextCursor,
+            limit: ForgeConversationsApi.maxPageSize,
+          );
+          if (!mounted) return _ForgeChangeSyncOutcome.skipped;
+          if (page.scannedThroughCursor < nextCursor) {
+            throw const FormatException('Forge change cursor regressed.');
+          }
+          nextCursor = page.scannedThroughCursor;
+          changes.addAll(page.changes);
+          if (!page.hasMore) break;
+        }
       }
       if (_changeError != null) setState(() => _changeError = null);
-      if (changes.isEmpty) {
+      // The transport is deliberately owner-scoped, so the cursor must
+      // advance across every row returned by the owner feed.  An explicitly
+      // selected client instance is a narrower local projection, however:
+      // rows whose Conversation is not declared by that instance must not
+      // update the visible aggregate or trigger Prompt/Run hydration.  Keep
+      // the two sets separate so hidden rows are acknowledged without being
+      // rendered as instance-local activity.
+      final visibleChanges = _conversationChangesVisibleFromSelectedInstance(
+        changes,
+      );
+      if (visibleChanges.isEmpty) {
+        if (nextCursor != _changeCursor) {
+          // Persist owner-feed progress even when this page contained only
+          // rows outside the selected instance.  This prevents hidden rows
+          // from being replayed forever while keeping their private metadata
+          // out of the selected projection.
+          if (!await _changeCursorStore.save(nextCursor)) {
+            return _ForgeChangeSyncOutcome.failed;
+          }
+          if (!mounted) return _ForgeChangeSyncOutcome.skipped;
+          _changeCursor = nextCursor;
+          return _ForgeChangeSyncOutcome.advancedHidden;
+        }
         final selectedID = _selected?.conversation.id;
         if (_promptError != null && selectedID != null) {
           if (!await _loadPrompts(selectedID)) {
@@ -2402,7 +3918,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
 
       final latestByConversation = <String, ForgeConversationChange>{};
       var createdConversation = false;
-      for (final change in changes) {
+      for (final change in visibleChanges) {
         final prior = latestByConversation[change.conversationID];
         if (prior == null || change.aggregateVersion > prior.aggregateVersion) {
           latestByConversation[change.conversationID] = change;
@@ -2458,8 +3974,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       await _loadPendingRunIntentsIfRequested(force: true);
       if (!mounted) return _ForgeChangeSyncOutcome.skipped;
+      // Persist the owner-local checkpoint before publishing it to the
+      // in-process state. A storage failure must leave the old cursor in
+      // memory so the next transport attempt replays the uncommitted page.
+      if (!await _changeCursorStore.save(nextCursor)) {
+        return _ForgeChangeSyncOutcome.failed;
+      }
+      if (!mounted) return _ForgeChangeSyncOutcome.skipped;
       _changeCursor = nextCursor;
-      await _changeCursorStore.save(nextCursor);
       return _ForgeChangeSyncOutcome.changed;
     } catch (error) {
       await _clearSessionIfUnauthorized(error);
@@ -2477,6 +3999,89 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  List<ForgeConversationChange> _conversationChangesVisibleFromSelectedInstance(
+    Iterable<ForgeConversationChange> changes,
+  ) {
+    if (_selectedClientInstanceID == null) {
+      return changes.toList(growable: false);
+    }
+    return changes
+        .where(
+          (change) => _conversationIDDeclaredBySelectedClientInstance(
+            change.conversationID,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  Future<bool>
+  _refreshSelectedClientInstanceProjectionBeforeOwnerReads() async {
+    if (_selectedClientInstanceID == null) return true;
+    await _loadClientInstanceSessionResourceConvergenceIfRequested(force: true);
+    await _loadClientInstanceSessionViewIfRequested(force: true);
+    await _loadClientInstanceResourceViewIfRequested(force: true);
+    return _selectedClientInstanceProjectionReadyForOwnerReads();
+  }
+
+  bool _selectedClientInstanceProjectionReadyForOwnerReads() {
+    if (_selectedClientInstanceID == null) return true;
+
+    final pairConfigured =
+        widget.clientInstanceSessionResourceConvergenceOwner != null &&
+        widget.clientInstanceSessionResourceConvergenceReader != null;
+    if (pairConfigured &&
+        (_fetchedClientInstanceSessionResourceConvergence == null ||
+            _loadingClientInstanceSessionResourceConvergence ||
+            _clientInstanceSessionResourceConvergenceError != null ||
+            _clientInstanceSessionResourceConvergenceStale)) {
+      return false;
+    }
+
+    final sessionConfigured =
+        widget.clientInstanceSessionViewOwner != null &&
+        widget.clientInstanceSessionViewReader != null;
+    if (sessionConfigured &&
+        (_fetchedClientInstanceSessionView == null ||
+            _loadingClientInstanceSessionView ||
+            _clientInstanceSessionViewError != null ||
+            _clientInstanceSessionViewStale)) {
+      return false;
+    }
+
+    final resourceConfigured =
+        widget.clientInstanceResourceViewOwner != null &&
+        widget.clientInstanceResourceViewReader != null;
+    if (resourceConfigured &&
+        (_fetchedClientInstanceResourceView == null ||
+            _loadingClientInstanceResourceView ||
+            _clientInstanceResourceViewError != null ||
+            _clientInstanceResourceViewStale)) {
+      return false;
+    }
+
+    if (_independentClientInstanceReadersConfigured) {
+      final sessionView = _fetchedClientInstanceSessionView;
+      final resourceView = _fetchedClientInstanceResourceView;
+      if (sessionView == null ||
+          resourceView == null ||
+          !forgeClientInstanceSessionResourceObservationsConverged(
+            sessionView,
+            resourceView,
+          )) {
+        return false;
+      }
+    }
+
+    // A selected instance still needs a validated local declaration when the
+    // caller supplied only a process-local preview. Unknown or missing rows
+    // fail closed and cannot widen the owner session surface. The latest
+    // observation must still contain the selected instance; an empty row set
+    // is a revocation and cannot authorize another owner-feed read.
+    final rows = _declaredClientInstanceRows();
+    if (rows == null) return false;
+    return rows.any((row) => row.instanceID == _selectedClientInstanceID);
+  }
+
   Future<void> _syncRunObservation() async {
     final conversationID = _selected?.conversation.id;
     if (conversationID == null || _loadingRuns || _loadingRunTimeline) return;
@@ -2492,7 +4097,16 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         mounted &&
         _selected?.conversation.id == conversationID &&
         _runGeneration == runGeneration &&
-        _runTimelineGeneration == timelineGeneration;
+        _runTimelineGeneration == timelineGeneration &&
+        _conversationVisibleFromSelectedClientInstance(conversationID);
+
+    void revokeIfHidden() {
+      if (mounted &&
+          _selected?.conversation.id == conversationID &&
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        setState(_clearRunDetailsForHiddenClientInstance);
+      }
+    }
 
     late final ForgeConversationRunPage runPage;
     try {
@@ -2501,16 +4115,35 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted ||
           _selected?.conversation.id != conversationID ||
           _runGeneration != runGeneration ||
-          _runTimelineGeneration != timelineGeneration) {
+          _runTimelineGeneration != timelineGeneration ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        revokeIfHidden();
         return;
       }
       await _clearSessionIfUnauthorized(error);
+      if (!mounted || !isCurrent()) {
+        revokeIfHidden();
+        return;
+      }
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return;
+        setState(() {
+          _runError = _friendlyError(error, 'Could not load runs.');
+        });
+        return;
+      }
       setState(() {
         _runError = _friendlyError(error, 'Could not load runs.');
       });
       return;
     }
-    if (!isCurrent()) return;
+    if (!isCurrent()) {
+      revokeIfHidden();
+      return;
+    }
 
     final mergedRuns = _uniqueRuns([..._runs, ...runPage.runs]);
     final selectedRun = selectedRunID == null
@@ -2533,6 +4166,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _clearRunObserved();
         _clearImportedRunObservations();
         _clearRunnerDispatchPlanPreview();
+        _clearRunnerAttemptBoundaryPreview();
+        _clearRunnerAttemptBoundary();
+        _clearRunnerDispatchAdmission();
+        _clearRunnerExecutionBoundary();
         _runEvents = const [];
         _runTimelineSequence = 0;
         _hasMoreRunEvents = false;
@@ -2547,7 +4184,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         conversationID,
         selectedRun.runID,
       ).load();
-      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
+      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) {
+        revokeIfHidden();
+        return;
+      }
     }
     try {
       final timelinePage = await _api.listRunTimeline(
@@ -2555,7 +4195,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         runID: selectedRun.runID,
         afterSequence: afterSequence,
       );
-      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
+      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) {
+        revokeIfHidden();
+        return;
+      }
       setState(() {
         _runEvents = _uniqueRunEvents([..._runEvents, ...timelinePage.events]);
         _runTimelineSequence = timelinePage.scannedThroughSequence;
@@ -2583,14 +4226,51 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         runID: selectedRun.runID,
         force: true,
       );
+      await _loadRunnerExecutionIntentIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
+      await _loadRunnerDispatchAdmissionIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
       await _loadLocalRunnerPreviewIfRequested(
         conversationID: conversationID,
         runID: selectedRun.runID,
         force: true,
       );
+      await _loadSessionRunnerReceiptHistoryIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
+      await _loadSessionRunnerReconciliationProjectionIfRequested(
+        conversationID: conversationID,
+        runID: selectedRun.runID,
+        force: true,
+      );
     } catch (error) {
-      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) return;
+      if (!isCurrent() || _selectedRun?.runID != selectedRun.runID) {
+        revokeIfHidden();
+        return;
+      }
       await _clearSessionIfUnauthorized(error);
+      if (!mounted) return;
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return;
+        setState(() {
+          _runTimelineError = _friendlyError(
+            error,
+            'Could not load run timeline.',
+          );
+        });
+        return;
+      }
       setState(() {
         _runTimelineError = _friendlyError(
           error,
@@ -2668,6 +4348,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _promptCursor = nextCursor;
         _hasMorePrompts = hasMore && nextCursor != null;
         _loadingPrompts = false;
+        _clientInstanceFilterNeedsPrivateReload = false;
       });
       return true;
     } catch (error) {
@@ -2676,6 +4357,20 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _clearSessionIfUnauthorized(error);
       if (!mounted ||
           (!authorizationFailure && generation != _promptGeneration)) {
+        return false;
+      }
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return false;
+        setState(() {
+          _promptError = _friendlyError(
+            error,
+            'Could not load prompt history.',
+          );
+          _loadingPrompts = false;
+        });
         return false;
       }
       setState(() {
@@ -2711,6 +4406,18 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _creating = true;
       _createError = null;
     });
+    // A selected client instance is a local display projection. Refresh its
+    // owner-bound observation before creating so a reader gap cannot turn the
+    // owner-wide storage write into a private instance selection.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (!mounted) return;
+      setState(() {
+        _creating = false;
+        _createError =
+            'Conversation create is blocked until the selected client instance is observed.';
+      });
+      return;
+    }
     try {
       final created = await _api.createConversation(
         scope: pending.scope,
@@ -2718,6 +4425,17 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         idempotencyKey: pending.idempotencyKey,
       );
       if (!mounted) return;
+      final createdVisible = _conversationIDDeclaredBySelectedClientInstance(
+        created.id,
+      );
+      final previousSelection = _selected;
+      final retainedSelection =
+          previousSelection != null &&
+              _conversationIDDeclaredBySelectedClientInstance(
+                previousSelection.conversation.id,
+              )
+          ? previousSelection
+          : null;
       // A new conversation's creation event establishes aggregate version 1.
       final selected = ForgeOwnedConversation(
         conversation: created,
@@ -2737,7 +4455,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _appendError = null;
         _titleController.clear();
         _scopeIDController.clear();
-        _selected = selected;
+        _selected = createdVisible ? selected : retainedSelection;
+        _createError = createdVisible
+            ? null
+            : 'Created conversation "${created.id}", but the selected client instance has not declared it yet.';
         _conversations = _mergeConversations(
           incoming: [selected, ..._conversations],
           existing: const [],
@@ -2753,6 +4474,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _runTimelineSequence = 0;
         _hasMoreRunEvents = false;
       });
+      if (!createdVisible) {
+        if (retainedSelection != null) {
+          _updateConversationLocation(retainedSelection.conversation.id);
+        }
+        return;
+      }
       _updateConversationLocation(created.id);
       await _loadPrompts(created.id);
       await _loadRuns(created.id);
@@ -2805,7 +4532,8 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
     if (_appending ||
         _pendingPrompt != null ||
-        _selected?.conversation.id == value.conversation.id) {
+        (!_clientInstanceFilterNeedsPrivateReload &&
+            _selected?.conversation.id == value.conversation.id)) {
       return;
     }
     setState(() {
@@ -2814,6 +4542,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _clearDeviceObservation();
       _clearRunAttemptLeaseDispatchPreflight();
       _clearRunnerDispatchPlanPreview();
+      _clearRunnerAttemptBoundaryPreview();
+      _clearRunnerAttemptBoundary();
+      _clearRunnerDispatchAdmission();
       _clearExecutionReconciliation();
       _clearExecutionConsentPreview();
       _clearPendingRunIntents();
@@ -2862,19 +4593,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   bool _conversationVisibleFromSelectedClientInstance(String conversationID) {
     final instanceID = _selectedClientInstanceID;
     if (instanceID == null) return true;
-    final sessionView =
-        _strictClientInstanceSessionView(
-          widget.clientInstanceSessionViewPreview,
-        ) ??
-        _strictClientInstanceSessionView(_fetchedClientInstanceSessionView) ??
-        _strictClientInstanceSessionView(_clientInstanceSessionViewPreview);
-    final resourceView =
-        _strictClientInstanceResourceView(
-          widget.clientInstanceResourceViewPreview,
-        ) ??
-        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
-        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview);
-    final instances = sessionView?.instances ?? resourceView?.instances;
+    final instances = _declaredClientInstanceRows();
     return instances != null &&
         conversationsForClientInstance(
           instances,
@@ -2882,14 +4601,155 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         ).any((entry) => entry.conversation.id == conversationID);
   }
 
+  /// Keeps scheduler candidates inside the same local instance projection as
+  /// Conversations and Prompt writes. A selected instance with no validated
+  /// rows fails closed, so a refresh gap cannot broaden a candidate POST.
+  bool _schedulerSelectionRequestVisible(String conversationID) =>
+      _conversationVisibleFromSelectedClientInstance(conversationID);
+
+  bool _schedulerSelectionTargetMatchesResources(
+    ForgeSchedulerSelectionPreview preview,
+  ) {
+    if (!preview.selectionAvailable) return true;
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        _fetchedDeviceInventoryResourceConvergence?.resourceView;
+    // A scheduler preview can be used without an opted-in resource reader.
+    // Preserve that request-compatible path; once a resource image is
+    // supplied, the selected target must be one of its owner-bound rows.
+    if (resourceView == null || resourceView.devices.isEmpty) return true;
+    final deviceID = preview.selectedDeviceID;
+    final runnerInstanceID = preview.selectedInstanceID;
+    if (deviceID == null ||
+        runnerInstanceID == null ||
+        preview.owner != resourceView.owner) {
+      return false;
+    }
+    return resourceView.devices.any(
+      (device) =>
+          device.deviceID == deviceID &&
+          device.runnerInstanceID == runnerInstanceID,
+    );
+  }
+
+  bool _runnerDispatchPlanTargetsMatchResources(
+    ForgeRunnerDispatchPlanPreview preview,
+  ) {
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        _fetchedDeviceInventoryResourceConvergence?.resourceView;
+    // Preserve the request-compatible path when no resource reader is
+    // configured or the observation has no device rows. Once a non-empty
+    // owner-bound resource image is available, every plan candidate must be
+    // one of its device or Runner instance IDs. The dispatch-plan contract
+    // orders candidates by device ID, while some adapters expose the same
+    // target through the Runner instance ID, so bind both declared identities
+    // to the same owner-bound resource row.
+    if (resourceView == null || resourceView.devices.isEmpty) return true;
+    if (preview.owner != resourceView.owner) return false;
+    final targetIDs = <String>{};
+    for (final device in resourceView.devices) {
+      targetIDs
+        ..add(device.deviceID)
+        ..add(device.runnerInstanceID);
+    }
+    return targetIDs.contains(preview.intentTargetID) &&
+        preview.candidates.every(
+          (candidate) => targetIDs.contains(candidate.targetID),
+        );
+  }
+
+  /// Keeps admission candidates inside the current owner-bound resource
+  /// image. A missing resource reader preserves the existing candidate-only
+  /// compatibility path; once a non-empty image is supplied, either the
+  /// device ID or its Runner instance ID is an acceptable target identity.
+  bool _runnerAdmissionTargetMatchesResources(
+    ForgeDeviceOwner owner,
+    String targetID,
+  ) {
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        _fetchedClientInstanceSessionResourceConvergence?.resourceView ??
+        _fetchedDeviceInventoryResourceConvergence?.resourceView;
+    if (resourceView == null) return true;
+    if (resourceView.devices.isEmpty &&
+        !_runnerAdmissionResourceObservationConfigured) {
+      return true;
+    }
+    if (resourceView.owner != owner) return false;
+    return resourceView.devices.any(
+      (device) =>
+          device.deviceID == targetID || device.runnerInstanceID == targetID,
+    );
+  }
+
+  bool _runnerAttemptBoundaryTargetMatchesResources(
+    ForgeDeviceOwner owner,
+    String targetID,
+  ) {
+    final resourceView =
+        _strictClientInstanceResourceView(
+          widget.clientInstanceResourceViewPreview,
+        ) ??
+        _strictClientInstanceResourceView(_fetchedClientInstanceResourceView) ??
+        _strictClientInstanceResourceView(_clientInstanceResourceViewPreview) ??
+        _fetchedClientInstanceSessionResourceConvergence?.resourceView ??
+        _strictDeviceInventoryResourceConvergence(
+          _fetchedDeviceInventoryResourceConvergence,
+        )?.resourceView;
+    if (resourceView == null) return true;
+    if (resourceView.devices.isEmpty &&
+        !_runnerAdmissionResourceObservationConfigured) {
+      return true;
+    }
+    if (resourceView.owner != owner) return false;
+    return resourceView.devices.any(
+      (device) =>
+          device.deviceID == targetID || device.runnerInstanceID == targetID,
+    );
+  }
+
+  bool get _runnerAdmissionResourceObservationConfigured =>
+      (widget.deviceInventoryResourceConvergenceOwner != null &&
+          widget.deviceInventoryResourceConvergenceReader != null) ||
+      (widget.clientInstanceSessionResourceConvergenceOwner != null &&
+          widget.clientInstanceSessionResourceConvergenceReader != null) ||
+      (widget.clientInstanceResourceViewOwner != null &&
+          widget.clientInstanceResourceViewReader != null) ||
+      (widget.deviceInventoryOwner != null &&
+          widget.deviceInventoryV2Reader != null &&
+          (widget.clientInstanceResourceViewOwner != null ||
+              widget.clientInstanceSessionResourceConvergenceOwner != null));
+
   void _updateConversationLocation(String conversationID) {
-    final routePath =
-        '/${Uri(pathSegments: <String>['forge', 'conversations', conversationID]).path}';
-    if (BrowserNavigation.currentUri.path == routePath) return;
+    final route = Uri(
+      pathSegments: <String>['forge', 'conversations', conversationID],
+      queryParameters: _selectedClientInstanceID == null
+          ? null
+          : <String, String>{'instance_id': _selectedClientInstanceID!},
+    );
+    final routePath = '/${route.path}';
+    final routeWithQuery = route.query.isEmpty
+        ? routePath
+        : '$routePath?${route.query}';
+    final current = BrowserNavigation.currentUri;
+    if (current.path == routePath && current.query == route.query) return;
     // Keep a same-document selection bookmarkable without rebuilding the
     // authenticated gate or issuing another navigation request. The URL is
     // only a selection hint; owner-scoped reads remain authoritative.
-    BrowserNavigation.replaceState(routePath);
+    BrowserNavigation.replaceState(routeWithQuery);
   }
 
   Future<bool> _loadRuns(
@@ -2932,6 +4792,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           _clearDeviceObservation();
           _clearRunAttemptLeaseDispatchPreflight();
           _clearRunnerDispatchPlanPreview();
+          _clearRunnerAttemptBoundaryPreview();
+          _clearRunnerAttemptBoundary();
+          _clearRunnerDispatchAdmission();
           _clearExecutionReconciliation();
           _clearRunObserved();
           _clearImportedRunObservations();
@@ -2960,6 +4823,18 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           conversationID: conversationID,
           runID: selectedRun.runID,
         );
+        await _loadRunnerExecutionIntentIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        await _loadRunnerDispatchAdmissionIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
+        await _loadRunnerAttemptBoundaryIfRequested(
+          conversationID: conversationID,
+          runID: selectedRun.runID,
+        );
         await _loadExecutionReconciliationIfRequested(
           conversationID: conversationID,
           runID: selectedRun.runID,
@@ -2985,6 +4860,17 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       final authorizationFailure = _isAuthorizationFailure(error);
       await _clearSessionIfUnauthorized(error);
       if (!mounted || (!authorizationFailure && generation != _runGeneration)) {
+        return false;
+      }
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return false;
+        setState(() {
+          _runError = _friendlyError(error, 'Could not load runs.');
+          _loadingRuns = false;
+        });
         return false;
       }
       setState(() {
@@ -3062,6 +4948,20 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _clearSessionIfUnauthorized(error);
       if (!mounted ||
           (!authorizationFailure && generation != _runTimelineGeneration)) {
+        return false;
+      }
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return false;
+        setState(() {
+          _runTimelineError = _friendlyError(
+            error,
+            'Could not load run timeline.',
+          );
+          _loadingRunTimeline = false;
+        });
         return false;
       }
       if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
@@ -3155,6 +5055,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     bool force = false,
   }) async {
     final reader = widget.runObservedReader;
+    final receiptReader = widget.sessionRunnerReceiptObservationReader;
     conversationID ??= _selected?.conversation.id;
     runID ??= _selectedRun?.runID;
     if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
@@ -3179,20 +5080,53 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return;
     }
     final previous = _fetchedRunObserved;
+    final pairedRead = receiptReader != null;
+    final selectedRun = _selectedRun;
     final generation = ++_runObservedGeneration;
     setState(() {
       _loadingRunObserved = true;
       _runObservedError = null;
-      _runObservedStale = previous != null;
+      _runObservedStale = !pairedRead && previous != null;
+      if (pairedRead) {
+        // A paired refresh is fail-closed: never leave either half of the
+        // previous independently read snapshot visible while refreshing.
+        _fetchedRunObserved = null;
+        _fetchedSessionRunnerReceiptObservation = null;
+      }
     });
     try {
       // Re-decode the callback result through the strict wire boundary. This
       // prevents a caller-created model from bypassing the display-only
       // authority and content checks.
-      final observation = ForgeRunObserved.fromJson(
-        (await reader(conversationID, runID)).toJson(),
+      final rawValues = await Future.wait<Object>([
+        reader(conversationID, runID),
+        if (receiptReader != null) receiptReader(conversationID, runID),
+      ]);
+      var observation = ForgeRunObserved.fromJson(
+        (rawValues.first as ForgeRunObserved).toJson(),
       );
-      if (!observation.isFor(conversationID, runID) ||
+      ForgeSessionRunnerReceiptObservation? receiptObservation;
+      if (receiptReader != null) {
+        if (selectedRun == null || selectedRun.runID != runID) {
+          throw const FormatException(
+            'The selected Run changed before its observations converged.',
+          );
+        }
+        final convergence =
+            ForgeRunReceiptObservationConvergence.fromObservations(
+              runObserved: observation,
+              receiptObserved:
+                  rawValues[1] as ForgeSessionRunnerReceiptObservation,
+              conversationID: conversationID,
+              runID: runID,
+              promptID: selectedRun.promptID,
+              runCreatedAtMS: selectedRun.createdAtMS,
+              runLatestSequence: selectedRun.latestSequence,
+              runStatus: selectedRun.status,
+            );
+        observation = convergence.runObserved;
+        receiptObservation = convergence.receiptObserved;
+      } else if (!observation.isFor(conversationID, runID) ||
           !observation.isDisplayOnly) {
         throw const FormatException(
           'Forge returned an invalid or differently bound Run observation.',
@@ -3208,13 +5142,35 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       }
       setState(() {
         _fetchedRunObserved = observation;
+        _fetchedSessionRunnerReceiptObservation = receiptObservation;
         _runObservedError = null;
         _runObservedStale = false;
         _loadingRunObserved = false;
       });
+      unawaited(
+        _loadRunExecutionEvidenceIfRequested(
+          conversationID: conversationID,
+          runID: runID,
+          force: true,
+        ),
+      );
     } catch (error) {
       if (!mounted || generation != _runObservedGeneration) return;
       await _clearSessionIfUnauthorized(error);
+      if (!mounted) return;
+      if (_dropSelectedConversationAfterOwnerReadFailure(
+        conversationID,
+        error,
+      )) {
+        if (!mounted) return;
+        setState(() {
+          _runObservedError = _friendlyError(
+            error,
+            'Could not load Run metadata observation.',
+          );
+        });
+        return;
+      }
       if (!mounted ||
           generation != _runObservedGeneration ||
           _selected?.conversation.id != conversationID ||
@@ -3224,13 +5180,366 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         return;
       }
       setState(() {
-        _fetchedRunObserved = previous;
+        _fetchedRunObserved = pairedRead ? null : previous;
+        if (pairedRead) _fetchedSessionRunnerReceiptObservation = null;
         _runObservedError = _friendlyError(
           error,
-          'Could not load Run metadata observation.',
+          pairedRead
+              ? 'Could not converge Run and Runner receipt observations.'
+              : 'Could not load Run metadata observation.',
         );
-        _runObservedStale = previous != null;
+        _runObservedStale = !pairedRead && previous != null;
         _loadingRunObserved = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunExecutionEvidenceIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final reader = widget.runExecutionEvidenceReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    final fetchedRun = _fetchedRunObserved;
+    final pairedReaderEnabled =
+        widget.sessionRunnerReceiptObservationReader != null;
+    final sourceRun =
+        fetchedRun?.isFor(conversationID ?? '', runID ?? '') == true
+        ? fetchedRun
+        : pairedReaderEnabled
+        ? null
+        : widget.runObserved;
+    final sourceReceipt = pairedReaderEnabled
+        ? _fetchedSessionRunnerReceiptObservation
+        : _fetchedSessionRunnerReceiptObservation ??
+              widget.sessionRunnerReceiptObservation;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (reader == null ||
+        sourceRun == null ||
+        sourceReceipt == null ||
+        conversationID == null ||
+        runID == null) {
+      if (mounted &&
+          (_fetchedRunExecutionEvidence != null ||
+              _runExecutionEvidenceError != null ||
+              _loadingRunExecutionEvidence ||
+              _runExecutionEvidenceStale)) {
+        setState(_clearRunExecutionEvidence);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunExecutionEvidence) return;
+    if (!force &&
+        (_fetchedRunExecutionEvidence != null ||
+            _runExecutionEvidenceError != null)) {
+      return;
+    }
+    final previous = _fetchedRunExecutionEvidence;
+    final generation = ++_runExecutionEvidenceGeneration;
+    setState(() {
+      _loadingRunExecutionEvidence = true;
+      _runExecutionEvidenceError = null;
+      _runExecutionEvidenceStale = previous != null;
+    });
+    try {
+      final validatedRun = ForgeRunObserved.fromJson(sourceRun.toJson());
+      final validatedReceipt = ForgeSessionRunnerReceiptObservation.fromJson(
+        sourceReceipt.toJson(),
+      );
+      if (!validatedRun.isFor(conversationID, runID) ||
+          !validatedReceipt.isFor(conversationID, runID) ||
+          validatedRun.promptID != validatedReceipt.promptID ||
+          !validatedRun.isDisplayOnly ||
+          !validatedReceipt.isDisplayOnly) {
+        throw const FormatException(
+          'Forge Run execution-evidence sources are not bound to the selected Run.',
+        );
+      }
+      final evidence = ForgeRunExecutionEvidence.fromJson(
+        (await reader(
+          conversationID,
+          runID,
+          validatedRun,
+          validatedReceipt,
+        )).toJson(),
+      );
+      final receipt = validatedReceipt.receiptObservation;
+      if (!evidence.isFor(conversationID, runID) ||
+          evidence.ownerRef != validatedRun.ownerRef ||
+          evidence.promptID != validatedRun.promptID ||
+          evidence.runStatus != validatedRun.status ||
+          evidence.attemptID != receipt.attemptID ||
+          evidence.targetID != receipt.targetID ||
+          evidence.commandID != receipt.commandID ||
+          evidence.commandSHA256 != receipt.commandSHA256 ||
+          evidence.dispositionKind != receipt.dispositionKind ||
+          evidence.receiptObservedAtMS != receipt.observedAtMS ||
+          evidence.uncertain != receipt.uncertain ||
+          evidence.reconciliationRequired != receipt.reconciliationRequired ||
+          !evidence.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned another or authority-bearing Run execution evidence.',
+        );
+      }
+      if (!mounted ||
+          generation != _runExecutionEvidenceGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunExecutionEvidence = evidence;
+        _runExecutionEvidenceError = null;
+        _runExecutionEvidenceStale = false;
+        _loadingRunExecutionEvidence = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runExecutionEvidenceGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runExecutionEvidenceGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunExecutionEvidence = previous;
+        _runExecutionEvidenceError = _friendlyError(
+          error,
+          'Could not load Run execution-evidence preview.',
+        );
+        _runExecutionEvidenceStale = previous != null;
+        _loadingRunExecutionEvidence = false;
+      });
+    }
+  }
+
+  Future<void> _loadSessionRunnerReceiptHistoryIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final reader = widget.sessionRunnerReceiptHistoryReader;
+    final request = widget.sessionRunnerReceiptHistoryRequest;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (reader == null ||
+        request == null ||
+        conversationID == null ||
+        runID == null) {
+      if (mounted &&
+          (_fetchedSessionRunnerReceiptHistory != null ||
+              _sessionRunnerReceiptHistoryError != null ||
+              _loadingSessionRunnerReceiptHistory ||
+              _sessionRunnerReceiptHistoryStale)) {
+        setState(_clearSessionRunnerReceiptHistory);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingSessionRunnerReceiptHistory) return;
+    if (!force &&
+        (_fetchedSessionRunnerReceiptHistory != null ||
+            _sessionRunnerReceiptHistoryError != null)) {
+      return;
+    }
+    final previous = _fetchedSessionRunnerReceiptHistory;
+    final generation = ++_sessionRunnerReceiptHistoryGeneration;
+    setState(() {
+      _loadingSessionRunnerReceiptHistory = true;
+      _sessionRunnerReceiptHistoryError = null;
+      _sessionRunnerReceiptHistoryStale = previous != null;
+    });
+    try {
+      final validatedRequest = ForgeSessionRunnerReceiptHistory.fromJson(
+        request.toJson(),
+      );
+      if (!validatedRequest.isDisplayOnly ||
+          !validatedRequest.isFor(conversationID, runID)) {
+        throw const FormatException(
+          'Forge session Runner receipt-history request is not bound to the selected Run.',
+        );
+      }
+      final history = ForgeSessionRunnerReceiptHistory.fromJson(
+        (await reader(conversationID, runID, validatedRequest)).toJson(),
+      );
+      if (!history.isDisplayOnly ||
+          !history.isFor(conversationID, runID) ||
+          history.owner != validatedRequest.owner ||
+          jsonEncode(history.toJson()) !=
+              jsonEncode(validatedRequest.toJson())) {
+        throw const FormatException(
+          'Forge returned another or authority-bearing session Runner receipt history.',
+        );
+      }
+      if (!mounted ||
+          generation != _sessionRunnerReceiptHistoryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSessionRunnerReceiptHistory = history;
+        _sessionRunnerReceiptHistoryError = null;
+        _sessionRunnerReceiptHistoryStale = false;
+        _loadingSessionRunnerReceiptHistory = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _sessionRunnerReceiptHistoryGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _sessionRunnerReceiptHistoryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSessionRunnerReceiptHistory = previous;
+        _sessionRunnerReceiptHistoryError = _friendlyError(
+          error,
+          'Could not load session Runner receipt-history preview.',
+        );
+        _sessionRunnerReceiptHistoryStale = previous != null;
+        _loadingSessionRunnerReceiptHistory = false;
+      });
+    }
+  }
+
+  Future<void> _loadSessionRunnerReconciliationProjectionIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final reader = widget.sessionRunnerReconciliationProjectionReader;
+    final request = widget.sessionRunnerReconciliationProjectionRequest;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (reader == null ||
+        request == null ||
+        conversationID == null ||
+        runID == null) {
+      if (mounted &&
+          (_fetchedSessionRunnerReconciliationProjection != null ||
+              _sessionRunnerReconciliationProjectionError != null ||
+              _loadingSessionRunnerReconciliationProjection ||
+              _sessionRunnerReconciliationProjectionStale)) {
+        setState(_clearSessionRunnerReconciliationProjection);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingSessionRunnerReconciliationProjection) return;
+    if (!force &&
+        (_fetchedSessionRunnerReconciliationProjection != null ||
+            _sessionRunnerReconciliationProjectionError != null)) {
+      return;
+    }
+    final previous = _fetchedSessionRunnerReconciliationProjection;
+    final generation = ++_sessionRunnerReconciliationProjectionGeneration;
+    setState(() {
+      _loadingSessionRunnerReconciliationProjection = true;
+      _sessionRunnerReconciliationProjectionError = null;
+      _sessionRunnerReconciliationProjectionStale = previous != null;
+    });
+    try {
+      final validatedRequest = ForgeSessionRunnerReceiptHistory.fromJson(
+        request.toJson(),
+      );
+      if (!validatedRequest.isDisplayOnly ||
+          !validatedRequest.isFor(conversationID, runID) ||
+          !validatedRequest.hasUncertainTerminal) {
+        throw const FormatException(
+          'Forge reconciliation request is not bound to an uncertain terminal Run.',
+        );
+      }
+      final projection = ForgeSessionRunnerReconciliationProjection.fromJson(
+        (await reader(conversationID, runID, validatedRequest)).toJson(),
+      );
+      final source = projection.source;
+      if (!projection.isDisplayOnly ||
+          !projection.isFor(conversationID, runID) ||
+          projection.owner != validatedRequest.owner ||
+          source.owner != validatedRequest.owner ||
+          source.conversationID != validatedRequest.conversationID ||
+          source.promptID != validatedRequest.promptID ||
+          source.runID != validatedRequest.runID ||
+          source.attemptCount != validatedRequest.attemptCount ||
+          source.latestAttemptID != validatedRequest.latestAttemptID ||
+          source.latestCommandID != validatedRequest.latestCommandID ||
+          source.latestTargetID != validatedRequest.latestTargetID ||
+          source.latestDispositionKind !=
+              validatedRequest.latestDispositionKind ||
+          source.latestObservedAtMS != validatedRequest.latestObservedAtMS) {
+        throw const FormatException(
+          'Forge returned another or authority-bearing reconciliation projection.',
+        );
+      }
+      if (!mounted ||
+          generation != _sessionRunnerReconciliationProjectionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSessionRunnerReconciliationProjection = projection;
+        _sessionRunnerReconciliationProjectionError = null;
+        _sessionRunnerReconciliationProjectionStale = false;
+        _loadingSessionRunnerReconciliationProjection = false;
+      });
+    } catch (error) {
+      if (!mounted ||
+          generation != _sessionRunnerReconciliationProjectionGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _sessionRunnerReconciliationProjectionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSessionRunnerReconciliationProjection = previous;
+        _sessionRunnerReconciliationProjectionError = _friendlyError(
+          error,
+          'Could not load session Runner reconciliation preview.',
+        );
+        _sessionRunnerReconciliationProjectionStale = previous != null;
+        _loadingSessionRunnerReconciliationProjection = false;
       });
     }
   }
@@ -3310,6 +5619,31 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   }
 
   Future<void> _loadDeviceInventoryV2IfRequested({bool force = false}) async {
+    final inFlight = _deviceInventoryV2Refresh;
+    if (inFlight != null) {
+      final inFlightWasForced = _deviceInventoryV2RefreshWasForced;
+      await inFlight;
+      if (!force ||
+          (inFlightWasForced &&
+              _deviceInventoryV2Error == null &&
+              !_deviceInventoryV2Stale)) {
+        return;
+      }
+    }
+    final refresh = _loadDeviceInventoryV2Now(force: force);
+    _deviceInventoryV2Refresh = refresh;
+    _deviceInventoryV2RefreshWasForced = force;
+    try {
+      await refresh;
+    } finally {
+      if (identical(_deviceInventoryV2Refresh, refresh)) {
+        _deviceInventoryV2Refresh = null;
+        _deviceInventoryV2RefreshWasForced = false;
+      }
+    }
+  }
+
+  Future<void> _loadDeviceInventoryV2Now({bool force = false}) async {
     final owner = widget.deviceInventoryOwner;
     final reader = widget.deviceInventoryV2Reader;
     if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
@@ -3376,6 +5710,81 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         );
         _deviceInventoryV2Stale = previousPage != null;
         _loadingDeviceInventoryV2 = false;
+      });
+    }
+  }
+
+  Future<void> _loadDeviceInventoryResourceConvergenceIfRequested({
+    bool force = false,
+  }) async {
+    final owner = widget.deviceInventoryResourceConvergenceOwner;
+    final reader = widget.deviceInventoryResourceConvergenceReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedDeviceInventoryResourceConvergence != null ||
+              _deviceInventoryResourceConvergenceError != null ||
+              _loadingDeviceInventoryResourceConvergence)) {
+        setState(_clearDeviceInventoryResourceConvergence);
+      }
+      return;
+    }
+    if (_loadingDeviceInventoryResourceConvergence) return;
+    if (!force &&
+        (_fetchedDeviceInventoryResourceConvergence != null ||
+            _deviceInventoryResourceConvergenceError != null)) {
+      return;
+    }
+    final previous = _fetchedDeviceInventoryResourceConvergence;
+    final generation = ++_deviceInventoryResourceConvergenceGeneration;
+    setState(() {
+      _loadingDeviceInventoryResourceConvergence = true;
+      _deviceInventoryResourceConvergenceError = null;
+      _deviceInventoryResourceConvergenceStale = previous != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final convergence = ForgeDeviceInventoryResourceConvergence.fromJson(
+        (await reader(owner)).toJson(),
+      );
+      if (convergence.owner != expectedOwner || !convergence.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid inventory/resource convergence pair.',
+        );
+      }
+      if (!mounted ||
+          generation != _deviceInventoryResourceConvergenceGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryResourceConvergence = convergence;
+        _deviceInventoryResourceConvergenceError = null;
+        _deviceInventoryResourceConvergenceStale = false;
+        _loadingDeviceInventoryResourceConvergence = false;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted ||
+          generation != _deviceInventoryResourceConvergenceGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _deviceInventoryResourceConvergenceGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedDeviceInventoryResourceConvergence = previous;
+        _deviceInventoryResourceConvergenceError = _friendlyError(
+          error,
+          'Could not load converged device resources.',
+        );
+        _deviceInventoryResourceConvergenceStale = previous != null;
+        _loadingDeviceInventoryResourceConvergence = false;
       });
     }
   }
@@ -3461,9 +5870,598 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  Future<void> _loadSchedulerSelectionPreviewIfRequested({
+    bool force = false,
+  }) async {
+    final request = widget.schedulerSelectionPreviewRequest;
+    final reader = widget.schedulerSelectionPreviewReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null || reader == null) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionPreview != null ||
+              _schedulerSelectionPreviewError != null ||
+              _loadingSchedulerSelectionPreview)) {
+        setState(_clearSchedulerSelectionPreview);
+      }
+      return;
+    }
+    if (!_schedulerSelectionRequestVisible(request.conversationID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionPreview != null ||
+              _schedulerSelectionPreviewError != null ||
+              _loadingSchedulerSelectionPreview)) {
+        setState(_clearSchedulerSelectionPreview);
+      }
+      return;
+    }
+    // Keep an explicit scheduler preview scoped to the Run currently selected
+    // by the Sessions surface. A request may be configured before the first
+    // owner snapshot (so an empty/default Gate remains compatible), but once
+    // the screen has a selected Conversation or Run, a different binding is
+    // stale and must not reach the candidate route.
+    final selectedConversationID = _selected?.conversation.id;
+    final selectedRunID = _selectedRun?.runID;
+    if ((selectedConversationID != null &&
+            selectedConversationID != request.conversationID) ||
+        (selectedRunID != null && selectedRunID != request.runID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionPreview != null ||
+              _schedulerSelectionPreviewError != null ||
+              _loadingSchedulerSelectionPreview)) {
+        setState(_clearSchedulerSelectionPreview);
+      }
+      return;
+    }
+    if (_loadingSchedulerSelectionPreview) return;
+    if (!force &&
+        (_fetchedSchedulerSelectionPreview != null ||
+            _schedulerSelectionPreviewError != null)) {
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedSchedulerSelectionPreview = null;
+          _schedulerSelectionPreviewError =
+              'Scheduler selection preview is waiting for a fresh validated client-instance session/resource observation.';
+          _schedulerSelectionPreviewStale = false;
+        });
+      }
+      return;
+    }
+    if (!_schedulerSelectionRequestVisible(request.conversationID)) {
+      if (mounted) setState(_clearSchedulerSelectionPreview);
+      return;
+    }
+    if (_selected?.conversation.id != null &&
+        _selected?.conversation.id != request.conversationID) {
+      if (mounted) setState(_clearSchedulerSelectionPreview);
+      return;
+    }
+    if (_selectedRun?.runID != null && _selectedRun?.runID != request.runID) {
+      if (mounted) setState(_clearSchedulerSelectionPreview);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Scheduler selection preview',
+          force: true,
+        );
+    if (observationError != null) {
+      if (mounted) {
+        setState(() {
+          _fetchedSchedulerSelectionPreview = null;
+          _schedulerSelectionPreviewError = observationError;
+          _schedulerSelectionPreviewStale = false;
+        });
+      }
+      return;
+    }
+    final previousPreview = _fetchedSchedulerSelectionPreview;
+    final generation = ++_schedulerSelectionPreviewGeneration;
+    setState(() {
+      _loadingSchedulerSelectionPreview = true;
+      _schedulerSelectionPreviewError = null;
+      _schedulerSelectionPreviewStale = previousPreview != null;
+    });
+    try {
+      final expectedRequest = ForgeSchedulerSelectionPreviewRequest.fromJson(
+        request.toJson(),
+      );
+      final preview = ForgeSchedulerSelectionPreview.fromJson(
+        (await reader(expectedRequest)).toJson(),
+      );
+      if (!preview.isFor(
+            expectedRequest.conversationID,
+            expectedRequest.runID,
+          ) ||
+          preview.attemptID != expectedRequest.attemptID ||
+          preview.authority.anyGranted ||
+          !preview.previewOnly) {
+        throw const FormatException(
+          'Forge returned an invalid scheduler selection preview.',
+        );
+      }
+      if (!_schedulerSelectionTargetMatchesResources(preview)) {
+        throw const FormatException(
+          'Forge returned a scheduler target absent from the current resource observation.',
+        );
+      }
+      if (!mounted ||
+          generation != _schedulerSelectionPreviewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionPreview = preview;
+        _schedulerSelectionPreviewError = null;
+        _schedulerSelectionPreviewStale = false;
+        _loadingSchedulerSelectionPreview = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _schedulerSelectionPreviewGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _schedulerSelectionPreviewGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionPreview = previousPreview;
+        _schedulerSelectionPreviewError = _friendlyError(
+          error,
+          'Could not load scheduler selection preview.',
+        );
+        _schedulerSelectionPreviewStale = previousPreview != null;
+        _loadingSchedulerSelectionPreview = false;
+      });
+    }
+  }
+
+  Future<void> _loadSchedulerSelectionLeaseIfRequested() async {
+    final claimRequest = widget.schedulerSelectionLeaseRequest;
+    final claimReader = widget.schedulerSelectionLeaseReader;
+    final claimIdempotencyKey = widget.schedulerSelectionLeaseIdempotencyKey;
+    final renewalRequest = widget.schedulerSelectionLeaseRenewalRequest;
+    final renewalReader = widget.schedulerSelectionLeaseRenewalReader;
+    final renewalIdempotencyKey =
+        widget.schedulerSelectionLeaseRenewalIdempotencyKey;
+    // Renewal is a separate explicit candidate. If both candidates are
+    // supplied, renewal wins so a caller cannot accidentally claim a second
+    // reservation while trying to extend the proof it already holds.
+    final isRenewal = renewalRequest != null || renewalReader != null;
+    final request = isRenewal ? null : claimRequest;
+    final reader = isRenewal ? null : claimReader;
+    final idempotencyKey = isRenewal
+        ? renewalIdempotencyKey
+        : claimIdempotencyKey;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if ((isRenewal && (renewalRequest == null || renewalReader == null)) ||
+        (!isRenewal && (request == null || reader == null)) ||
+        idempotencyKey == null ||
+        idempotencyKey.trim().isEmpty) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLease != null ||
+              _schedulerSelectionLeaseError != null ||
+              _loadingSchedulerSelectionLease)) {
+        setState(_clearSchedulerSelectionLease);
+      }
+      return;
+    }
+    // Keep an explicit lease candidate scoped to the Conversation and Run
+    // currently selected by the Sessions surface. A candidate may be
+    // configured before the first owner snapshot (so an empty/default Gate
+    // remains compatible), but once a selection exists a different binding
+    // is stale and must not reach a claim or renewal route.
+    final expectedConversationID = isRenewal
+        ? renewalRequest!.conversationID
+        : request!.conversationID;
+    final expectedRunID = isRenewal ? renewalRequest!.runID : request!.runID;
+    if (!_schedulerSelectionRequestVisible(expectedConversationID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLease != null ||
+              _schedulerSelectionLeaseError != null ||
+              _loadingSchedulerSelectionLease)) {
+        setState(_clearSchedulerSelectionLease);
+      }
+      return;
+    }
+    final selectedConversationID = _selected?.conversation.id;
+    final selectedRunID = _selectedRun?.runID;
+    if ((selectedConversationID != null &&
+            selectedConversationID != expectedConversationID) ||
+        (selectedRunID != null && selectedRunID != expectedRunID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLease != null ||
+              _schedulerSelectionLeaseError != null ||
+              _loadingSchedulerSelectionLease)) {
+        setState(_clearSchedulerSelectionLease);
+      }
+      return;
+    }
+    if (_loadingSchedulerSelectionLease ||
+        _fetchedSchedulerSelectionLease != null ||
+        _schedulerSelectionLeaseError != null) {
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedSchedulerSelectionLease = null;
+          _schedulerSelectionLeaseError =
+              'Scheduler lease is waiting for a fresh validated client-instance session/resource observation.';
+          _schedulerSelectionLeaseStale = false;
+        });
+      }
+      return;
+    }
+    if (_selected?.conversation.id != null &&
+        _selected?.conversation.id != expectedConversationID) {
+      if (mounted) setState(_clearSchedulerSelectionLease);
+      return;
+    }
+    if (_selectedRun?.runID != null && _selectedRun?.runID != expectedRunID) {
+      if (mounted) setState(_clearSchedulerSelectionLease);
+      return;
+    }
+    if (!_schedulerSelectionRequestVisible(expectedConversationID)) {
+      if (mounted) setState(_clearSchedulerSelectionLease);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          isRenewal ? 'Scheduler lease renewal' : 'Scheduler lease',
+        );
+    if (observationError != null) {
+      if (mounted) {
+        setState(() {
+          _fetchedSchedulerSelectionLease = null;
+          _schedulerSelectionLeaseError = observationError;
+          _schedulerSelectionLeaseStale = false;
+        });
+      }
+      return;
+    }
+    final generation = ++_schedulerSelectionLeaseGeneration;
+    setState(() {
+      _loadingSchedulerSelectionLease = true;
+      _schedulerSelectionLeaseError = null;
+      _schedulerSelectionLeaseStale = false;
+    });
+    try {
+      final ForgeSchedulerSelectionLease lease;
+      if (isRenewal) {
+        final expectedRequest =
+            ForgeSchedulerSelectionLeaseRenewalRequest.fromJson(
+              renewalRequest!.toJson(),
+            );
+        lease = ForgeSchedulerSelectionLease.fromJson(
+          (await renewalReader!(expectedRequest, idempotencyKey)).toJson(),
+        );
+        if (!lease.isFor(
+              expectedRequest.conversationID,
+              expectedRequest.runID,
+              expectedRequest.attemptID,
+            ) ||
+            lease.instanceID != expectedRequest.targetID ||
+            lease.grant.epoch <= expectedRequest.epoch ||
+            !lease.authority.placementSelected ||
+            !lease.authority.reservationCreated ||
+            !lease.authority.leaseIssued ||
+            lease.authority.executionAuthorized ||
+            lease.authority.dispatchPerformed ||
+            lease.authority.auditPublished) {
+          throw const FormatException(
+            'Forge returned an invalid scheduler lease renewal.',
+          );
+        }
+      } else {
+        final expectedRequest = ForgeSchedulerSelectionLeaseRequest.fromJson(
+          request!.toJson(),
+        );
+        lease = ForgeSchedulerSelectionLease.fromJson(
+          (await reader!(expectedRequest, idempotencyKey)).toJson(),
+        );
+        if (!lease.isFor(
+              expectedRequest.conversationID,
+              expectedRequest.runID,
+              expectedRequest.attemptID,
+            ) ||
+            !lease.authority.placementSelected ||
+            !lease.authority.reservationCreated ||
+            !lease.authority.leaseIssued ||
+            lease.authority.executionAuthorized ||
+            lease.authority.dispatchPerformed ||
+            lease.authority.auditPublished) {
+          throw const FormatException(
+            'Forge returned an invalid scheduler lease.',
+          );
+        }
+      }
+      if (lease.authority.executionAuthorized ||
+          lease.authority.dispatchPerformed ||
+          lease.authority.auditPublished) {
+        throw const FormatException(
+          'Forge returned an invalid scheduler lease.',
+        );
+      }
+      if (!mounted ||
+          generation != _schedulerSelectionLeaseGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionLease = lease;
+        _schedulerSelectionLeaseError = null;
+        _schedulerSelectionLeaseStale = false;
+        _loadingSchedulerSelectionLease = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _schedulerSelectionLeaseGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _schedulerSelectionLeaseGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionLease = null;
+        _schedulerSelectionLeaseError = _friendlyError(
+          error,
+          isRenewal
+              ? 'Could not renew scheduler lease.'
+              : 'Could not claim scheduler lease.',
+        );
+        _schedulerSelectionLeaseStale = false;
+        _loadingSchedulerSelectionLease = false;
+      });
+    }
+  }
+
+  Future<void> _loadSchedulerSelectionLeaseReleaseIfRequested() async {
+    final request = widget.schedulerSelectionLeaseReleaseRequest;
+    final reader = widget.schedulerSelectionLeaseReleaseReader;
+    final idempotencyKey = widget.schedulerSelectionLeaseReleaseIdempotencyKey;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        idempotencyKey == null ||
+        idempotencyKey.trim().isEmpty) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLeaseRelease != null ||
+              _schedulerSelectionLeaseReleaseError != null ||
+              _loadingSchedulerSelectionLeaseRelease)) {
+        setState(_clearSchedulerSelectionLeaseRelease);
+      }
+      return;
+    }
+    if (!_schedulerSelectionRequestVisible(request.conversationID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLeaseRelease != null ||
+              _schedulerSelectionLeaseReleaseError != null ||
+              _loadingSchedulerSelectionLeaseRelease)) {
+        setState(_clearSchedulerSelectionLeaseRelease);
+      }
+      return;
+    }
+    // Release is also a selected-session display/action candidate. Do not
+    // release a proof for a different Conversation or Run after the Sessions
+    // selection has moved; the empty/default Gate remains request-compatible.
+    final selectedConversationID = _selected?.conversation.id;
+    final selectedRunID = _selectedRun?.runID;
+    if ((selectedConversationID != null &&
+            selectedConversationID != request.conversationID) ||
+        (selectedRunID != null && selectedRunID != request.runID)) {
+      if (mounted &&
+          (_fetchedSchedulerSelectionLeaseRelease != null ||
+              _schedulerSelectionLeaseReleaseError != null ||
+              _loadingSchedulerSelectionLeaseRelease)) {
+        setState(_clearSchedulerSelectionLeaseRelease);
+      }
+      return;
+    }
+    if (_loadingSchedulerSelectionLeaseRelease ||
+        _fetchedSchedulerSelectionLeaseRelease != null ||
+        _schedulerSelectionLeaseReleaseError != null) {
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) setState(_clearSchedulerSelectionLeaseRelease);
+      return;
+    }
+    if (_selected?.conversation.id != null &&
+        _selected?.conversation.id != request.conversationID) {
+      if (mounted) setState(_clearSchedulerSelectionLeaseRelease);
+      return;
+    }
+    if (_selectedRun?.runID != null && _selectedRun?.runID != request.runID) {
+      if (mounted) setState(_clearSchedulerSelectionLeaseRelease);
+      return;
+    }
+    if (!_schedulerSelectionRequestVisible(request.conversationID)) {
+      if (mounted) setState(_clearSchedulerSelectionLeaseRelease);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Scheduler lease release',
+        );
+    if (observationError != null) {
+      if (mounted) {
+        setState(() {
+          _fetchedSchedulerSelectionLeaseRelease = null;
+          _schedulerSelectionLeaseReleaseError = observationError;
+          _schedulerSelectionLeaseReleaseStale = false;
+        });
+      }
+      return;
+    }
+    final generation = ++_schedulerSelectionLeaseReleaseGeneration;
+    setState(() {
+      _loadingSchedulerSelectionLeaseRelease = true;
+      _schedulerSelectionLeaseReleaseError = null;
+      _schedulerSelectionLeaseReleaseStale = false;
+    });
+    try {
+      final expectedRequest =
+          ForgeSchedulerSelectionLeaseReleaseRequest.fromJson(request.toJson());
+      final release = ForgeSchedulerSelectionLeaseRelease.fromJson(
+        (await reader(expectedRequest, idempotencyKey)).toJson(),
+      );
+      if (!release.isFor(
+            expectedRequest.conversationID,
+            expectedRequest.runID,
+            expectedRequest.attemptID,
+          ) ||
+          release.instanceID != expectedRequest.targetID ||
+          release.epoch != expectedRequest.epoch ||
+          release.authority.placementSelected ||
+          release.authority.reservationCreated ||
+          release.authority.leaseIssued ||
+          release.authority.executionAuthorized ||
+          release.authority.dispatchPerformed ||
+          release.authority.auditPublished) {
+        throw const FormatException(
+          'Forge returned an invalid scheduler lease release.',
+        );
+      }
+      if (!mounted ||
+          generation != _schedulerSelectionLeaseReleaseGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionLeaseRelease = release;
+        _schedulerSelectionLeaseReleaseError = null;
+        _schedulerSelectionLeaseReleaseStale = false;
+        _loadingSchedulerSelectionLeaseRelease = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _schedulerSelectionLeaseReleaseGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _schedulerSelectionLeaseReleaseGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedSchedulerSelectionLeaseRelease = null;
+        _schedulerSelectionLeaseReleaseError = _friendlyError(
+          error,
+          'Could not release scheduler lease.',
+        );
+        _schedulerSelectionLeaseReleaseStale = false;
+        _loadingSchedulerSelectionLeaseRelease = false;
+      });
+    }
+  }
+
+  Future<void> _loadClientInstanceSessionResourceConvergenceIfRequested({
+    bool force = false,
+  }) async {
+    final owner = widget.clientInstanceSessionResourceConvergenceOwner;
+    final reader = widget.clientInstanceSessionResourceConvergenceReader;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (owner == null || reader == null) {
+      if (mounted &&
+          (_fetchedClientInstanceSessionResourceConvergence != null ||
+              _clientInstanceSessionResourceConvergenceError != null ||
+              _loadingClientInstanceSessionResourceConvergence)) {
+        setState(_clearClientInstanceSessionResourceConvergence);
+      }
+      return;
+    }
+    if (_loadingClientInstanceSessionResourceConvergence) return;
+    if (!force &&
+        (_fetchedClientInstanceSessionResourceConvergence != null ||
+            _clientInstanceSessionResourceConvergenceError != null)) {
+      return;
+    }
+    final previous = _fetchedClientInstanceSessionResourceConvergence;
+    final generation = ++_clientInstanceSessionResourceConvergenceGeneration;
+    setState(() {
+      _loadingClientInstanceSessionResourceConvergence = true;
+      _clientInstanceSessionResourceConvergenceError = null;
+      _clientInstanceSessionResourceConvergenceStale = previous != null;
+    });
+    try {
+      final expectedOwner = ForgeDeviceOwner.fromJson(owner.toJson());
+      final convergence =
+          ForgeClientInstanceSessionResourceConvergence.fromJson(
+            (await reader(owner)).toJson(),
+          );
+      if (convergence.owner != expectedOwner || !convergence.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid client-instance session/resource pair.',
+        );
+      }
+      if (!mounted ||
+          generation != _clientInstanceSessionResourceConvergenceGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceSessionResourceConvergence = convergence;
+        _clientInstanceSessionResourceConvergenceError = null;
+        _clientInstanceSessionResourceConvergenceStale = false;
+        _loadingClientInstanceSessionResourceConvergence = false;
+        _fetchedClientInstanceSessionView = convergence.sessionView;
+        _clientInstanceSessionViewError = null;
+        _clientInstanceSessionViewStale = false;
+        _loadingClientInstanceSessionView = false;
+        _fetchedClientInstanceResourceView = convergence.resourceView;
+        _clientInstanceResourceViewError = null;
+        _clientInstanceResourceViewStale = false;
+        _loadingClientInstanceResourceView = false;
+      });
+      _reconcileSelectedClientInstanceProjection();
+    } catch (error) {
+      if (!mounted ||
+          generation != _clientInstanceSessionResourceConvergenceGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _clientInstanceSessionResourceConvergenceGeneration ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedClientInstanceSessionResourceConvergence = previous;
+        _clientInstanceSessionResourceConvergenceError = _friendlyError(
+          error,
+          'Could not load client-instance session/resource observations.',
+        );
+        _clientInstanceSessionResourceConvergenceStale = previous != null;
+        _loadingClientInstanceSessionResourceConvergence = false;
+      });
+    }
+  }
+
   Future<void> _loadClientInstanceSessionViewIfRequested({
     bool force = false,
   }) async {
+    // A configured pair owns both projections. Do not fall back to two
+    // independent reads during a forced refresh, otherwise the screen could
+    // immediately replace a converged image with a mixed one.
+    if (widget.clientInstanceSessionResourceConvergenceOwner != null &&
+        widget.clientInstanceSessionResourceConvergenceReader != null) {
+      return;
+    }
     final owner = widget.clientInstanceSessionViewOwner;
     final reader = widget.clientInstanceSessionViewReader;
     if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
@@ -3538,6 +6536,35 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
   Future<void> _loadClientInstanceResourceViewIfRequested({
     bool force = false,
   }) async {
+    if (widget.clientInstanceSessionResourceConvergenceOwner != null &&
+        widget.clientInstanceSessionResourceConvergenceReader != null) {
+      return;
+    }
+    final inFlight = _clientInstanceResourceViewRefresh;
+    if (inFlight != null) {
+      final inFlightWasForced = _clientInstanceResourceViewRefreshWasForced;
+      await inFlight;
+      if (!force ||
+          (inFlightWasForced &&
+              _clientInstanceResourceViewError == null &&
+              !_clientInstanceResourceViewStale)) {
+        return;
+      }
+    }
+    final refresh = _loadClientInstanceResourceViewNow(force: force);
+    _clientInstanceResourceViewRefresh = refresh;
+    _clientInstanceResourceViewRefreshWasForced = force;
+    try {
+      await refresh;
+    } finally {
+      if (identical(_clientInstanceResourceViewRefresh, refresh)) {
+        _clientInstanceResourceViewRefresh = null;
+        _clientInstanceResourceViewRefreshWasForced = false;
+      }
+    }
+  }
+
+  Future<void> _loadClientInstanceResourceViewNow({bool force = false}) async {
     final owner = widget.clientInstanceResourceViewOwner;
     final reader = widget.clientInstanceResourceViewReader;
     if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
@@ -3798,6 +6825,53 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
             _runAttemptLeaseDispatchPreflightError != null)) {
       return;
     }
+    // A preflight is still a selected-session candidate. Refresh the
+    // owner-bound client-instance projection immediately before invoking the
+    // candidate reader so a revoked or drifted instance cannot keep a stale
+    // Run/Attempt binding alive. A configured inventory/resource pair is
+    // checked at the same boundary because the preflight carries placement
+    // and lease metadata that must not outlive its observation.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunAttemptLeaseDispatchPreflight = null;
+          _runAttemptLeaseDispatchPreflightError =
+              'Forge preflight is waiting for a fresh validated client-instance session/resource observation.';
+          _runAttemptLeaseDispatchPreflightStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Forge preflight',
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunAttemptLeaseDispatchPreflight = null;
+        _runAttemptLeaseDispatchPreflightError = observationError;
+        _runAttemptLeaseDispatchPreflightStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
     final previous = _fetchedRunAttemptLeaseDispatchPreflight;
     final generation = ++_runAttemptLeaseDispatchPreflightGeneration;
     setState(() {
@@ -3903,6 +6977,53 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
             _runnerDispatchPlanPreviewError != null)) {
       return;
     }
+    // The dispatch-plan preview is still a candidate owner read. Re-read the
+    // selected client-instance session/resource projection immediately before
+    // invoking its reader so a revoked or drifted instance cannot keep a
+    // stale Conversation binding alive. A configured inventory/resource pair
+    // is refreshed at the same boundary because the plan contains placement
+    // candidates whose metadata must not outlive that observation.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerDispatchPlanPreview = null;
+          _runnerDispatchPlanPreviewError =
+              'Runner dispatch-plan preview is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerDispatchPlanPreviewStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner dispatch-plan preview',
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerDispatchPlanPreview = null;
+        _runnerDispatchPlanPreviewError = observationError;
+        _runnerDispatchPlanPreviewStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
     final previous = _fetchedRunnerDispatchPlanPreview;
     final generation = ++_runnerDispatchPlanPreviewGeneration;
     setState(() {
@@ -3938,6 +7059,11 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           preview.candidateCount != plan.placement.devices.length) {
         throw const FormatException(
           'Forge returned an invalid or differently bound Runner dispatch-plan preview.',
+        );
+      }
+      if (!_runnerDispatchPlanTargetsMatchResources(preview)) {
+        throw const FormatException(
+          'Forge returned Runner dispatch-plan candidates outside the current resource observation.',
         );
       }
       if (!mounted ||
@@ -3979,6 +7105,833 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     }
   }
 
+  Future<void> _loadRunnerDispatchAdmissionIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerDispatchAdmissionRequest;
+    final reader = widget.runnerDispatchAdmissionReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.conversationID != conversationID ||
+        request.runID != runID) {
+      if (mounted &&
+          (_fetchedRunnerDispatchAdmission != null ||
+              _runnerDispatchAdmissionError != null ||
+              _loadingRunnerDispatchAdmission ||
+              _runnerDispatchAdmissionStale)) {
+        setState(_clearRunnerDispatchAdmission);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerDispatchAdmission) return;
+    if (!force &&
+        (_fetchedRunnerDispatchAdmission != null ||
+            _runnerDispatchAdmissionError != null)) {
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerDispatchAdmission = null;
+          _runnerDispatchAdmissionError =
+              'Runner dispatch admission is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerDispatchAdmissionStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner dispatch admission',
+          force: true,
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerDispatchAdmission = null;
+        _runnerDispatchAdmissionError = observationError;
+        _runnerDispatchAdmissionStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final previous = _fetchedRunnerDispatchAdmission;
+    final generation = ++_runnerDispatchAdmissionGeneration;
+    setState(() {
+      _loadingRunnerDispatchAdmission = true;
+      _runnerDispatchAdmissionError = null;
+      _runnerDispatchAdmissionStale = previous != null;
+    });
+    try {
+      final validatedRequest = ForgeRunnerDispatchAdmissionRequest.fromJson(
+        request.toJson(),
+      );
+      if (validatedRequest.conversationID != conversationID ||
+          validatedRequest.runID != runID ||
+          validatedRequest.command.leaseProof.attemptID !=
+              validatedRequest.attemptID) {
+        throw const FormatException(
+          'Forge Runner dispatch admission request is bound to another Run.',
+        );
+      }
+      if (!_runnerAdmissionTargetMatchesResources(
+        validatedRequest.owner,
+        validatedRequest.command.leaseProof.targetID,
+      )) {
+        throw const FormatException(
+          'Forge Runner dispatch admission target is outside the current resource observation.',
+        );
+      }
+      final admission = ForgeRunnerDispatchAdmission.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      if (!admission.isFor(conversationID, runID, validatedRequest.attemptID) ||
+          admission.owner != validatedRequest.owner ||
+          admission.commandID != validatedRequest.command.commandID ||
+          admission.commandSHA256 != validatedRequest.command.commandSHA256() ||
+          admission.targetID != validatedRequest.command.leaseProof.targetID ||
+          admission.leaseEpoch != validatedRequest.command.leaseProof.epoch ||
+          !_runnerAdmissionTargetMatchesResources(
+            admission.owner,
+            admission.targetID,
+          ) ||
+          !admission.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner dispatch admission.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerDispatchAdmissionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerDispatchAdmission = admission;
+        _runnerDispatchAdmissionError = null;
+        _runnerDispatchAdmissionStale = false;
+        _loadingRunnerDispatchAdmission = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerDispatchAdmissionGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerDispatchAdmissionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerDispatchAdmission = previous;
+        _runnerDispatchAdmissionError = _friendlyError(
+          error,
+          'Could not load Runner dispatch admission preview.',
+        );
+        _runnerDispatchAdmissionStale = previous != null;
+        _loadingRunnerDispatchAdmission = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunnerExecutionIntentIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerExecutionIntentRequest;
+    final reader = widget.runnerExecutionIntentReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.conversationID != conversationID ||
+        request.run.runID != runID) {
+      if (mounted &&
+          (_fetchedRunnerExecutionIntent != null ||
+              _runnerExecutionIntentError != null ||
+              _loadingRunnerExecutionIntent ||
+              _runnerExecutionIntentStale)) {
+        setState(_clearRunnerExecutionIntent);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerExecutionIntent) return;
+    if (!force &&
+        (_fetchedRunnerExecutionIntent != null ||
+            _runnerExecutionIntentError != null)) {
+      return;
+    }
+    // Runner execution-intent preview is the authenticated candidate edge
+    // closest to executable work. Re-read the selected client-instance
+    // projection and any configured inventory/resource observations at this
+    // boundary so a revoked instance or drifted resource image cannot keep a
+    // stale Conversation/Run binding alive. A refresh gap or drift remains
+    // request-free.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerExecutionIntent = null;
+          _runnerExecutionIntentError =
+              'Runner execution-intent preview is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerExecutionIntentStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner execution-intent preview',
+          force: true,
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerExecutionIntent = null;
+        _runnerExecutionIntentError = observationError;
+        _runnerExecutionIntentStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final previous = _fetchedRunnerExecutionIntent;
+    final generation = ++_runnerExecutionIntentGeneration;
+    setState(() {
+      _loadingRunnerExecutionIntent = true;
+      _runnerExecutionIntentError = null;
+      _runnerExecutionIntentStale = previous != null;
+    });
+    try {
+      final validatedRequest = ForgeRunnerExecutionIntentRequest(
+        owner: ForgeDeviceOwner.fromJson(request.owner.toJson()),
+        conversationID: request.conversationID,
+        prompt: request.prompt,
+        run: request.run,
+        binding: request.binding,
+        command: request.command,
+      );
+      final expected = observeForgeRunnerExecutionIntent(validatedRequest);
+      final preview = ForgeRunnerExecutionIntentObservation.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      if (!preview.isFor(conversationID, runID) ||
+          !preview.isDisplayOnly ||
+          jsonEncode(preview.toJson()) != jsonEncode(expected.toJson())) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner execution-intent preview.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerExecutionIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerExecutionIntent = preview;
+        _runnerExecutionIntentError = null;
+        _runnerExecutionIntentStale = false;
+        _loadingRunnerExecutionIntent = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerExecutionIntentGeneration) return;
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerExecutionIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerExecutionIntent = previous;
+        _runnerExecutionIntentError = _friendlyError(
+          error,
+          'Could not load Runner execution-intent preview.',
+        );
+        _runnerExecutionIntentStale = previous != null;
+        _loadingRunnerExecutionIntent = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunnerTransportAdmissionIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerTransportAdmissionRequest;
+    final reader = widget.runnerTransportAdmissionReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.conversationID != conversationID ||
+        request.runID != runID) {
+      if (mounted &&
+          (_fetchedRunnerTransportAdmission != null ||
+              _runnerTransportAdmissionError != null ||
+              _loadingRunnerTransportAdmission ||
+              _runnerTransportAdmissionStale)) {
+        setState(_clearRunnerTransportAdmission);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerTransportAdmission) return;
+    if (!force &&
+        (_fetchedRunnerTransportAdmission != null ||
+            _runnerTransportAdmissionError != null)) {
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerTransportAdmission = null;
+          _runnerTransportAdmissionError =
+              'Runner transport admission is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerTransportAdmissionStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner transport admission',
+          force: true,
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerTransportAdmission = null;
+        _runnerTransportAdmissionError = observationError;
+        _runnerTransportAdmissionStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final previous = _fetchedRunnerTransportAdmission;
+    final generation = ++_runnerTransportAdmissionGeneration;
+    setState(() {
+      _loadingRunnerTransportAdmission = true;
+      _runnerTransportAdmissionError = null;
+      _runnerTransportAdmissionStale = previous != null;
+    });
+    try {
+      final validatedRequest = ForgeRunnerTransportAdmissionRequest.fromJson(
+        request.toJson(),
+      );
+      if (validatedRequest.conversationID != conversationID ||
+          validatedRequest.runID != runID ||
+          validatedRequest.command.leaseProof.attemptID !=
+              validatedRequest.attemptID) {
+        throw const FormatException(
+          'Forge Runner transport admission request is bound to another Run.',
+        );
+      }
+      if (!_runnerAdmissionTargetMatchesResources(
+        validatedRequest.owner,
+        validatedRequest.command.leaseProof.targetID,
+      )) {
+        throw const FormatException(
+          'Forge Runner transport admission target is outside the current resource observation.',
+        );
+      }
+      final admission = ForgeRunnerTransportAdmission.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      final expectedPath =
+          '/api/v1/runners/${validatedRequest.command.leaseProof.targetID}/dispatch';
+      if (!admission.isFor(conversationID, runID, validatedRequest.attemptID) ||
+          admission.owner != validatedRequest.owner ||
+          admission.commandID != validatedRequest.command.commandID ||
+          admission.commandSHA256 != validatedRequest.command.commandSHA256() ||
+          admission.targetID != validatedRequest.command.leaseProof.targetID ||
+          admission.leaseEpoch != validatedRequest.command.leaseProof.epoch ||
+          admission.transportMethod != 'POST' ||
+          admission.transportPath != expectedPath ||
+          admission.transportPayloadSHA256 !=
+              validatedRequest.transport.payloadSHA256 ||
+          !_runnerAdmissionTargetMatchesResources(
+            admission.owner,
+            admission.targetID,
+          ) ||
+          !admission.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner transport admission.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerTransportAdmissionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerTransportAdmission = admission;
+        _runnerTransportAdmissionError = null;
+        _runnerTransportAdmissionStale = false;
+        _loadingRunnerTransportAdmission = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerTransportAdmissionGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerTransportAdmissionGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerTransportAdmission = previous;
+        _runnerTransportAdmissionError = _friendlyError(
+          error,
+          'Could not load Runner transport admission preview.',
+        );
+        _runnerTransportAdmissionStale = previous != null;
+        _loadingRunnerTransportAdmission = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunnerExecutionBoundaryIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerExecutionBoundaryRequest;
+    final reader = widget.runnerExecutionBoundaryReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.conversationID != conversationID ||
+        request.runID != runID) {
+      if (mounted &&
+          (_fetchedRunnerExecutionBoundary != null ||
+              _runnerExecutionBoundaryError != null ||
+              _loadingRunnerExecutionBoundary ||
+              _runnerExecutionBoundaryStale)) {
+        setState(_clearRunnerExecutionBoundary);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    // An execution-boundary preview is the last read before a possible
+    // Runner handoff. Re-read the selected instance projection at this
+    // boundary so a stale mobile/Web/App selection cannot reuse a private Run
+    // after its session/resource declaration has been revoked. This remains
+    // a read-only, candidate-only gate; the execution-boundary reader still
+    // decides whether a preview is available.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerExecutionBoundary = null;
+          _runnerExecutionBoundaryError =
+              'Runner execution-boundary preview is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerExecutionBoundaryStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner execution-boundary preview',
+          force: true,
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerExecutionBoundary = null;
+        _runnerExecutionBoundaryError = observationError;
+        _runnerExecutionBoundaryStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerExecutionBoundary) return;
+    if (!force &&
+        (_fetchedRunnerExecutionBoundary != null ||
+            _runnerExecutionBoundaryError != null)) {
+      return;
+    }
+    final previous = _fetchedRunnerExecutionBoundary;
+    final generation = ++_runnerExecutionBoundaryGeneration;
+    setState(() {
+      _loadingRunnerExecutionBoundary = true;
+      _runnerExecutionBoundaryError = null;
+      _runnerExecutionBoundaryStale = previous != null;
+    });
+    try {
+      final validatedRequest =
+          ForgeRunnerExecutionBoundaryPreviewRequest.fromJson(request.toJson());
+      if (validatedRequest.conversationID != conversationID ||
+          validatedRequest.runID != runID ||
+          validatedRequest.command.leaseProof.attemptID !=
+              validatedRequest.attemptID) {
+        throw const FormatException(
+          'Forge Runner execution boundary request is bound to another Run.',
+        );
+      }
+      if (!_runnerAdmissionTargetMatchesResources(
+        validatedRequest.owner,
+        validatedRequest.command.leaseProof.targetID,
+      )) {
+        throw const FormatException(
+          'Forge Runner execution-boundary target is outside the current resource observation.',
+        );
+      }
+      final observation = ForgeRunnerExecutionBoundaryObservation.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      if (!observation.isFor(
+            conversationID,
+            runID,
+            validatedRequest.attemptID,
+          ) ||
+          observation.owner != validatedRequest.owner ||
+          observation.commandID != validatedRequest.command.commandID ||
+          observation.commandSHA256 !=
+              validatedRequest.command.commandSHA256() ||
+          observation.targetID !=
+              validatedRequest.command.leaseProof.targetID ||
+          observation.leaseEpoch != validatedRequest.command.leaseProof.epoch ||
+          !_runnerAdmissionTargetMatchesResources(
+            observation.owner,
+            observation.targetID,
+          ) ||
+          !observation.isDisplayOnly) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner execution boundary.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerExecutionBoundaryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerExecutionBoundary = observation;
+        _runnerExecutionBoundaryError = null;
+        _runnerExecutionBoundaryStale = false;
+        _loadingRunnerExecutionBoundary = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerExecutionBoundaryGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerExecutionBoundaryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerExecutionBoundary = previous;
+        _runnerExecutionBoundaryError = _friendlyError(
+          error,
+          'Could not load Runner execution-boundary preview.',
+        );
+        _runnerExecutionBoundaryStale = previous != null;
+        _loadingRunnerExecutionBoundary = false;
+      });
+    }
+  }
+
+  Future<void> _loadRunnerAttemptBoundaryIfRequested({
+    String? conversationID,
+    String? runID,
+    bool force = false,
+  }) async {
+    final request = widget.runnerAttemptBoundaryRequest;
+    final reader = widget.runnerAttemptBoundaryReader;
+    conversationID ??= _selected?.conversation.id;
+    runID ??= _selectedRun?.runID;
+    if (!mounted || _sessionViewInvalidated || _authorizationInvalidated) {
+      return;
+    }
+    if (request == null ||
+        reader == null ||
+        conversationID == null ||
+        runID == null ||
+        request.conversationID != conversationID ||
+        request.runID != runID) {
+      if (mounted &&
+          (_fetchedRunnerAttemptBoundary != null ||
+              _runnerAttemptBoundaryError != null ||
+              _loadingRunnerAttemptBoundary ||
+              _runnerAttemptBoundaryStale)) {
+        setState(_clearRunnerAttemptBoundary);
+      }
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (_loadingRunnerAttemptBoundary) return;
+    if (!force &&
+        (_fetchedRunnerAttemptBoundary != null ||
+            _runnerAttemptBoundaryError != null)) {
+      return;
+    }
+    // Attempt-boundary output is display-only, but it is the last metadata
+    // edge before a caller could mistake a transition for executable work.
+    // Re-read the selected client-instance projection and any configured
+    // inventory/resource image before the candidate POST. A reader gap or
+    // drift therefore remains request-free.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedRunnerAttemptBoundary = null;
+          _runnerAttemptBoundaryError =
+              'Runner Attempt boundary is waiting for a fresh validated client-instance session/resource observation.';
+          _runnerAttemptBoundaryStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Runner Attempt boundary',
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedRunnerAttemptBoundary = null;
+        _runnerAttemptBoundaryError = observationError;
+        _runnerAttemptBoundaryStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final previous = _fetchedRunnerAttemptBoundary;
+    final generation = ++_runnerAttemptBoundaryGeneration;
+    setState(() {
+      _loadingRunnerAttemptBoundary = true;
+      _runnerAttemptBoundaryError = null;
+      _runnerAttemptBoundaryStale = previous != null;
+    });
+    try {
+      final validatedRequest =
+          ForgeRunnerAttemptBoundaryPreviewRequest.fromJson(request.toJson());
+      if (validatedRequest.conversationID != conversationID ||
+          validatedRequest.runID != runID ||
+          validatedRequest.command.leaseProof.attemptID !=
+              validatedRequest.attemptID) {
+        throw const FormatException(
+          'Forge Runner Attempt boundary request is bound to another Run.',
+        );
+      }
+      if (!_runnerAttemptBoundaryTargetMatchesResources(
+        validatedRequest.owner,
+        validatedRequest.command.leaseProof.targetID,
+      )) {
+        throw const FormatException(
+          'Forge Runner Attempt boundary target is outside the current resource observation.',
+        );
+      }
+      final observation = ForgeRunnerAttemptBoundaryObservation.fromJson(
+        (await reader(validatedRequest)).toJson(),
+      );
+      if (!observation.isDisplayOnly ||
+          !observation.isFor(
+            conversationID,
+            runID,
+            validatedRequest.attemptID,
+          ) ||
+          observation.owner != validatedRequest.owner ||
+          observation.commandID != validatedRequest.command.commandID ||
+          observation.targetID !=
+              validatedRequest.command.leaseProof.targetID ||
+          observation.leaseEpoch != validatedRequest.command.leaseProof.epoch ||
+          observation.currentAttemptState != validatedRequest.attemptState ||
+          observation.transition != validatedRequest.transition ||
+          !_runnerAttemptBoundaryTargetMatchesResources(
+            observation.owner,
+            observation.targetID,
+          )) {
+        throw const FormatException(
+          'Forge returned an invalid or differently bound Runner Attempt boundary.',
+        );
+      }
+      if (!mounted ||
+          generation != _runnerAttemptBoundaryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerAttemptBoundary = observation;
+        _runnerAttemptBoundaryError = null;
+        _runnerAttemptBoundaryStale = false;
+        _loadingRunnerAttemptBoundary = false;
+      });
+    } catch (error) {
+      if (!mounted || generation != _runnerAttemptBoundaryGeneration) {
+        return;
+      }
+      await _clearSessionIfUnauthorized(error);
+      if (!mounted ||
+          generation != _runnerAttemptBoundaryGeneration ||
+          _selected?.conversation.id != conversationID ||
+          _selectedRun?.runID != runID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
+          _authorizationInvalidated) {
+        return;
+      }
+      setState(() {
+        _fetchedRunnerAttemptBoundary = previous;
+        _runnerAttemptBoundaryError = _friendlyError(
+          error,
+          'Could not load Runner Attempt boundary preview.',
+        );
+        _runnerAttemptBoundaryStale = previous != null;
+        _loadingRunnerAttemptBoundary = false;
+      });
+    }
+  }
+
   Future<void> _loadLocalRunnerPreviewIfRequested({
     String? conversationID,
     String? runID,
@@ -4014,6 +7967,53 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     if (!force &&
         (_fetchedLocalRunnerPreview != null ||
             _localRunnerPreviewError != null)) {
+      return;
+    }
+    // Execution-readiness is the last metadata boundary before a caller could
+    // mistake a local Runner preview for an executable result. Re-read the
+    // selected client-instance pair and any separately configured
+    // inventory/resource observations immediately before invoking the
+    // candidate reader. A refresh gap or drift must block the candidate POST
+    // and cannot broaden the selected Conversation back to the owner view.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _fetchedLocalRunnerPreview = null;
+          _localRunnerPreviewError =
+              'Local Runner execution-readiness preview is waiting for a fresh validated client-instance session/resource observation.';
+          _localRunnerPreviewStale = false;
+        });
+      }
+      return;
+    }
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Local Runner execution-readiness preview',
+        );
+    if (!mounted ||
+        _selected?.conversation.id != conversationID ||
+        _selectedRun?.runID != runID) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() {
+        _fetchedLocalRunnerPreview = null;
+        _localRunnerPreviewError = observationError;
+        _localRunnerPreviewStale = false;
+      });
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(conversationID)) {
+      setState(_clearRunDetailsForHiddenClientInstance);
       return;
     }
     final previous = _fetchedLocalRunnerPreview;
@@ -4295,6 +8295,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     final previousPage = _fetchedPendingRunIntents;
     final preserveTimelines = previousPage != null;
     final generation = ++_pendingRunIntentGeneration;
+    void revokeIfHidden() {
+      if (mounted &&
+          _selected?.conversation.id == conversationID &&
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        setState(_clearRunDetailsForHiddenClientInstance);
+      }
+    }
+
     setState(() {
       _loadingPendingRunIntents = true;
       _pendingRunIntentError = null;
@@ -4315,7 +8323,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted ||
           generation != _pendingRunIntentGeneration ||
           _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       final samePage =
@@ -4331,7 +8341,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _clearSessionIfUnauthorized(error);
       if (!mounted ||
           generation != _pendingRunIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       setState(() {
@@ -4368,6 +8381,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return;
     }
     final generation = _pendingRunIntentGeneration;
+    void revokeIfHidden() {
+      if (mounted &&
+          _selected?.conversation.id == conversationID &&
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        setState(_clearRunDetailsForHiddenClientInstance);
+      }
+    }
+
     setState(() {
       _loadingMorePendingRunIntents = true;
       _pendingRunIntentError = null;
@@ -4383,7 +8404,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           generation != _pendingRunIntentGeneration ||
           _selected?.conversation.id != conversationID ||
           !identical(current, _fetchedPendingRunIntents) ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       final seen = current.intents.map((intent) => intent.intentID).toSet();
@@ -4436,7 +8459,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _clearSessionIfUnauthorized(error);
       if (!mounted ||
           generation != _pendingRunIntentGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       setState(() {
@@ -4513,6 +8539,14 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return;
     }
     final generation = _pendingRunIntentTimelineGeneration;
+    void revokeIfHidden() {
+      if (mounted &&
+          _selected?.conversation.id == conversationID &&
+          !_conversationVisibleFromSelectedClientInstance(conversationID)) {
+        setState(_clearRunDetailsForHiddenClientInstance);
+      }
+    }
+
     setState(() {
       _loadingPendingRunIntentTimelines.add(intentID);
       _pendingRunIntentTimelineErrors.remove(intentID);
@@ -4536,7 +8570,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted ||
           generation != _pendingRunIntentTimelineGeneration ||
           _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       setState(() {
@@ -4551,7 +8587,10 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       await _clearSessionIfUnauthorized(error);
       if (!mounted ||
           generation != _pendingRunIntentTimelineGeneration ||
+          _selected?.conversation.id != conversationID ||
+          !_conversationVisibleFromSelectedClientInstance(conversationID) ||
           _authorizationInvalidated) {
+        revokeIfHidden();
         return;
       }
       setState(() {
@@ -4592,6 +8631,11 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _runTimelineGeneration++;
       _loadingRunTimeline = false;
       _clearDeviceObservation();
+      _clearRunObserved();
+      _clearRunExecutionEvidence();
+      _clearSessionRunnerReceiptHistory();
+      _clearSessionRunnerReconciliationProjection();
+      _clearRunnerAttemptBoundaryPreview();
       _importedRunnerExecutionIntentObservation = null;
       _importedSessionRunnerReceiptObservation = null;
       _selectedRun = run;
@@ -4606,6 +8650,26 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
     await _loadRunObservedIfRequested(
       conversationID: conversationID,
       runID: run.runID,
+    );
+    await _loadRunExecutionEvidenceIfRequested(
+      conversationID: conversationID,
+      runID: run.runID,
+      force: true,
+    );
+    await _loadSessionRunnerReceiptHistoryIfRequested(
+      conversationID: conversationID,
+      runID: run.runID,
+      force: true,
+    );
+    await _loadSessionRunnerReconciliationProjectionIfRequested(
+      conversationID: conversationID,
+      runID: run.runID,
+      force: true,
+    );
+    await _loadRunnerAttemptBoundaryIfRequested(
+      conversationID: conversationID,
+      runID: run.runID,
+      force: true,
     );
   }
 
@@ -4989,6 +9053,47 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       setState(_clearRunDetailsForHiddenClientInstance);
       return;
     }
+    // The local instance filter is only a display projection. Refresh it at
+    // the write boundary so a revoked session cannot keep a Prompt POST alive
+    // after the selected instance changed. The default surface remains
+    // request-free because this helper is a no-op without an injected reader.
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _appendError =
+              'Prompt append is waiting for a fresh validated client-instance session/resource observation.';
+        });
+      }
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Prompt append',
+          force: true,
+        );
+    if (!mounted || _selected?.conversation.id != selected.conversation.id) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() => _appendError = observationError);
+      return;
+    }
+    if (!mounted || _selected?.conversation.id != selected.conversation.id) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(
+      selected.conversation.id,
+    )) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final convergenceError = _promptAppendInventoryResourceConvergenceError;
+    if (convergenceError != null) {
+      setState(() {
+        _appendError = convergenceError;
+      });
+      return;
+    }
     final pending = _pendingPrompt ?? _readPromptRequest(selected);
     if (pending == null) return;
     setState(() {
@@ -4997,12 +9102,51 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       _appendError = null;
     });
     try {
-      final result = await _api.appendPrompt(
-        conversationID: selected.conversation.id,
-        content: pending.content,
-        expectedVersion: pending.expectedVersion,
-        idempotencyKey: pending.idempotencyKey,
-      );
+      final receiptOwner = widget.promptAppendReceiptOwner;
+      final receiptSubmitter = widget.promptAppendReceiptSubmitter;
+      final receiptOptIn = receiptOwner != null || receiptSubmitter != null;
+      if (receiptOptIn && (receiptOwner == null || receiptSubmitter == null)) {
+        throw const FormatException(
+          'Prompt append receipt consumer is not fully configured.',
+        );
+      }
+      ForgePromptAppendReceiptObservation? receipt;
+      ForgePromptAppendResult? result;
+      if (receiptOptIn) {
+        final owner = ForgeDeviceOwner.fromJson(receiptOwner!.toJson());
+        receipt = ForgePromptAppendReceiptObservation.fromJson(
+          (await receiptSubmitter!(
+            owner: owner,
+            conversationID: selected.conversation.id,
+            content: pending.content,
+            expectedVersion: pending.expectedVersion,
+            idempotencyKey: pending.idempotencyKey,
+          )).toJson(),
+        );
+        final expectedReceipt = ForgePromptAppendReceiptObservation.fromInput(
+          owner: owner,
+          conversationID: selected.conversation.id,
+          expectedVersion: pending.expectedVersion,
+          content: pending.content,
+          idempotencyKey: pending.idempotencyKey,
+          promptID: receipt.receipt.promptID,
+          createdAtMS: receipt.receipt.createdAtMS,
+          replayed: receipt.receipt.replayed,
+        );
+        if (jsonEncode(receipt.toJson()) !=
+            jsonEncode(expectedReceipt.toJson())) {
+          throw const FormatException(
+            'Forge returned a Prompt append receipt with invalid binding.',
+          );
+        }
+      } else {
+        result = await _api.appendPrompt(
+          conversationID: selected.conversation.id,
+          content: pending.content,
+          expectedVersion: pending.expectedVersion,
+          idempotencyKey: pending.idempotencyKey,
+        );
+      }
       if (!mounted ||
           _selected?.conversation.id != selected.conversation.id ||
           !_conversationVisibleFromSelectedClientInstance(
@@ -5010,15 +9154,52 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
           )) {
         return;
       }
+      if (receipt != null) {
+        final updated = ForgeOwnedConversation(
+          conversation: selected.conversation,
+          aggregateVersion: receipt.receipt.aggregateVersion,
+        );
+        setState(() {
+          _selected = updated;
+          _conversations = _replaceConversation(_conversations, updated);
+          _pendingPrompt = null;
+          _promptController.clear();
+          _appending = false;
+        });
+        // The receipt intentionally carries no Prompt body. Refresh the
+        // already-authorized history after the write so the display obtains
+        // the persisted row through the ordinary owner-scoped read.
+        await _loadPrompts(selected.conversation.id);
+        if (!mounted ||
+            _selected?.conversation.id != selected.conversation.id ||
+            !_conversationVisibleFromSelectedClientInstance(
+              selected.conversation.id,
+            )) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              receipt.receipt.replayed
+                  ? context.tr(
+                      'Prompt retry replayed the existing message. It has not started a task.',
+                    )
+                  : context.tr('Prompt stored. It has not started a task.'),
+            ),
+          ),
+        );
+        return;
+      }
+      final appended = result!;
       final updated = ForgeOwnedConversation(
         conversation: selected.conversation,
-        aggregateVersion: result.aggregateVersion,
+        aggregateVersion: appended.aggregateVersion,
       );
       setState(() {
         _selected = updated;
         _conversations = _replaceConversation(_conversations, updated);
         _prompts = _uniquePrompts(
-          [..._prompts, result.prompt]..sort(_comparePrompts),
+          [..._prompts, appended.prompt]..sort(_comparePrompts),
         );
         _pendingPrompt = null;
         _promptController.clear();
@@ -5027,7 +9208,7 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.replayed
+            appended.replayed
                 ? context.tr(
                     'Prompt retry replayed the existing message. It has not started a task.',
                   )
@@ -5071,6 +9252,35 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       selected.conversation.id,
     )) {
       setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    if (!await _refreshSelectedClientInstanceProjectionBeforeOwnerReads()) {
+      if (mounted) {
+        setState(() {
+          _pendingRunIntentSubmitError =
+              'Scheduling review is waiting for a fresh validated client-instance session/resource observation.';
+        });
+      }
+      return;
+    }
+    if (!mounted || _selected?.conversation.id != selected.conversation.id) {
+      return;
+    }
+    if (!_conversationVisibleFromSelectedClientInstance(
+      selected.conversation.id,
+    )) {
+      setState(_clearRunDetailsForHiddenClientInstance);
+      return;
+    }
+    final observationError =
+        await _refreshInventoryResourceObservationsBeforeOperation(
+          'Scheduling review',
+        );
+    if (!mounted || _selected?.conversation.id != selected.conversation.id) {
+      return;
+    }
+    if (observationError != null) {
+      setState(() => _pendingRunIntentSubmitError = observationError);
       return;
     }
     final pending =
@@ -5132,6 +9342,12 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
         _promptController.clear();
         _submittingPendingRunIntent = false;
       });
+      // A successful scheduling-review write advances the Conversation
+      // aggregate and creates one inert receipt. If the caller explicitly
+      // supplied the metadata reader, refresh it now so the shared Gate shows
+      // the server-owned receipt without requiring a second manual sync.
+      await _loadPendingRunIntentsIfRequested(force: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Scheduling review requested. No task has started.'),
@@ -5206,6 +9422,38 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       return false;
     }
     return error.statusCode >= 400 && error.statusCode < 500;
+  }
+
+  bool _isDefinitiveOwnerReadFailure(Object error) {
+    if (error is FormatException) return true;
+    if (error is! ForgeConversationsApiException) return false;
+    if (error.statusCode == 408 ||
+        error.statusCode == 425 ||
+        error.statusCode == 429 ||
+        error.statusCode >= 500) {
+      return false;
+    }
+    return error.statusCode >= 400;
+  }
+
+  bool _dropSelectedConversationAfterOwnerReadFailure(
+    String conversationID,
+    Object error,
+  ) {
+    if (!mounted ||
+        !_isDefinitiveOwnerReadFailure(error) ||
+        _selected?.conversation.id != conversationID) {
+      return false;
+    }
+    setState(() {
+      _conversationGeneration++;
+      _conversations = _conversations
+          .where((entry) => entry.conversation.id != conversationID)
+          .toList(growable: false);
+      _selected = null;
+      _clearConversationDetails();
+    });
+    return true;
   }
 
   Future<void> _clearSessionIfUnauthorized(Object error) async {

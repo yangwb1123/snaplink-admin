@@ -66,7 +66,7 @@ void main() {
             'conversation_id': 'conversation-001',
             'run_id': 'run-001',
             'after_sequence': 0,
-            'scanned_through_sequence': 1,
+            'scanned_through_sequence': 0,
             'has_more': false,
             'events': <Object>[],
           });

@@ -51,6 +51,22 @@ class ForgeDeviceInventoryPageV2 {
     required this.dispatchPerformed,
   });
 
+  /// Whether this value still carries the bounded, display-only v2 contract.
+  ///
+  /// [fromJson] enforces these invariants while decoding wire data, but the
+  /// public constructor is also used by native/test seams.  Local
+  /// convergence guards must therefore re-check the envelope before using a
+  /// manually constructed observation as a freshness boundary.
+  bool get isDisplayOnly =>
+      evaluationMode == _forgeDeviceInventoryV2Mode &&
+      evaluatedAtMS > 0 &&
+      ownerDeclarationUnverified &&
+      inventoryDeclarationsUnverified &&
+      notice == _forgeDeviceInventoryV2Notice &&
+      !executionAuthorized &&
+      !reservationCreated &&
+      !dispatchPerformed;
+
   /// Decodes one bounded raw JSON document without allowing duplicate object
   /// keys to be silently replaced by [dart:convert].
   factory ForgeDeviceInventoryPageV2.fromJsonText(String source) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -182,6 +183,276 @@ void main() {
       );
     },
   );
+
+  testWidgets('independent session and resource readers fail closed on drift', (
+    tester,
+  ) async {
+    final credentialStore = await _credentialStore('drift-token');
+    final owner = ForgeDeviceOwner(
+      issuer: 'https://id.example',
+      subject: 'drift-user',
+      tenantID: 'tenant-drift',
+    );
+    var promptReads = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/conversations') {
+        return _json({
+          'conversations': [
+            {
+              'conversation': {
+                'id': 'conversation-001',
+                'scope': {'kind': 'global'},
+                'title': 'Drift guarded session',
+                'created_at_ms': 10,
+                'updated_at_ms': 20,
+              },
+              'aggregate_version': 1,
+            },
+          ],
+          'has_more': false,
+        });
+      }
+      if (request.url.path.endsWith('/prompts')) {
+        promptReads++;
+        return _json({
+          'conversation_id': 'conversation-001',
+          'prompts': [
+            {
+              'id': 'prompt-001',
+              'conversation_id': 'conversation-001',
+              'role': 'user',
+              'content': 'private prompt before resource drift',
+              'created_at_ms': 30,
+            },
+          ],
+          'has_more': false,
+        });
+      }
+      if (request.url.path.endsWith('/runs')) {
+        return _json({
+          'conversation_id': 'conversation-001',
+          'runs': <Object>[],
+          'has_more': false,
+        });
+      }
+      if (request.url.path == '/api/v1/conversation-changes') {
+        final cursor = request.url.queryParameters['after_cursor'] ?? '0';
+        return _json({
+          'after_cursor': int.parse(cursor),
+          'scanned_through_cursor': int.parse(cursor),
+          'has_more': false,
+          'changes': <Object>[],
+        });
+      }
+      throw StateError('Unexpected owner request: ${request.url}');
+    });
+    addTearDown(client.close);
+
+    final canonicalSession = ForgeClientInstanceSessionView.fromJson(
+      _sessionView(owner),
+    );
+    final canonicalResource = ForgeClientInstanceResourceView.fromJson(
+      _resourceView(owner),
+    );
+    var resourceReads = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForgeSessionsGate(
+          credentialStore: credentialStore,
+          httpClient: client,
+          initialClientInstanceID: 'client-cli-001',
+          clientInstanceSessionViewOwner: owner,
+          clientInstanceSessionViewReader: (_) async => canonicalSession,
+          clientInstanceResourceViewOwner: owner,
+          clientInstanceResourceViewReader: (_) async {
+            resourceReads++;
+            if (resourceReads != 2) return canonicalResource;
+            final drifted = canonicalResource.toJson();
+            final instances = drifted['instances']! as List<Object?>;
+            final row = Map<String, dynamic>.from(instances.first! as Map);
+            row['observed_at_ms'] = 200501;
+            instances[0] = row;
+            return ForgeClientInstanceResourceView.fromJson(drifted);
+          },
+        ),
+      ),
+    );
+    await _pump(tester);
+    for (var index = 0; index < 20; index++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+
+    expect(resourceReads, 1);
+    for (var index = 0; index < 4; index++) {
+      await tester.drag(find.byType(ListView).first, const Offset(0, -600));
+      await tester.pump();
+    }
+    expect(
+      find.byKey(const ValueKey('forge-conversation-conversation-001')),
+      findsOneWidget,
+    );
+    expect(find.text('private prompt before resource drift'), findsOneWidget);
+    expect(promptReads, 1);
+
+    // The change-feed boundary forces both independent readers again. The
+    // resource row now has a different observed_at_ms, so the selected
+    // instance must become empty rather than using the session reader alone.
+    await tester.pump(const Duration(seconds: 16));
+    await _pump(tester);
+
+    expect(resourceReads, greaterThanOrEqualTo(2));
+    expect(
+      find.text('No conversations are visible from this client instance.'),
+      findsOneWidget,
+    );
+    expect(find.text('private prompt before resource drift'), findsNothing);
+    expect(promptReads, 1);
+
+    // The failed projection check backs off the next poll. A later refresh
+    // returns the matching image, and the pair can converge again without
+    // reusing the hidden Prompt projection automatically.
+    await tester.pump(const Duration(seconds: 31));
+    await _pump(tester);
+    expect(resourceReads, greaterThanOrEqualTo(3));
+    expect(
+      find.byKey(const ValueKey('forge-conversation-conversation-001')),
+      findsOneWidget,
+    );
+    expect(find.text('private prompt before resource drift'), findsNothing);
+    expect(promptReads, 1);
+  });
+
+  testWidgets('independent observation refresh revokes an in-flight Run read', (
+    tester,
+  ) async {
+    final credentialStore = await _credentialStore('run-drift-token');
+    final owner = ForgeDeviceOwner(
+      issuer: 'https://id.example',
+      subject: 'run-drift-user',
+      tenantID: 'tenant-run-drift',
+    );
+    final runResponse = Completer<http.Response>();
+    var runReads = 0;
+    var resourceReads = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/conversations') {
+        return _json({
+          'conversations': [
+            {
+              'conversation': {
+                'id': 'conversation-001',
+                'scope': {'kind': 'global'},
+                'title': 'In-flight Run guard',
+                'created_at_ms': 10,
+                'updated_at_ms': 20,
+              },
+              'aggregate_version': 1,
+            },
+          ],
+          'has_more': false,
+        });
+      }
+      if (request.url.path.endsWith('/prompts')) {
+        return _json({
+          'conversation_id': 'conversation-001',
+          'prompts': <Object>[],
+          'has_more': false,
+        });
+      }
+      if (request.url.path.endsWith('/runs')) {
+        runReads++;
+        return runResponse.future;
+      }
+      if (request.url.path.endsWith('/timeline')) {
+        return _json({
+          'conversation_id': 'conversation-001',
+          'run_id': 'run-001',
+          'after_sequence': 0,
+          'scanned_through_sequence': 0,
+          'has_more': false,
+          'events': <Object>[],
+        });
+      }
+      if (request.url.path == '/api/v1/conversation-changes') {
+        return _json({
+          'after_cursor': 0,
+          'scanned_through_cursor': 0,
+          'has_more': false,
+          'changes': <Object>[],
+        });
+      }
+      throw StateError('Unexpected owner request: ${request.url}');
+    });
+    addTearDown(client.close);
+
+    final canonicalSession = ForgeClientInstanceSessionView.fromJson(
+      _sessionView(owner),
+    );
+    final canonicalResource = ForgeClientInstanceResourceView.fromJson(
+      _resourceView(owner),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ForgeSessionsGate(
+          credentialStore: credentialStore,
+          httpClient: client,
+          initialConversationID: 'conversation-001',
+          initialClientInstanceID: 'client-cli-001',
+          clientInstanceSessionViewOwner: owner,
+          clientInstanceSessionViewReader: (_) async => canonicalSession,
+          clientInstanceResourceViewOwner: owner,
+          clientInstanceResourceViewReader: (_) async {
+            resourceReads++;
+            if (resourceReads == 1) return canonicalResource;
+            final drifted = canonicalResource.toJson();
+            final instances = drifted['instances']! as List<Object?>;
+            final row = Map<String, dynamic>.from(instances.first! as Map);
+            row['observed_at_ms'] = 200501;
+            instances[0] = row;
+            return ForgeClientInstanceResourceView.fromJson(drifted);
+          },
+        ),
+      ),
+    );
+    for (var index = 0; index < 20 && runReads == 0; index++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    expect(runReads, 1);
+    expect(resourceReads, 1);
+
+    // The scheduled refresh changes only the resource observation while the
+    // owner Run request is still in flight. The hidden response must not
+    // repopulate the selected Run after this projection becomes invalid.
+    await tester.pump(const Duration(seconds: 16));
+    await _pump(tester);
+    expect(resourceReads, greaterThanOrEqualTo(2));
+
+    runResponse.complete(
+      _json({
+        'conversation_id': 'conversation-001',
+        'runs': [
+          {
+            'run_id': 'run-001',
+            'prompt_id': 'prompt-001',
+            'created_at_ms': 10,
+            'latest_sequence': 1,
+            'status': 'nonterminal',
+          },
+        ],
+        'has_more': false,
+      }),
+    );
+    await _pump(tester);
+    expect(find.byKey(const ValueKey('forge-run-run-001')), findsNothing);
+  });
 
   testWidgets(
     'candidate Gate readers refresh on the scheduled change-feed boundary',

@@ -12,6 +12,7 @@ export 'forge_device_heartbeat.dart';
 export 'forge_device_identity.dart';
 export 'forge_pending_write_recovery.dart';
 export 'forge_device_inventory_v2_models.dart';
+export 'forge_device_inventory_resource_convergence.dart';
 export 'forge_device_inventory_placement_evaluation_v2.dart';
 export 'forge_device_registry_placement_preview.dart';
 

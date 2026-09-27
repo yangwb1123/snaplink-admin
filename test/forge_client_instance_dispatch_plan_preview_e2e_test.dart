@@ -43,16 +43,25 @@ void main() {
         accessToken: accessToken,
       );
       try {
-        final resourceView = await api.readClientInstanceResourceViewCandidate(
+        final convergence = await api.readConvergedClientInstanceViews(
           owner: owner,
         );
+        final sessionView = convergence.sessionView;
+        final resourceView = convergence.resourceView;
+        final sessionInstance = sessionView.instances.singleWhere(
+          (instance) => instance.instanceID == instanceID,
+        );
         expect(resourceView.owner, owner);
+        expect(sessionView.owner, owner);
         expect(resourceView.instances, hasLength(5));
+        expect(sessionView.instances, hasLength(5));
         expect(resourceView.devices, hasLength(2));
+        expect(sessionInstance.sessionIDs, contains(conversationID));
         final selectedInstance = resourceView.instances.singleWhere(
           (instance) => instance.instanceID == instanceID,
         );
         expect(selectedInstance.sessionIDs, contains(conversationID));
+        expect(selectedInstance.toJson(), sessionInstance.toJson());
         expect(resourceView.devices.map((device) => device.deviceID), [
           'runner-1',
           'runner-2',
