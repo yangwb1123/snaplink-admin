@@ -4,9 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
-import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
 import 'package:sso_admin/api/forge_device_inventory_models.dart';
-import 'package:sso_admin/api/forge_device_inventory_v2_models.dart';
 import 'package:sso_admin/screens/forge/forge_sessions_screen.dart';
 
 class _LiveHttpTestWidgetsBinding extends AutomatedTestWidgetsFlutterBinding {

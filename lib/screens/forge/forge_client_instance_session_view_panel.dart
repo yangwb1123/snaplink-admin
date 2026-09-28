@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_client_instance_session_view.dart';
 
 /// Renders caller-injected client/session metadata without creating an
@@ -23,12 +24,12 @@ class ForgeClientInstanceSessionViewPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Client instance session view',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Read-only metadata; no Prompt or device authority.',
               style: theme.textTheme.bodySmall,
             ),

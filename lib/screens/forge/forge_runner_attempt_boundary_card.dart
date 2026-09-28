@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_runner_attempt_boundary.dart';
 
@@ -17,12 +18,12 @@ class ForgeRunnerAttemptBoundaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Runner Attempt boundary preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
+          LocalizedText(
             observation.attemptBoundaryReady
                 ? 'The proposed Attempt lifecycle edge is display-only and awaits a separately reviewed effect adapter.'
                 : 'The Attempt lifecycle boundary is not dispatchable.',
@@ -55,7 +56,7 @@ class ForgeRunnerAttemptBoundaryCard extends StatelessWidget {
             observation.isDisplayOnly ? 'none issued' : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Preview only · Attempt persistence, reservation, authorization, dispatch, argv execution, lease mutation, and Audit publication are absent.',
           ),
         ],

@@ -135,13 +135,17 @@ class _ForgeJsonDuplicateKeyScanner {
       if (_index >= _body.length || !_isNonZeroDigit(_body[_index])) {
         throw const FormatException('Forge returned invalid JSON.');
       }
-      while (_index < _body.length && _isDigit(_body[_index])) _index++;
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
     }
     if (_consume('.')) {
       if (_index >= _body.length || !_isDigit(_body[_index])) {
         throw const FormatException('Forge returned invalid JSON.');
       }
-      while (_index < _body.length && _isDigit(_body[_index])) _index++;
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
     }
     if (_index < _body.length &&
         (_body[_index] == 'e' || _body[_index] == 'E')) {
@@ -153,7 +157,9 @@ class _ForgeJsonDuplicateKeyScanner {
       if (_index >= _body.length || !_isDigit(_body[_index])) {
         throw const FormatException('Forge returned invalid JSON.');
       }
-      while (_index < _body.length && _isDigit(_body[_index])) _index++;
+      while (_index < _body.length && _isDigit(_body[_index])) {
+        _index++;
+      }
     }
     if (start == _index) {
       throw const FormatException('Forge returned invalid JSON.');

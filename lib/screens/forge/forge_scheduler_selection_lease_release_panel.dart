@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/forge_scheduler_selection_lease.dart';
 
@@ -20,7 +21,7 @@ class ForgeSchedulerSelectionLeaseReleasePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Scheduler lease released',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -32,7 +33,7 @@ class ForgeSchedulerSelectionLeaseReleasePanel extends StatelessWidget {
           _row('Released at', '${release.releasedAtMS} ms'),
           _row('Replay', '${release.replayed}'),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'The reservation is inactive; its epoch remains in durable history for fencing. Execution, Runner dispatch, and Audit publication remain disabled.',
           ),
         ],

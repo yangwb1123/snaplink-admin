@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_runner_dispatch_admission.dart';
 
@@ -20,12 +21,12 @@ class ForgeRunnerDispatchAdmissionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Runner dispatch admission preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
+          LocalizedText(
             admission.admissionReady
                 ? 'Lease and Attempt are admissible for a later reviewed dispatch step.'
                 : 'The lease-to-Runner admission recheck is not ready.',
@@ -46,7 +47,7 @@ class ForgeRunnerDispatchAdmissionCard extends StatelessWidget {
             admission.isDisplayOnly ? 'none issued' : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Preview only · fencing token, argv, workspace, Runner contact, execution, and Audit publication are absent.',
           ),
         ],

@@ -774,7 +774,7 @@ bool _requiresReconciliation(String value) => const {
 bool _reconciliationWellFormedUnicode(String value) {
   for (var index = 0; index < value.length; index++) {
     final unit = value.codeUnitAt(index);
-    if (unit >= 0xd800 && unit <= 0xdbff) {
+    if (unit >= 0xd800 && unit <= (0xdb00 + 0xff)) {
       if (index + 1 >= value.length) return false;
       final next = value.codeUnitAt(++index);
       if (next < 0xdc00 || next > 0xdfff) return false;

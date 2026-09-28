@@ -9,6 +9,38 @@ import 'package:sso_admin/api/forge_session_placement.dart';
 void main() {
   final path = Platform.environment['FORGE_SESSION_PLACEMENT_CONTRACT_FIXTURE'];
 
+  test('validates display-only placement values without a fixture', () {
+    final authority = ForgeSessionPlacementAuthority.fromJson({
+      'identity_verified': false,
+      'heartbeat_persisted': false,
+      'inventory_authoritative': false,
+      'reservation_created': false,
+      'execution_authorized': false,
+      'dispatch_performed': false,
+    });
+    expect(authority.toJson().values.every((value) => value == false), isTrue);
+
+    final decision = ForgeSessionPlacementDecision.fromJson({
+      'device_id': 'device-1',
+      'instance_id': 'runner-1',
+      'matches_requirements': false,
+      'exclusion_reasons': ['cpu_insufficient', 'memory_insufficient'],
+    });
+    expect(decision.exclusionReasons, [
+      'cpu_insufficient',
+      'memory_insufficient',
+    ]);
+    expect(
+      () => ForgeSessionPlacementDecision.fromJson({
+        'device_id': 'device invalid',
+        'instance_id': 'runner-1',
+        'matches_requirements': true,
+        'exclusion_reasons': <String>[],
+      }),
+      throwsFormatException,
+    );
+  });
+
   test(
     'matches the shared owner/session/run placement observation fixture',
     () => _assertFixture(path!),

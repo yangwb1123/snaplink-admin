@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/forge_scheduler_selection_lease.dart';
 
@@ -18,7 +19,7 @@ class ForgeSchedulerSelectionLeasePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Scheduler lease',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -38,7 +39,7 @@ class ForgeSchedulerSelectionLeasePanel extends StatelessWidget {
           ),
           _row('Replay', '${lease.replayed}'),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Lease issued; command execution, Runner dispatch, and Audit publication remain disabled. The fencing token is withheld from this view.',
           ),
         ],

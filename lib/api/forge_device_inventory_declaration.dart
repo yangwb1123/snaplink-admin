@@ -243,7 +243,7 @@ String _ownerText(Object? value) {
 bool _ownerWellFormedUnicode(String value) {
   for (var index = 0; index < value.length; index++) {
     final unit = value.codeUnitAt(index);
-    if (unit >= 0xd800 && unit <= 0xdbff) {
+    if (unit >= 0xd800 && unit <= (0xdb00 + 0xff)) {
       if (index + 1 >= value.length) {
         return false;
       }

@@ -2520,7 +2520,7 @@ extension on _ForgeSessionsScreenState {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.playlist_add_check),
-                    label: Text(
+                    label: LocalizedText(
                       _pendingRunIntentRequest == null
                           ? 'Request scheduling review'
                           : 'Retry scheduling review',
@@ -2610,7 +2610,7 @@ extension on _ForgeSessionsScreenState {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: const ListTile(
       leading: Icon(Icons.cloud_off_outlined),
-      title: Text(
+      title: LocalizedText(
         'Forge registry placement preview is refreshing or unavailable. Showing the last validated comparison; it may be stale.',
       ),
     ),
@@ -2621,7 +2621,7 @@ extension on _ForgeSessionsScreenState {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: const ListTile(
       leading: Icon(Icons.cloud_off_outlined),
-      title: Text(
+      title: LocalizedText(
         'Forge scheduler selection is refreshing or unavailable. Showing the last validated preview; it may be stale.',
       ),
     ),
@@ -2632,7 +2632,7 @@ extension on _ForgeSessionsScreenState {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: const ListTile(
       leading: Icon(Icons.cloud_off_outlined),
-      title: Text(
+      title: LocalizedText(
         'Forge scheduler lease is unavailable. The displayed lease was not renewed.',
       ),
     ),
@@ -2643,7 +2643,7 @@ extension on _ForgeSessionsScreenState {
     color: Theme.of(context).colorScheme.surfaceContainerHighest,
     child: const ListTile(
       leading: Icon(Icons.cloud_off_outlined),
-      title: Text(
+      title: LocalizedText(
         'Forge scheduler lease release is unavailable. The displayed release receipt may be stale.',
       ),
     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_session_runner_reconciliation_projection.dart';
 
@@ -24,12 +25,12 @@ class ForgeSessionRunnerReconciliationProjectionPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Session Runner reconciliation',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            const Text('Manual review · automatic retry disabled'),
+            const LocalizedText('Manual review · automatic retry disabled'),
             const SizedBox(height: 8),
             Text(
               'Latest attempt: ${projection.latestAttemptID} · '
@@ -55,7 +56,7 @@ class ForgeSessionRunnerReconciliationProjectionPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            const LocalizedText(
               'Selected target: none · authority: disabled',
               key: ValueKey(
                 'forge-session-runner-reconciliation-projection-boundary',

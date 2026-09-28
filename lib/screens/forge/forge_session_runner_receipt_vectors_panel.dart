@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_session_runner_receipt_vectors.dart';
 
@@ -21,12 +22,12 @@ class ForgeSessionRunnerReceiptVectorsPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Session Runner receipt outcomes',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Offline contract · authority disabled',
               style: Theme.of(context).textTheme.bodySmall,
             ),

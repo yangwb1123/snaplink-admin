@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_runner_transport_admission.dart';
 
@@ -18,12 +19,12 @@ class ForgeRunnerTransportAdmissionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Runner transport admission preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
+          LocalizedText(
             admission.admissionReady
                 ? 'The verified transport observation matches the current fenced lease and Attempt.'
                 : 'The transport-to-lease admission recheck is not ready.',
@@ -48,7 +49,7 @@ class ForgeRunnerTransportAdmissionCard extends StatelessWidget {
             admission.isDisplayOnly ? 'none issued' : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Preview only · no device authentication, Runner contact, payload send, execution, or Audit publication.',
           ),
         ],

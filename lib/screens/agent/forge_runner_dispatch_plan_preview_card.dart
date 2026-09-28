@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_runner_dispatch_plan_preview.dart';
 
@@ -16,7 +17,7 @@ class ForgeRunnerDispatchPlanPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Runner dispatch-plan preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -42,7 +43,7 @@ class ForgeRunnerDispatchPlanPreviewCard extends StatelessWidget {
                 : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text('Preview only · no dispatch performed'),
+          const LocalizedText('Preview only · no dispatch performed'),
         ],
       ),
     ),

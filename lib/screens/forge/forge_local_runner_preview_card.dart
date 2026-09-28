@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_local_runner_preview.dart';
 
@@ -18,7 +19,7 @@ class ForgeLocalRunnerPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Local Runner execution-readiness preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -35,7 +36,7 @@ class ForgeLocalRunnerPreviewCard extends StatelessWidget {
             observation.authority.isOffline ? 'none issued' : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text('Preview only · no execution authority granted'),
+          const LocalizedText('Preview only · no execution authority granted'),
         ],
       ),
     ),

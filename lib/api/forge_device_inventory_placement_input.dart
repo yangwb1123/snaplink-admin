@@ -2,6 +2,7 @@ import 'forge_device_heartbeat.dart';
 import 'forge_device_inventory_declaration.dart';
 
 part 'forge_device_inventory_placement_input_codec.dart';
+part 'forge_device_inventory_placement_input_validators.dart';
 
 /// The canonical value-only persisted-inventory placement-input fixture.
 ///

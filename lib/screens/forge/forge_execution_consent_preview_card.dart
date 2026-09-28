@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_conversations_models.dart';
 
@@ -17,12 +18,12 @@ class ForgeExecutionConsentPreviewCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Execution consent preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text(
+          const LocalizedText(
             'Preview only · consent has not been granted; no Run or device was selected.',
           ),
           const SizedBox(height: 12),

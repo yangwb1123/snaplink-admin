@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/forge_device_enrollment_heartbeat_lifecycle_registry.dart';
 
@@ -22,12 +23,12 @@ class ForgeLifecycleRegistryPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Lifecycle registry candidate',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Read-only authenticated restart snapshot; no enrollment or execution authority.',
               style: theme.textTheme.bodySmall,
             ),

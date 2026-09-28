@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_runner_execution_boundary.dart';
 
@@ -20,12 +21,12 @@ class ForgeRunnerExecutionBoundaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Runner execution boundary preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          Text(
+          LocalizedText(
             observation.executionBoundaryReady
                 ? 'Server-owned P4, Runner authority, lease, transport, and effect observations line up for a future reviewed adapter.'
                 : 'The server-owned execution boundary is not ready.',
@@ -60,7 +61,7 @@ class ForgeRunnerExecutionBoundaryCard extends StatelessWidget {
             observation.isDisplayOnly ? 'none issued' : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text(
+          const LocalizedText(
             'Preview only · fencing token, argv, workspace, payload, Runner output, execution, and Audit publication are absent.',
           ),
         ],

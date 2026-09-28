@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/forge_device_credential_candidate.dart';
 
@@ -22,12 +23,12 @@ class ForgeDeviceCredentialCandidatePanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Device credential lifecycle candidate',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Metadata-only preview; no credential material or execution authority.',
               style: theme.textTheme.bodySmall,
             ),

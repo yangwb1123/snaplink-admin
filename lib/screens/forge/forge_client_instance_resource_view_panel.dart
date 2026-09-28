@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_client_instance_resource_view.dart';
 
 /// Renders the composed client-instance/resource contract as local metadata.
@@ -22,12 +23,12 @@ class ForgeClientInstanceResourceViewPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Client instance resource view',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Read-only metadata; resources are unverified and cannot run work.',
               style: theme.textTheme.bodySmall,
             ),

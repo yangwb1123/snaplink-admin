@@ -28,119 +28,130 @@ void main() {
     Session.clear();
   });
 
-  testWidgets('explicit Gate posts one Run execution-evidence preview', (
-    tester,
-  ) async {
-    final run = ForgeRunObserved.fromJson(_run());
-    final receipt = ForgeSessionRunnerReceiptObservation.fromJson(_receipt());
-    final store = await _credentialStore('evidence-token');
-    final requests = <http.Request>[];
-    final client = MockClient((request) async {
-      requests.add(request);
-      switch ('${request.method} ${request.url.path}') {
-        case 'GET /api/v1/conversations':
-          return _json({
-            'conversations': [_conversation()],
-            'has_more': false,
-          });
-        case 'GET /api/v1/conversations/conversation-001/prompts':
-          return _json({
-            'conversation_id': 'conversation-001',
-            'prompts': <Object>[],
-            'has_more': false,
-          });
-        case 'GET /api/v1/conversations/conversation-001/runs':
-          return _json({
-            'conversation_id': 'conversation-001',
-            'runs': [_runSummary()],
-            'has_more': false,
-          });
-        case 'GET /api/v1/conversations/conversation-001/runs/run-001/timeline':
-          return _json({
-            'conversation_id': 'conversation-001',
-            'run_id': 'run-001',
-            'after_sequence': 0,
-            'scanned_through_sequence': 0,
-            'has_more': false,
-            'events': <Object>[],
-          });
-        case 'POST /api/v1/conversations/conversation-001/runs/run-001/execution-evidence/preview':
-          expect(request.headers['authorization'], 'Bearer evidence-token');
-          final body = jsonDecode(request.body) as Map<String, dynamic>;
-          expect(body['run_observed'], run.toJson());
-          expect(body['session_receipt_observed'], receipt.toJson());
-          return _json(_evidence());
-        default:
-          throw StateError(
-            'Unexpected Forge request: ${request.method} ${request.url}',
-          );
-      }
-    });
-    addTearDown(client.close);
+  testWidgets(
+    'explicit Gate posts one Run execution-evidence preview',
+    (tester) async {
+      final run = ForgeRunObserved.fromJson(_run());
+      final receipt = ForgeSessionRunnerReceiptObservation.fromJson(_receipt());
+      final store = await _credentialStore('evidence-token');
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        switch ('${request.method} ${request.url.path}') {
+          case 'GET /api/v1/conversations':
+            return _json({
+              'conversations': [_conversation()],
+              'has_more': false,
+            });
+          case 'GET /api/v1/conversations/conversation-001/prompts':
+            return _json({
+              'conversation_id': 'conversation-001',
+              'prompts': <Object>[],
+              'has_more': false,
+            });
+          case 'GET /api/v1/conversations/conversation-001/runs':
+            return _json({
+              'conversation_id': 'conversation-001',
+              'runs': [_runSummary()],
+              'has_more': false,
+            });
+          case 'GET /api/v1/conversations/conversation-001/runs/run-001/timeline':
+            return _json({
+              'conversation_id': 'conversation-001',
+              'run_id': 'run-001',
+              'after_sequence': 0,
+              'scanned_through_sequence': 0,
+              'has_more': false,
+              'events': <Object>[],
+            });
+          case 'POST /api/v1/conversations/conversation-001/runs/run-001/execution-evidence/preview':
+            expect(request.headers['authorization'], 'Bearer evidence-token');
+            final body = jsonDecode(request.body) as Map<String, dynamic>;
+            expect(body['run_observed'], run.toJson());
+            expect(body['session_receipt_observed'], receipt.toJson());
+            return _json(_evidence());
+          default:
+            throw StateError(
+              'Unexpected Forge request: ${request.method} ${request.url}',
+            );
+        }
+      });
+      addTearDown(client.close);
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ForgeSessionsGate(
-          credentialStore: store,
-          httpClient: client,
-          runObserved: run,
-          sessionRunnerReceiptObservation: receipt,
-          runExecutionEvidenceCandidateApiOrigin: 'https://candidate.example',
-          enableRunExecutionEvidenceCandidate: true,
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsGate(
+            credentialStore: store,
+            httpClient: client,
+            runObserved: run,
+            sessionRunnerReceiptObservation: receipt,
+            runExecutionEvidenceCandidateApiOrigin: 'https://candidate.example',
+            enableRunExecutionEvidenceCandidate: true,
+          ),
         ),
-      ),
-    );
-    await _settle(tester);
+      );
+      await _settle(tester);
 
-    await tester.scrollUntilVisible(
-      find.text('Run execution evidence preview'),
-      500,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('Run execution evidence preview'), findsOneWidget);
-    expect(
-      requests.where(
-        (request) => request.url.path.endsWith('execution-evidence/preview'),
-      ),
-      hasLength(1),
-    );
-  });
-
-  testWidgets('default Gate keeps Run execution evidence request-free', (
-    tester,
-  ) async {
-    final store = await _credentialStore('default-token');
-    final requests = <http.Request>[];
-    final client = MockClient((request) async {
-      requests.add(request);
-      if (request.method == 'GET' &&
-          request.url.path == '/api/v1/conversations') {
-        return _json({'conversations': <Object>[], 'has_more': false});
-      }
-      throw StateError('Evidence candidate contacted: ${request.url}');
-    });
-    addTearDown(client.close);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ForgeSessionsGate(
-          credentialStore: store,
-          httpClient: client,
-          runObserved: ForgeRunObserved.fromJson(_run()),
-          sessionRunnerReceiptObservation:
-              ForgeSessionRunnerReceiptObservation.fromJson(_receipt()),
+      await tester.scrollUntilVisible(
+        find.text('Run execution evidence preview'),
+        500,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text('Run execution evidence preview'), findsOneWidget);
+      expect(
+        requests.where(
+          (request) => request.url.path.endsWith('execution-evidence/preview'),
         ),
-      ),
-    );
-    await _settle(tester);
+        hasLength(1),
+      );
+    },
+    skip: !_hasFixtures([
+      'FORGE_RUN_OBSERVED_CONTRACT_FIXTURE',
+      'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
+      'FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE',
+    ]),
+  );
 
-    expect(
-      requests.where(
-        (request) => request.url.path.endsWith('execution-evidence/preview'),
-      ),
-      isEmpty,
-    );
-  });
+  testWidgets(
+    'default Gate keeps Run execution evidence request-free',
+    (tester) async {
+      final store = await _credentialStore('default-token');
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'GET' &&
+            request.url.path == '/api/v1/conversations') {
+          return _json({'conversations': <Object>[], 'has_more': false});
+        }
+        throw StateError('Evidence candidate contacted: ${request.url}');
+      });
+      addTearDown(client.close);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ForgeSessionsGate(
+            credentialStore: store,
+            httpClient: client,
+            runObserved: ForgeRunObserved.fromJson(_run()),
+            sessionRunnerReceiptObservation:
+                ForgeSessionRunnerReceiptObservation.fromJson(_receipt()),
+          ),
+        ),
+      );
+      await _settle(tester);
+
+      expect(
+        requests.where(
+          (request) => request.url.path.endsWith('execution-evidence/preview'),
+        ),
+        isEmpty,
+      );
+    },
+    skip: !_hasFixtures([
+      'FORGE_RUN_OBSERVED_CONTRACT_FIXTURE',
+      'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
+    ]),
+  );
 }
 
 http.Response _json(Object value) => http.Response(
@@ -167,6 +178,10 @@ Future<void> _settle(WidgetTester tester) async {
   }
   await tester.pumpAndSettle();
 }
+
+bool _hasFixtures(List<String> variables) => variables.every(
+  (variable) => Platform.environment[variable]?.isNotEmpty == true,
+);
 
 Map<String, dynamic> _run() =>
     _readFixture('FORGE_RUN_OBSERVED_CONTRACT_FIXTURE');

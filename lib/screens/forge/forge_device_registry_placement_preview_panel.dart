@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import 'package:sso_admin/api/forge_device_registry_placement_preview.dart';
 
@@ -24,12 +25,12 @@ class ForgeDeviceRegistryPlacementPreviewPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Registry placement preview',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            const Text(
+            const LocalizedText(
               'Authenticated read-only comparison over the persisted registry; no target was selected and all authority is false.',
             ),
             _row('Evaluated at', '${preview.evaluatedAtMS}'),
@@ -39,7 +40,7 @@ class ForgeDeviceRegistryPlacementPreviewPanel extends StatelessWidget {
             _row('Authority', 'all false · display-only'),
             const SizedBox(height: 8),
             if (decisions.isEmpty)
-              const Text('No registry candidates.')
+              const LocalizedText('No registry candidates.')
             else
               for (final decision in decisions)
                 ListTile(

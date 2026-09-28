@@ -8,6 +8,25 @@ void main() {
   final fixturePath =
       Platform.environment['FORGE_INVENTORY_PLACEMENT_INPUT_CONTRACT_FIXTURE'];
 
+  test('validates placement-input values without an external fixture', () {
+    final rejected = ForgeDeviceInventoryPlacementExpected.fromJson({
+      'accepted': false,
+      'error': 'owner_mismatch',
+    });
+    expect(rejected.accepted, isFalse);
+    expect(rejected.error, 'owner_mismatch');
+    expect(rejected.revision, isNull);
+
+    final policy = ForgeDeviceInventoryPlacementPolicy.fromJson({
+      'data_residency_zones': ['us-west'],
+      'minimum_trust_zone': 'standard',
+      'sandbox_floor': 'process',
+      'concurrency_slots': 2,
+    });
+    expect(policy.dataResidencyZones, ['us-west']);
+    expect(policy.concurrencySlots, 2);
+  });
+
   test(
     'strictly consumes the persisted inventory placement-input fixture',
     () {

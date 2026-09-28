@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_pending_run_intent.dart';
 
 /// Read-only rendering of a pending Run-intent receipt.
@@ -22,12 +23,12 @@ class ForgePendingRunIntentCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Pending Run-intent preview',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            const Text(
+            const LocalizedText(
               'Receipt only. No Run was created and no device was selected.',
             ),
             const SizedBox(height: 12),

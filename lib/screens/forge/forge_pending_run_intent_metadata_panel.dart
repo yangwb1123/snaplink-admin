@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_conversations_api.dart';
 import 'package:sso_admin/api/forge_pending_run_intent.dart';
 
@@ -37,17 +38,19 @@ class ForgePendingRunIntentMetadataPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Pending Run-intent metadata',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            const Text(
+            const LocalizedText(
               'Read-only receipt metadata. Prompt content is hidden and no Run was started.',
             ),
             const SizedBox(height: 12),
             if (page.intents.isEmpty)
-              const Text('No pending Run-intent receipts for this session.')
+              const LocalizedText(
+                'No pending Run-intent receipts for this session.',
+              )
             else
               for (final intent in page.intents) ...[
                 if (intent != page.intents.first) const Divider(height: 24),
@@ -60,7 +63,7 @@ class ForgePendingRunIntentMetadataPanel extends StatelessWidget {
                 child: TextButton(
                   key: const ValueKey('forge-pending-run-intent-load-more'),
                   onPressed: loadingMore ? null : onLoadMore,
-                  child: Text(
+                  child: LocalizedText(
                     loadingMore
                         ? 'Loading more pending Run-intents…'
                         : 'Load more pending Run-intents',
@@ -102,8 +105,10 @@ class ForgePendingRunIntentMetadataPanel extends StatelessWidget {
       initiallyExpanded: timeline != null,
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.only(bottom: 4),
-      title: const Text('Timeline metadata'),
-      subtitle: const Text('Expand to read payload-free event markers.'),
+      title: const LocalizedText('Timeline metadata'),
+      subtitle: const LocalizedText(
+        'Expand to read payload-free event markers.',
+      ),
       onExpansionChanged: (expanded) {
         if (expanded) onTimelineExpanded?.call(intent.intentID);
       },
@@ -120,7 +125,7 @@ class ForgePendingRunIntentMetadataPanel extends StatelessWidget {
         if (!loading && error == null && timeline == null)
           const Align(
             alignment: Alignment.centerLeft,
-            child: Text('Timeline metadata is not loaded.'),
+            child: LocalizedText('Timeline metadata is not loaded.'),
           ),
         if (timeline != null) ...[
           _row('Scanned through', '${timeline.scannedThroughSequence}'),

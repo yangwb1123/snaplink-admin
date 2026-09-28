@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_scheduler_selection_preview.dart';
 
 /// Renders the planning-only scheduler-selection projection. The panel
@@ -16,12 +17,12 @@ class ForgeSchedulerSelectionPreviewPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
+          LocalizedText(
             'Scheduler selection preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
-          const Text(
+          const LocalizedText(
             'Planning-only preview. It explains one deterministic candidate and grants no lease or execution authority.',
           ),
           _row('Conversation', preview.conversationID),

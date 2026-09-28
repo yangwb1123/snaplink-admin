@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_session_runner_receipt_history.dart';
 
@@ -25,12 +26,12 @@ class ForgeSessionRunnerReceiptHistoryPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Session Runner receipt history',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            Text(
+            LocalizedText(
               'Offline history · authority disabled',
               style: Theme.of(context).textTheme.bodySmall,
             ),
@@ -44,7 +45,7 @@ class ForgeSessionRunnerReceiptHistoryPanel extends StatelessWidget {
             ),
             if (history.hasUncertainTerminal) ...[
               const SizedBox(height: 4),
-              Text(
+              LocalizedText(
                 'Manual reconciliation required; automatic retry disabled.',
                 key: const ValueKey(
                   'forge-session-runner-receipt-history-manual-reconciliation',

@@ -136,6 +136,21 @@ Future<void> _expandTimeline(WidgetTester tester) async {
   await tester.tap(find.text('Timeline metadata'));
 }
 
+String _ownerBoundToken() {
+  final payload = base64Url
+      .encode(
+        utf8.encode(
+          jsonEncode({
+            'iss': 'https://id.example',
+            'tenant_id': 'tenant-1',
+            'sub': 'user-1',
+          }),
+        ),
+      )
+      .replaceAll('=', '');
+  return 'e30.$payload.test';
+}
+
 http.Client _sessionsClient({
   required bool allowRefresh,
   bool emitChange = false,
@@ -420,7 +435,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: ForgeSessionsScreen(
-            accessToken: 'forge-token',
+            accessToken: _ownerBoundToken(),
             apiOrigin: 'https://forge.example',
             httpClient: _sessionsClient(allowRefresh: true, emitChange: true),
             pendingRunIntentReader: (_) async {

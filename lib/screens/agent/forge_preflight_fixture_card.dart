@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 
 import '../../api/forge_preflight_fixture.dart';
 
@@ -16,7 +17,7 @@ class ForgePreflightFixtureCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          LocalizedText(
             'Forge preflight preview',
             style: Theme.of(context).textTheme.titleMedium,
           ),
@@ -41,7 +42,7 @@ class ForgePreflightFixtureCard extends StatelessWidget {
                 : 'invalid',
           ),
           const SizedBox(height: 8),
-          const Text('Preview only · no dispatch performed'),
+          const LocalizedText('Preview only · no dispatch performed'),
         ],
       ),
     ),

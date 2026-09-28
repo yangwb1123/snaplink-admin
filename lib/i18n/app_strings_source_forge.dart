@@ -79,7 +79,7 @@ const appForgeSourceZh = <String, String>{
       '总量包含不符合条件的声明；它们不是可调度容量。',
   'Offline device observation': '离线设备观察',
   'Import offline device observation': '导入离线设备观察',
-  'Canonical observation JSON': 'Canonical observation JSON',
+  'Canonical observation JSON': '规范观察 JSON',
   'Paste the canonical offline observation JSON for this selected Run. It is not saved or used for execution.':
       '粘贴当前运行任务的 canonical 离线观察 JSON。内容不会保存，也不会用于执行。',
   'Import': '导入',

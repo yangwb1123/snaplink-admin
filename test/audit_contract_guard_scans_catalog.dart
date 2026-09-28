@@ -1,19 +1,27 @@
 part of 'audit_contract_guard_scans.dart';
 
-
 /// Scan 2 — BFF literal scan, unified semantics.
 ///
-/// Case-insensitive `bff` substring over the whole file text — the exact
-/// Dart-native equivalent of the migration `grep -rni "bff" lib/` step, so
-/// the two mechanisms cannot disagree (a case-variant literal, an
-/// identifier, or a comment all trip identically).
+/// Case-insensitive `bff` source substring scan, excluding hexadecimal
+/// numeric tokens so the Unicode code point `0xdbff` is not mistaken for a
+/// BFF route or identifier. Case variants, identifiers, and comments still
+/// trip identically.
 List<AuditGuardViolation> scanBffLiterals(String source, String fileLabel) {
   final violations = <AuditGuardViolation>[];
   final lower = source.toLowerCase();
+  final hexLiterals = RegExp(
+    r'\b0x[0-9a-f]+\b',
+    caseSensitive: false,
+  ).allMatches(source).toList(growable: false);
   var index = 0;
   while (true) {
     final hit = lower.indexOf('bff', index);
     if (hit < 0) break;
+    final isHexCode = hexLiterals.any(
+      (literal) => literal.start <= hit && hit < literal.end,
+    );
+    index = hit + 3;
+    if (isHexCode) continue;
     final start = hit > 16 ? hit - 16 : 0;
     final end = hit + 16 < source.length ? hit + 16 : source.length;
     violations.add(
@@ -24,7 +32,6 @@ List<AuditGuardViolation> scanBffLiterals(String source, String fileLabel) {
             'bff token near "...${source.substring(start, end).replaceAll('\n', ' ')}..."',
       ),
     );
-    index = hit + 3;
   }
   return violations;
 }

@@ -11,6 +11,7 @@ filesize:
   max_lines: 400
   ignore_patterns:
     - "_test.dart"
+    - ".pi-batch/worktrees/"
     - ".dart_tool/"
     - "build/"
     - "android/"

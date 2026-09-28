@@ -9,74 +9,98 @@ import 'package:sso_admin/api/forge_run_observed.dart';
 import 'package:sso_admin/api/forge_session_runner_receipt_observation.dart';
 
 void main() {
-  test('posts one path-bound Run execution evidence pair', () async {
-    final fixture = _fixture('FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE');
-    final receiptFixture = _fixture(
-      'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
-    );
-    final run = ForgeRunObserved.fromJson(_runFromEvidence(fixture));
-    final receipt = ForgeSessionRunnerReceiptObservation.fromJson(
-      receiptFixture,
-    );
-    final sent = <Request>[];
-    final api = ForgeConversationsApi(
-      baseUrl: 'https://forge.example',
-      accessToken: 'forge-bearer',
-      httpClient: MockClient((request) async {
-        sent.add(request);
-        expect(request.method, 'POST');
-        expect(
-          request.url.path,
-          '/api/v1/conversations/conversation-001/runs/run-001/'
-          'execution-evidence/preview',
-        );
-        expect(request.headers['authorization'], 'Bearer forge-bearer');
-        return _json(fixture);
-      }),
-    );
-    addTearDown(api.close);
+  test(
+    'posts one path-bound Run execution evidence pair',
+    () async {
+      final fixture = _fixture('FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE');
+      final receiptFixture = _fixture(
+        'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
+      );
+      final run = ForgeRunObserved.fromJson(_runFromEvidence(fixture));
+      final receipt = ForgeSessionRunnerReceiptObservation.fromJson(
+        receiptFixture,
+      );
+      final sent = <Request>[];
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'forge-bearer',
+        httpClient: MockClient((request) async {
+          sent.add(request);
+          expect(request.method, 'POST');
+          expect(
+            request.url.path,
+            '/api/v1/conversations/conversation-001/runs/run-001/'
+            'execution-evidence/preview',
+          );
+          expect(request.headers['authorization'], 'Bearer forge-bearer');
+          return _json(fixture);
+        }),
+      );
+      addTearDown(api.close);
 
-    final returned = await api.previewRunExecutionEvidence(
-      conversationID: 'conversation-001',
-      runID: 'run-001',
-      runObserved: run,
-      sessionReceiptObserved: receipt,
-    );
-
-    expect(returned.isDisplayOnly, isTrue);
-    expect(returned.ownerRef, run.ownerRef);
-    expect(returned.promptID, 'prompt-001');
-    expect(sent, hasLength(1));
-    final body = jsonDecode(sent.single.body) as Map<String, dynamic>;
-    expect(body['run_observed'], run.toJson());
-    expect(body['session_receipt_observed'], receipt.toJson());
-  });
-
-  test('rejects Run execution evidence binding or authority drift', () async {
-    final fixture = _fixture('FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE');
-    final receipt = ForgeSessionRunnerReceiptObservation.fromJson(
-      _fixture('FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE'),
-    );
-    final run = ForgeRunObserved.fromJson(_runFromEvidence(fixture));
-    final foreign = Map<String, dynamic>.from(fixture);
-    foreign['run_id'] = 'run-foreign';
-    final api = ForgeConversationsApi(
-      baseUrl: 'https://forge.example',
-      accessToken: 'token',
-      httpClient: MockClient((_) async => _json(foreign)),
-    );
-    addTearDown(api.close);
-    await expectLater(
-      api.previewRunExecutionEvidence(
+      final returned = await api.previewRunExecutionEvidence(
         conversationID: 'conversation-001',
         runID: 'run-001',
         runObserved: run,
         sessionReceiptObserved: receipt,
-      ),
-      throwsA(isA<FormatException>()),
-    );
-  });
+      );
+
+      expect(returned.isDisplayOnly, isTrue);
+      expect(returned.ownerRef, run.ownerRef);
+      expect(returned.promptID, 'prompt-001');
+      expect(sent, hasLength(1));
+      final body = jsonDecode(sent.single.body) as Map<String, dynamic>;
+      expect(body['run_observed'], run.toJson());
+      expect(body['session_receipt_observed'], receipt.toJson());
+    },
+    skip:
+        !_hasFixtures([
+          'FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE',
+          'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
+        ])
+        ? 'Set the required Forge contract fixture paths.'
+        : false,
+  );
+
+  test(
+    'rejects Run execution evidence binding or authority drift',
+    () async {
+      final fixture = _fixture('FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE');
+      final receipt = ForgeSessionRunnerReceiptObservation.fromJson(
+        _fixture('FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE'),
+      );
+      final run = ForgeRunObserved.fromJson(_runFromEvidence(fixture));
+      final foreign = Map<String, dynamic>.from(fixture);
+      foreign['run_id'] = 'run-foreign';
+      final api = ForgeConversationsApi(
+        baseUrl: 'https://forge.example',
+        accessToken: 'token',
+        httpClient: MockClient((_) async => _json(foreign)),
+      );
+      addTearDown(api.close);
+      await expectLater(
+        api.previewRunExecutionEvidence(
+          conversationID: 'conversation-001',
+          runID: 'run-001',
+          runObserved: run,
+          sessionReceiptObserved: receipt,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    },
+    skip:
+        !_hasFixtures([
+          'FORGE_RUN_EXECUTION_EVIDENCE_CONTRACT_FIXTURE',
+          'FORGE_SESSION_RUNNER_RECEIPT_CONTRACT_FIXTURE',
+        ])
+        ? 'Set the required Forge contract fixture paths.'
+        : false,
+  );
 }
+
+bool _hasFixtures(List<String> variables) => variables.every(
+  (variable) => Platform.environment[variable]?.isNotEmpty == true,
+);
 
 Map<String, dynamic> _fixture(String variable) {
   final path = Platform.environment[variable];

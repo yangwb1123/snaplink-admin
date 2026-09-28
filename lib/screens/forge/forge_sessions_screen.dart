@@ -11,6 +11,7 @@ import 'package:sso_admin/api/forge_device_inventory_models.dart';
 import 'package:sso_admin/api/forge_scheduler_selection_preview.dart';
 import 'package:sso_admin/api/forge_scheduler_selection_lease.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/session.dart';
 import 'package:sso_admin/services/forge_change_cursor_store.dart';
 import 'package:sso_admin/services/forge_run_timeline_cursor_store.dart';
@@ -9350,7 +9351,9 @@ class _ForgeSessionsScreenState extends State<ForgeSessionsScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Scheduling review requested. No task has started.'),
+          content: LocalizedText(
+            'Scheduling review requested. No task has started.',
+          ),
         ),
       );
     } catch (error) {

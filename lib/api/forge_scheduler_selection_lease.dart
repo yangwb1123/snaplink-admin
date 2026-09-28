@@ -565,8 +565,9 @@ class ForgeSchedulerSelectionLeaseRelease {
 }
 
 Map<String, dynamic> _leaseObject(Object? value) {
-  if (value is! Map)
+  if (value is! Map) {
     throw const FormatException('Invalid Forge scheduler lease object.');
+  }
   return Map<String, dynamic>.from(value);
 }
 
@@ -578,15 +579,17 @@ void _leaseExactKeys(Map<String, dynamic> json, Set<String> expected) {
 }
 
 bool _leaseBool(Object? value) {
-  if (value is! bool)
+  if (value is! bool) {
     throw const FormatException('Invalid Forge scheduler lease boolean.');
+  }
   return value;
 }
 
 int _leasePositiveInt(Object? value) {
   final parsed = _leaseBoundedInt(value, 9007199254740991);
-  if (parsed <= 0)
+  if (parsed <= 0) {
     throw const FormatException('Invalid Forge scheduler lease integer.');
+  }
   return parsed;
 }
 
@@ -611,8 +614,9 @@ String _leaseIdentifier(Object? value, {int maxLength = 128}) {
         code >= 65 && code <= 90 ||
         code >= 97 && code <= 122 ||
         index > 0 && '.:_+/-'.codeUnits.contains(code);
-    if (!valid)
+    if (!valid) {
       throw const FormatException('Invalid Forge scheduler lease identifier.');
+    }
   }
   return value;
 }
@@ -625,14 +629,16 @@ class _LeaseDuplicateScanner {
   void scan() {
     _value();
     _space();
-    if (index != source.length)
+    if (index != source.length) {
       throw const FormatException('Trailing Forge scheduler lease JSON.');
+    }
   }
 
   void _value() {
     _space();
-    if (index >= source.length)
+    if (index >= source.length) {
       throw const FormatException('Invalid Forge scheduler lease JSON.');
+    }
     switch (source.codeUnitAt(index)) {
       case 123:
         _object();
@@ -659,16 +665,19 @@ class _LeaseDuplicateScanner {
       final start = index;
       _string();
       final key = jsonDecode(source.substring(start, index)) as String;
-      if (!keys.add(key))
+      if (!keys.add(key)) {
         throw const FormatException('Duplicate Forge scheduler lease key.');
+      }
       _space();
-      if (!_take(58))
+      if (!_take(58)) {
         throw const FormatException('Invalid Forge scheduler lease object.');
+      }
       _value();
       _space();
       if (_take(125)) return;
-      if (!_take(44))
+      if (!_take(44)) {
         throw const FormatException('Invalid Forge scheduler lease object.');
+      }
     }
   }
 
@@ -680,20 +689,23 @@ class _LeaseDuplicateScanner {
       _value();
       _space();
       if (_take(93)) return;
-      if (!_take(44))
+      if (!_take(44)) {
         throw const FormatException('Invalid Forge scheduler lease array.');
+      }
     }
   }
 
   void _string() {
     final start = index;
-    if (!_take(34))
+    if (!_take(34)) {
       throw const FormatException('Invalid Forge scheduler lease string.');
+    }
     while (index < source.length) {
       final code = source.codeUnitAt(index++);
       if (code == 92) {
-        if (index >= source.length)
+        if (index >= source.length) {
           throw const FormatException('Invalid Forge scheduler lease escape.');
+        }
         index++;
       } else if (code == 34) {
         return;
@@ -707,14 +719,18 @@ class _LeaseDuplicateScanner {
 
   void _primitive() {
     final start = index;
-    while (index < source.length && !' \t\r\n,]}'.contains(source[index]))
+    while (index < source.length && !' \t\r\n,]}'.contains(source[index])) {
       index++;
-    if (start == index)
+    }
+    if (start == index) {
       throw const FormatException('Invalid Forge scheduler lease value.');
+    }
   }
 
   void _space() {
-    while (index < source.length && ' \t\r\n'.contains(source[index])) index++;
+    while (index < source.length && ' \t\r\n'.contains(source[index])) {
+      index++;
+    }
   }
 
   bool _take(int code) {

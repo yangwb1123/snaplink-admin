@@ -393,10 +393,11 @@ String _admissionText(Object? value) =>
 String _admissionIdentifier(Object? value, {int maxLength = 256}) {
   final text = _admissionText(value);
   if (text.length > maxLength ||
-      !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:+/-]*$').hasMatch(text))
+      !RegExp(r'^[A-Za-z0-9][A-Za-z0-9._:+/-]*$').hasMatch(text)) {
     throw const FormatException(
       'Invalid Runner dispatch admission identifier.',
     );
+  }
   return text;
 }
 
@@ -406,8 +407,9 @@ int _admissionInt(Object? value, String label) =>
     : (throw FormatException('Invalid Runner dispatch admission $label.'));
 int _admissionPositiveInt(Object? value) {
   final result = _admissionInt(value, 'number');
-  if (result == 0)
+  if (result == 0) {
     throw const FormatException('Invalid Runner dispatch admission number.');
+  }
   return result;
 }
 
@@ -428,8 +430,9 @@ bool _admissionBool(Object? value) => value is bool
       ));
 String _admissionDigest(Object? value) {
   final text = _admissionText(value);
-  if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(text))
+  if (!RegExp(r'^[0-9a-f]{64}$').hasMatch(text)) {
     throw const FormatException('Invalid Runner dispatch admission digest.');
+  }
   return text;
 }
 
@@ -444,21 +447,24 @@ String _admissionState(Object? value) {
     'completed',
     'failed',
     'uncertain',
-  }.contains(state))
+  }.contains(state)) {
     throw const FormatException('Invalid Runner dispatch admission state.');
+  }
   return state;
 }
 
 List<String> _admissionReasons(Object? value) {
-  if (value is! List)
+  if (value is! List) {
     throw const FormatException('Invalid Runner dispatch admission reasons.');
+  }
   final values = value.map(_admissionIdentifier).toList(growable: false);
   final sorted = [...values]..sort();
   if (values.join('|') != sorted.join('|') ||
-      values.toSet().length != values.length)
+      values.toSet().length != values.length) {
     throw const FormatException(
       'Runner dispatch admission reasons are not sorted uniquely.',
     );
+  }
   return values;
 }
 

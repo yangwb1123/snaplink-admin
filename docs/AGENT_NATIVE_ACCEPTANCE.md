@@ -85,6 +85,34 @@ and both runtime test groups. See the
 The integrated code and workflow received an independent read-only review with
 no blocking findings. Workflow YAML and applicable Bash syntax were checked.
 
+## Local revalidation (2026-09-27)
+
+This host currently has Flutter 3.49.0-0.1.pre, not the workflow's pinned
+3.47.4 stable SDK; results below are local evidence and do not replace a run of
+the configured CI workflow.
+
+- `flutter analyze --no-pub`: passed with no issues.
+- Debug Android APK, `:app:assembleDebugAndroidTest`, and
+  `:app:testDebugUnitTest`: passed.
+- `android/tests/run_workspace_instrumentation.py` on the local API 36.1 English
+  emulator: all 9 instrumentation tests passed (48.65 seconds).
+- Focused native workspace Flutter tests: 17 passed; Python unit tests: 24
+  passed; browser suite: 61 passed.
+- Audit guard regressions caused by the `0xdbff` Unicode high-surrogate literal
+  were removed without weakening the guard; its baseline and mutation suites
+  pass. The two fixture-backed execution-evidence tests now explicitly skip
+  when their required external fixture paths are absent; those acceptance cases
+  remain unrun without the fixtures.
+- The pending-timeline refresh test now uses an owner-bound test JWT so its
+  local cursor checkpoint can persist; this removes the duplicate-read fixture
+  failure. Forge literal copy now uses `LocalizedText`, and the missing Chinese
+  catalog entries are filled. Full `flutter test --no-pub -r expanded` passes:
+  2,054 passed, 172 skipped, and no failures. The run log is
+  `/tmp/snaplink-console-flutter-test-file-splits-final.log`.
+- Linux debug build was attempted but this host lacks `libsecret-1`; the native
+  workflow now installs `libsecret-1-dev`. The local Linux application and C++
+  test have therefore not been verified in this run.
+
 ## Remaining acceptance boundaries
 
 Android instrumentation does not traverse MainActivity, FlutterEngine, the

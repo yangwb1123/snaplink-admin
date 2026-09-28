@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/forge_device_inventory_declaration.dart';
 import 'package:sso_admin/api/forge_pending_run_intent.dart';
 
@@ -28,12 +29,12 @@ class ForgePendingRunIntentSubmissionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
+            LocalizedText(
               'Scheduling review requested',
               style: theme.textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
-            const Text(
+            const LocalizedText(
               'Candidate receipt only. No Run was created, no device was selected, and no execution authority was granted.',
             ),
             const SizedBox(height: 12),
@@ -72,8 +73,8 @@ class _AuthorityRow extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(width: 150, child: Text('Authority')),
-        Expanded(child: Text('offline · all execution flags false')),
+        SizedBox(width: 150, child: LocalizedText('Authority')),
+        Expanded(child: LocalizedText('offline · all execution flags false')),
       ],
     ),
   );
