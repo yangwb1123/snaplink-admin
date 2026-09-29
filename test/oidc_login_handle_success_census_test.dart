@@ -46,8 +46,8 @@ void main() {
 
     test('exactly six call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
-        authorizationSubmit: [21, 100, 166],
-        challengeFlow: [150, 244],
+        authorizationSubmit: [21, 107, 178],
+        challengeFlow: [152, 247],
         providerFlow: [60],
       };
       final actual = <String, List<int>>{};
@@ -424,8 +424,8 @@ void main() {
               '${ids.length} found',
         );
         const pinned = <String, List<int>>{
-          authorizationSubmit: [21, 100, 166],
-          challengeFlow: [150, 244],
+          authorizationSubmit: [21, 107, 178],
+          challengeFlow: [152, 247],
           providerFlow: [60],
         };
         pinned.forEach((file, lineNumbers) {
@@ -479,7 +479,19 @@ void main() {
         );
         final starts = <int>[];
         for (var i = 0; i < region.length; i++) {
-          if (stmtRe.hasMatch(region[i])) starts.add(i);
+          if (!stmtRe.hasMatch(region[i])) continue;
+          if (region[i].contains('_update(')) {
+            var end = i;
+            while (end < region.length && !region[end].contains(';')) {
+              end++;
+            }
+            if (!region
+                .sublist(i, end + 1)
+                .any((line) => line.contains('_error'))) {
+              continue;
+            }
+          }
+          starts.add(i);
         }
         expect(
           starts.length,

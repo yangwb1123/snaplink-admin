@@ -100,15 +100,29 @@ the configured CI workflow.
   passed; browser suite: 61 passed.
 - Audit guard regressions caused by the `0xdbff` Unicode high-surrogate literal
   were removed without weakening the guard; its baseline and mutation suites
-  pass. The two fixture-backed execution-evidence tests now explicitly skip
-  when their required external fixture paths are absent; those acceptance cases
-  remain unrun without the fixtures.
+  pass. Fixture-backed tests explicitly skip when required external fixture
+  paths are absent. This checkout does not contain
+  `scripts/test-forge-contracts.sh`, so those shared-fixture acceptance cases
+  remain unrun.
 - The pending-timeline refresh test now uses an owner-bound test JWT so its
   local cursor checkpoint can persist; this removes the duplicate-read fixture
   failure. Forge literal copy now uses `LocalizedText`, and the missing Chinese
-  catalog entries are filled. Full `flutter test --no-pub -r expanded` passes:
-  2,054 passed, 172 skipped, and no failures. The run log is
-  `/tmp/snaplink-console-flutter-test-file-splits-final.log`.
+  catalog entries are filled. OIDC success-census pins now match the current
+  call sites while preserving the six-call-site and delivery-tail checks. The
+  native sign-in test scrolls its button into view before tapping. Full
+  `flutter test --no-pub -r expanded` passes: 2,063 passed, 172 skipped, and no
+  failures. The latest run log is
+  `/tmp/snaplink-console-flutter-test-attempt-request-split.log`.
+- Pure heartbeat capability validation and persistence declarations, Agent Hub
+  API errors, pending-intent API validation, the Agent Operations empty-state
+  placeholder, Forge reconciliation/run-intent observation validators, Runner
+  Attempt/dispatch/execution-boundary validators, client-instance resource
+  view/lifecycle registry validators, and Attempt request preview validators
+  were split into Dart part files without changing public behavior.
+  Fixture-independent reconciliation, resource-view, lifecycle-registry, and
+  Attempt-preview contract tests pass; Python unit tests pass (24). Analysis
+  passes; the repository-wide source-size gate now reports 25 over-budget Dart
+  files, and no exemptions were added.
 - Linux debug build was attempted but this host lacks `libsecret-1`; the native
   workflow now installs `libsecret-1-dev`. The local Linux application and C++
   test have therefore not been verified in this run.

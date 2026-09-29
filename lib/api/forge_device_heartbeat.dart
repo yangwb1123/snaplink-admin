@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 part 'forge_device_heartbeat_codec.dart';
+part 'forge_device_heartbeat_capability_validation.dart';
 part 'forge_device_heartbeat_fixture.dart';
 
 /// Pure Runner-heartbeat sequencing values for the future Forge inventory

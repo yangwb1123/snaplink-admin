@@ -5,6 +5,7 @@ import 'forge_device_heartbeat.dart';
 export 'forge_device_heartbeat.dart';
 
 part 'forge_device_heartbeat_persistence_codec.dart';
+part 'forge_device_heartbeat_persistence_declarations.dart';
 part 'forge_device_heartbeat_persistence_fixture.dart';
 
 /// Pure value-level compare-and-swap planning for a future Forge heartbeat

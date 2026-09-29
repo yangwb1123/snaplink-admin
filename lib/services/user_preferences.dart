@@ -97,7 +97,7 @@ class SnaplinkUserPreferencesClient {
     return _decode(response.body);
   }
 
-  /// Merges the allowlisted values at the BFF/Snaplink endpoint.
+  /// Merges the allowlisted values at the service boundary.
   Future<bool> updateMyPreferences(
     PresentationPreferencesPatch preferences,
   ) async {

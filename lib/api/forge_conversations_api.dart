@@ -39,6 +39,7 @@ part 'forge_conversations_client_instance_resource_view_api.dart';
 part 'forge_conversations_client_instance_session_view_api.dart';
 part 'forge_conversations_client_instance_session_resource_convergence_api.dart';
 part 'forge_conversations_pending_intent_api.dart';
+part 'forge_conversations_pending_intent_api_validation.dart';
 part 'forge_conversations_execution_consent_api.dart';
 part 'forge_conversations_session_runner_receipt_api.dart';
 part 'forge_conversations_session_runner_receipt_history_api.dart';

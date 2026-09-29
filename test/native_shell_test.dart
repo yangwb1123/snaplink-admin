@@ -14,7 +14,6 @@ import 'package:sso_admin/services/app_navigator.dart';
 import 'package:sso_admin/services/browser_navigation.dart';
 import 'package:sso_admin/session.dart';
 
-
 /// 登录表单输入框：登录头下拉（DropdownMenu 内部也是 TextField）使按类型
 /// 索引不稳定，用 autofillHints 定位。
 Finder usernameField() => find.byWidgetPredicate(
@@ -173,7 +172,10 @@ void main() {
 
     await tester.enterText(usernameField(), 'native-admin');
     await tester.enterText(passwordField(), 'password');
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    final signInButton = find.widgetWithText(FilledButton, 'Sign in');
+    await tester.ensureVisible(signInButton);
+    await tester.pumpAndSettle();
+    await tester.tap(signInButton);
     await tester.pumpAndSettle();
 
     expect(

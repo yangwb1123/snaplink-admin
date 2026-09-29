@@ -11,34 +11,13 @@ import 'agent_session_creation_models.dart';
 import 'agent_session_close_models.dart';
 import 'agent_session_operation_models.dart';
 
+part 'agent_hub_api_errors.dart';
 part 'agent_hub_api_response.dart';
 part 'agent_placement_api.dart';
 part 'agent_hub_workspace_api.dart';
 part 'agent_session_creation_api.dart';
 part 'agent_session_close_api.dart';
 part 'agent_session_operations_api.dart';
-
-class AgentHubApiException implements Exception {
-  final int statusCode;
-  final String code;
-  final String message;
-
-  const AgentHubApiException({
-    required this.statusCode,
-    required this.code,
-    required this.message,
-  });
-
-  bool get isUnauthorized => statusCode == 401;
-  bool get isForbidden => statusCode == 403;
-  bool get isUnconfigured =>
-      code == 'agent_hub_unconfigured' || code == 'hub_unconfigured';
-
-  @override
-  String toString() => message;
-}
-
-typedef AgentHubUnauthorizedHandler = void Function(AgentHubApiException error);
 
 /// Authenticated transport for the Agent Hub API. It sends the Snaplink
 /// bearer only in the Authorization header and never retries writes itself.

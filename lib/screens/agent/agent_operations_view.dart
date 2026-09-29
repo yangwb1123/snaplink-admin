@@ -8,6 +8,8 @@ import 'agent_session_list.dart';
 import 'agent_device_directory.dart';
 import 'agent_compute_tasks_panel.dart';
 
+part 'agent_operations_view_placeholder.dart';
+
 class AgentOperationsView extends StatelessWidget {
   final List<AgentInstance> instances;
   final List<AgentSession> sessions;
@@ -391,27 +393,6 @@ class AgentOperationsView extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    ),
-  );
-}
-
-class _SelectSessionPlaceholder extends StatelessWidget {
-  const _SelectSessionPlaceholder();
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.forum_outlined, size: 48),
-          const SizedBox(height: 16),
-          Text(
-            context.tr('Select an instance or session to view Agent activity.'),
-          ),
-        ],
       ),
     ),
   );
