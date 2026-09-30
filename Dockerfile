@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS build
+FROM python:3.14-slim AS build
 
 # Keep the SDK version and archive checksum together. Flutter's Linux release
 # archives are xz-compressed; pinning both prevents a moving build toolchain
