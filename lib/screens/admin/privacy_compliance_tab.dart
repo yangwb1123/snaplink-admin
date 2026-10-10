@@ -134,6 +134,12 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
       destructive: true,
     );
     if (!confirmed) return;
+    // Invalidate the preview before sending a write. A failed/unknown result
+    // requires fresh reconciliation and confirmation, not a closure replay.
+    setState(() {
+      _erasurePreview = null;
+      _previewSubject = null;
+    });
     await _run(() async {
       final report = await widget.api.post(
         '$_subjectPrefix/${Uri.encodeComponent(subject)}/erase',
@@ -145,7 +151,7 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
         _erasurePreview = null;
         _previewSubject = null;
       });
-    });
+    }, retryable: false);
   }
 
   Future<void> _retention({required bool dryRun}) async {
@@ -165,14 +171,17 @@ class _PrivacyComplianceTabState extends State<PrivacyComplianceTab> {
     await _run(() async {
       final report = await widget.api.post(_retentionPath, {'dry_run': dryRun});
       if (mounted) setState(() => _retentionReport = report);
-    });
+    }, retryable: dryRun);
   }
 
-  Future<void> _run(Future<void> Function() operation) async {
+  Future<void> _run(
+    Future<void> Function() operation, {
+    bool retryable = true,
+  }) async {
     setState(() {
       _busy = true;
       _error = null;
-      _lastOperation = operation;
+      _lastOperation = retryable ? operation : null;
     });
     try {
       await operation();

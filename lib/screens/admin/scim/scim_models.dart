@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:sso_admin/services/sensitive_data.dart';
+import 'package:sso_admin/api/snaplink_admin_api.dart';
 
 const scimContentType = 'application/scim+json';
 const scimBasePath = '/api/v1/scim/v2';
@@ -43,8 +44,16 @@ class ScimListPage {
   });
 
   factory ScimListPage.fromJson(Map<String, dynamic> json) {
-    final resources = (json['Resources'] as List? ?? const [])
-        .whereType<Map>()
+    final values = json['Resources'];
+    if (values is! List || values.any((value) => value is! Map)) {
+      throw const SnaplinkAdminApiError(
+        502,
+        code: 'invalid_scim_response',
+        description: 'The SCIM response has an invalid Resources collection.',
+      );
+    }
+    final resources = values
+        .cast<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList(growable: false);
     return ScimListPage(
@@ -56,7 +65,8 @@ class ScimListPage {
   }
 
   bool get hasPrevious => startIndex > 1;
-  bool get hasNext => startIndex + itemsPerPage <= totalResults;
+  bool get hasNext =>
+      itemsPerPage > 0 && startIndex + itemsPerPage <= totalResults;
 }
 
 class ScimServiceProfile {

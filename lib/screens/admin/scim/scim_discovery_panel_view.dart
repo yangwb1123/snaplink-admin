@@ -22,6 +22,7 @@ extension _ScimDiscoveryPanelView on _ScimDiscoveryPanelState {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        if (_error != null) ErrorStateCard(message: _error!, onRetry: _load),
         SectionHeader(
           'Provider capabilities',
           action: IconButton(
@@ -37,7 +38,7 @@ extension _ScimDiscoveryPanelView on _ScimDiscoveryPanelState {
         SectionHeader('Implemented schemas'),
         const SizedBox(height: 8),
         _groupProvisioningCard(),
-        if (_schemas.isEmpty)
+        if (_schemas.isEmpty && _error == null)
           const EmptyState(
             variant: EmptyStateVariant.empty,
             compact: true,

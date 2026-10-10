@@ -113,7 +113,10 @@ void main() {
       final api = _api({
         '/api/v1/admin/wasmauthz/check': (request) {
           posted.add(request.body);
-          return http.Response(jsonEncode({'decision': 'allow'}), 200);
+          return http.Response(
+            jsonEncode({'allowed': true, 'reason': 'fixture policy'}),
+            200,
+          );
         },
       });
       await _pump(
@@ -132,13 +135,18 @@ void main() {
 
       await tester.enterText(
         find.byType(TextField).last,
-        jsonEncode({'principal': 'user-1', 'action': 'read'}),
+        jsonEncode({
+          'subject': 'user-1',
+          'action': 'read',
+          'resource': 'doc:1',
+        }),
       );
       await tester.tap(find.text('Check WASM'));
       await tester.pumpAndSettle();
 
-      expect(posted.single, contains('"principal":"user-1"'));
-      expect(find.textContaining('"decision": "allow"'), findsOneWidget);
+      expect(posted.single, contains('"subject":"user-1"'));
+      expect(posted.single, contains('"resource":"doc:1"'));
+      expect(find.textContaining('"allowed": true'), findsOneWidget);
     });
   });
 

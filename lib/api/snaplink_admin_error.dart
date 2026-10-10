@@ -69,19 +69,46 @@ Map<String, dynamic> decodeSnaplinkAdminPayload(String payload) {
   return const {};
 }
 
+SnaplinkAdminApiError invalidSnaplinkAdminResponse(
+  int status,
+) => SnaplinkAdminApiError(
+  status,
+  code: 'invalid_response',
+  description:
+      'The server returned an invalid JSON response. Check the API proxy configuration.',
+);
+
+/// Successful JSON endpoints must not turn an SPA fallback into empty data.
+/// Error pages remain discarded by [decodeSnaplinkAdminPayload]; embedded HTML
+/// documentation intentionally uses the separate getText transport.
+Map<String, dynamic> decodeSnaplinkAdminSuccess(int status, String payload) {
+  if (payload.isEmpty) return const {};
+  try {
+    final decoded = jsonDecode(payload);
+    if (decoded is Map<String, dynamic>) return decoded;
+  } on FormatException {
+    // Never reflect an HTML response (which may contain PII) into the UI.
+  }
+  throw invalidSnaplinkAdminResponse(status);
+}
+
 /// Maps OAuth, generic API, and RFC 7644 SCIM errors into one public shape.
 SnaplinkAdminApiError snaplinkAdminError(
   int status,
   Map<String, dynamic> data,
 ) {
+  final error = data['error'];
+  final nested = error is Map ? error : const <String, dynamic>{};
   return SnaplinkAdminApiError(
     status,
     code:
-        data['error']?.toString() ??
+        nested['code']?.toString() ??
+        (error is String ? error : null) ??
         data['code']?.toString() ??
         data['scimType']?.toString(),
     description:
         data['error_description']?.toString() ??
+        nested['message']?.toString() ??
         data['message']?.toString() ??
         data['detail']?.toString(),
     data: Map<String, dynamic>.unmodifiable(data),

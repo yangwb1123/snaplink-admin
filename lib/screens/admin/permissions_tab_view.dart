@@ -32,7 +32,8 @@ extension _PermissionsTabView on _PermissionsTabState {
       const SizedBox(height: 12),
       const SkeletonListTile(itemCount: 3),
     ],
-    if (clientId != null && !_loading) ..._loadedPermissionSections(),
+    if (clientId != null && _loadedClient == clientId && !_loading)
+      ..._loadedPermissionSections(),
   ];
 
   Widget _clientSelector(Color accent) => LayoutBuilder(
@@ -42,7 +43,8 @@ extension _PermissionsTabView on _PermissionsTabState {
         return PermissionsClientSelector(
           controller: _clientCtrl,
           clientId: clientId,
-          loading: _loading,
+          loading: _loading || _mutating,
+          enabled: !_mutating,
           onSearch: _searchClient,
           onSubmitted: _searchClient,
         );
@@ -56,6 +58,7 @@ extension _PermissionsTabView on _PermissionsTabState {
             width: constraints.maxWidth,
             child: TextField(
               controller: _clientCtrl,
+              enabled: !_mutating,
               decoration: InputDecoration(
                 labelText: 'Client ID'.localized,
                 hintText: 'Enter client ID and press Search'.localized,
@@ -69,7 +72,7 @@ extension _PermissionsTabView on _PermissionsTabState {
             ),
           ),
           FilledButton.icon(
-            onPressed: _loading ? null : _searchClient,
+            onPressed: _loading || _mutating ? null : _searchClient,
             icon: const Icon(Icons.search, size: 18),
             label: const LocalizedText('Search'),
           ),
@@ -116,7 +119,7 @@ extension _PermissionsTabView on _PermissionsTabState {
           ),
         ),
         IconButton(
-          onPressed: _clientId == null || _loading ? null : _load,
+          onPressed: _clientId == null || _loading || _mutating ? null : _load,
           icon: Icon(Icons.refresh, color: accent),
           tooltip: context.strings.refresh,
         ),
@@ -142,12 +145,12 @@ extension _PermissionsTabView on _PermissionsTabState {
 
   List<Widget> _loadedPermissionSections() => [
     if ((_currentSection == 'all' || _currentSection == 'roles') &&
-        _supportsRoles) ...[
+        _loadedSources.contains('roles')) ...[
       const SizedBox(height: 12),
       _roleSection(),
     ],
     if ((_currentSection == 'all' || _currentSection == 'assignments') &&
-        _supportsAssignments) ...[
+        _loadedSources.contains('assignments')) ...[
       const SizedBox(height: 12),
       _assignmentSection(),
     ],
@@ -192,7 +195,7 @@ extension _PermissionsTabView on _PermissionsTabState {
           ),
         ),
         TextButton(
-          onPressed: _clientId == null ? null : _load,
+          onPressed: _clientId == null || _mutating ? null : _load,
           child: const LocalizedText('Retry'),
         ),
       ],

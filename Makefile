@@ -1,4 +1,4 @@
-.PHONY: build build-prod test test-browser guard-count-pin analyze k8s-render serve clean watch verify benchmark full-stack integration
+.PHONY: build build-prod test test-browser test-browser-sso guard-count-pin analyze k8s-render serve clean watch verify benchmark full-stack integration
 
 SNAPLINK_API_URL ?= http://localhost:8080
 SNAPLINK_PROXY_PORT ?= 4444
@@ -94,6 +94,12 @@ guard-count-pin:
 # 账户 action、门户安全与 Admin → hosted-login resource 传递）
 test-browser:
 	flutter test --platform chrome test/admin_gate_test.dart test/browser_navigation_web_test.dart test/federated_login_web_test.dart test/oidc_account_action_web_test.dart test/portal_security_web_test.dart test/portal_entry_test.dart test/web_adapters_test.dart test/agent_workspace_file_web_test.dart test/agent_workspace_api_test.dart test/agent_workspace_models_test.dart test/forge_web_gate_test.dart
+
+# 独立 stock OP + HTTPS gateway + 两个 RP；不管理现有监听器。
+# 先 make build-prod，并按 tests/integration/README.md 安装可选浏览器依赖。
+BROWSER_SSO_ARGS ?=
+test-browser-sso:
+	python3 tests/integration/browser_sso_test.py $(BROWSER_SSO_ARGS)
 
 # 静态分析
 analyze:

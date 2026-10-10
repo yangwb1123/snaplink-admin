@@ -6,6 +6,7 @@ import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/api/admin_paths.dart';
 import 'package:sso_admin/api/snaplink_admin_api.dart';
+import 'package:sso_admin/widgets/async_view.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
@@ -39,6 +40,8 @@ class _PanelState extends State<DistributedClusterPanel> {
   List<String> _jwksKids = const [];
   List<_ClusterCheck>? _testResults;
   bool _testing = false;
+  String? _readError;
+  int _reqSeq = 0;
   Timer? _autoRefresh;
 
   static const _distributedReadyzChecks = [
@@ -68,18 +71,27 @@ class _PanelState extends State<DistributedClusterPanel> {
         AppSettings.instance.locale,
       ).translate(source, values);
 
-  Future<Map<String, dynamic>> _quiet(String path) =>
-      widget.api.get(path).catchError((_) => <String, dynamic>{});
+  Future<Map<String, dynamic>> _quiet(String path) => widget.api
+      .get(path, forceRefresh: true)
+      .catchError(
+        (Object error) => <String, dynamic>{'error': error.toString()},
+      );
 
   Future<void> _refresh() async {
+    final seq = ++_reqSeq;
     final results = await Future.wait([
       _quiet('/readyz'),
       _quiet('/api/v1/status'),
       _quiet('/api/v1/admin/keys'),
       _quiet('/.well-known/jwks.json'),
     ]);
-    if (!mounted) return;
+    if (!mounted || seq != _reqSeq) return;
     setState(() {
+      final failures = results
+          .where((r) => r['error'] != null)
+          .map((r) => r['error'].toString())
+          .join('\n');
+      _readError = failures.isEmpty ? null : failures;
       _readyz = results[0] as Map<String, dynamic>?;
       _status = results[1] as Map<String, dynamic>?;
       _keys = results[2] as Map<String, dynamic>?;
@@ -119,23 +131,29 @@ class _PanelState extends State<DistributedClusterPanel> {
     // 2. Cross-replica token validation: 5 probes through the LB; every
     // request may land on a different replica, so any 401 means the
     // replicas disagree about this token's key.
+    var failed = 0;
     var unauthorized = 0;
     // Bounded retry probe (5 attempts): the await is intentional —
     // replicas may disagree about this token's key (not an N+1 list).
     for (var i = 0; i < 5; i++) {
       try {
-        await widget.api.get(AdminPaths.endpointInventory);
-      } catch (_) {
-        unauthorized++;
+        await widget.api.get(AdminPaths.endpointInventory, forceRefresh: true);
+      } catch (error) {
+        failed++;
+        if (error is SnaplinkAdminApiError && error.status == 401) {
+          unauthorized++;
+        }
       }
     }
     results.add(
       _ClusterCheck(
         _t('Cross-replica token validation'),
-        unauthorized == 0,
-        unauthorized == 0
+        failed == 0,
+        failed == 0
             ? _t('5/5 probes authorized')
-            : _t('{n} of 5 probes unauthorized', {'n': unauthorized}),
+            : unauthorized == failed
+            ? _t('{n} of 5 probes unauthorized', {'n': unauthorized})
+            : _t('{n} of 5 probes failed', {'n': failed}),
       ),
     );
 
@@ -163,8 +181,10 @@ class _PanelState extends State<DistributedClusterPanel> {
     results.add(
       _ClusterCheck(
         _t('Backend module checks'),
-        badModules.isEmpty,
-        badModules.isEmpty
+        modules.isNotEmpty && badModules.isEmpty,
+        modules.isEmpty
+            ? _t('No backend health data reported')
+            : badModules.isEmpty
             ? _t('All backends reachable')
             : _t('{n} backend module(s) failing', {'n': badModules.length}),
       ),

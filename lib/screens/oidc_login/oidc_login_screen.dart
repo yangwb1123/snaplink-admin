@@ -43,6 +43,7 @@ part 'oidc_authorization_submit.dart';
 part 'oidc_challenge_flow.dart';
 part 'oidc_login_view_flow.dart';
 part 'oidc_provider_flow.dart';
+part 'oidc_session_flow.dart';
 
 enum _View {
   login,
@@ -180,6 +181,7 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   String? _verificationToken;
 
   bool _checkingFederatedReturn = true;
+  bool _sessionAttemptHandled = false;
 
   String get _effectiveClientId => _params.clientId.isNotEmpty
       ? _params.clientId
@@ -242,21 +244,10 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
     }
 
     _loadBranding();
-    if (_provider == 'password' && _route.flow == HostedLoginFlow.login) {
-      unawaited(_loadBrowserPasswordCredential());
-    }
     if (_route.requiresAuthentication) {
       _checkFederatedReturn();
     } else {
       _checkingFederatedReturn = false;
-    }
-    if (_effectiveClientId.isNotEmpty &&
-        _route.requiresAuthentication &&
-        _federatedContinuationId == null &&
-        !FederatedLogin.hasPendingReturn(location: _routeUri) &&
-        !_route.shouldAutoSubmitMagicLink &&
-        !_params.hasPromptNone) {
-      _probeProviders();
     }
   }
 

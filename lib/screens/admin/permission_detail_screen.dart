@@ -7,6 +7,7 @@ import 'package:sso_admin/widgets/empty_state.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'package:sso_admin/api/sso_client.dart';
+import 'package:sso_admin/services/browser_navigation.dart';
 import 'admin_module_groups.dart';
 import 'admin_route.dart';
 
@@ -34,6 +35,8 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   String? _error;
   bool _loading = true;
   int _tabIndex = 0;
+  int _reqSeq = 0;
+  late final void Function() _cancelPopState;
 
   static const _tabs = [
     ('roles', 'Roles', Icons.shield_outlined),
@@ -43,34 +46,55 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   @override
   void initState() {
     super.initState();
-    final route = AdminRoute.current();
-    for (var i = 0; i < _tabs.length; i++) {
-      if (_tabs[i].$1 == route.subresource) {
-        _tabIndex = i;
-        break;
-      }
-    }
+    _handleRoute();
+    _cancelPopState = BrowserNavigation.listenToLocationChange(() {
+      if (!mounted) return;
+      final previous = _tabIndex;
+      _handleRoute();
+      if (previous != _tabIndex) _load();
+    });
     _load();
   }
 
+  void _handleRoute() {
+    final route = AdminRoute.current();
+    if (route.module != 'permissions' || route.resourceId != widget.clientId) {
+      return;
+    }
+    setState(() => _tabIndex = route.subresource == 'assignments' ? 1 : 0);
+  }
+
+  @override
+  void dispose() {
+    _cancelPopState();
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final seq = ++_reqSeq;
+    final roles = _tabIndex == 0;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        widget.api.get(AdminPaths.permissionRoles(widget.clientId)),
-        widget.api.get(AdminPaths.permissionAssignments(widget.clientId)),
-      ]);
-      if (!mounted) return;
+      final result = await widget.api.get(
+        roles
+            ? AdminPaths.permissionRoles(widget.clientId)
+            : AdminPaths.permissionAssignments(widget.clientId),
+        forceRefresh: true,
+      );
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
-        _roles = results[0] as Map<String, dynamic>?;
-        _assignments = results[1] as Map<String, dynamic>?;
+        if (roles) {
+          _roles = result;
+        } else {
+          _assignments = result;
+        }
         _loading = false;
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
@@ -86,6 +110,7 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
       resourceId: widget.clientId,
       subresource: subresource,
     );
+    _load();
   }
 
   @override
@@ -147,12 +172,17 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   }
 
   Widget _rolesList(BuildContext context, Color accent) {
-    final items = _roles?.values.first as List? ?? [];
+    final items = (_roles?['roles'] as List? ?? const []).whereType<Map>();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
           ? [const EmptyState(compact: true, title: 'No roles defined')]
-          : items.map((r) => _roleCard(context, r, accent)).toList(),
+          : items
+                .map(
+                  (r) =>
+                      _roleCard(context, Map<String, dynamic>.from(r), accent),
+                )
+                .toList(),
     );
   }
 
@@ -180,12 +210,21 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
   }
 
   Widget _assignmentList(BuildContext context, Color accent) {
-    final items = _assignments?.values.first as List? ?? [];
+    final items = (_assignments?['assignments'] as List? ?? const [])
+        .whereType<Map>();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: items.isEmpty
           ? [const EmptyState(compact: true, title: 'No assignments')]
-          : items.map((a) => _assignmentCard(context, a, accent)).toList(),
+          : items
+                .map(
+                  (a) => _assignmentCard(
+                    context,
+                    Map<String, dynamic>.from(a),
+                    accent,
+                  ),
+                )
+                .toList(),
     );
   }
 
@@ -194,7 +233,10 @@ class _PermissionDetailScreenState extends State<PermissionDetailScreen> {
     Map<String, dynamic> a,
     Color accent,
   ) {
-    final role = a['role']?.toString() ?? a['role_id']?.toString() ?? '';
+    final roles = a['roles'];
+    final role = roles is List
+        ? roles.map((value) => value.toString()).join(', ')
+        : a['role']?.toString() ?? a['role_id']?.toString() ?? '';
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(

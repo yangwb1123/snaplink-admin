@@ -206,8 +206,9 @@ extension SSOAdminClientResources on SSOAdminClient {
 
   /// Fetch a single domain by hostname.
   Future<Map<String, dynamic>> getDomain(String hostname) async {
-    final data = await _get(AdminPaths.domain(hostname));
-    return data as Map<String, dynamic>;
+    final data =
+        await _get(AdminPaths.domain(hostname)) as Map<String, dynamic>;
+    return (data['domain'] as Map<String, dynamic>?) ?? data;
   }
 
   /// Fetch the active entry for a credential type from the inventory.

@@ -45,7 +45,9 @@ operator grants。必须先配置 Snaplink first-party Console OAuth client 的
 
 接入三态门禁的能力页遵循：清单加载中显示加载态，清单读取失败显示可重试错误，
 清单成功但不包含路由才显示“未启用”。这些页面不会在探测失败时误发读取或
-高风险写请求；设备安全页和 Checkout 均使用运行时事实。
+高风险写请求；设备安全页和 Checkout 均使用运行时事实。连接、网络策略、访问策略
+和 Webhook 的菜单页与详情深链共用运行时边界；清单刷新绕过旧缓存。
+网关专属路由及独立的审计、计费服务不会因身份清单缺席而被误判为未启用。
 
 导航条目与页面保持同一个描述对象，因此能力裁剪不会造成索引错位。高频和
 高风险场景使用专用工作流；其余已发布管理契约由 Advanced operations 提供
@@ -85,6 +87,11 @@ Agent 工作区支持在具备文件通道的原生宿主中选择输入 JSON、
 来源必须是纯 HTTPS origin；仅 localhost、127/8 和 `::1` 环回地址允许 HTTP。
 Web 版本始终使用当前页面同源，不接受来源覆盖。
 
+跨应用免密码复用的是 Snaplink 的 HttpOnly OP 身份会话，不是应用 Token。
+后端明确开启 `oidc.browser_sso.enabled` 后，普通 RP code 登录可恢复身份，
+各应用仍独立授权、consent 和签发凭据；强制重新认证和 MFA 不绕过。配置、
+PAR/JAR 边界及真实部署验收见 [浏览器 SSO](docs/BROWSER_SSO.md)。
+
 密码、邮箱/手机验证码和 TOTP 登录可在原生壳中完成，Bearer 只保存在进程
 内存并通过应用内路由续接；未认证 Portal 会进入统一登录并在成功后安全返回
 原页面，Admin 的模块、详情和子资源路由也使用同一应用内历史状态。依赖浏览器
@@ -100,9 +107,9 @@ flutter pub get --enforce-lockfile
 # 工程结构检查读取 engineering.yaml
 python3 -m pip install -r requirements-dev.txt
 
-# 启动开发代理；Agent Hub 未配置时 /api/v1/agent 明确返回 503，不回退到 Snaplink
-# 地址可通过 SNAPLINK_API_URL/SNAPLINK_PROXY_PORT 覆盖
-# 将占位符替换为已部署的 Audit Governance HTTP(S) origin；不要省略此设置
+# 启动开发代理；SNAPLINK_API_URL 必须指向可连通的 Snaplink 部署
+# 将占位符替换为实际 HTTP(S) origin；代理端口由 SNAPLINK_PROXY_PORT 覆盖
+SNAPLINK_API_URL='<your-snaplink-origin>' \
 AUDIT_GOVERNANCE_UPSTREAM='<your-audit-governance-origin>' make serve
 
 # 另一个终端构建 Web 产物
@@ -117,12 +124,37 @@ Agent Operations；开发代理未配置时返回 `agent_hub_unconfigured`。控
 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
 所连接的 Snaplink 部署决定，不应在前端仓库中保存默认生产凭据。
 
+开发代理的独立服务配置与路径如下；未配置时返回带配置提示的 JSON 503，
+不会隐式转给 Snaplink 身份 API。最小部署若确有兼容网关，也必须显式指定其 origin。
+
+| 服务 | 环境变量 | 同源 API 路径 |
+|---|---|---|
+| Billing | `SNAPLINK_BILLING_UPSTREAM` | `/api/v1/admin/commerce`、`/api/v1/commerce`、`/api/v1/metering` |
+| Checkout | `SNAPLINK_STRIPE_ADAPTER_UPSTREAM` | `/api/v1/checkout/sessions`（精确匹配；兼容旧 `SNAPLINK_STRIPE_ADAPTER_URL`） |
+| Audit Governance | `AUDIT_GOVERNANCE_UPSTREAM` | `/api/v1/audit/events`、`/api/v1/audit/facets` |
+| Agent Hub | `AGENT_HUB_UPSTREAM` | `/api/v1/agent` |
+| Forge | `FORGE_CONVERSATIONS_UPSTREAM` | `/api/v1/conversations`、`/api/v1/conversation-changes` |
+
+遇到页面/子菜单接口错误时，先检查实际 Snaplink origin 的 `/health` 和代理的
+`/health`、`/readyz`：502 表示上游连通性问题，不能通过改菜单或返回空数据修复；
+503 配置错误需设置对应服务 origin。401 需重新认证，403 是权限/租户边界拒绝，
+不能当成未登录。可选功能是否启用以成功获取的运行时清单及服务契约为准。
+API 返回 HTML 会明确报代理/响应错误，而不是显示假空列表。不要对生产部署运行
+会创建或修改数据的集成测试来“试接口”。
+
+逐页数据契约、子菜单请求隔离与内容回归范围见
+[Admin 数据请求复核](docs/ADMIN_DATA_REQUEST_REVIEW.md)。
+25 个非豁免超长文件的完整拆分与验收记录见
+[结构门禁修复](docs/STRUCTURE_REFACTOR.md)；仓内全绿不等于真实部署联调完成。
+
 ## 质量门禁
 
 ```bash
-flutter analyze
-make test
+python3 cli.py check
+python3 cli.py test
+make analyze
 make build-prod
+make release-artifact-check
 git diff --check
 ```
 

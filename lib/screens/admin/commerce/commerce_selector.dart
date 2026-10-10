@@ -10,6 +10,7 @@ class CommerceTenantSelector extends StatelessWidget {
   final TextEditingController tenant;
   final TextEditingController currency;
   final bool enabled;
+  final bool editable;
   final VoidCallback onLoad;
 
   const CommerceTenantSelector({
@@ -17,6 +18,7 @@ class CommerceTenantSelector extends StatelessWidget {
     required this.tenant,
     required this.currency,
     required this.enabled,
+    this.editable = true,
     required this.onLoad,
   });
 
@@ -28,11 +30,13 @@ class CommerceTenantSelector extends StatelessWidget {
         builder: (context, constraints) {
           final tenantField = TextField(
             controller: tenant,
+            enabled: editable,
             textInputAction: TextInputAction.next,
             decoration: InputDecoration(labelText: 'Tenant ID'.localized),
           );
           final currencyField = TextField(
             controller: currency,
+            enabled: editable,
             textCapitalization: TextCapitalization.characters,
             textInputAction: TextInputAction.done,
             onSubmitted: enabled ? (_) => onLoad() : null,

@@ -621,12 +621,32 @@ void main() {
       final chip = tester.widget<StatusChip>(find.byType(StatusChip));
       expect(chip.label, 'active');
 
-      // 3-card mini strip with real payload values.
+      // Unread invitations are unknown, not a made-up zero metric. Load
+      // that submenu, then return to members before pinning all three real
+      // metrics and their original persona ordering.
+      expect(find.byType(KeyMetricCard), findsNWidgets(2));
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Invitations'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Members (3)'));
+      await tester.pumpAndSettle();
       expect(find.byType(KeyMetricCard), findsNWidgets(3));
-      expect(find.text('Members'), findsOneWidget);
-      expect(find.text('Invitations'), findsOneWidget);
-      expect(find.text('3'), findsOneWidget);
-      expect(find.text('eu-west-1'), findsOneWidget);
+      final metrics = find.byType(KeyMetricCard);
+      expect(
+        find.descendant(of: metrics, matching: find.text('Members')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: metrics, matching: find.text('Invitations')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: metrics, matching: find.text('3')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: metrics, matching: find.text('eu-west-1')),
+        findsOneWidget,
+      );
     });
   });
 }

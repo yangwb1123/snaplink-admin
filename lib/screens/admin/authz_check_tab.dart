@@ -11,6 +11,8 @@ import 'package:sso_admin/widgets/pull_to_refresh.dart';
 import 'package:sso_admin/widgets/empty_state.dart';
 import 'admin_module_groups.dart';
 
+part 'authz_check_tab_loading.dart';
+
 /// ReBAC and WASM authorization policy check tool tab.
 ///
 /// 工作台式页面：两张互不依赖的检查卡（能力各自门控），每张卡自带
@@ -32,14 +34,13 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
   static const _wasmPath = '/api/v1/admin/wasmauthz/check';
   static const _hintRebac =
       '{"object":"document:42","relation":"viewer","subject":"user:alice"}';
-  static const _hintWasm = '{"principal":"","action":"","resource":{}}';
+  static const _hintWasm =
+      '{"subject":"","action":"","resource":"","context":{}}';
 
   final _rebacCtrl = TextEditingController(
     text: '{"object":"","relation":"","subject":""}',
   );
-  final _wasmCtrl = TextEditingController(
-    text: '{"principal":"","action":"","resource":{}}',
-  );
+  final _wasmCtrl = TextEditingController(text: _hintWasm);
   Map<String, dynamic>? _rebacResult;
   Map<String, dynamic>? _wasmResult;
   String? _rebacError;
@@ -47,94 +48,38 @@ class _AuthzCheckTabState extends State<AuthzCheckTab> {
   bool _rebacLoading = false;
   bool _wasmLoading = false;
   String? _lastRan; // 'rebac' | 'wasm'：刷新时重跑最近一次检查。
+  int _rebacSeq = 0;
+  int _wasmSeq = 0;
 
   /// 模块强调色（identity 组 indigo-violet）：页内图标/刷新统一按组色上色。
   Color get _accent => adminModuleIconColor('authz-checks');
   bool get _hasRebac => widget.capabilities.has('GET', _rebacPath);
   bool get _hasWasm => widget.capabilities.has('POST', _wasmPath);
   bool get _busy => _rebacLoading || _wasmLoading;
+  void _update(VoidCallback mutation) => setState(mutation);
+
+  @override
+  void initState() {
+    super.initState();
+    var rebacInput = _rebacCtrl.text;
+    var wasmInput = _wasmCtrl.text;
+    _rebacCtrl.addListener(() {
+      if (rebacInput == _rebacCtrl.text) return;
+      rebacInput = _rebacCtrl.text;
+      _invalidateRebac();
+    });
+    _wasmCtrl.addListener(() {
+      if (wasmInput == _wasmCtrl.text) return;
+      wasmInput = _wasmCtrl.text;
+      _invalidateWasm();
+    });
+  }
 
   @override
   void dispose() {
     _rebacCtrl.dispose();
     _wasmCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _checkRebac() async {
-    setState(() {
-      _rebacLoading = true;
-      _rebacError = null;
-      _rebacResult = null;
-      _lastRan = 'rebac';
-    });
-    try {
-      final raw = jsonDecode(_rebacCtrl.text);
-      if (raw is! Map) throw const FormatException();
-      final data = Map<String, dynamic>.from(raw);
-      final query = <String, String>{
-        for (final key in const ['object', 'relation', 'subject'])
-          key: data[key]?.toString().trim() ?? '',
-      };
-      if (query.values.any((value) => value.isEmpty)) {
-        throw const FormatException();
-      }
-      final result = await widget.api.get(_rebacPath, query: query);
-      if (!mounted) return;
-      setState(() {
-        _rebacResult = result;
-        _rebacLoading = false;
-      });
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
-        setState(() {
-          _rebacError = e.toString();
-          _rebacLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _rebacError = 'Invalid JSON or request failed.';
-          _rebacLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _checkWasm() async {
-    setState(() {
-      _wasmLoading = true;
-      _wasmError = null;
-      _wasmResult = null;
-      _lastRan = 'wasm';
-    });
-    try {
-      final data = jsonDecode(_wasmCtrl.text);
-      final result = await widget.api.post(
-        _wasmPath,
-        data as Map<String, dynamic>,
-      );
-      if (!mounted) return;
-      setState(() {
-        _wasmResult = result;
-        _wasmLoading = false;
-      });
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) {
-        setState(() {
-          _wasmError = e.toString();
-          _wasmLoading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _wasmError = 'Invalid JSON or request failed.';
-          _wasmLoading = false;
-        });
-      }
-    }
   }
 
   /// 表单页没有后台数据可重载：刷新 = 重跑最近一次授权检查。

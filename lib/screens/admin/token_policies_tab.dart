@@ -17,6 +17,8 @@ import 'package:sso_admin/widgets/status_chip.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 
+part 'token_policies_tab_loading.dart';
+
 /// Read-only token policy collection. Usage/subject analytics belong to the
 /// usage-analytics module and are deliberately not inferred here.
 class TokenPoliciesTab extends StatefulWidget {
@@ -46,46 +48,15 @@ class _TokenPoliciesTabState extends State<TokenPoliciesTab> {
       SnaplinkAdminOperationCatalog.hasDocumentedPathPrefix(_path);
 
   @override
+  void initState() {
+    super.initState();
+    if (_available) _load();
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    final seq = ++_reqSeq;
-    setState(() {
-      _loading = true;
-      _error = null;
-      _policies = const [];
-      _page = 1;
-    });
-    try {
-      final data = await widget.api.get(_path);
-      final raw =
-          data['policies'] as List? ?? data['token_policies'] as List? ?? [];
-      final policies = raw
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList();
-      if (!mounted || seq != _reqSeq) return;
-      setState(() {
-        _policies = policies;
-        _loading = false;
-      });
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted && seq == _reqSeq) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted && seq == _reqSeq) {
-        setState(() {
-          _error = 'Could not load token policies.';
-          _loading = false;
-        });
-      }
-    }
   }
 
   List<Map<String, dynamic>> _visible() {

@@ -39,6 +39,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   bool _mutating = false;
   bool _unavailable = false;
   String? _error;
+  int _reqSeq = 0;
 
   /// 上次已应用的查询签名；筛选/排序/条数变化时 Apply 清空分页回第一页（R46）。
   (String, int, String, bool)? _lastQuery;
@@ -51,6 +52,18 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   }
 
   @override
+  void didUpdateWidget(covariant ScimResourceBrowser oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api || oldWidget.kind != widget.kind) {
+      _page = null;
+      _lastQuery = null;
+      _filterController.clear();
+      _sortBy = '';
+      _load(startIndex: 1);
+    }
+  }
+
+  @override
   void dispose() {
     _filterController.dispose();
     _startIndexController.dispose();
@@ -58,6 +71,7 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
   }
 
   Future<void> _load({int? startIndex}) async {
+    final seq = ++_reqSeq;
     final parsedStart =
         startIndex ?? int.tryParse(_startIndexController.text.trim()) ?? 1;
     final target = max(1, parsedStart);
@@ -79,11 +93,12 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
           if (_sortBy.isNotEmpty)
             'sortOrder': _descending ? 'descending' : 'ascending',
         },
+        forceRefresh: true,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() => _page = ScimListPage.fromJson(data));
     } on SnaplinkAdminApiError catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         if (error.status == 404 || error.status == 501) {
           _unavailable = true;
@@ -93,11 +108,11 @@ class _ScimResourceBrowserState extends State<ScimResourceBrowser> {
         }
       });
     } catch (_) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() => _error = context.tr('Could not load the directory.'));
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 

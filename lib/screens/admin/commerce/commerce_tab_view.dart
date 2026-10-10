@@ -45,6 +45,7 @@ extension _CommerceTabView on _CommerceTabState {
           tenant: _tenant,
           currency: _currency,
           enabled: !_tenantLoading && !_mutating,
+          editable: !_mutating,
           onLoad: _loadTenant,
         ),
         if (_tenantError != null)
@@ -56,18 +57,23 @@ extension _CommerceTabView on _CommerceTabState {
           const SkeletonListTile(itemCount: 3, variant: SkeletonVariant.card),
         if (_tenantLoaded && !_tenantLoading) ...[
           const SizedBox(height: 12),
-          CommerceSubscriptionsPanel(
-            subscriptions: _subscriptions,
-            onCreate: _mutating ? null : _createSubscription,
-            onStatus: _mutating ? null : _changeStatus,
-            onChangePlan: _mutating ? null : _changePlan,
-            onRenew: _mutating ? null : _renew,
-          ),
+          if (_tenantSources.contains('subscriptions'))
+            CommerceSubscriptionsPanel(
+              subscriptions: _subscriptions,
+              onCreate: _mutating ? null : _createSubscription,
+              onStatus: _mutating ? null : _changeStatus,
+              onChangePlan: _mutating ? null : _changePlan,
+              onRenew: _mutating ? null : _renew,
+            ),
           const SizedBox(height: 12),
-          CommerceEntitlementPanel(entitlement: _entitlement),
+          if (_tenantSources.contains('entitlement'))
+            CommerceEntitlementPanel(entitlement: _entitlement),
           const SizedBox(height: 12),
           CommerceWalletPanel(
-            currency: _currency.text,
+            currency: _currency.text.trim().toUpperCase(),
+            walletKnown: _tenantSources.contains('wallet'),
+            ledgerKnown: _tenantSources.contains('entries'),
+            ordersKnown: _tenantSources.contains('orders'),
             wallet: _wallet,
             entries: _entries,
             orders: _orders,

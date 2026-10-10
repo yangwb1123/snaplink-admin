@@ -17,6 +17,12 @@ class RobustProxyRoutingTest(unittest.TestCase):
         self.assertTrue(robust_proxy.should_proxy('PATCH', '/me/profile'))
         self.assertFalse(robust_proxy.should_proxy('GET', '/metadata'))
         self.assertFalse(robust_proxy.should_proxy('GET', '/healthcheck'))
+        self.assertTrue(robust_proxy.should_proxy('GET', '/readyz'))
+        self.assertFalse(robust_proxy.should_proxy('GET', '/readyzcheck'))
+        self.assertTrue(robust_proxy.should_proxy('GET', '/end_session?id_token_hint=fixture'))
+        self.assertTrue(robust_proxy.should_proxy('GET', '/check_session_iframe'))
+        self.assertFalse(robust_proxy.should_proxy('GET', '/end_session-evil'))
+        self.assertFalse(robust_proxy.should_proxy('GET', '/check_session_iframe-evil'))
 
     def test_checkout_uses_the_explicit_adapter_upstream(self):
         with patch.object(
@@ -109,6 +115,49 @@ class RobustProxyRoutingTest(unittest.TestCase):
                 robust_proxy.backend_for('/api/v1/audit/events'),
                 robust_proxy.BACKEND,
             )
+
+    def test_billing_and_forge_paths_use_independent_upstreams(self):
+        with patch.multiple(robust_proxy,
+                            BILLING_BACKEND='https://billing.test',
+                            FORGE_BACKEND='https://forge.test'):
+            for path in ('/api/v1/admin/commerce/plans', '/api/v1/commerce',
+                         '/api/v1/metering/usage?tenant=t%2F1'):
+                with self.subTest(path=path):
+                    self.assertEqual(robust_proxy.backend_for(path), 'https://billing.test')
+            for path in ('/api/v1/conversations',
+                         '/api/v1/conversations/c%2F1/prompts?cursor=%2F',
+                         '/api/v1/conversation-changes/stream?wait_ms=15000'):
+                with self.subTest(path=path):
+                    self.assertEqual(robust_proxy._build_backend_url(path)[0],
+                                     f'https://forge.test{path}')
+            for path in ('/api/v1/admin/commerce-x', '/api/v1/commerce-x',
+                         '/api/v1/metering-x', '/api/v1/conversations-x',
+                         '/api/v1/conversation-changes-x', '/api/v1/agent-x',
+                         '/api/v1/checkout/sessions-extra'):
+                with self.subTest(lookalike=path):
+                    self.assertEqual(robust_proxy.backend_for(path), robust_proxy.BACKEND)
+
+    def test_every_missing_independent_service_returns_json_without_fallback(self):
+        cases = (
+            ('/api/v1/agent/instances', 'agent_hub', 'AGENT_HUB_UPSTREAM'),
+            ('/api/v1/admin/commerce/plans', 'billing', 'SNAPLINK_BILLING_UPSTREAM'),
+            ('/api/v1/checkout/sessions', 'stripe_adapter', 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM'),
+            ('/api/v1/audit/events', 'audit_governance', 'AUDIT_GOVERNANCE_UPSTREAM'),
+            ('/api/v1/conversations', 'forge', 'FORGE_CONVERSATIONS_UPSTREAM'),
+        )
+        with patch.multiple(robust_proxy, AGENT_HUB_BACKEND='', BILLING_BACKEND='',
+                            STRIPE_ADAPTER_BACKEND='', AUDIT_GOVERNANCE_BACKEND='',
+                            FORGE_BACKEND=''):
+            for path, service, setting in cases:
+                with self.subTest(path=path):
+                    with patch.object(robust_proxy, '_forward_response') as forward, \
+                            patch.object(robust_proxy.UPSTREAM_OPENER, 'open') as upstream:
+                        robust_proxy.proxy_request(object(), 'GET', path, {}, None)
+                    self.assertEqual(forward.call_args.args[1], 503)
+                    error = json.loads(forward.call_args.args[3])['error']
+                    self.assertEqual(error['code'], f'{service}_unconfigured')
+                    self.assertIn(setting, error['message'])
+                    upstream.assert_not_called()
 
     def test_static_assets_support_production_app_prefix(self):
         with tempfile.TemporaryDirectory() as directory:

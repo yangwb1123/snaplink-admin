@@ -48,12 +48,19 @@ class _GovernanceTabState extends State<GovernanceTab> {
   bool _loading = false;
   bool _writing = false;
   String _currentSection = 'all';
+  int _reqSeq = 0;
   late final void Function() _cancelPopState;
   static final _sections = [
     SectionDef(
       'all',
       'All',
       Icons.dashboard_outlined,
+      color: adminModuleIconColor(AdminModuleId.governance),
+    ),
+    SectionDef(
+      'health',
+      'Health',
+      Icons.monitor_heart_outlined,
       color: adminModuleIconColor(AdminModuleId.governance),
     ),
     SectionDef(
@@ -91,28 +98,32 @@ class _GovernanceTabState extends State<GovernanceTab> {
   @override
   void initState() {
     super.initState();
+    _initSectionFromRoute(reload: false);
     _refresh();
-    _initSectionFromRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _initSectionFromRoute();
     });
   }
 
-  void _initSectionFromRoute() {
+  void _initSectionFromRoute({bool reload = true}) {
     final route = AdminRoute.current();
     final section = route.subresource.isNotEmpty ? route.subresource : 'all';
     if (_sections.any((s) => s.id == section)) {
+      final changed = section != _currentSection;
       setState(() => _currentSection = section);
+      if (reload && changed) _refresh();
     }
   }
 
   void _selectSection(String section) {
+    final changed = section != _currentSection;
     setState(() => _currentSection = section);
     if (section == 'all') {
       AdminRoute.go('governance');
     } else {
       AdminRoute.go('governance', subresource: section);
     }
+    if (changed) _refresh();
   }
 
   bool _has(String method, String path) =>
@@ -137,40 +148,38 @@ class _GovernanceTabState extends State<GovernanceTab> {
   }
 
   Future<void> _refresh() async {
+    final seq = ++_reqSeq;
     final reads = governanceReadSpecs
-        .where((spec) => _has('GET', spec.path))
+        .where(
+          (spec) =>
+              (_currentSection == 'all' || spec.section == _currentSection) &&
+              _has('GET', spec.path),
+        )
         .toList(growable: false);
-    if (reads.isEmpty) return;
     setState(() {
-      _loading = true;
+      _loading = reads.isNotEmpty;
       _error = null;
     });
+    if (reads.isEmpty) return;
     try {
       final results = await Future.wait(
         reads.map((spec) async {
           try {
             return (
               key: spec.key,
-              data: await widget.api.getStaleWhileRevalidate(
-                spec.path,
-                onRefresh: (fresh) {
-                  if (mounted) {
-                    setState(() => _data[spec.key] = _safe(fresh));
-                  }
-                },
-              ),
+              data: await widget.api.get(spec.path, forceRefresh: true),
               error: '',
             );
-          } on SnaplinkAdminApiError catch (error) {
+          } catch (error) {
             return (
               key: spec.key,
               data: <String, dynamic>{},
-              error: error.toString(),
+              error: '${spec.title}: $error',
             );
           }
         }),
       );
-      if (!mounted) return;
+      if (!mounted || seq != _reqSeq) return;
       final failures = results
           .where((result) => result.error.isNotEmpty)
           .toList();
@@ -181,32 +190,29 @@ class _GovernanceTabState extends State<GovernanceTab> {
               .map((result) => MapEntry(result.key, _safe(result.data))),
         );
         if (failures.isNotEmpty) {
-          _error =
-              '${failures.length} optional governance source(s) could not be loaded.';
+          _error = failures.map((result) => result.error).join('\n');
         }
       });
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 
   Future<void> _read(GovernanceReadSpec spec) async {
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final response = await widget.api.getStaleWhileRevalidate(
-        spec.path,
-        onRefresh: (fresh) {
-          if (mounted) setState(() => _data[spec.key] = _safe(fresh));
-        },
-      );
-      if (mounted) setState(() => _data[spec.key] = _safe(response));
-    } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      final response = await widget.api.get(spec.path, forceRefresh: true);
+      if (mounted && seq == _reqSeq) {
+        setState(() => _data[spec.key] = _safe(response));
+      }
+    } catch (error) {
+      if (mounted && seq == _reqSeq) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 
@@ -221,26 +227,31 @@ class _GovernanceTabState extends State<GovernanceTab> {
       return;
     }
     final parameters = auditQuery.toQueryParameters();
+    final seq = ++_reqSeq;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final events = widget.api.get(_auditPath, query: parameters);
+      final events = widget.api.get(
+        _auditPath,
+        query: parameters,
+        forceRefresh: true,
+      );
       final facets = _has('GET', _facetPath)
-          ? widget.api.get(_facetPath, query: parameters)
+          ? widget.api.get(_facetPath, query: parameters, forceRefresh: true)
           : null;
       final results = await Future.wait([events, ?facets]);
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _data['audit'] = _safe(results.first);
           if (facets != null) _data['facets'] = _safe(results.last);
         });
       }
-    } on SnaplinkAdminApiError catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+    } catch (error) {
+      if (mounted && seq == _reqSeq) setState(() => _error = error.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _reqSeq) setState(() => _loading = false);
     }
   }
 

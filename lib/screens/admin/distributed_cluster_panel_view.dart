@@ -13,6 +13,10 @@ extension _DistributedClusterPanelView on _PanelState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (_readError != null) ...[
+          ErrorStateCard(message: _readError!, onRetry: _refresh),
+          const SizedBox(height: 12),
+        ],
         _clusterOverviewCard(
           context,
           keys: keys,

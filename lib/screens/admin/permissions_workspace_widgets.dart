@@ -9,6 +9,7 @@ class PermissionsClientSelector extends StatelessWidget {
   final TextEditingController controller;
   final String? clientId;
   final bool loading;
+  final bool enabled;
   final VoidCallback onSearch;
   final VoidCallback onSubmitted;
 
@@ -17,6 +18,7 @@ class PermissionsClientSelector extends StatelessWidget {
     required this.controller,
     required this.clientId,
     required this.loading,
+    this.enabled = true,
     required this.onSearch,
     required this.onSubmitted,
   });
@@ -30,6 +32,7 @@ class PermissionsClientSelector extends StatelessWidget {
           width: 300,
           child: TextField(
             controller: controller,
+            enabled: enabled,
             decoration: InputDecoration(
               labelText: 'Client ID'.localized,
               hintText: 'Enter client ID and press Search'.localized,

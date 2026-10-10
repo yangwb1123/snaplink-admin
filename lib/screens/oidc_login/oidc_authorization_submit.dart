@@ -15,6 +15,10 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
     try {
       final payload = _params.toLoginPayload('');
       payload['client_id'] = _effectiveClientId;
+      if (await _silentUsesBrowserSession()) {
+        payload['resume_session'] = true;
+      }
+      if (!mounted) return;
       final outcome = await _api.login(payload);
       if (!mounted) return;
       if (outcome.ok) {

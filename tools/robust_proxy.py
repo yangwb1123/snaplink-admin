@@ -10,17 +10,30 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+if __package__:
+    from .proxy_http import (InvalidRequest, parse_request, hop_headers,
+                             forward_response as _forward_response,
+                             forward_stream_response, upstream_opener, valid_origin)
+else:
+    from proxy_http import (InvalidRequest, parse_request, hop_headers,
+                            forward_response as _forward_response,
+                            forward_stream_response, upstream_opener, valid_origin)
+
+UPSTREAM_OPENER = upstream_opener()
+
 PORT = int(os.environ.get('PORT', os.environ.get('SNAPLINK_PROXY_PORT', '4444')))
 BACKEND = os.environ.get(
     'BACKEND',
-    os.environ.get('SNAPLINK_API_URL', 'http://localhost:8080'),
+    os.environ.get('SNAPLINK_API_URL',
+                   os.environ.get('SNAPLINK_UPSTREAM', 'http://localhost:8080')),
 ).rstrip('/')
-# Audit reads have a dedicated deployment upstream; unlike the historical
-# local checkout helper, they must not silently fall through to the core
-# backend.
+# Independent services must be configured explicitly, never sent to core SSO.
+BILLING_BACKEND = os.environ.get('SNAPLINK_BILLING_UPSTREAM', '').rstrip('/')
 STRIPE_ADAPTER_BACKEND = os.environ.get(
-    'SNAPLINK_STRIPE_ADAPTER_URL', BACKEND,
+    'SNAPLINK_STRIPE_ADAPTER_UPSTREAM',
+    os.environ.get('SNAPLINK_STRIPE_ADAPTER_URL', ''),
 ).rstrip('/')
+FORGE_BACKEND = os.environ.get('FORGE_CONVERSATIONS_UPSTREAM', '').rstrip('/')
 AUDIT_GOVERNANCE_BACKEND = os.environ.get(
     'AUDIT_GOVERNANCE_UPSTREAM', ''
 ).rstrip('/')
@@ -34,7 +47,8 @@ API_PREFIXES = (
     '/auth/', '/api/', '/.well-known/', '/roles/', '/permissions/', '/menus/',
     '/sessions/', '/consents/',
 )
-API_ROOTS = ('/me', '/health', '/token', '/branding', '/logout', '/userinfo')
+API_ROOTS = ('/me', '/health', '/readyz', '/token', '/branding', '/logout', '/userinfo',
+             '/end_session', '/check_session_iframe')
 
 CONTENT_TYPES = {
     '.html': 'text/html; charset=utf-8',
@@ -58,60 +72,6 @@ COMPRESSIBLE_EXTENSIONS = frozenset((
     '.html', '.js', '.css', '.json', '.svg', '.txt', '.map', '.wasm',
 ))
 GZIP_MIN_BYTES = 1024
-
-def recv_full(conn, size):
-    """Receive exactly `size` bytes from connection."""
-    chunks = []
-    remaining = size
-    while remaining > 0:
-        chunk = conn.recv(remaining)
-        if not chunk:
-            break
-        chunks.append(chunk)
-        remaining -= len(chunk)
-    return b''.join(chunks)
-
-def parse_request(conn):
-    """Parse raw HTTP request from connection into method, path, headers, body."""
-    # Read up to 64KB for headers
-    data = conn.recv(65536)
-    if not data:
-        return None, None, None, None
-    try:
-        text = data.decode('utf-8', errors='replace')
-    except:
-        return None, None, None, None
-    lines = text.split('\r\n')
-    if not lines:
-        return None, None, None, None
-    parts = lines[0].split(' ')
-    if len(parts) < 2:
-        return None, None, None, None
-    method, path = parts[0], parts[1]
-    
-    headers = {}
-    body_start = text.find('\r\n\r\n')
-    header_lines = text[:body_start].split('\r\n')[1:] if body_start >= 0 else []
-    for hl in header_lines:
-        if ':' in hl:
-            k, v = hl.split(':', 1)
-            headers[k.strip().lower()] = v.strip()
-    
-    # Read body based on Content-Length
-    body = None
-    content_length = int(headers.get('content-length', 0))
-    if content_length > 0:
-        body_start_idx = data.find(b'\r\n\r\n') + 4
-        body_received = len(data) - body_start_idx
-        if body_received < content_length:
-            # Need to read more data
-            remaining = content_length - body_received
-            more_data = recv_full(conn, remaining)
-            body = data[body_start_idx:] + more_data
-        else:
-            body = data[body_start_idx:body_start_idx + content_length]
-    
-    return method, path, headers, body
 
 def serve_file(conn, filepath, include_body=True, accept_encoding=''):
     """Serve a static file, gzip-compressing when the client allows it."""
@@ -246,11 +206,17 @@ def _build_backend_url(path: str) -> tuple[str, str]:
     return url, qs
 
 
-def _forward_headers(headers: dict, backend: str) -> dict:
-    """Copy request headers, rewriting Host and adding X-Forwarded-*."""
+def _forward_headers(headers: dict, backend: str, *, identity=True) -> dict:
+    """Forward OP cookies only to identity; independent APIs use bearer grants."""
     req_headers = {}
+    excluded = set(hop_headers(headers.items())) | {
+        'host', 'content-length', 'forwarded', 'x-forwarded-for',
+        'x-forwarded-host', 'x-forwarded-proto', 'x-real-ip',
+    }
+    if not identity:
+        excluded.add('cookie')
     for k, v in headers.items():
-        if k.lower() not in ('host', 'content-length', 'transfer-encoding', 'connection'):
+        if k.lower() not in excluded:
             req_headers[k] = v
     incoming_host = headers.get('host')
     req_headers['Host'] = (
@@ -262,79 +228,84 @@ def _forward_headers(headers: dict, backend: str) -> dict:
     return req_headers
 
 
-def _forward_response(conn, status: int, headers_items, body: bytes,
-                     reason: str = "") -> None:
-    """Write the proxy response: CORS + content-length + connection close.
-    Shared by the success and HTTPError paths."""
-    status_line = f'HTTP/1.1 {status}' + (f' {reason}' if reason else '')
-    resp_headers = f'{status_line}\r\nAccess-Control-Allow-Origin: *\r\n'
-    for k, v in headers_items:
-        if k.lower() not in ('transfer-encoding', 'content-encoding',
-                             'content-length', 'connection',
-                             'access-control-allow-origin'):
-            resp_headers += f'{k}: {v}\r\n'
-    resp_headers += f'Content-Length: {len(body)}\r\n'
-    resp_headers += 'Connection: close\r\n\r\n'
-    conn.sendall(resp_headers.encode() + body)
+def _service_response_headers(service, items):
+    # A same-origin independent API cannot overwrite the OP identity cookie.
+    return [(key, value) for key, value in items
+            if service == 'snaplink' or key.lower() != 'set-cookie']
 
 
 def proxy_request(conn, method, path, headers, body):
-    """Proxy request to backend server."""
+    """Proxy once; optional services never fall through to identity APIs."""
+    started = False
     try:
-        clean_path = urllib.parse.urlsplit(path).path
-        is_agent_hub = clean_path == '/api/v1/agent' or clean_path.startswith(
-            '/api/v1/agent/'
-        )
-        if is_agent_hub and not AGENT_HUB_BACKEND:
-            error_body = json.dumps({
-                'error': {
-                    'code': 'agent_hub_unconfigured',
-                    'message': 'Agent Hub is not configured on this deployment.',
-                },
-            }).encode()
-            _forward_response(
-                conn,
-                503,
-                [('Content-Type', 'application/json; charset=utf-8')],
-                error_body,
-            )
+        service, backend, setting = _upstream_for(path)
+        if not backend or not valid_origin(backend):
+            suffix = 'invalid_upstream' if backend else 'unconfigured'
+            message = (f'Service upstream is invalid. Set {setting} to an HTTP(S) origin.'
+                       if backend else f'Service is not configured. Set {setting}.')
+            error_body = json.dumps({'error': {
+                'code': f'{service}_{suffix}',
+                'message': message,
+            }}).encode()
+            _forward_response(conn, 503,
+                              [('Content-Type', 'application/json; charset=utf-8')],
+                              error_body)
             return
-        # Build backend URL
         url, _ = _build_backend_url(path)
-        req_headers = _forward_headers(headers, backend_for(path))
-        req = urllib.request.Request(url, data=body, headers=req_headers, method=method)
-        
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            resp_body = resp.read()
-            _forward_response(conn, resp.status, resp.headers.items(), resp_body)
-    except urllib.error.HTTPError as e:
-        error_body = e.read()
-        _forward_response(conn, e.code, e.headers.items(), error_body,
-                          reason=e.reason)
-    except Exception as e:
-        send_error(conn, 502, f'Proxy error: {e}')
+        req = urllib.request.Request(url, data=body,
+                                     headers=_forward_headers(headers, backend,
+                                                              identity=service == 'snaplink'),
+                                     method=method)
+        with UPSTREAM_OPENER.open(req, timeout=60) as resp:
+            response_headers = _service_response_headers(service, resp.headers.items())
+            if resp.headers.get_content_type() == 'text/event-stream':
+                started = True
+                forward_stream_response(conn, resp, headers_items=response_headers)
+            else:
+                _forward_response(conn, resp.status, response_headers, resp.read())
+    except urllib.error.HTTPError as error:
+        with error:
+            _forward_response(conn, error.code,
+                              _service_response_headers(service, error.headers.items()),
+                              error.read(), reason=error.reason)
+    except Exception:
+        # A broken SSE connection ends the stream, not a second HTTP response.
+        # Do not expose upstream URLs, credentials or exception internals.
+        if not started:
+            send_error(conn, 502, 'Upstream unavailable. Check service connectivity.')
+
+
+def _upstream_for(path):
+    clean_path = urllib.parse.urlsplit(path).path
+    families = (
+        ('/api/v1/agent', 'agent_hub', AGENT_HUB_BACKEND, 'AGENT_HUB_UPSTREAM'),
+        ('/api/v1/admin/commerce', 'billing', BILLING_BACKEND, 'SNAPLINK_BILLING_UPSTREAM'),
+        ('/api/v1/commerce', 'billing', BILLING_BACKEND, 'SNAPLINK_BILLING_UPSTREAM'),
+        ('/api/v1/metering', 'billing', BILLING_BACKEND, 'SNAPLINK_BILLING_UPSTREAM'),
+        ('/api/v1/conversations', 'forge', FORGE_BACKEND, 'FORGE_CONVERSATIONS_UPSTREAM'),
+        ('/api/v1/conversation-changes', 'forge', FORGE_BACKEND, 'FORGE_CONVERSATIONS_UPSTREAM'),
+    )
+    for prefix, service, backend, setting in families:
+        if clean_path == prefix or clean_path.startswith(f'{prefix}/'):
+            return service, backend, setting
+    if clean_path == '/api/v1/checkout/sessions':
+        return ('stripe_adapter', STRIPE_ADAPTER_BACKEND,
+                'SNAPLINK_STRIPE_ADAPTER_UPSTREAM')
+    detail = '/api/v1/audit/events/'
+    if clean_path in ('/api/v1/audit/events', '/api/v1/audit/facets') or (
+            clean_path.startswith(detail) and len(clean_path) > len(detail)):
+        return 'audit_governance', AUDIT_GOVERNANCE_BACKEND, 'AUDIT_GOVERNANCE_UPSTREAM'
+    return 'snaplink', BACKEND, 'SNAPLINK_API_URL'
+
 
 def backend_for(path):
-    """Resolve the same-origin service upstream for a request path."""
-    clean_path = urllib.parse.urlsplit(path).path
-    if clean_path == '/api/v1/agent' or clean_path.startswith('/api/v1/agent/'):
-        return AGENT_HUB_BACKEND
-    if clean_path == '/api/v1/checkout/sessions':
-        return STRIPE_ADAPTER_BACKEND
-    audit_event_detail_prefix = '/api/v1/audit/events/'
-    if clean_path in {
-        '/api/v1/audit/events',
-        '/api/v1/audit/facets',
-    } or (
-        clean_path.startswith(audit_event_detail_prefix)
-        and len(clean_path) > len(audit_event_detail_prefix)
-    ):
-        return AUDIT_GOVERNANCE_BACKEND
-    return BACKEND
+    """Resolve the same-origin service upstream, preserving segment boundaries."""
+    return _upstream_for(path)[1]
 
 def handle(conn):
     """Handle a single HTTP connection."""
     try:
+        conn.settimeout(15)
         method, path, headers, body = parse_request(conn)
         if not method or not path:
             send_error(conn, 400, 'Bad Request')
@@ -365,6 +336,8 @@ def handle(conn):
             )
         else:
             send_error(conn, 405, 'Method Not Allowed')
+    except (InvalidRequest, socket.timeout):
+        send_error(conn, 400, 'Bad Request')
     except Exception:
         try:
             send_error(conn, 500, 'Internal Server Error')
@@ -382,7 +355,8 @@ def _send_cors_preflight(conn):
         'HTTP/1.1 204 No Content\r\n'
         'Access-Control-Allow-Origin: *\r\n'
         'Access-Control-Allow-Methods: GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS\r\n'
-        'Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With\r\n'
+        'Access-Control-Allow-Headers: Authorization, Content-Type, X-Requested-With, '
+        'Idempotency-Key, If-Match, Last-Event-ID, Cache-Control, X-Request-Id\r\n'
         'Access-Control-Max-Age: 86400\r\n'
         'Content-Length: 0\r\n'
         'Connection: close\r\n\r\n'
@@ -397,7 +371,8 @@ def serve():
     server.bind(('0.0.0.0', PORT))
     server.listen(128)
     server.settimeout(1.0)
-    sys.stderr.write(f"[proxy] Robust SPA+API proxy on :{PORT} (backend={BACKEND})\n")
+    label = BACKEND if valid_origin(BACKEND) else '<invalid origin>'
+    sys.stderr.write(f"[proxy] Robust SPA+API proxy on :{PORT} (backend={label})\n")
     while True:
         try:
             conn, addr = server.accept()

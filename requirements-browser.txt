@@ -1,0 +1,5 @@
+-r requirements-dev.txt
+# Isolated release-UI SSO acceptance; install matching Chromium explicitly.
+playwright==1.62.0
+# Verify the disposable RP's ID-token signature against the stock OP JWKS.
+PyJWT[crypto]==2.10.1

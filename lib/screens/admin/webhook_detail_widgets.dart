@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'webhook_dead_letter.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 import 'package:sso_admin/i18n/localized_text.dart';
 import 'package:sso_admin/widgets/admin_data_table.dart';
@@ -220,7 +221,7 @@ class WebhookDeadLetterSection extends StatelessWidget {
                     width: 220,
                     cardPrimary: true,
                     builder: (context, i) => TableCellText(
-                      deadLetters[i]['event_type']?.toString() ?? 'Event',
+                      webhookDeadLetterType(deadLetters[i]) ?? 'Event',
                       bold: true,
                     ),
                   ),
@@ -229,8 +230,8 @@ class WebhookDeadLetterSection extends StatelessWidget {
                     label: 'ERROR',
                     width: 300,
                     builder: (context, i) => TableCellText(
-                      '${deadLetters[i]['error']?.toString() ?? ''}\n'
-                      '${deadLetters[i]['failed_at']?.toString() ?? ''}',
+                      '${webhookDeadLetterError(deadLetters[i])}\n'
+                      '${deadLetters[i]['last_failed_at'] ?? deadLetters[i]['failed_at'] ?? ''}',
                       muted: true,
                       maxLines: 2,
                     ),

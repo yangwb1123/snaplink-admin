@@ -20,6 +20,7 @@ import 'package:sso_admin/widgets/status_filter_dropdown.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
 import 'admin_route.dart';
+import 'webhook_dead_letter.dart';
 part 'webhooks_tab_view.dart';
 part 'webhooks_tab_sections.dart';
 
@@ -108,7 +109,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
         }
         if (_hasDeadLetters) {
           _deadLetters = _maps(
-            results[idx]['deadletters'] ?? results[idx]['messages'],
+            results[idx]['dead_letters'] ??
+                results[idx]['deadletters'] ??
+                results[idx]['messages'],
           );
         }
         _loading = false;
@@ -129,7 +132,9 @@ class _WebhooksTabState extends State<WebhooksTab> {
   void _applyDeadRefresh(Map<String, dynamic> fresh, int seq) {
     if (mounted && seq == _reqSeq) {
       setState(
-        () => _deadLetters = _maps(fresh['deadletters'] ?? fresh['messages']),
+        () => _deadLetters = _maps(
+          fresh['dead_letters'] ?? fresh['deadletters'] ?? fresh['messages'],
+        ),
       );
     }
   }

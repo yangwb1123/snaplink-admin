@@ -49,7 +49,7 @@ extension SSOAdminClientTransport on SSOAdminClient {
           headers: _authHeaders(),
         )
         .timeout(requestTimeout);
-    return _handle(resp);
+    return _handle(resp, path: path);
   }
 
   Future<dynamic> _post(
@@ -68,7 +68,7 @@ extension SSOAdminClientTransport on SSOAdminClient {
           body: jsonEncode(body),
         )
         .timeout(requestTimeout);
-    return _handle(resp, authenticated: auth);
+    return _handle(resp, authenticated: auth, path: path);
   }
 
   Future<dynamic> _put(String path, Map<String, dynamic> body) async {
@@ -80,29 +80,32 @@ extension SSOAdminClientTransport on SSOAdminClient {
           body: jsonEncode(body),
         )
         .timeout(requestTimeout);
-    return _handle(resp);
+    return _handle(resp, path: path);
   }
 
   Future<dynamic> _delete(String path) async {
     final resp = await _http
         .delete(Uri.parse('$baseUrl$path'), headers: _authHeaders())
         .timeout(requestTimeout);
-    return _handle(resp);
+    return _handle(resp, path: path);
   }
 
-  dynamic _handle(http.Response resp, {bool authenticated = true}) {
-    Map<String, dynamic> parsed = const {};
-    if (resp.body.isNotEmpty) {
+  dynamic _handle(
+    http.Response resp, {
+    bool authenticated = true,
+    required String path,
+  }) {
+    if (resp.statusCode >= 200 && resp.statusCode < 300) {
       try {
-        final decoded = jsonDecode(resp.body);
-        if (decoded is Map<String, dynamic>) parsed = decoded;
-      } catch (_) {
-        // non-JSON body; fall through to the generic status-based error below.
+        return adminWirePayload(
+          path,
+          decodeSnaplinkAdminSuccess(resp.statusCode, resp.body),
+        );
+      } on SnaplinkAdminApiError catch (error) {
+        throw SSOError(error.status, error.code, error.description);
       }
     }
-    if (resp.statusCode >= 200 && resp.statusCode < 300) {
-      return parsed;
-    }
+    final parsed = decodeSnaplinkAdminPayload(resp.body);
     // Centralized so every admin call — not just the gate's own probe —
     // reacts to a token that's expired or been revoked mid-session: clear
     // the stale session and bounce back to login, the same way admin_gate.dart
@@ -116,11 +119,8 @@ extension SSOAdminClientTransport on SSOAdminClient {
       clearAllSessionsBestEffort();
       onUnauthorized?.call();
     }
-    throw SSOError(
-      resp.statusCode,
-      parsed['error'] as String? ?? parsed['code']?.toString(),
-      parsed['error_description'] as String? ?? parsed['message'] as String?,
-    );
+    final error = snaplinkAdminError(resp.statusCode, parsed);
+    throw SSOError(error.status, error.code, error.description);
   }
 
   /// Skip the response cache on the next GET request (user-initiated refresh).

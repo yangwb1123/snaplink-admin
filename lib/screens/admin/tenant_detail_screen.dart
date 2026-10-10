@@ -66,6 +66,9 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
   bool _loading = true;
   @override
   int _tabIndex = 0;
+  int _reqSeq = 0;
+  @override
+  final _loadedSections = <String>{};
   late final void Function() _cancelPopState;
 
   static const _tabSpecs = [
@@ -117,11 +120,28 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
   @override
   void initState() {
     super.initState();
-    _load();
     _initTabFromRoute();
+    _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
-      if (mounted) _initTabFromRoute();
+      if (!mounted) return;
+      final previous = _tabIndex;
+      _initTabFromRoute();
+      if (previous != _tabIndex) _load();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant TenantDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.tenantId != widget.tenantId) {
+      _tenant = _usage = null;
+      _members = _invitations = [];
+      _sectionErrors.clear();
+      _loadedSections.clear();
+      _tabIndex = 0;
+      _initTabFromRoute();
+      _load();
+    }
   }
 
   @override
@@ -149,37 +169,46 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
       resourceId: widget.tenantId,
       subresource: subresource,
     );
+    _load();
   }
 
   @override
   Future<void> _load() async {
+    final seq = ++_reqSeq;
+    final tabs = _tabs;
+    final section = tabs.isEmpty
+        ? null
+        : tabs[_tabIndex.clamp(0, tabs.length - 1)].$1;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final tenant = await widget.client.getTenant(widget.tenantId);
-      // 各 tab 数据端点并行加载（Future.wait，_optionalGet 内部容错）。
-      final futures = <String, Future<Map<String, dynamic>>>{};
-      for (final tab in _tabs) {
-        if (tab.$1 == 'branding') continue; // self-loading tab
-        futures[tab.$1] = _optionalGet(tab.$1, _tabPath(tab.$1));
-      }
-      final results = await Future.wait(futures.values);
-      if (!mounted) return;
-      final sections = <String, Map<String, dynamic>>{
-        for (var i = 0; i < futures.keys.length; i++)
-          futures.keys.elementAt(i): results[i],
-      };
+      if (!mounted || seq != _reqSeq) return;
+      final data = section == null || section == 'branding'
+          ? null // Branding is an independently loading panel.
+          : await _optionalGet(section, _tabPath(section), seq);
+      if (!mounted || seq != _reqSeq) return;
       setState(() {
         _tenant = tenant;
-        _members = _firstList(sections['members'] ?? const {});
-        _invitations = _firstList(sections['invitations'] ?? const {});
-        _usage = normalizeTenantUsageRecord(sections['usage'] ?? const {});
+        if (section != null &&
+            data != null &&
+            !_sectionErrors.containsKey(section)) {
+          _loadedSections.add(section);
+        }
+        switch (section) {
+          case 'members':
+            _members = _firstList(data ?? const {}, 'members');
+          case 'invitations':
+            _invitations = _firstList(data ?? const {}, 'invitations');
+          case 'usage':
+            _usage = normalizeTenantUsageRecord(data ?? const {});
+        }
         _loading = false;
       });
     } catch (e) {
-      if (mounted) {
+      if (mounted && seq == _reqSeq) {
         setState(() {
           _error = e.toString();
           _loading = false;
@@ -196,23 +225,23 @@ class _TenantDetailScreenState extends State<TenantDetailScreen>
     _ => throw ArgumentError.value(tab, 'tab', 'Unsupported tenant tab'),
   };
 
-  Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
+  Future<Map<String, dynamic>> _optionalGet(
+    String section,
+    String path,
+    int seq,
+  ) async {
     try {
-      final result = await widget.api.get(path);
-      _sectionErrors.remove(section);
+      final result = await widget.api.get(path, forceRefresh: true);
+      if (mounted && seq == _reqSeq) _sectionErrors.remove(section);
       return result;
     } catch (error) {
-      _sectionErrors[section] = error.toString();
+      if (mounted && seq == _reqSeq) _sectionErrors[section] = error.toString();
       return <String, dynamic>{};
     }
   }
 
-  List<dynamic> _firstList(Map<String, dynamic> response) {
-    for (final value in response.values) {
-      if (value is List) return value;
-    }
-    return const [];
-  }
+  List<dynamic> _firstList(Map<String, dynamic> response, String key) =>
+      response[key] as List? ?? const [];
 
   void _snack(String message, [Map<String, Object?>? args]) {
     showAppSnackBar(context, content: LocalizedText(message, args: args));

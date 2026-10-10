@@ -192,6 +192,23 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('billing-ca', full_mounts)
         self.assertIn('stripe-adapter-ca', full_mounts)
 
+    def test_nginx_keeps_op_cookie_in_identity_not_independent_services(self):
+        nginx = (ROOT / 'nginx.conf').read_text()
+        for upstream in ('SNAPLINK_BILLING_UPSTREAM', 'SNAPLINK_STRIPE_ADAPTER_UPSTREAM',
+                         'AUDIT_GOVERNANCE_UPSTREAM', 'AGENT_HUB_UPSTREAM'):
+            parts = nginx.split('proxy_pass ${' + upstream + '};')[1:]
+            self.assertTrue(parts)
+            for part in parts:
+                location = part.split('\n    }', 1)[0]
+                self.assertIn('proxy_set_header Cookie "";', location)
+                self.assertIn('proxy_hide_header Set-Cookie;', location)
+        for part in nginx.split('proxy_pass ${SNAPLINK_UPSTREAM};')[1:]:
+            location = part.split('\n    }', 1)[0]
+            self.assertNotIn('proxy_set_header Cookie "";', location)
+            self.assertNotIn('proxy_hide_header Set-Cookie;', location)
+        self.assertIn('end_session(?:/|$)', nginx)
+        self.assertIn('check_session_iframe(?:/|$)', nginx)
+
     def test_image_and_nginx_share_the_app_prefix_and_upstream_contract(self):
         dockerfile = (ROOT / 'Dockerfile').read_text()
         nginx = (ROOT / 'nginx.conf').read_text()
@@ -334,6 +351,7 @@ class DeploymentContractsTest(unittest.TestCase):
         self.assertIn('/api/v1/compat/snaplink/audit/events/$1 break;', nginx)
         self.assertIn('location = /device/verify', nginx)
         self.assertIn('register(?:/|$)', nginx)
+        self.assertIn('readyz(?:/|$)', snaplink)
 
     def test_optional_upstream_preflight_rejects_implicit_fallbacks(self):
         script = ROOT / 'docker-entrypoint.d/10-validate-upstreams.sh'

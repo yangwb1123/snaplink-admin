@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 import 'package:sso_admin/api/admin_paths.dart';
+import 'package:sso_admin/api/admin_wire_payload.dart';
 import 'package:sso_admin/api/data_cache.dart';
 import 'package:sso_admin/api/snaplink_admin_download_transport.dart';
 import 'package:sso_admin/api/snaplink_admin_error.dart';
@@ -128,17 +129,30 @@ class SnaplinkAdminApi {
     _skipCacheNext = true;
   }
 
-  Future<List<SnaplinkAdminEndpoint>> listEndpoints() async {
-    final response = await get(AdminPaths.endpointInventory);
+  Future<List<SnaplinkAdminEndpoint>> listEndpoints({
+    bool forceRefresh = false,
+  }) async {
+    final response = await get(
+      AdminPaths.endpointInventory,
+      forceRefresh: forceRefresh,
+    );
     final values = response['endpoints'];
-    if (values is! List) return const [];
-    return values
-        .whereType<Map>()
+    if (values is! List || values.any((item) => item is! Map)) {
+      throw invalidSnaplinkAdminResponse(200);
+    }
+    final endpoints = values
         .map(
-          (item) =>
-              SnaplinkAdminEndpoint.fromJson(Map<String, dynamic>.from(item)),
+          (item) => SnaplinkAdminEndpoint.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
         )
         .toList(growable: false);
+    if (endpoints.any(
+      (endpoint) => endpoint.method.isEmpty || !endpoint.path.startsWith('/'),
+    )) {
+      throw invalidSnaplinkAdminResponse(200);
+    }
+    return endpoints;
   }
 
   Future<Map<String, dynamic>> get(

@@ -109,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
     final commerceProbe = _probeCommerce();
     try {
-      final endpoints = await _api.listEndpoints();
+      final endpoints = await _api.listEndpoints(forceRefresh: true);
       if (!mounted || generation != _capabilitiesRequestGeneration) return;
       setState(() {
         _endpoints = endpoints;
@@ -261,6 +261,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       client: widget.client,
       capabilities: capabilities,
       persona: persona,
+      capabilitySnapshot: navigation.capabilitySnapshot,
+      onCapabilityRetry: _refreshCapabilities,
     );
     // 一级导航 = 分组（≤6）；组内模块用壳层 SectionSelector 切换。
     final visibleGroups = [

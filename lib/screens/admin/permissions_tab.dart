@@ -19,6 +19,7 @@ import 'permissions_cards.dart';
 import 'permissions_workspace_widgets.dart';
 
 part 'permissions_tab_view.dart';
+part 'permissions_tab_loading.dart';
 
 /// Client-scoped role definitions, subject assignments, and navigation trees.
 /// URL: /admin/permissions/{clientId}[/roles|assignments]
@@ -41,7 +42,6 @@ class _PermissionsTabState extends State<PermissionsTab> {
   static const _assignmentsPath = AdminPaths.permissionAssignmentsTemplate;
   static const _unassignPath = '$_assignmentsPath/:user_id/unassign';
   static const _menusPath = '$_basePath/menus';
-  static const _policyBundlePath = '/api/v1/admin/authz/policy-bundle';
 
   final _clientCtrl = TextEditingController();
   final _userCtrl = TextEditingController();
@@ -55,23 +55,30 @@ class _PermissionsTabState extends State<PermissionsTab> {
   bool _mutating = false;
   String _currentSection = 'all';
   late final void Function() _cancelPopState;
+  int _reqSeq = 0;
+  String? _inputClient;
+  String? _loadedClient;
+  final _loadedSources = <String>{};
 
-  bool get _hasPermissionProvider =>
-      widget.capabilities.has('GET', _policyBundlePath);
-  bool get _supportsRoles =>
-      _hasPermissionProvider ||
-      widget.capabilities.hasAnyPathPrefix('$_basePath/roles');
-  bool get _supportsAssignments =>
-      _hasPermissionProvider ||
-      widget.capabilities.hasAnyPathPrefix('$_basePath/assignments');
-  bool get _supportsMenus =>
-      _hasPermissionProvider || widget.capabilities.has('PUT', _menusPath);
+  // These core RPCs are registered separately from the REST inventory.
+  bool _has(String method, String path) =>
+      widget.capabilities.has(method, path) ||
+      SnaplinkAdminOperationCatalog.endpoints.any(
+        (endpoint) =>
+            endpoint.method == method &&
+            SnaplinkAdminCapabilities([endpoint]).has(method, path),
+      );
+  bool get _supportsRoles => _has('GET', _rolesPath);
+  bool get _supportsAssignments => _has('GET', _assignmentsPath);
+  bool get _supportsMenus => _has('PUT', _menusPath);
+  void _update(VoidCallback mutation) => setState(mutation);
   String? get _clientId =>
       _clientCtrl.text.trim().isEmpty ? null : _clientCtrl.text.trim();
 
   @override
   void initState() {
     super.initState();
+    _clientCtrl.addListener(_onClientChanged);
     _handleRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
       if (mounted) _handleRoute();
@@ -83,9 +90,11 @@ class _PermissionsTabState extends State<PermissionsTab> {
     if (route.module != 'permissions') return;
     final routeClientId = route.resourceId;
     final clientChanged = routeClientId != _clientCtrl.text;
+    final section = route.subresource.isNotEmpty ? route.subresource : 'all';
+    final sectionChanged = section != _currentSection;
     if (clientChanged) _clientCtrl.text = routeClientId;
-    _currentSection = route.subresource.isNotEmpty ? route.subresource : 'all';
-    if (clientChanged) {
+    _currentSection = section;
+    if (clientChanged || sectionChanged) {
       if (_clientId != null) {
         _load();
       } else {
@@ -122,7 +131,6 @@ class _PermissionsTabState extends State<PermissionsTab> {
   }
 
   void _selectSection(String section) {
-    setState(() => _currentSection = section);
     AdminRoute.go(
       'permissions',
       resourceId: _clientId ?? '',
@@ -162,62 +170,14 @@ class _PermissionsTabState extends State<PermissionsTab> {
             .map((i) => Map<String, dynamic>.from(i))
             .toList();
 
-  Future<void> _load() async {
-    widget.api.skipCache();
-    final clientId = _clientId;
-    if (clientId == null) {
-      setState(() {
-        _error = 'Enter a client ID first.';
-        _roles = const [];
-        _assignments = const [];
-      });
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-      // Do not show a previous client's relationships under a new loading or
-      // error state; the table must represent this request only.
-      _roles = const [];
-      _assignments = const [];
-    });
-    try {
-      final jobs = <Future>[
-        if (_supportsRoles)
-          widget.api.get(AdminPaths.permissionRoles(clientId)),
-        if (_supportsAssignments)
-          widget.api.get(AdminPaths.permissionAssignments(clientId)),
-      ];
-      final results = await Future.wait(jobs);
-      var idx = 0;
-      final roles = _supportsRoles
-          ? _records(results[idx++]['roles'])
-          : <Map<String, dynamic>>[];
-      final assignments = _supportsAssignments
-          ? _records(results[idx]['assignments'])
-          : <Map<String, dynamic>>[];
-      if (!mounted) return;
-      setState(() {
-        _roles = roles;
-        _assignments = assignments;
-      });
-    } on SnaplinkAdminApiError catch (e) {
-      if (mounted) setState(() => _error = e.toString());
-    } catch (_) {
-      if (mounted) setState(() => _error = 'Could not load permission data.');
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
   Future<void> _editRole([Map<String, dynamic>? existing]) async {
+    final cid = _clientId;
+    if (cid == null) return;
     final role = await showDialog<PermissionsRoleDraft>(
       context: context,
       builder: (_) => PermissionsRoleDialog(existing: existing),
     );
-    if (role == null || !mounted) return;
-    final cid = _clientId;
-    if (cid == null) return;
+    if (role == null || !mounted || cid != _clientId) return;
     final editing = existing != null;
     if (!await _confirm(
       context.tr(editing ? 'Update role?' : 'Create role?'),
@@ -242,6 +202,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
               role.toJson(),
             ),
       editing ? 'Role updated.' : 'Role created.',
+      clientId: cid,
     );
   }
 
@@ -265,6 +226,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
         _path(_rolePath, {'client_id': cid, 'role_code': code}),
       ),
       'Role deleted.',
+      clientId: cid,
     );
   }
 
@@ -296,6 +258,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
         {'roles': codes},
       ),
       'Roles assigned.',
+      clientId: cid,
     );
   }
 
@@ -316,6 +279,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
         _path(_unassignPath, {'client_id': cid, 'user_id': uid}),
       ),
       'User unassigned.',
+      clientId: cid,
     );
   }
 
@@ -341,6 +305,7 @@ class _PermissionsTabState extends State<PermissionsTab> {
           'menus': menus,
         }),
         'Navigation tree updated.',
+        clientId: cid,
       );
     } on FormatException {
       if (mounted) setState(() => _error = 'Invalid JSON in menus field.');
@@ -362,7 +327,17 @@ class _PermissionsTabState extends State<PermissionsTab> {
     confirmText: confirmText,
   );
 
-  Future<void> _write(Future<void> Function() fn, String okMsg) async {
+  Future<void> _write(
+    Future<void> Function() fn,
+    String okMsg, {
+    required String clientId,
+  }) async {
+    if (!mounted ||
+        _mutating ||
+        _clientId != clientId ||
+        _loadedClient != clientId) {
+      return;
+    }
     setState(() {
       _mutating = true;
       _error = null;

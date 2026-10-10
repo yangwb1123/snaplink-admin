@@ -90,6 +90,7 @@ class CommerceAdminApi {
       _api.get(
         '${_tenantPath(tenantID)}/wallet',
         query: {'currency': currency},
+        forceRefresh: true,
       );
 
   Future<Map<String, dynamic>> listWalletEntries(
@@ -98,6 +99,7 @@ class CommerceAdminApi {
   ) => _api.get(
     '${_tenantPath(tenantID)}/wallet/entries',
     query: {'currency': currency, 'limit': '100'},
+    forceRefresh: true,
   );
 
   Future<Map<String, dynamic>> adjustWallet(

@@ -21,6 +21,7 @@ import 'admin_ops_helpers.dart';
 import 'admin_route.dart';
 import 'snaplink_admin_api.dart';
 part 'token_security_tab_view.dart';
+part 'token_security_tab_loading.dart';
 part 'token_security_tab_action_views.dart';
 
 /// Token security workbench: portfolio / anomalies / sessions / expiring
@@ -81,7 +82,10 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     super.initState();
     _handleRoute();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
-      if (mounted) _handleRoute();
+      if (!mounted) return;
+      final previous = _currentSection;
+      _handleRoute();
+      if (previous != _currentSection) _load();
     });
     _load();
   }
@@ -101,51 +105,6 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
       c.dispose();
     }
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    final seq = ++_reqSeq;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    final results = await Future.wait(
-      _paths.entries.where((e) => _supports('GET', e.value)).map((e) async {
-        try {
-          return (
-            key: e.key,
-            data: await widget.api.getStaleWhileRevalidate(
-              e.value,
-              onRefresh: (fresh) {
-                if (mounted && seq == _reqSeq) {
-                  setState(() => _data[e.key] = fresh);
-                }
-              },
-            ),
-            error: null,
-          );
-        } catch (error) {
-          return (key: e.key, data: null, error: error);
-        }
-      }),
-    );
-    if (!mounted || seq != _reqSeq) return;
-    final unavailable = results
-        .where((r) => r.error != null)
-        .map((r) => r.key)
-        .join(', ');
-    setState(() {
-      _data
-        ..clear()
-        ..addEntries([
-          for (final r in results)
-            if (r.data != null) MapEntry(r.key, r.data!),
-        ]);
-      _error = unavailable.isEmpty
-          ? null
-          : 'Some token data is unavailable: $unavailable.';
-      _loading = false;
-    });
   }
 
   Future<void> _write(
@@ -383,6 +342,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
   }
 
   void _selectSection(String section) {
+    final changed = section != _currentSection;
     setState(() {
       _currentSection = section;
       if (section != 'all' && section != 'temp') _tempToken = null;
@@ -392,6 +352,7 @@ class _TokenSecurityTabState extends State<TokenSecurityTab> {
     } else {
       AdminRoute.go('token-security', subresource: section);
     }
+    if (changed) _load();
   }
 
   @override

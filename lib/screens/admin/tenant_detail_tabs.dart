@@ -172,8 +172,7 @@ class TenantInvitationsTab extends StatelessWidget {
           builder: (context, i) {
             final email = rows[i]['email']?.toString() ?? '';
             final invitation = Map<String, dynamic>.from(rows[i]);
-            return Row(
-              mainAxisSize: MainAxisSize.min,
+            return Wrap(
               children: [
                 TextButton(
                   onPressed: email.isEmpty ? null : () => onResend(invitation),

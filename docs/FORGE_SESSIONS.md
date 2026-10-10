@@ -78,6 +78,17 @@ deployment must allow the Console page origin and the `Authorization`,
 `Content-Type`, `Idempotency-Key`, and `Cache-Control` request headers in
 Forge's CORS policy.
 
+For the local `make serve` / `tools/robust_proxy.py` gateway, set
+`FORGE_CONVERSATIONS_UPSTREAM` to the deployed Forge HTTP(S) origin. It routes
+both `/api/v1/conversations` (including nested paths) and
+`/api/v1/conversation-changes` (including the stream) without falling back to
+Snaplink. An unset origin returns JSON `503` with `forge_unconfigured`.
+This development setting does not configure a production ingress: production
+must supply the Forge routes described above or use the build-time API origin
+with the corresponding CORS policy. Explicit preview adapters using other
+Forge roots still need their own gateway routes or a direct Forge API origin;
+this setting does not enable candidate capabilities.
+
 ## API behavior and limits
 
 The client uses `GET` and `POST /api/v1/conversations`,

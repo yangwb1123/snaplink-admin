@@ -57,7 +57,7 @@ class _HealthTabState extends State<HealthTab> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _quiet(String path) => widget.api.get(path).catchError((_) => <String, dynamic>{});
+  Future<Map<String, dynamic>> _quiet(String path) => widget.api.get(path, forceRefresh: true).catchError((Object error) => <String, dynamic>{'error': error.toString()});
 
   Future<void> _refresh() async {
     if (!mounted || _loading) return;

@@ -8,6 +8,7 @@ mixin _UserSupportTabView on State<UserSupportTab> {
   Map<String, dynamic> get _data;
   String? get _error;
   bool get _loading;
+  bool get _hasLoadedUser;
   bool get _mutating;
   String? get _nextLifecycleState;
   set _nextLifecycleState(String? value);
@@ -34,7 +35,7 @@ mixin _UserSupportTabView on State<UserSupportTab> {
 
   @override
   Widget build(BuildContext context) {
-    final loaded = _userId != null && !_loading;
+    final loaded = _hasLoadedUser && !_loading;
     return PullToRefresh(
       onRefresh: _load,
       child: ListView(
@@ -46,12 +47,13 @@ mixin _UserSupportTabView on State<UserSupportTab> {
           TextField(
             key: const Key('support-user-id'),
             controller: _userCtrl,
+            enabled: !_mutating,
             decoration: InputDecoration(labelText: 'User ID'.localized),
             onSubmitted: (_) => _load(),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
-            onPressed: _loading ? null : _load,
+            onPressed: _loading || _mutating ? null : _load,
             icon: const Icon(Icons.search),
             label: const LocalizedText('Load account support data'),
           ),
@@ -85,11 +87,11 @@ mixin _UserSupportTabView on State<UserSupportTab> {
             ),
           if (_canClearAccountLockout) AccountLockoutCard(api: widget.api),
           if (loaded) ...[
-            if (_has('users/:id/sessions'))
+            if (_data.containsKey('sessions'))
               SessionsCard(sessions: _list('sessions', 'sessions')),
-            if (_has('users/:id/consents')) _consentsCard(),
-            if (_has('users/:id/mfa')) _mfaCard(),
-            if (_has('users/:id/lifecycle')) _lifecycleCard(),
+            if (_data.containsKey('consents')) _consentsCard(),
+            if (_data.containsKey('mfa')) _mfaCard(),
+            if (_data.containsKey('lifecycle')) _lifecycleCard(),
             _credentialRecoveryCard(),
           ],
         ],
@@ -112,7 +114,7 @@ mixin _UserSupportTabView on State<UserSupportTab> {
         ),
       ),
       IconButton(
-        onPressed: _loading ? null : _load,
+        onPressed: _loading || _mutating ? null : _load,
         tooltip: 'Refresh'.localized,
         icon: const Icon(Icons.refresh),
       ),

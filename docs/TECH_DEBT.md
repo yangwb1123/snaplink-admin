@@ -1,8 +1,17 @@
-# 技术债清单（R244 structure / i18n / docs fan-out ledger reconciliation）
+# 技术债清单（结构修复与 R244 历史台账）
 
-> 本账以当前工作树和当前 `engineering.yaml` 为准。原则：**不机械硬拆**——内聚的大文件、协议流程和数据表是合理架构；结构债随对应功能迭代处理。R173-R179 对账 R166-R178 的 census、i18n、docs fan-out 与最终门禁，只同步已验证的台账数字，不改变 Dart API、路由或架构阈值。
+> 工程阈值始终以 `engineering.yaml` 为准。原则：**不机械硬拆**——完整模型、协议流程和数据表按职责处理，不能通过降低门禁、改成无类型数据或移动到另一个超长文件来掩盖结构债。下面 R244 的 census、i18n 与历史门禁数字仅代表当时快照，不代表后续 Forge 增量的当前状态。
 
-## P2 结构债（当前快照）
+## 当前结构修复
+
+原有 **25 个非豁免超长文件全部完成职责拆分**，预算与豁免不变。
+最后三个 Forge 文件的入口现在为 Screen 183 行、View 101 行、Gate 57 行，所有
+实现 part 也在 400 行以内；公开构造器、类型化字段、默认关闭和恢复守卫保留。
+`cli.py check`、完整 harness、2239 项测试、分析、生产构建与产物检查均通过。
+完整边界与等价证据见 [STRUCTURE_REFACTOR.md](STRUCTURE_REFACTOR.md)。
+172 个 skipped 与部署上游／真实管理员联调仍不算部署验收。
+
+## R244 历史结构快照
 
 `engineering.yaml` 的 `filesize.max_lines` 仍为 **400**，且边界是 `<=400`（400 行本身通过）。`lib/screens` 当前有 **248** 个 Dart 文件，页面/组件的 `>400` 上帝文件数量为 **0**。`lib` 共 **391** 个生产 Dart 文件；`lib/main.dart` 仍计入该 census，但不影响超预算结论。
 

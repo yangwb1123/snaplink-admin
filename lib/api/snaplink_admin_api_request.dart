@@ -45,8 +45,11 @@ extension SnaplinkAdminApiRequest on SnaplinkAdminApi {
           ),
         };
         final response = await responseFuture.timeout(requestTimeout);
-        final data = _decode(response);
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          final data = adminWirePayload(
+            path,
+            decodeSnaplinkAdminSuccess(response.statusCode, response.body),
+          );
           if (method != 'GET') {
             _recordAudit(method, path, response.statusCode);
             _fireDataChanged(method, path);
@@ -62,7 +65,7 @@ extension SnaplinkAdminApiRequest on SnaplinkAdminApi {
         if (response.statusCode == 401) {
           onUnauthorized?.call();
         }
-        throw snaplinkAdminError(response.statusCode, data);
+        throw snaplinkAdminError(response.statusCode, _decode(response));
       } on TimeoutException catch (_) {
         if (canRetry && attempt < maxRetries) {
           final delay = Duration(milliseconds: pow(2, attempt).toInt() * 500);

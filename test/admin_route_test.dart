@@ -45,6 +45,14 @@ void main() {
       expect(r.module, 'clients');
       expect(r.isNew, true);
     });
+    test('permissions client named new remains an opaque resource', () {
+      final route = AdminRoute.fromUri(
+        Uri.parse(AdminRoute.url('permissions', resourceId: 'new')),
+      );
+      expect(route.resourceId, 'new');
+      expect(route.isNew, isFalse);
+      expect(route.isDetail, isTrue);
+    });
     test('/admin/domains/new -> create domain', () {
       final r = AdminRoute.fromUri(
         Uri.parse('http://localhost/admin/domains/new'),

@@ -27,6 +27,7 @@ import 'agent_workspace_task_details.dart';
 part 'agent_operations_screen_state.dart';
 part 'agent_operations_screen_actions.dart';
 part 'agent_operations_compute.dart';
+part 'agent_operations_compute_actions.dart';
 part 'agent_operations_compute_state.dart';
 part 'agent_operations_screen_view.dart';
 part 'agent_operations_placement.dart';

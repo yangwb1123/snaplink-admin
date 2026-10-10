@@ -16,6 +16,8 @@ import 'admin_route.dart';
 import 'user_device_security_panel.dart';
 import 'user_detail_widgets.dart';
 
+part 'user_detail_loading.dart';
+
 /// User detail screen with sub-resource tabs.
 /// URL: /admin/users/{id}[/{subresource}]
 class UserDetailScreen extends StatefulWidget {
@@ -47,6 +49,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   bool _loading = true;
   bool _mutating = false;
   int _tabIndex = 0;
+  int _reqSeq = 0;
   late final void Function() _cancelPopState;
 
   static const _tabSpecs = [
@@ -91,17 +94,35 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
       ? [for (final s in _tabSpecs) (s.$1, s.$2, s.$3)]
       : [
           for (final s in _tabSpecs)
-            if (widget.capabilities.has(s.$4, s.$5)) (s.$1, s.$2, s.$3),
+            // The user-sessions RPC is published but may be omitted by the
+            // REST inventory. Other optional sections retain live gating.
+            if (s.$1 == 'sessions' || widget.capabilities.has(s.$4, s.$5))
+              (s.$1, s.$2, s.$3),
         ];
 
   @override
   void initState() {
     super.initState();
-    _load();
     _initTabFromRoute();
+    _load();
     _cancelPopState = BrowserNavigation.listenToLocationChange(() {
-      if (mounted) _initTabFromRoute();
+      if (!mounted) return;
+      final previous = _tabIndex;
+      _initTabFromRoute();
+      if (previous != _tabIndex) _load();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant UserDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) {
+      _user = _sessions = _consents = _mfa = _lifecycle = null;
+      _sectionErrors.clear();
+      _tabIndex = 0;
+      _initTabFromRoute();
+      _load();
+    }
   }
 
   @override
@@ -121,62 +142,7 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   void _selectTab(int index, String subresource) {
     setState(() => _tabIndex = index);
     AdminRoute.go('users', resourceId: widget.userId, subresource: subresource);
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final user = await widget.client.getUser(widget.userId);
-      // 各 tab 端点并行加载（Future.wait，_optionalGet 内部容错）。
-      final tabFutures = <String, Future<Map<String, dynamic>>>{};
-      for (final tab in _tabs) {
-        if (tab.$1 == 'device-security') continue; // self-loading panel
-        tabFutures[tab.$1] = _optionalGet(tab.$1, _userTabPath(tab.$1));
-      }
-      final tabResults = await Future.wait(tabFutures.values);
-      final sections = <String, Map<String, dynamic>>{
-        for (var i = 0; i < tabFutures.keys.length; i++)
-          tabFutures.keys.elementAt(i): tabResults[i],
-      };
-      if (!mounted) return;
-      setState(() {
-        _user = user;
-        _sessions = sections['sessions'] ?? <String, dynamic>{};
-        _consents = sections['consents'] ?? <String, dynamic>{};
-        _mfa = sections['mfa'] ?? <String, dynamic>{};
-        _lifecycle = sections['lifecycle'] ?? <String, dynamic>{};
-        _loading = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _error = e.toString();
-          _loading = false;
-        });
-      }
-    }
-  }
-
-  String _userTabPath(String tab) => switch (tab) {
-    'sessions' => AdminPaths.userSessions(widget.userId),
-    'consents' => AdminPaths.userConsents(widget.userId),
-    'mfa' => AdminPaths.userMfa(widget.userId),
-    'lifecycle' => AdminPaths.userLifecycle(widget.userId),
-    _ => throw ArgumentError.value(tab, 'tab', 'Unsupported user tab'),
-  };
-
-  Future<Map<String, dynamic>> _optionalGet(String section, String path) async {
-    try {
-      final result = await widget.api.get(path, forceRefresh: true);
-      _sectionErrors.remove(section);
-      return result;
-    } catch (error) {
-      _sectionErrors[section] = error.toString();
-      return <String, dynamic>{};
-    }
+    _load();
   }
 
   @override
@@ -251,7 +217,12 @@ class _UserDetailScreenState extends State<UserDetailScreen> {
   }
 
   Widget _tabContent(BuildContext context) {
-    switch (_tabs[_tabIndex].$1) {
+    if (_tabs.isEmpty) {
+      return const Center(
+        child: LocalizedText('This user resource is unavailable.'),
+      );
+    }
+    switch (_tabs[_tabIndex.clamp(0, _tabs.length - 1)].$1) {
       case 'sessions':
         return _optionalSection(
           'sessions',

@@ -108,14 +108,16 @@ extension _TokenSecurityTabView on _TokenSecurityTabState {
                   padding: EdgeInsets.only(top: 16),
                   child: SkeletonListTile(itemCount: 3),
                 )
-              else if (_data.isEmpty)
+              else if (_data.isEmpty &&
+                  _currentSection != 'temp' &&
+                  _currentSection != 'revoke')
                 const EmptyState(
                   compact: true,
                   variant: EmptyStateVariant.empty,
                   title: 'No token data available.',
                 )
               else ...[
-                _securitySummary(context),
+                if (_data.isNotEmpty) _securitySummary(context),
                 if (_shows('portfolio') && _data.containsKey('portfolio'))
                   _portfolioCard(),
                 if (_shows('suspicious') && _data.containsKey('suspicious'))

@@ -64,6 +64,14 @@ class IntegrationConfigTest(unittest.TestCase):
                 continue
             source = script.read_text()
             with self.subTest(script=script.name):
+                # These explicitly classified fixtures own temporary users/stores;
+                # importing live CONFIG would expose production origins/credentials.
+                if script.name in {'browser_sso_test.py', 'browser_sso_fixture.py', 'browser_sso_rp.py'}:
+                    self.assertNotIn('from test_config import CONFIG', source)
+                    self.assertNotIn('SNAPLINK_TEST_PASSWORD', source)
+                    self.assertNotIn("'password': 'admin'", source)
+                    self.assertNotIn('"password": "admin"', source)
+                    continue
                 self.assertIn('from test_config import CONFIG', source)
                 self.assertNotIn("'password': 'admin'", source)
                 self.assertNotIn('"password": "admin"', source)

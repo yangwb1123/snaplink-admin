@@ -6,6 +6,7 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
   List<dynamic> get _invitations;
   Map<String, dynamic>? get _usage;
   Map<String, String> get _sectionErrors;
+  Set<String> get _loadedSections;
   String? get _error;
   bool get _loading;
   int get _tabIndex;
@@ -70,10 +71,12 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
 
   /// Real-value mini strip (members / invitations / residency region)
   /// ordered per `tenantDetailMetricOrder(persona)` (design §4.9 T-07).
-  /// The Members card renders only when the members tab is capability-gated
-  /// in; remaining cards keep their relative order. No arrows.
+  /// Collection metrics render only after a successful read of that submenu;
+  /// unread/denied collections are unknown, not zero. No arrows.
   Widget _miniStrip(BuildContext context) {
-    final showMembers = _tabs.any((tab) => tab.$1 == 'members');
+    final showMembers =
+        _loadedSections.contains('members') &&
+        !_sectionErrors.containsKey('members');
     final homeRegion = _tenant?['home_region']?.toString().trim() ?? '';
     final cardByMetric = <TenantDetailMetric, KeyMetricCard>{
       if (showMembers)
@@ -83,12 +86,14 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
           icon: Icons.people_outline,
           color: AppColors.primary,
         ),
-      TenantDetailMetric.invitations: KeyMetricCard(
-        label: 'Invitations',
-        value: _invitations.length,
-        icon: Icons.mail_outline,
-        color: AppColors.accentBlue,
-      ),
+      if (_loadedSections.contains('invitations') &&
+          !_sectionErrors.containsKey('invitations'))
+        TenantDetailMetric.invitations: KeyMetricCard(
+          label: 'Invitations',
+          value: _invitations.length,
+          icon: Icons.mail_outline,
+          color: AppColors.accentBlue,
+        ),
       TenantDetailMetric.residencyRegion: KeyMetricCard(
         label: 'Home region',
         value: homeRegion.isEmpty ? 0 : 1,
@@ -108,25 +113,32 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
   Widget _tenantHeader(BuildContext context) =>
       TenantResidencySummary(tenant: _tenant, fallbackId: widget.tenantId);
 
-  Widget _tabBar(BuildContext context) => SizedBox(
-    height: 48,
-    child: ListView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      children: [
-        for (var i = 0; i < _tabs.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              avatar: Icon(_tabs[i].$3, size: 16, color: _accent),
-              label: Text('${context.tr(_tabs[i].$2)} (${_countForTab(i)})'),
-              selected: _tabIndex == i,
-              onSelected: (_) => _selectTab(i, _tabs[i].$1),
-            ),
+  Widget _tabBar(BuildContext context) => _tabs.isEmpty
+      ? const SizedBox.shrink()
+      : SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    avatar: Icon(_tabs[i].$3, size: 16, color: _accent),
+                    label: Text(
+                      _loadedSections.contains(_tabs[i].$1) &&
+                              !_sectionErrors.containsKey(_tabs[i].$1)
+                          ? '${context.tr(_tabs[i].$2)} (${_countForTab(i)})'
+                          : context.tr(_tabs[i].$2),
+                    ),
+                    selected: _tabIndex == i,
+                    onSelected: (_) => _selectTab(i, _tabs[i].$1),
+                  ),
+                ),
+            ],
           ),
-      ],
-    ),
-  );
+        );
 
   String _countForTab(int i) => switch (_tabs[i].$1) {
     'members' => '${_members.length}',
@@ -135,7 +147,12 @@ mixin _TenantDetailScreenView on State<TenantDetailScreen> {
   };
 
   Widget _tabContent(BuildContext context) {
-    switch (_tabs[_tabIndex].$1) {
+    if (_tabs.isEmpty) {
+      return const Center(
+        child: LocalizedText('This tenant resource is unavailable.'),
+      );
+    }
+    switch (_tabs[_tabIndex.clamp(0, _tabs.length - 1)].$1) {
       case 'members':
         return TenantMembersTab(
           members: _members,

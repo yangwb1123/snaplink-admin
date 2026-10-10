@@ -6,6 +6,20 @@ const appAdminIndirectSourceZh = <String, String>{
   'Branding, identity providers, and device security are mounted by some Snaplink builds but still need OpenAPI and inventory coverage.':
       '某些 Snaplink 构建已挂载品牌设置、身份提供商和设备安全功能，但仍需要 OpenAPI 与运行时清单覆盖。',
   'Capability inventory is unavailable': '能力清单不可用',
+  'Use string subject, action and resource, with optional string context values.':
+      'subject、action 和 resource 必须为字符串，context 的可选值也必须为字符串。',
+  'The token exchange response has an invalid chain.': '令牌交换响应中的链结构无效。',
+  'The SCIM response has an invalid Resources collection.':
+      'SCIM 响应中的 Resources 集合无效。',
+  'Wallet data is unavailable.': '钱包数据当前不可用。',
+  'Ledger data is unavailable.': '账本数据当前不可用。',
+  'Payment orders are unavailable.': '支付订单当前不可用。',
+  'The server returned an invalid JSON response. Check the API proxy configuration.':
+      '服务器返回了无效的 JSON 响应，请检查 API 代理配置。',
+  'Service is not configured. Set {setting}.': '服务尚未配置，请设置 {setting}。',
+  'Service upstream is invalid. Set {setting} to an HTTP(S) origin.':
+      '服务上游地址无效，请将 {setting} 设置为 HTTP(S) 来源地址。',
+  'Upstream unavailable. Check service connectivity.': '上游服务不可用，请检查服务连通性。',
   'Contract-backed modules remain discoverable while this replica is queried.':
       '查询此副本期间，基于契约的模块仍可发现。',
   'Loading runtime capabilities': '正在加载运行时能力',
@@ -46,6 +60,7 @@ const appAdminIndirectSourceZh = <String, String>{
   'Rotate signing key?': '轮换签名密钥？',
   'Reset device trust?': '重置设备信任度？',
   'Revoke this device?': '撤销此设备？',
+  'This tenant resource is unavailable.': '此租户资源当前不可用。',
   'No devices': '没有设备',
   'No login activity': '没有登录活动',
   'No login records are available for this scope.': '此范围没有可用的登录记录。',
@@ -117,12 +132,14 @@ const appAdminIndirectSourceZh = <String, String>{
   'No sessions recorded.': '未记录任何会话。',
   'No token data available.': '没有可用的令牌数据。',
   'Refresh tokens expiring soon': '即将到期的刷新令牌',
-  'Refresh tokens in the supplied scope will be invalidated. Existing stateless access tokens expire naturally.': '指定范围内的刷新令牌将失效；现有的无状态访问令牌会自然过期。',
+  'Refresh tokens in the supplied scope will be invalidated. Existing stateless access tokens expire naturally.':
+      '指定范围内的刷新令牌将失效；现有的无状态访问令牌会自然过期。',
   'Refresh-token revocation completed.': '刷新令牌撤销已完成。',
   'Revoke administrator token?': '撤销管理员令牌？',
   'Revoke token or session': '撤销令牌或会话',
   'Revoke token?': '撤销令牌？',
-  'The selected administrator session will immediately lose access.': '所选管理员会话将立即失去访问权限。',
+  'The selected administrator session will immediately lose access.':
+      '所选管理员会话将立即失去访问权限。',
   'This revocation is immediate and cannot be undone.': '此撤销立即生效且无法撤销。',
   'Token portfolio': '令牌概览',
   'Userinfo calls': 'UserInfo 调用',

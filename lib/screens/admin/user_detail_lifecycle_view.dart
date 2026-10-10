@@ -14,7 +14,7 @@ class UserLifecycleView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = lifecycle['state']?.toString() ?? 'active';
+    final state = lifecycle['state']?.toString() ?? context.tr('Unknown');
     final transitions =
         (lifecycle['allowed_transitions'] as List?)
             ?.map((item) => item.toString())
@@ -95,30 +95,32 @@ Widget _timelineStep(
   required Widget child,
 }) {
   final line = Theme.of(context).colorScheme.outlineVariant;
-  return Row(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      SizedBox(
-        width: 32,
-        child: Stack(
-          alignment: Alignment.topCenter,
-          children: [
-            if (!isLast)
-              Positioned(
-                top: 16,
-                bottom: 0,
-                child: Container(width: 2, color: line),
-              ),
-            Icon(icon, size: 22, color: _userAccent()),
-          ],
+  return IntrinsicHeight(
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          width: 32,
+          child: Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              if (!isLast)
+                Positioned(
+                  top: 16,
+                  bottom: 0,
+                  child: Container(width: 2, color: line),
+                ),
+              Icon(icon, size: 22, color: _userAccent()),
+            ],
+          ),
         ),
-      ),
-      Expanded(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 12, 16, 16),
-          child: child,
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 12, 16, 16),
+            child: child,
+          ),
         ),
-      ),
-    ],
+      ],
+    ),
   );
 }

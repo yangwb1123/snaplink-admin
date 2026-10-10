@@ -54,6 +54,11 @@ class _UserSupportTabState extends State<UserSupportTab>
   @override
   String? _nextLifecycleState;
 
+  int _reqSeq = 0;
+  String? _loadedUser;
+  @override
+  bool get _hasLoadedUser => _loadedUser != null && _loadedUser == _userId;
+
   /// 模块组色（system → indigo）：页头图标按组色上色（X7）。
   @override
   Color get _accent => adminModuleIconColor(AdminModuleId.userSupport);
@@ -87,6 +92,22 @@ class _UserSupportTabState extends State<UserSupportTab>
   @override
   void initState() {
     super.initState();
+    String? inputUser = _userId;
+    _userCtrl.addListener(() {
+      if (inputUser == _userId) return;
+      inputUser = _userId;
+      setState(() {
+        _reqSeq++;
+        _loadedUser = null;
+        _loading = false;
+        _data = const {};
+        _error = null;
+        _nextLifecycleState = null;
+        _passwordCtrl.clear();
+        _emailCtrl.clear();
+        _reasonCtrl.clear();
+      });
+    });
   }
 
   @override
@@ -98,18 +119,20 @@ class _UserSupportTabState extends State<UserSupportTab>
     super.dispose();
   }
 
-  Future<Map<String, dynamic>> _get(String suffix) =>
-      widget.api.get(_userPath(suffix));
-
   @override
   Future<void> _load() async {
-    if (_userId == null) {
+    final seq = ++_reqSeq;
+    final userId = _userId;
+    if (userId == null) {
       setState(() => _error = context.tr('Enter a user ID first.'));
       return;
     }
     setState(() {
       _loading = true;
       _error = null;
+      _loadedUser = null;
+      _data = const {};
+      _nextLifecycleState = null;
     });
     // 可选的用户支持数据源：部分失败仅标记不可用，不阻断其余卡片。
     final spec = <(String, String)>[
@@ -125,16 +148,21 @@ class _UserSupportTabState extends State<UserSupportTab>
     final entries = await Future.wait(
       spec.map((item) async {
         try {
-          return (key: item.$1, data: await _get(item.$2), error: null);
+          final path = AdminPaths.userResource(userId, item.$2);
+          return (
+            key: item.$1,
+            data: await widget.api.get(path, forceRefresh: true),
+            error: null,
+          );
         } catch (error) {
           return (key: item.$1, data: null, error: error);
         }
       }),
     );
-    if (!mounted) return;
+    if (!mounted || seq != _reqSeq) return;
     final unavailable = entries
         .where((entry) => entry.error != null)
-        .map((entry) => entry.key)
+        .map((entry) => '${entry.key}: ${entry.error}')
         .join(', ');
     setState(() {
       _data = {
@@ -146,6 +174,7 @@ class _UserSupportTabState extends State<UserSupportTab>
           : context.tr('Some support data is unavailable: {sources}', {
               'sources': unavailable,
             });
+      _loadedUser = userId;
       _loading = false;
     });
   }
@@ -161,7 +190,7 @@ class _UserSupportTabState extends State<UserSupportTab>
     String? success,
   }) async {
     final userId = _userId;
-    if (userId == null) return;
+    if (userId == null || !_hasLoadedUser) return;
     final affected = context.tr('Affected user: {userId}', {'userId': userId});
     final confirmed = await ConfirmDialog.show(
       context,
@@ -171,7 +200,7 @@ class _UserSupportTabState extends State<UserSupportTab>
       destructive: true,
       confirmText: userId,
     );
-    if (!confirmed) return;
+    if (!confirmed || !mounted || userId != _userId || !_hasLoadedUser) return;
     setState(() {
       _mutating = true;
       _error = null;
@@ -187,8 +216,10 @@ class _UserSupportTabState extends State<UserSupportTab>
     } on SnaplinkAdminApiError catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
-      _passwordCtrl.clear();
-      if (mounted) setState(() => _mutating = false);
+      if (mounted) {
+        _passwordCtrl.clear();
+        setState(() => _mutating = false);
+      }
     }
   }
 

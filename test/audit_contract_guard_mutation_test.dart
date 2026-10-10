@@ -726,8 +726,8 @@ class AuditLogTab {
       () {
         final source = _libSource('screens/admin/governance_tab.dart');
         final mutated = source.replaceFirst(
-          'widget.api.get(_auditPath, query: parameters);',
-          "widget.api.get('/api/v1/audit', query: parameters);",
+          '_auditPath,\n        query: parameters,',
+          "'/api/v1/audit',\n        query: parameters,",
         );
         expect(mutated, isNot(source));
         final violations = _scanWith({

@@ -68,6 +68,7 @@ class AdminRoute {
     'credentials': {'report'},
     'crypto-keys': {'rotate'},
     'governance': {
+      'health',
       'audit',
       'compliance',
       'configuration',
@@ -105,8 +106,11 @@ class AdminRoute {
     // /admin/<module>
     if (segments.length == 1) return AdminRoute(module: segments[0]);
 
-    // /admin/<module>/new
-    if (segments.length == 2 && segments[1] == 'new') {
+    // Permissions scopes directly to an opaque client ID; it has no
+    // module-level create form. A client named `new` is still a resource.
+    if (segments.length == 2 &&
+        segments[1] == 'new' &&
+        segments[0] != 'permissions') {
       return AdminRoute(module: segments[0], action: 'new');
     }
 

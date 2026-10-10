@@ -23,6 +23,7 @@ import 'commerce_subscription_dialogs.dart';
 import 'commerce_wallet_panel.dart';
 part 'commerce_checkout_flow.dart';
 part 'commerce_tab_view.dart';
+part 'commerce_tab_loading.dart';
 
 class CommerceTab extends StatefulWidget {
   final SnaplinkAdminApi api;
@@ -69,6 +70,10 @@ class _CommerceTabState extends State<CommerceTab> {
   bool _tenantLoading = false;
   bool _mutating = false;
   bool _tenantLoaded = false;
+  int _tenantSeq = 0;
+  int _catalogSeq = 0;
+  (String, String)? _tenantQuery;
+  final _tenantSources = <String>{};
 
   /// 模块强调色（tenants 组 amber）：页内图标统一按组色上色（X7）。
   Color get _accent => adminModuleIconColor(AdminModuleId.commerce);
@@ -78,6 +83,9 @@ class _CommerceTabState extends State<CommerceTab> {
   @override
   void initState() {
     super.initState();
+    _tenantQuery = (_tenant.text.trim(), _currency.text.trim().toUpperCase());
+    _tenant.addListener(_onTenantQueryChanged);
+    _currency.addListener(_onTenantQueryChanged);
     _loadPlans();
     _probeCheckout();
   }
@@ -90,18 +98,23 @@ class _CommerceTabState extends State<CommerceTab> {
   }
 
   Future<void> _loadPlans() async {
+    final seq = ++_catalogSeq;
     setState(() {
       _catalogLoading = true;
       _catalogError = null;
     });
     try {
       final response = await _commerce.listPlans();
-      if (!mounted) return;
+      if (!mounted || seq != _catalogSeq) return;
       setState(() => _plans = commerceRecords(response, 'plans'));
     } catch (error) {
-      if (mounted) setState(() => _catalogError = error.toString());
+      if (mounted && seq == _catalogSeq) {
+        setState(() => _catalogError = error.toString());
+      }
     } finally {
-      if (mounted) setState(() => _catalogLoading = false);
+      if (mounted && seq == _catalogSeq) {
+        setState(() => _catalogLoading = false);
+      }
     }
   }
 
@@ -130,73 +143,6 @@ class _CommerceTabState extends State<CommerceTab> {
       return CheckoutProbeState.available;
     } catch (error) {
       return checkoutProbeState(error);
-    }
-  }
-
-  Future<void> _loadTenant() async {
-    final tenantID = _tenant.text.trim();
-    final currency = _currency.text.trim().toUpperCase();
-    if (tenantID.isEmpty || !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
-      setState(
-        () => _tenantError =
-            'Enter a tenant ID and a three-letter currency code.',
-      );
-      return;
-    }
-    _currency.text = currency;
-    setState(() {
-      _tenantLoading = true;
-      _tenantError = null;
-    });
-    final results = await Future.wait([
-      _section(_commerce.listSubscriptions(tenantID)),
-      _section(_commerce.getEntitlement(tenantID), allowMissing: true),
-      _section(_commerce.getWallet(tenantID, currency), allowMissing: true),
-      _section(
-        _commerce.listWalletEntries(tenantID, currency),
-        allowMissing: true,
-      ),
-      _section(_commerce.listOrders(tenantID)),
-    ]);
-    if (!mounted) return;
-    _applyTenantResults(results);
-  }
-
-  void _applyTenantResults(
-    List<({Map<String, dynamic>? data, String? error})> results,
-  ) {
-    final errors = results.map((result) => result.error).whereType<String>();
-    setState(() {
-      _subscriptions = commerceRecords(
-        results[0].data ?? const {},
-        'subscriptions',
-      );
-      _entitlement = commerceRecord(results[1].data ?? const {}, 'entitlement');
-      _wallet = commerceRecord(results[2].data ?? const {}, 'wallet');
-      _entries = commerceRecords(results[3].data ?? const {}, 'entries');
-      _orders = commerceRecords(results[4].data ?? const {}, 'orders');
-      _events = const [];
-      _eventOrderID = null;
-      _reconciliation = null;
-      _tenantError = errors.isEmpty ? null : errors.join('\n');
-      _tenantLoading = false;
-      _tenantLoaded = true;
-    });
-  }
-
-  Future<({Map<String, dynamic>? data, String? error})> _section(
-    Future<Map<String, dynamic>> request, {
-    bool allowMissing = false,
-  }) async {
-    try {
-      return (data: await request, error: null);
-    } catch (error) {
-      if (allowMissing &&
-          error is SnaplinkAdminApiError &&
-          error.status == 404) {
-        return (data: null, error: null);
-      }
-      return (data: null, error: error.toString());
     }
   }
 
@@ -314,12 +260,17 @@ class _CommerceTabState extends State<CommerceTab> {
     Future<Map<String, dynamic>> Function() action, {
     void Function(Map<String, dynamic> response)? onSuccess,
   }) async {
+    final seq = _tenantSeq;
     setState(() => _mutating = true);
     try {
       final response = await action();
-      if (mounted && onSuccess != null) setState(() => onSuccess(response));
+      if (mounted && seq == _tenantSeq && onSuccess != null) {
+        setState(() => onSuccess(response));
+      }
     } catch (error) {
-      if (mounted) setState(() => _tenantError = error.toString());
+      if (mounted && seq == _tenantSeq) {
+        setState(() => _tenantError = error.toString());
+      }
     } finally {
       if (mounted) setState(() => _mutating = false);
     }

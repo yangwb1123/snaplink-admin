@@ -69,6 +69,21 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
   void initState() {
     super.initState();
     _startCtrl.text = DateTime.now().toUtc().toIso8601String().split('T').first;
+    var subjectQuery = (_subjectCtrl.text.trim(), _clientCtrl.text.trim());
+    void invalidateSubject() {
+      final query = (_subjectCtrl.text.trim(), _clientCtrl.text.trim());
+      if (query == subjectQuery) return;
+      subjectQuery = query;
+      setState(() {
+        _subjectSeq++;
+        _subjectTokens = null;
+        _linkedSessions = null;
+        _subjectLoading = false;
+      });
+    }
+
+    _subjectCtrl.addListener(invalidateSubject);
+    _clientCtrl.addListener(invalidateSubject);
     _load();
   }
 
@@ -188,7 +203,11 @@ class _UsageAnalyticsTabState extends State<UsageAnalyticsTab> {
     Map<String, String>? query,
   }) async {
     try {
-      return (key, await widget.api.get(path, query: query), null);
+      return (
+        key,
+        await widget.api.get(path, query: query, forceRefresh: true),
+        null,
+      );
     } on SnaplinkAdminApiError catch (error) {
       return (key, null, error);
     } catch (error) {

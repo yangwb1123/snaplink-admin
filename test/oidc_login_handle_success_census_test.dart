@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// REQ-1 + REQ-4 structural census guard (design §4.3, D12/D13).
 ///
-/// Pins the single `_handleSuccess` declaration, the six call sites, the
+/// Pins the single `_handleSuccess` declaration, the seven call sites, the
 /// syntactic adjacency rule (`if (outcome.ok) {` → `await _handleSuccess(outcome);`
 /// as the next non-empty line — no `&&` compounds, no allowlist), the
 /// account-flow isolation, and the zero-emission-string invariant. Written
@@ -21,7 +21,13 @@ void main() {
   const challengeFlow = '$moduleDir/oidc_challenge_flow.dart';
   const providerFlow = '$moduleDir/oidc_provider_flow.dart';
   const accountFlow = '$moduleDir/oidc_account_flow.dart';
-  const flowFiles = [authorizationSubmit, challengeFlow, providerFlow];
+  const sessionFlow = '$moduleDir/oidc_session_flow.dart';
+  const flowFiles = [
+    authorizationSubmit,
+    challengeFlow,
+    providerFlow,
+    sessionFlow,
+  ];
 
   List<String> linesOf(String path) =>
       File(path).readAsStringSync().split('\n');
@@ -30,7 +36,7 @@ void main() {
     test('single declaration at oidc_authorization_flow.dart:8', () {
       final declarations = <String, List<int>>{};
       // 声明固定在 authorization_flow.dart:8；调用点分布在 submit/
-      // challenge/provider 三个文件（flowFiles）。
+      // challenge/provider/session 四个文件（flowFiles），包括 OP Cookie 恢复。
       for (final file in [authorizationFlow, ...flowFiles, accountFlow]) {
         final lines = linesOf(file);
         for (var i = 0; i < lines.length; i++) {
@@ -44,14 +50,17 @@ void main() {
       });
     });
 
-    test('exactly six call sites at the pinned lines, none elsewhere', () {
+    test('exactly seven call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
-        authorizationSubmit: [21, 107, 178],
+        authorizationSubmit: [25, 111, 182],
         challengeFlow: [152, 247],
-        providerFlow: [60],
+        providerFlow: [75],
+        sessionFlow: [46],
       };
       final actual = <String, List<int>>{};
-      for (final file in pinned.keys) {
+      for (final entity in Directory(moduleDir).listSync()) {
+        if (entity is! File || !entity.path.endsWith('.dart')) continue;
+        final file = entity.path;
         final lines = linesOf(file);
         for (var i = 0; i < lines.length; i++) {
           if (lines[i].contains('_handleSuccess(outcome);')) {
@@ -63,9 +72,9 @@ void main() {
     });
 
     test('adjacency rule: every `if (outcome.ok) {` is immediately followed by '
-        '_handleSuccess(outcome); — exactly six pairs (D12)', () {
+        '_handleSuccess(outcome); — exactly seven pairs (D12)', () {
       // Exact syntactic form, no `&&` (leading indentation allowed): the
-      // compound probe condition (oidc_provider_flow.dart:279) and the
+      // compound probe condition (oidc_provider_flow.dart) and the
       // `_codeSent = outcome.ok` assignment are excluded structurally.
       final pattern = RegExp(r'^[ \t]*if \(outcome\.ok\) \{');
       var pairs = 0;
@@ -87,7 +96,7 @@ void main() {
           pairs++;
         }
       }
-      expect(pairs, 6);
+      expect(pairs, 7);
     });
 
     test('oidc_account_flow.dart has zero _handleSuccess references', () {
@@ -398,7 +407,7 @@ void main() {
       final out = <(String, String, int, int, List<String>)>[];
       // 声明文件（authorizationFlow）也参与切片：Gap A/B 需要定位
       // _handleSuccess 声明（行 8）与 _submitLogin 分发；声明方法体不含
-      // 调用点，不改变 identified set == 6。
+      // 调用点，不改变 identified set == 7（含 OP Cookie 恢复）。
       for (final f in [authorizationFlow, ...flowFiles]) {
         out.addAll(sliceMethods(f));
       }
@@ -406,7 +415,7 @@ void main() {
     }
 
     test(
-      'Gap A: identified set == 6; pinned call-site lines inside exactly one '
+      'Gap A: identified set == 7; pinned call-site lines inside exactly one '
       'sliced body; per-method uniqueness; G2 delivery tails terminate',
       () {
         final all = allSlices();
@@ -416,17 +425,18 @@ void main() {
         ];
         expect(
           ids.length,
-          6,
+          7,
           reason:
-              'identified set must be exactly 6 (Gap A) — a dispatch '
+              'identified set must be exactly 7 (Gap A) — a dispatch '
               'method that drops out of the scan (multi-line signature, '
-              'slicer miss) or a seventh path fails here, never silently: '
+              'slicer miss) or an eighth path fails here, never silently: '
               '${ids.length} found',
         );
         const pinned = <String, List<int>>{
-          authorizationSubmit: [21, 107, 178],
+          authorizationSubmit: [25, 111, 182],
           challengeFlow: [152, 247],
-          providerFlow: [60],
+          providerFlow: [75],
+          sessionFlow: [46],
         };
         pinned.forEach((file, lineNumbers) {
           final lines = linesOf(file);
@@ -628,7 +638,7 @@ void main() {
       );
     });
 
-    test('Gap C: renewal call site pinned at provider_flow:36 inside '
+    test('Gap C: renewal call site pinned at provider_flow:42 inside '
         '_checkFederatedReturn (module-wide scan) + onSubmit form-pins', () {
       final declRe = RegExp(
         r'^[ \t]+(Future<void>|Future<bool>|void|Future<[^>]*>) '
@@ -658,20 +668,20 @@ void main() {
       );
       expect(
         refs[providerFlow]![0],
-        36,
+        42,
         reason:
             'Gap C positional pin: the reference must be at '
-            'provider_flow:36 (a relocation into an interactive handler '
+            'provider_flow:42 (a relocation into an interactive handler '
             'keeps the count at 1 but fails here)',
       );
       final cfr = allSlices().firstWhere(
         (m) => m.$1 == providerFlow && m.$2 == '_checkFederatedReturn',
       );
       expect(
-        cfr.$3 <= 36 && 36 <= cfr.$4,
+        cfr.$3 <= 42 && 42 <= cfr.$4,
         isTrue,
         reason:
-            'Gap C: provider_flow:36 must lie inside the '
+            'Gap C: provider_flow:42 must lie inside the '
             '_checkFederatedReturn slice (${cfr.$3}-${cfr.$4})',
       );
       final viewLines = linesOf('$moduleDir/oidc_login_view_flow.dart');

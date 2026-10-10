@@ -24,14 +24,11 @@ class AuditReadClient {
     : _tenantId = tenantId,
       _traceId = traceId;
 
-  /// Wire note: `cursor` and `event_type` are governance-service keys —
-  /// the trio backend reads only `type, actor_id, client_id, tenant_id,
-  /// provider, outcome, request_id, trace_id, since, until, limit, offset`
-  /// and silently ignores unknown params, so [cursor] and [eventTypes]
-  /// pass through unfiltered today; only `limit` and [outcome] are real
-  /// trio keys. No mapping is applied (`AuditQuery` untouched); a future
-  /// filter UI must map `eventTypes → type` and `cursor → offset` in its
-  /// own layer.
+  /// The proxy targets Audit Governance's published Snaplink compatibility
+  /// API. Its parseSnaplinkConsoleQuery accepts `limit`, `cursor`,
+  /// `event_type` (and legacy `type`), `tenant_id`, `trace_id`, `outcome`.
+  /// Keep opaque cursors intact: non-zero offset pagination is rejected by
+  /// that service. Do not translate cursors to offsets or fall back to SSO.
   Future<List<AuditEventRow>> list({
     int limit = 100,
     String? cursor,
@@ -59,9 +56,7 @@ class AuditReadClient {
   /// in this direction; a typed `FacetResult` becomes groundable when
   /// the filter UI lands.
   ///
-  /// Same wire-forwarding semantics as [list] (see its wire note):
-  /// `cursor`/`event_type` are governance-surface keys ignored by the
-  /// trio backend; `outcome`/`limit` are real trio keys.
+  /// Same compatibility-contract query semantics as [list].
   Future<Map<String, dynamic>> facets({
     int limit = 100,
     String? cursor,

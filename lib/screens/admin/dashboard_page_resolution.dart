@@ -10,6 +10,7 @@ import 'admin_route.dart';
 import 'break_glass_detail_screen.dart';
 import 'client_detail_screen.dart';
 import 'connection_detail_screen.dart';
+import 'dashboard_capability_gate.dart';
 import 'permission_detail_screen.dart';
 import 'tenant_detail_screen.dart';
 import 'user_detail_screen.dart';
@@ -58,6 +59,8 @@ Widget resolveDashboardPage({
   required SSOAdminClient client,
   required SnaplinkAdminCapabilities capabilities,
   required OperatorPersona persona,
+  SnaplinkAdminCapabilitySnapshot? capabilitySnapshot,
+  VoidCallback? onCapabilityRetry,
 }) {
   Widget page;
   final rid = route.resourceId;
@@ -109,5 +112,11 @@ Widget resolveDashboardPage({
           entries[adminNavigationIndexForModule(entries, selectedModule)].page,
     );
   }
-  return page;
+  return dashboardCapabilityGate(
+    module: route.module,
+    snapshot: capabilitySnapshot,
+    onRetry: onCapabilityRetry,
+    title: dashboardModuleLabels(entries)[route.module],
+    child: page,
+  );
 }

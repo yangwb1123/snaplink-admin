@@ -209,9 +209,7 @@ extension _WebhooksTabSections on _WebhooksTabState {
         width: 220,
         cardPrimary: true,
         builder: (context, i) => TableCellText(
-          _deadLetters[i]['event_type']?.toString() ??
-              _deadLetters[i]['type']?.toString() ??
-              'Unknown',
+          webhookDeadLetterType(_deadLetters[i]) ?? 'Unknown',
           bold: true,
         ),
       ),
@@ -233,7 +231,7 @@ extension _WebhooksTabSections on _WebhooksTabState {
         width: 280,
         cardDetail: true,
         builder: (context, i) => TableCellText(
-          _deadLetters[i]['error']?.toString() ?? '',
+          webhookDeadLetterError(_deadLetters[i]),
           muted: true,
           maxLines: 2,
         ),

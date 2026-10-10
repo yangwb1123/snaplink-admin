@@ -20,14 +20,20 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       }
     } on TimeoutException {
       if (!mounted) return;
-      _update(
-        () => _error =
+      _update(() {
+        _checkingFederatedReturn = false;
+        _error =
             'The federated sign-in return timed out after its one-time PKCE '
-            'state was consumed. Start sign-in again.',
-      );
+            'state was consumed. Start sign-in again.';
+      });
+      return;
     } catch (error) {
       if (!mounted) return;
-      _update(() => _error = 'Sign-in failed: $error');
+      _update(() {
+        _checkingFederatedReturn = false;
+        _error = 'Sign-in failed: $error';
+      });
+      return;
     }
 
     if (_isRpFlow &&
@@ -39,8 +45,17 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
       }
       return;
     }
+    if (_effectiveClientId.isNotEmpty && !_route.shouldAutoSubmitMagicLink) {
+      await _probeProviders();
+    }
     if (mounted) {
       _update(() => _checkingFederatedReturn = false);
+      if (!_sessionAttemptHandled &&
+          _view == _View.login &&
+          _provider == 'password' &&
+          _route.flow == HostedLoginFlow.login) {
+        unawaited(_loadBrowserPasswordCredential());
+      }
     }
   }
 
@@ -188,6 +203,8 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
           outcome.data['authorization_request_passthrough_supported'] == true;
 
       _applyBranding(outcome.data['branding'], clientSpecific: true);
+      if (outcome.ok && await _tryBrowserSession(outcome.data)) return;
+      if (!mounted) return;
 
       final loginPage = buildLoginPageRedirect(
         outcome.data['login_page_uri']?.toString(),

@@ -14,13 +14,10 @@ import 'package:sso_admin/widgets/section_header.dart';
 import 'package:sso_admin/widgets/skeleton_list.dart';
 import 'admin_module_groups.dart';
 import 'admin_navigation.dart';
+import 'token_exchange_chain.dart';
 
-/// Token exchange chain audit view tab.
-///
-/// 只读工作台：输入 token JTI → GET /api/v1/admin/tokenexchange/chains/{jti}
-/// → 返回交换链（chains/chain 双键 + 单对象回退），按跳次顺序渲染每一跳的
-/// subject/actor/源目标 jti/grant_type/scopes/client_id/时间戳。语义保持
-/// 与旧版一致：字段别名回退、scopes 列表 join、空值显示 '-'。
+/// Read-only JTI chain lookup: published fields plus legacy aliases.
+/// A null collection is empty, never a fabricated hop from the envelope.
 class TokenExchangeTab extends StatefulWidget {
   final SnaplinkAdminApi api;
   final SnaplinkAdminCapabilities capabilities;
@@ -54,6 +51,22 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       );
 
   @override
+  void initState() {
+    super.initState();
+    var input = _searchCtrl.text;
+    _searchCtrl.addListener(() {
+      if (input == _searchCtrl.text) return;
+      input = _searchCtrl.text;
+      setState(() {
+        _reqSeq++;
+        _chain = null;
+        _error = null;
+        _loading = false;
+      });
+    });
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
@@ -74,7 +87,9 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
     try {
       final data = await widget.api.get(
         '$_chainsPrefix${Uri.encodeComponent(jti)}',
+        forceRefresh: true,
       );
+      tokenExchangeHops(data);
       if (!mounted || seq != _reqSeq) return;
       setState(() {
         _chain = data;
@@ -95,12 +110,6 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
         });
       }
     }
-  }
-
-  /// 交换链解析语义保持：chains 列表 > chain 列表 > 单对象（一跳）。
-  List<Map<String, dynamic>> _hops(Map<String, dynamic> data) {
-    final raw = data['chains'] as List? ?? data['chain'] as List? ?? [data];
-    return [for (final c in raw) Map<String, dynamic>.from(c as Map)];
   }
 
   @override
@@ -179,7 +188,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
   /// 交换链结果区：组色图标 + SectionHeader（跳数）+ 逐跳卡片，跳间以
   /// 向下箭头连接表达链式顺序。空链 → EmptyState（X8）。
   Widget _chainSection(BuildContext context, Map<String, dynamic> data) {
-    final hops = _hops(data);
+    final hops = tokenExchangeHops(data);
     if (hops.isEmpty) {
       return const Padding(
         padding: EdgeInsets.only(top: 8),
@@ -191,7 +200,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
       );
     }
     final subjects = {
-      for (final hop in hops) _pick(hop, ['subject', 'sub']),
+      for (final hop in hops) _pick(hop, ['subject_id', 'subject', 'sub']),
     }..removeWhere((value) => value.isEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -271,9 +280,21 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
               ],
             ),
             const SizedBox(height: 8),
-            _row(context, 'Subject', _pick(entry, ['subject', 'sub'])),
-            _row(context, 'Actor', _pick(entry, ['actor', 'actor_id'])),
-            _row(context, 'Source Token', _pick(entry, ['source_jti'])),
+            _row(
+              context,
+              'Subject',
+              _pick(entry, ['subject_id', 'subject', 'sub']),
+            ),
+            _row(
+              context,
+              'Actor',
+              _pick(entry, ['actor_subject', 'actor', 'actor_id']),
+            ),
+            _row(
+              context,
+              'Source Token',
+              _pick(entry, ['parent_jti', 'source_jti']),
+            ),
             _row(context, 'Target Token', _pick(entry, ['target_jti', 'jti'])),
             _row(context, 'Grant Type', _pick(entry, ['grant_type'])),
             _row(context, 'Scope', _scope(entry)),
@@ -281,7 +302,7 @@ class _TokenExchangeTabState extends State<TokenExchangeTab> {
             _row(
               context,
               'Timestamp',
-              _pick(entry, ['timestamp', 'created_at']),
+              _pick(entry, ['recorded_at', 'timestamp', 'created_at']),
             ),
           ],
         ),

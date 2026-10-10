@@ -270,7 +270,7 @@ class LifecycleCard extends StatelessWidget {
     return _card('Account lifecycle', Icons.swap_vert, [
       LocalizedText(
         'Current state: {state}',
-        args: {'state': lifecycleData['state'] ?? 'active'},
+        args: {'state': lifecycleData['state'] ?? context.tr('Unknown')},
       ),
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
@@ -292,7 +292,7 @@ class LifecycleCard extends StatelessWidget {
       ),
       const SizedBox(height: 12),
       FilledButton(
-        onPressed: mutating || nextState == null ? null : onApply,
+        onPressed: mutating || !allowed.contains(nextState) ? null : onApply,
         child: const LocalizedText('Apply transition'),
       ),
     ]);

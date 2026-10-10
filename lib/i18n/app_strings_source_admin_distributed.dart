@@ -23,10 +23,13 @@ const appAdminDistributedSourceZh = <String, String>{
   'Expected >= 2 keys for a multi-replica fleet': '多副本集群应至少 2 个密钥',
   'No signing keys reported': '未获取到签名密钥',
   '{n} of 5 probes unauthorized': '{n}/5 次探测未通过鉴权',
+  '{n} of 5 probes failed': '{n}/5 次探测失败',
+  'No backend health data reported': '未获取到后端健康数据',
   '5/5 probes authorized': '5/5 次探测通过鉴权',
   'Distributed checks healthy': '分布式检查全部健康',
   '{n} distributed check(s) failing': '{n} 项分布式检查异常',
   'All backends reachable': '所有后端可达',
   '{n} backend module(s) failing': '{n} 个后端模块异常',
-  'Distributed control plane (etcd bus / key registry)': '分布式控制面（etcd 总线 / 密钥注册表）',
+  'Distributed control plane (etcd bus / key registry)':
+      '分布式控制面（etcd 总线 / 密钥注册表）',
 };
