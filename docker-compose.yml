@@ -1,14 +1,19 @@
 services:
   snaplink:
     image: snaplink/sso-server:latest
+    # Stock is API-only. Console does not require an external gRPC listener.
+    command: ["--config=/etc/sso/config.yaml", "--grpc-listen="]
     ports:
-      - "8080:8080"
-    environment:
-      SSO_CONFIG: /etc/sso-server/config.yaml
+      - "127.0.0.1:8080:8080"
     volumes:
-      - ./config.local.yaml:/etc/sso-server/config.yaml
+      - type: bind
+        source: ./config.local.yaml
+        target: /etc/sso/config.yaml
+        read_only: true
+        bind:
+          create_host_path: false
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "/healthcheck"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,7 +25,7 @@ services:
         SNAPLINK_ADMIN_OAUTH_RESOURCES: ${SNAPLINK_ADMIN_OAUTH_RESOURCES-billing-api,stripe-adapter-api,audit-governance}
         SNAPLINK_AGENT_HUB_RESOURCE: ${SNAPLINK_AGENT_HUB_RESOURCE:-agent-hub}
     ports:
-      - "4444:80"
+      - "127.0.0.1:4444:80"
     depends_on:
       snaplink:
         condition: service_healthy

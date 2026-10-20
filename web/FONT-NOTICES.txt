@@ -1,0 +1,30 @@
+Self-hosted Flutter web font resources
+====================================
+
+The versioned WOFF2 files in font-fallback/ are unmodified public font
+resources selected by Flutter's web engine. They are distributed with this
+application, not sold separately. Native font selection is unchanged.
+
+Noto font software: the Noto Project authors / Google and the copyright
+holders identified in the original font metadata. SIL Open Font License
+1.1; see font-fallback/licenses/<family>.txt for each family's copyright,
+reserved names and full license. These notices accompany the original,
+unmodified WOFF2 bytes, including their embedded attribution metadata.
+
+Roboto: Google and the copyright holders identified in the original font
+metadata. Apache License 2.0; see font-fallback/licenses/roboto.txt.
+
+Source of versioned font files: https://fonts.gstatic.com/s/
+Source of Noto family license files: https://github.com/google/fonts
+Roboto license source: Flutter SDK artifacts/material_fonts/Roboto_LICENSE.txt
+
+font-fallback/manifest.json records every file's SHA-256 and byte length,
+as well as the source SDK's fallback-table digest. Build-time offline
+validation verifies the complete font URL set required by the installed
+SDK, not just the glyphs observed on a sample login page.
+
+Maintenance: python3 tools/web_font_assets.py checks existing assets without
+network access. --fetch is an explicit initial public-asset download only;
+it refuses to replace existing pinned generations. SDK changes requiring a
+new font set require an explicit reviewed asset/manifest update. Do not
+silently enable a remote CDN or generate fonts from user or identity data.

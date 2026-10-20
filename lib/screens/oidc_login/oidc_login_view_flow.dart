@@ -45,6 +45,7 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
                     ),
                     _HoverTint(
                       child: LanguageDropdown(
+                        key: ValueKey(AppSettings.instance.locale.languageCode),
                         compact: true,
                         enabled: !_loading,
                       ),

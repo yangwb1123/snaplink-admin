@@ -10,7 +10,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     }
     try {
       final result = await FederatedLogin.consumeReturnIfPresent();
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       if (result != null) {
         await _completeFirstPartyLogin(
           result.accessToken,
@@ -48,14 +48,14 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     if (_effectiveClientId.isNotEmpty && !_route.shouldAutoSubmitMagicLink) {
       await _probeProviders();
     }
-    if (mounted) {
-      _update(() => _checkingFederatedReturn = false);
-      if (!_sessionAttemptHandled &&
-          _view == _View.login &&
-          _provider == 'password' &&
-          _route.flow == HostedLoginFlow.login) {
-        unawaited(_loadBrowserPasswordCredential());
-      }
+    if (!mounted) return;
+    _update(() => _checkingFederatedReturn = false);
+    if (_ownsLoginRequest &&
+        !_sessionAttemptHandled &&
+        _view == _View.login &&
+        _provider == 'password' &&
+        _route.flow == HostedLoginFlow.login) {
+      unawaited(_loadBrowserPasswordCredential());
     }
   }
 
@@ -69,7 +69,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
         'client_id': _effectiveClientId,
         'login_transaction_id': transactionId,
       });
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       _update(() => _checkingFederatedReturn = false);
       if (outcome.ok) {
         await _handleSuccess(outcome);
@@ -97,6 +97,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     String? sessionId,
     String? refreshToken,
   }) async {
+    if (!_ownsLoginRequest) return;
     final explicitlySelectedClient =
         _params.clientId.isNotEmpty &&
         _params.clientId != widget.defaultClientId;
@@ -120,6 +121,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
             sessionId: sessionId,
             clientId: _effectiveClientId,
           );
+    if (!_ownsLoginRequest) return;
     if (!stored) {
       _update(
         () => _error =
@@ -133,6 +135,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     // before handing off, so the next screen immediately shares
     // language/theme with SVERP and other Snaplink applications.
     await AppSettings.instance.hydrateRemotePreferencesBeforeHandoff();
+    if (!_ownsLoginRequest) return;
     _redirect(
       redirectTarget ??
           _route.portalActionTarget ??
@@ -197,14 +200,14 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
         _effectiveClientId,
         loginHint: _params.loginHint,
       );
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
 
       _serverOwnedAuthorizationRequestSupported =
           outcome.data['authorization_request_passthrough_supported'] == true;
 
       _applyBranding(outcome.data['branding'], clientSpecific: true);
       if (outcome.ok && await _tryBrowserSession(outcome.data)) return;
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
 
       final loginPage = buildLoginPageRedirect(
         outcome.data['login_page_uri']?.toString(),
@@ -266,7 +269,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
   Future<void> _loadBranding() async {
     try {
       final branding = await _api.loadBranding();
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       _applyLanguageOptions(branding);
       if (branding.isEmpty || _clientBrandingApplied) return;
       _applyBranding(branding);
@@ -341,7 +344,7 @@ extension _OidcProviderFlow on _OidcLoginScreenState {
     });
     try {
       final outcome = await _api.discoverHomeRealm(identifier);
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       _serverOwnedAuthorizationRequestSupported =
           outcome.data['authorization_request_passthrough_supported'] == true;
       final connectionId =

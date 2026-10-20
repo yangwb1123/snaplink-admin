@@ -38,7 +38,17 @@ class DeploymentContractsTest(unittest.TestCase):
         backend = services['snaplink']
         console = services['console']
 
-        self.assertIn('healthcheck', backend)
+        self.assertEqual(backend['command'], [
+            '--config=/etc/sso/config.yaml', '--grpc-listen=',
+        ])
+        self.assertNotIn('SSO_CONFIG', backend.get('environment', {}))
+        self.assertEqual(backend['healthcheck']['test'], ['CMD', '/healthcheck'])
+        self.assertEqual(backend['ports'], ['127.0.0.1:8080:8080'])
+        self.assertEqual(backend['volumes'], [{
+            'type': 'bind', 'source': './config.local.yaml',
+            'target': '/etc/sso/config.yaml', 'read_only': True,
+            'bind': {'create_host_path': False},
+        }])
         self.assertEqual(
             console['depends_on']['snaplink']['condition'],
             'service_healthy',
@@ -72,7 +82,18 @@ class DeploymentContractsTest(unittest.TestCase):
             '${AUDIT_GOVERNANCE_UPSTREAM:?AUDIT_GOVERNANCE_UPSTREAM must be set — audit reads have no local fallback}',
         )
         self.assertIn('no Snaplink fallback', console['environment']['AGENT_HUB_UPSTREAM'])
-        self.assertIn('4444:80', console['ports'])
+        self.assertEqual(console['ports'], ['127.0.0.1:4444:80'])
+
+    def test_compose_missing_config_fails_closed_without_broadening_grpc(self):
+        backend = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())['services']['snaplink']
+        self.assertNotIn('--grpc-insecure', backend['command'])
+        mount = backend['volumes'][0]
+        self.assertFalse(mount['bind']['create_host_path'])
+        self.assertTrue(mount['read_only'])
+        documentation = (ROOT / 'DEPLOY.md').read_text()
+        self.assertIn('/healthcheck', documentation)
+        self.assertIn('--grpc-listen=', documentation)
+        self.assertIn('config.local.yaml', documentation)
 
     def test_kubernetes_workload_preserves_non_root_read_only_runtime(self):
         documents = list(

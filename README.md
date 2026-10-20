@@ -88,9 +88,21 @@ Agent 工作区支持在具备文件通道的原生宿主中选择输入 JSON、
 Web 版本始终使用当前页面同源，不接受来源覆盖。
 
 跨应用免密码复用的是 Snaplink 的 HttpOnly OP 身份会话，不是应用 Token。
-后端明确开启 `oidc.browser_sso.enabled` 后，普通 RP code 登录可恢复身份，
-各应用仍独立授权、consent 和签发凭据；强制重新认证和 MFA 不绕过。配置、
-PAR/JAR 边界及真实部署验收见 [浏览器 SSO](docs/BROWSER_SSO.md)。
+同 canonical OP、同浏览器 Cookie jar、各自使用已注册 code/S256 请求和**显式配置的
+托管 `/login/` 入口**、且后端明确开启 `oidc.browser_sso.enabled` 时，普通 B 可恢复
+身份并独立取得 grant；B 首次 consent 不是重复密码，强制认证/MFA 不绕过。
+标准 discovery RP 仍使用 advertised `authorization_endpoint`；当前未选 provider 的
+`/auth/login` 浏览器导航只得到 provider JSON、没有登录 UI，不能把托管 fixture 通过
+当成 generic RP 登录成功，也不能自行拼接实际应用的生产入口。应用本地 direct 登录
+不自动变成 RP code 导航，独立浏览器/WebView 不自动共享身份。
+入口契约、后端 handoff 阻塞和证据边界见[浏览器 SSO](docs/BROWSER_SSO.md)。
+
+实际两应用请先核对[中文接入清单](docs/BROWSER_SSO.md#双应用接入清单)：A/B 入口、
+注册/callback/tenant/策略及专用凭据访问/认证许可仍缺失，**实际 A→B `not_run`**。
+“为什么 B 仍要求密码”的独立[离线声明诊断](docs/BROWSER_SSO.md#离线诊断为什么-b-仍要求密码)
+只读显式枚举配置，不接收 URL/凭据、不联网、不验证登录或注册；回归入口 `make test-app-sso`。
+普通 stock 双网关的真实覆盖/计数见[集成测试](tests/integration/README.md#隔离的跨应用浏览器-sso不使用上述部署或凭据)。
+此前 target-helper 独立审查拒绝、无有效 PASS、仍未批准；普通功能证据不解除其阻塞。
 
 密码、邮箱/手机验证码和 TOTP 登录可在原生壳中完成，Bearer 只保存在进程
 内存并通过应用内路由续接；未认证 Portal 会进入统一登录并在成功后安全返回
@@ -123,6 +135,9 @@ make build
 Agent Operations；开发代理未配置时返回 `agent_hub_unconfigured`。控制台默认通过
 `http://localhost:4444` 访问。认证账号、身份源和功能开关由
 所连接的 Snaplink 部署决定，不应在前端仓库中保存默认生产凭据。
+启动脚本不会杀端口占用者，端口冲突会明确失败；后端健康提示验证实际配置的
+origin、HTTP 状态和 JSON，不把错误页面当成健康。UI 代理成功不等于 SSO 就绪。
+目标 OP 的凭据零接触只读预检见 [浏览器 SSO](docs/BROWSER_SSO.md#目标部署的只读预检)。
 
 开发代理的独立服务配置与路径如下；未配置时返回带配置提示的 JSON 503，
 不会隐式转给 Snaplink 身份 API。最小部署若确有兼容网关，也必须显式指定其 origin。

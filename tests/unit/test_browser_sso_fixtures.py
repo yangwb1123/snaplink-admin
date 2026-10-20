@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 from types import SimpleNamespace
@@ -104,6 +105,89 @@ class BrowserFixtureSafetyTest(unittest.TestCase):
                 route_request(route)
                 self.assertEqual(route.continue_.called, allowed)
                 self.assertEqual(route.abort.called, not allowed)
+
+    def test_external_resource_counter_keeps_counts_not_urls_or_secrets(self):
+        browser = Mock()
+        fixture = SimpleNamespace(issuer='https://127.0.0.1:40001', rps=[])
+        network = {'external_requests': 0}
+        context = browser_module.browser_context(browser, fixture, locale='zh-CN', network=network)
+        route_request = context.route.call_args.args[1]
+        route = Mock()
+        route.request.url = 'https://fonts.gstatic.com/private-fixture.woff2?value=fixture-only'
+        route_request(route)
+        route.abort.assert_called_once_with()
+        route.continue_.assert_not_called()
+        self.assertEqual(network, {'external_requests': 1})
+        self.assertNotIn('fixture-only', repr(network))
+        self.assertEqual(browser.new_context.call_args.kwargs['locale'], 'zh-CN')
+
+    def test_python_gateway_handshakes_only_in_a_bounded_worker(self):
+        from tools import robust_proxy
+        names = ('BACKEND', 'STATIC', 'BILLING_BACKEND', 'STRIPE_ADAPTER_BACKEND',
+                 'FORGE_BACKEND', 'AUDIT_GOVERNANCE_BACKEND', 'AGENT_HUB_BACKEND')
+        original = {name: getattr(robust_proxy, name) for name in names}
+        with patch.multiple(robust_proxy, **original), \
+                patch.object(fixture_module, 'create_tls', return_value=(Path('/cert'), Path('/key'))), \
+                patch.object(fixture_module, 'start_server') as start, \
+                patch.object(fixture_module.ssl, 'SSLContext') as context:
+            fixture_module.python_gateway(object(), Path('/fixture'), Path('/web'),
+                                          'http://127.0.0.1:40001', 'http://127.0.0.1:40002')
+            server = start.call_args.args[1]
+            self.addCleanup(server.server_close)
+            tls = context.return_value
+            # An accepted connection sends no TLS ClientHello. get_request
+            # must still return without performing a listener-thread handshake.
+            with socket.create_connection(server.server_address, timeout=2):
+                server.get_request()
+            accepted = tls.wrap_socket.call_args.args[0]
+            self.addCleanup(accepted.close)
+            self.assertEqual(accepted.gettimeout(), 5)
+            self.assertFalse(tls.wrap_socket.call_args.kwargs['do_handshake_on_connect'])
+            tls.wrap_socket.return_value.do_handshake.assert_not_called()
+
+    def test_primary_input_waits_for_focus_and_types_once(self):
+        page = Mock()
+        field = page.get_by_role.return_value
+        assertions = Mock()
+        expect = Mock(return_value=assertions)
+        events = []
+        field.click.side_effect = lambda: events.append('click')
+        assertions.to_be_focused.side_effect = lambda **_: events.append('focus')
+        page.keyboard.type.side_effect = lambda *_, **__: events.append('type')
+        page.evaluate.side_effect = lambda *_: events.append('frame')
+        page.keyboard.press.side_effect = lambda *_: events.append('tab')
+        assertions.to_have_value.side_effect = lambda *_, **__: events.append('value')
+        with patch.dict(sys.modules, {'playwright': SimpleNamespace(),
+                                     'playwright.sync_api': SimpleNamespace(expect=expect)}):
+            browser_module.type_primary_field(page, 'Password', 'fixture-only')
+        self.assertEqual(events, ['click', 'focus', 'frame', 'focus', 'type', 'frame', 'value', 'tab', 'value'])
+        page.keyboard.type.assert_called_once_with('fixture-only', delay=50)
+        self.assertEqual(assertions.to_have_value.call_count, 2)
+        assertions.to_have_value.assert_called_with('fixture-only', timeout=10000)
+        self.assertEqual(page.evaluate.call_count, 2)
+        for call in page.evaluate.call_args_list:
+            self.assertIn('requestAnimationFrame', call.args[0])
+            self.assertIn('setTimeout', call.args[0])
+            self.assertIn('5000', call.args[0])
+            self.assertNotIn('fixture-only', call.args[0])
+        page.get_by_role.assert_called_once_with('textbox', name='Password', exact=True)
+
+    def test_primary_input_failure_has_no_secret_details_or_retry(self):
+        for stage, type_count in [('to_be_focused', 0), ('to_have_value', 1)]:
+            with self.subTest(stage=stage):
+                page = Mock()
+                assertions = Mock()
+                getattr(assertions, stage).side_effect = AssertionError('secret-assertion-fixture')
+                expect = Mock(return_value=assertions)
+                with patch.dict(sys.modules, {'playwright': SimpleNamespace(),
+                                             'playwright.sync_api': SimpleNamespace(expect=expect)}):
+                    with self.assertRaises(rp_module.FixtureFailure) as raised:
+                        browser_module.type_primary_field(page, 'Password', 'secret-input-fixture')
+                self.assertNotIn('secret-', str(raised.exception))
+                self.assertTrue(raised.exception.__suppress_context__)
+                self.assertEqual(page.keyboard.type.call_count, type_count)
+                page.get_by_role.assert_called_once_with('textbox', name='Password', exact=True)
+                page.request.post.assert_not_called()
 
     def test_observer_retains_counts_not_credentials_and_checks_origin(self):
         context = Mock()

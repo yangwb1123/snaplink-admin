@@ -182,6 +182,18 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
 
   bool _checkingFederatedReturn = true;
   bool _sessionAttemptHandled = false;
+  final Object _navigationRequestIdentity = BrowserNavigation.requestIdentity;
+
+  // Native route replacement removes a request before its exit animation
+  // disposes the widget. A mounted but removed route no longer owns results.
+  // A temporarily covered route (for example Settings) remains active.
+  bool get _ownsLoginRequest =>
+      mounted &&
+      identical(
+        _navigationRequestIdentity,
+        BrowserNavigation.requestIdentity,
+      ) &&
+      (ModalRoute.of(context)?.isActive ?? true);
 
   String get _effectiveClientId => _params.clientId.isNotEmpty
       ? _params.clientId
@@ -320,7 +332,9 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   Future<void> _loadBrowserPasswordCredential() async {
     if (!kIsWeb || !mounted || _provider != 'password') return;
     final credential = await BrowserPasswordManager.read();
-    if (!mounted || _provider != 'password' || credential == null) return;
+    if (!_ownsLoginRequest || _provider != 'password' || credential == null) {
+      return;
+    }
     _update(() {
       if (_userCtrl.text.trim().isEmpty) _userCtrl.text = credential.username;
       if (_passCtrl.text.isEmpty) _passCtrl.text = credential.password;

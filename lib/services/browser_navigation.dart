@@ -8,6 +8,14 @@ import 'browser_navigation_stub.dart'
 /// [listenToLocationChange] must be invoked by widget owners during `dispose`
 /// to release browser event listeners.
 abstract final class BrowserNavigation {
+  static Object _requestIdentity = Object();
+
+  /// Opaque ownership for explicit application navigation, even to the same
+  /// location. Native route replacement is deferred until the next frame;
+  /// invalidate pending results immediately, without comparing or keying URLs.
+  /// Same-document history edits do not start a new login request.
+  static Object get requestIdentity => _requestIdentity;
+
   /// Current product location. This follows browser history on web and the
   /// in-memory route history maintained by native shells.
   static Uri get currentUri => platform.currentUri();
@@ -26,18 +34,27 @@ abstract final class BrowserNavigation {
   /// entry case).
   static bool back() => platform.back();
 
-  static void assignLocation(String path) => platform.assignLocation(path);
+  static void assignLocation(String path) {
+    _requestIdentity = Object();
+    platform.assignLocation(path);
+  }
 
   /// Navigates to an absolute external HTTPS URL only when a real browser
   /// owns the location. Native shells return false without changing routes.
   static bool assignExternalLocation(Uri target) =>
       platform.assignExternalLocation(target);
 
-  static void replaceLocation(String path) => platform.replaceLocation(path);
+  static void replaceLocation(String path) {
+    _requestIdentity = Object();
+    platform.replaceLocation(path);
+  }
 
   /// Test-only hook to clear in-memory location state between tests. A no-op
   /// on web, where the document URL is the single source of truth.
-  static void resetForTest() => platform.resetForTest();
+  static void resetForTest() {
+    _requestIdentity = Object();
+    platform.resetForTest();
+  }
 
   static void Function() listenToPopState(void Function() listener) =>
       platform.listenToPopState(listener);

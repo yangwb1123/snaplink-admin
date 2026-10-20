@@ -2,10 +2,11 @@ part of 'oidc_login_screen.dart';
 
 extension _OidcAuthorizationFlow on _OidcLoginScreenState {
   void _redirect(String url) {
-    BrowserNavigation.replaceLocation(url);
+    if (_ownsLoginRequest) BrowserNavigation.replaceLocation(url);
   }
 
   Future<void> _handleSuccess(LoginOutcome outcome) async {
+    if (!_ownsLoginRequest) return;
     // 只在用户明确勾选“记住密码”且密码认证最终成功时请求浏览器/系统
     // 凭据管理器保存。密码不落入 localStorage、sessionStorage 或应用自身
     // 数据库；由平台密码管理器负责加密存储与后续自动填充。
@@ -37,6 +38,7 @@ extension _OidcAuthorizationFlow on _OidcLoginScreenState {
       // top-level OAuth redirect tears down the document.
       await Future<void>.delayed(const Duration(milliseconds: 150));
     }
+    if (!_ownsLoginRequest) return;
     _clearAutofillCandidate();
     // Authentication credentials are no longer needed once the server has
     // reached a terminal success. Clear them even when redirect/JARM delivery

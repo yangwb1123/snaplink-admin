@@ -2,6 +2,7 @@ part of 'oidc_login_screen.dart';
 
 extension _OidcChallengeFlow on _OidcLoginScreenState {
   void _handleLoginError(LoginOutcome outcome) {
+    if (!_ownsLoginRequest) return;
     if (outcome.isMfaRequired) {
       // A grant presented for this client did not skip MFA. Treat it as stale
       // so future sign-ins do not keep replaying a bearer-equivalent value the

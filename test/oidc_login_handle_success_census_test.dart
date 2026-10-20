@@ -53,7 +53,7 @@ void main() {
     test('exactly seven call sites at the pinned lines, none elsewhere', () {
       final pinned = <String, List<int>>{
         authorizationSubmit: [25, 111, 182],
-        challengeFlow: [152, 247],
+        challengeFlow: [153, 248],
         providerFlow: [75],
         sessionFlow: [46],
       };
@@ -434,7 +434,7 @@ void main() {
         );
         const pinned = <String, List<int>>{
           authorizationSubmit: [25, 111, 182],
-          challengeFlow: [152, 247],
+          challengeFlow: [153, 248],
           providerFlow: [75],
           sessionFlow: [46],
         };

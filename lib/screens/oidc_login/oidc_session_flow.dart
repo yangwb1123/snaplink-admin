@@ -41,7 +41,7 @@ extension _OidcSessionFlow on _OidcLoginScreenState {
       payload['client_id'] = _effectiveClientId;
       payload['resume_session'] = true;
       final outcome = await _api.login(payload);
-      if (!mounted) return true;
+      if (!_ownsLoginRequest) return true;
       if (outcome.ok) {
         await _handleSuccess(outcome);
       } else if (outcome.isMfaRequired || outcome.isConsentRequired) {

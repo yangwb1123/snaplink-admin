@@ -119,3 +119,26 @@
 ## 既有测试失败（历史记录）
 
 - `setup_screen_test` / `oidc_account_flow_test` 两个既有失败已在此前并行提交中修复；R145 报告记录的全量 VM、browser 与 harness 门禁通过。此处不把历史验证数字当作本次 R153 的新测试结果。
+
+## 分支与 worktree 卫生（campaign 成本）
+
+2026-10 盘点：79 个 worktree 中 47 个目录已不存在；38 个未合并分支全部与 `main`
+冲突；25 个 campaign 分支指向同一个基线提交。浪费来自"先建 worktree 后过设计门"、
+验收不含可合并性、以及每个阶段都重跑整套门禁（一次全量约 15 分钟）。
+
+策略（按收益排序）：
+
+1. **决策与执行分离**：requirements/design/design_gate 在主工作树只读执行；只有通过
+   设计门的方向才 `isolate` 建 worktree。
+2. **可合并性进验收**：`git merge-tree --write-tree main <branch>` 无冲突，并检查
+   fork 相对当前 `main` 的新鲜度；冲突即 FAIL 并列出冲突文件。
+3. **全量门禁只跑两次**：方向验收与合并前各一次；阶段内只跑定向测试 + `cli.py check`。
+4. **保留期 GC**：失败方向先固化补丁与证据，再在保留期（24–72h 或下次启动）回收
+   worktree 与分支；超期未合并分支 `tag archive/<name>` 后再删除。
+5. **尽早落袋**：通过的切片当轮提交（需维护者授权）；未提交的绿代码既不能复用也
+   不能合并。
+6. **自动修复轮继承预算**：`pbatch/gate_fix.py` 的 1800 秒上限需可配置，且修复任务
+   只跑定向测试，全量门禁交给阶段命令；报告先写再测。
+
+只读盘点：`make branch-audit`、`python3 tools/branch_audit.py --json --stale-days 14`。
+工具不删除任何分支或 worktree；`--suggest` 只打印需人工确认的命令。

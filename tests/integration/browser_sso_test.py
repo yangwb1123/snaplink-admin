@@ -6,8 +6,8 @@ from pathlib import Path
 import sys
 import urllib.parse
 
-from browser_sso_fixture import BrowserFixture, FIXTURE_PASSWORD, FIXTURE_USER, ROOT
-from browser_sso_rp import FixtureFailure, require
+from browser_sso_fixture import BrowserFixture, CASES, FIXTURE_PASSWORD, FIXTURE_USER, ROOT, run_case
+from browser_sso_rp import FixtureFailure, assert_original_context, require
 
 COOKIE = 'snaplink_op_session'
 
@@ -24,6 +24,36 @@ def login_form(page):
     print('Phase: wait for username field')
     page.get_by_role('textbox', name='Username', exact=True).wait_for(timeout=30000)
     return page.get_by_role('textbox', name='Password', exact=True)
+
+
+def type_primary_field(page, label, value):
+    from playwright.sync_api import expect
+    field = page.get_by_role('textbox', name=label, exact=True)
+    field.click()
+    # Click completion is not Flutter text-editing focus completion. Wait for
+    # the live editor before sending keys; never refill/retry a login request.
+    stage = 'focus'
+    try:
+        expect(field).to_be_focused(timeout=10000)
+        # The DOM focus precedes Flutter's editing-channel/render commit. Let
+        # that commit finish before typing, and before blur projects the value.
+        frame = '''() => new Promise((done, fail) => {
+          const timer = setTimeout(() => fail(new Error('Editing frame unavailable')), 5000);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            clearTimeout(timer); done();
+          }));
+        })'''
+        page.evaluate(frame)
+        expect(field).to_be_focused(timeout=10000)
+        stage = 'value'
+        page.keyboard.type(value, delay=50)
+        page.evaluate(frame)
+        expect(field).to_have_value(value, timeout=10000)
+        page.keyboard.press('Tab')
+        expect(field).to_have_value(value, timeout=10000)
+    except AssertionError:
+        # Playwright's assertion includes expected/actual credentials: withhold it.
+        raise FixtureFailure('Primary ' + label.lower() + ' ' + stage + ' did not synchronize before login') from None
 
 
 def cookie_for(context, issuer):
@@ -80,7 +110,7 @@ def observe(context, issuer, diagnostics=None):
     return counts
 
 
-def assert_grants(fixture):
+def assert_grants(fixture, original):
     a, b = fixture.rps
     require(not a.failure and not b.failure, 'RP callback verification failed')
     require(not a.received_identity_cookie and not b.received_identity_cookie, 'OP identity cookie leaked to an RP host')
@@ -91,9 +121,10 @@ def assert_grants(fixture):
     require(ga['access'].get('sid') and ga['access']['sid'] != gb['access'].get('sid'), 'RP authorization sessions were shared')
     require(ga['identity']['sub'] == gb['identity']['sub'], 'Second RP restored a different identity')
     for field in ('auth_time', 'amr', 'acr'):
-        require(ga['access'].get(field) == gb['access'].get(field), 'Restoration changed authentication context')
-        require(ga['identity'].get(field) == gb['identity'].get(field), 'ID-token authentication context changed')
+        require(ga['access'].get(field) == gb['access'].get(field), f'Restoration changed authentication context ({field})')
+        require(ga['identity'].get(field) == gb['identity'].get(field), f'ID-token authentication context changed ({field})')
     require(ga['access'].get('auth_time', 0) > 0, 'Original authentication time is missing')
+    assert_original_context([ga, gb], original)
 
 
 def check_http_only_and_service_isolation(context, fixture, original):
@@ -111,8 +142,8 @@ def check_http_only_and_service_isolation(context, fixture, original):
     page.close()
 
 
-def browser_context(browser, fixture):
-    context = browser.new_context(ignore_https_errors=True, locale='en-US', viewport={'width': 1440, 'height': 1200})
+def browser_context(browser, fixture, *, locale='en-US', network=None):
+    context = browser.new_context(ignore_https_errors=True, locale=locale, viewport={'width': 1440, 'height': 1200})
     # No HAR/screenshots/traces and no requests outside our owned fixture origins.
     origins = {fixture.issuer, *(rp.origin for rp in fixture.rps)}
 
@@ -121,16 +152,66 @@ def browser_context(browser, fixture):
         if target.scheme + '://' + target.netloc in origins:
             route.continue_()
         else:
+            if network is not None:
+                network['external_requests'] += 1
             route.abort()
     context.route('**/*', route_request)
     return context
+
+
+def check_localized_fonts(browser, fixture):
+    for locale, username, password in [('en-US', 'Username', 'Password'), ('zh-CN', '用户名', '密码')]:
+        network = {'external_requests': 0}
+        context = browser_context(browser, fixture, locale=locale, network=network)
+        counts = observe(context, fixture.issuer)
+        failures = []
+        def font_response(response):
+            path = urllib.parse.urlsplit(response.url).path
+            if '/font-fallback/' in path and path.endswith('.woff2'):
+                try:
+                    if response.status != 200 or response.body()[:4] != b'wOF2':
+                        failures.append('invalid_local_font')
+                except Exception:
+                    failures.append('unreadable_local_font')
+        context.on('response', font_response)
+        try:
+            page = context.new_page()
+            page.goto(fixture.issuer + '/login/?client_id=' + fixture.rps[0].client_id)
+            enable_semantics(page)
+            page.get_by_role('textbox', name=username, exact=True).wait_for(timeout=30000)
+            page.get_by_role('textbox', name=password, exact=True).wait_for(timeout=30000)
+            for family in ('roboto', 'notosanssc') if locale == 'zh-CN' else ('roboto',):
+                page.wait_for_function('''family => performance.getEntriesByType('resource').some(
+                  entry => new URL(entry.name).pathname.includes('/font-fallback/' + family + '/'))''', arg=family, timeout=30000)
+            require(not failures and network['external_requests'] == 0, 'Localized login used an external or invalid font')
+            require(counts == {'password': 0, 'resume': 0, 'continuation': 0, 'unexpected': 0}, 'Anonymous font check attempted authorization')
+            require(not context.cookies(fixture.issuer), 'Anonymous font check issued a cookie')
+        finally:
+            context.close()
+    print('PASS: EN/ZH anonymous login uses same-origin WOFF2, without external requests or authentication')
+
+
+def check_fixture_preflight(fixture):
+    sys.path.insert(0, str(ROOT))
+    from tools.check_browser_sso_deployment import inspect_deployment
+    for rp in fixture.rps:
+        report = inspect_deployment(fixture.issuer, fixture.issuer, rp.client_id,
+                                    tls_context=rp.tls_context)
+        require(report['passed'], 'Read-only OP preflight failed: ' + str(report['checks']))
+        require(report['browser_acceptance'] == 'not_run' and
+                report['shared_sessions_and_keys'] == 'not_verified' and
+                report['per_client_authorization'] == 'not_verified',
+                'Preflight misrepresented authentication, authorization or replica acceptance')
+    print('PASS: credential-free HTTPS deployment preflight (not browser acceptance)')
 
 
 def run_browser(playwright, fixture, channel):
     browser = playwright.chromium.launch(headless=True, channel=channel)
     print('Chromium:', browser.version)
     try:
-        context = browser_context(browser, fixture)
+        check_localized_fonts(browser, fixture)
+        network = {'external_requests': 0}
+        context = browser_context(browser, fixture, network=network)
         diagnostics = {}
         counts = observe(context, fixture.issuer, diagnostics)
         a, b = fixture.rps
@@ -138,17 +219,9 @@ def run_browser(playwright, fixture, channel):
         first.goto(a.origin + '/start')
         login_form(first)
         print('Phase: fill primary credentials')
-        first.get_by_role('textbox', name='Username', exact=True).click()
-        # Flutter editing uses sequential key events; bulk DOM fill does not
-        # guarantee that its TextEditingController has received the credential.
-        first.keyboard.type(FIXTURE_USER, delay=25)
-        first.keyboard.press('Tab')
-        first.get_by_role('textbox', name='Password', exact=True).click()
-        first.keyboard.type(FIXTURE_PASSWORD, delay=25)
-        first.keyboard.press('Tab')
-        from playwright.sync_api import expect
-        expect(first.get_by_role('textbox', name='Username', exact=True)).to_have_value(FIXTURE_USER)
-        expect(first.get_by_role('textbox', name='Password', exact=True)).to_have_value(FIXTURE_PASSWORD)
+        # Flutter editing needs focused, sequential key events, not bulk DOM fill.
+        type_primary_field(first, 'Username', FIXTURE_USER)
+        type_primary_field(first, 'Password', FIXTURE_PASSWORD)
         print('Phase: submit primary login')
         first.get_by_role('button', name='Sign in', exact=True).click()
         print('Phase: primary callback; counts:', counts)
@@ -175,12 +248,13 @@ def run_browser(playwright, fixture, channel):
         require(counts == {'password': 1, 'resume': 1, 'continuation': 1, 'unexpected': 0}, 'Browser login/continuation was replayed or skipped')
         current = cookie_for(context, fixture.issuer)
         require(current['value'] == original['value'] and current['expires'] == original['expires'], 'SSO renewed the OP cookie')
-        assert_grants(fixture)
+        assert_grants(fixture, original)
         print('PASS: second RP consent, independent grants and preserved authentication age')
 
         check_http_only_and_service_isolation(context, fixture, original)
         print('PASS: HttpOnly and independent-service request/response cookie isolation')
         check_authentication_boundaries(browser, context, fixture, counts)
+        require(network['external_requests'] == 0, 'Hosted login attempted an external resource')
         browser.close()
     finally:
         if browser.is_connected():
@@ -222,17 +296,36 @@ def main():
     parser.add_argument('--backend-repo', type=Path, default=ROOT.parent / 'snaplink')
     parser.add_argument('--web-build', type=Path, default=ROOT / 'build/web')
     parser.add_argument('--gateway', choices=('python', 'nginx', 'both'), default='both')
+    parser.add_argument('--case', choices=('all', 'baseline', 'normal', 'rp-entry', 'live-replicas', *CASES), default='all',
+                        help='normal: four consent/persistence cases; rp-entry: blocker; live-replicas: concurrent Redis')
     parser.add_argument('--browser-channel', choices=('chrome',), default=None,
                         help='Explicit system Chrome for hosts unsupported by bundled Chromium')
     args = parser.parse_args()
     try:
+        print('Phase: load Playwright', flush=True)
         from playwright.sync_api import sync_playwright
         gateways = ('python', 'nginx') if args.gateway == 'both' else (args.gateway,)
-        with sync_playwright() as playwright:
-            for gateway in gateways:
-                with BrowserFixture(args.backend_repo.resolve(), args.web_build.resolve(), gateway) as fixture:
-                    print('Gateway:', gateway)
-                    run_browser(playwright, fixture, args.browser_channel)
+        for gateway in gateways:
+            if args.case in ('all', 'baseline'):
+                with sync_playwright() as playwright:
+                    with BrowserFixture(args.backend_repo.resolve(), args.web_build.resolve(), gateway) as fixture:
+                        print('Gateway:', gateway)
+                        check_fixture_preflight(fixture)
+                        run_browser(playwright, fixture, args.browser_channel)
+            # No parent sync-Playwright context is alive across this boundary.
+            # SIGTERM/deadline cleanup must not depend on a browser fiber unwind.
+            for case in ('rp-entry', 'live-replicas'):
+                if args.case in ('all', case):
+                    from app_sso_supervisor import run_owned_case
+                    run_owned_case(args.backend_repo.resolve(), args.web_build.resolve(),
+                                   gateway, args.browser_channel, case)
+            cases = CASES if args.case in ('all', 'normal') else (
+                () if args.case in ('baseline', 'rp-entry', 'live-replicas') else (args.case,))
+            if cases:
+                with sync_playwright() as playwright:
+                    for case in cases:
+                        run_case(playwright, args.backend_repo.resolve(), args.web_build.resolve(),
+                                 gateway, args.browser_channel, case)
         print('Browser SSO: PASS (isolated fixtures, not target-deployment acceptance)')
         return 0
     except FixtureFailure as error:

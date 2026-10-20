@@ -1,3 +1,4 @@
+import errno
 import gzip
 import json
 import os
@@ -366,22 +367,28 @@ def _send_cors_preflight(conn):
 
 def serve():
     """Main server loop."""
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind(('0.0.0.0', PORT))
-    server.listen(128)
-    server.settimeout(1.0)
-    label = BACKEND if valid_origin(BACKEND) else '<invalid origin>'
-    sys.stderr.write(f"[proxy] Robust SPA+API proxy on :{PORT} (backend={label})\n")
-    while True:
-        try:
-            conn, addr = server.accept()
-            t = threading.Thread(target=handle, args=(conn,), daemon=True)
-            t.start()
-        except socket.timeout:
-            continue
-        except Exception:
-            time.sleep(0.1)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(('0.0.0.0', PORT))
+        server.listen(128)
+        server.settimeout(1.0)
+        label = BACKEND if valid_origin(BACKEND) else '<invalid origin>'
+        sys.stderr.write(f"[proxy] Robust SPA+API proxy on :{PORT} (backend={label})\n")
+        while True:
+            try:
+                conn, addr = server.accept()
+                t = threading.Thread(target=handle, args=(conn,), daemon=True)
+                t.start()
+            except socket.timeout:
+                continue
+            except Exception:
+                time.sleep(0.1)
 
 if __name__ == '__main__':
-    serve()
+    try:
+        serve()
+    except OSError as error:
+        message = ('Proxy port is already in use; stop its owner explicitly or choose another port.'
+                   if error.errno == errno.EADDRINUSE else 'Unable to bind the proxy listener.')
+        sys.stderr.write(f'[proxy] {message}\n')
+        sys.exit(1)

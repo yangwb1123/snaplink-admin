@@ -36,7 +36,8 @@ RUN flutter pub get
 COPY . .
 # Code splitting: seven product entries compile to separate deferred chunks;
 # dart2wasm does not emit deferred chunks yet, so the image builds dart2js.
-RUN flutter build web --release --base-href=/app/ \
+RUN python3 tools/web_font_assets.py
+RUN flutter build web --release --base-href=/app/ --no-web-resources-cdn \
     --dart-define=SNAPLINK_ADMIN_OAUTH_RESOURCES="${SNAPLINK_ADMIN_OAUTH_RESOURCES}" \
     --dart-define=SNAPLINK_AGENT_HUB_RESOURCE="${SNAPLINK_AGENT_HUB_RESOURCE}"
 

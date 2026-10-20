@@ -2,13 +2,13 @@
 # sso-console 一键开发启动脚本
 #
 # Usage:
-#   ./dev.sh             启动后端 + 构建 + 代理
+#   ./dev.sh             构建 + 启动代理（不启动或替换身份后端）
 #   ./dev.sh --quick     跳过构建，直接启动代理
 #   ./dev.sh --build     强制重建 Flutter 并启动代理
 #   ./dev.sh --test      运行测试套件
 #   ./dev.sh --clean     清理构建产物
 
-set -e
+set -euo pipefail
 
 cd "$(dirname "$0")"
 
@@ -52,12 +52,15 @@ esac
 command -v flutter >/dev/null 2>&1 || { error "Flutter is required but not installed."; exit 1; }
 command -v python3 >/dev/null 2>&1 || { error "Python 3 is required but not installed."; exit 1; }
 
-# Check if snaplink backend is running
-if curl -s --max-time 2 http://localhost:8080/health > /dev/null 2>&1; then
-  info "snaplink backend is running on :8080"
+# Match the proxy's environment precedence; never select another identity instance.
+BACKEND="${BACKEND-${SNAPLINK_API_URL-${SNAPLINK_UPSTREAM-http://localhost:8080}}}"
+PORT="${PORT-${SNAPLINK_PROXY_PORT-4444}}"
+export BACKEND PORT
+if python3 tools/check_browser_sso_deployment.py --origin "$BACKEND" --health-only; then
+  info "Configured snaplink backend reports healthy."
 else
-  warn "snaplink backend is NOT running on :8080"
-  warn "Start it first or some features will be unavailable."
+  warn "Configured snaplink backend health is unavailable or invalid."
+  warn "Continuing with the UI proxy only; this is NOT backend/SSO readiness."
   echo ""
 fi
 
@@ -68,31 +71,14 @@ if [ "${FORCE_BUILD:-false}" = "true" ] || [ "${WARN_SKIP_BUILD:-false}" != "tru
   # first frame and runtime), and dev.sh serves it statically through the
   # proxy — there is no hot reload to justify debug artifacts here. Use
   # `flutter run` directly for hot-reload iteration.
+  python3 tools/web_font_assets.py
   flutter build web --release \
-    --pwa-strategy=none \
     --no-web-resources-cdn 2>&1 | tail -3
   info "Build complete."
   echo ""
 fi
 
-# Kill existing proxy
-kill $(lsof -ti:4444) 2>/dev/null || true
-sleep 1
-
-# Start proxy
-info "Starting proxy on http://localhost:4444"
-python3 tools/robust_proxy.py &
-PID=$!
-sleep 2
-
-# Verify proxy
-if curl -s --max-time 3 -o /dev/null -w '%{http_code}' http://localhost:4444/ 2>/dev/null | grep -q 200; then
-  info "Proxy is ready: http://localhost:4444"
-  echo ""
-  info "Press Ctrl+C to stop."
-else
-  warn "Proxy may not have started correctly. Check tools/robust_proxy.py"
-fi
-
-# Wait for proxy to exit
-wait $PID 2>/dev/null
+# Bind atomically in the foreground. A busy port fails without touching its owner.
+info "Starting proxy; the listener will report its bound port."
+info "Press Ctrl+C to stop."
+exec python3 tools/robust_proxy.py

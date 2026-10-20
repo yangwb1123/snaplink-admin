@@ -18,9 +18,9 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
       if (await _silentUsesBrowserSession()) {
         payload['resume_session'] = true;
       }
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       final outcome = await _api.login(payload);
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       if (outcome.ok) {
         await _handleSuccess(outcome);
       } else {
@@ -106,7 +106,7 @@ extension _OidcAuthorizationSubmit on _OidcLoginScreenState {
         : {'username': _userCtrl.text.trim(), 'password': _passCtrl.text};
     try {
       final outcome = await _api.login(payload);
-      if (!mounted) return;
+      if (!_ownsLoginRequest) return;
       if (outcome.ok) {
         await _handleSuccess(outcome);
       } else {

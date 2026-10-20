@@ -1,4 +1,4 @@
-.PHONY: build build-prod test test-browser test-browser-sso guard-count-pin analyze k8s-render serve clean watch verify benchmark full-stack integration
+.PHONY: build build-prod test test-app-sso test-app-sso-browser test-browser test-browser-sso browser-sso-plan branch-audit guard-count-pin analyze k8s-render serve clean watch verify benchmark full-stack integration
 
 SNAPLINK_API_URL ?= http://localhost:8080
 SNAPLINK_PROXY_PORT ?= 4444
@@ -11,7 +11,8 @@ SNAPLINK_AGENT_HUB_RESOURCE ?= agent-hub
 
 # 构建 Flutter Web 应用
 build:
-	flutter build web --release --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
+	python3 tools/web_font_assets.py
+	flutter build web --release --no-web-resources-cdn --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # 构建与生产网关约定一致的 /app/ 静态资源
 #
@@ -20,12 +21,14 @@ build:
 # 合并进主 wasm，分割失效），因此默认构建是 dart2js。需要 skwasm 快速
 # 启动且接受无分割的部署可使用 build-wasm-prod。
 build-prod:
-	flutter build web --release --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
+	python3 tools/web_font_assets.py
+	flutter build web --release --base-href=/app/ --no-web-resources-cdn --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # 可选：dart2wasm + skwasm 单一产物（无代码分割；浏览器无 WasmGC 时自动
 # 回退 dart2js）。
 build-wasm-prod:
-	flutter build web --release --wasm --base-href=/app/ --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
+	python3 tools/web_font_assets.py
+	flutter build web --release --wasm --base-href=/app/ --no-web-resources-cdn --dart-define='SNAPLINK_ADMIN_OAUTH_RESOURCES=$(SNAPLINK_ADMIN_OAUTH_RESOURCES)' --dart-define='SNAPLINK_AGENT_HUB_RESOURCE=$(SNAPLINK_AGENT_HUB_RESOURCE)'
 
 # B6-1b artifact gate: the old ring-scoped copy, the audit-ring storage
 # key, and its base64/base64Url masks must be absent from the release web
@@ -62,6 +65,10 @@ release-artifact-check:
 test:
 	flutter test
 	python3 -m unittest discover -s tests/unit -p 'test_*.py'
+
+# 独立离线 App A/B 声明诊断；无后端/浏览器或旧 target helper 依赖。
+test-app-sso:
+	python3 -m unittest discover -s tests/unit -p 'test_app_sso*.py' -v
 
 # ── G7 (B6-1) executable count pin — closes the F8 silent-regression class ──
 # The four-file guard suite must report EXACTLY +$(GUARD_PIN_COUNT) on the
@@ -101,6 +108,22 @@ BROWSER_SSO_ARGS ?=
 test-browser-sso:
 	python3 tests/integration/browser_sso_test.py $(BROWSER_SSO_ARGS)
 
+# 仅补充的正常 consent/repeat/jar/本地进程替换用例；同样使用 stock fixture。
+APP_SSO_ARGS ?=
+test-app-sso-browser:
+	python3 tests/integration/browser_sso_test.py --case normal $(APP_SSO_ARGS)
+
+# 离线检查操作员计划；不登录、不读取凭据、不启动 fixture/browser/listener。
+# 认证执行不提供 Make 快捷方式，必须显式调用独立入口并同时给出两个同意参数。
+export BROWSER_SSO_PLAN
+browser-sso-plan:
+	@python3 tools/browser_sso_acceptance.py --plan "$${BROWSER_SSO_PLAN:-}"
+
+# 只读分支/worktree 债务盘点；不删除任何分支或 worktree（--suggest 仅打印命令）。
+BRANCH_AUDIT_ARGS ?=
+branch-audit:
+	python3 tools/branch_audit.py $(BRANCH_AUDIT_ARGS)
+
 # 静态分析
 analyze:
 	flutter analyze
@@ -112,10 +135,9 @@ k8s-render:
 
 # 启动开发代理服务器
 serve:
+	@python3 tools/check_browser_sso_deployment.py --origin '$(SNAPLINK_API_URL)' --health-only || echo 'Backend health unavailable or invalid; starting the UI proxy does not establish SSO readiness.'
 	@echo "Starting proxy on http://localhost:$(SNAPLINK_PROXY_PORT)..."
-	@fuser -k $(SNAPLINK_PROXY_PORT)/tcp 2>/dev/null || true
-	@sleep 1
-	@PORT=$(SNAPLINK_PROXY_PORT) BACKEND=$(SNAPLINK_API_URL) python3 tools/robust_proxy.py
+	@PORT='$(SNAPLINK_PROXY_PORT)' BACKEND='$(SNAPLINK_API_URL)' python3 tools/robust_proxy.py
 
 # 清理构建产物
 clean:
@@ -123,11 +145,12 @@ clean:
 
 # 持续构建（监听文件变化）
 watch:
-	flutter build web --release
+	python3 tools/web_font_assets.py
+	flutter build web --release --no-web-resources-cdn
 	@echo "Watching for changes... (Ctrl+C to stop)"
 	@while true; do \
 		inotifywait -q -e modify -r lib/ 2>/dev/null || fswatch -1 lib/ 2>/dev/null || sleep 10; \
-		flutter build web --release 2>&1 | tail -1; \
+		flutter build web --release --no-web-resources-cdn 2>&1 | tail -1; \
 	done
 
 # 运行全量验证

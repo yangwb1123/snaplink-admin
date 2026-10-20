@@ -206,7 +206,24 @@ renders its configuration. Minimal Kubernetes may intentionally point both
 optional variables at the core origin, but it must still set them explicitly.
 Place the dedicated
 test/backend configuration at `config.local.yaml` first. That local file is
-gitignored and must not contain production secrets.
+gitignored and must not contain production secrets. The Compose bind is
+read-only and has `create_host_path: false`: a missing file fails instead of
+creating a directory or starting an unintended identity configuration.
+
+The Compose example uses an updated **stock** `sso-server` image: it passes
+`--config=/etc/sso/config.yaml` explicitly; `SSO_CONFIG` is not a stock config
+selector. Its distroless image has no shell or `curl`, so the healthcheck runs
+the image's `/healthcheck` binary. Both host ports bind only to `127.0.0.1`.
+The Console only needs HTTP; `--grpc-listen=` disables the otherwise unused
+external gRPC listener rather than opting into insecure gRPC. If another
+consumer needs gRPC, provide its explicit listener/TLS configuration separately.
+
+This is a local-development example, not an HA or data-recovery deployment.
+It does not locate/migrate an existing identity database, persist signing keys,
+or enable browser SSO for an operator. Configure the approved stores/keys and
+SSO flags explicitly; preserve existing authority state when upgrading a real
+deployment. `/healthcheck` proves HTTP liveness only, not readiness or browser
+SSO; perform the separate read-only preflight and browser acceptance.
 
 The minimal bundle can omit commerce audiences while retaining the required
 Audit Governance resource:
@@ -217,9 +234,9 @@ SNAPLINK_ADMIN_OAUTH_RESOURCES='audit-governance' docker compose up --build
 
 ## Method 3: Manual / direct static hosting (no container)
 
-This is the baseline, no-Docker option — and it's exactly how sso-console is
-deployed in the live environment today: an OpenResty `alias` directive
-pointing straight at the built directory, no container involved.
+This is the baseline, no-Docker option: an OpenResty `alias` directive can
+point straight at the built directory, with no container involved. This example
+is not evidence that a particular live deployment is currently running.
 
 ```bash
 SNAPLINK_ADMIN_OAUTH_RESOURCES='https://billing.example.com,https://stripe-adapter.example.com,https://audit-governance.example.com' \
@@ -253,7 +270,16 @@ For example:
   `./dev.sh`, and from integration subprocesses. It supplies both SPA fallback
   and the same-origin API proxy. Python's plain
   `http.server` is not suitable for deep-link testing because it returns 404
-  instead of `index.html` for unknown routes.
+  instead of `index.html` for unknown routes. `make serve` and `./dev.sh` never
+  kill an existing listener: stop its verified owner explicitly or choose another
+  port. Their backend health hint checks the configured origin, HTTP status and
+  JSON, but starting the UI proxy does not establish backend or SSO readiness.
+
+For credential-free checks of a confirmed target OP (health/readiness, issuer,
+code/S256 advertisement and browser SSO support), see the
+[read-only browser SSO preflight](docs/BROWSER_SSO.md#目标部署的只读预检).
+It never logs in, reconfigures services, follows redirects or claims browser/HA
+acceptance; use the dedicated target-deployment browser acceptance afterward.
 
 ## Notes
 
