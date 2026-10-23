@@ -2,6 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sso_admin/api/audit_query.dart';
 
 void main() {
+  const opaqueCursors = [
+    ' synthetic+/=%2B?&#cursor',
+    'synthetic+/=%2B?&#cursor ',
+    ' \tsynthetic+/=%2B?&#cursor\r\n ',
+  ];
+
   group('AuditQuery.toQueryParameters', () {
     test(
       'AC-1.1 default construction is exactly {limit: 100}, no tenant/trace',
@@ -50,10 +56,35 @@ void main() {
       },
     );
 
-    test('values are trimmed at serialization', () {
+    test('preserves opaque cursor whitespace and reserved characters', () {
+      for (final cursor in opaqueCursors) {
+        expect(
+          AuditQuery(cursor: cursor).toQueryParameters(),
+          equals({'cursor': cursor}),
+        );
+      }
+    });
+
+    test('null, empty and whitespace-only cursors are omitted', () {
+      for (final cursor in <String?>[null, '', ' \t\r\n ']) {
+        expect(AuditQuery(cursor: cursor).toQueryParameters(), isEmpty);
+      }
+    });
+
+    test('non-cursor values are trimmed at serialization', () {
       expect(
-        AuditQuery(tenantId: ' acme ', outcome: 'failure ').toQueryParameters(),
-        equals({'tenant_id': 'acme', 'outcome': 'failure'}),
+        AuditQuery(
+          tenantId: ' acme ',
+          traceId: ' tr-1 ',
+          eventTypes: ' sign-in,sign-out ',
+          outcome: 'failure ',
+        ).toQueryParameters(),
+        equals({
+          'tenant_id': 'acme',
+          'trace_id': 'tr-1',
+          'event_type': 'sign-in,sign-out',
+          'outcome': 'failure',
+        }),
       );
     });
   });
@@ -87,6 +118,24 @@ void main() {
         );
       },
     );
+
+    test('preserves opaque cursor whitespace and reserved characters', () {
+      for (final cursor in opaqueCursors) {
+        expect(
+          AuditQuery.fromJson({'cursor': cursor}).toQueryParameters(),
+          equals({'cursor': cursor}),
+        );
+      }
+    });
+
+    test('null, empty and whitespace-only cursors are omitted', () {
+      for (final cursor in <String?>[null, '', ' \t\r\n ']) {
+        expect(
+          AuditQuery.fromJson({'cursor': cursor}).toQueryParameters(),
+          isEmpty,
+        );
+      }
+    });
 
     test('limit as a numeric string is accepted; non-numeric throws', () {
       expect(
@@ -124,6 +173,17 @@ void main() {
         () => AuditQuery.fromJson(const {'tenant_id': <String>[]}),
         throwsA(isA<AuditQueryParseException>()),
       );
+      for (final cursor in <Object>[
+        true,
+        1.5,
+        <String>[],
+        <String, String>{},
+      ]) {
+        expect(
+          () => AuditQuery.fromJson({'cursor': cursor}),
+          throwsA(isA<AuditQueryParseException>()),
+        );
+      }
     });
 
     test('F6: null values are treated as absent, never stringified', () {
@@ -141,8 +201,20 @@ void main() {
       'int values for string keys coerce like the previous wire behavior',
       () {
         expect(
-          AuditQuery.fromJson(const {'tenant_id': 42}).toQueryParameters(),
-          equals({'tenant_id': '42'}),
+          AuditQuery.fromJson(const {
+            'tenant_id': 42,
+            'trace_id': 43,
+            'cursor': 44,
+            'event_type': 45,
+            'outcome': 46,
+          }).toQueryParameters(),
+          equals({
+            'tenant_id': '42',
+            'trace_id': '43',
+            'cursor': '44',
+            'event_type': '45',
+            'outcome': '46',
+          }),
         );
       },
     );

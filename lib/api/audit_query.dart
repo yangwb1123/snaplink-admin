@@ -26,7 +26,7 @@ class AuditQuery {
   final String? traceId;
 
   /// Server pagination cursor. Wire key: `cursor`; omitted unless non-empty
-  /// after trim.
+  /// after trim. Non-blank values are preserved verbatim.
   final String? cursor;
 
   /// Event type filter (server-defined multi-value semantics; the console
@@ -61,8 +61,8 @@ class AuditQuery {
   /// keys above).
   ///
   /// Values may be `int` (stringified, matching the previous `'$value'`
-  /// behavior) or `String` (kept for trimming at serialization). A `null`
-  /// value is treated as absent. Unknown keys and non-scalar values throw
+  /// behavior) or `String` (trimmed at serialization except for opaque cursors).
+  /// A `null` value is treated as absent. Unknown keys and non-scalar values throw
   /// [AuditQueryParseException] — this is the fix for the unvalidated
   /// pass-through that previously reached the wire verbatim.
   factory AuditQuery.fromJson(Map<String, dynamic> json) {
@@ -142,9 +142,9 @@ class AuditQuery {
   }
 
   /// Serializes to the wire map. Order-insensitive; consumers must compare
-  /// as maps. `limit` is coerced via `'$limit'`; each string field
-  /// contributes its trimmed value iff non-empty. An all-null construction
-  /// yields an empty map.
+  /// as maps. `limit` is coerced via `'$limit'`; string fields contribute
+  /// iff non-empty after trim. Opaque cursor values are preserved verbatim;
+  /// other strings are trimmed. An all-null construction yields an empty map.
   Map<String, String> toQueryParameters() {
     final parameters = <String, String>{};
     if (limit != null) parameters['limit'] = '$limit';
@@ -155,7 +155,10 @@ class AuditQuery {
 
     addIfPresent('tenant_id', tenantId);
     addIfPresent('trace_id', traceId);
-    addIfPresent('cursor', cursor);
+    final cursor = this.cursor;
+    if (cursor != null && cursor.trim().isNotEmpty) {
+      parameters['cursor'] = cursor;
+    }
     addIfPresent('event_type', eventTypes);
     addIfPresent('outcome', outcome);
     return parameters;
