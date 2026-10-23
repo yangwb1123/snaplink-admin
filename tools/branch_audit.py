@@ -19,22 +19,25 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .branch_audit_git import AuditError, inspect_worktrees, is_object_id, query_status
+    from .branch_audit_git import AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status
 else:
-    from branch_audit_git import AuditError, inspect_worktrees, is_object_id, query_status
+    from branch_audit_git import AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status
 
 GIT_TIMEOUT = 30
 DEFAULT_STALE_DAYS = 14
 CATEGORY_ORDER = ("merged", "duplicate", "identical", "stale-conflicting", "conflicting", "stale", "active")
 
 
-def git(repo, *args, check=True):
-    """Run one bounded, non-interactive Git query."""
+def git(repo, *args, check=True, env=None):
+    """Run one bounded, non-interactive Git query without inherited environment."""
+    environment = {"GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0",
+                   "LC_ALL": "C", "PATH": "/usr/bin:/bin"}
+    if env is not None:
+        environment.update(env)
     try:
         result = subprocess.run(
             ["git", "-C", str(repo), *args], capture_output=True,
-            timeout=GIT_TIMEOUT, env={"GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0",
-                                     "LC_ALL": "C", "PATH": "/usr/bin:/bin"},
+            timeout=GIT_TIMEOUT, env=environment,
         )
     except (OSError, subprocess.TimeoutExpired) as error:
         raise AuditError("git query did not complete") from error
@@ -100,7 +103,7 @@ def has_unique_changes(repo, branch, base):
 
 def conflicts(repo, branch, base):
     """True only for a confirmed conflict; unsupported/failed inspection is unknown."""
-    result = git(repo, "merge-tree", "--write-tree", base, branch, check=False)
+    result = inspect_merge(repo, branch, base, git)
     status = query_status(result)
     lines = result.stdout.splitlines()
     if not lines or not is_object_id(lines[0]):

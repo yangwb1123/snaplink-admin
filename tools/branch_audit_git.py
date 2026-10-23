@@ -1,5 +1,7 @@
-"""Strict Git result and worktree parsing for the read-only branch audit."""
+"""Strict, isolated Git inspection for the read-only branch audit."""
+import os
 import re
+import tempfile
 from pathlib import Path
 
 
@@ -16,6 +18,40 @@ def query_status(result, allowed=(0, 1)):
 
 def is_object_id(value):
     return re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value) is not None
+
+
+def inspect_merge(repo, branch, base, run_git):
+    """Merge immutable tips in disposable storage, never in the audited repo.
+
+    merge-tree writes objects and can execute configured merge/filter drivers.
+    A new bare repository borrows only objects, not refs, attributes files,
+    configuration, templates, hooks, an index or a worktree from the source.
+    """
+    if not is_object_id(branch) or not is_object_id(base) or len(branch) != len(base):
+        raise AuditError("invalid merge tips")
+    try:
+        output = run_git(repo, "rev-parse", "--path-format=absolute", "--git-path", "objects").stdout
+        if not output.endswith("\n"):
+            raise AuditError("object store unconfirmed")
+        objects = Path(output[:-1])
+        if not objects.is_absolute() or not objects.is_dir():
+            raise AuditError("object store unconfirmed")
+        environment = {"GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull,
+                       "GIT_ATTR_NOSYSTEM": "1", "GIT_NO_REPLACE_OBJECTS": "1",
+                       "GIT_NO_LAZY_FETCH": "1"}
+        with tempfile.TemporaryDirectory(prefix="branch-audit-") as temporary:
+            object_format = "sha1" if len(base) == 40 else "sha256"
+            run_git(temporary, "init", "--bare", "--quiet", "--template=",
+                    f"--object-format={object_format}", env=environment)
+            # Git accepts C-quoted alternate paths. Octal bytes preserve even
+            # separators, quotes, newlines and non-UTF-8 filesystem names.
+            environment["GIT_ALTERNATE_OBJECT_DIRECTORIES"] = (
+                '"' + "".join(f"\\{byte:03o}" for byte in os.fsencode(objects)) + '"'
+            )
+            return run_git(temporary, "merge-tree", "--write-tree", base, branch,
+                           check=False, env=environment)
+    except OSError as error:
+        raise AuditError("isolated merge inspection did not complete") from error
 
 
 def parse_worktrees(output):

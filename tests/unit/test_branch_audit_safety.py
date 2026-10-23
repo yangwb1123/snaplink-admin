@@ -1,5 +1,6 @@
 """Fail-closed Git inspection and suggestion safety using disposable repositories."""
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -45,14 +46,14 @@ class GitFailureTest(GitFixture):
                         self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
 
     def test_failed_queries_never_emit_partial_report_or_advice(self):
-        for operation in ("for-each-ref", "rev-list", "worktree", "status"):
+        for operation in ("for-each-ref", "rev-list", "init", "worktree", "status"):
             with self.subTest(operation=operation):
                 with self.intercept(operation):
                     self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
 
     def test_query_timeouts_remain_unknown(self):
         for operation in ("rev-parse", "for-each-ref", "merge-base", "rev-list",
-                          "diff", "merge-tree", "worktree", "status"):
+                          "diff", "init", "merge-tree", "worktree", "status"):
             with self.subTest(operation=operation):
                 with self.intercept(operation, timeout=True):
                     self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
@@ -101,6 +102,95 @@ class GitFailureTest(GitFixture):
             with self.subTest(operation=operation, output=output):
                 with self.intercept(operation, 0, output):
                     self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
+
+
+class MergeIsolationTest(GitFixture):
+    def test_configured_merge_driver_cannot_write_to_audited_repository(self):
+        self.write(".gitattributes", "a.txt merge=audit_fixture\n")
+        self.commit("synthetic merge attribute")
+        self.build_history()
+        linked = Path(self.temporary.name) / "linked worktree"
+        git(self.repo, "worktree", "add", "-q", "--detach", str(linked), "main")
+        marker = Path(self.temporary.name) / "driver-marker"
+        driver = (f"printf fixture > {shlex.quote(str(marker))}; "
+                  f"printf 'driver changed tracked file\\n' > {shlex.quote(str(self.repo / 'a.txt'))}; "
+                  "exit 0")
+        git(self.repo, "config", "merge.audit_fixture.driver", driver)
+        git(self.repo, "config", "merge.default", "audit_fixture")
+        self.write("a.txt", "owned staged content\n")
+        git(self.repo, "add", "a.txt")
+        self.write("a.txt", "owned unstaged content\n")
+        before = self.file_snapshot(), self.file_snapshot(linked)
+        refs = git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)")
+        status = git(self.repo, "--no-optional-locks", "status", "--porcelain=v1", "-z")
+        for repo in (self.repo, linked):
+            with self.subTest(repo=repo):
+                code, output, errors = run_tool(repo, "--json", "--suggest")
+                self.assertEqual((code, errors), (0, ""))
+                self.assertFalse(marker.exists(), "configured merge driver was executed")
+                entries = self.entries(json.loads(output))
+                self.assertTrue(entries["conflict-fresh"]["conflicts"])
+                self.assertTrue(entries["conflict-stale"]["conflicts"])
+                self.assertEqual(git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)"), refs)
+                self.assertEqual(git(self.repo, "--no-optional-locks", "status", "--porcelain=v1", "-z"), status)
+                self.assertEqual((self.file_snapshot(), self.file_snapshot(linked)), before)
+                self.assertEqual((self.repo / "a.txt").read_text(), "owned unstaged content\n")
+
+    def test_configured_filters_are_not_executed_during_merge_inspection(self):
+        self.write(".gitattributes", "a.txt filter=audit_fixture\n")
+        self.commit("synthetic filter attribute")
+        self.build_history()
+        base = git(self.repo, "rev-parse", "main").strip()
+        tip = git(self.repo, "rev-parse", "conflict-fresh").strip()
+        marker = Path(self.temporary.name) / "filter-marker"
+        driver = f"printf fixture > {shlex.quote(str(marker))}; cat"
+        git(self.repo, "config", "merge.renormalize", "true")
+        for operation in ("clean", "smudge"):
+            git(self.repo, "config", f"filter.audit_fixture.{operation}", driver)
+        git(self.repo, "config", "filter.audit_fixture.required", "true")
+        before = self.file_snapshot()
+        self.assertTrue(branch_audit.conflicts(self.repo, tip, base))
+        self.assertFalse(marker.exists(), "configured filter driver was executed")
+        self.assertEqual(self.file_snapshot(), before)
+
+    def test_temporary_merge_storage_is_cleaned_on_success_conflict_and_failure(self):
+        self.build_history()
+        base = git(self.repo, "rev-parse", "main").strip()
+        original = subprocess.run
+        for outcome in ("clean", "conflict", "fatal", "timeout"):
+            branch = "merged-work" if outcome == "clean" else "conflict-fresh"
+            tip = git(self.repo, "rev-parse", branch).strip()
+            inspected = []
+
+            def run(command, **kwargs):
+                if "init" in command or "merge-tree" in command:
+                    self.assertEqual(kwargs["env"]["GIT_CONFIG_NOSYSTEM"], "1")
+                    self.assertEqual(kwargs["env"]["GIT_CONFIG_GLOBAL"], os.devnull)
+                    self.assertEqual(kwargs["env"]["GIT_ATTR_NOSYSTEM"], "1")
+                    self.assertNotIn("GIT_OBJECT_DIRECTORY", kwargs["env"])
+                    self.assertNotIn("GIT_DIR", kwargs["env"])
+                    self.assertNotIn("GIT_WORK_TREE", kwargs["env"])
+                if "merge-tree" in command:
+                    inspected.append(Path(command[2]))
+                    self.assertEqual(command[-2:], [base, tip])
+                    if outcome == "fatal":
+                        return subprocess.CompletedProcess(command, 128, b"", b"synthetic detail")
+                    if outcome == "timeout":
+                        raise subprocess.TimeoutExpired(command, 30)
+                return original(command, **kwargs)
+
+            with self.subTest(outcome=outcome):
+                before = self.file_snapshot()
+                with mock.patch.object(branch_audit.subprocess, "run", side_effect=run):
+                    if outcome in ("fatal", "timeout"):
+                        with self.assertRaises(branch_audit.AuditError):
+                            branch_audit.conflicts(self.repo, tip, base)
+                    else:
+                        self.assertEqual(branch_audit.conflicts(self.repo, tip, base), outcome == "conflict")
+                self.assertEqual(len(inspected), 1)
+                self.assertNotEqual(inspected[0], self.repo)
+                self.assertFalse(inspected[0].exists(), "temporary merge storage leaked")
+                self.assertEqual(self.file_snapshot(), before)
 
 
 class SuggestionSafetyTest(GitFixture):

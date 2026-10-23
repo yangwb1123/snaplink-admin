@@ -1,5 +1,6 @@
 """Regression tests for the read-only branch/worktree debt audit."""
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -88,6 +89,11 @@ class GitFixture(unittest.TestCase):
     def entries(self, document):
         return {row["branch"]: row for row in document["branches"]}
 
+    def file_snapshot(self, path=None):
+        path = path or self.repo
+        return {str(file.relative_to(path)): hashlib.sha256(file.read_bytes()).hexdigest()
+                for file in path.rglob("*") if file.is_file()}
+
 
 class BranchAuditTest(GitFixture):
     def test_categories(self):
@@ -121,10 +127,30 @@ class BranchAuditTest(GitFixture):
     def test_audit_does_not_mutate_refs_or_worktrees(self):
         self.build_history()
         before = git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads")
+        files_before = self.file_snapshot()
         code, _, _ = run_tool(self.repo, "--suggest")
         self.assertEqual(code, 0)
         after = git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)", "refs/heads")
         self.assertEqual(before, after)
+        # Includes source objects, index, config, reflogs and worktree contents.
+        self.assertEqual(self.file_snapshot(), files_before)
+
+    def test_sha256_repository_with_quoted_object_store_path(self):
+        self.repo = Path(self.temporary.name) / 'sha256 "line\nλ:objects'
+        self.repo.mkdir()
+        git(self.repo, "init", "-q", "-b", "main", "--object-format=sha256")
+        git(self.repo, "config", "user.email", "fixture@example.invalid")
+        git(self.repo, "config", "user.name", "fixture")
+        self.write("a.txt", "base\n")
+        self.commit("sha256 base")
+        self.build_history()
+        before = self.file_snapshot()
+        code, output, errors = run_tool(self.repo, "--json")
+        self.assertEqual((code, errors), (0, ""))
+        entries = self.entries(json.loads(output))
+        self.assertTrue(entries["conflict-fresh"]["conflicts"])
+        self.assertFalse(entries["merged-work"]["conflicts"])
+        self.assertEqual(self.file_snapshot(), before)
 
     def test_stale_threshold_changes_only_classification(self):
         self.build_history()
