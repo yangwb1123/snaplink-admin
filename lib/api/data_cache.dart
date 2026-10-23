@@ -8,29 +8,46 @@ import 'dart:async';
 ///   share a single HTTP call (subsequent callers await the first)
 /// - Mutations invalidate related cache entries
 class DataCache {
+  /// Time-to-live for completed cached responses.
   final Duration ttl;
+
+  /// Maximum number of completed GET responses retained.
+  ///
+  /// Zero disables completed-response storage while request deduplication
+  /// remains available.
+  final int maxEntries;
+
   final Map<String, _CacheEntry> _store = {};
   final Map<String, Completer<Map<String, dynamic>>> _pending = {};
 
-  DataCache({this.ttl = const Duration(seconds: 10)});
+  DataCache({this.ttl = const Duration(seconds: 10), int maxEntries = 128})
+    : maxEntries = _validateMaxEntries(maxEntries);
 
   /// Read cached response. Returns null if missing or expired.
   Map<String, dynamic>? get(String method, String path) {
     if (method != 'GET') return null;
     final key = _key(method, path);
-    final entry = _store[key];
+    final entry = _store.remove(key);
     if (entry == null) return null;
     if (DateTime.now().difference(entry.timestamp) > ttl) {
-      _store.remove(key);
       return null;
     }
+    // Re-insertion marks the entry as most recently used without changing its
+    // timestamp, so a read refreshes recency but not TTL.
+    _store[key] = entry;
     return entry.data;
   }
 
   /// Store response in cache.
   void set(String method, String path, Map<String, dynamic> data) {
-    if (method != 'GET') return;
-    _store[_key(method, path)] = _CacheEntry(data, DateTime.now());
+    if (method != 'GET' || maxEntries == 0) return;
+    final key = _key(method, path);
+    // Replacing an entry must not evict a different, still-useful entry.
+    _store.remove(key);
+    while (_store.length >= maxEntries) {
+      _store.remove(_store.keys.first);
+    }
+    _store[key] = _CacheEntry(data, DateTime.now());
   }
 
   /// Attempt to register a pending request.
@@ -104,6 +121,13 @@ class DataCache {
   int get pendingCount => _pending.length;
 
   String _key(String method, String path) => '$method:$path';
+
+  static int _validateMaxEntries(int value) {
+    if (value < 0) {
+      throw ArgumentError.value(value, 'maxEntries', 'must be non-negative');
+    }
+    return value;
+  }
 
   static bool _pathsAreRelated(String left, String right) =>
       left == right ||
