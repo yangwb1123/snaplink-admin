@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:sso_admin/i18n/app_strings.dart';
 
@@ -52,9 +54,10 @@ class EmptyState extends StatelessWidget {
     final (defaultIcon, defaultTitle) = _variantDefaults;
     final resolvedIcon = icon ?? defaultIcon;
     final resolvedTitle = title ?? defaultTitle;
+    final iconSize = compact ? 48.0 : 72.0;
     final iconContainer = Container(
-      width: compact ? 48 : 72,
-      height: compact ? 48 : 72,
+      width: iconSize,
+      height: iconSize,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -78,41 +81,85 @@ class EmptyState extends StatelessWidget {
                 Transform.scale(scale: 0.82 + 0.18 * value, child: child),
             child: iconContainer,
           );
-    return Center(
-      child: SingleChildScrollView(
-        padding: EdgeInsets.all(compact ? 24 : 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）+ 入场弹入。
-            iconWidget,
-            const SizedBox(height: 16),
-            Text(
-              context.tr(resolvedTitle),
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: scheme.onSurfaceVariant),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final basePadding = compact ? 24.0 : 32.0;
+        final parentWidth = constraints.maxWidth;
+        // Keep the icon at its variant size by giving up horizontal padding on
+        // very narrow parents instead of squeezing/clipping the content.
+        final horizontalPadding = parentWidth.isFinite
+            ? math.min(basePadding, math.max(0.0, (parentWidth - iconSize) / 2))
+            : basePadding;
+        final contentWidth = parentWidth.isFinite
+            ? parentWidth - horizontalPadding * 2
+            : double.infinity;
+        // `OutlinedButton.icon` keeps the icon and label in one row; below
+        // this width, wrap them so narrow parents do not overflow.
+        final narrowAction = contentWidth < 160;
+        final action = actionLabel != null && onAction != null
+            ? narrowAction
+                  ? OutlinedButton(
+                      onPressed: onAction,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 8,
+                        ),
+                        minimumSize: const Size(0, 40),
+                      ),
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Icon(actionIcon ?? Icons.add, size: 18),
+                          Text(
+                            context.tr(actionLabel!),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    )
+                  : OutlinedButton.icon(
+                      onPressed: onAction,
+                      icon: Icon(actionIcon ?? Icons.add, size: 18),
+                      label: Text(context.tr(actionLabel!)),
+                    )
+            : null;
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding,
+              vertical: basePadding,
             ),
-            if (subtitle != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                context.tr(subtitle!),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 品牌渐变圆底图标（Stripe/Supabase 风格空状态）+ 入场弹入。
+                iconWidget,
+                const SizedBox(height: 16),
+                Text(
+                  context.tr(resolvedTitle),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-            ],
-            if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: onAction,
-                icon: Icon(actionIcon ?? Icons.add, size: 18),
-                label: Text(context.tr(actionLabel!)),
-              ),
-            ],
-          ],
-        ),
-      ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    context.tr(subtitle!),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.75),
+                    ),
+                  ),
+                ],
+                if (action != null) ...[const SizedBox(height: 16), action],
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
