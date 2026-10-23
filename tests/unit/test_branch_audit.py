@@ -135,6 +135,50 @@ class BranchAuditTest(GitFixture):
         # Includes source objects, index, config, reflogs and worktree contents.
         self.assertEqual(self.file_snapshot(), files_before)
 
+    def test_full_audit_does_not_execute_repository_filters(self):
+        self.write(".gitattributes", "a.txt filter=audit_fixture\n")
+        self.write("untouched.txt", "owned tracked fixture\n")
+        self.commit("synthetic filter fixture")
+        self.build_history()
+        linked = Path(self.temporary.name) / "linked worktree"
+        git(self.repo, "worktree", "add", "-q", str(linked), "merged-work")
+        paths = (self.repo, linked)
+        for path in paths:
+            tracked = path / "a.txt"
+            staged = b"owned staged fixture\n"
+            tracked.write_bytes(staged)
+            git(path, "add", "a.txt")
+            stamp = tracked.stat()
+            # Equal size and a different timestamp force content inspection;
+            # a size-only dirty check would never exercise a clean filter.
+            tracked.write_bytes(b"x" * len(staged))
+            os.utime(tracked, ns=(stamp.st_atime_ns, stamp.st_mtime_ns + 2_000_000_000))
+        driver = ("printf fixture > filter-marker; "
+                  "printf 'filter changed tracked file\\n' > untouched.txt; cat")
+        for operation in ("clean", "smudge"):
+            git(self.repo, "config", f"filter.audit_fixture.{operation}", driver)
+        git(self.repo, "config", "filter.audit_fixture.required", "true")
+        git(self.repo, "config", "merge.renormalize", "true")
+        refs = git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)")
+        # Root .git includes every index, ref, reflog and source object, as well
+        # as linked-worktree registration; snapshot linked contents separately.
+        before = tuple(self.file_snapshot(path) for path in paths)
+        for repo in paths:
+            with self.subTest(repo=repo):
+                code, output, errors = run_tool(repo, "--json", "--suggest")
+                self.assertEqual((code, errors), (0, ""))
+                document = json.loads(output)
+                self.assertEqual([str(path) for path in paths if (path / "filter-marker").exists()],
+                                 [], "configured filter was executed")
+                self.assertEqual(tuple(self.file_snapshot(path) for path in paths), before)
+                self.assertEqual(git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)"), refs)
+                self.assertTrue(self.entries(document)["conflict-fresh"]["conflicts"])
+                self.assertEqual({row["path"] for row in document["worktrees"]},
+                                 {str(path) for path in paths})
+                for row in document["worktrees"]:
+                    self.assertIsNone(row["dirty"])
+                self.assertEqual(document["suggestions"], [])
+
     def test_sha256_repository_with_quoted_object_store_path(self):
         self.repo = Path(self.temporary.name) / 'sha256 "line\nλ:objects'
         self.repo.mkdir()

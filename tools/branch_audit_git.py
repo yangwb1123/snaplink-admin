@@ -92,18 +92,14 @@ def parse_worktrees(output):
 
 
 def inspect_worktrees(repo, run_git):
-    """Missing/locked registrations stay protected; missing dirtiness is unknown."""
+    """Protect every registration without inspecting working-tree contents.
+
+    Dirty state stays unknown: even git status can run configured clean filters.
+    """
     rows = parse_worktrees(run_git(repo, "worktree", "list", "--porcelain", "-z").stdout)
     for row in rows:
         try:
             row["missing"] = not Path(row["path"]).is_dir()
         except OSError as error:
             raise AuditError("worktree state unconfirmed") from error
-        if not row["missing"] and not row["bare"]:
-            # Disable configured status helpers and optional index refresh writes.
-            row["dirty"] = bool(run_git(
-                row["path"], "-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false",
-                "status", "--porcelain=v1", "-z", "--untracked-files=all",
-                "--ignore-submodules=none",
-            ).stdout)
     return rows

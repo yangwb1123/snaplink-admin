@@ -113,7 +113,7 @@ def conflicts(repo, branch, base):
 
 
 def worktrees(repo):
-    """Return registrations, including dirty, locked and missing worktrees."""
+    """Return all registrations; dirtiness remains unknown and is not inspected."""
     return inspect_worktrees(repo, git)
 
 

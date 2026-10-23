@@ -46,17 +46,27 @@ class GitFailureTest(GitFixture):
                         self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
 
     def test_failed_queries_never_emit_partial_report_or_advice(self):
-        for operation in ("for-each-ref", "rev-list", "init", "worktree", "status"):
+        for operation in ("for-each-ref", "rev-list", "init", "worktree"):
             with self.subTest(operation=operation):
                 with self.intercept(operation):
                     self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
 
     def test_query_timeouts_remain_unknown(self):
         for operation in ("rev-parse", "for-each-ref", "merge-base", "rev-list",
-                          "diff", "init", "merge-tree", "worktree", "status"):
+                          "diff", "init", "merge-tree", "worktree"):
             with self.subTest(operation=operation):
                 with self.intercept(operation, timeout=True):
                     self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
+
+    def test_worktree_inspection_queries_only_registrations(self):
+        linked = Path(self.temporary.name) / "linked worktree"
+        git(self.repo, "worktree", "add", "-q", str(linked), "merged-work")
+        with mock.patch.object(branch_audit, "git", wraps=branch_audit.git) as query:
+            rows = branch_audit.worktrees(self.repo)
+        query.assert_called_once_with(self.repo, "worktree", "list", "--porcelain", "-z")
+        self.assertEqual({row["branch"] for row in rows}, {"main", "merged-work"})
+        for row in rows:
+            self.assertIsNone(row["dirty"])
 
     def test_base_probe_error_does_not_fall_back_to_master(self):
         git(self.repo, "branch", "master", "main")
@@ -122,7 +132,7 @@ class MergeIsolationTest(GitFixture):
         self.write("a.txt", "owned unstaged content\n")
         before = self.file_snapshot(), self.file_snapshot(linked)
         refs = git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)")
-        status = git(self.repo, "--no-optional-locks", "status", "--porcelain=v1", "-z")
+        registrations = git(self.repo, "worktree", "list", "--porcelain", "-z")
         for repo in (self.repo, linked):
             with self.subTest(repo=repo):
                 code, output, errors = run_tool(repo, "--json", "--suggest")
@@ -132,7 +142,7 @@ class MergeIsolationTest(GitFixture):
                 self.assertTrue(entries["conflict-fresh"]["conflicts"])
                 self.assertTrue(entries["conflict-stale"]["conflicts"])
                 self.assertEqual(git(self.repo, "for-each-ref", "--format=%(refname) %(objectname)"), refs)
-                self.assertEqual(git(self.repo, "--no-optional-locks", "status", "--porcelain=v1", "-z"), status)
+                self.assertEqual(git(self.repo, "worktree", "list", "--porcelain", "-z"), registrations)
                 self.assertEqual((self.file_snapshot(), self.file_snapshot(linked)), before)
                 self.assertEqual((self.repo / "a.txt").read_text(), "owned unstaged content\n")
 
@@ -311,9 +321,9 @@ class SuggestionSafetyTest(GitFixture):
         self.assertEqual(self.commands(document), [["git", "branch", "-d", "--", "available"]])
         rows = {row["branch"]: row for row in document["worktrees"]}
         self.assertEqual(rows["clean"]["path"], str(paths["clean"]))
-        self.assertFalse(rows["clean"]["dirty"])
-        self.assertTrue(rows["dirty"]["dirty"])
-        self.assertTrue(rows["root-checked"]["dirty"])
+        self.assertIsNone(rows["clean"]["dirty"])
+        self.assertIsNone(rows["dirty"]["dirty"])
+        self.assertIsNone(rows["root-checked"]["dirty"])
         self.assertTrue(rows["locked"]["locked"])
         self.assertFalse(rows["locked"]["missing"])
         self.assertTrue(rows["missing"]["missing"])
