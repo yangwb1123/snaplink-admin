@@ -20,6 +20,25 @@ def is_object_id(value):
     return re.fullmatch(r"(?:[0-9a-f]{40}|[0-9a-f]{64})", value) is not None
 
 
+def require_complete_repository(repo, run_git):
+    """Reject partial/promisor sources before any object-reading query.
+
+    Older Git versions can ignore GIT_NO_LAZY_FETCH. Configuration inspection
+    reads no objects; rejecting even complete promisor sources avoids relying
+    on that flag or attempting a fetch with transport disabled.
+    """
+    output = run_git(repo, "config", "--null", "--name-only", "--list", "--includes").stdout
+    if output and not output.endswith("\0"):
+        raise AuditError("repository configuration unconfirmed")
+    for key in output.split("\0")[:-1]:
+        if not key:
+            raise AuditError("repository configuration unconfirmed")
+        key = key.lower()
+        if key == "extensions.partialclone" or (
+                key.startswith("remote.") and key.endswith((".promisor", ".partialclonefilter"))):
+            raise AuditError("partial/promisor repository inspection unsupported")
+
+
 def inspect_merge(repo, branch, base, run_git):
     """Merge immutable tips in disposable storage, never in the audited repo.
 

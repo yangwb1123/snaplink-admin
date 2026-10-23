@@ -46,17 +46,50 @@ class GitFailureTest(GitFixture):
                         self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
 
     def test_failed_queries_never_emit_partial_report_or_advice(self):
-        for operation in ("for-each-ref", "rev-list", "init", "worktree"):
+        for operation in ("config", "for-each-ref", "rev-list", "init", "worktree"):
             with self.subTest(operation=operation):
                 with self.intercept(operation):
                     self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
 
     def test_query_timeouts_remain_unknown(self):
-        for operation in ("rev-parse", "for-each-ref", "merge-base", "rev-list",
+        for operation in ("config", "rev-parse", "for-each-ref", "merge-base", "rev-list",
                           "diff", "init", "merge-tree", "worktree"):
             with self.subTest(operation=operation):
                 with self.intercept(operation, timeout=True):
                     self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
+
+    def test_every_git_query_disables_fetch_transport_and_prompts(self):
+        original, calls = subprocess.run, []
+
+        def run(command, **kwargs):
+            calls.append(command)
+            for key, value in {"GIT_NO_LAZY_FETCH": "1", "GIT_ALLOW_PROTOCOL": "",
+                               "GIT_TERMINAL_PROMPT": "0", "GIT_PROTOCOL_FROM_USER": "0",
+                               "GIT_ASKPASS": "/bin/false", "SSH_ASKPASS": "/bin/false"}.items():
+                self.assertEqual(kwargs["env"].get(key), value, key)
+            return original(command, **kwargs)
+
+        with mock.patch.object(branch_audit.subprocess, "run", side_effect=run):
+            code, _, errors = run_tool(self.repo, "--json")
+            self.assertEqual((code, errors), (0, ""))
+            branch_audit.git(self.repo, "rev-parse", "--git-dir",
+                             env={"GIT_NO_LAZY_FETCH": "0", "GIT_ALLOW_PROTOCOL": "file",
+                                  "GIT_TERMINAL_PROMPT": "1", "GIT_PROTOCOL_FROM_USER": "1",
+                                  "GIT_ASKPASS": "fixture", "SSH_ASKPASS": "fixture"})
+        self.assertTrue(calls)
+
+    def test_partial_configuration_is_rejected_before_object_reads(self):
+        for key, value in (("extensions.partialClone", "origin"),
+                           ("remote.origin.promisor", "true"),
+                           ("remote.origin.partialCloneFilter", "tree:0")):
+            with self.subTest(key=key):
+                git(self.repo, "config", key, value)
+                before = self.file_snapshot()
+                with mock.patch.object(branch_audit.subprocess, "run", wraps=subprocess.run) as query:
+                    self.assert_unconfirmed(run_tool(self.repo, "--json", "--suggest"))
+                self.assertEqual([call.args[0][3] for call in query.call_args_list], ["config"])
+                self.assertEqual(self.file_snapshot(), before)
+                git(self.repo, "config", "--unset", key)
 
     def test_worktree_inspection_queries_only_registrations(self):
         linked = Path(self.temporary.name) / "linked worktree"
@@ -106,12 +139,81 @@ class GitFailureTest(GitFixture):
                         self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
 
     def test_malformed_success_output_is_not_empty_or_zero(self):
-        for operation, output in (("rev-list", ""), ("rev-list", "not a count\n"),
+        for operation, output in (("config", "broken config output\n"), ("config", "\0"),
+                                  ("rev-list", ""), ("rev-list", "not a count\n"),
                                   ("for-each-ref", "broken ref row\n"),
                                   ("worktree", ""), ("worktree", "worktree\0\0")):
             with self.subTest(operation=operation, output=output):
                 with self.intercept(operation, 0, output):
                     self.assert_unconfirmed(run_tool(self.repo, "--suggest"))
+
+
+class PromisorSafetyTest(GitFixture):
+    def setUp(self):
+        super().setUp()
+        git(self.repo, "checkout", "-q", "-b", "candidate")
+        self.write("candidate.txt", "owned candidate\n")
+        self.commit("candidate")
+        tree = git(self.repo, "rev-parse", "HEAD^{tree}").strip()
+        git(self.repo, "checkout", "-q", "main")
+        self.linked = Path(self.temporary.name) / "linked worktree"
+        git(self.repo, "worktree", "add", "-q", str(self.linked), "candidate")
+        self.promisor = Path(self.temporary.name) / "promisor.git"
+        git(self.repo, "clone", "-q", "--bare", "--no-hardlinks", str(self.repo), str(self.promisor))
+        git(self.promisor, "config", "uploadpack.allowFilter", "true")
+        git(self.promisor, "config", "uploadpack.allowAnySHA1InWant", "true")
+        git(self.repo, "config", "remote.origin.url", self.promisor.as_uri())
+        git(self.repo, "config", "remote.origin.promisor", "true")
+        git(self.repo, "config", "remote.origin.partialclonefilter", "tree:0")
+        for path in (self.repo, self.linked):
+            (path / "a.txt").write_text("owned staged content\n", encoding="utf-8")
+            git(path, "add", "a.txt")
+            (path / "a.txt").write_text("owned unstaged content\n", encoding="utf-8")
+            (path / "untracked.txt").write_text("owned untracked content\n", encoding="utf-8")
+        self.missing_tree = self.repo / ".git" / "objects" / tree[:2] / tree[2:]
+        self.missing_tree.unlink()
+
+    def assert_missing_tree_fails_closed(self, repo, before_object_reads=True):
+        self.assertFalse(self.missing_tree.exists())
+        paths = (self.repo, self.linked, self.promisor)
+        before = tuple(self.file_snapshot(path) for path in paths)
+        with mock.patch.object(branch_audit.subprocess, "run", wraps=subprocess.run) as query:
+            code, output, errors = run_tool(repo, "--json", "--suggest")
+        # Includes all objects, refs, reflogs, indexes, registrations and contents.
+        self.assertEqual(tuple(self.file_snapshot(path) for path in paths), before)
+        self.assertEqual((code, output), (2, ""))
+        self.assertIn("repository state unconfirmed", errors)
+        if before_object_reads:
+            self.assertEqual([call.args[0][3] for call in query.call_args_list], ["config"])
+
+    def test_full_audit_missing_promised_tree_at_root(self):
+        self.assert_missing_tree_fails_closed(self.repo)
+
+    def test_full_audit_missing_promised_tree_at_linked_worktree(self):
+        self.assert_missing_tree_fails_closed(self.linked)
+
+    def test_included_promisor_configuration_is_rejected(self):
+        git(self.repo, "config", "--remove-section", "remote.origin")
+        included = self.repo / ".git" / "owned-promisor.config"
+        git(self.repo, "config", "--file", str(included), "remote.origin.url", self.promisor.as_uri())
+        git(self.repo, "config", "--file", str(included), "remote.origin.promisor", "true")
+        git(self.repo, "config", "include.path", str(included))
+        for repo in (self.repo, self.linked):
+            with self.subTest(repo=repo):
+                self.assert_missing_tree_fails_closed(repo)
+
+    def test_worktree_local_promisor_configuration_is_rejected(self):
+        git(self.repo, "config", "--remove-section", "remote.origin")
+        git(self.repo, "config", "extensions.worktreeConfig", "true")
+        git(self.linked, "config", "--worktree", "remote.origin.url", self.promisor.as_uri())
+        git(self.linked, "config", "--worktree", "remote.origin.promisor", "true")
+        self.assert_missing_tree_fails_closed(self.linked)
+
+    def test_missing_unpromised_tree_also_fails_closed_without_mutation(self):
+        git(self.repo, "config", "--remove-section", "remote.origin")
+        for repo in (self.repo, self.linked):
+            with self.subTest(repo=repo):
+                self.assert_missing_tree_fails_closed(repo, before_object_reads=False)
 
 
 class MergeIsolationTest(GitFixture):

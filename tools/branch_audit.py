@@ -19,9 +19,15 @@ import time
 from pathlib import Path
 
 if __package__:
-    from .branch_audit_git import AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status
+    from .branch_audit_git import (
+        AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status,
+        require_complete_repository,
+    )
 else:
-    from branch_audit_git import AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status
+    from branch_audit_git import (
+        AuditError, inspect_merge, inspect_worktrees, is_object_id, query_status,
+        require_complete_repository,
+    )
 
 GIT_TIMEOUT = 30
 DEFAULT_STALE_DAYS = 14
@@ -30,10 +36,13 @@ CATEGORY_ORDER = ("merged", "duplicate", "identical", "stale-conflicting", "conf
 
 def git(repo, *args, check=True, env=None):
     """Run one bounded, non-interactive Git query without inherited environment."""
-    environment = {"GIT_TERMINAL_PROMPT": "0", "GIT_OPTIONAL_LOCKS": "0",
-                   "LC_ALL": "C", "PATH": "/usr/bin:/bin"}
+    environment = {"GIT_OPTIONAL_LOCKS": "0", "LC_ALL": "C", "PATH": "/usr/bin:/bin"}
     if env is not None:
         environment.update(env)
+    # These guards cannot be overridden, even by disposable merge inspection.
+    environment.update({"GIT_NO_LAZY_FETCH": "1", "GIT_ALLOW_PROTOCOL": "",
+                        "GIT_TERMINAL_PROMPT": "0", "GIT_PROTOCOL_FROM_USER": "0",
+                        "GIT_ASKPASS": "/bin/false", "SSH_ASKPASS": "/bin/false"})
     try:
         result = subprocess.run(
             ["git", "-C", str(repo), *args], capture_output=True,
@@ -196,6 +205,7 @@ def main(argv=None):
         print("branch audit: not a git worktree", file=sys.stderr)
         return 2
     try:
+        require_complete_repository(repo, git)
         result = classify(repo, base_branch(repo), args.stale_days, int(time.time()))
     except AuditError:
         print("branch audit: repository state unconfirmed; nothing changed", file=sys.stderr)
