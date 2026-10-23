@@ -5,7 +5,8 @@
 /// 三类渲染约定，全部纯函数、无 i18n/上下文依赖：
 ///
 /// - [formatCount]：大数（设备数/用量/金额）千分位；<1000 与
-///   `toStringAsFixed(0)` 逐字符一致（既有测试不敏感）。
+///   `toStringAsFixed(0)` 逐字符一致（既有测试不敏感）；非有限值
+///   （NaN/±Infinity）按无效输入回退 [fallback]。
 /// - [formatDecimal] / [formatPercent]：比率/小数固定精度。
 /// - [formatServerTime] / [formatLocalTime]：人读时间统一
 ///   `YYYY-MM-DD HH:mm:ss`（[dateOnly] 截到日期），时区语义保持：
@@ -15,10 +16,11 @@
 library;
 
 /// 整数千分位（`1,234,567`）；<1000 输出与 `round().toString()` 一致。
-/// 非数字输入返回 [fallback]（默认 '—'，与页面占位约定一致）。
+/// 非数字或非有限（NaN/±Infinity）输入返回 [fallback]（默认 '—'，
+/// 与页面占位约定一致）。
 String formatCount(Object? value, {String fallback = '—'}) {
   final num? n = value is num ? value : num.tryParse('$value');
-  if (n == null) return fallback;
+  if (n == null || !n.isFinite) return fallback;
   final rounded = n.round();
   final negative = rounded < 0;
   final digits = rounded.abs().toString();
