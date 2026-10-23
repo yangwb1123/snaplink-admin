@@ -2,6 +2,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:sso_admin/widgets/async_view.dart';
 
 void main() {
@@ -79,6 +81,128 @@ void main() {
       expect(find.text('Retry'), findsOneWidget);
       await tester.tap(find.text('Retry'));
       expect(retried, true);
+    });
+
+    for (final (locale, title, retryLabel) in [
+      (const Locale('en'), 'Failed to load', 'Retry'),
+      (const Locale('zh'), '加载失败', '重试'),
+    ]) {
+      testWidgets(
+        'full-page error scrolls to manual retry in ${locale.languageCode}',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(320, 240);
+          addTearDown(tester.view.reset);
+          var retries = 0;
+          Widget buildError() => _errorApp(
+            locale: locale,
+            message: _longErrorDetail,
+            textScale: 2,
+            onRetry: () => retries++,
+          );
+
+          await tester.pumpWidget(buildError());
+          expect(tester.takeException(), isNull);
+          expect(find.text(title), findsOneWidget);
+          expect(find.text(_longErrorDetail), findsOneWidget);
+          expect(find.text('Stale data'), findsNothing);
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(_longErrorDetail),
+          );
+          expect(paragraph.didExceedMaxLines, isFalse);
+          final retry = find.widgetWithText(OutlinedButton, retryLabel);
+          expect(retry.hitTestable(), findsNothing);
+          expect(retries, 0);
+
+          await tester.pumpWidget(buildError());
+          await tester.pump();
+          expect(retries, 0, reason: 'Rebuilding must not retry automatically');
+          await tester.scrollUntilVisible(
+            retry,
+            160,
+            scrollable: find.byType(Scrollable),
+          );
+          await tester.pumpAndSettle();
+          expect(retry.hitTestable(), findsOneWidget);
+          expect(
+            tester
+                .state<ScrollableState>(find.byType(Scrollable))
+                .position
+                .pixels,
+            greaterThan(0),
+          );
+          expect(
+            tester.getBottomLeft(find.text(_longErrorDetail)).dy,
+            inInclusiveRange(0, 240),
+          );
+          await tester.tap(retry);
+          await tester.pump();
+          expect(retries, 1);
+          await tester.pumpWidget(buildError());
+          await tester.pump();
+          expect(retries, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        'full-page error stays centered at an ordinary size in ${locale.languageCode}',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(800, 600);
+          addTearDown(tester.view.reset);
+          var retries = 0;
+          await tester.pumpWidget(
+            _errorApp(
+              locale: locale,
+              message: 'Short synthetic detail.',
+              onRetry: () => retries++,
+            ),
+          );
+          expect(tester.takeException(), isNull);
+          expect(find.text(title), findsOneWidget);
+          expect(find.text('Short synthetic detail.'), findsOneWidget);
+          expect(find.text('Stale data'), findsNothing);
+          final content = find.descendant(
+            of: find.byType(ErrorStateView),
+            matching: find.byType(Column),
+          );
+          expect(tester.getCenter(content), const Offset(400, 300));
+          final retry = find.widgetWithText(OutlinedButton, retryLabel);
+          expect(retry.hitTestable(), findsOneWidget);
+          expect(retries, 0);
+          await tester.tap(retry);
+          await tester.pump();
+          expect(retries, 1);
+        },
+      );
+    }
+
+    testWidgets('full-page error detail scrolls without retry', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(320, 240);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        _errorApp(
+          locale: const Locale('en'),
+          message: _longErrorDetail,
+          textScale: 2,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.byType(OutlinedButton), findsNothing);
+      final detail = find.text(_longErrorDetail);
+      expect(detail, findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(detail).didExceedMaxLines,
+        isFalse,
+      );
+      final scrollable = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scrollable.position.maxScrollExtent, greaterThan(0));
+      scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+      await tester.pump();
+      expect(tester.getBottomLeft(detail).dy, inInclusiveRange(0, 240));
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('ErrorStateCard stays within narrow viewports', (tester) async {
@@ -247,3 +371,37 @@ void main() {
     });
   });
 }
+
+const _longErrorDetail =
+    'Synthetic failure detail for fixture-17 reports that the requested view '
+    'could not be loaded. This long explanation must remain complete when text '
+    'is enlarged and the available viewport is short.\n'
+    'Additional synthetic context wraps across multiple lines without changing '
+    'the original detail, dropping words, or hiding the manual retry action.\n'
+    'Final synthetic detail remains readable.';
+
+Widget _errorApp({
+  required Locale locale,
+  required String message,
+  double textScale = 1,
+  VoidCallback? onRetry,
+}) => MaterialApp(
+  locale: locale,
+  supportedLocales: const [Locale('en'), Locale('zh')],
+  localizationsDelegates: GlobalMaterialLocalizations.delegates,
+  builder: (context, child) => MediaQuery(
+    data: MediaQuery.of(
+      context,
+    ).copyWith(textScaler: TextScaler.linear(textScale)),
+    child: child!,
+  ),
+  home: Scaffold(
+    body: AsyncView<String>(
+      loading: false,
+      error: message,
+      data: 'Stale data',
+      onRetry: onRetry,
+      dataBuilder: (data) => Text(data),
+    ),
+  ),
+);

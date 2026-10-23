@@ -160,7 +160,9 @@ class ErrorStateView extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
-      child: Padding(
+      // Keep short errors centered while allowing the complete detail and
+      // manual retry action to scroll in constrained viewports.
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
