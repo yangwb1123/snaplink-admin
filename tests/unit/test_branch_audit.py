@@ -35,7 +35,7 @@ def run_tool(repo, *extra):
     return code, stream.getvalue(), errors.getvalue()
 
 
-class BranchAuditTest(unittest.TestCase):
+class GitFixture(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.repo = Path(self.temporary.name) / "repo"
@@ -88,6 +88,8 @@ class BranchAuditTest(unittest.TestCase):
     def entries(self, document):
         return {row["branch"]: row for row in document["branches"]}
 
+
+class BranchAuditTest(GitFixture):
     def test_categories(self):
         self.build_history()
         code, output, _ = run_tool(self.repo, "--json")
@@ -101,6 +103,16 @@ class BranchAuditTest(unittest.TestCase):
         self.assertEqual(entries["conflict-fresh"]["category"], "conflicting")
         self.assertEqual(entries["conflict-stale"]["category"], "stale-conflicting")
         self.assertTrue(entries["conflict-fresh"]["conflicts"])
+        # Ancestry is not tree equality: main changed after this merge.
+        self.assertTrue(entries["merged-work"]["merged"])
+        self.assertEqual(entries["merged-work"]["ahead"], 0)
+        self.assertTrue(entries["merged-work"]["unique_changes"])
+        self.assertFalse(entries["merged-work"]["conflicts"])
+        self.assertFalse(entries["equal-tree"]["merged"])
+        self.assertFalse(entries["equal-tree"]["unique_changes"])
+        self.assertEqual(entries["equal-tree"]["ahead"], 1)
+        for field in ("merged", "ahead", "unique_changes", "conflicts"):
+            self.assertEqual(entries["zz-dup-b"][field], entries["equal-tree"][field])
         self.assertGreaterEqual(entries["conflict-stale"]["age_days"], 365)
         self.assertEqual(document["base"], "main")
         self.assertEqual(document["counts"]["merged"], 1)
@@ -122,7 +134,7 @@ class BranchAuditTest(unittest.TestCase):
         self.assertEqual(entries["conflict-stale"]["category"], "conflicting")
         self.assertEqual(entries["conflict-fresh"]["category"], "conflicting")
 
-    def test_dangling_worktree_reported_and_prune_only_suggested(self):
+    def test_dangling_worktree_reported_without_cleanup_advice(self):
         outside = Path(self.temporary.name) / "wt"
         git(self.repo, "branch", "wt-branch")
         git(self.repo, "worktree", "add", "-q", str(outside), "wt-branch")
@@ -132,7 +144,8 @@ class BranchAuditTest(unittest.TestCase):
         self.assertEqual(json.loads(output)["dangling_worktrees"], 1)
         code, suggested, _ = run_tool(self.repo, "--suggest")
         self.assertEqual(code, 0)
-        self.assertIn("git worktree prune", suggested)
+        self.assertNotIn("git worktree prune", suggested)
+        self.assertNotIn("git branch -", suggested)
         self.assertIn("wt-branch", git(self.repo, "worktree", "list", "--porcelain"))
 
     def test_rejects_non_git_directory_without_side_effects(self):
@@ -147,10 +160,66 @@ class BranchAuditTest(unittest.TestCase):
         self.build_history()
         code, output, _ = run_tool(self.repo, "--suggest")
         self.assertEqual(code, 0)
-        self.assertIn("git branch -d", output)
-        self.assertIn("archive/", output)
+        self.assertIn("git branch -d -- merged-work", output)
+        self.assertNotIn("git branch -D", output)
+        self.assertNotIn("archive/", output)
+        self.assertNotIn("git worktree prune", output)
+        commands = [line for line in output.splitlines() if line.startswith("git ")]
+        self.assertEqual(commands, ["git branch -d -- merged-work"])
         self.assertTrue((self.repo / "a.txt").exists())
         self.assertNotEqual(git(self.repo, "rev-parse", "--abbrev-ref", "HEAD").strip(), "")
+
+    def test_duplicate_conflicting_tips_reuse_confirmed_comparisons(self):
+        self.build_history()
+        git(self.repo, "branch", "zz-conflict", "conflict-fresh")
+        code, output, _ = run_tool(self.repo, "--json")
+        self.assertEqual(code, 0)
+        entries = self.entries(json.loads(output))
+        duplicate, original = entries["zz-conflict"], entries["conflict-fresh"]
+        self.assertEqual(duplicate["category"], "duplicate")
+        self.assertEqual(duplicate["duplicate_of"], "conflict-fresh")
+        for field in ("merged", "ahead", "unique_changes", "conflicts"):
+            self.assertEqual(duplicate[field], original[field])
+        self.assertFalse(duplicate["merged"])
+        self.assertGreater(duplicate["ahead"], 0)
+        self.assertTrue(duplicate["unique_changes"])
+        self.assertTrue(duplicate["conflicts"])
+
+    def test_independently_landed_tree_is_not_merged_history(self):
+        git(self.repo, "checkout", "-q", "-b", "equal-content")
+        self.write("a.txt", "same content\n")
+        self.commit("feature history")
+        git(self.repo, "checkout", "-q", "main")
+        self.write("a.txt", "same content\n")
+        self.commit("independently landed history")
+        code, output, _ = run_tool(self.repo, "--json")
+        self.assertEqual(code, 0)
+        entry = self.entries(json.loads(output))["equal-content"]
+        self.assertEqual(entry["category"], "identical")
+        self.assertFalse(entry["merged"])
+        self.assertFalse(entry["unique_changes"])
+        self.assertFalse(entry["conflicts"])
+        self.assertEqual(entry["ahead"], 1)
+        self.assertEqual(branch_audit.suggestions(json.loads(output)), [])
+
+    def test_direct_and_module_cli_keep_json_output(self):
+        self.build_history()
+        for entry in ([str(ROOT / "tools" / "branch_audit.py")], ["-m", "tools.branch_audit"]):
+            with self.subTest(entry=entry):
+                result = subprocess.run(
+                    [sys.executable, *entry, "--repo", str(self.repo), "--json", "--suggest"],
+                    cwd=ROOT, capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)["suggestions"], ["git branch -d -- merged-work"])
+
+    def test_json_with_suggestions_is_one_document(self):
+        self.build_history()
+        code, output, errors = run_tool(self.repo, "--json", "--suggest")
+        self.assertEqual((code, errors), (0, ""))
+        document = json.loads(output)
+        self.assertEqual(document["suggestions"], ["git branch -d -- merged-work"])
+        self.assertEqual(document["branch_count"], 6)
 
 
 if __name__ == "__main__":
