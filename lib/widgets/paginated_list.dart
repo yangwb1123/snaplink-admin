@@ -178,9 +178,11 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
 
   void resetPagination() {
     // A refresh/filter change starts a new traversal. Without clearing the
-    // guard, reusing the same page object after returning to page one could
+    // guards, reusing the same page object after returning to page one could
     // incorrectly discard its first Next action.
     _lastAdvancedPage = _noPageYet;
+    // Expando 没有 clear()：换新实例即丢弃上一轮遍历的来源记录。
+    _pageOrigins = Expando<_PageOrigin>();
     _pageTokens
       ..clear()
       ..add(null);
@@ -202,10 +204,41 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
   static final Object _noPageYet = Object();
   Object? _lastAdvancedPage = _noPageYet;
 
+  /// 页对象首次触发 Next 时所在的页位与游标。回退只改变当前页位，
+  /// 不丢弃这些来源；这样缓存页对象可回到自己的页位继续使用，而深层
+  /// 页对象的旧回调不能从较浅页位把它游标跳到错误位置。
+  /// Expando 以弱引用持有页对象键，避免为过期页面保留列表数据。
+  Expando<_PageOrigin> _pageOrigins = Expando<_PageOrigin>();
+
+  /// Expando 不允许数字/字符串/布尔/记录作键；这类非常规实参保持
+  /// 原有“位置未知”行为，不能因防陈旧导航而抛出新异常。
+  static bool _isTrackablePage(Object? page) =>
+      page != null &&
+      page is! String &&
+      page is! num &&
+      page is! bool &&
+      page is! Record;
+
+  _PageOrigin? _originOf(Object? page) {
+    if (!_isTrackablePage(page)) return null;
+    return _pageOrigins[page!];
+  }
+
+  void _rememberOrigin(Object? page) {
+    if (!_isTrackablePage(page)) return;
+    _pageOrigins[page!] = (index: _pageIndex, token: currentPageToken);
+  }
+
   void goNext(String? nextPageToken, {Object? page}) {
     if (nextPageToken == null) return;
+    final _PageOrigin? origin = _originOf(page);
+    if (origin != null &&
+        (origin.index != _pageIndex || origin.token != currentPageToken)) {
+      return; // 已知的过期页对象：不能从当前页位推进
+    }
     if (identical(_lastAdvancedPage, page)) return; // 防重入
     _lastAdvancedPage = page;
+    _rememberOrigin(page);
     setState(() {
       _pageTokens.removeRange(_pageIndex + 1, _pageTokens.length);
       _pageTokens.add(nextPageToken);
@@ -215,3 +248,5 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
 
   String? get currentPageToken => _pageTokens[_pageIndex];
 }
+
+typedef _PageOrigin = ({int index, String? token});

@@ -105,6 +105,89 @@ void main() {
       expect(host.currentPage, 1);
     });
 
+    testWidgets('a stale Next cannot advance after backtracking', (
+      tester,
+    ) async {
+      final host = await mountHost(tester);
+      final pageA = Object();
+      final pageB = Object();
+
+      host.goNext('token-2', page: pageA);
+      await tester.pump();
+      host.goNext('token-3', page: pageB);
+      await tester.pump();
+      expect(host.currentPage, 3);
+      expect(host.currentPageToken, 'token-3');
+
+      host.goPrevious();
+      await tester.pump();
+      expect(host.currentPage, 2);
+      expect(host.currentPageToken, 'token-2');
+      host.goPrevious();
+      await tester.pump();
+      expect(host.currentPage, 1);
+      expect(host.currentPageToken, isNull);
+      expect(host.canGoBack, isFalse);
+
+      // B's callback belongs to page 2; replaying it here would jump from
+      // page 1 straight to page 2's token-3 cursor.
+      host.goNext('token-3', page: pageB);
+      await tester.pump();
+      expect(host.currentPage, 1);
+      expect(host.currentPageToken, isNull);
+      expect(host.canGoBack, isFalse);
+
+      // Legitimate cached page objects still work in their own slots.
+      host.goNext('token-2', page: pageA);
+      await tester.pump();
+      expect(host.currentPage, 2);
+      expect(host.currentPageToken, 'token-2');
+      host.goNext('token-3', page: pageB);
+      await tester.pump();
+      expect(host.currentPage, 3);
+      expect(host.currentPageToken, 'token-3');
+
+      // Backtracking keeps the exact cursor history for each page.
+      host.goPrevious();
+      await tester.pump();
+      expect(host.currentPage, 2);
+      expect(host.currentPageToken, 'token-2');
+      host.goPrevious();
+      await tester.pump();
+      expect(host.currentPage, 1);
+      expect(host.currentPageToken, isNull);
+    });
+
+    testWidgets('resetPagination permits page objects in a new traversal', (
+      tester,
+    ) async {
+      final host = await mountHost(tester);
+      final pageA = Object();
+      final pageB = Object();
+
+      host.goNext('token-2', page: pageA);
+      await tester.pump();
+      expect(host.currentPage, 2);
+      expect(host.currentPageToken, 'token-2');
+      host.goNext('token-3', page: pageB);
+      await tester.pump();
+      expect(host.currentPage, 3);
+      expect(host.currentPageToken, 'token-3');
+      host.resetPagination();
+      await tester.pump();
+      expect(host.currentPage, 1);
+      expect(host.currentPageToken, isNull);
+
+      host.goNext('token-2', page: pageA);
+      await tester.pump();
+      expect(host.currentPage, 2);
+      expect(host.currentPageToken, 'token-2');
+      host.goNext('token-3', page: pageB);
+      await tester.pump();
+      expect(host.currentPage, 3);
+      expect(host.currentPageToken, 'token-3');
+    });
+
     testWidgets('resetPagination returns to the first page', (tester) async {
       final host = await mountHost(tester);
       host.goNext('page-2', page: Object());
