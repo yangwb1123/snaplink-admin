@@ -21,34 +21,38 @@ class ErrorBoundary extends StatefulWidget {
 }
 
 class _ErrorBoundaryState extends State<ErrorBoundary> {
-  String? _error;
-  // 保存上一个全局 handler（链式 restore，避免嵌套边界互相覆盖）。
-  FlutterExceptionHandler? _previousHandler;
+  bool _hasError = false;
+  bool _errorPending = false;
+  late final _BoundaryErrorHandler _handler;
 
   @override
   void initState() {
     super.initState();
-    // Register error handler for this zone
-    _previousHandler = FlutterError.onError;
-    FlutterError.onError = (details) {
-      FlutterError.presentError(details);
-      if (mounted) {
-        setState(() => _error = details.exceptionAsString());
-      }
-    };
+    _handler = _BoundaryErrorHandler(_scheduleError);
+  }
+
+  void _scheduleError() {
+    if (!mounted || _hasError || _errorPending) return;
+    _errorPending = true;
+    // Framework errors may arrive while a descendant is building. Updating
+    // this ancestor synchronously would itself cause a build-phase error.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _errorPending = false;
+      setState(() => _hasError = true);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
   void dispose() {
-    // Restore the previous handler (not the global default), so nested
-    // boundaries and app-level handlers keep working.
-    FlutterError.onError = _previousHandler ?? FlutterError.presentError;
+    _handler.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
+    if (_hasError) {
       final scheme = Theme.of(context).colorScheme;
       return Center(
         child: Padding(
@@ -62,19 +66,9 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
                 widget.label ?? 'Something went wrong',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8),
-              Text(
-                _error!.length > 200
-                    ? '${_error!.substring(0, 200)}...'
-                    : _error!,
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-              ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
-                onPressed: () => setState(() => _error = null),
+                onPressed: () => setState(() => _hasError = false),
                 icon: const Icon(Icons.refresh),
                 label: const LocalizedText('Retry'),
               ),
@@ -84,5 +78,56 @@ class _ErrorBoundaryState extends State<ErrorBoundary> {
       );
     }
     return widget.child;
+  }
+}
+
+/// A detachable link in the global handler chain. Stale callbacks retained by
+/// external handlers keep forwarding, but never retain a disposed State.
+class _BoundaryErrorHandler {
+  static final _active = <_BoundaryErrorHandler>[];
+  static final _notified = Set<FlutterErrorDetails>.identity();
+
+  final _forwarding = Set<FlutterErrorDetails>.identity();
+  FlutterExceptionHandler? _previousHandler;
+  VoidCallback? _onError;
+  late final FlutterExceptionHandler handler = _handleError;
+
+  _BoundaryErrorHandler(VoidCallback onError)
+    : _onError = onError,
+      _previousHandler = FlutterError.onError {
+    _active.add(this);
+    FlutterError.onError = handler;
+  }
+
+  void _handleError(FlutterErrorDetails details) {
+    // An app handler may forward back through FlutterError.reportError.
+    // Guard only this in-flight report; distinct and later errors still flow.
+    if (!_forwarding.add(details)) return;
+    final notify = _onError;
+    final didNotify = notify != null && _notified.add(details);
+    try {
+      // Preserve the newest boundary's fallback rather than also replacing
+      // every enclosing boundary when forwarding to the app handler.
+      if (didNotify) notify();
+      _previousHandler?.call(details);
+    } finally {
+      if (didNotify) _notified.remove(details);
+      _forwarding.remove(details);
+    }
+  }
+
+  void dispose() {
+    _onError = null;
+    _active.remove(this);
+    // Unlink out-of-order disposal so a later restore cannot resurrect us.
+    for (final link in _active) {
+      if (identical(link._previousHandler, handler)) {
+        link._previousHandler = _previousHandler;
+      }
+    }
+    // Another owner may have replaced the global handler after installation.
+    if (identical(FlutterError.onError, handler)) {
+      FlutterError.onError = _previousHandler;
+    }
   }
 }
