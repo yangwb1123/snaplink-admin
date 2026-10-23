@@ -211,7 +211,9 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
   Expando<_PageOrigin> _pageOrigins = Expando<_PageOrigin>();
 
   /// Expando 不允许数字/字符串/布尔/记录作键；这类非常规实参保持
-  /// 原有“位置未知”行为，不能因防陈旧导航而抛出新异常。
+  /// 原有“位置未知”行为，不能因防陈旧导航而抛出新异常。这只是静态
+  /// 快路径：VM 还会拒绝 dart:ffi 的 Pointer/Struct/Union，而 widget
+  /// 层不引入 dart:ffi 依赖，故由下方 Expando 访问兜底。
   static bool _isTrackablePage(Object? page) =>
       page != null &&
       page is! String &&
@@ -219,14 +221,25 @@ mixin PaginatedListMixin<T extends StatefulWidget> on State<T> {
       page is! bool &&
       page is! Record;
 
+  /// Expando 的读取与写入都会对 Pointer/Struct/Union 键抛 ArgumentError。
+  /// 公共 `Object? page` 必须保持历史无异常行为：不可追踪的键按“位置
+  /// 未知”处理（不启用陈旧导航保护），而不是让 goNext 崩溃。
   _PageOrigin? _originOf(Object? page) {
     if (!_isTrackablePage(page)) return null;
-    return _pageOrigins[page!];
+    try {
+      return _pageOrigins[page!];
+    } on ArgumentError {
+      return null;
+    }
   }
 
   void _rememberOrigin(Object? page) {
     if (!_isTrackablePage(page)) return;
-    _pageOrigins[page!] = (index: _pageIndex, token: currentPageToken);
+    try {
+      _pageOrigins[page!] = (index: _pageIndex, token: currentPageToken);
+    } on ArgumentError {
+      // 原生键不可登记；调用方照常推进，不新增异常。
+    }
   }
 
   void goNext(String? nextPageToken, {Object? page}) {
