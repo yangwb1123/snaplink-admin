@@ -119,13 +119,16 @@ class ContainerOwnershipTest(unittest.TestCase):
 
 class LiveResourcesTest(unittest.TestCase):
     def test_new_case_docker_commands_cannot_follow_remote_environment_context(self):
-        result = SimpleNamespace(returncode=0, stdout=b'owned', stderr=b'private-fixture')
         with patch.dict('os.environ', {'DOCKER_HOST': 'tcp://unowned.test:2375', 'DOCKER_CONTEXT': 'unowned'}), \
-                patch.object(resources.subprocess, 'run', return_value=result) as command:
+                patch.object(resources.subprocess, 'Popen') as command:
+            command.return_value.returncode = 0
+            command.return_value.communicate.return_value = (b'owned', b'private-fixture')
             self.assertEqual(resources.docker(['image', 'inspect', 'redis:7-alpine']), 'owned')
         self.assertEqual(command.call_args.args[0][:3], ['docker', '--host', 'unix:///var/run/docker.sock'])
         self.assertFalse(any(key.startswith('DOCKER_') for key in command.call_args.kwargs['env']))
-        self.assertEqual(command.call_args.kwargs['timeout'], 3)
+        self.assertEqual(command.call_args.kwargs['stdout'], resources.subprocess.PIPE)
+        self.assertEqual(command.call_args.kwargs['stderr'], resources.subprocess.PIPE)
+        command.return_value.communicate.assert_called_once_with(timeout=3)
 
     def test_redis_is_new_bounded_published_only_on_loopback_and_has_no_persistence(self):
         identity = 'b' * 64

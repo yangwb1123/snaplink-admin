@@ -23,6 +23,10 @@ class CleanupPending(FixtureFailure):
     """Read-only reconciliation may continue; never replay a Docker mutation."""
 
 
+class DockerNotStarted(FixtureFailure):
+    """Popen failed before exec: no Docker command or mutation was submitted."""
+
+
 @contextmanager
 def supervised_resources(owner):
     global _supervisor
@@ -43,16 +47,25 @@ def owned_directory(stack):
 
 
 def docker(arguments, *, timeout=3):
+    # The two-process fixture's loopback is this host, never a remote
+    # environment-selected daemon/context. No global Docker config changes.
+    environment = {key: value for key, value in os.environ.items() if not key.startswith('DOCKER_')}
     try:
-        # The two-process fixture's loopback is this host, never a remote
-        # environment-selected daemon/context. No global Docker config changes.
-        environment = {key: value for key, value in os.environ.items() if not key.startswith('DOCKER_')}
-        result = subprocess.run(['docker', '--host', 'unix:///var/run/docker.sock', *arguments],
-                                env=environment, capture_output=True, timeout=timeout)
-    except (OSError, subprocess.TimeoutExpired):
-        raise FixtureFailure('Owned container command outcome unknown') from None
-    require(result.returncode == 0, 'Owned container command failed')
-    return result.stdout.decode().strip()
+        process = subprocess.Popen(['docker', '--host', 'unix:///var/run/docker.sock', *arguments],
+                                   env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    except OSError:
+        # Only Popen's admission/exec failure proves that no command ran. An
+        # OSError from communication, a nonzero exit or a timeout does NOT.
+        raise DockerNotStarted('Owned container command not started') from None
+    with process:
+        try:
+            output, _ = process.communicate(timeout=timeout)
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
+            process.wait()  # Reap our CLI; do not wait on inherited output pipes.
+            raise FixtureFailure('Owned container command outcome unknown') from None
+    require(process.returncode == 0, 'Owned container command failed')
+    return output.decode().strip()
 
 
 def container_ids(name, *, timeout=3):
@@ -115,9 +128,13 @@ def owned_container(stack, arguments, *, command=()):
                     'Container ownership mismatch; foreign resource untouched')
             created_identity, creation_pending = ids[0], False
             if not removal_requested:
+                timeout = remaining(10)  # Budget admission must precede mutation admission.
                 removal_requested = True  # Persist BEFORE the possibly ambiguous mutation.
                 try:
-                    docker(['container', 'rm', '-f', ids[0]], timeout=remaining(10))
+                    docker(['container', 'rm', '-f', ids[0]], timeout=timeout)
+                except DockerNotStarted:
+                    removal_requested = False  # No command ran; still owe the one removal.
+                    raise CleanupPending('Owned removal command not started; cleanup pending') from None
                 except FixtureFailure:
                     pass  # Reconcile the one removal; never issue it twice.
         if observe(container_ids, name, timeout=remaining(3)):
@@ -135,8 +152,12 @@ def owned_container(stack, arguments, *, command=()):
                 if item in ('/run', '/var/cache/nginx') else item for item in creation]
     continue_creation()
     creation_pending = True
-    identity = docker([*creation, *bounded, image, *command],
-                      timeout=getattr(stack, 'fixture_command_timeout', 30))
+    try:
+        identity = docker([*creation, *bounded, image, *command],
+                          timeout=getattr(stack, 'fixture_command_timeout', 30))
+    except DockerNotStarted:
+        creation_pending = False  # There is no ambiguous create to wait for or replay.
+        raise
     require(len(identity) == 64 and all(char in '0123456789abcdef' for char in identity),
             'Owned container creation identity is invalid')
     created_identity = identity
