@@ -11,7 +11,8 @@ macos/
 windows/
 test/
 tests/
-tools/
+tools/*
+!tools/web_font_assets.py
 *.md
 *.bak
 .gitignore

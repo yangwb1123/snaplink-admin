@@ -24,7 +24,6 @@ extension _LoginViewWidgetLayout on _LoginViewWidgetState {
     );
 
     return AutofillGroup(
-      onDisposeAction: _autofillContextAction,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,

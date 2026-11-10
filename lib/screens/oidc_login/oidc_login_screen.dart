@@ -381,5 +381,12 @@ class _OidcLoginScreenState extends State<OidcLoginScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => _buildShell(context);
+  Widget build(BuildContext context) => AutofillGroup(
+    // This scope owns the whole authentication, not one animated form. An
+    // outgoing nested group must not cancel a newer view's input connection.
+    onDisposeAction: _commitAutofillContext
+        ? AutofillContextAction.commit
+        : AutofillContextAction.cancel,
+    child: _buildShell(context),
+  );
 }

@@ -17,6 +17,7 @@ ASSETS = ROOT / 'web/font-fallback'
 UPSTREAM = 'https://fonts.gstatic.com/s/'
 FONT_PATH = re.compile(r'[a-z0-9]+/v[0-9]+/[A-Za-z0-9_.-]+\.woff2\Z')
 MAX_FONT_BYTES = 16 * 1024 * 1024
+BUNDLED_ASSET = 'fonts/fallback/Roboto-Regular.ttf'
 
 
 def unique_object(pairs):
@@ -99,6 +100,63 @@ def check(assets, sdk):
     if not {'licenses/' + family + '.txt' for family in families} <= files.keys():
         raise ValueError('font family license missing')
     return len(fonts), sum(files[name]['bytes'] for name in fonts)
+
+
+def _read_font_contract(path):
+    path = Path(path)
+    if not path.is_file() or path.is_symlink():
+        raise ValueError('Missing or symlinked font contract input')
+    with path.open('rb') as stream:
+        data = stream.read(MAX_FONT_BYTES + 1)
+    if len(data) > MAX_FONT_BYTES:
+        raise ValueError('Font contract input exceeds budget')
+    return data
+
+
+def default_roboto(web, sdk):
+    """Resolve the actual default asset; never download or substitute a font.
+
+    Stable --no-web-resources-cdn builds declare an SDK-bundled Roboto TTF.
+    SDKs without that declaration use their original vendored WOFF2 URL.
+    Unknown declarations, malformed inputs and payload differences fail closed.
+    """
+    web, sdk = Path(web), Path(sdk)
+    manifest = json.loads(_read_font_contract(web / 'assets/FontManifest.json'),
+                          object_pairs_hook=unique_object)
+    if not isinstance(manifest, list) or not all(isinstance(row, dict) for row in manifest):
+        raise ValueError('Invalid built font manifest')
+    families = [row for row in manifest if row.get('family') == 'Roboto']
+    if families:
+        if families != [{'family': 'Roboto', 'fonts': [{'asset': BUNDLED_ASSET}]}]:
+            raise ValueError('Unsupported built Roboto declaration')
+        expected = _read_font_contract(sdk / 'engine/src/flutter/txt/third_party/fonts/Roboto-Regular.ttf')
+        suffix = '/assets/' + BUNDLED_ASSET
+        actual = _read_font_contract(web / ('assets/' + BUNDLED_ASSET))
+        magic = b'\x00\x01\x00\x00'
+        if len(expected) < 12 or not expected.startswith(magic):
+            raise ValueError('Invalid SDK Roboto TTF')
+    else:
+        source = _read_font_contract(sdk / 'bin/cache/flutter_web_sdk/lib/_engine/engine/canvaskit/fonts.dart')
+        urls = set(re.findall(r'roboto/v[0-9]+/[A-Za-z0-9_.-]+\.woff2', source.decode('utf-8')))
+        if len(urls) != 1:
+            raise ValueError('Unsupported SDK Roboto URL')
+        asset = urls.pop()
+        suffix = '/font-fallback/' + asset
+        actual = _read_font_contract(web / ('font-fallback/' + asset))
+        records = json.loads(_read_font_contract(web / 'font-fallback/manifest.json'),
+                             object_pairs_hook=unique_object)['files']
+        record = records[asset]
+        if record['bytes'] != len(actual) or record['sha256'] != hashlib.sha256(actual).hexdigest():
+            raise ValueError('Vendored Roboto integrity mismatch')
+        font_bytes(actual)
+        expected, magic = actual, b'wOF2'
+    if actual != expected:
+        raise ValueError('Built Roboto differs from the SDK input')
+    return suffix, hashlib.sha256(expected).hexdigest(), magic
+
+
+def matches_roboto(data, digest, magic):
+    return len(data) <= MAX_FONT_BYTES and data.startswith(magic) and hashlib.sha256(data).hexdigest() == digest
 
 
 def download(url, target):

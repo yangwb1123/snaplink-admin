@@ -247,7 +247,6 @@ extension _OidcLoginViewFlow on _OidcLoginScreenState {
       usesTotpProvider: _usesTotpProvider,
       magicLinkToken: _magicLinkToken,
       rememberPassword: _rememberPassword,
-      commitAutofillContext: _commitAutofillContext,
       onRememberPasswordChanged: (value) => _update(() {
         _rememberPassword = value;
         if (!value) _clearAutofillCandidate();

@@ -160,17 +160,28 @@ def browser_context(browser, fixture, *, locale='en-US', network=None):
 
 
 def check_localized_fonts(browser, fixture):
+    from tools.web_font_assets import default_roboto, matches_roboto, sdk_root
+    roboto_suffix, roboto_digest, roboto_magic = default_roboto(fixture.web, sdk_root())
     for locale, username, password in [('en-US', 'Username', 'Password'), ('zh-CN', '用户名', '密码')]:
         network = {'external_requests': 0}
         context = browser_context(browser, fixture, locale=locale, network=network)
         counts = observe(context, fixture.issuer)
         failures = []
+        roboto_verified = False
         def font_response(response):
+            nonlocal roboto_verified
             path = urllib.parse.urlsplit(response.url).path
-            if '/font-fallback/' in path and path.endswith('.woff2'):
+            fallback = '/font-fallback/' in path and path.endswith('.woff2')
+            roboto = path.endswith(roboto_suffix)
+            if fallback or roboto:
                 try:
-                    if response.status != 200 or response.body()[:4] != b'wOF2':
+                    data = response.body()
+                    valid = (response.status == 200 and (not fallback or data[:4] == b'wOF2') and
+                             (not roboto or matches_roboto(data, roboto_digest, roboto_magic)))
+                    if not valid:
                         failures.append('invalid_local_font')
+                    if roboto and valid:
+                        roboto_verified = True
                 except Exception:
                     failures.append('unreadable_local_font')
         context.on('response', font_response)
@@ -180,15 +191,18 @@ def check_localized_fonts(browser, fixture):
             enable_semantics(page)
             page.get_by_role('textbox', name=username, exact=True).wait_for(timeout=30000)
             page.get_by_role('textbox', name=password, exact=True).wait_for(timeout=30000)
-            for family in ('roboto', 'notosanssc') if locale == 'zh-CN' else ('roboto',):
-                page.wait_for_function('''family => performance.getEntriesByType('resource').some(
-                  entry => new URL(entry.name).pathname.includes('/font-fallback/' + family + '/'))''', arg=family, timeout=30000)
-            require(not failures and network['external_requests'] == 0, 'Localized login used an external or invalid font')
+            page.wait_for_function('''suffix => performance.getEntriesByType('resource').some(
+              entry => new URL(entry.name).pathname.endsWith(suffix))''', arg=roboto_suffix, timeout=30000)
+            if locale == 'zh-CN':
+                page.wait_for_function('''() => performance.getEntriesByType('resource').some(
+                  entry => new URL(entry.name).pathname.includes('/font-fallback/notosanssc/'))''', timeout=30000)
+            require(roboto_verified and not failures and network['external_requests'] == 0,
+                    'Localized login used an external or invalid font')
             require(counts == {'password': 0, 'resume': 0, 'continuation': 0, 'unexpected': 0}, 'Anonymous font check attempted authorization')
             require(not context.cookies(fixture.issuer), 'Anonymous font check issued a cookie')
         finally:
             context.close()
-    print('PASS: EN/ZH anonymous login uses same-origin WOFF2, without external requests or authentication')
+    print('PASS: EN/ZH anonymous login uses verified same-origin SDK fonts, without external requests or authentication')
 
 
 def check_fixture_preflight(fixture):

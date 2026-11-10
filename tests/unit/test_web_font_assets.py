@@ -136,6 +136,12 @@ class WebFontAssetsTest(unittest.TestCase):
         self.assertGreater(count, 2)
         self.assertGreater(total, 96)
 
+    def test_docker_context_includes_font_verifier(self):
+        patterns = (ROOT / '.dockerignore').read_text().splitlines()
+        self.assertNotIn('tools/', patterns)
+        self.assertIn('tools/*', patterns)
+        self.assertIn('!tools/web_font_assets.py', patterns)
+
     def test_production_builds_check_assets_before_compiling(self):
         makefile = (ROOT / 'Makefile').read_text()
         target = makefile.split('build-prod:\n', 1)[1].split('\n\n', 1)[0]

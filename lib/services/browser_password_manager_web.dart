@@ -14,77 +14,8 @@ extension type _PasswordCredential(web.Credential _) implements web.Credential {
 /// The application never persists the password. Unsupported browsers and
 /// insecure origins simply fall back to Flutter's platform autofill context.
 abstract final class BrowserPasswordManager {
-  /// Flutter's web text-editing bridge currently emits `autocomplete=off`
-  /// even when [AutofillHints] are present. Restore the standard username /
-  /// current-password tokens on the live inputs so ordinary browser password
-  /// managers can offer form autofill/save. This is DOM metadata only; no
-  /// credential value is read or stored by the application.
-  static web.MutationObserver? _loginFormObserver;
-
-  static void prepareLoginForm() {
-    try {
-      _prepareLoginInputs();
-      if (_loginFormObserver != null) return;
-      final body = web.document.body;
-      if (body == null) return;
-      final observer = web.MutationObserver(
-        (() {
-          _prepareLoginInputs();
-        }).toJS,
-      );
-      _loginFormObserver = observer;
-      observer.observe(
-        body,
-        web.MutationObserverInit(
-          attributes: true,
-          childList: true,
-          subtree: true,
-        ),
-      );
-    } catch (_) {
-      // Unsupported/partially initialized Flutter DOM: native autofill and
-      // the Credential Management API remain best-effort fallbacks.
-    }
-  }
-
-  static void clearLoginFormObserver() {
-    _loginFormObserver?.disconnect();
-    _loginFormObserver = null;
-  }
-
-  static bool _prepareLoginInputs() {
-    final inputs = web.document.querySelectorAll('input');
-    var usernamePrepared = false;
-    var passwordPrepared = false;
-    for (var index = 0; index < inputs.length; index += 1) {
-      final node = inputs.item(index);
-      if (node == null) continue;
-      final input = node as web.HTMLInputElement;
-      final type = input.type.toLowerCase();
-      if (type == 'password') {
-        if (input.name != 'password') input.name = 'password';
-        if (input.autocomplete != 'current-password') {
-          input.autocomplete = 'current-password';
-        }
-        final form = input.form;
-        if (form != null && form.autocomplete != 'on') {
-          form.autocomplete = 'on';
-        }
-        passwordPrepared = true;
-      } else if (!usernamePrepared && (type == 'text' || type == 'email')) {
-        if (input.name != 'username') input.name = 'username';
-        if (input.autocomplete != 'username') {
-          input.autocomplete = 'username';
-        }
-        final form = input.form;
-        if (form != null && form.autocomplete != 'on') {
-          form.autocomplete = 'on';
-        }
-        usernamePrepared = true;
-      }
-    }
-    return passwordPrepared;
-  }
+  // Flutter owns DOM input/form metadata through AutofillHints. Do not scan
+  // document inputs: that also rewrites inactive, signup and reset forms.
 
   static Future<BrowserPasswordCredential?> read() async {
     try {

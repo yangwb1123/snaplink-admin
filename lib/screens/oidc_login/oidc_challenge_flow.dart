@@ -43,7 +43,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
         _mfaMethods = methods;
         _mfaMethodData = _methodData(outcome.data['mfa_method_data']);
         _selectedMfaMethod = methods.length == 1 ? methods.first : null;
-        _passCtrl.clear();
+        if (!_rememberPassword || _provider != 'password') _passCtrl.clear();
         _providerCodeCtrl.clear();
         _view = _View.mfa;
         _error = null;
@@ -59,7 +59,7 @@ extension _OidcChallengeFlow on _OidcLoginScreenState {
       _update(() {
         _consentChallengeId = challengeId;
         _loginTransactionId = transactionId;
-        _passCtrl.clear();
+        if (!_rememberPassword || _provider != 'password') _passCtrl.clear();
         _providerCodeCtrl.clear();
         _consentClientName =
             outcome.data['client_name']?.toString().trim() ?? '';

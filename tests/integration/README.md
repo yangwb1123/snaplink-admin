@@ -63,6 +63,12 @@ host network；`live-replicas` 另需本机 daemon 缓存的 `redis:7-alpine`，
 源码/产物或不支持配置均失败，不静默 skip，不拉取镜像/升级工具；只清理自有资源，
 端口冲突失败、不杀占用者，不接触生产账号/库/密钥或全局 TLS/proxy。
 
+字体检查按构建 SDK 的真实产物执行：CI 固定的 Flutter 3.47.4 在
+`--no-web-resources-cdn` 下将 SDK Roboto TTF 写入 `FontManifest.json`，检查其本地
+产物与 SDK 原文件逐字节一致，并校验实际浏览器响应的格式和 SHA-256；没有该声明的
+SDK 仍须使用其原始 URL 对应的已固定 WOFF2。中文 Noto WOFF2、零外网请求、零匿名
+认证断言不变，不额外请求一个页面未使用的字体来满足测试。
+
 构建及完整双网关复现入口如下（使用已准备的 Python 3.12.3 环境，不升级依赖）：
 
 ```bash
